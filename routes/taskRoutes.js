@@ -35,7 +35,6 @@ async function handleTask(taskId, type, prompt, req) {
             if (!result || result.error) {
                 taskStore.set(taskId, {
                     status: 'error',
-                    result: result,
                     error: result?.error || 'Unknown error from Gemini'
                 });
                 return;
