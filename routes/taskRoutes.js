@@ -29,7 +29,19 @@ router.get('/task-status/:taskId', (req, res) => {
 async function handleTask(taskId, type, prompt, req) {
     try {
         if (type === 'text-to-image') {
-            const { text, imageBuffer } = await geminiService.generateImageWithText(prompt);
+
+            const result = await geminiService.generateImageWithText(prompt);
+
+            if (!result || result.error) {
+                taskStore.set(taskId, {
+                    status: 'error',
+                    result: result,
+                    error: result?.error || 'Unknown error from Gemini'
+                });
+                return;
+            }
+
+            const { text, imageBuffer } = result;
 
             const filename = `${taskId}.png`;
             const outputDir = path.join(__dirname, '..', 'public', 'tmp');
@@ -39,7 +51,7 @@ async function handleTask(taskId, type, prompt, req) {
             const outputPath = path.join(outputDir, filename);
             fs.writeFileSync(outputPath, imageBuffer);
 
-            const host = `${req.protocol}://${req.get('host')}`; 
+            const host = `${req.protocol}://${req.get('host')}`;
             taskStore.set(taskId, {
                 status: 'done',
                 result: `${host}/static/${filename}`,
