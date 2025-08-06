@@ -7,7 +7,6 @@ async function generateImageWithText(prompt) {
         generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
     };
     try {
-        console.log('📤 Gemini text-to-image body:', JSON.stringify(body, null, 2));
         const res = await axios.post(url, body, {
             responseType: 'json', headers: { 'Content-Type': 'application/json' }
         });
@@ -36,7 +35,7 @@ async function editImageWithText(prompt, base64Image) {
         generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
     };
     try {
-        console.log('📤 Gemini image-edit body:', JSON.stringify(body, null, 2));
+        log('📤 Gemini image-edit body:', JSON.stringify(body, null, 2));
         const res = await axios.post(url, body, {
             responseType: 'json', headers: { 'Content-Type': 'application/json' }
         });
