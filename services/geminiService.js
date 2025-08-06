@@ -35,7 +35,6 @@ async function editImageWithText(prompt, base64Image) {
         generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
     };
     try {
-        log('📤 Gemini image-edit body:', JSON.stringify(body, null, 2));
         const res = await axios.post(url, body, {
             responseType: 'json', headers: { 'Content-Type': 'application/json' }
         });
