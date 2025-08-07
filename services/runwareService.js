@@ -85,7 +85,7 @@ async function generateVideoWithText(prompt) {
                     }
                 }
             } catch (pollError) {
-                console.log(`⚠️ Polling attempt ${attempts} failed:`, pollError.message);
+                console.log(`⚠️ Polling attempt ${attempts} failed:`, pollError);
             }
         }
         
