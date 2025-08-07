@@ -15,6 +15,7 @@
   "type": "commonjs",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@runware/sdk-js": "^1.1.44",
     "axios": "^1.11.0",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
