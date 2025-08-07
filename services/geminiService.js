@@ -1,56 +1,90 @@
-const axios = require('axios');
+const { GoogleGenerativeAI, GenerateContentConfig } = require('@google/generative-ai');
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function generateImageWithText(prompt) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${process.env.GEMINI_API_KEY}`;
-    const body = {
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
-    };
     try {
-        const res = await axios.post(url, body, {
-            responseType: 'json', headers: { 'Content-Type': 'application/json' }
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.0-flash-preview-image-generation" 
         });
-        console.dir(res.data, { depth: null });
-        const err = res.data.errors || res.data.error;
-        if (err) return { error: Array.isArray(err) ? err[0].message : err.message };
-        const cand = res.data.candidates?.[0];
-        if (!cand) return { error: res.data.promptFeedback?.blockReasonMessage || 'No candidate returned' };
-        const text = cand.content.parts.find(p => p.text)?.text || '';
-        const part = cand.content.parts.find(p => p.inlineData?.data);
-        if (!part) return { error: 'No inlineData image part' };
-        const imageBuffer = Buffer.from(part.inlineData.data, 'base64');
-        return { text, imageBuffer };
+        
+        const result = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
+        });
+        
+        console.dir(result.response, { depth: null });
+        
+        const response = result.response;
+        if (!response.candidates || response.candidates.length === 0) {
+            return { error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' };
+        }
+        
+        const cand = response.candidates[0];
+        let text = '';
+        let imageBuffer = null;
+        
+        // Process all parts in the response
+        for (const part of cand.content.parts) {
+            if (part.text) {
+                text += part.text;
+            } else if (part.inlineData?.data) {
+                imageBuffer = Buffer.from(part.inlineData.data, 'base64');
+            }
+        }
+        
+        if (!imageBuffer) {
+            return { error: 'No image data found in response' };
+        }
+        
+        return { text: text || prompt, imageBuffer };
     } catch (err) {
-        console.error('❌ Gemini text-to-image error:', err.response?.data || err.message);
-        return { error: err.response?.data?.error?.message || err.message };
+        console.error('❌ Gemini text-to-image error:', err.message);
+        return { error: err.message };
     }
 }
 
 async function editImageWithText(prompt, base64Image) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${process.env.GEMINI_API_KEY}`;
-    const body = {
-        contents: [
-            { role: "user", parts: [{ inlineData: { mimeType: "image/jpeg", data: base64Image } }, { text: prompt }] }
-        ],
-        generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
-    };
     try {
-        const res = await axios.post(url, body, {
-            responseType: 'json', headers: { 'Content-Type': 'application/json' }
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.0-flash-preview-image-generation" 
         });
-        console.dir(res.data, { depth: null });
-        const err = res.data.errors || res.data.error;
-        if (err) return { error: Array.isArray(err) ? err[0].message : err.message };
-        const cand = res.data.candidates?.[0];
-        if (!cand) return { error: res.data.promptFeedback?.blockReasonMessage || 'No candidate returned' };
-        const text = cand.content.parts.find(p => p.text)?.text || '';
-        const part = cand.content.parts.find(p => p.inlineData?.data);
-        if (!part) return { error: 'No inlineData image part' };
-        const imageBuffer = Buffer.from(part.inlineData.data, 'base64');
-        return { text, imageBuffer };
+        
+        const result = await model.generateContent({
+            contents: [
+                { role: "user", parts: [{ inlineData: { mimeType: "image/jpeg", data: base64Image } }, { text: prompt }] }
+            ],
+            generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
+        });
+        
+        console.dir(result.response, { depth: null });
+        
+        const response = result.response;
+        if (!response.candidates || response.candidates.length === 0) {
+            return { error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' };
+        }
+        
+        const cand = response.candidates[0];
+        let text = '';
+        let imageBuffer = null;
+        
+        // Process all parts in the response
+        for (const part of cand.content.parts) {
+            if (part.text) {
+                text += part.text;
+            } else if (part.inlineData?.data) {
+                imageBuffer = Buffer.from(part.inlineData.data, 'base64');
+            }
+        }
+        
+        if (!imageBuffer) {
+            return { error: 'No image data found in response' };
+        }
+        
+        return { text: text || prompt, imageBuffer };
     } catch (err) {
-        console.error('❌ Gemini image-edit error:', err.response?.data || err.message);
-        return { error: err.response?.data?.error?.message || err.message };
+        console.error('❌ Gemini image-edit error:', err.message);
+        return { error: err.message };
     }
 }
 

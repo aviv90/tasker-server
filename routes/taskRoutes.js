@@ -3,11 +3,12 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const taskStore = require('../store/taskStore');
 const geminiService = require('../services/geminiService');
+const openaiService = require('../services/openaiService');
 const fs = require('fs');
 const path = require('path');
 
 router.post('/start-task', async (req, res) => {
-    const { type, prompt } = req.body;
+    const { type, prompt, provider } = req.body;
     if (!type || !prompt) return res.status(400).json({ status: 'error', error: 'Missing type or prompt' });
 
     const taskId = uuidv4();
@@ -15,7 +16,13 @@ router.post('/start-task', async (req, res) => {
     res.json({ taskId });
 
     if (type === 'text-to-image') {
-        const result = await geminiService.generateImageWithText(prompt);
+        let result;
+        if (provider === 'openai') {
+            result = await openaiService.generateImageWithText(prompt);
+        } else {
+            // Default to Gemini
+            result = await geminiService.generateImageWithText(prompt);
+        }
         finalizeTask(taskId, result, req);
     } else {
         taskStore.set(taskId, { status: 'error', error: 'Unsupported task type' });
