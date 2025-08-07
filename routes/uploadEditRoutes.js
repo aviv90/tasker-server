@@ -7,6 +7,7 @@ const taskStore = require('../store/taskStore');
 const geminiService = require('../services/geminiService');
 const openaiService = require('../services/openaiService');
 const runwareService = require('../services/runwareService');
+const lemonfoxService = require('../services/lemonfoxService');
 const fs = require('fs');
 const path = require('path');
 
@@ -87,6 +88,39 @@ function finalize(taskId, result, req) {
     status:'done',
     result: `${host}/static/${filename}`,
     text: result.text
+  });
+}
+
+router.post('/upload-transcribe', upload.single('file'), async (req, res) => {  
+  if (!req.file) {
+    console.log('❌ Upload transcribe: Missing audio file');
+    return res.status(400).json({ status:'error', error:'Missing audio file' });
+  }
+
+  const taskId = uuidv4();
+  console.log(`🎤 Starting audio transcription - TaskID: ${taskId}`);
+  taskStore.set(taskId, { status:'pending' });
+  res.json({ taskId });
+
+  // Get original filename or create a default one
+  const filename = req.file.originalname || 'audio.wav';
+  const result = await lemonfoxService.transcribeAudio(req.file.buffer, filename);
+  
+  finalizeTranscription(taskId, result);
+});
+
+function finalizeTranscription(taskId, result) {
+  if (!result || result.error) {
+    console.log(`❌ Audio transcription failed - TaskID: ${taskId}`);
+    taskStore.set(taskId, { status:'error', error: result?.error || 'Unknown error' });
+    return;
+  }
+
+  console.log(`✅ Audio transcription completed - TaskID: ${taskId}`);
+  taskStore.set(taskId, {
+    status:'done',
+    result: result.text,
+    language: result.language
   });
 }
 
