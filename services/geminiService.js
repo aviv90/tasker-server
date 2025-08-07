@@ -13,8 +13,6 @@ async function generateImageWithText(prompt) {
             generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
         });
         
-        console.dir(result.response, { depth: null });
-        
         const response = result.response;
         if (!response.candidates || response.candidates.length === 0) {
             return { error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' };
@@ -56,8 +54,6 @@ async function editImageWithText(prompt, base64Image) {
             ],
             generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
         });
-        
-        console.dir(result.response, { depth: null });
         
         const response = result.response;
         if (!response.candidates || response.candidates.length === 0) {

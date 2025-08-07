@@ -18,8 +18,6 @@ async function generateImageWithText(prompt) {
             // Note: response_format is not supported for gpt-image-1 - it always returns base64
         });
         
-        console.dir(response, { depth: null });
-        
         if (!response.data || response.data.length === 0) {
             return { error: 'No image generated' };
         }
