@@ -3,13 +3,14 @@ const axios = require('axios');
 
 async function transcribeAudio(audioBuffer, filename = 'audio.wav') {
     try {
-        console.log('🎤 Starting audio transcription');
+        console.log(`🎤 Starting audio transcription for: ${filename}, size: ${audioBuffer.length} bytes`);
         
         const formData = new FormData();
         formData.append('file', audioBuffer, filename);
         formData.append('language', 'hebrew');
         formData.append('response_format', 'json');
         
+        console.log('🔗 Sending request to Lemonfox API...');
         const response = await axios.post('https://api.lemonfox.ai/v1/audio/transcriptions', formData, {
             headers: {
                 'Authorization': `Bearer ${process.env.LEMONFOX_API_KEY}`,

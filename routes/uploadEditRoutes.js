@@ -1,7 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const upload = multer();
+const upload = multer({
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fieldSize: 50 * 1024 * 1024
+  }
+});
 const { v4: uuidv4 } = require('uuid');
 const taskStore = require('../store/taskStore');
 const geminiService = require('../services/geminiService');
@@ -112,9 +117,15 @@ function finalize(taskId, result, req) {
 }
 
 router.post('/upload-transcribe', (req, res) => {
+  console.log('🎤 Upload transcribe request received');
+  console.log('Content-Type:', req.get('Content-Type'));
+  console.log('Content-Length:', req.get('Content-Length'));
+  
   upload.single('file')(req, res, async (err) => {
     if (err) {
       console.log('❌ Upload transcribe - Multer error:', err.message);
+      console.log('Error code:', err.code);
+      console.log('Error stack:', err.stack);
       return res.status(400).json({ 
         status:'error', 
         error:'Invalid file upload. Make sure to use Content-Type: multipart/form-data and include the file field.' 
@@ -124,6 +135,20 @@ router.post('/upload-transcribe', (req, res) => {
     if (!req.file) {
       console.log('❌ Upload transcribe: Missing audio file');
       return res.status(400).json({ status:'error', error:'Missing audio file' });
+    }
+
+    // Check file type and log info
+    const fileExtension = req.file.originalname?.split('.').pop()?.toLowerCase();
+    const allowedExtensions = ['wav', 'mp3', 'm4a', 'ogg', 'webm', 'opus'];
+    
+    console.log(`🎤 Audio file info: ${req.file.originalname}, mimetype: ${req.file.mimetype}, size: ${req.file.size}, extension: ${fileExtension}`);
+    
+    if (fileExtension && !allowedExtensions.includes(fileExtension)) {
+      console.log(`❌ Upload transcribe: Unsupported file extension: ${fileExtension}`);
+      return res.status(400).json({ 
+        status:'error', 
+        error:`Unsupported audio format. Supported formats: WAV, MP3, M4A, OGG, WebM, OPUS` 
+      });
     }
 
     const taskId = uuidv4();
