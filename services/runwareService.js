@@ -23,7 +23,8 @@ async function generateVideoWithText(prompt) {
         });
 
         if (!response) {
-            throw new Error('No response from Runware API');
+            console.error('❌ No response from Runware API');
+            return { error: 'No response from Runware API' };
         }
 
         // Handle both single object and array responses
@@ -31,18 +32,20 @@ async function generateVideoWithText(prompt) {
         
         // Safely check for error
         if (videoData?.error) {
-            throw new Error(videoData.error);
+            console.error('❌ Runware API error:', videoData.error);
+            return { error: videoData.error };
         }
 
         // Get taskUUID for polling
         const taskUUID = videoData?.taskUUID;
         
         if (!taskUUID) {
-            throw new Error('No taskUUID received for polling');
+            console.error('❌ No taskUUID received');
+            return { error: 'No taskUUID received for polling' };
         }
 
         // Poll for completion
-        console.log('🔄 Polling for video completion, taskUUID:', taskUUID);
+        console.log('🔄 Polling for video, taskUUID:', taskUUID);
         
         // Poll for up to 10 minutes with 10-second intervals
         const maxAttempts = 60;
@@ -59,11 +62,12 @@ async function generateVideoWithText(prompt) {
                     const taskResult = pollResponse.find(video => video?.taskUUID === taskUUID);
                     
                     if (taskResult) {
-                        console.log(`� Attempt ${attempts}/${maxAttempts} - Status: ${taskResult.status}`);
+                        console.log(`🔄 Attempt ${attempts} - Status: ${taskResult.status}`);
                         
                         // Check for errors
                         if (taskResult.error) {
-                            throw new Error(`Video generation failed: ${taskResult.error}`);
+                            console.error('❌ Task error:', taskResult.error);
+                            return { error: `Video generation failed: ${taskResult.error}` };
                         }
                         
                         // Check for completion - the actual status is 'success'
@@ -78,18 +82,26 @@ async function generateVideoWithText(prompt) {
                         
                         // Check for failure statuses
                         if (taskResult.status === 'failed' || taskResult.status === 'error') {
-                            throw new Error(`Video generation failed with status: ${taskResult.status}`);
+                            console.error('❌ Video generation failed with status:', taskResult.status);
+                            return { error: `Video generation failed with status: ${taskResult.status}` };
                         }
                         
                         // Continue polling for other statuses (processing, etc.)
                     }
                 }
             } catch (pollError) {
-                console.log(`⚠️ Polling attempt ${attempts} failed:`, pollError);
+                console.log(`⚠️ Poll attempt ${attempts} failed`);
+                
+                // If it's a specific error from the provider, return it
+                if (pollError.error && pollError.error.status === 'error') {
+                    console.error('❌ Provider error:', pollError.error.message);
+                    return { error: `Video generation failed: ${pollError.error.message || 'Provider error'}` };
+                }
             }
         }
         
-        throw new Error('Video generation timed out after 10 minutes');
+        console.error('❌ Video generation timed out');
+        return { error: 'Video generation timed out after 10 minutes' };
 
     } catch (err) {
         console.error('❌ Video generation error:', err.message);
