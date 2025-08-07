@@ -121,4 +121,124 @@ async function generateVideoWithText(prompt) {
     }
 }
 
-module.exports = { generateVideoWithText };
+async function generateVideoFromImage(prompt, base64Image) {
+    try {
+        console.log('🎬 Starting image-to-video generation');
+        
+        // Use KlingAI model for image-to-video generation
+        const response = await runware.videoInference({
+            positivePrompt: prompt,
+            model: "klingai:5@3",
+            duration: 5,
+            width: 608,
+            height: 1080,
+            frameImages: [
+                {
+                    inputImage: `data:image/jpeg;base64,${base64Image}`
+                }
+            ],
+            numberResults: 1,
+            includeCost: true,
+            skipResponse: true // Skip waiting, we'll poll manually
+        });
+
+        if (!response) {
+            console.error('❌ No response from Runware API');
+            return { error: 'No response from Runware API' };
+        }
+
+        // Handle both single object and array responses
+        const videoData = Array.isArray(response) ? response[0] : response;
+        
+        // Safely check for error
+        if (videoData?.error) {
+            console.error('❌ Runware API error:', videoData.error);
+            return { error: videoData.error };
+        }
+
+        // Get taskUUID for polling
+        const taskUUID = videoData?.taskUUID;
+        
+        if (!taskUUID) {
+            console.error('❌ No taskUUID received');
+            return { error: 'No taskUUID received for polling' };
+        }
+
+        // Poll for completion
+        console.log('🔄 Polling for image-to-video, taskUUID:', taskUUID);
+        
+        // Poll for up to 10 minutes with 10-second intervals
+        const maxAttempts = 60;
+        let attempts = 0;
+        
+        while (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+            attempts++;
+            
+            try {
+                const pollResponse = await runware.getResponse({ taskUUID });
+                
+                if (pollResponse && Array.isArray(pollResponse) && pollResponse.length > 0) {
+                    const taskResult = pollResponse.find(video => video?.taskUUID === taskUUID);
+                    
+                    if (taskResult) {
+                        console.log(`🔄 Attempt ${attempts} - Status: ${taskResult.status}`);
+                        
+                        // Check for errors
+                        if (taskResult.error) {
+                            console.error('❌ Task error:', taskResult.error);
+                            return { error: `Image-to-video generation failed: ${taskResult.error}` };
+                        }
+                        
+                        // Check for completion - the actual status is 'success'
+                        if (taskResult.status === 'success' && taskResult.videoURL) {
+                            console.log('✅ Image-to-video generated successfully');
+                            return { 
+                                text: prompt, 
+                                videoURL: taskResult.videoURL,
+                                cost: taskResult.cost || null
+                            };
+                        }
+                        
+                        // Check for failure statuses
+                        if (taskResult.status === 'failed' || taskResult.status === 'error') {
+                            console.error('❌ Image-to-video generation failed with status:', taskResult.status);
+                            return { error: `Image-to-video generation failed with status: ${taskResult.status}` };
+                        }
+                        
+                        // Continue polling for other statuses (processing, etc.)
+                    }
+                }
+            } catch (pollError) {
+                console.log(`⚠️ Poll attempt ${attempts} failed`);
+                
+                // If it's a specific error from the provider, return it
+                if (pollError.error && pollError.error.status === 'error') {
+                    console.error('❌ Provider error:', pollError.error.message);
+                    return { error: `Image-to-video generation failed: ${pollError.error.message || 'Provider error'}` };
+                }
+            }
+        }
+        
+        console.error('❌ Image-to-video generation timed out');
+        return { error: 'Image-to-video generation timed out after 10 minutes' };
+
+    } catch (err) {
+        console.error('❌ Image-to-video generation error:', err.message);
+        
+        // Return user-friendly error messages
+        if (err.message.includes('timed out') || err.message.includes('timeout')) {
+            return { error: 'Image-to-video generation timed out - please try again.' };
+        } else if (err.message.includes('insufficient credits') || err.message.includes('credit')) {
+            return { error: 'Insufficient credits in Runware account' };
+        } else if (err.message.includes('422') || err.response?.status === 422) {
+            return { error: 'Image-to-video request rejected - check credits or model availability' };
+        } else if (err.message.includes('authentication') || err.message.includes('API key')) {
+            return { error: 'Invalid API key or authentication failed' };
+        } else {
+            return { error: err.message || 'Image-to-video generation failed' };
+        }
+    }
+}
+
+module.exports = { generateVideoWithText, generateVideoFromImage };

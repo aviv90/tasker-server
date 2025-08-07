@@ -6,6 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const taskStore = require('../store/taskStore');
 const geminiService = require('../services/geminiService');
 const openaiService = require('../services/openaiService');
+const runwareService = require('../services/runwareService');
 const fs = require('fs');
 const path = require('path');
 
@@ -33,6 +34,41 @@ router.post('/upload-edit', upload.single('file'), async (req, res) => {
   
   finalize(taskId, result, req);
 });
+
+router.post('/upload-video', upload.single('file'), async (req, res) => {  
+  const { prompt } = req.body;
+  if (!prompt || !req.file) {
+    console.log('❌ Upload video: Missing prompt or file');
+    return res.status(400).json({ status:'error', error:'Missing prompt or file' });
+  }
+
+  const taskId = uuidv4();
+  console.log(`🎬 Starting image-to-video - TaskID: ${taskId}`);
+  taskStore.set(taskId, { status:'pending' });
+  res.json({ taskId });
+
+  // Convert image to base64 for Runware
+  const base64 = req.file.buffer.toString('base64');
+  const result = await runwareService.generateVideoFromImage(prompt, base64);
+  
+  finalizeVideo(taskId, result, prompt);
+});
+
+function finalizeVideo(taskId, result, prompt) {
+  if (!result || result.error) {
+    console.log(`❌ Image-to-video failed - TaskID: ${taskId}`);
+    taskStore.set(taskId, { status:'error', error: result?.error || 'Unknown error' });
+    return;
+  }
+
+  console.log(`✅ Image-to-video completed - TaskID: ${taskId}`);
+  taskStore.set(taskId, {
+    status:'done',
+    result: result.videoURL,
+    text: result.text || prompt,
+    cost: result.cost
+  });
+}
 
 function finalize(taskId, result, req) {
   if (!result || result.error) {
