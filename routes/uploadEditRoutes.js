@@ -5,19 +5,34 @@ const upload = multer();
 const { v4: uuidv4 } = require('uuid');
 const taskStore = require('../store/taskStore');
 const geminiService = require('../services/geminiService');
+const openaiService = require('../services/openaiService');
 const fs = require('fs');
 const path = require('path');
 
 router.post('/upload-edit', upload.single('file'), async (req, res) => {
-  const prompt = req.body.prompt;
-  if (!prompt || !req.file) return res.status(400).json({ status:'error', error:'Missing prompt or file' });
+  console.log('Request body:', req.body);
+  console.log('Request file:', req.file ? 'File present' : 'No file');
+  
+  const { prompt, provider } = req.body;
+  if (!prompt || !req.file) {
+    console.log('Missing:', { prompt: !!prompt, file: !!req.file });
+    return res.status(400).json({ status:'error', error:'Missing prompt or file' });
+  }
 
   const taskId = uuidv4();
   taskStore.set(taskId, { status:'pending' });
   res.json({ taskId });
 
-  const base64 = req.file.buffer.toString('base64');
-  const result = await geminiService.editImageWithText(prompt, base64);
+  let result;
+  if (provider === 'openai') {
+    // For OpenAI, pass the buffer directly
+    result = await openaiService.editImageWithText(prompt, req.file.buffer);
+  } else {
+    // For Gemini, convert to base64 as before
+    const base64 = req.file.buffer.toString('base64');
+    result = await geminiService.editImageWithText(prompt, base64);
+  }
+  
   finalize(taskId, result, req);
 });
 
