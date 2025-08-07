@@ -9,10 +9,7 @@ const openaiService = require('../services/openaiService');
 const fs = require('fs');
 const path = require('path');
 
-router.post('/upload-edit', upload.single('file'), async (req, res) => {
-  console.log('Request body:', req.body);
-  console.log('Request file:', req.file ? 'File present' : 'No file');
-  
+router.post('/upload-edit', upload.single('file'), async (req, res) => {  
   const { prompt, provider } = req.body;
   if (!prompt || !req.file) {
     console.log('Missing:', { prompt: !!prompt, file: !!req.file });

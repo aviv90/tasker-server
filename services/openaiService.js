@@ -57,8 +57,6 @@ async function editImageWithText(prompt, imageBuffer) {
             // Note: gpt-image-1 always returns base64-encoded images
         });
         
-        console.dir(response, { depth: null });
-        
         if (!response.data || response.data.length === 0) {
             return { error: 'No image generated' };
         }
