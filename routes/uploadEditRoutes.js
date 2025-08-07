@@ -11,48 +11,68 @@ const lemonfoxService = require('../services/lemonfoxService');
 const fs = require('fs');
 const path = require('path');
 
-router.post('/upload-edit', upload.single('file'), async (req, res) => {  
-  const { prompt, provider } = req.body;
-  if (!prompt || !req.file) {
-    console.log('❌ Upload edit: Missing prompt or file');
-    return res.status(400).json({ status:'error', error:'Missing prompt or file' });
-  }
+router.post('/upload-edit', (req, res) => {
+  upload.single('file')(req, res, async (err) => {
+    if (err) {
+      console.log('❌ Upload edit - Multer error:', err.message);
+      return res.status(400).json({ 
+        status:'error', 
+        error:'Invalid file upload. Make sure to use Content-Type: multipart/form-data and include the file field.' 
+      });
+    }
 
-  const taskId = uuidv4();
-  console.log(`🖼️ Starting image edit with ${provider || 'Gemini'} - TaskID: ${taskId}`);
-  taskStore.set(taskId, { status:'pending' });
-  res.json({ taskId });
+    const { prompt, provider } = req.body;
+    if (!prompt || !req.file) {
+      console.log('❌ Upload edit: Missing prompt or file');
+      return res.status(400).json({ status:'error', error:'Missing prompt or file' });
+    }
 
-  let result;
-  if (provider === 'openai') {
-    // For OpenAI, pass the buffer directly
-    result = await openaiService.editImageWithText(prompt, req.file.buffer);
-  } else {
-    // For Gemini, convert to base64 as before
-    const base64 = req.file.buffer.toString('base64');
-    result = await geminiService.editImageWithText(prompt, base64);
-  }
-  
-  finalize(taskId, result, req);
+    const taskId = uuidv4();
+    console.log(`🖼️ Starting image edit with ${provider || 'Gemini'} - TaskID: ${taskId}`);
+    taskStore.set(taskId, { status:'pending' });
+    res.json({ taskId });
+
+    let result;
+    if (provider === 'openai') {
+      // For OpenAI, pass the buffer directly
+      result = await openaiService.editImageWithText(prompt, req.file.buffer);
+    } else {
+      // For Gemini, convert to base64 as before
+      const base64 = req.file.buffer.toString('base64');
+      result = await geminiService.editImageWithText(prompt, base64);
+    }
+    
+    finalize(taskId, result, req);
+  });
 });
 
-router.post('/upload-video', upload.single('file'), async (req, res) => {  
-  const { prompt } = req.body;
-  if (!prompt || !req.file) {
-    console.log('❌ Upload video: Missing prompt or file');
-    return res.status(400).json({ status:'error', error:'Missing prompt or file' });
-  }
+router.post('/upload-video', (req, res) => {
+  upload.single('file')(req, res, async (err) => {
+    if (err) {
+      console.log('❌ Upload video - Multer error:', err.message);
+      return res.status(400).json({ 
+        status:'error', 
+        error:'Invalid file upload. Make sure to use Content-Type: multipart/form-data and include the file field.' 
+      });
+    }
 
-  const taskId = uuidv4();
-  console.log(`🎬 Starting image-to-video - TaskID: ${taskId}`);
-  taskStore.set(taskId, { status:'pending' });
-  res.json({ taskId });
+    const { prompt } = req.body;
+    if (!prompt || !req.file) {
+      console.log('❌ Upload video: Missing prompt or file');
+      return res.status(400).json({ status:'error', error:'Missing prompt or file' });
+    }
 
-  // Convert image to base64 for Runware
-  const base64 = req.file.buffer.toString('base64');
-  const result = await runwareService.generateVideoFromImage(prompt, base64);
-  
-  finalizeVideo(taskId, result, prompt);
+    const taskId = uuidv4();
+    console.log(`🎬 Starting image-to-video - TaskID: ${taskId}`);
+    taskStore.set(taskId, { status:'pending' });
+    res.json({ taskId });
+
+    // Convert image to base64 for Runware
+    const base64 = req.file.buffer.toString('base64');
+    const result = await runwareService.generateVideoFromImage(prompt, base64);
+    
+    finalizeVideo(taskId, result, prompt);
+  });
 });
 
 function finalizeVideo(taskId, result, prompt) {
@@ -91,22 +111,32 @@ function finalize(taskId, result, req) {
   });
 }
 
-router.post('/upload-transcribe', upload.single('file'), async (req, res) => {  
-  if (!req.file) {
-    console.log('❌ Upload transcribe: Missing audio file');
-    return res.status(400).json({ status:'error', error:'Missing audio file' });
-  }
+router.post('/upload-transcribe', (req, res) => {
+  upload.single('file')(req, res, async (err) => {
+    if (err) {
+      console.log('❌ Upload transcribe - Multer error:', err.message);
+      return res.status(400).json({ 
+        status:'error', 
+        error:'Invalid file upload. Make sure to use Content-Type: multipart/form-data and include the file field.' 
+      });
+    }
 
-  const taskId = uuidv4();
-  console.log(`🎤 Starting audio transcription - TaskID: ${taskId}`);
-  taskStore.set(taskId, { status:'pending' });
-  res.json({ taskId });
+    if (!req.file) {
+      console.log('❌ Upload transcribe: Missing audio file');
+      return res.status(400).json({ status:'error', error:'Missing audio file' });
+    }
 
-  // Get original filename or create a default one
-  const filename = req.file.originalname || 'audio.wav';
-  const result = await lemonfoxService.transcribeAudio(req.file.buffer, filename);
-  
-  finalizeTranscription(taskId, result);
+    const taskId = uuidv4();
+    console.log(`🎤 Starting audio transcription - TaskID: ${taskId}`);
+    taskStore.set(taskId, { status:'pending' });
+    res.json({ taskId });
+
+    // Get original filename or create a default one
+    const filename = req.file.originalname || 'audio.wav';
+    const result = await lemonfoxService.transcribeAudio(req.file.buffer, filename);
+    
+    finalizeTranscription(taskId, result);
+  });
 });
 
 function finalizeTranscription(taskId, result) {
