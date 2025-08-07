@@ -4,6 +4,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function generateImageWithText(prompt) {
     try {
+        console.log('🎨 Starting Gemini image generation');
+        
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.0-flash-preview-image-generation" 
         });
@@ -15,6 +17,7 @@ async function generateImageWithText(prompt) {
         
         const response = result.response;
         if (!response.candidates || response.candidates.length === 0) {
+            console.log('❌ Gemini: No candidates returned');
             return { error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' };
         }
         
@@ -32,18 +35,22 @@ async function generateImageWithText(prompt) {
         }
         
         if (!imageBuffer) {
+            console.log('❌ Gemini: No image data found in response');
             return { error: 'No image data found in response' };
         }
         
+        console.log('✅ Gemini image generated successfully');
         return { text: text || prompt, imageBuffer };
     } catch (err) {
-        console.error('❌ Gemini text-to-image error:', err.message);
+        console.error('❌ Gemini image generation error:', err.message);
         return { error: err.message };
     }
 }
 
 async function editImageWithText(prompt, base64Image) {
     try {
+        console.log('🖼️ Starting Gemini image editing');
+        
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.0-flash-preview-image-generation" 
         });
@@ -57,6 +64,7 @@ async function editImageWithText(prompt, base64Image) {
         
         const response = result.response;
         if (!response.candidates || response.candidates.length === 0) {
+            console.log('❌ Gemini edit: No candidates returned');
             return { error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' };
         }
         
@@ -74,12 +82,14 @@ async function editImageWithText(prompt, base64Image) {
         }
         
         if (!imageBuffer) {
+            console.log('❌ Gemini edit: No image data found in response');
             return { error: 'No image data found in response' };
         }
         
+        console.log('✅ Gemini image edited successfully');
         return { text: text || prompt, imageBuffer };
     } catch (err) {
-        console.error('❌ Gemini image-edit error:', err.message);
+        console.error('❌ Gemini image edit error:', err.message);
         return { error: err.message };
     }
 }

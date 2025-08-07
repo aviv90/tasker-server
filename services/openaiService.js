@@ -7,6 +7,8 @@ const openai = new OpenAI({
 
 async function generateImageWithText(prompt) {
     try {
+        console.log('🎨 Starting OpenAI image generation');
+        
         // Use gpt-image-1 which always returns base64
         const response = await openai.images.generate({
             model: "gpt-image-1",
@@ -18,6 +20,7 @@ async function generateImageWithText(prompt) {
         });
         
         if (!response.data || response.data.length === 0) {
+            console.log('❌ OpenAI: No image generated');
             return { error: 'No image generated' };
         }
         
@@ -27,21 +30,25 @@ async function generateImageWithText(prompt) {
         // gpt-image-1 always returns b64_json (base64 data)
         if (imageData.b64_json) {
             const imageBuffer = Buffer.from(imageData.b64_json, 'base64');
+            console.log('✅ OpenAI image generated successfully');
             return { 
                 text: revisedPrompt, 
                 imageBuffer 
             };
         }
         
+        console.log('❌ OpenAI: No base64 image data found');
         return { error: 'No base64 image data found in response' };
     } catch (err) {
-        console.error('❌ OpenAI text-to-image error:', err.message);
+        console.error('❌ OpenAI image generation error:', err.message);
         return { error: err.message };
     }
 }
 
 async function editImageWithText(prompt, imageBuffer) {
     try {
+        console.log('🖼️ Starting OpenAI image editing');
+        
         // Convert Buffer to File-like object for OpenAI API
         const imageFile = new File([imageBuffer], 'image.jpg', { type: 'image/jpeg' });
         
@@ -56,6 +63,7 @@ async function editImageWithText(prompt, imageBuffer) {
         });
         
         if (!response.data || response.data.length === 0) {
+            console.log('❌ OpenAI edit: No image generated');
             return { error: 'No image generated' };
         }
         
@@ -65,15 +73,17 @@ async function editImageWithText(prompt, imageBuffer) {
         // gpt-image-1 always returns b64_json (base64 data)
         if (imageData.b64_json) {
             const imageBuffer = Buffer.from(imageData.b64_json, 'base64');
+            console.log('✅ OpenAI image edited successfully');
             return { 
                 text: revisedPrompt, 
                 imageBuffer 
             };
         }
         
+        console.log('❌ OpenAI edit: No base64 image data found');
         return { error: 'No base64 image data found in response' };
     } catch (err) {
-        console.error('❌ OpenAI image-edit error:', err.message);
+        console.error('❌ OpenAI image edit error:', err.message);
         return { error: err.message };
     }
 }

@@ -13,5 +13,9 @@ app.use('/api', uploadEditRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log('📋 Available endpoints:');
+    console.log('  POST /api/start-task - Start text-to-image/video generation');
+    console.log('  POST /api/upload-edit - Upload and edit images');
+    console.log('  GET /api/task-status/:taskId - Check task status');
 });

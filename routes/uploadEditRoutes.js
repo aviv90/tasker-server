@@ -12,11 +12,12 @@ const path = require('path');
 router.post('/upload-edit', upload.single('file'), async (req, res) => {  
   const { prompt, provider } = req.body;
   if (!prompt || !req.file) {
-    console.log('Missing:', { prompt: !!prompt, file: !!req.file });
+    console.log('❌ Upload edit: Missing prompt or file');
     return res.status(400).json({ status:'error', error:'Missing prompt or file' });
   }
 
   const taskId = uuidv4();
+  console.log(`🖼️ Starting image edit with ${provider || 'Gemini'} - TaskID: ${taskId}`);
   taskStore.set(taskId, { status:'pending' });
   res.json({ taskId });
 
@@ -35,6 +36,7 @@ router.post('/upload-edit', upload.single('file'), async (req, res) => {
 
 function finalize(taskId, result, req) {
   if (!result || result.error) {
+    console.log(`❌ Image edit failed - TaskID: ${taskId}`);
     taskStore.set(taskId, { status:'error', error: result?.error || 'Unknown error' });
     return;
   }
@@ -43,6 +45,7 @@ function finalize(taskId, result, req) {
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive:true });
   fs.writeFileSync(path.join(outputDir, filename), result.imageBuffer);
 
+  console.log(`✅ Image edit completed - TaskID: ${taskId}`);
   const host = `${req.protocol}://${req.get('host')}`;
   taskStore.set(taskId, {
     status:'done',
