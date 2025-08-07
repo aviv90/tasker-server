@@ -12,7 +12,6 @@ async function generateImageWithText(prompt) {
             model: "gpt-image-1",
             prompt: prompt,
             n: 1,
-            size: "1024x1024",
             quality: "high",
             output_format: "png"
             // Note: response_format is not supported for gpt-image-1 - it always returns base64
@@ -52,8 +51,7 @@ async function editImageWithText(prompt, imageBuffer) {
             prompt: prompt,
             input_fidelity: "high",
             quality: "high",
-            output_format: "png",
-            size: "1024x1024"
+            output_format: "png"
             // Note: gpt-image-1 always returns base64-encoded images
         });
         
