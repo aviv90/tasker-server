@@ -33,7 +33,8 @@ async function generateVideoWithText(prompt) {
         // Safely check for error
         if (videoData?.error) {
             console.error('❌ Runware API error:', videoData.error);
-            return { error: videoData.error };
+            const errorMsg = typeof videoData.error === 'string' ? videoData.error : videoData.error.message || JSON.stringify(videoData.error);
+            return { error: errorMsg };
         }
 
         // Get taskUUID for polling
@@ -92,12 +93,31 @@ async function generateVideoWithText(prompt) {
                 }
             } catch (pollError) {
                 console.log(`⚠️ Poll attempt ${attempts} failed`);
+                console.error('❌ Poll error details:', pollError);
                 
-                // If it's a specific error from the provider, return it
-                if (pollError.error && pollError.error.status === 'error') {
-                    console.error('❌ Provider error:', pollError.error.message);
-                    return { error: pollError.error.message || 'Provider error' };
+                // Extract error message properly
+                let errorMessage = 'Polling failed';
+                if (typeof pollError === 'string') {
+                    errorMessage = pollError;
+                } else if (pollError.message) {
+                    errorMessage = pollError.message;
+                } else if (pollError.error) {
+                    if (typeof pollError.error === 'string') {
+                        errorMessage = pollError.error;
+                    } else if (pollError.error.message) {
+                        errorMessage = pollError.error.message;
+                    } else if (pollError.error.status === 'error') {
+                        errorMessage = pollError.error.message || 'Provider error';
+                    }
                 }
+                
+                // Only return error if it's a critical failure
+                if (pollError.error && pollError.error.status === 'error') {
+                    console.error('❌ Critical provider error:', errorMessage);
+                    return { error: errorMessage };
+                }
+                
+                // Otherwise continue polling
             }
         }
         
@@ -156,18 +176,17 @@ async function generateVideoFromImage(prompt, base64Image) {
         // Safely check for error
         if (videoData?.error) {
             console.error('❌ Runware API error:', videoData.error);
-            return { error: videoData.error };
+            const errorMsg = typeof videoData.error === 'string' ? videoData.error : videoData.error.message || JSON.stringify(videoData.error);
+            return { error: errorMsg };
         }
 
         // Get taskUUID for polling
         const taskUUID = videoData?.taskUUID;
-        
+
         if (!taskUUID) {
             console.error('❌ No taskUUID received');
             return { error: 'No taskUUID received for polling' };
-        }
-
-        // Poll for completion
+        }        // Poll for completion
         console.log('🔄 Polling for image-to-video, taskUUID:', taskUUID);
         
         // Poll for up to 10 minutes with 10-second intervals
@@ -215,12 +234,31 @@ async function generateVideoFromImage(prompt, base64Image) {
                 }
             } catch (pollError) {
                 console.log(`⚠️ Poll attempt ${attempts} failed`);
+                console.error('❌ Poll error details:', pollError);
                 
-                // If it's a specific error from the provider, return it
-                if (pollError.error && pollError.error.status === 'error') {
-                    console.error('❌ Provider error:', pollError.error.message);
-                    return { error: pollError.error.message || 'Provider error' };
+                // Extract error message properly
+                let errorMessage = 'Polling failed';
+                if (typeof pollError === 'string') {
+                    errorMessage = pollError;
+                } else if (pollError.message) {
+                    errorMessage = pollError.message;
+                } else if (pollError.error) {
+                    if (typeof pollError.error === 'string') {
+                        errorMessage = pollError.error;
+                    } else if (pollError.error.message) {
+                        errorMessage = pollError.error.message;
+                    } else if (pollError.error.status === 'error') {
+                        errorMessage = pollError.error.message || 'Provider error';
+                    }
                 }
+                
+                // Only return error if it's a critical failure
+                if (pollError.error && pollError.error.status === 'error') {
+                    console.error('❌ Critical provider error:', errorMessage);
+                    return { error: errorMessage };
+                }
+                
+                // Otherwise continue polling
             }
         }
         
