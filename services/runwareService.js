@@ -67,7 +67,7 @@ async function generateVideoWithText(prompt) {
                         // Check for errors
                         if (taskResult.error) {
                             console.error('❌ Task error:', taskResult.error);
-                            return { error: `Video generation failed: ${taskResult.error}` };
+                            return { error: taskResult.error };
                         }
                         
                         // Check for completion - the actual status is 'success'
@@ -83,7 +83,7 @@ async function generateVideoWithText(prompt) {
                         // Check for failure statuses
                         if (taskResult.status === 'failed' || taskResult.status === 'error') {
                             console.error('❌ Video generation failed with status:', taskResult.status);
-                            return { error: `Video generation failed with status: ${taskResult.status}` };
+                            return { error: taskResult.status };
                         }
                         
                         // Continue polling for other statuses (processing, etc.)
@@ -95,7 +95,7 @@ async function generateVideoWithText(prompt) {
                 // If it's a specific error from the provider, return it
                 if (pollError.error && pollError.error.status === 'error') {
                     console.error('❌ Provider error:', pollError.error.message);
-                    return { error: `Video generation failed: ${pollError.error.message || 'Provider error'}` };
+                    return { error: pollError.error.message || pollError.error };
                 }
             }
         }
@@ -118,7 +118,7 @@ async function generateVideoWithText(prompt) {
         } else if (errorMessage.includes('authentication') || errorMessage.includes('API key')) {
             return { error: errorMessage };
         } else {
-            return { error: errorMessage || 'Video generation failed' };
+            return { error: errorMessage || err.toString() || 'Video generation failed' };
         }
     }
 }
@@ -189,7 +189,7 @@ async function generateVideoFromImage(prompt, base64Image) {
                         // Check for errors
                         if (taskResult.error) {
                             console.error('❌ Task error:', taskResult.error);
-                            return { error: `Image-to-video generation failed: ${taskResult.error}` };
+                            return { error: taskResult.error };
                         }
                         
                         // Check for completion - the actual status is 'success'
@@ -205,7 +205,7 @@ async function generateVideoFromImage(prompt, base64Image) {
                         // Check for failure statuses
                         if (taskResult.status === 'failed' || taskResult.status === 'error') {
                             console.error('❌ Image-to-video generation failed with status:', taskResult.status);
-                            return { error: `Image-to-video generation failed with status: ${taskResult.status}` };
+                            return { error: taskResult.status };
                         }
                         
                         // Continue polling for other statuses (processing, etc.)
@@ -217,7 +217,7 @@ async function generateVideoFromImage(prompt, base64Image) {
                 // If it's a specific error from the provider, return it
                 if (pollError.error && pollError.error.status === 'error') {
                     console.error('❌ Provider error:', pollError.error.message);
-                    return { error: `Image-to-video generation failed: ${pollError.error.message || 'Provider error'}` };
+                    return { error: pollError.error.message || pollError.error };
                 }
             }
         }
@@ -240,7 +240,7 @@ async function generateVideoFromImage(prompt, base64Image) {
         } else if (errorMessage.includes('authentication') || errorMessage.includes('API key')) {
             return { error: errorMessage };
         } else {
-            return { error: errorMessage || 'Image-to-video generation failed' };
+            return { error: errorMessage || err.toString() || 'Image-to-video generation failed' };
         }
     }
 }

@@ -74,7 +74,7 @@ function finalizeVideo(taskId, result, prompt) {
   try {
     if (!result || result.error) {
       console.log(`❌ Image-to-video failed - TaskID: ${taskId}`);
-      taskStore.set(taskId, { status:'error', error: result?.error || 'Unknown error' });
+      taskStore.set(taskId, { status:'error', error: result?.error || result?.message || 'Task failed without error details' });
       return;
     }
 
@@ -95,7 +95,7 @@ function finalize(taskId, result, req) {
   try {
     if (!result || result.error) {
       console.log(`❌ Image edit failed - TaskID: ${taskId}`);
-      taskStore.set(taskId, { status:'error', error: result?.error || 'Unknown error' });
+      taskStore.set(taskId, { status:'error', error: result?.error || result?.message || 'Task failed without error details' });
       return;
     }
     const filename = `${taskId}.png`;
@@ -143,7 +143,7 @@ function finalizeTranscription(taskId, result) {
   try {
     if (!result || result.error) {
       console.log(`❌ Audio transcription failed - TaskID: ${taskId}`);
-      taskStore.set(taskId, { status:'error', error: result?.error || 'Unknown error' });
+      taskStore.set(taskId, { status:'error', error: result?.error || result?.message || 'Task failed without error details' });
       return;
     }
 

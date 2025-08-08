@@ -64,7 +64,7 @@ function finalizeTask(taskId, result, req, fileExtension = 'png') {
     try {
         if (!result || result.error) {
             console.log(`❌ Task finalization failed - TaskID: ${taskId}`);
-            taskStore.set(taskId, { status: 'error', error: result?.error || 'Unknown error' });
+            taskStore.set(taskId, { status: 'error', error: result?.error || result?.message || 'Task failed without error details' });
             return;
         }
         
