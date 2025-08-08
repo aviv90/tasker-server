@@ -104,19 +104,21 @@ async function generateVideoWithText(prompt) {
         return { error: 'Video generation timed out after 10 minutes' };
 
     } catch (err) {
-        console.error('❌ Video generation error:', err.message);
+        console.error('❌ Video generation error:', err.message || err);
+        
+        const errorMessage = err.message || '';
         
         // Return user-friendly error messages
-        if (err.message.includes('timed out') || err.message.includes('timeout')) {
+        if (errorMessage.includes('timed out') || errorMessage.includes('timeout')) {
             return { error: 'Video generation timed out - please try again with a shorter prompt.' };
-        } else if (err.message.includes('insufficient credits') || err.message.includes('credit')) {
+        } else if (errorMessage.includes('insufficient credits') || errorMessage.includes('credit')) {
             return { error: 'Insufficient credits in Runware account' };
-        } else if (err.message.includes('422') || err.response?.status === 422) {
+        } else if (errorMessage.includes('422') || err.response?.status === 422) {
             return { error: 'Video generation request rejected - check credits or model availability' };
-        } else if (err.message.includes('authentication') || err.message.includes('API key')) {
+        } else if (errorMessage.includes('authentication') || errorMessage.includes('API key')) {
             return { error: 'Invalid API key or authentication failed' };
         } else {
-            return { error: err.message || 'Video generation failed' };
+            return { error: errorMessage || 'Video generation failed' };
         }
     }
 }
@@ -224,19 +226,21 @@ async function generateVideoFromImage(prompt, base64Image) {
         return { error: 'Image-to-video generation timed out after 10 minutes' };
 
     } catch (err) {
-        console.error('❌ Image-to-video generation error:', err.message);
+        console.error('❌ Image-to-video generation error:', err.message || err);
+        
+        const errorMessage = err.message || '';
         
         // Return user-friendly error messages
-        if (err.message.includes('timed out') || err.message.includes('timeout')) {
+        if (errorMessage.includes('timed out') || errorMessage.includes('timeout')) {
             return { error: 'Image-to-video generation timed out - please try again.' };
-        } else if (err.message.includes('insufficient credits') || err.message.includes('credit')) {
+        } else if (errorMessage.includes('insufficient credits') || errorMessage.includes('credit')) {
             return { error: 'Insufficient credits in Runware account' };
-        } else if (err.message.includes('422') || err.response?.status === 422) {
+        } else if (errorMessage.includes('422') || err.response?.status === 422) {
             return { error: 'Image-to-video request rejected - check credits or model availability' };
-        } else if (err.message.includes('authentication') || err.message.includes('API key')) {
+        } else if (errorMessage.includes('authentication') || errorMessage.includes('API key')) {
             return { error: 'Invalid API key or authentication failed' };
         } else {
-            return { error: err.message || 'Image-to-video generation failed' };
+            return { error: errorMessage || 'Image-to-video generation failed' };
         }
     }
 }
