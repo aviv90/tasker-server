@@ -110,13 +110,13 @@ async function generateVideoWithText(prompt) {
         
         // Return user-friendly error messages
         if (errorMessage.includes('timed out') || errorMessage.includes('timeout')) {
-            return { error: 'Video generation timed out - please try again with a shorter prompt.' };
+            return { error: errorMessage };
         } else if (errorMessage.includes('insufficient credits') || errorMessage.includes('credit')) {
-            return { error: 'Insufficient credits in Runware account' };
+            return { error: errorMessage };
         } else if (errorMessage.includes('422') || err.response?.status === 422) {
-            return { error: 'Video generation request rejected - check credits or model availability' };
+            return { error: errorMessage || 'Video generation request rejected - check credits or model availability' };
         } else if (errorMessage.includes('authentication') || errorMessage.includes('API key')) {
-            return { error: 'Invalid API key or authentication failed' };
+            return { error: errorMessage };
         } else {
             return { error: errorMessage || 'Video generation failed' };
         }
@@ -232,13 +232,13 @@ async function generateVideoFromImage(prompt, base64Image) {
         
         // Return user-friendly error messages
         if (errorMessage.includes('timed out') || errorMessage.includes('timeout')) {
-            return { error: 'Image-to-video generation timed out - please try again.' };
+            return { error: errorMessage };
         } else if (errorMessage.includes('insufficient credits') || errorMessage.includes('credit')) {
-            return { error: 'Insufficient credits in Runware account' };
+            return { error: errorMessage };
         } else if (errorMessage.includes('422') || err.response?.status === 422) {
-            return { error: 'Image-to-video request rejected - check credits or model availability' };
+            return { error: errorMessage || 'Image-to-video request rejected - check credits or model availability' };
         } else if (errorMessage.includes('authentication') || errorMessage.includes('API key')) {
-            return { error: 'Invalid API key or authentication failed' };
+            return { error: errorMessage };
         } else {
             return { error: errorMessage || 'Image-to-video generation failed' };
         }

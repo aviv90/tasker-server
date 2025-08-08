@@ -42,7 +42,7 @@ router.post('/upload-edit', upload.single('file'), async (req, res) => {
     finalize(taskId, result, req);
   } catch (error) {
     console.error(`❌ Unexpected error in upload-edit - TaskID: ${taskId}:`, error.message);
-    taskStore.set(taskId, { status: 'error', error: 'Internal server error' });
+    taskStore.set(taskId, { status: 'error', error: error.message || error.toString() || 'Unknown error occurred' });
   }
 });
 
@@ -66,7 +66,7 @@ router.post('/upload-video', upload.single('file'), async (req, res) => {
     finalizeVideo(taskId, result, prompt);
   } catch (error) {
     console.error(`❌ Unexpected error in upload-video - TaskID: ${taskId}:`, error.message);
-    taskStore.set(taskId, { status: 'error', error: 'Internal server error' });
+    taskStore.set(taskId, { status: 'error', error: error.message || error.toString() || 'Unknown error occurred' });
   }
 });
 
@@ -87,7 +87,7 @@ function finalizeVideo(taskId, result, prompt) {
     });
   } catch (error) {
     console.error(`❌ Error in finalizeVideo function - TaskID: ${taskId}:`, error.message);
-    taskStore.set(taskId, { status: 'error', error: 'Failed to finalize video' });
+    taskStore.set(taskId, { status: 'error', error: error.message || error.toString() || 'Failed to finalize video' });
   }
 }
 
@@ -112,7 +112,7 @@ function finalize(taskId, result, req) {
     });
   } catch (error) {
     console.error(`❌ Error in finalize function - TaskID: ${taskId}:`, error.message);
-    taskStore.set(taskId, { status: 'error', error: 'Failed to save file' });
+    taskStore.set(taskId, { status: 'error', error: error.message || error.toString() || 'Failed to save file' });
   }
 }
 
@@ -135,7 +135,7 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     finalizeTranscription(taskId, result);
   } catch (error) {
     console.error(`❌ Unexpected error in upload-transcribe - TaskID: ${taskId}:`, error.message);
-    taskStore.set(taskId, { status: 'error', error: 'Internal server error' });
+    taskStore.set(taskId, { status: 'error', error: error.message || error.toString() || 'Unknown error occurred' });
   }
 });
 
@@ -155,7 +155,7 @@ function finalizeTranscription(taskId, result) {
     });
   } catch (error) {
     console.error(`❌ Error in finalizeTranscription function - TaskID: ${taskId}:`, error.message);
-    taskStore.set(taskId, { status: 'error', error: 'Failed to finalize transcription' });
+    taskStore.set(taskId, { status: 'error', error: error.message || error.toString() || 'Failed to finalize transcription' });
   }
 }
 

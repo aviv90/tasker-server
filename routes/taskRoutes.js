@@ -50,7 +50,7 @@ router.post('/start-task', async (req, res) => {
         }
     } catch (error) {
         console.error(`❌ Unexpected error in start-task - TaskID: ${taskId}:`, error.message);
-        taskStore.set(taskId, { status: 'error', error: 'Internal server error' });
+        taskStore.set(taskId, { status: 'error', error: error.message || error.toString() || 'Unknown error occurred' });
     }
 });
 
@@ -95,7 +95,7 @@ function finalizeTask(taskId, result, req, fileExtension = 'png') {
         });
     } catch (error) {
         console.error(`❌ Error in finalizeTask function - TaskID: ${taskId}:`, error.message);
-        taskStore.set(taskId, { status: 'error', error: 'Failed to save file' });
+        taskStore.set(taskId, { status: 'error', error: error.message || error.toString() || 'Failed to save file' });
     }
 }
 

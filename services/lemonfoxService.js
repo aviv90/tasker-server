@@ -36,22 +36,24 @@ async function transcribeAudio(audioBuffer, filename = 'audio.wav') {
         // Handle axios error responses
         if (err.response) {
             const status = err.response.status;
+            const errorData = err.response.data;
+            
             if (status === 401) {
-                return { error: 'Invalid API key or authentication failed' };
+                return { error: errorData?.error || 'Invalid API key or authentication failed' };
             } else if (status === 422) {
-                return { error: 'Audio file format not supported or invalid' };
+                return { error: errorData?.error || 'Audio file format not supported or invalid' };
             } else if (status === 429) {
-                return { error: 'Rate limit exceeded - please try again later' };
+                return { error: errorData?.error || 'Rate limit exceeded - please try again later' };
             } else {
-                return { error: `Transcription failed: ${status}` };
+                return { error: errorData?.error || `Transcription failed with status: ${status}` };
             }
         }
         
-        // Return user-friendly error messages
+        // Return original error messages when possible
         if (err.message.includes('network') || err.message.includes('ECONNREFUSED')) {
-            return { error: 'Network error - please check your connection' };
+            return { error: err.message };
         } else if (err.message.includes('timeout')) {
-            return { error: 'Transcription timed out - please try again' };
+            return { error: err.message };
         } else {
             return { error: err.message || 'Audio transcription failed' };
         }
