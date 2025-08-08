@@ -33,7 +33,17 @@ async function generateVideoWithText(prompt) {
         // Safely check for error
         if (videoData?.error) {
             console.error('❌ Runware API error:', videoData.error);
-            const errorMsg = typeof videoData.error === 'string' ? videoData.error : videoData.error.message || JSON.stringify(videoData.error);
+            
+            // Return full error details if it's an object
+            let errorMsg = videoData.error;
+            if (typeof videoData.error === 'object') {
+                const errorDetails = Object.entries(videoData.error)
+                    .filter(([key, value]) => value !== undefined)
+                    .map(([key, value]) => `${key}: ${value}`)
+                    .join(', ');
+                errorMsg = errorDetails || videoData.error.message || JSON.stringify(videoData.error);
+            }
+            
             return { error: errorMsg };
         }
 
@@ -68,7 +78,17 @@ async function generateVideoWithText(prompt) {
                         // Check for errors
                         if (taskResult.error) {
                             console.error('❌ Task error:', taskResult.error);
-                            const errorMsg = typeof taskResult.error === 'string' ? taskResult.error : taskResult.error.message || JSON.stringify(taskResult.error);
+                            
+                            // Return full error details if it's an object
+                            let errorMsg = taskResult.error;
+                            if (typeof taskResult.error === 'object') {
+                                const errorDetails = Object.entries(taskResult.error)
+                                    .filter(([key, value]) => value !== undefined)
+                                    .map(([key, value]) => `${key}: ${value}`)
+                                    .join(', ');
+                                errorMsg = errorDetails || taskResult.error.message || JSON.stringify(taskResult.error);
+                            }
+                            
                             return { error: errorMsg };
                         }
                         
@@ -95,8 +115,28 @@ async function generateVideoWithText(prompt) {
                 console.log(`⚠️ Poll attempt ${attempts} failed`);
                 console.error('❌ Poll error details:', pollError);
                 
-                // Extract error message from poll error
-                const errorMessage = pollError.error?.message || pollError.message || pollError.toString();
+                // Extract full error details
+                let errorMessage = pollError.error?.message || pollError.message || pollError.toString();
+                
+                // If there's a full error object, include all its details
+                if (pollError.error && typeof pollError.error === 'object') {
+                    const errorDetails = {
+                        message: pollError.error.message,
+                        code: pollError.error.code,
+                        error: pollError.error.error,
+                        documentation: pollError.error.documentation,
+                        taskType: pollError.error.taskType,
+                        taskUUID: pollError.error.taskUUID
+                    };
+                    
+                    // Remove undefined fields and create readable text
+                    const cleanDetails = Object.entries(errorDetails)
+                        .filter(([key, value]) => value !== undefined)
+                        .map(([key, value]) => `${key}: ${value}`)
+                        .join(', ');
+                        
+                    errorMessage = cleanDetails || errorMessage;
+                }
                 
                 // Only return error if it's a critical failure, otherwise continue polling
                 if (pollError.error?.code === 'insufficientCredits' || pollError.error?.status === 'error') {
@@ -114,8 +154,29 @@ async function generateVideoWithText(prompt) {
     } catch (err) {
         console.error('❌ Video generation error:', err);
         
-        // Extract error message from the actual error structure
-        const errorMessage = err.error?.message || err.message || err.toString();
+        // Return the full error object as text if it exists, otherwise just the message
+        let errorMessage = err.error?.message || err.message || err.toString();
+        
+        // If there's a full error object, include all its details
+        if (err.error && typeof err.error === 'object') {
+            const errorDetails = {
+                message: err.error.message,
+                code: err.error.code,
+                error: err.error.error,
+                documentation: err.error.documentation,
+                taskType: err.error.taskType,
+                taskUUID: err.error.taskUUID
+            };
+            
+            // Remove undefined fields and create readable text
+            const cleanDetails = Object.entries(errorDetails)
+                .filter(([key, value]) => value !== undefined)
+                .map(([key, value]) => `${key}: ${value}`)
+                .join(', ');
+                
+            errorMessage = cleanDetails || errorMessage;
+        }
+        
         return { error: errorMessage };
     }
 }
@@ -152,7 +213,17 @@ async function generateVideoFromImage(prompt, base64Image) {
         // Safely check for error
         if (videoData?.error) {
             console.error('❌ Runware API error:', videoData.error);
-            const errorMsg = typeof videoData.error === 'string' ? videoData.error : videoData.error.message || JSON.stringify(videoData.error);
+            
+            // Return full error details if it's an object
+            let errorMsg = videoData.error;
+            if (typeof videoData.error === 'object') {
+                const errorDetails = Object.entries(videoData.error)
+                    .filter(([key, value]) => value !== undefined)
+                    .map(([key, value]) => `${key}: ${value}`)
+                    .join(', ');
+                errorMsg = errorDetails || videoData.error.message || JSON.stringify(videoData.error);
+            }
+            
             return { error: errorMsg };
         }
 
@@ -185,7 +256,17 @@ async function generateVideoFromImage(prompt, base64Image) {
                         // Check for errors
                         if (taskResult.error) {
                             console.error('❌ Task error:', taskResult.error);
-                            const errorMsg = typeof taskResult.error === 'string' ? taskResult.error : taskResult.error.message || JSON.stringify(taskResult.error);
+                            
+                            // Return full error details if it's an object
+                            let errorMsg = taskResult.error;
+                            if (typeof taskResult.error === 'object') {
+                                const errorDetails = Object.entries(taskResult.error)
+                                    .filter(([key, value]) => value !== undefined)
+                                    .map(([key, value]) => `${key}: ${value}`)
+                                    .join(', ');
+                                errorMsg = errorDetails || taskResult.error.message || JSON.stringify(taskResult.error);
+                            }
+                            
                             return { error: errorMsg };
                         }
                         
@@ -212,8 +293,28 @@ async function generateVideoFromImage(prompt, base64Image) {
                 console.log(`⚠️ Poll attempt ${attempts} failed`);
                 console.error('❌ Poll error details:', pollError);
                 
-                // Extract error message from poll error
-                const errorMessage = pollError.error?.message || pollError.message || pollError.toString();
+                // Extract full error details
+                let errorMessage = pollError.error?.message || pollError.message || pollError.toString();
+                
+                // If there's a full error object, include all its details
+                if (pollError.error && typeof pollError.error === 'object') {
+                    const errorDetails = {
+                        message: pollError.error.message,
+                        code: pollError.error.code,
+                        error: pollError.error.error,
+                        documentation: pollError.error.documentation,
+                        taskType: pollError.error.taskType,
+                        taskUUID: pollError.error.taskUUID
+                    };
+                    
+                    // Remove undefined fields and create readable text
+                    const cleanDetails = Object.entries(errorDetails)
+                        .filter(([key, value]) => value !== undefined)
+                        .map(([key, value]) => `${key}: ${value}`)
+                        .join(', ');
+                        
+                    errorMessage = cleanDetails || errorMessage;
+                }
                 
                 // Only return error if it's a critical failure, otherwise continue polling
                 if (pollError.error?.code === 'insufficientCredits' || pollError.error?.status === 'error') {
@@ -231,8 +332,29 @@ async function generateVideoFromImage(prompt, base64Image) {
     } catch (err) {
         console.error('❌ Image-to-video generation error:', err);
         
-        // Extract error message from the actual error structure
-        const errorMessage = err.error?.message || err.message || err.toString();
+        // Return the full error object as text if it exists, otherwise just the message
+        let errorMessage = err.error?.message || err.message || err.toString();
+        
+        // If there's a full error object, include all its details
+        if (err.error && typeof err.error === 'object') {
+            const errorDetails = {
+                message: err.error.message,
+                code: err.error.code,
+                error: err.error.error,
+                documentation: err.error.documentation,
+                taskType: err.error.taskType,
+                taskUUID: err.error.taskUUID
+            };
+            
+            // Remove undefined fields and create readable text
+            const cleanDetails = Object.entries(errorDetails)
+                .filter(([key, value]) => value !== undefined)
+                .map(([key, value]) => `${key}: ${value}`)
+                .join(', ');
+                
+            errorMessage = cleanDetails || errorMessage;
+        }
+        
         return { error: errorMessage };
     }
 }
