@@ -17,35 +17,40 @@ router.post('/start-task', async (req, res) => {
     taskStore.set(taskId, { status: 'pending' });
     res.json({ taskId });
 
-    if (type === 'text-to-image') {
-        let result;
-        if (provider === 'openai') {
-            console.log(`🎨 Generating image with OpenAI - TaskID: ${taskId}`);
-            result = await openaiService.generateImageWithText(prompt);
+    try {
+        if (type === 'text-to-image') {
+            let result;
+            if (provider === 'openai') {
+                console.log(`🎨 Generating image with OpenAI - TaskID: ${taskId}`);
+                result = await openaiService.generateImageWithText(prompt);
+            } else {
+                console.log(`🎨 Generating image with Gemini - TaskID: ${taskId}`);
+                result = await geminiService.generateImageWithText(prompt);
+            }
+            finalizeTask(taskId, result, req, 'png');
+        } else if (type === 'text-to-video') {
+            console.log(`🎬 Generating video with Runware - TaskID: ${taskId}`);
+            const result = await runwareService.generateVideoWithText(prompt);
+            // For videos, we return the URL directly instead of saving file
+            if (result.error) {
+                console.log(`❌ Video generation failed - TaskID: ${taskId}`);
+                taskStore.set(taskId, { status: 'error', error: result.error });
+            } else {
+                console.log(`✅ Video generation completed - TaskID: ${taskId}`);
+                taskStore.set(taskId, {
+                    status: 'done',
+                    result: result.videoURL,
+                    text: result.text,
+                    cost: result.cost
+                });
+            }
         } else {
-            console.log(`🎨 Generating image with Gemini - TaskID: ${taskId}`);
-            result = await geminiService.generateImageWithText(prompt);
+            console.log(`❌ Unsupported task type: ${type} - TaskID: ${taskId}`);
+            taskStore.set(taskId, { status: 'error', error: 'Unsupported task type' });
         }
-        finalizeTask(taskId, result, req, 'png');
-    } else if (type === 'text-to-video') {
-        console.log(`🎬 Generating video with Runware - TaskID: ${taskId}`);
-        const result = await runwareService.generateVideoWithText(prompt);
-        // For videos, we return the URL directly instead of saving file
-        if (result.error) {
-            console.log(`❌ Video generation failed - TaskID: ${taskId}`);
-            taskStore.set(taskId, { status: 'error', error: result.error });
-        } else {
-            console.log(`✅ Video generation completed - TaskID: ${taskId}`);
-            taskStore.set(taskId, {
-                status: 'done',
-                result: result.videoURL,
-                text: result.text,
-                cost: result.cost
-            });
-        }
-    } else {
-        console.log(`❌ Unsupported task type: ${type} - TaskID: ${taskId}`);
-        taskStore.set(taskId, { status: 'error', error: 'Unsupported task type' });
+    } catch (error) {
+        console.error(`❌ Unexpected error in start-task - TaskID: ${taskId}:`, error.message);
+        taskStore.set(taskId, { status: 'error', error: 'Internal server error' });
     }
 });
 
@@ -56,43 +61,42 @@ router.get('/task-status/:taskId', (req, res) => {
 });
 
 function finalizeTask(taskId, result, req, fileExtension = 'png') {
-    if (!result || result.error) {
-        console.log(`❌ Task finalization failed - TaskID: ${taskId}`);
-        taskStore.set(taskId, { status: 'error', error: result?.error || 'Unknown error' });
-        return;
-    }
-    
-    const filename = `${taskId}.${fileExtension}`;
-    const outputDir = path.join(__dirname, '..', 'public', 'tmp');
-    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
-    const outputPath = path.join(outputDir, filename);
-    
-    // Support both imageBuffer and videoBuffer
-    const buffer = result.imageBuffer || result.videoBuffer;
-    
-    if (buffer) {
-        try {
-            fs.writeFileSync(outputPath, buffer);
-            console.log(`✅ ${fileExtension.toUpperCase()} file saved - TaskID: ${taskId}`);
-        } catch (writeError) {
-            console.error(`❌ Error writing file - TaskID: ${taskId}:`, writeError.message);
-            taskStore.set(taskId, { status: 'error', error: 'Failed to write file' });
+    try {
+        if (!result || result.error) {
+            console.log(`❌ Task finalization failed - TaskID: ${taskId}`);
+            taskStore.set(taskId, { status: 'error', error: result?.error || 'Unknown error' });
             return;
         }
-    } else {
-        console.log(`❌ No buffer data - TaskID: ${taskId}`);
-        taskStore.set(taskId, { status: 'error', error: 'No buffer data' });
-        return;
-    }
+        
+        const filename = `${taskId}.${fileExtension}`;
+        const outputDir = path.join(__dirname, '..', 'public', 'tmp');
+        if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+        const outputPath = path.join(outputDir, filename);
+        
+        // Support both imageBuffer and videoBuffer
+        const buffer = result.imageBuffer || result.videoBuffer;
+        
+        if (buffer) {
+            fs.writeFileSync(outputPath, buffer);
+            console.log(`✅ ${fileExtension.toUpperCase()} file saved - TaskID: ${taskId}`);
+        } else {
+            console.log(`❌ No buffer data - TaskID: ${taskId}`);
+            taskStore.set(taskId, { status: 'error', error: 'No buffer data' });
+            return;
+        }
 
-    const host = `${req.protocol}://${req.get('host')}`;
-    console.log(`✅ Task completed successfully - TaskID: ${taskId}`);
-    taskStore.set(taskId, {
-        status: 'done',
-        result: `${host}/static/${filename}`,
-        text: result.text,
-        cost: result.cost
-    });
+        const host = `${req.protocol}://${req.get('host')}`;
+        console.log(`✅ Task completed successfully - TaskID: ${taskId}`);
+        taskStore.set(taskId, {
+            status: 'done',
+            result: `${host}/static/${filename}`,
+            text: result.text,
+            cost: result.cost
+        });
+    } catch (error) {
+        console.error(`❌ Error in finalizeTask function - TaskID: ${taskId}:`, error.message);
+        taskStore.set(taskId, { status: 'error', error: 'Failed to save file' });
+    }
 }
 
 module.exports = router;

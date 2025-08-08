@@ -28,17 +28,22 @@ router.post('/upload-edit', upload.single('file'), async (req, res) => {
   taskStore.set(taskId, { status:'pending' });
   res.json({ taskId });
 
-  let result;
-  if (provider === 'openai') {
-    // For OpenAI, pass the buffer directly
-    result = await openaiService.editImageWithText(prompt, req.file.buffer);
-  } else {
-    // For Gemini, convert to base64 as before
-    const base64 = req.file.buffer.toString('base64');
-    result = await geminiService.editImageWithText(prompt, base64);
+  try {
+    let result;
+    if (provider === 'openai') {
+      // For OpenAI, pass the buffer directly
+      result = await openaiService.editImageWithText(prompt, req.file.buffer);
+    } else {
+      // For Gemini, convert to base64 as before
+      const base64 = req.file.buffer.toString('base64');
+      result = await geminiService.editImageWithText(prompt, base64);
+    }
+    
+    finalize(taskId, result, req);
+  } catch (error) {
+    console.error(`❌ Unexpected error in upload-edit - TaskID: ${taskId}:`, error.message);
+    taskStore.set(taskId, { status: 'error', error: 'Internal server error' });
   }
-  
-  finalize(taskId, result, req);
 });
 
 router.post('/upload-video', upload.single('file'), async (req, res) => {  
@@ -53,47 +58,62 @@ router.post('/upload-video', upload.single('file'), async (req, res) => {
   taskStore.set(taskId, { status:'pending' });
   res.json({ taskId });
 
-  // Convert image to base64 for Runware
-  const base64 = req.file.buffer.toString('base64');
-  const result = await runwareService.generateVideoFromImage(prompt, base64);
-  
-  finalizeVideo(taskId, result, prompt);
+  try {
+    // Convert image to base64 for Runware
+    const base64 = req.file.buffer.toString('base64');
+    const result = await runwareService.generateVideoFromImage(prompt, base64);
+    
+    finalizeVideo(taskId, result, prompt);
+  } catch (error) {
+    console.error(`❌ Unexpected error in upload-video - TaskID: ${taskId}:`, error.message);
+    taskStore.set(taskId, { status: 'error', error: 'Internal server error' });
+  }
 });
 
 function finalizeVideo(taskId, result, prompt) {
-  if (!result || result.error) {
-    console.log(`❌ Image-to-video failed - TaskID: ${taskId}`);
-    taskStore.set(taskId, { status:'error', error: result?.error || 'Unknown error' });
-    return;
-  }
+  try {
+    if (!result || result.error) {
+      console.log(`❌ Image-to-video failed - TaskID: ${taskId}`);
+      taskStore.set(taskId, { status:'error', error: result?.error || 'Unknown error' });
+      return;
+    }
 
-  console.log(`✅ Image-to-video completed - TaskID: ${taskId}`);
-  taskStore.set(taskId, {
-    status:'done',
-    result: result.videoURL,
-    text: result.text || prompt,
-    cost: result.cost
-  });
+    console.log(`✅ Image-to-video completed - TaskID: ${taskId}`);
+    taskStore.set(taskId, {
+      status:'done',
+      result: result.videoURL,
+      text: result.text || prompt,
+      cost: result.cost
+    });
+  } catch (error) {
+    console.error(`❌ Error in finalizeVideo function - TaskID: ${taskId}:`, error.message);
+    taskStore.set(taskId, { status: 'error', error: 'Failed to finalize video' });
+  }
 }
 
 function finalize(taskId, result, req) {
-  if (!result || result.error) {
-    console.log(`❌ Image edit failed - TaskID: ${taskId}`);
-    taskStore.set(taskId, { status:'error', error: result?.error || 'Unknown error' });
-    return;
-  }
-  const filename = `${taskId}.png`;
-  const outputDir = path.join(__dirname, '..', 'public', 'tmp');
-  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive:true });
-  fs.writeFileSync(path.join(outputDir, filename), result.imageBuffer);
+  try {
+    if (!result || result.error) {
+      console.log(`❌ Image edit failed - TaskID: ${taskId}`);
+      taskStore.set(taskId, { status:'error', error: result?.error || 'Unknown error' });
+      return;
+    }
+    const filename = `${taskId}.png`;
+    const outputDir = path.join(__dirname, '..', 'public', 'tmp');
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive:true });
+    fs.writeFileSync(path.join(outputDir, filename), result.imageBuffer);
 
-  console.log(`✅ Image edit completed - TaskID: ${taskId}`);
-  const host = `${req.protocol}://${req.get('host')}`;
-  taskStore.set(taskId, {
-    status:'done',
-    result: `${host}/static/${filename}`,
-    text: result.text
-  });
+    console.log(`✅ Image edit completed - TaskID: ${taskId}`);
+    const host = `${req.protocol}://${req.get('host')}`;
+    taskStore.set(taskId, {
+      status:'done',
+      result: `${host}/static/${filename}`,
+      text: result.text
+    });
+  } catch (error) {
+    console.error(`❌ Error in finalize function - TaskID: ${taskId}:`, error.message);
+    taskStore.set(taskId, { status: 'error', error: 'Failed to save file' });
+  }
 }
 
 router.post('/upload-transcribe', upload.single('file'), async (req, res) => {  
@@ -107,26 +127,36 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
   taskStore.set(taskId, { status:'pending' });
   res.json({ taskId });
 
-  // Get original filename or create a default one
-  const filename = req.file.originalname || 'audio.wav';
-  const result = await lemonfoxService.transcribeAudio(req.file.buffer, filename);
-  
-  finalizeTranscription(taskId, result);
+  try {
+    // Get original filename or create a default one
+    const filename = req.file.originalname || 'audio.wav';
+    const result = await lemonfoxService.transcribeAudio(req.file.buffer, filename);
+    
+    finalizeTranscription(taskId, result);
+  } catch (error) {
+    console.error(`❌ Unexpected error in upload-transcribe - TaskID: ${taskId}:`, error.message);
+    taskStore.set(taskId, { status: 'error', error: 'Internal server error' });
+  }
 });
 
 function finalizeTranscription(taskId, result) {
-  if (!result || result.error) {
-    console.log(`❌ Audio transcription failed - TaskID: ${taskId}`);
-    taskStore.set(taskId, { status:'error', error: result?.error || 'Unknown error' });
-    return;
-  }
+  try {
+    if (!result || result.error) {
+      console.log(`❌ Audio transcription failed - TaskID: ${taskId}`);
+      taskStore.set(taskId, { status:'error', error: result?.error || 'Unknown error' });
+      return;
+    }
 
-  console.log(`✅ Audio transcription completed - TaskID: ${taskId}`);
-  taskStore.set(taskId, {
-    status:'done',
-    result: result.text,
-    language: result.language
-  });
+    console.log(`✅ Audio transcription completed - TaskID: ${taskId}`);
+    taskStore.set(taskId, {
+      status:'done',
+      result: result.text,
+      language: result.language
+    });
+  } catch (error) {
+    console.error(`❌ Error in finalizeTranscription function - TaskID: ${taskId}:`, error.message);
+    taskStore.set(taskId, { status: 'error', error: 'Failed to finalize transcription' });
+  }
 }
 
 module.exports = router;
