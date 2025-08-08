@@ -95,24 +95,11 @@ async function generateVideoWithText(prompt) {
                 console.log(`⚠️ Poll attempt ${attempts} failed`);
                 console.error('❌ Poll error details:', pollError);
                 
-                // Extract error message properly
-                let errorMessage = 'Polling failed';
-                if (typeof pollError === 'string') {
-                    errorMessage = pollError;
-                } else if (pollError.message) {
-                    errorMessage = pollError.message;
-                } else if (pollError.error) {
-                    if (typeof pollError.error === 'string') {
-                        errorMessage = pollError.error;
-                    } else if (pollError.error.message) {
-                        errorMessage = pollError.error.message;
-                    } else if (pollError.error.status === 'error') {
-                        errorMessage = pollError.error.message || 'Provider error';
-                    }
-                }
+                // Extract error message from poll error
+                const errorMessage = pollError.error?.message || pollError.message || pollError.toString();
                 
-                // Only return error if it's a critical failure
-                if (pollError.error && pollError.error.status === 'error') {
+                // Only return error if it's a critical failure, otherwise continue polling
+                if (pollError.error?.code === 'insufficientCredits' || pollError.error?.status === 'error') {
                     console.error('❌ Critical provider error:', errorMessage);
                     return { error: errorMessage };
                 }
@@ -125,22 +112,11 @@ async function generateVideoWithText(prompt) {
         return { error: 'Video generation timed out after 10 minutes' };
 
     } catch (err) {
-        console.error('❌ Video generation error:', err.message || err);
+        console.error('❌ Video generation error:', err);
         
-        const errorMessage = err.message || '';
-        
-        // Return user-friendly error messages
-        if (errorMessage.includes('timed out') || errorMessage.includes('timeout')) {
-            return { error: errorMessage };
-        } else if (errorMessage.includes('insufficient credits') || errorMessage.includes('credit')) {
-            return { error: errorMessage };
-        } else if (errorMessage.includes('422') || err.response?.status === 422) {
-            return { error: errorMessage || 'Video generation request rejected - check credits or model availability' };
-        } else if (errorMessage.includes('authentication') || errorMessage.includes('API key')) {
-            return { error: errorMessage };
-        } else {
-            return { error: errorMessage || err.toString() || 'Video generation failed' };
-        }
+        // Extract error message from the actual error structure
+        const errorMessage = err.error?.message || err.message || err.toString();
+        return { error: errorMessage };
     }
 }
 
@@ -236,24 +212,11 @@ async function generateVideoFromImage(prompt, base64Image) {
                 console.log(`⚠️ Poll attempt ${attempts} failed`);
                 console.error('❌ Poll error details:', pollError);
                 
-                // Extract error message properly
-                let errorMessage = 'Polling failed';
-                if (typeof pollError === 'string') {
-                    errorMessage = pollError;
-                } else if (pollError.message) {
-                    errorMessage = pollError.message;
-                } else if (pollError.error) {
-                    if (typeof pollError.error === 'string') {
-                        errorMessage = pollError.error;
-                    } else if (pollError.error.message) {
-                        errorMessage = pollError.error.message;
-                    } else if (pollError.error.status === 'error') {
-                        errorMessage = pollError.error.message || 'Provider error';
-                    }
-                }
+                // Extract error message from poll error
+                const errorMessage = pollError.error?.message || pollError.message || pollError.toString();
                 
-                // Only return error if it's a critical failure
-                if (pollError.error && pollError.error.status === 'error') {
+                // Only return error if it's a critical failure, otherwise continue polling
+                if (pollError.error?.code === 'insufficientCredits' || pollError.error?.status === 'error') {
                     console.error('❌ Critical provider error:', errorMessage);
                     return { error: errorMessage };
                 }
@@ -266,22 +229,11 @@ async function generateVideoFromImage(prompt, base64Image) {
         return { error: 'Image-to-video generation timed out after 10 minutes' };
 
     } catch (err) {
-        console.error('❌ Image-to-video generation error:', err.message || err);
+        console.error('❌ Image-to-video generation error:', err);
         
-        const errorMessage = err.message || '';
-        
-        // Return user-friendly error messages
-        if (errorMessage.includes('timed out') || errorMessage.includes('timeout')) {
-            return { error: errorMessage };
-        } else if (errorMessage.includes('insufficient credits') || errorMessage.includes('credit')) {
-            return { error: errorMessage };
-        } else if (errorMessage.includes('422') || err.response?.status === 422) {
-            return { error: errorMessage || 'Image-to-video request rejected - check credits or model availability' };
-        } else if (errorMessage.includes('authentication') || errorMessage.includes('API key')) {
-            return { error: errorMessage };
-        } else {
-            return { error: errorMessage || err.toString() || 'Image-to-video generation failed' };
-        }
+        // Extract error message from the actual error structure
+        const errorMessage = err.error?.message || err.message || err.toString();
+        return { error: errorMessage };
     }
 }
 
