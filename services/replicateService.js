@@ -1,26 +1,26 @@
 const Replicate = require('replicate');
+const fs = require('fs');
+const path = require('path');
 
 const replicate = new Replicate({
     auth: process.env.REPLICATE_API_KEY,
 });
 
-// Best models for each task type
 const MODELS = {
     TEXT_TO_VIDEO: "ali-vilab/i2vgen-xl:5821a338d00033abaaba89080a17eb8783d9a17ed710a6b4246a18e0900ccad4",
     IMAGE_TO_VIDEO: "wan-video/wan-2.2-i2v-a14b",
-    VIDEO_TO_VIDEO: "bytedance/seedance-1-pro" // This supports both text-to-video and image-to-video, can be used for video editing
+    VIDEO_TO_VIDEO: "runwayml/gen4-aleph"
 };
 
 async function generateVideoWithText(prompt) {
     try {
-        console.log('🎬 Starting Replicate text-to-video generation with prompt:', prompt);
+        console.log('🎬 Starting Replicate text-to-video generation');
         
-        // Start the prediction
         const prediction = await replicate.predictions.create({
             version: MODELS.TEXT_TO_VIDEO,
             input: {
                 prompt: prompt,
-                duration: 5, // 5 seconds
+                duration: 5,
                 width: 608,
                 height: 1080,
                 guidance_scale: 7.5,
@@ -28,31 +28,25 @@ async function generateVideoWithText(prompt) {
             }
         });
 
-        if (!prediction || !prediction.id) {
-            console.error('❌ No prediction ID received from Replicate');
+        if (!prediction?.id) {
             return { error: 'No prediction ID received from Replicate' };
         }
 
-        console.log('🔄 Polling for text-to-video completion, predictionId:', prediction.id);
+        console.log('🔄 Polling for completion');
         
-        // Poll for completion - up to 10 minutes with 10-second intervals
         const maxAttempts = 60;
         let attempts = 0;
         
         while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+            await new Promise(resolve => setTimeout(resolve, 10000));
             attempts++;
             
             try {
                 const result = await replicate.predictions.get(prediction.id);
                 
-                console.log(`🔄 Attempt ${attempts} - Status: ${result.status}`);
-                
-                // Check for completion
                 if (result.status === 'succeeded' && result.output) {
-                    console.log('✅ Text-to-video generated successfully');
+                    console.log('✅ Text-to-video completed');
                     
-                    // Extract video URL from output
                     let videoURL = result.output;
                     if (Array.isArray(result.output)) {
                         videoURL = result.output[0];
@@ -61,160 +55,106 @@ async function generateVideoWithText(prompt) {
                     return { 
                         text: prompt, 
                         result: videoURL,
-                        cost: calculateCost(result) || null
+                        cost: calculateCost(result)
                     };
                 }
                 
-                // Check for failure
                 if (result.status === 'failed' || result.status === 'canceled') {
-                    console.error('❌ Text-to-video generation failed with status:', result.status);
-                    
-                    // Return detailed error information
-                    let errorMsg = result.error || `Task ${result.status}`;
-                    if (result.logs) {
-                        errorMsg += ` - Logs: ${result.logs}`;
-                    }
-                    
+                    const errorMsg = result.error || `Task ${result.status}`;
                     return { error: errorMsg };
                 }
                 
-                // Continue polling for other statuses (starting, processing, etc.)
-                
             } catch (pollError) {
-                console.log(`⚠️ Poll attempt ${attempts} failed`);
-                console.error('❌ Poll error details:', pollError);
-                
-                // Extract full error details
-                let errorMessage = pollError.message || pollError.toString();
-                
-                // If there's a full error object, include all its details
-                if (pollError.response?.data) {
-                    const errorDetails = {
-                        message: pollError.response.data.detail || pollError.message,
-                        status: pollError.response.status,
-                        statusText: pollError.response.statusText,
-                        data: pollError.response.data
-                    };
-                    
-                    // Remove undefined fields and create readable text
-                    const cleanDetails = Object.entries(errorDetails)
-                        .filter(([key, value]) => value !== undefined)
-                        .map(([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}`)
-                        .join(', ');
-                        
-                    errorMessage = cleanDetails || errorMessage;
-                }
-                
-                // Only return error if it's a critical failure (auth, quota, etc.)
                 if (pollError.response?.status === 401 || pollError.response?.status === 402 || pollError.response?.status === 429) {
-                    console.error('❌ Critical Replicate error:', errorMessage);
-                    return { error: errorMessage };
+                    return { error: extractErrorDetails(pollError) };
                 }
-                
-                // Otherwise continue polling
             }
         }
         
-        console.error('❌ Text-to-video generation timed out');
         return { error: 'Text-to-video generation timed out after 10 minutes' };
 
     } catch (err) {
-        console.error('❌ Text-to-video generation error:', err);
-        
-        // Return the full error object as text if it exists, otherwise just the message
-        let errorMessage = err.message || err.toString();
-        
-        // If there's a response with error details
-        if (err.response?.data) {
-            const errorDetails = {
-                message: err.response.data.detail || err.message,
-                status: err.response.status,
-                statusText: err.response.statusText,
-                type: err.response.data.type,
-                title: err.response.data.title
-            };
-            
-            // Remove undefined fields and create readable text
-            const cleanDetails = Object.entries(errorDetails)
-                .filter(([key, value]) => value !== undefined)
-                .map(([key, value]) => `${key}: ${value}`)
-                .join(', ');
-                
-            errorMessage = cleanDetails || errorMessage;
-        }
-        
-        return { error: errorMessage };
+        console.error('❌ Text-to-video generation error:', err.message);
+        return { error: extractErrorDetails(err) };
     }
 }
 
-// Helper function to calculate cost based on prediction details
 function calculateCost(prediction) {
     try {
-        // Replicate usually charges based on prediction time and model
-        // This is an estimation - actual costs may vary
         if (prediction.metrics?.predict_time) {
             const timeInSeconds = prediction.metrics.predict_time;
-            // Rough estimate: $0.01-0.05 per second for video models
             return (timeInSeconds * 0.02).toFixed(4);
         }
         return null;
     } catch (err) {
-        console.warn('⚠️ Could not calculate cost:', err.message);
         return null;
     }
+}
+
+function extractErrorDetails(error) {
+    let errorMessage = error.message || error.toString();
+    
+    if (error.response?.data) {
+        const errorDetails = {
+            message: error.response.data.detail || error.message,
+            status: error.response.status,
+            statusText: error.response.statusText,
+            type: error.response.data.type,
+            title: error.response.data.title
+        };
+        
+        const cleanDetails = Object.entries(errorDetails)
+            .filter(([key, value]) => value !== undefined)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(', ');
+            
+        errorMessage = cleanDetails || errorMessage;
+    }
+    
+    return errorMessage;
 }
 
 async function generateVideoFromImage(imageBuffer, prompt = null) {
     try {
         console.log('🎬 Starting Replicate image-to-video generation');
         
-        // Convert buffer to base64 data URL
         const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
         
-        // Prepare input for the Wan 2.2 i2v model
         const input = {
             image: base64Image,
-            duration: 5, // Duration in seconds
-            fps: 24, // Frames per second
-            resolution: "720p" // Output resolution
+            duration: 5,
+            fps: 24,
+            resolution: "720p"
         };
         
-        // Add prompt if provided
         if (prompt) {
             input.prompt = prompt;
         }
         
-        // Start the prediction
         const prediction = await replicate.predictions.create({
             version: MODELS.IMAGE_TO_VIDEO,
             input: input
         });
 
-        if (!prediction || !prediction.id) {
-            console.error('❌ No prediction ID received from Replicate for image-to-video');
+        if (!prediction?.id) {
             return { error: 'No prediction ID received from Replicate' };
         }
 
-        console.log('🔄 Polling for image-to-video completion, predictionId:', prediction.id);
+        console.log('🔄 Polling for completion');
         
-        // Poll for completion - up to 10 minutes with 10-second intervals
         const maxAttempts = 60;
         let attempts = 0;
         
         while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+            await new Promise(resolve => setTimeout(resolve, 10000));
             attempts++;
             
             try {
                 const result = await replicate.predictions.get(prediction.id);
                 
-                console.log(`🔄 Attempt ${attempts} - Status: ${result.status}`);
-                
-                // Check for completion
                 if (result.status === 'succeeded' && result.output) {
-                    console.log('✅ Image-to-video generated successfully');
+                    console.log('✅ Image-to-video completed');
                     
-                    // Extract video URL from output
                     let videoURL = result.output;
                     if (Array.isArray(result.output)) {
                         videoURL = result.output[0];
@@ -223,210 +163,112 @@ async function generateVideoFromImage(imageBuffer, prompt = null) {
                     return { 
                         text: prompt || 'Image to video conversion', 
                         result: videoURL,
-                        cost: calculateCost(result) || null
+                        cost: calculateCost(result)
                     };
                 }
                 
-                // Check for failure
                 if (result.status === 'failed' || result.status === 'canceled') {
-                    console.error('❌ Image-to-video generation failed with status:', result.status);
-                    
-                    let errorMsg = result.error || `Task ${result.status}`;
-                    if (result.logs) {
-                        errorMsg += ` - Logs: ${result.logs}`;
-                    }
-                    
+                    const errorMsg = result.error || `Task ${result.status}`;
                     return { error: errorMsg };
                 }
                 
             } catch (pollError) {
-                console.log(`⚠️ Poll attempt ${attempts} failed`);
-                console.error('❌ Poll error details:', pollError);
-                
-                let errorMessage = pollError.message || pollError.toString();
-                
-                if (pollError.response?.data) {
-                    const errorDetails = {
-                        message: pollError.response.data.detail || pollError.message,
-                        status: pollError.response.status,
-                        statusText: pollError.response.statusText,
-                        data: pollError.response.data
-                    };
-                    
-                    const cleanDetails = Object.entries(errorDetails)
-                        .filter(([key, value]) => value !== undefined)
-                        .map(([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}`)
-                        .join(', ');
-                        
-                    errorMessage = cleanDetails || errorMessage;
-                }
-                
                 if (pollError.response?.status === 401 || pollError.response?.status === 402 || pollError.response?.status === 429) {
-                    console.error('❌ Critical Replicate error:', errorMessage);
-                    return { error: errorMessage };
+                    return { error: extractErrorDetails(pollError) };
                 }
             }
         }
         
-        console.error('❌ Image-to-video generation timed out');
         return { error: 'Image-to-video generation timed out after 10 minutes' };
 
     } catch (err) {
-        console.error('❌ Image-to-video generation error:', err);
-        
-        let errorMessage = err.message || err.toString();
-        
-        if (err.response?.data) {
-            const errorDetails = {
-                message: err.response.data.detail || err.message,
-                status: err.response.status,
-                statusText: err.response.statusText,
-                type: err.response.data.type,
-                title: err.response.data.title
-            };
-            
-            const cleanDetails = Object.entries(errorDetails)
-                .filter(([key, value]) => value !== undefined)
-                .map(([key, value]) => `${key}: ${value}`)
-                .join(', ');
-                
-            errorMessage = cleanDetails || errorMessage;
-        }
-        
-        return { error: errorMessage };
+        console.error('❌ Image-to-video generation error:', err.message);
+        return { error: extractErrorDetails(err) };
     }
 }
 
-async function generateVideoFromVideo(videoBuffer, prompt = null) {
+async function generateVideoFromVideo(inputVideoBuffer, prompt) {
     try {
-        console.log('🎬 Starting Replicate video-to-video generation');
+        console.log('🎬 Starting video-to-video generation');
+
+        const tempDir = path.join(__dirname, '..', 'public', 'tmp');
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
         
-        // Convert buffer to base64 data URL
-        const base64Video = `data:video/mp4;base64,${videoBuffer.toString('base64')}`;
-        
-        // Prepare input for the Seedance model
+        const tempVideoPath = path.join(tempDir, `temp_video_${Date.now()}.mp4`);
+        fs.writeFileSync(tempVideoPath, inputVideoBuffer);
+
+        const videoBase64 = fs.readFileSync(tempVideoPath).toString('base64');
+        const videoDataUrl = `data:video/mp4;base64,${videoBase64}`;
+
         const input = {
-            image: base64Video, // Seedance uses 'image' field for both images and videos
-            duration: 5, // Duration in seconds
-            fps: 24, // Frames per second
-            resolution: "720p" // Output resolution
+            prompt: prompt,
+            video: videoDataUrl,
+            aspect_ratio: "16:9"
         };
         
-        // Add prompt if provided
-        if (prompt) {
-            input.prompt = prompt;
+        console.log('🔄 Calling Replicate API');
+        const output = await replicate.run(MODELS.VIDEO_TO_VIDEO, { input });
+        
+        // Clean up temp file
+        try {
+            fs.unlinkSync(tempVideoPath);
+        } catch (cleanupError) {
+            console.warn('Could not clean up temp file:', cleanupError.message);
         }
         
-        // Start the prediction
-        const prediction = await replicate.predictions.create({
-            version: MODELS.VIDEO_TO_VIDEO,
-            input: input
-        });
-
-        if (!prediction || !prediction.id) {
-            console.error('❌ No prediction ID received from Replicate for video-to-video');
-            return { error: 'No prediction ID received from Replicate' };
+        if (!output) {
+            throw new Error('No output received from Replicate');
         }
-
-        console.log('🔄 Polling for video-to-video completion, predictionId:', prediction.id);
         
-        // Poll for completion - up to 15 minutes with 15-second intervals (video-to-video takes longer)
-        const maxAttempts = 60;
-        let attempts = 0;
-        
-        while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 15000)); // Wait 15 seconds
-            attempts++;
+        // Handle ReadableStream response
+        if (output && typeof output.getReader === 'function') {
+            console.log('🔄 Converting ReadableStream to file');
+            
+            const reader = output.getReader();
+            const chunks = [];
             
             try {
-                const result = await replicate.predictions.get(prediction.id);
-                
-                console.log(`🔄 Attempt ${attempts} - Status: ${result.status}`);
-                
-                // Check for completion
-                if (result.status === 'succeeded' && result.output) {
-                    console.log('✅ Video-to-video generated successfully');
-                    
-                    // Extract video URL from output
-                    let videoURL = result.output;
-                    if (Array.isArray(result.output)) {
-                        videoURL = result.output[0];
-                    }
-                    
-                    return { 
-                        text: prompt || 'Video to video conversion', 
-                        result: videoURL,
-                        cost: calculateCost(result) || null
-                    };
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
                 }
                 
-                // Check for failure
-                if (result.status === 'failed' || result.status === 'canceled') {
-                    console.error('❌ Video-to-video generation failed with status:', result.status);
-                    
-                    let errorMsg = result.error || `Task ${result.status}`;
-                    if (result.logs) {
-                        errorMsg += ` - Logs: ${result.logs}`;
-                    }
-                    
-                    return { error: errorMsg };
+                const videoBuffer = Buffer.concat(chunks);
+                const outputFilename = `video_${Date.now()}.mp4`;
+                const outputDir = path.join(__dirname, '..', 'public', 'tmp');
+                const outputPath = path.join(outputDir, outputFilename);
+                
+                if (!fs.existsSync(outputDir)) {
+                    fs.mkdirSync(outputDir, { recursive: true });
                 }
                 
-            } catch (pollError) {
-                console.log(`⚠️ Poll attempt ${attempts} failed`);
-                console.error('❌ Poll error details:', pollError);
+                fs.writeFileSync(outputPath, videoBuffer);
+                console.log('✅ Video-to-video completed');
                 
-                let errorMessage = pollError.message || pollError.toString();
+                return { result: `/static/${outputFilename}` };
                 
-                if (pollError.response?.data) {
-                    const errorDetails = {
-                        message: pollError.response.data.detail || pollError.message,
-                        status: pollError.response.status,
-                        statusText: pollError.response.statusText,
-                        data: pollError.response.data
-                    };
-                    
-                    const cleanDetails = Object.entries(errorDetails)
-                        .filter(([key, value]) => value !== undefined)
-                        .map(([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}`)
-                        .join(', ');
-                        
-                    errorMessage = cleanDetails || errorMessage;
-                }
-                
-                if (pollError.response?.status === 401 || pollError.response?.status === 402 || pollError.response?.status === 429) {
-                    console.error('❌ Critical Replicate error:', errorMessage);
-                    return { error: errorMessage };
-                }
+            } catch (streamError) {
+                throw new Error(`Failed to read video stream: ${streamError.message}`);
             }
-        }
-        
-        console.error('❌ Video-to-video generation timed out');
-        return { error: 'Video-to-video generation timed out after 15 minutes' };
-
-    } catch (err) {
-        console.error('❌ Video-to-video generation error:', err);
-        
-        let errorMessage = err.message || err.toString();
-        
-        if (err.response?.data) {
-            const errorDetails = {
-                message: err.response.data.detail || err.message,
-                status: err.response.status,
-                statusText: err.response.statusText,
-                type: err.response.data.type,
-                title: err.response.data.title
-            };
+        } else {
+            // Handle direct URL response
+            let videoURL = output;
+            if (Array.isArray(output)) {
+                videoURL = output[0];
+            } else if (typeof output === 'object' && output.video) {
+                videoURL = output.video;
+            } else if (typeof output === 'object' && output.output) {
+                videoURL = output.output;
+            }
             
-            const cleanDetails = Object.entries(errorDetails)
-                .filter(([key, value]) => value !== undefined)
-                .map(([key, value]) => `${key}: ${value}`)
-                .join(', ');
-                
-            errorMessage = cleanDetails || errorMessage;
+            return { result: videoURL };
         }
-        
-        return { error: errorMessage };
+    } catch (error) {
+        console.error('❌ Video-to-video generation error:', error.message);
+        throw error;
     }
 }
 
