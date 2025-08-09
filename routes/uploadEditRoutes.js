@@ -12,6 +12,7 @@ const taskStore = require('../store/taskStore');
 const geminiService = require('../services/geminiService');
 const openaiService = require('../services/openaiService');
 const runwareService = require('../services/runwareService');
+const replicateService = require('../services/replicateService');
 const lemonfoxService = require('../services/lemonfoxService');
 const fs = require('fs');
 const path = require('path');
@@ -47,21 +48,27 @@ router.post('/upload-edit', upload.single('file'), async (req, res) => {
 });
 
 router.post('/upload-video', upload.single('file'), async (req, res) => {  
-  const { prompt } = req.body;
+  const { prompt, provider } = req.body;
   if (!prompt || !req.file) {
     console.log('❌ Upload video: Missing prompt or file');
     return res.status(400).json({ status:'error', error:'Missing prompt or file' });
   }
 
   const taskId = uuidv4();
-  console.log(`🎬 Starting image-to-video - TaskID: ${taskId}`);
+  console.log(`🎬 Starting image-to-video with ${provider || 'runware'} - TaskID: ${taskId}`);
   taskStore.set(taskId, { status:'pending' });
   res.json({ taskId });
 
   try {
-    // Convert image to base64 for Runware
-    const base64 = req.file.buffer.toString('base64');
-    const result = await runwareService.generateVideoFromImage(prompt, base64);
+    let result;
+    if (provider === 'replicate') {
+      console.log(`🎬 Generating video with Replicate - TaskID: ${taskId}`);
+      result = await replicateService.generateVideoFromImage(req.file.buffer, prompt);
+    } else {
+      console.log(`🎬 Generating video with Runware - TaskID: ${taskId}`);
+      const base64 = req.file.buffer.toString('base64');
+      result = await runwareService.generateVideoFromImage(prompt, base64);
+    }
     
     finalizeVideo(taskId, result, prompt);
   } catch (error) {
@@ -70,18 +77,51 @@ router.post('/upload-video', upload.single('file'), async (req, res) => {
   }
 });
 
+router.post('/upload-video-edit', upload.single('file'), async (req, res) => {  
+  const { prompt, provider } = req.body;
+  if (!prompt || !req.file) {
+    console.log('❌ Upload video edit: Missing prompt or file');
+    return res.status(400).json({ status:'error', error:'Missing prompt or file' });
+  }
+
+  const taskId = uuidv4();
+  console.log(`🎬 Starting video-to-video with ${provider || 'replicate'} - TaskID: ${taskId}`);
+  taskStore.set(taskId, { status:'pending' });
+  res.json({ taskId });
+
+  try {
+    let result;
+    if (provider === 'replicate') {
+      console.log(`🎬 Generating video-to-video with Replicate - TaskID: ${taskId}`);
+      result = await replicateService.generateVideoFromVideo(req.file.buffer, prompt);
+    } else {
+      console.log(`❌ Video-to-video only supported by Replicate - TaskID: ${taskId}`);
+      taskStore.set(taskId, { 
+        status: 'error', 
+        error: 'Video-to-video transformation is currently only supported by Replicate. Please use provider=replicate' 
+      });
+      return;
+    }
+    
+    finalizeVideo(taskId, result, prompt);
+  } catch (error) {
+    console.error(`❌ Unexpected error in upload-video-edit - TaskID: ${taskId}:`, error.message);
+    taskStore.set(taskId, { status: 'error', error: error.message || error.toString() || 'Unknown error occurred' });
+  }
+});
+
 function finalizeVideo(taskId, result, prompt) {
   try {
     if (!result || result.error) {
-      console.log(`❌ Image-to-video failed - TaskID: ${taskId}`);
+      console.log(`❌ Video generation failed - TaskID: ${taskId}`);
       taskStore.set(taskId, { status:'error', error: result?.error || result?.message || 'Task failed without error details' });
       return;
     }
 
-    console.log(`✅ Image-to-video completed - TaskID: ${taskId}`);
+    console.log(`✅ Video generation completed - TaskID: ${taskId}`);
     taskStore.set(taskId, {
       status:'done',
-      result: result.videoURL,
+      result: result.result,
       text: result.text || prompt,
       cost: result.cost
     });

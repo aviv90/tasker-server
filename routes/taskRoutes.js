@@ -5,6 +5,7 @@ const taskStore = require('../store/taskStore');
 const geminiService = require('../services/geminiService');
 const openaiService = require('../services/openaiService');
 const runwareService = require('../services/runwareService');
+const replicateService = require('../services/replicateService');
 const fs = require('fs');
 const path = require('path');
 
@@ -29,8 +30,15 @@ router.post('/start-task', async (req, res) => {
             }
             finalizeTask(taskId, result, req, 'png');
         } else if (type === 'text-to-video') {
-            console.log(`🎬 Generating video with Runware - TaskID: ${taskId}`);
-            const result = await runwareService.generateVideoWithText(prompt);
+            let result;
+            if (provider === 'replicate') {
+                console.log(`🎬 Generating video with Replicate - TaskID: ${taskId}`);
+                result = await replicateService.generateVideoWithText(prompt);
+            } else {
+                console.log(`🎬 Generating video with Runware - TaskID: ${taskId}`);
+                result = await runwareService.generateVideoWithText(prompt);
+            }
+            
             // For videos, we return the URL directly instead of saving file
             if (result.error) {
                 console.log(`❌ Video generation failed - TaskID: ${taskId}`);
@@ -39,7 +47,7 @@ router.post('/start-task', async (req, res) => {
                 console.log(`✅ Video generation completed - TaskID: ${taskId}`);
                 taskStore.set(taskId, {
                     status: 'done',
-                    result: result.videoURL,
+                    result: result.result,
                     text: result.text,
                     cost: result.cost
                 });

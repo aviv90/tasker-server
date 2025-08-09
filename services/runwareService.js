@@ -97,7 +97,7 @@ async function generateVideoWithText(prompt) {
                             console.log('✅ Video generated successfully');
                             return { 
                                 text: prompt, 
-                                videoURL: taskResult.videoURL,
+                                result: taskResult.videoURL,
                                 cost: taskResult.cost || null
                             };
                         }
@@ -275,7 +275,7 @@ async function generateVideoFromImage(prompt, base64Image) {
                             console.log('✅ Image-to-video generated successfully');
                             return { 
                                 text: prompt, 
-                                videoURL: taskResult.videoURL,
+                                result: taskResult.videoURL,
                                 cost: taskResult.cost || null
                             };
                         }
