@@ -1,4 +1,5 @@
 const { Runware } = require('@runware/sdk-js');
+const { sanitizeText } = require('../utils/textSanitizer');
 
 const runware = new Runware({
     apiKey: process.env.RUNWARE_API_KEY,
@@ -10,9 +11,12 @@ async function generateVideoWithText(prompt) {
     try {
         console.log('🎬 Starting video generation with prompt:', prompt);
         
+        // Sanitize prompt as an extra safety measure
+        const cleanPrompt = sanitizeText(prompt);
+        
         // Use KlingAI model for video generation with longer timeout
         const response = await runware.videoInference({
-            positivePrompt: prompt,
+            positivePrompt: cleanPrompt,
             model: "klingai:5@3",
             duration: 5,
             width: 608,

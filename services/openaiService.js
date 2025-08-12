@@ -1,5 +1,6 @@
 const OpenAI = require('openai');
 const axios = require('axios');
+const { sanitizeText } = require('../utils/textSanitizer');
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
@@ -9,10 +10,13 @@ async function generateImageWithText(prompt) {
     try {
         console.log('🎨 Starting OpenAI image generation');
         
+        // Sanitize prompt as an extra safety measure
+        const cleanPrompt = sanitizeText(prompt);
+        
         // Use gpt-image-1 which always returns base64
         const response = await openai.images.generate({
             model: "gpt-image-1",
-            prompt: prompt,
+            prompt: cleanPrompt,
             n: 1,
             quality: "high",
             output_format: "png"
@@ -49,13 +53,16 @@ async function editImageWithText(prompt, imageBuffer) {
     try {
         console.log('🖼️ Starting OpenAI image editing');
         
+        // Sanitize prompt as an extra safety measure
+        const cleanPrompt = sanitizeText(prompt);
+        
         // Convert Buffer to File-like object for OpenAI API
         const imageFile = new File([imageBuffer], 'image.jpg', { type: 'image/jpeg' });
         
         const response = await openai.images.edit({
             model: "gpt-image-1",
             image: imageFile,
-            prompt: prompt,
+            prompt: cleanPrompt,
             input_fidelity: "high",
             quality: "high",
             output_format: "png"

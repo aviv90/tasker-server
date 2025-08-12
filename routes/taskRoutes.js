@@ -6,12 +6,31 @@ const geminiService = require('../services/geminiService');
 const openaiService = require('../services/openaiService');
 const runwareService = require('../services/runwareService');
 const replicateService = require('../services/replicateService');
+const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
 const fs = require('fs');
 const path = require('path');
 
 router.post('/start-task', async (req, res) => {
     const { type, prompt, provider } = req.body;
-    if (!type || !prompt) return res.status(400).json({ status: 'error', error: 'Missing type or prompt' });
+    
+    // Validate required fields
+    if (!type || !prompt) {
+        return res.status(400).json({ 
+            status: 'error', 
+            error: 'Missing type or prompt' 
+        });
+    }
+
+    // Validate and sanitize prompt
+    let sanitizedPrompt;
+    try {
+        sanitizedPrompt = validateAndSanitizePrompt(prompt);
+    } catch (validationError) {
+        return res.status(400).json({ 
+            status: 'error', 
+            error: validationError.message 
+        });
+    }
 
     const taskId = uuidv4();
     console.log(`🚀 Starting ${type} task with ${provider || 'default'} provider`);
@@ -22,20 +41,20 @@ router.post('/start-task', async (req, res) => {
         if (type === 'text-to-image') {
             let result;
             if (provider === 'openai') {
-                result = await openaiService.generateImageWithText(prompt);
+                result = await openaiService.generateImageWithText(sanitizedPrompt);
             } else {
-                result = await geminiService.generateImageWithText(prompt);
+                result = await geminiService.generateImageWithText(sanitizedPrompt);
             }
             finalizeTask(taskId, result, req, 'png');
         } else if (type === 'text-to-video') {
             let result;
             if (provider === 'replicate') {
-                result = await replicateService.generateVideoWithText(prompt);
+                result = await replicateService.generateVideoWithText(sanitizedPrompt);
             } else {
-                result = await runwareService.generateVideoWithText(prompt);
+                result = await runwareService.generateVideoWithText(sanitizedPrompt);
             }
             
-            finalizeVideo(taskId, result, prompt);
+            finalizeVideo(taskId, result, sanitizedPrompt);
         } else {
             taskStore.set(taskId, { status: 'error', error: 'Unsupported task type' });
         }

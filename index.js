@@ -4,10 +4,15 @@ const app = express();
 const path = require('path');
 const taskRoutes = require('./routes/taskRoutes');
 const uploadEditRoutes = require('./routes/uploadEditRoutes');
+const sanitizeRequest = require('./middleware/sanitizeRequest');
 
 app.enable('trust proxy');
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Apply text sanitization middleware to all API routes
+app.use('/api', sanitizeRequest);
+
 app.use('/static', express.static(path.join(__dirname, 'public', 'tmp')));
 app.use('/api', taskRoutes);
 app.use('/api', uploadEditRoutes);

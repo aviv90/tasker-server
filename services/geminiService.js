@@ -1,4 +1,5 @@
 const { GoogleGenerativeAI, GenerateContentConfig } = require('@google/generative-ai');
+const { sanitizeText } = require('../utils/textSanitizer');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -6,12 +7,15 @@ async function generateImageWithText(prompt) {
     try {
         console.log('🎨 Starting Gemini image generation');
         
+        // Sanitize prompt as an extra safety measure
+        const cleanPrompt = sanitizeText(prompt);
+        
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.0-flash-preview-image-generation" 
         });
         
         const result = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            contents: [{ role: "user", parts: [{ text: cleanPrompt }] }],
             generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
         });
         
@@ -51,13 +55,16 @@ async function editImageWithText(prompt, base64Image) {
     try {
         console.log('🖼️ Starting Gemini image editing');
         
+        // Sanitize prompt as an extra safety measure
+        const cleanPrompt = sanitizeText(prompt);
+        
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.0-flash-preview-image-generation" 
         });
         
         const result = await model.generateContent({
             contents: [
-                { role: "user", parts: [{ inlineData: { mimeType: "image/jpeg", data: base64Image } }, { text: prompt }] }
+                { role: "user", parts: [{ inlineData: { mimeType: "image/jpeg", data: base64Image } }, { text: cleanPrompt }] }
             ],
             generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
         });

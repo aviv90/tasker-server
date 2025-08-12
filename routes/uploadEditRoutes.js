@@ -14,13 +14,30 @@ const openaiService = require('../services/openaiService');
 const runwareService = require('../services/runwareService');
 const replicateService = require('../services/replicateService');
 const lemonfoxService = require('../services/lemonfoxService');
+const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
 const fs = require('fs');
 const path = require('path');
 
 router.post('/upload-edit', upload.single('file'), async (req, res) => {  
   const { prompt, provider } = req.body;
+  
+  // Validate required fields
   if (!prompt || !req.file) {
-    return res.status(400).json({ status:'error', error:'Missing prompt or file' });
+    return res.status(400).json({ 
+      status: 'error', 
+      error: 'Missing prompt or file' 
+    });
+  }
+
+  // Validate and sanitize prompt
+  let sanitizedPrompt;
+  try {
+    sanitizedPrompt = validateAndSanitizePrompt(prompt);
+  } catch (validationError) {
+    return res.status(400).json({ 
+      status: 'error', 
+      error: validationError.message 
+    });
   }
 
   const taskId = uuidv4();
@@ -31,10 +48,10 @@ router.post('/upload-edit', upload.single('file'), async (req, res) => {
   try {
     let result;
     if (provider === 'openai') {
-      result = await openaiService.editImageWithText(prompt, req.file.buffer);
+      result = await openaiService.editImageWithText(sanitizedPrompt, req.file.buffer);
     } else {
       const base64 = req.file.buffer.toString('base64');
-      result = await geminiService.editImageWithText(prompt, base64);
+      result = await geminiService.editImageWithText(sanitizedPrompt, base64);
     }
     
     finalize(taskId, result, req);
