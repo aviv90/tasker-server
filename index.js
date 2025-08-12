@@ -5,9 +5,12 @@ const path = require('path');
 const taskRoutes = require('./routes/taskRoutes');
 const uploadEditRoutes = require('./routes/uploadEditRoutes');
 const sanitizeRequest = require('./middleware/sanitizeRequest');
+const safeJsonParser = require('./middleware/safeJsonParser');
 
 app.enable('trust proxy');
-app.use(express.json({ limit: '50mb' }));
+
+// Use custom JSON parser that handles problematic characters
+app.use(safeJsonParser());
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Apply text sanitization middleware to all API routes
