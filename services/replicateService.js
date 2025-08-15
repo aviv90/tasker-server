@@ -306,7 +306,7 @@ async function generateSongWithText(prompt) {
         console.log(`🎼 Enhanced prompt: ${enhancedPrompt}`);
         console.log(`🎤 Using speaker: ${randomSpeaker}`);
         
-        // Use Suno Bark model for vocals + music
+        // Use Suno Bark model for vocals + music!
         const prediction = await replicate.predictions.create({
             version: MODELS.TEXT_TO_SONG_BARK,
             input: {
