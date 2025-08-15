@@ -1,5 +1,6 @@
 const { Runware } = require('@runware/sdk-js');
 const { sanitizeText } = require('../utils/textSanitizer');
+const { extractErrorMessage, isCriticalError } = require('../utils/errorHandler');
 
 const runware = new Runware({
     apiKey: process.env.RUNWARE_API_KEY,

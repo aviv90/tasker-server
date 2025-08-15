@@ -1,13 +1,13 @@
-// Quick test for the fixed Text to Song
+// Quick test for the server functionality
 const axios = require('axios');
 
 async function quickTest() {
-    console.log('🎵 Quick test for Text to Song...');
+    console.log('🚀 Quick test for server functionality...');
     
     try {
         const response = await axios.post('http://localhost:3000/api/start-task', {
-            type: 'text-to-song',
-            prompt: 'שיר שמח קצר'
+            type: 'text-to-image',
+            prompt: 'A beautiful sunset over mountains'
         });
         
         console.log('✅ Task started:', response.data);

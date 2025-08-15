@@ -6,8 +6,8 @@ const geminiService = require('../services/geminiService');
 const openaiService = require('../services/openaiService');
 const runwareService = require('../services/runwareService');
 const replicateService = require('../services/replicateService');
-const musicService = require('../services/musicService');
 const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
+const { isErrorResult, getTaskError } = require('../utils/errorHandler');
 const fs = require('fs');
 const path = require('path');
 
@@ -56,16 +56,12 @@ router.post('/start-task', async (req, res) => {
             }
             
             finalizeVideo(taskId, result, sanitizedPrompt);
-        } else if (type === 'text-to-song') {
-            console.log(`🎵 Generating song with Music Service - TaskID: ${taskId}`);
-            const result = await musicService.generateSongWithText(sanitizedPrompt);
-            finalizeAudio(taskId, result, sanitizedPrompt);
         } else {
             taskStore.set(taskId, { status: 'error', error: 'Unsupported task type' });
         }
     } catch (error) {
         console.error(`❌ Task error:`, error.message);
-        taskStore.set(taskId, { status: 'error', error: error.message || 'Unknown error occurred' });
+        taskStore.set(taskId, getTaskError(error));
     }
 });
 
@@ -77,8 +73,8 @@ router.get('/task-status/:taskId', (req, res) => {
 
 function finalizeVideo(taskId, result, prompt) {
     try {
-        if (!result || result.error) {
-            taskStore.set(taskId, { status: 'error', error: result?.error || 'Task failed without error details' });
+        if (isErrorResult(result)) {
+            taskStore.set(taskId, getTaskError(result));
             return;
         }
 
@@ -91,14 +87,14 @@ function finalizeVideo(taskId, result, prompt) {
         });
     } catch (error) {
         console.error(`❌ Error in finalizeVideo:`, error.message);
-        taskStore.set(taskId, { status: 'error', error: error.message || 'Failed to finalize video' });
+        taskStore.set(taskId, getTaskError(error, 'Failed to finalize video'));
     }
 }
 
 function finalizeTask(taskId, result, req, fileExtension = 'png') {
     try {
-        if (!result || result.error) {
-            taskStore.set(taskId, { status: 'error', error: result?.error || 'Task failed without error details' });
+        if (isErrorResult(result)) {
+            taskStore.set(taskId, getTaskError(result));
             return;
         }
         
@@ -113,7 +109,7 @@ function finalizeTask(taskId, result, req, fileExtension = 'png') {
             fs.writeFileSync(outputPath, buffer);
             console.log(`✅ ${fileExtension.toUpperCase()} file saved`);
         } else {
-            taskStore.set(taskId, { status: 'error', error: 'No buffer data' });
+            taskStore.set(taskId, getTaskError(null, 'No buffer data'));
             return;
         }
 
@@ -127,30 +123,10 @@ function finalizeTask(taskId, result, req, fileExtension = 'png') {
         });
     } catch (error) {
         console.error(`❌ Error in finalizeTask:`, error.message);
-        taskStore.set(taskId, { status: 'error', error: error.message || 'Failed to save file' });
+        taskStore.set(taskId, getTaskError(error, 'Failed to save file'));
     }
 }
 
-function finalizeAudio(taskId, result, prompt) {
-    try {
-        if (!result || result.error) {
-            console.error(`❌ Audio generation failed - TaskID: ${taskId}:`, result?.error);
-            taskStore.set(taskId, { status: 'error', error: result?.error || 'Audio generation failed without error details' });
-            return;
-        }
 
-        console.log(`✅ Audio generation completed - TaskID: ${taskId}`);
-        taskStore.set(taskId, {
-            status: 'done',
-            result: result.result, // URL to the audio file from Replicate
-            text: result.text || prompt,
-            provider: result.provider || 'replicate',
-            type: 'audio'
-        });
-    } catch (error) {
-        console.error(`❌ Error in finalizeAudio - TaskID: ${taskId}:`, error.message);
-        taskStore.set(taskId, { status: 'error', error: 'Unknown error occurred while processing audio' });
-    }
-}
 
 module.exports = router;

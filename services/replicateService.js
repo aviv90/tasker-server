@@ -2,7 +2,7 @@ const Replicate = require('replicate');
 const fs = require('fs');
 const path = require('path');
 const { sanitizeText } = require('../utils/textSanitizer');
-const { detectLanguage, enhancePromptForMusic } = require('../utils/textUtils');
+const { extractErrorMessage } = require('../utils/errorHandler');
 
 const replicate = new Replicate({
     auth: process.env.REPLICATE_API_KEY,
@@ -11,10 +11,7 @@ const replicate = new Replicate({
 const MODELS = {
     TEXT_TO_VIDEO: "ali-vilab/i2vgen-xl:5821a338d00033abaaba89080a17eb8783d9a17ed710a6b4246a18e0900ccad4",
     IMAGE_TO_VIDEO: "wan-video/wan-2.2-i2v-a14b",
-    VIDEO_TO_VIDEO: "runwayml/gen4-aleph",
-    TEXT_TO_SONG_VOCALS: "minimax/music-01", // Best model for songs with lyrics and vocals
-    TEXT_TO_SONG_BARK: "suno-ai/bark:b76242b40d67c76ab6742e987628a2a9ac019e11d56ab96c4e91ce03b79b2787",
-    TEXT_TO_MUSIC: "meta/musicgen:671ac645ce5e552cc63a54a2bbff63fcf798043055d2dac5fc9e36a837eedcfb"
+    VIDEO_TO_VIDEO: "runwayml/gen4-aleph"
 };
 
 async function generateVideoWithText(prompt) {
@@ -71,7 +68,7 @@ async function generateVideoWithText(prompt) {
                 
             } catch (pollError) {
                 if (pollError.response?.status === 401 || pollError.response?.status === 402 || pollError.response?.status === 429) {
-                    return { error: extractErrorDetails(pollError) };
+                    return { error: extractErrorMessage(pollError) };
                 }
             }
         }
@@ -80,7 +77,7 @@ async function generateVideoWithText(prompt) {
 
     } catch (err) {
         console.error('❌ Text-to-video generation error:', err.message);
-        return { error: extractErrorDetails(err) };
+        return { error: extractErrorMessage(err) };
     }
 }
 
@@ -96,28 +93,7 @@ function calculateCost(prediction) {
     }
 }
 
-function extractErrorDetails(error) {
-    let errorMessage = error.message || error.toString();
-    
-    if (error.response?.data) {
-        const errorDetails = {
-            message: error.response.data.detail || error.message,
-            status: error.response.status,
-            statusText: error.response.statusText,
-            type: error.response.data.type,
-            title: error.response.data.title
-        };
-        
-        const cleanDetails = Object.entries(errorDetails)
-            .filter(([key, value]) => value !== undefined)
-            .map(([key, value]) => `${key}: ${value}`)
-            .join(', ');
-            
-        errorMessage = cleanDetails || errorMessage;
-    }
-    
-    return errorMessage;
-}
+
 
 async function generateVideoFromImage(imageBuffer, prompt = null) {
     try {
@@ -179,7 +155,7 @@ async function generateVideoFromImage(imageBuffer, prompt = null) {
                 
             } catch (pollError) {
                 if (pollError.response?.status === 401 || pollError.response?.status === 402 || pollError.response?.status === 429) {
-                    return { error: extractErrorDetails(pollError) };
+                    return { error: extractErrorMessage(pollError) };
                 }
             }
         }
@@ -188,7 +164,7 @@ async function generateVideoFromImage(imageBuffer, prompt = null) {
 
     } catch (err) {
         console.error('❌ Image-to-video generation error:', err.message);
-        return { error: extractErrorDetails(err) };
+        return { error: extractErrorMessage(err) };
     }
 }
 
@@ -277,298 +253,10 @@ async function generateVideoFromVideo(inputVideoBuffer, prompt) {
     }
 }
 
-async function generateSongWithText(prompt) {
-    try {
-        console.log('🎵 Starting song generation with minimax/music-01');
-        
-        // Sanitize and prepare prompt
-        const cleanPrompt = sanitizeText(prompt);
-        const language = detectLanguage(cleanPrompt);
-        
-        console.log(`🔍 Language: ${language}, Text: "${cleanPrompt}"`);
-        
-        // Prepare lyrics (max 400 characters for minimax)
-        const lyrics = cleanPrompt.length > 400 ? cleanPrompt.substring(0, 400) : cleanPrompt;
-        
-        // Create prediction with minimax model
-        const prediction = await replicate.predictions.create({
-            version: MODELS.TEXT_TO_SONG_VOCALS,
-            input: { lyrics }
-        });
 
-        if (!prediction?.id) {
-            console.error('❌ No prediction ID from minimax');
-            return await fallbackToAlternativeModel(cleanPrompt, language);
-        }
-
-        // Poll for completion
-        console.log('🔄 Polling minimax for vocal song...');
-        const result = await pollPrediction(prediction.id, 120);
-        
-        if (result.success) {
-            console.log('✅ Vocal song completed successfully');
-            return { 
-                text: cleanPrompt, 
-                result: result.output,
-                provider: 'minimax-vocals',
-                language: language
-            };
-        } else {
-            console.log('� Minimax failed, trying fallback...');
-            return await fallbackToAlternativeModel(cleanPrompt, language);
-        }
-
-    } catch (err) {
-        console.error('❌ Song generation error:', err.message);
-        return await fallbackToAlternativeModel(prompt);
-    }
-}
-
-async function fallbackToAlternativeModel(prompt, language = null) {
-    try {
-        if (!language) language = detectLanguage(prompt);
-        
-        // For Hebrew, use MusicGen with vocal-style prompts
-        if (language === 'hebrew') {
-            console.log('🎵 Hebrew fallback: MusicGen vocal-style');
-            return await generateVocalInstrumentalWithText(prompt);
-        }
-        
-        // For other languages, try Bark
-        console.log('🎤 Fallback: Bark model');
-        const musicPrompt = enhancePromptForMusic(prompt);
-        const enhancedPrompt = createEnhancedMusicPrompt(musicPrompt);
-        const speaker = getRandomSpeaker(language);
-        
-        const prediction = await replicate.predictions.create({
-            version: MODELS.TEXT_TO_SONG_BARK,
-            input: {
-                prompt: enhancedPrompt,
-                text_temp: 0.7,
-                waveform_temp: 0.7,
-                history_prompt: speaker
-            }
-        });
-
-        if (!prediction?.id) {
-            return await generateInstrumentalWithText(prompt);
-        }
-
-        const result = await pollPrediction(prediction.id, 120);
-        
-        if (result.success) {
-            return { 
-                text: prompt, 
-                result: result.output,
-                provider: 'replicate-bark'
-            };
-        } else {
-            return await generateInstrumentalWithText(prompt);
-        }
-
-    } catch (err) {
-        console.error('❌ Fallback failed:', err.message);
-        return { error: `Song generation failed: ${err.message}` };
-    }
-}
-
-async function pollPrediction(predictionId, maxAttempts = 60) {
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        await new Promise(resolve => setTimeout(resolve, 10000));
-        
-        try {
-            const result = await replicate.predictions.get(predictionId);
-            
-            if (attempt % 10 === 0) {
-                console.log(`🔄 Polling: ${attempt}/${maxAttempts}, Status: ${result.status}`);
-            }
-            
-            if (result.status === 'succeeded' && result.output) {
-                return { success: true, output: result.output };
-            }
-            
-            if (result.status === 'failed') {
-                console.error('❌ Prediction failed:', result.error);
-                return { success: false, error: result.error };
-            }
-            
-        } catch (pollError) {
-            if (pollError.response?.status >= 400 && pollError.response?.status < 500) {
-                console.error('❌ Client error during polling:', extractErrorDetails(pollError));
-                return { success: false, error: extractErrorDetails(pollError) };
-            }
-        }
-    }
-    
-    console.log('⏰ Prediction timed out');
-    return { success: false, error: 'Generation timed out' };
-}
-
-async function generateVocalInstrumentalWithText(prompt) {
-    try {
-        console.log('🎤 MusicGen with vocal-style prompts');
-        
-        const musicPrompt = enhancePromptForMusic(prompt);
-        const vocalPrompt = createVocalInstrumentalPrompt(musicPrompt);
-        
-        const prediction = await replicate.predictions.create({
-            version: MODELS.TEXT_TO_MUSIC,
-            input: {
-                prompt: vocalPrompt,
-                model_version: "stereo-large",
-                output_format: "mp3",
-                normalization_strategy: "peak",
-                duration: 30
-            }
-        });
-
-        if (!prediction?.id) {
-            return { error: 'No prediction ID from MusicGen' };
-        }
-
-        const result = await pollPrediction(prediction.id, 60);
-        
-        if (result.success) {
-            return { 
-                text: prompt, 
-                result: result.output,
-                provider: 'musicgen-vocal-style'
-            };
-        } else {
-            return { error: result.error || 'Vocal instrumental generation failed' };
-        }
-
-    } catch (error) {
-        console.error('❌ MusicGen error:', error.message);
-        return { error: `Vocal instrumental failed: ${error.message}` };
-    }
-}
-
-function createVocalInstrumentalPrompt(prompt) {
-    // Create prompts that simulate vocal elements through instrumental means
-    const vocalStyles = [
-        "melodic pop with vocal-like synthesizer lead",
-        "acoustic guitar with humming melody, folk style",
-        "piano ballad with string melody representing vocals",
-        "indie folk with acoustic guitar melody, vocal-style phrasing",
-        "contemporary pop instrumental with melodic lead synth",
-        "acoustic folk with guitar fingerpicking, vocal melody on strings"
-    ];
-    
-    const randomVocalStyle = vocalStyles[Math.floor(Math.random() * vocalStyles.length)];
-    return `${randomVocalStyle}, inspired by: ${prompt}`;
-}
-
-async function generateInstrumentalWithText(prompt) {
-    try {
-        console.log('🎼 MusicGen instrumental generation');
-        
-        const cleanPrompt = sanitizeText(prompt);
-        const musicPrompt = enhancePromptForMusic(cleanPrompt);
-        const instrumentalPrompt = createInstrumentalPrompt(musicPrompt);
-        
-        const prediction = await replicate.predictions.create({
-            version: MODELS.TEXT_TO_MUSIC,
-            input: {
-                prompt: instrumentalPrompt,
-                model_version: "stereo-large",
-                output_format: "mp3",
-                normalization_strategy: "peak",
-                duration: 30
-            }
-        });
-
-        if (!prediction?.id) {
-            return { error: 'No prediction ID from MusicGen' };
-        }
-
-        const result = await pollPrediction(prediction.id, 60);
-        
-        if (result.success) {
-            return { 
-                text: cleanPrompt, 
-                result: result.output,
-                provider: 'musicgen-instrumental'
-            };
-        } else {
-            return { error: result.error || 'Instrumental generation failed' };
-        }
-
-    } catch (error) {
-        console.error('❌ MusicGen instrumental error:', error.message);
-        return { error: `Instrumental generation failed: ${error.message}` };
-    }
-}
-
-function createEnhancedMusicPrompt(prompt) {
-    // Check if this is Hebrew content
-    const isHebrew = /[\u0590-\u05FF]/.test(prompt);
-    
-    // Random music styles for variety
-    const styles = [
-        "acoustic guitar, soft vocals, melodic",
-        "pop ballad, emotional singing, heartfelt", 
-        "folk style, storytelling vocals, warm",
-        "indie rock, melodic voice, uplifting",
-        "contemporary, smooth vocals, gentle",
-        "acoustic folk, heartfelt singing, intimate"
-    ];
-    
-    const randomStyle = styles[Math.floor(Math.random() * styles.length)];
-    
-    if (isHebrew) {
-        // For Hebrew content, focus on the English translation and add style
-        // The prompt should already be enhanced by enhancePromptForMusic
-        return `[${randomStyle}] ${prompt}`;
-    } else {
-        // For English content, create a simple, clear prompt
-        return `[${randomStyle}] ${prompt}`;
-    }
-}
-
-function createInstrumentalPrompt(prompt) {
-    const instruments = [
-        "acoustic guitar and piano, melodic",
-        "soft piano melody, emotional", 
-        "guitar and strings, uplifting",
-        "ambient acoustic, peaceful",
-        "gentle instrumental, warm",
-        "melodic guitar, contemporary"
-    ];
-    
-    const randomInstrument = instruments[Math.floor(Math.random() * instruments.length)];
-    return `${randomInstrument}, inspired by: ${prompt}`;
-}
-
-function getRandomSpeaker(language = 'english') {
-    // Choose speaker based on detected language
-    const speakersByLanguage = {
-        english: [
-            "en_speaker_0", "en_speaker_1", "en_speaker_2", "en_speaker_3", 
-            "en_speaker_4", "en_speaker_5", "en_speaker_6", "en_speaker_7",
-            "en_speaker_8", "en_speaker_9"
-        ],
-        hebrew: [
-            // Hebrew not directly supported, use multilingual speakers
-            "en_speaker_0", "en_speaker_1", "en_speaker_2", // Clear English speakers
-            "es_speaker_0", "es_speaker_1", // Spanish can handle some Semitic sounds
-            "fr_speaker_0", "fr_speaker_1"  // French for different accent
-        ],
-        mixed: [
-            "en_speaker_0", "en_speaker_1", "en_speaker_2", 
-            "es_speaker_0", "es_speaker_1", "es_speaker_2",
-            "fr_speaker_0", "fr_speaker_1", "fr_speaker_2",
-            "it_speaker_0", "it_speaker_1", "it_speaker_2"
-        ]
-    };
-    
-    const speakers = speakersByLanguage[language] || speakersByLanguage.mixed;
-    return speakers[Math.floor(Math.random() * speakers.length)];
-}
 
 module.exports = { 
     generateVideoWithText, 
     generateVideoFromImage, 
-    generateVideoFromVideo,
-    generateSongWithText
+    generateVideoFromVideo
 };

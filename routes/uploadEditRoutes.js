@@ -15,6 +15,7 @@ const runwareService = require('../services/runwareService');
 const replicateService = require('../services/replicateService');
 const lemonfoxService = require('../services/lemonfoxService');
 const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
+const { isErrorResult, getTaskError } = require('../utils/errorHandler');
 const fs = require('fs');
 const path = require('path');
 
@@ -131,8 +132,8 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
 
 function finalizeVideo(taskId, result, prompt, req = null) {
   try {
-    if (!result || result.error) {
-      taskStore.set(taskId, { status:'error', error: result?.error || 'Task failed without error details' });
+    if (isErrorResult(result)) {
+      taskStore.set(taskId, getTaskError(result));
       return;
     }
 
@@ -152,7 +153,7 @@ function finalizeVideo(taskId, result, prompt, req = null) {
     });
   } catch (error) {
     console.error(`❌ Error in finalizeVideo:`, error.message);
-    taskStore.set(taskId, { status: 'error', error: error.message || 'Failed to finalize video' });
+    taskStore.set(taskId, getTaskError(error, 'Failed to finalize video'));
   }
 }
 
