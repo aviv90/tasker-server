@@ -12,6 +12,7 @@ const MODELS = {
     TEXT_TO_VIDEO: "ali-vilab/i2vgen-xl:5821a338d00033abaaba89080a17eb8783d9a17ed710a6b4246a18e0900ccad4",
     IMAGE_TO_VIDEO: "wan-video/wan-2.2-i2v-a14b",
     VIDEO_TO_VIDEO: "runwayml/gen4-aleph",
+    TEXT_TO_SONG_VOCALS: "minimax/music-01", // Best model for songs with lyrics and vocals
     TEXT_TO_SONG_BARK: "suno-ai/bark:b76242b40d67c76ab6742e987628a2a9ac019e11d56ab96c4e91ce03b79b2787",
     TEXT_TO_MUSIC: "meta/musicgen:671ac645ce5e552cc63a54a2bbff63fcf798043055d2dac5fc9e36a837eedcfb"
 };
@@ -278,110 +279,137 @@ async function generateVideoFromVideo(inputVideoBuffer, prompt) {
 
 async function generateSongWithText(prompt) {
     try {
-        console.log('🎵 Starting song generation with Replicate');
+        console.log('🎵 Starting song generation with minimax/music-01');
         
-        // Sanitize prompt
+        // Sanitize and prepare prompt
         const cleanPrompt = sanitizeText(prompt);
-        
-        // Detect language for better speaker selection
         const language = detectLanguage(cleanPrompt);
         
-        // Enhance prompt for music (handle Hebrew translation if needed)
-        const musicPrompt = enhancePromptForMusic(cleanPrompt);
+        console.log(`🔍 Language: ${language}, Text: "${cleanPrompt}"`);
         
-        console.log(`🔍 Detected language: ${language}`);
-        console.log(`📝 Original: "${cleanPrompt}" -> Music: "${musicPrompt}"`);
+        // Prepare lyrics (max 400 characters for minimax)
+        const lyrics = cleanPrompt.length > 400 ? cleanPrompt.substring(0, 400) : cleanPrompt;
         
-        // For Hebrew content, go directly to MusicGen with vocal-style prompt
+        // Create prediction with minimax model
+        const prediction = await replicate.predictions.create({
+            version: MODELS.TEXT_TO_SONG_VOCALS,
+            input: { lyrics }
+        });
+
+        if (!prediction?.id) {
+            console.error('❌ No prediction ID from minimax');
+            return await fallbackToAlternativeModel(cleanPrompt, language);
+        }
+
+        // Poll for completion
+        console.log('🔄 Polling minimax for vocal song...');
+        const result = await pollPrediction(prediction.id, 120);
+        
+        if (result.success) {
+            console.log('✅ Vocal song completed successfully');
+            return { 
+                text: cleanPrompt, 
+                result: result.output,
+                provider: 'minimax-vocals',
+                language: language
+            };
+        } else {
+            console.log('� Minimax failed, trying fallback...');
+            return await fallbackToAlternativeModel(cleanPrompt, language);
+        }
+
+    } catch (err) {
+        console.error('❌ Song generation error:', err.message);
+        return await fallbackToAlternativeModel(prompt);
+    }
+}
+
+async function fallbackToAlternativeModel(prompt, language = null) {
+    try {
+        if (!language) language = detectLanguage(prompt);
+        
+        // For Hebrew, use MusicGen with vocal-style prompts
         if (language === 'hebrew') {
-            console.log('🎵 Hebrew detected - using MusicGen with vocal styling');
-            return await generateVocalInstrumentalWithText(cleanPrompt, musicPrompt);
+            console.log('🎵 Hebrew fallback: MusicGen vocal-style');
+            return await generateVocalInstrumentalWithText(prompt);
         }
         
-        // For English content, try Bark first
-        // Create enhanced prompt for better results
+        // For other languages, try Bark
+        console.log('🎤 Fallback: Bark model');
+        const musicPrompt = enhancePromptForMusic(prompt);
         const enhancedPrompt = createEnhancedMusicPrompt(musicPrompt);
-        const randomSpeaker = getRandomSpeaker(language);
+        const speaker = getRandomSpeaker(language);
         
-        console.log(`🎼 Enhanced prompt: ${enhancedPrompt}`);
-        console.log(`🎤 Using speaker: ${randomSpeaker}`);
-        
-        // Use Suno Bark model for vocals + music!
         const prediction = await replicate.predictions.create({
             version: MODELS.TEXT_TO_SONG_BARK,
             input: {
                 prompt: enhancedPrompt,
                 text_temp: 0.7,
                 waveform_temp: 0.7,
-                history_prompt: randomSpeaker
+                history_prompt: speaker
             }
         });
 
         if (!prediction?.id) {
-            console.error('❌ No prediction ID received from Replicate for song');
-            return { error: 'No prediction ID received from Replicate' };
+            return await generateInstrumentalWithText(prompt);
         }
 
-        console.log('🔄 Polling for song completion...');
+        const result = await pollPrediction(prediction.id, 120);
         
-        const maxAttempts = 120; // Longer timeout for audio generation
-        let attempts = 0;
-        
-        while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
-            attempts++;
-            
-            try {
-                const result = await replicate.predictions.get(prediction.id);
-                
-                console.log(`🔄 Attempt ${attempts}/${maxAttempts}, Status: ${result.status}`);
-                
-                if (result.status === 'succeeded' && result.output) {
-                    console.log('✅ Song generation completed successfully');
-                    
-                    return { 
-                        text: cleanPrompt, 
-                        result: result.output, // URL to the audio file
-                        provider: 'replicate-bark'
-                    };
-                } else if (result.status === 'failed') {
-                    console.error('❌ Song generation failed:', result.error);
-                    // Try fallback to MusicGen
-                    return await generateInstrumentalWithText(cleanPrompt);
-                }
-            } catch (pollError) {
-                console.error(`❌ Error polling prediction ${prediction.id}:`, pollError.message);
-                if (attempts >= maxAttempts) {
-                    throw pollError;
-                }
-            }
+        if (result.success) {
+            return { 
+                text: prompt, 
+                result: result.output,
+                provider: 'replicate-bark'
+            };
+        } else {
+            return await generateInstrumentalWithText(prompt);
         }
-
-        console.log('⏰ Song generation timed out, trying fallback...');
-        return await generateInstrumentalWithText(cleanPrompt);
 
     } catch (err) {
-        console.error('❌ Replicate song generation error:', err.message);
-        
-        // Fallback to MusicGen for instrumental only
-        try {
-            console.log('🔄 Trying fallback with MusicGen...');
-            return await generateInstrumentalWithText(prompt);
-        } catch (fallbackErr) {
-            console.error('❌ Fallback also failed:', fallbackErr.message);
-            return { error: `Song generation failed: ${err.message}` };
-        }
+        console.error('❌ Fallback failed:', err.message);
+        return { error: `Song generation failed: ${err.message}` };
     }
 }
 
-async function generateVocalInstrumentalWithText(originalPrompt, musicPrompt) {
+async function pollPrediction(predictionId, maxAttempts = 60) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        
+        try {
+            const result = await replicate.predictions.get(predictionId);
+            
+            if (attempt % 10 === 0) {
+                console.log(`🔄 Polling: ${attempt}/${maxAttempts}, Status: ${result.status}`);
+            }
+            
+            if (result.status === 'succeeded' && result.output) {
+                return { success: true, output: result.output };
+            }
+            
+            if (result.status === 'failed') {
+                console.error('❌ Prediction failed:', result.error);
+                return { success: false, error: result.error };
+            }
+            
+        } catch (pollError) {
+            if (pollError.response?.status >= 400 && pollError.response?.status < 500) {
+                console.error('❌ Client error during polling:', extractErrorDetails(pollError));
+                return { success: false, error: extractErrorDetails(pollError) };
+            }
+        }
+    }
+    
+    console.log('⏰ Prediction timed out');
+    return { success: false, error: 'Generation timed out' };
+}
+
+async function generateVocalInstrumentalWithText(prompt) {
     try {
-        console.log('🎤 Starting vocal-style instrumental generation with MusicGen');
+        console.log('🎤 MusicGen with vocal-style prompts');
         
-        // Create a more vocal-oriented prompt for MusicGen
+        const musicPrompt = enhancePromptForMusic(prompt);
         const vocalPrompt = createVocalInstrumentalPrompt(musicPrompt);
-        
-        console.log(`🎵 Vocal instrumental prompt: ${vocalPrompt}`);
         
         const prediction = await replicate.predictions.create({
             version: MODELS.TEXT_TO_MUSIC,
@@ -395,49 +423,24 @@ async function generateVocalInstrumentalWithText(originalPrompt, musicPrompt) {
         });
 
         if (!prediction?.id) {
-            console.error('❌ No prediction ID received for vocal instrumental');
-            return { error: 'No prediction ID received from MusicGen' };
+            return { error: 'No prediction ID from MusicGen' };
         }
 
-        console.log('🔄 Polling for vocal instrumental completion...');
+        const result = await pollPrediction(prediction.id, 60);
         
-        const maxAttempts = 60;
-        let attempts = 0;
-        
-        while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 10000));
-            attempts++;
-            
-            try {
-                const result = await replicate.predictions.get(prediction.id);
-                
-                console.log(`🔄 Attempt ${attempts}/${maxAttempts}, Status: ${result.status}`);
-                
-                if (result.status === 'succeeded' && result.output) {
-                    console.log('✅ Vocal instrumental generation completed');
-                    
-                    return { 
-                        text: originalPrompt, 
-                        result: result.output,
-                        provider: 'replicate-musicgen-vocal'
-                    };
-                } else if (result.status === 'failed') {
-                    console.error('❌ Vocal instrumental generation failed:', result.error);
-                    return { error: result.error || 'Vocal instrumental generation failed' };
-                }
-            } catch (pollError) {
-                console.error(`❌ Error polling vocal instrumental prediction ${prediction.id}:`, pollError.message);
-                if (attempts >= maxAttempts) {
-                    throw pollError;
-                }
-            }
+        if (result.success) {
+            return { 
+                text: prompt, 
+                result: result.output,
+                provider: 'musicgen-vocal-style'
+            };
+        } else {
+            return { error: result.error || 'Vocal instrumental generation failed' };
         }
-
-        return { error: 'Vocal instrumental generation timed out' };
 
     } catch (error) {
-        console.error('❌ MusicGen vocal instrumental generation error:', error.message);
-        return { error: `Vocal instrumental generation failed: ${error.message}` };
+        console.error('❌ MusicGen error:', error.message);
+        return { error: `Vocal instrumental failed: ${error.message}` };
     }
 }
 
@@ -455,14 +458,14 @@ function createVocalInstrumentalPrompt(prompt) {
     const randomVocalStyle = vocalStyles[Math.floor(Math.random() * vocalStyles.length)];
     return `${randomVocalStyle}, inspired by: ${prompt}`;
 }
+
+async function generateInstrumentalWithText(prompt) {
     try {
-        console.log('🎼 Starting instrumental generation with MusicGen');
+        console.log('🎼 MusicGen instrumental generation');
         
         const cleanPrompt = sanitizeText(prompt);
         const musicPrompt = enhancePromptForMusic(cleanPrompt);
         const instrumentalPrompt = createInstrumentalPrompt(musicPrompt);
-        
-        console.log(`🎵 Instrumental prompt: ${instrumentalPrompt}`);
         
         const prediction = await replicate.predictions.create({
             version: MODELS.TEXT_TO_MUSIC,
@@ -476,48 +479,23 @@ function createVocalInstrumentalPrompt(prompt) {
         });
 
         if (!prediction?.id) {
-            console.error('❌ No prediction ID received for instrumental');
-            return { error: 'No prediction ID received from MusicGen' };
+            return { error: 'No prediction ID from MusicGen' };
         }
 
-        console.log('🔄 Polling for instrumental completion...');
+        const result = await pollPrediction(prediction.id, 60);
         
-        const maxAttempts = 60;
-        let attempts = 0;
-        
-        while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 10000));
-            attempts++;
-            
-            try {
-                const result = await replicate.predictions.get(prediction.id);
-                
-                console.log(`🔄 Attempt ${attempts}/${maxAttempts}, Status: ${result.status}`);
-                
-                if (result.status === 'succeeded' && result.output) {
-                    console.log('✅ Instrumental generation completed');
-                    
-                    return { 
-                        text: cleanPrompt, 
-                        result: result.output,
-                        provider: 'replicate-musicgen'
-                    };
-                } else if (result.status === 'failed') {
-                    console.error('❌ Instrumental generation failed:', result.error);
-                    return { error: result.error || 'Instrumental generation failed' };
-                }
-            } catch (pollError) {
-                console.error(`❌ Error polling instrumental prediction ${prediction.id}:`, pollError.message);
-                if (attempts >= maxAttempts) {
-                    throw pollError;
-                }
-            }
+        if (result.success) {
+            return { 
+                text: cleanPrompt, 
+                result: result.output,
+                provider: 'musicgen-instrumental'
+            };
+        } else {
+            return { error: result.error || 'Instrumental generation failed' };
         }
-
-        return { error: 'Instrumental generation timed out' };
 
     } catch (error) {
-        console.error('❌ MusicGen instrumental generation error:', error.message);
+        console.error('❌ MusicGen instrumental error:', error.message);
         return { error: `Instrumental generation failed: ${error.message}` };
     }
 }
@@ -586,88 +564,6 @@ function getRandomSpeaker(language = 'english') {
     
     const speakers = speakersByLanguage[language] || speakersByLanguage.mixed;
     return speakers[Math.floor(Math.random() * speakers.length)];
-}
-
-function createVocalInstrumentalPrompt(prompt) {
-    // Create prompts that simulate vocal elements through instrumental means
-    const vocalStyles = [
-        "melodic pop with vocal-like synthesizer lead",
-        "acoustic guitar with humming melody, folk style",
-        "piano ballad with string melody representing vocals",
-        "indie folk with acoustic guitar melody, vocal-style phrasing",
-        "contemporary pop instrumental with melodic lead synth",
-        "acoustic folk with guitar fingerpicking, vocal melody on strings"
-    ];
-    
-    const randomVocalStyle = vocalStyles[Math.floor(Math.random() * vocalStyles.length)];
-    return `${randomVocalStyle}, inspired by: ${prompt}`;
-}
-
-async function generateVocalInstrumentalWithText(originalPrompt, musicPrompt) {
-    try {
-        console.log('🎤 Starting vocal-style instrumental generation with MusicGen');
-        
-        // Create a more vocal-oriented prompt for MusicGen
-        const vocalPrompt = createVocalInstrumentalPrompt(musicPrompt);
-        
-        console.log(`🎵 Vocal instrumental prompt: ${vocalPrompt}`);
-        
-        const prediction = await replicate.predictions.create({
-            version: MODELS.TEXT_TO_MUSIC,
-            input: {
-                prompt: vocalPrompt,
-                model_version: "stereo-large",
-                output_format: "mp3",
-                normalization_strategy: "peak",
-                duration: 30
-            }
-        });
-
-        if (!prediction?.id) {
-            console.error('❌ No prediction ID received for vocal instrumental');
-            return { error: 'No prediction ID received from MusicGen' };
-        }
-
-        console.log('🔄 Polling for vocal instrumental completion...');
-        
-        const maxAttempts = 60;
-        let attempts = 0;
-        
-        while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 10000));
-            attempts++;
-            
-            try {
-                const result = await replicate.predictions.get(prediction.id);
-                
-                console.log(`🔄 Attempt ${attempts}/${maxAttempts}, Status: ${result.status}`);
-                
-                if (result.status === 'succeeded' && result.output) {
-                    console.log('✅ Vocal instrumental generation completed');
-                    
-                    return { 
-                        text: originalPrompt, 
-                        result: result.output,
-                        provider: 'replicate-musicgen-vocal'
-                    };
-                } else if (result.status === 'failed') {
-                    console.error('❌ Vocal instrumental generation failed:', result.error);
-                    return { error: result.error || 'Vocal instrumental generation failed' };
-                }
-            } catch (pollError) {
-                console.error(`❌ Error polling vocal instrumental prediction ${prediction.id}:`, pollError.message);
-                if (attempts >= maxAttempts) {
-                    throw pollError;
-                }
-            }
-        }
-
-        return { error: 'Vocal instrumental generation timed out' };
-
-    } catch (error) {
-        console.error('❌ MusicGen vocal instrumental generation error:', error.message);
-        return { error: `Vocal instrumental generation failed: ${error.message}` };
-    }
 }
 
 module.exports = { 
