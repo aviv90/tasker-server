@@ -45,7 +45,22 @@ async function generateImageWithText(prompt) {
         return { error: 'No base64 image data found in response' };
     } catch (err) {
         console.error('❌ OpenAI image generation error:', err.message);
-        return { error: err.message };
+        
+        // Handle specific OpenAI error types
+        if (err.status === 400) {
+            if (err.message.includes('safety system')) {
+                return { error: 'Content rejected by safety system. Please try a different description.' };
+            }
+            return { error: `Request error: ${err.message}` };
+        } else if (err.status === 401) {
+            return { error: 'Authentication failed. Please check API key.' };
+        } else if (err.status === 429) {
+            return { error: 'Rate limit exceeded. Please try again later.' };
+        } else if (err.status === 500) {
+            return { error: 'OpenAI server error. Please try again later.' };
+        }
+        
+        return { error: err.message || 'Image generation failed' };
     }
 }
 
@@ -91,7 +106,24 @@ async function editImageWithText(prompt, imageBuffer) {
         return { error: 'No base64 image data found in response' };
     } catch (err) {
         console.error('❌ OpenAI image edit error:', err.message);
-        return { error: err.message };
+        
+        // Handle specific OpenAI error types
+        if (err.status === 400) {
+            if (err.message.includes('safety system')) {
+                return { error: 'Content rejected by safety system. Please try a different image or description.' };
+            } else if (err.message.includes('invalid image')) {
+                return { error: 'Invalid image format. Please use JPEG, PNG, or WebP format.' };
+            }
+            return { error: `Request error: ${err.message}` };
+        } else if (err.status === 401) {
+            return { error: 'Authentication failed. Please check API key.' };
+        } else if (err.status === 429) {
+            return { error: 'Rate limit exceeded. Please try again later.' };
+        } else if (err.status === 500) {
+            return { error: 'OpenAI server error. Please try again later.' };
+        }
+        
+        return { error: err.message || 'Image editing failed' };
     }
 }
 

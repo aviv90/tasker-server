@@ -47,7 +47,19 @@ async function generateImageWithText(prompt) {
         return { text: text || prompt, imageBuffer };
     } catch (err) {
         console.error('❌ Gemini image generation error:', err.message);
-        return { error: err.message };
+        
+        // Handle specific Gemini error types
+        if (err.message.includes('SAFETY')) {
+            return { error: 'Content rejected by safety filters. Please try a different description.' };
+        } else if (err.message.includes('QUOTA_EXCEEDED')) {
+            return { error: 'API quota exceeded. Please try again later.' };
+        } else if (err.message.includes('INVALID_ARGUMENT')) {
+            return { error: 'Invalid request. Please check your prompt.' };
+        } else if (err.status === 429) {
+            return { error: 'Rate limit exceeded. Please try again later.' };
+        }
+        
+        return { error: err.message || 'Image generation failed' };
     }
 }
 
@@ -97,7 +109,19 @@ async function editImageWithText(prompt, base64Image) {
         return { text: text || prompt, imageBuffer };
     } catch (err) {
         console.error('❌ Gemini image edit error:', err.message);
-        return { error: err.message };
+        
+        // Handle specific Gemini error types
+        if (err.message.includes('SAFETY')) {
+            return { error: 'Content rejected by safety filters. Please try a different image or description.' };
+        } else if (err.message.includes('QUOTA_EXCEEDED')) {
+            return { error: 'API quota exceeded. Please try again later.' };
+        } else if (err.message.includes('INVALID_ARGUMENT')) {
+            return { error: 'Invalid image format or request. Please check your input.' };
+        } else if (err.status === 429) {
+            return { error: 'Rate limit exceeded. Please try again later.' };
+        }
+        
+        return { error: err.message || 'Image editing failed' };
     }
 }
 

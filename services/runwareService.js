@@ -159,6 +159,20 @@ async function generateVideoWithText(prompt) {
     } catch (err) {
         console.error('❌ Video generation error:', err);
         
+        // Enhanced error handling for Runware
+        if (err.error?.code === 'insufficientCredits') {
+            return { error: 'Insufficient credits in your Runware account. Please add credits to continue.' };
+        }
+        if (err.response?.status === 401 || err.error?.code === 'unauthorized') {
+            return { error: 'Runware authentication failed. Please check your API key.' };
+        }
+        if (err.response?.status === 429 || err.error?.code === 'rate_limit_exceeded') {
+            return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
+        }
+        if (err.response?.status >= 500 || err.error?.status === 'error') {
+            return { error: 'Runware service is temporarily unavailable. Please try again later.' };
+        }
+        
         // Return the full error object as text if it exists, otherwise just the message
         let errorMessage = err.error?.message || err.message || err.toString();
         
@@ -180,6 +194,17 @@ async function generateVideoWithText(prompt) {
                 .join(', ');
                 
             errorMessage = cleanDetails || errorMessage;
+        }
+        
+        // Check for specific Runware error messages
+        if (errorMessage.includes('insufficient credits') || errorMessage.includes('credit')) {
+            return { error: 'Insufficient credits in your Runware account. Please add credits to continue.' };
+        }
+        if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
+            return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
+        }
+        if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
+            return { error: 'Video generation is taking longer than expected. Please try again.' };
         }
         
         return { error: errorMessage };
@@ -337,6 +362,20 @@ async function generateVideoFromImage(prompt, base64Image) {
     } catch (err) {
         console.error('❌ Image-to-video generation error:', err);
         
+        // Enhanced error handling for Runware
+        if (err.error?.code === 'insufficientCredits') {
+            return { error: 'Insufficient credits in your Runware account. Please add credits to continue.' };
+        }
+        if (err.response?.status === 401 || err.error?.code === 'unauthorized') {
+            return { error: 'Runware authentication failed. Please check your API key.' };
+        }
+        if (err.response?.status === 429 || err.error?.code === 'rate_limit_exceeded') {
+            return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
+        }
+        if (err.response?.status >= 500 || err.error?.status === 'error') {
+            return { error: 'Runware service is temporarily unavailable. Please try again later.' };
+        }
+        
         // Return the full error object as text if it exists, otherwise just the message
         let errorMessage = err.error?.message || err.message || err.toString();
         
@@ -358,6 +397,17 @@ async function generateVideoFromImage(prompt, base64Image) {
                 .join(', ');
                 
             errorMessage = cleanDetails || errorMessage;
+        }
+        
+        // Check for specific Runware error messages
+        if (errorMessage.includes('insufficient credits') || errorMessage.includes('credit')) {
+            return { error: 'Insufficient credits in your Runware account. Please add credits to continue.' };
+        }
+        if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
+            return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
+        }
+        if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
+            return { error: 'Video generation is taking longer than expected. Please try again.' };
         }
         
         return { error: errorMessage };

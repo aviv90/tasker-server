@@ -33,30 +33,43 @@ async function transcribeAudio(audioBuffer, filename = 'audio.wav') {
     } catch (err) {
         console.error('❌ Audio transcription error:', err.message);
         
-        // Handle axios error responses
+        // Enhanced error handling for Lemonfox
         if (err.response) {
             const status = err.response.status;
             const errorData = err.response.data;
             
             if (status === 401) {
-                return { error: errorData?.error || 'Invalid API key or authentication failed' };
-            } else if (status === 422) {
-                return { error: errorData?.error || 'Audio file format not supported or invalid' };
-            } else if (status === 429) {
-                return { error: errorData?.error || 'Rate limit exceeded - please try again later' };
-            } else {
-                return { error: errorData?.error || `Transcription failed with status: ${status}` };
+                return { error: 'Lemonfox authentication failed. Please check your API key.' };
             }
+            if (status === 402) {
+                return { error: 'Insufficient credits in your Lemonfox account. Please add credits to continue.' };
+            }
+            if (status === 422) {
+                return { error: 'Audio file format not supported. Please use WAV, MP3, or M4A format.' };
+            }
+            if (status === 429) {
+                return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
+            }
+            if (status >= 500) {
+                return { error: 'Lemonfox service is temporarily unavailable. Please try again later.' };
+            }
+            
+            return { error: errorData?.error || `Transcription failed with status: ${status}` };
         }
         
-        // Return original error messages when possible
-        if (err.message.includes('network') || err.message.includes('ECONNREFUSED')) {
-            return { error: err.message };
-        } else if (err.message.includes('timeout')) {
-            return { error: err.message };
-        } else {
-            return { error: err.message || 'Audio transcription failed' };
+        // Check for specific error messages
+        const errorMessage = err.message || err.toString();
+        if (errorMessage.includes('network') || errorMessage.includes('ECONNREFUSED')) {
+            return { error: 'Network connection failed. Please check your internet connection.' };
         }
+        if (errorMessage.includes('timeout')) {
+            return { error: 'Audio transcription is taking longer than expected. Please try again.' };
+        }
+        if (errorMessage.includes('insufficient credits') || errorMessage.includes('billing')) {
+            return { error: 'Insufficient credits in your Lemonfox account. Please add credits to continue.' };
+        }
+        
+        return { error: errorMessage || 'Audio transcription failed' };
     }
 }
 

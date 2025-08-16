@@ -98,8 +98,34 @@ async function generateAudioRemix(audioPath, options = {}) {
 
     } catch (error) {
         console.error('❌ Stable Audio remix error:', error);
+        
+        // Enhanced error handling for Stable Audio
+        if (error.response?.status === 401) {
+            return { error: 'Stable Audio authentication failed. Please check your API key.' };
+        }
+        if (error.response?.status === 402) {
+            return { error: 'Insufficient credits in your Stable Audio account. Please add credits to continue.' };
+        }
+        if (error.response?.status === 429) {
+            return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
+        }
+        if (error.response?.status >= 500) {
+            return { error: 'Stable Audio service is temporarily unavailable. Please try again later.' };
+        }
+        
+        const errorMessage = error.message || error.toString();
+        if (errorMessage.includes('insufficient credits') || errorMessage.includes('billing')) {
+            return { error: 'Insufficient credits in your Stable Audio account. Please add credits to continue.' };
+        }
+        if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
+            return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
+        }
+        if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
+            return { error: 'Audio generation is taking longer than expected. Please try again.' };
+        }
+        
         return { 
-            error: error.message,
+            error: errorMessage,
             success: false
         };
     }
@@ -196,8 +222,34 @@ async function createAudioRemix(audioPath, options = {}) {
 
     } catch (error) {
         console.error('❌ Audio remix creation error:', error);
+        
+        // Enhanced error handling for Stable Audio
+        if (error.response?.status === 401) {
+            return { error: 'Stable Audio authentication failed. Please check your API key.' };
+        }
+        if (error.response?.status === 402) {
+            return { error: 'Insufficient credits in your Stable Audio account. Please add credits to continue.' };
+        }
+        if (error.response?.status === 429) {
+            return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
+        }
+        if (error.response?.status >= 500) {
+            return { error: 'Stable Audio service is temporarily unavailable. Please try again later.' };
+        }
+        
+        const errorMessage = error.message || error.toString();
+        if (errorMessage.includes('insufficient credits') || errorMessage.includes('billing')) {
+            return { error: 'Insufficient credits in your Stable Audio account. Please add credits to continue.' };
+        }
+        if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
+            return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
+        }
+        if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
+            return { error: 'Audio generation is taking longer than expected. Please try again.' };
+        }
+        
         return {
-            error: error.message,
+            error: errorMessage,
             success: false
         };
     }
