@@ -42,7 +42,6 @@ router.post('/upload-edit', upload.single('file'), async (req, res) => {
   }
 
   const taskId = uuidv4();
-  console.log(`🖼️ Starting image edit with ${provider || 'Gemini'}`);
   taskStore.set(taskId, { status:'pending' });
   res.json({ taskId });
 
