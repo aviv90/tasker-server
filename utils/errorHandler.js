@@ -60,15 +60,80 @@ function isErrorResult(result) {
 }
 
 /**
+ * Serialize error object to ensure it's properly JSON serializable
+ * @param {any} error - The error to serialize
+ * @returns {any} - JSON-serializable error object
+ */
+function serializeError(error) {
+    if (!error) {
+        return null;
+    }
+
+    // If it's already a string, return as-is
+    if (typeof error === 'string') {
+        return error;
+    }
+
+    // If it's an Error object, extract all enumerable properties
+    if (error instanceof Error) {
+        const serialized = {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+        };
+
+        // Add any additional enumerable properties
+        Object.getOwnPropertyNames(error).forEach(key => {
+            if (!serialized.hasOwnProperty(key)) {
+                serialized[key] = error[key];
+            }
+        });
+
+        return serialized;
+    }
+
+    // If it's an object, ensure it's properly serializable
+    if (typeof error === 'object') {
+        try {
+            // Test if it can be JSON stringified and parsed
+            JSON.parse(JSON.stringify(error));
+            return error;
+        } catch (e) {
+            // If not serializable, convert to a serializable format
+            const serialized = {};
+            Object.getOwnPropertyNames(error).forEach(key => {
+                try {
+                    const value = error[key];
+                    if (typeof value !== 'function') {
+                        serialized[key] = value;
+                    }
+                } catch (e) {
+                    serialized[key] = '[Non-serializable value]';
+                }
+            });
+            return serialized;
+        }
+    }
+
+    // For primitives, return as-is
+    return error;
+}
+
+/**
  * Get standardized error object for task storage
  * @param {any} error - The error to process
- * @param {string} fallback - Fallback message
- * @returns {object} - Standardized error object
+ * @param {string} context - Optional context for logging only
+ * @returns {object} - Standardized error object with full error details
  */
-function getTaskError(error, fallback = 'Task failed without error details') {
+function getTaskError(error, context = '') {
+    // Log for server debugging
+    if (context) {
+        console.error(`❌ Error in ${context}:`, error);
+    }
+
     return {
         status: 'error',
-        error: extractErrorMessage(error, fallback)
+        error: serializeError(error) // Pass the full serialized error object
     };
 }
 
@@ -92,5 +157,6 @@ module.exports = {
     extractErrorMessage,
     isErrorResult,
     getTaskError,
-    isCriticalError
+    isCriticalError,
+    serializeError
 };

@@ -2,7 +2,6 @@ const Replicate = require('replicate');
 const fs = require('fs');
 const path = require('path');
 const { sanitizeText } = require('../utils/textSanitizer');
-const { extractErrorMessage } = require('../utils/errorHandler');
 
 const replicate = new Replicate({
     auth: process.env.REPLICATE_API_KEY,
@@ -67,54 +66,17 @@ async function generateVideoWithText(prompt) {
                 }
                 
             } catch (pollError) {
-                if (pollError.response?.status === 401) {
-                    return { error: 'Replicate authentication failed. Please check your API key.' };
-                }
-                if (pollError.response?.status === 402) {
-                    return { error: 'Insufficient credits in your Replicate account. Please add credits to continue.' };
-                }
-                if (pollError.response?.status === 429) {
-                    return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
-                }
-                if (pollError.response?.status >= 500) {
-                    return { error: 'Replicate service is temporarily unavailable. Please try again later.' };
-                }
-                return { error: extractErrorMessage(pollError) };
+                // Return the full polling error object as-is (text-to-video)
+                return { error: pollError };
             }
         }
         
         return { error: 'Text-to-video generation timed out after 10 minutes' };
 
     } catch (err) {
-        console.error('❌ Text-to-video generation error:', err.message);
-        
-        // Enhanced error handling for Replicate
-        if (err.response?.status === 401) {
-            return { error: 'Replicate authentication failed. Please check your API key.' };
-        }
-        if (err.response?.status === 402) {
-            return { error: 'Insufficient credits in your Replicate account. Please add credits to continue.' };
-        }
-        if (err.response?.status === 429) {
-            return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
-        }
-        if (err.response?.status >= 500) {
-            return { error: 'Replicate service is temporarily unavailable. Please try again later.' };
-        }
-        
-        // Check for specific Replicate error messages
-        const errorMessage = extractErrorMessage(err);
-        if (errorMessage.includes('insufficient credits') || errorMessage.includes('billing')) {
-            return { error: 'Insufficient credits in your Replicate account. Please add credits to continue.' };
-        }
-        if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
-            return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
-        }
-        if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
-            return { error: 'Video generation is taking longer than expected. Please try again.' };
-        }
-        
-        return { error: errorMessage };
+        console.error('❌ Text-to-video generation error:', err);
+        // Return the full error object as-is
+        return { error: err };
     }
 }
 
@@ -191,54 +153,17 @@ async function generateVideoFromImage(imageBuffer, prompt = null) {
                 }
                 
             } catch (pollError) {
-                if (pollError.response?.status === 401) {
-                    return { error: 'Replicate authentication failed. Please check your API key.' };
-                }
-                if (pollError.response?.status === 402) {
-                    return { error: 'Insufficient credits in your Replicate account. Please add credits to continue.' };
-                }
-                if (pollError.response?.status === 429) {
-                    return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
-                }
-                if (pollError.response?.status >= 500) {
-                    return { error: 'Replicate service is temporarily unavailable. Please try again later.' };
-                }
-                return { error: extractErrorMessage(pollError) };
+                // Return the full polling error object as-is (image-to-video)
+                return { error: pollError };
             }
         }
         
         return { error: 'Image-to-video generation timed out after 10 minutes' };
 
     } catch (err) {
-        console.error('❌ Image-to-video generation error:', err.message);
-        
-        // Enhanced error handling for Replicate
-        if (err.response?.status === 401) {
-            return { error: 'Replicate authentication failed. Please check your API key.' };
-        }
-        if (err.response?.status === 402) {
-            return { error: 'Insufficient credits in your Replicate account. Please add credits to continue.' };
-        }
-        if (err.response?.status === 429) {
-            return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
-        }
-        if (err.response?.status >= 500) {
-            return { error: 'Replicate service is temporarily unavailable. Please try again later.' };
-        }
-        
-        // Check for specific Replicate error messages
-        const errorMessage = extractErrorMessage(err);
-        if (errorMessage.includes('insufficient credits') || errorMessage.includes('billing')) {
-            return { error: 'Insufficient credits in your Replicate account. Please add credits to continue.' };
-        }
-        if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
-            return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
-        }
-        if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
-            return { error: 'Video generation is taking longer than expected. Please try again.' };
-        }
-        
-        return { error: errorMessage };
+        console.error('❌ Image-to-video generation error:', err);
+        // Return the full error object as-is
+        return { error: err };
     }
 }
 
@@ -322,35 +247,9 @@ async function generateVideoFromVideo(inputVideoBuffer, prompt) {
             return { result: videoURL };
         }
     } catch (error) {
-        console.error('❌ Video-to-video generation error:', error.message);
-        
-        // Enhanced error handling for Replicate
-        if (error.response?.status === 401) {
-            return { error: 'Replicate authentication failed. Please check your API key.' };
-        }
-        if (error.response?.status === 402) {
-            return { error: 'Insufficient credits in your Replicate account. Please add credits to continue.' };
-        }
-        if (error.response?.status === 429) {
-            return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
-        }
-        if (error.response?.status >= 500) {
-            return { error: 'Replicate service is temporarily unavailable. Please try again later.' };
-        }
-        
-        // Check for specific Replicate error messages
-        const errorMessage = extractErrorMessage(error);
-        if (errorMessage.includes('insufficient credits') || errorMessage.includes('billing')) {
-            return { error: 'Insufficient credits in your Replicate account. Please add credits to continue.' };
-        }
-        if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
-            return { error: 'Rate limit exceeded. Please wait a moment before trying again.' };
-        }
-        if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
-            return { error: 'Video generation is taking longer than expected. Please try again.' };
-        }
-        
-        return { error: errorMessage };
+        console.error('❌ Video-to-video generation error:', error);
+        // Return the full error object as-is
+        return { error: error };
     }
 }
 
