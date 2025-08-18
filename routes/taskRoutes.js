@@ -18,7 +18,7 @@ router.post('/start-task', async (req, res) => {
     if (!type || !prompt) {
         return res.status(400).json({ 
             status: 'error', 
-            error: 'Missing type or prompt' 
+            error: { message: 'Missing type or prompt', code: 'MISSING_FIELDS' }
         });
     }
 
@@ -29,7 +29,7 @@ router.post('/start-task', async (req, res) => {
     } catch (validationError) {
         return res.status(400).json({ 
             status: 'error', 
-            error: validationError.message 
+            error: validationError // Pass the entire error object
         });
     }
 
@@ -57,10 +57,13 @@ router.post('/start-task', async (req, res) => {
             
             finalizeVideo(taskId, result, sanitizedPrompt);
         } else {
-            taskStore.set(taskId, { status: 'error', error: 'Unsupported task type' });
+            taskStore.set(taskId, { 
+                status: 'error', 
+                error: { message: 'Unsupported task type', type: type, supportedTypes: ['text-to-image', 'text-to-video'] }
+            });
         }
     } catch (error) {
-        console.error(`❌ Task error:`, error.message);
+        console.error(`❌ Task error:`, error);
         taskStore.set(taskId, getTaskError(error));
     }
 });
@@ -86,8 +89,8 @@ function finalizeVideo(taskId, result, prompt) {
             cost: result.cost
         });
     } catch (error) {
-        console.error(`❌ Error in finalizeVideo:`, error.message);
-        taskStore.set(taskId, getTaskError(error, 'Failed to finalize video'));
+        console.error(`❌ Error in finalizeVideo:`, error);
+        taskStore.set(taskId, getTaskError(error, 'finalizeVideo'));
     }
 }
 
@@ -109,7 +112,7 @@ function finalizeTask(taskId, result, req, fileExtension = 'png') {
             fs.writeFileSync(outputPath, buffer);
             console.log(`✅ ${fileExtension.toUpperCase()} file saved`);
         } else {
-            taskStore.set(taskId, getTaskError(null, 'No buffer data'));
+            taskStore.set(taskId, getTaskError({ message: 'No buffer data', code: 'NO_BUFFER' }));
             return;
         }
 
@@ -122,8 +125,8 @@ function finalizeTask(taskId, result, req, fileExtension = 'png') {
             cost: result.cost
         });
     } catch (error) {
-        console.error(`❌ Error in finalizeTask:`, error.message);
-        taskStore.set(taskId, getTaskError(error, 'Failed to save file'));
+        console.error(`❌ Error in finalizeTask:`, error);
+        taskStore.set(taskId, getTaskError(error, 'finalizeTask'));
     }
 }
 

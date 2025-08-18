@@ -42,25 +42,11 @@ async function generateImageWithText(prompt) {
         }
         
         console.log('❌ OpenAI: No base64 image data found');
-        return { error: 'No base64 image data found in response' };
+        return { error: { message: 'No base64 image data found in response', code: 'NO_IMAGE_DATA', provider: 'openai' } };
     } catch (err) {
-        console.error('❌ OpenAI image generation error:', err.message);
-        
-        // Handle specific OpenAI error types
-        if (err.status === 400) {
-            if (err.message.includes('safety system')) {
-                return { error: 'Content rejected by safety system. Please try a different description.' };
-            }
-            return { error: `Request error: ${err.message}` };
-        } else if (err.status === 401) {
-            return { error: 'Authentication failed. Please check API key.' };
-        } else if (err.status === 429) {
-            return { error: 'Rate limit exceeded. Please try again later.' };
-        } else if (err.status === 500) {
-            return { error: 'OpenAI server error. Please try again later.' };
-        }
-        
-        return { error: err.message || 'Image generation failed' };
+        console.error('❌ OpenAI image generation error:', err);
+        // Return the full error object as-is
+        return { error: err };
     }
 }
 
@@ -103,27 +89,11 @@ async function editImageWithText(prompt, imageBuffer) {
         }
         
         console.log('❌ OpenAI edit: No base64 image data found');
-        return { error: 'No base64 image data found in response' };
+        return { error: { message: 'No base64 image data found in response', code: 'NO_IMAGE_DATA', provider: 'openai-edit' } };
     } catch (err) {
-        console.error('❌ OpenAI image edit error:', err.message);
-        
-        // Handle specific OpenAI error types
-        if (err.status === 400) {
-            if (err.message.includes('safety system')) {
-                return { error: 'Content rejected by safety system. Please try a different image or description.' };
-            } else if (err.message.includes('invalid image')) {
-                return { error: 'Invalid image format. Please use JPEG, PNG, or WebP format.' };
-            }
-            return { error: `Request error: ${err.message}` };
-        } else if (err.status === 401) {
-            return { error: 'Authentication failed. Please check API key.' };
-        } else if (err.status === 429) {
-            return { error: 'Rate limit exceeded. Please try again later.' };
-        } else if (err.status === 500) {
-            return { error: 'OpenAI server error. Please try again later.' };
-        }
-        
-        return { error: err.message || 'Image editing failed' };
+        console.error('❌ OpenAI image edit error:', err);
+        // Return the full error object as-is
+        return { error: err };
     }
 }
 
