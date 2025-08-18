@@ -68,7 +68,6 @@ router.post('/upload-video', upload.single('file'), async (req, res) => {
   }
 
   const taskId = uuidv4();
-  console.log(`🎬 Starting image-to-video with ${provider || 'runware'}`);
   taskStore.set(taskId, { status:'pending' });
   res.json({ taskId });
 
@@ -95,7 +94,6 @@ router.post('/upload-video-edit', upload.single('file'), async (req, res) => {
   }
 
   const taskId = uuidv4();
-  console.log(`🎬 Starting video-to-video with Replicate`);
   taskStore.set(taskId, { status:'pending' });
   res.json({ taskId });
 
@@ -134,8 +132,6 @@ function finalizeVideo(taskId, result, prompt, req = null) {
       taskStore.set(taskId, getTaskError(result));
       return;
     }
-
-    console.log(`✅ Video generation completed`);
     
     let videoURL = result.result;
     if (req && videoURL && videoURL.startsWith('/static/')) {
@@ -167,7 +163,6 @@ function finalize(taskId, result, req) {
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive:true });
     fs.writeFileSync(path.join(outputDir, filename), result.imageBuffer);
 
-    console.log(`✅ Image edit completed`);
     const host = `${req.protocol}://${req.get('host')}`;
     taskStore.set(taskId, {
       status:'done',

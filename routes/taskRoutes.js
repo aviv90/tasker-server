@@ -34,7 +34,6 @@ router.post('/start-task', async (req, res) => {
     }
 
     const taskId = uuidv4();
-    console.log(`🚀 Starting ${type} task with ${provider || 'default'} provider`);
     taskStore.set(taskId, { status: 'pending' });
     res.json({ taskId });
 
@@ -81,7 +80,6 @@ function finalizeVideo(taskId, result, prompt) {
             return;
         }
 
-        console.log(`✅ Video generation completed`);
         taskStore.set(taskId, {
             status: 'done',
             result: result.result,
@@ -110,14 +108,12 @@ function finalizeTask(taskId, result, req, fileExtension = 'png') {
         
         if (buffer) {
             fs.writeFileSync(outputPath, buffer);
-            console.log(`✅ ${fileExtension.toUpperCase()} file saved`);
         } else {
             taskStore.set(taskId, getTaskError({ message: 'No buffer data', code: 'NO_BUFFER' }));
             return;
         }
 
         const host = `${req.protocol}://${req.get('host')}`;
-        console.log(`✅ Task completed successfully`);
         taskStore.set(taskId, {
             status: 'done',
             result: `${host}/static/${filename}`,
