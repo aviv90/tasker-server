@@ -7,7 +7,6 @@ async function transcribeAudio(audioBuffer, filename = 'audio.wav') {
         
         const formData = new FormData();
         formData.append('file', audioBuffer, filename);
-        formData.append('language', 'english');
         formData.append('response_format', 'json');
         
         const response = await axios.post('https://api.lemonfox.ai/v1/audio/transcriptions', formData, {
