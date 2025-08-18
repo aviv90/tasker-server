@@ -114,7 +114,6 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
   }
 
   const taskId = uuidv4();
-  console.log(`🎤 Starting audio transcription`);
   taskStore.set(taskId, { status:'pending' });
   res.json({ taskId });
 
@@ -188,7 +187,6 @@ function finalizeTranscription(taskId, result) {
       return;
     }
 
-    console.log(`✅ Audio transcription completed`);
     taskStore.set(taskId, {
       status:'done',
       result: result.text,
