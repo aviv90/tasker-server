@@ -17,8 +17,8 @@ async function generateVideoWithText(prompt) {
         // Use Veo 3 model for video generation with supported resolution
         const response = await runware.videoInference({
             positivePrompt: cleanPrompt,
-            model: "google:3@0",
-            duration: 8,
+            model: "klingai:4@3",
+            duration: 10,
             width: 1280,
             height: 720,
             numberResults: 1,
@@ -169,8 +169,8 @@ async function generateVideoFromImage(prompt, base64Image) {
         // Use Veo 3 model for image-to-video generation with supported resolution
         const response = await runware.videoInference({
             positivePrompt: prompt,
-            model: "google:3@0",
-            duration: 8,
+            model: "klingai:4@3",
+            duration: 10,
             width: 1920,
             height: 1080,
             frameImages: [
