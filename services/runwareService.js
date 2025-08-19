@@ -171,7 +171,7 @@ async function generateVideoFromImage(prompt, base64Image) {
             positivePrompt: prompt,
             model: "google:3@0",
             duration: 5,
-            width: 608,
+            width: 1920,
             height: 1080,
             frameImages: [
                 {
