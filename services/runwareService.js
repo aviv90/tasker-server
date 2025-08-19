@@ -17,7 +17,7 @@ async function generateVideoWithText(prompt) {
         // Use KlingAI model for video generation with longer timeout
         const response = await runware.videoInference({
             positivePrompt: cleanPrompt,
-            model: "klingai:5@3",
+            model: "google:3@0",
             duration: 5,
             width: 608,
             height: 1080,
@@ -169,7 +169,7 @@ async function generateVideoFromImage(prompt, base64Image) {
         // Use KlingAI model for image-to-video generation
         const response = await runware.videoInference({
             positivePrompt: prompt,
-            model: "klingai:5@3",
+            model: "google:3@0",
             duration: 5,
             width: 608,
             height: 1080,
