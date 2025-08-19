@@ -18,7 +18,7 @@ async function generateVideoWithText(prompt) {
         const response = await runware.videoInference({
             positivePrompt: cleanPrompt,
             model: "google:3@0",
-            duration: 5,
+            duration: 8,
             width: 1280,
             height: 720,
             numberResults: 1,
@@ -170,7 +170,7 @@ async function generateVideoFromImage(prompt, base64Image) {
         const response = await runware.videoInference({
             positivePrompt: prompt,
             model: "google:3@0",
-            duration: 5,
+            duration: 8,
             width: 1920,
             height: 1080,
             frameImages: [
