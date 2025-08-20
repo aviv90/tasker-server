@@ -14,13 +14,13 @@ async function generateVideoWithText(prompt) {
         // Sanitize prompt as an extra safety measure
         const cleanPrompt = sanitizeText(prompt);
         
-        // Use Veo 3 model for video generation with supported resolution
+        // Use KlingAI 2.1 Master for optimal 1080p vertical video (9:16)
         const response = await runware.videoInference({
             positivePrompt: cleanPrompt,
-            model: "klingai:4@3",
+            model: "klingai:5@3",
             duration: 5,
-            width: 405,
-            height: 720,
+            width: 1080,
+            height: 1920,
             numberResults: 1,
             includeCost: true,
             skipResponse: true // Skip waiting, we'll poll manually
@@ -166,13 +166,13 @@ async function generateVideoFromImage(prompt, base64Image) {
     try {
         console.log('🎬 Starting image-to-video generation');
         
-        // Use Veo 3 model for image-to-video generation with supported resolution
+        // Use KlingAI 2.1 Master for optimal 1080p vertical video (9:16)
         const response = await runware.videoInference({
             positivePrompt: prompt,
-            model: "klingai:4@3",
+            model: "klingai:5@3",
             duration: 5,
-            width: 405,
-            height: 720,
+            width: 1080,
+            height: 1920,
             frameImages: [
                 {
                     inputImage: `data:image/jpeg;base64,${base64Image}`
