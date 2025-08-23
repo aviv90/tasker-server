@@ -19,8 +19,8 @@ async function generateVideoWithText(prompt) {
             positivePrompt: cleanPrompt,
             model: "klingai:5@3",
             duration: 5,
-            width: 608,
-            height: 1080,
+            width: 1080,
+            height: 1920,
             numberResults: 1,
             includeCost: true,
             skipResponse: true // Skip waiting, we'll poll manually
@@ -171,8 +171,8 @@ async function generateVideoFromImage(prompt, base64Image) {
             positivePrompt: prompt,
             model: "klingai:5@3",
             duration: 5,
-            width: 608,
-            height: 1080,
+            width: 1080,
+            height: 1920,
             frameImages: [
                 {
                     inputImage: `data:image/jpeg;base64,${base64Image}`
