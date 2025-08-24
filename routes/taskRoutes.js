@@ -45,7 +45,7 @@ router.post('/start-task', async (req, res) => {
             } else {
                 result = await geminiService.generateImageWithText(sanitizedPrompt);
             }
-            finalizeTask(taskId, result, req, 'png');
+            await finalizeTask(taskId, result, req, 'png');
         } else if (type === 'text-to-video') {
             let result;
             if (provider === 'replicate') {
@@ -54,7 +54,7 @@ router.post('/start-task', async (req, res) => {
                 result = await runwareService.generateVideoWithText(sanitizedPrompt);
             }
             
-            finalizeVideo(taskId, result, sanitizedPrompt);
+            await finalizeVideo(taskId, result, sanitizedPrompt);
         } else {
             taskStore.set(taskId, { 
                 status: 'error', 

@@ -54,7 +54,7 @@ router.post('/upload-edit', upload.single('file'), async (req, res) => {
       result = await geminiService.editImageWithText(sanitizedPrompt, base64);
     }
     
-    finalize(taskId, result, req);
+    await finalize(taskId, result, req);
   } catch (error) {
     console.error(`❌ Image edit error:`, error.message);
     taskStore.set(taskId, { status: 'error', error: error.message || 'Unknown error occurred' });
@@ -80,7 +80,7 @@ router.post('/upload-video', upload.single('file'), async (req, res) => {
       result = await runwareService.generateVideoFromImage(prompt, base64);
     }
     
-    finalizeVideo(taskId, result, prompt, req);
+    await finalizeVideo(taskId, result, prompt, req);
   } catch (error) {
     console.error(`❌ Image-to-video error:`, error.message);
     taskStore.set(taskId, { status: 'error', error: error.message || 'Unknown error occurred' });
@@ -99,7 +99,7 @@ router.post('/upload-video-edit', upload.single('file'), async (req, res) => {
 
   try {
     const result = await replicateService.generateVideoFromVideo(req.file.buffer, prompt);
-    finalizeVideo(taskId, result, prompt, req);
+    await finalizeVideo(taskId, result, prompt, req);
   } catch (error) {
     console.error(`❌ Video-to-video error:`, error.message);
     taskStore.set(taskId, { status: 'error', error: error.message || 'Unknown error occurred' });
@@ -119,7 +119,7 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     const filename = req.file.originalname || 'audio.wav';
     const result = await lemonfoxService.transcribeAudio(req.file.buffer, filename);
     
-    finalizeTranscription(taskId, result);
+    await finalizeTranscription(taskId, result);
   } catch (error) {
     console.error(`❌ Transcription error:`, error.message);
     taskStore.set(taskId, { status: 'error', error: error.message || 'Unknown error occurred' });
