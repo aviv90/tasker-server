@@ -17,10 +17,10 @@ async function generateVideoWithText(prompt) {
         // Use KlingAI 2.1 Master for optimal 1080p vertical video (9:16)
         const response = await runware.videoInference({
             positivePrompt: cleanPrompt,
-            model: "google:3@0", // model: "klingai:5@3",
-            duration: 8, // duration: 5,
-            width: 1280, // width: 1080,
-            height: 720,
+            model: "klingai:5@3",
+            duration: 5,
+            width: 1080,
+            height: 1920,
             numberResults: 1,
             includeCost: true,
             skipResponse: true // Skip waiting, we'll poll manually
@@ -169,10 +169,10 @@ async function generateVideoFromImage(prompt, base64Image) {
         // Use KlingAI 2.1 Master for optimal 1080p vertical video (9:16)
         const response = await runware.videoInference({
             positivePrompt: prompt,
-            model: "google:3@0", // model: "klingai:5@3",
-            duration: 8, // duration: 5,
-            width: 1280, // width: 1080,
-            height: 720,
+            model: "klingai:5@3",
+            duration: 5,
+            width: 1080,
+            height: 1920,
             frameImages: [
                 {
                     inputImage: `data:image/jpeg;base64,${base64Image}`
