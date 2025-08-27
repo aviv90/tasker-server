@@ -75,8 +75,8 @@ async function generateVideoWithText(prompt) {
 
     } catch (err) {
         console.error('❌ Text-to-video generation error:', err);
-        // Return the full error object as-is
-        return { error: err };
+        // Throw the error so it gets caught by the route's catch block
+        throw err;
     }
 }
 
@@ -162,8 +162,8 @@ async function generateVideoFromImage(imageBuffer, prompt = null) {
 
     } catch (err) {
         console.error('❌ Image-to-video generation error:', err);
-        // Return the full error object as-is
-        return { error: err };
+        // Throw the error so it gets caught by the route's catch block
+        throw err;
     }
 }
 

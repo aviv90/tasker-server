@@ -47,8 +47,8 @@ async function generateImageWithText(prompt) {
         return { text: text || prompt, imageBuffer };
     } catch (err) {
         console.error('❌ Gemini image generation error:', err);
-        // Return the full error object as-is
-        return { error: err };
+        // Throw the error so it gets caught by the route's catch block
+        throw err;
     }
 }
 
@@ -98,8 +98,8 @@ async function editImageWithText(prompt, base64Image) {
         return { text: text || prompt, imageBuffer };
     } catch (err) {
         console.error('❌ Gemini image edit error:', err);
-        // Return the full error object as-is
-        return { error: err };
+        // Throw the error so it gets caught by the route's catch block
+        throw err;
     }
 }
 
