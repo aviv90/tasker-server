@@ -56,7 +56,7 @@ router.post('/upload-edit', upload.single('file'), async (req, res) => {
     
     await finalize(taskId, result, req);
   } catch (error) {
-    console.error(`❌ Image edit error:`, error.message);
+    console.error(`❌ Image edit error:`, error);
     taskStore.set(taskId, getTaskError(error));
   }
 });
@@ -75,16 +75,15 @@ router.post('/upload-video', upload.single('file'), async (req, res) => {
     let result;
     if (provider === 'replicate') {
       result = await replicateService.generateVideoFromImage(req.file.buffer, prompt);
-    } else if (provider === 'gemini') {
-      result = await geminiService.generateVideoFromImage(prompt, req.file.buffer);
     } else {
+      // Default to runware for image-to-video generation
       const base64 = req.file.buffer.toString('base64');
       result = await runwareService.generateVideoFromImage(prompt, base64);
     }
     
     await finalizeVideo(taskId, result, prompt, req);
   } catch (error) {
-    console.error(`❌ Image-to-video error:`, error.message);
+    console.error(`❌ Image-to-video error:`, error);
     taskStore.set(taskId, getTaskError(error));
   }
 });
@@ -103,7 +102,7 @@ router.post('/upload-video-edit', upload.single('file'), async (req, res) => {
     const result = await replicateService.generateVideoFromVideo(req.file.buffer, prompt);
     await finalizeVideo(taskId, result, prompt, req);
   } catch (error) {
-    console.error(`❌ Video-to-video error:`, error.message);
+    console.error(`❌ Video-to-video error:`, error);
     taskStore.set(taskId, getTaskError(error));
   }
 });
@@ -123,7 +122,7 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     
     await finalizeTranscription(taskId, result);
   } catch (error) {
-    console.error(`❌ Transcription error:`, error.message);
+    console.error(`❌ Transcription error:`, error);
     taskStore.set(taskId, getTaskError(error));
   }
 });
@@ -148,7 +147,7 @@ function finalizeVideo(taskId, result, prompt, req = null) {
       cost: result.cost
     });
   } catch (error) {
-    console.error(`❌ Error in finalizeVideo:`, error.message);
+    console.error(`❌ Error in finalizeVideo:`, error);
     taskStore.set(taskId, getTaskError(error, 'Failed to finalize video'));
   }
 }
@@ -172,7 +171,7 @@ function finalize(taskId, result, req) {
       text: result.text
     });
   } catch (error) {
-    console.error(`❌ Error in finalize:`, error.message);
+    console.error(`❌ Error in finalize:`, error);
     taskStore.set(taskId, getTaskError(error));
   }
 }
@@ -190,7 +189,7 @@ function finalizeTranscription(taskId, result) {
       language: result.language
     });
   } catch (error) {
-    console.error(`❌ Error in finalizeTranscription:`, error.message);
+    console.error(`❌ Error in finalizeTranscription:`, error);
     taskStore.set(taskId, getTaskError(error));
   }
 }
