@@ -75,6 +75,8 @@ router.post('/upload-video', upload.single('file'), async (req, res) => {
     let result;
     if (provider === 'replicate') {
       result = await replicateService.generateVideoFromImage(req.file.buffer, prompt);
+    } else if (provider === 'gemini') {
+      result = await geminiService.generateVideoFromImage(prompt, req.file.buffer);
     } else {
       const base64 = req.file.buffer.toString('base64');
       result = await runwareService.generateVideoFromImage(prompt, base64);

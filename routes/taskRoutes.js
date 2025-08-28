@@ -50,6 +50,8 @@ router.post('/start-task', async (req, res) => {
             let result;
             if (provider === 'replicate') {
                 result = await replicateService.generateVideoWithText(sanitizedPrompt);
+            } else if (provider === 'gemini') {
+                result = await geminiService.generateVideoWithText(sanitizedPrompt);
             } else {
                 result = await runwareService.generateVideoWithText(sanitizedPrompt);
             }
