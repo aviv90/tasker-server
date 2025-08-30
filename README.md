@@ -6,8 +6,8 @@ A Node.js server for multimedia AI processing including image generation, video 
 
 - **Text-to-Image Generation** using Google Gemini or OpenAI DALL-E
 - **Image Editing** using Google Gemini or OpenAI
-- **Text-to-Video Generation** using Runware or Replicate
-- **Image-to-Video Generation** using Runware or Replicate  
+- **Text-to-Video Generation** using Kling v2.1 Master or Gemini Veo 3
+- **Image-to-Video Generation** using Kling v2.1 Master  
 - **Video-to-Video Transformation** using Replicate
 - **Audio Transcription** using Lemonfox
 - RESTful API with task-based processing
@@ -37,7 +37,7 @@ Content-Type: application/json
 {
   "type": "text-to-video",
   "prompt": "Your video description here",
-  "provider": "replicate" // or "runware" (default)
+  "provider": "replicate" // or "gemini" for text-to-video (uses Kling v2.1 Master)
 }
 ```
 
@@ -63,7 +63,7 @@ Content-Type: multipart/form-data
 {
   "file": [image file],
   "prompt": "Video description",
-  "provider": "replicate" // or "runware" (default)
+  "provider": "replicate"
 }
 ```
 
@@ -111,10 +111,9 @@ GET /api/task-status/{taskId}
 Create a `.env` file with:
 
 ```env
-GEMINI_API_KEY=your_gemini_api_key
 OPENAI_API_KEY=your_openai_api_key
-RUNWARE_API_KEY=your_runware_api_key
-REPLICATE_API_KEY=your_replicate_api_key
+REPLICATE_API_TOKEN=your_replicate_token
+GEMINI_API_KEY=your_gemini_api_key
 LEMONFOX_API_KEY=your_lemonfox_api_key
 PORT=3000
 ```
@@ -138,12 +137,12 @@ npm start
   - Advanced prompting capabilities
   - Base64 encoded output
 
-- **Runware**: Video generation service
-  - Text-to-video and image-to-video
-  - Cost-effective for basic video generation
-  - Good for standard video creation
+- **Kling v2.1 Master**: Premium video generation (primary provider)
+  - Exceptional text-to-video and image-to-video quality
+  - 1080p resolution, superb dynamics and prompt adherence
+  - Professional-grade video generation
 
-- **Replicate**: Advanced AI model platform
+- **Gemini**: Advanced text-to-video generation with Veo 3
   - Text-to-video, image-to-video, and video-to-video
   - High-quality models like Runway Gen-4 Aleph
   - Better for complex video transformations

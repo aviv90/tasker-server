@@ -4,7 +4,6 @@ const { v4: uuidv4 } = require('uuid');
 const taskStore = require('../store/taskStore');
 const geminiService = require('../services/geminiService');
 const openaiService = require('../services/openaiService');
-const runwareService = require('../services/runwareService');
 const replicateService = require('../services/replicateService');
 const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
 const { isErrorResult, getTaskError } = require('../utils/errorHandler');
@@ -53,7 +52,8 @@ router.post('/start-task', async (req, res) => {
             } else if (provider === 'gemini') {
                 result = await geminiService.generateVideoWithText(sanitizedPrompt);
             } else {
-                result = await runwareService.generateVideoWithText(sanitizedPrompt);
+                // Default to replicate for video generation
+                result = await replicateService.generateVideoWithText(sanitizedPrompt);
             }
             
             await finalizeVideo(taskId, result, sanitizedPrompt, req);
@@ -64,7 +64,7 @@ router.post('/start-task', async (req, res) => {
             });
         }
     } catch (error) {
-        console.error(`❌ Task error:`, error);
+        // Service already logs the error, just store it
         taskStore.set(taskId, getTaskError(error));
     }
 });
@@ -81,7 +81,7 @@ function finalizeVideo(taskId, result, prompt, req = null) {
             taskStore.set(taskId, getTaskError(result));
             return;
         }
-        let outResult = result.result; // expected URL from providers like runware/replicate
+        let outResult = result.result; // expected URL from providers like replicate/gemini
 
         // Handle Gemini path: returns videoBuffer (no result URL yet)
         if (!outResult && result.videoBuffer) {
@@ -106,7 +106,7 @@ function finalizeVideo(taskId, result, prompt, req = null) {
             cost: result.cost
         });
     } catch (error) {
-        console.error(`❌ Error in finalizeVideo:`, error);
+        // Store error without duplicate logging
         taskStore.set(taskId, getTaskError(error, 'finalizeVideo'));
     }
 }

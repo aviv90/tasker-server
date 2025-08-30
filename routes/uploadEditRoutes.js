@@ -11,7 +11,6 @@ const { v4: uuidv4 } = require('uuid');
 const taskStore = require('../store/taskStore');
 const geminiService = require('../services/geminiService');
 const openaiService = require('../services/openaiService');
-const runwareService = require('../services/runwareService');
 const replicateService = require('../services/replicateService');
 const lemonfoxService = require('../services/lemonfoxService');
 const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
@@ -76,9 +75,9 @@ router.post('/upload-video', upload.single('file'), async (req, res) => {
     if (provider === 'replicate') {
       result = await replicateService.generateVideoFromImage(req.file.buffer, prompt);
     } else {
-      // Default to runware for image-to-video generation
+      // Default to replicate for image-to-video generation
       const base64 = req.file.buffer.toString('base64');
-      result = await runwareService.generateVideoFromImage(prompt, base64);
+      result = await replicateService.generateVideoFromImage(req.file.buffer, prompt);
     }
     
     await finalizeVideo(taskId, result, prompt, req);
