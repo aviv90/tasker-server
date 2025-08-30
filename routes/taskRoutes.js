@@ -56,7 +56,7 @@ router.post('/start-task', async (req, res) => {
                 result = await runwareService.generateVideoWithText(sanitizedPrompt);
             }
             
-            await finalizeVideo(taskId, result, sanitizedPrompt);
+            await finalizeVideo(taskId, result, sanitizedPrompt, req);
         } else {
             taskStore.set(taskId, { 
                 status: 'error', 
@@ -75,16 +75,33 @@ router.get('/task-status/:taskId', (req, res) => {
     res.json(task);
 });
 
-function finalizeVideo(taskId, result, prompt) {
+function finalizeVideo(taskId, result, prompt, req = null) {
     try {
         if (isErrorResult(result)) {
             taskStore.set(taskId, getTaskError(result));
             return;
         }
+        let outResult = result.result; // expected URL from providers like runware/replicate
+
+        // Handle Gemini path: returns videoBuffer (no result URL yet)
+        if (!outResult && result.videoBuffer) {
+            const fs = require('fs');
+            const path = require('path');
+            const filename = `${taskId}.mp4`;
+            const outputDir = path.join(__dirname, '..', 'public', 'tmp');
+            if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+            const outputPath = path.join(outputDir, filename);
+            fs.writeFileSync(outputPath, result.videoBuffer);
+            outResult = `/static/${filename}`;
+            if (req) {
+                const host = `${req.protocol}://${req.get('host')}`;
+                outResult = `${host}${outResult}`;
+            }
+        }
 
         taskStore.set(taskId, {
             status: 'done',
-            result: result.result,
+            result: outResult,
             text: result.text || prompt,
             cost: result.cost
         });
