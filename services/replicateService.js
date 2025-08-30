@@ -11,14 +11,14 @@ const MODELS = {
     TEXT_TO_VIDEO: "kwaivgi/kling-v2.1-master",
     IMAGE_TO_VIDEO: "kwaivgi/kling-v2.1-master",
     VIDEO_TO_VIDEO: "runwayml/gen4-aleph",
-    VEO3_TEXT_TO_VIDEO: "google/veo-3-fast",
-    VEO3_IMAGE_TO_VIDEO: "google/veo-3-fast"
+    VEO3_TEXT_TO_VIDEO: "google/veo-3",
+    VEO3_IMAGE_TO_VIDEO: "google/veo-3"
 };
 
 async function generateVideoWithText(prompt, model = 'kling') {
     try {
         const isVeo3 = model === 'veo3';
-        const modelName = isVeo3 ? 'Veo 3 Fast' : 'Kling v2.1 Master';
+        const modelName = isVeo3 ? 'Veo 3' : 'Kling v2.1 Master';
         const modelVersion = isVeo3 ? MODELS.VEO3_TEXT_TO_VIDEO : MODELS.TEXT_TO_VIDEO;
         
         console.log(`🎬 Starting ${modelName} text-to-video generation`);
@@ -100,14 +100,14 @@ async function generateVideoWithText(prompt, model = 'kling') {
 function calculateCost(prediction, isVeo3 = false) {
     try {
         if (isVeo3) {
-            // Veo 3 costs $3.20 per output video
-            return "3.20";
+            // Veo 3 costs $6 per 8-second video ($0.75 per second)
+            return "6.00";
         } else {
             // Kling costs $0.28 per second of output video (5s = $1.40)
             return "1.40"; // Fixed cost for 5-second Kling video
         }
     } catch (err) {
-        return isVeo3 ? "3.20" : "1.40";
+        return isVeo3 ? "6.00" : "1.40";
     }
 }
 
@@ -116,7 +116,7 @@ function calculateCost(prediction, isVeo3 = false) {
 async function generateVideoFromImage(imageBuffer, prompt = null, model = 'kling') {
     try {
         const isVeo3 = model === 'veo3';
-        const modelName = isVeo3 ? 'Veo 3 Fast' : 'Kling v2.1 Master';
+        const modelName = isVeo3 ? 'Veo 3' : 'Kling v2.1 Master';
         const modelVersion = isVeo3 ? MODELS.VEO3_IMAGE_TO_VIDEO : MODELS.IMAGE_TO_VIDEO;
         
         console.log(`🎬 Starting ${modelName} image-to-video generation`);
