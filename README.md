@@ -6,8 +6,8 @@ A Node.js server for multimedia AI processing including image generation, video 
 
 - **Text-to-Image Generation** using Google Gemini or OpenAI DALL-E
 - **Image Editing** using Google Gemini or OpenAI
-- **Text-to-Video Generation** using Kling v2.1 Master or Gemini Veo 3
-- **Image-to-Video Generation** using Kling v2.1 Master  
+- **Text-to-Video Generation** using Kling v2.1 Master, Veo 3 Fast, or Gemini Veo 3
+- **Image-to-Video Generation** using Kling v2.1 Master or Veo 3 Fast  
 - **Video-to-Video Transformation** using Replicate
 - **Audio Transcription** using Lemonfox
 - RESTful API with task-based processing
@@ -37,8 +37,14 @@ Content-Type: application/json
 {
   "type": "text-to-video",
   "prompt": "Your video description here",
-  "provider": "replicate" // or "gemini" for text-to-video (uses Kling v2.1 Master)
+  "provider": "replicate", // or "gemini" for text-to-video 
+  "model": "kling" // or "veo3" (optional, default: "kling")
 }
+```
+
+**Model Options:**
+- `"kling"` (default): Kling v2.1 Master - Premium quality, 1080p, $1.40
+- `"veo3"`: Veo 3 Fast - With audio, 720p landscape, $3.20
 ```
 
 ### Upload and Edit Image
@@ -63,7 +69,8 @@ Content-Type: multipart/form-data
 {
   "file": [image file],
   "prompt": "Video description",
-  "provider": "replicate"
+  "provider": "replicate",
+  "model": "kling" // or "veo3" (optional, default: "kling")
 }
 ```
 
@@ -137,12 +144,19 @@ npm start
   - Advanced prompting capabilities
   - Base64 encoded output
 
-- **Kling v2.1 Master**: Premium video generation (primary provider)
+- **Kling v2.1 Master**: Premium video generation (default)
   - Exceptional text-to-video and image-to-video quality
   - 1080p resolution, superb dynamics and prompt adherence
-  - Professional-grade video generation
+  - Cost: $1.40 per 5-second video
+
+- **Veo 3 Fast**: Google's fast video generation via Replicate
+  - High-quality video generation with audio support
+  - 720p resolution, landscape orientation only
+  - Cost: $3.20 per video
 
 - **Gemini**: Advanced text-to-video generation with Veo 3
+  - Direct Google API integration
+  - High-quality video generation
   - Text-to-video, image-to-video, and video-to-video
   - High-quality models like Runway Gen-4 Aleph
   - Better for complex video transformations

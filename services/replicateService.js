@@ -10,109 +10,36 @@ const replicate = new Replicate({
 const MODELS = {
     TEXT_TO_VIDEO: "kwaivgi/kling-v2.1-master",
     IMAGE_TO_VIDEO: "kwaivgi/kling-v2.1-master",
-    VIDEO_TO_VIDEO: "runwayml/gen4-aleph"
+    VIDEO_TO_VIDEO: "runwayml/gen4-aleph",
+    VEO3_TEXT_TO_VIDEO: "google/veo-3-fast",
+    VEO3_IMAGE_TO_VIDEO: "google/veo-3-fast"
 };
 
-async function generateVideoWithText(prompt) {
+async function generateVideoWithText(prompt, model = 'kling') {
     try {
-        console.log('🎬 Starting Kling v2.1 Master text-to-video generation');
+        const isVeo3 = model === 'veo3';
+        const modelName = isVeo3 ? 'Veo 3 Fast' : 'Kling v2.1 Master';
+        const modelVersion = isVeo3 ? MODELS.VEO3_TEXT_TO_VIDEO : MODELS.TEXT_TO_VIDEO;
         
-        const prediction = await replicate.predictions.create({
-            version: MODELS.TEXT_TO_VIDEO,
-            input: {
+        console.log(`🎬 Starting ${modelName} text-to-video generation`);
+        
+        let input;
+        if (isVeo3) {
+            input = {
+                prompt: prompt,
+                resolution: "720p"
+            };
+        } else {
+            input = {
                 prompt: prompt,
                 aspect_ratio: "9:16",
                 duration: 5,
                 negative_prompt: ""
-            }
-        });
-
-        if (!prediction?.id) {
-            return { error: 'No prediction ID received from Replicate' };
-        }
-
-        console.log('🔄 Polling for completion');
-        
-        const maxAttempts = 80; // Kling can take longer
-        let attempts = 0;
-        
-        while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 15000)); // Longer wait for Kling
-            attempts++;
-            
-            try {
-                const result = await replicate.predictions.get(prediction.id);
-                
-                if (result.status === 'succeeded' && result.output) {
-                    console.log('✅ Kling text-to-video completed');
-                    
-                    let videoURL = result.output;
-                    if (Array.isArray(result.output)) {
-                        videoURL = result.output[0];
-                    }
-                    
-                    return { 
-                        text: prompt, 
-                        result: videoURL,
-                        cost: calculateCost(result)
-                    };
-                }
-                
-                if (result.status === 'failed' || result.status === 'canceled') {
-                    const errorMsg = result.error || `Task ${result.status}`;
-                    return { error: errorMsg };
-                }
-                
-                console.log(`⏳ Kling progress: ${result.status} (attempt ${attempts}/${maxAttempts})`);
-                
-            } catch (pollError) {
-                console.error('❌ Polling error:', pollError.message);
-                return { error: `Polling failed: ${pollError.message}` };
-            }
-        }
-        
-        return { error: 'Kling text-to-video generation timed out after 20 minutes' };
-
-    } catch (err) {
-        console.error('❌ Kling text-to-video generation error:', err.message || err);
-        return { error: `Kling text-to-video failed: ${err.message || err}` };
-    }
-}
-
-function calculateCost(prediction) {
-    try {
-        if (prediction.metrics?.predict_time) {
-            const timeInSeconds = prediction.metrics.predict_time;
-            // Kling costs $0.28 per second of output video (5s = $1.40)
-            return (5 * 0.28).toFixed(2); // Fixed cost for 5-second video
-        }
-        return "1.40"; // Default cost for 5-second Kling video
-    } catch (err) {
-        return "1.40";
-    }
-}
-
-
-
-async function generateVideoFromImage(imageBuffer, prompt = null) {
-    try {
-        console.log('🎬 Starting Kling v2.1 Master image-to-video generation');
-        
-        const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
-        
-        const input = {
-            start_image: base64Image,
-            duration: 5
-        };
-        
-        if (prompt) {
-            input.prompt = prompt;
-        } else {
-            input.prompt = "animate this image with smooth motion";
+            };
         }
         
         const prediction = await replicate.predictions.create({
-            version: MODELS.IMAGE_TO_VIDEO,
+            version: modelVersion,
             input: input
         });
 
@@ -122,18 +49,123 @@ async function generateVideoFromImage(imageBuffer, prompt = null) {
 
         console.log('🔄 Polling for completion');
         
-        const maxAttempts = 80; // Kling can take longer
+        const maxAttempts = isVeo3 ? 40 : 80; // Veo3 is faster
+        const pollInterval = isVeo3 ? 10000 : 15000; // Different polling intervals
         let attempts = 0;
         
         while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 15000)); // Longer wait for Kling
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
             attempts++;
             
             try {
                 const result = await replicate.predictions.get(prediction.id);
                 
                 if (result.status === 'succeeded' && result.output) {
-                    console.log('✅ Kling image-to-video completed');
+                    console.log(`✅ ${modelName} text-to-video completed`);
+                    
+                    let videoURL = result.output;
+                    if (Array.isArray(result.output)) {
+                        videoURL = result.output[0];
+                    }
+                    
+                    return { 
+                        text: prompt, 
+                        result: videoURL,
+                        cost: calculateCost(result, isVeo3),
+                        model: modelName
+                    };
+                }
+                
+                if (result.status === 'failed' || result.status === 'canceled') {
+                    const errorMsg = result.error || `Task ${result.status}`;
+                    return { error: errorMsg };
+                }
+                
+                console.log(`⏳ ${modelName} progress: ${result.status} (attempt ${attempts}/${maxAttempts})`);
+                
+            } catch (pollError) {
+                console.error('❌ Polling error:', pollError.message);
+                return { error: `Polling failed: ${pollError.message}` };
+            }
+        }
+        
+        return { error: `${modelName} text-to-video generation timed out` };
+
+    } catch (err) {
+        console.error('❌ Text-to-video generation error:', err.message || err);
+        return { error: `Text-to-video failed: ${err.message || err}` };
+    }
+}
+
+function calculateCost(prediction, isVeo3 = false) {
+    try {
+        if (isVeo3) {
+            // Veo 3 costs $3.20 per output video
+            return "3.20";
+        } else {
+            // Kling costs $0.28 per second of output video (5s = $1.40)
+            return "1.40"; // Fixed cost for 5-second Kling video
+        }
+    } catch (err) {
+        return isVeo3 ? "3.20" : "1.40";
+    }
+}
+
+
+
+async function generateVideoFromImage(imageBuffer, prompt = null, model = 'kling') {
+    try {
+        const isVeo3 = model === 'veo3';
+        const modelName = isVeo3 ? 'Veo 3 Fast' : 'Kling v2.1 Master';
+        const modelVersion = isVeo3 ? MODELS.VEO3_IMAGE_TO_VIDEO : MODELS.IMAGE_TO_VIDEO;
+        
+        console.log(`🎬 Starting ${modelName} image-to-video generation`);
+        
+        const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+        
+        let input;
+        if (isVeo3) {
+            input = {
+                image: base64Image,
+                prompt: prompt || "animate this image with smooth motion",
+                resolution: "720p"
+            };
+        } else {
+            input = {
+                start_image: base64Image,
+                duration: 5
+            };
+            if (prompt) {
+                input.prompt = prompt;
+            } else {
+                input.prompt = "animate this image with smooth motion";
+            }
+        }
+        
+        const prediction = await replicate.predictions.create({
+            version: modelVersion,
+            input: input
+        });
+
+        if (!prediction?.id) {
+            return { error: 'No prediction ID received from Replicate' };
+        }
+
+        console.log('🔄 Polling for completion');
+        
+        const maxAttempts = isVeo3 ? 40 : 80; // Veo3 is faster
+        const pollInterval = isVeo3 ? 10000 : 15000; // Different polling intervals
+        let attempts = 0;
+        
+        while (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            attempts++;
+            
+            try {
+                const result = await replicate.predictions.get(prediction.id);
+                
+                if (result.status === 'succeeded' && result.output) {
+                    console.log(`✅ ${modelName} image-to-video completed`);
                     
                     let videoURL = result.output;
                     if (Array.isArray(result.output)) {
@@ -143,7 +175,8 @@ async function generateVideoFromImage(imageBuffer, prompt = null) {
                     return { 
                         text: prompt || 'Image to video conversion', 
                         result: videoURL,
-                        cost: calculateCost(result)
+                        cost: calculateCost(result, isVeo3),
+                        model: modelName
                     };
                 }
                 
@@ -152,7 +185,7 @@ async function generateVideoFromImage(imageBuffer, prompt = null) {
                     return { error: errorMsg };
                 }
                 
-                console.log(`⏳ Kling progress: ${result.status} (attempt ${attempts}/${maxAttempts})`);
+                console.log(`⏳ ${modelName} progress: ${result.status} (attempt ${attempts}/${maxAttempts})`);
                 
             } catch (pollError) {
                 console.error('❌ Polling error:', pollError.message);
@@ -160,11 +193,11 @@ async function generateVideoFromImage(imageBuffer, prompt = null) {
             }
         }
         
-        return { error: 'Kling image-to-video generation timed out after 20 minutes' };
+        return { error: `${modelName} image-to-video generation timed out` };
 
     } catch (err) {
-        console.error('❌ Kling image-to-video generation error:', err.message || err);
-        return { error: `Kling image-to-video failed: ${err.message || err}` };
+        console.error('❌ Image-to-video generation error:', err.message || err);
+        return { error: `Image-to-video failed: ${err.message || err}` };
     }
 }
 
@@ -186,7 +219,7 @@ async function generateVideoFromVideo(inputVideoBuffer, prompt) {
         const input = {
             prompt: prompt,
             video: videoDataUrl,
-            aspect_ratio: "16:9"
+            aspect_ratio: "9:16"
         };
         
         console.log('🔄 Calling Replicate API');

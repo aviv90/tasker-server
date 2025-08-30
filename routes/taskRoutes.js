@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 
 router.post('/start-task', async (req, res) => {
-    const { type, prompt, provider } = req.body;
+    const { type, prompt, provider, model } = req.body;
     
     // Validate required fields
     if (!type || !prompt) {
@@ -48,12 +48,12 @@ router.post('/start-task', async (req, res) => {
         } else if (type === 'text-to-video') {
             let result;
             if (provider === 'replicate') {
-                result = await replicateService.generateVideoWithText(sanitizedPrompt);
+                result = await replicateService.generateVideoWithText(sanitizedPrompt, model);
             } else if (provider === 'gemini') {
                 result = await geminiService.generateVideoWithText(sanitizedPrompt);
             } else {
                 // Default to replicate for video generation
-                result = await replicateService.generateVideoWithText(sanitizedPrompt);
+                result = await replicateService.generateVideoWithText(sanitizedPrompt, model);
             }
             
             await finalizeVideo(taskId, result, sanitizedPrompt, req);

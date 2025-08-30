@@ -61,7 +61,7 @@ router.post('/upload-edit', upload.single('file'), async (req, res) => {
 });
 
 router.post('/upload-video', upload.single('file'), async (req, res) => {  
-  const { prompt, provider } = req.body;
+  const { prompt, provider, model } = req.body;
   if (!prompt || !req.file) {
     return res.status(400).json({ status:'error', error:'Missing prompt or file' });
   }
@@ -73,11 +73,11 @@ router.post('/upload-video', upload.single('file'), async (req, res) => {
   try {
     let result;
     if (provider === 'replicate') {
-      result = await replicateService.generateVideoFromImage(req.file.buffer, prompt);
+      result = await replicateService.generateVideoFromImage(req.file.buffer, prompt, model);
     } else {
       // Default to replicate for image-to-video generation
       const base64 = req.file.buffer.toString('base64');
-      result = await replicateService.generateVideoFromImage(req.file.buffer, prompt);
+      result = await replicateService.generateVideoFromImage(req.file.buffer, prompt, model);
     }
     
     await finalizeVideo(taskId, result, prompt, req);
