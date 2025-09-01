@@ -24,7 +24,7 @@ router.post('/upload-edit', upload.single('file'), async (req, res) => {
 });
 
 router.post('/upload-video', upload.single('file'), async (req, res) => {
-  const { prompt, provider } = req.body;
+  const { prompt, provider, model } = req.body;
   if (!prompt || !req.file) {
     console.log('❌ Upload video: Missing prompt or file');
     return res.status(400).json({ status:'error', error:'Missing prompt or file' });
@@ -37,8 +37,8 @@ router.post('/upload-video', upload.single('file'), async (req, res) => {
 
   let result;
   if (provider === 'replicate') {
-    // For Replicate, use image-to-video service (imageBuffer, prompt order)
-    result = await replicateService.generateVideoFromImage(req.file.buffer, prompt);
+    // For Replicate, use image-to-video service (imageBuffer, prompt, model order)
+    result = await replicateService.generateVideoFromImage(req.file.buffer, prompt, model);
   } else {
     // For Gemini (default), use the new generateVideoWithImage function (prompt, imageBuffer order)
     result = await geminiService.generateVideoWithImage(prompt, req.file.buffer);
