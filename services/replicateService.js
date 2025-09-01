@@ -64,6 +64,8 @@ async function generateVideoWithText(prompt, model = 'kling') {
             await new Promise(resolve => setTimeout(resolve, 10000));
             attempts++;
             
+            console.log(`🔄 Polling attempt ${attempts}/${maxAttempts} for text-to-video generation`);
+            
             try {
                 const result = await replicate.predictions.get(prediction.id);
                 
@@ -88,6 +90,7 @@ async function generateVideoWithText(prompt, model = 'kling') {
                 }
                 
             } catch (pollError) {
+                console.log(`❌ Polling attempt ${attempts} failed:`, pollError.message);
                 if (pollError.response?.status === 401 || pollError.response?.status === 402 || pollError.response?.status === 429) {
                     return { error: extractErrorDetails(pollError) };
                 }
@@ -197,6 +200,8 @@ async function generateVideoFromImage(imageBuffer, prompt = null, model = 'kling
             await new Promise(resolve => setTimeout(resolve, 10000));
             attempts++;
             
+            console.log(`🔄 Polling attempt ${attempts}/${maxAttempts} for image-to-video generation`);
+            
             try {
                 const result = await replicate.predictions.get(prediction.id);
                 
@@ -221,6 +226,7 @@ async function generateVideoFromImage(imageBuffer, prompt = null, model = 'kling
                 }
                 
             } catch (pollError) {
+                console.log(`❌ Polling attempt ${attempts} failed:`, pollError.message);
                 if (pollError.response?.status === 401 || pollError.response?.status === 402 || pollError.response?.status === 429) {
                     return { error: extractErrorDetails(pollError) };
                 }

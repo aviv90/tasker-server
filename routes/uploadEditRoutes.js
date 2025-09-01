@@ -48,9 +48,12 @@ router.post('/upload-edit', upload.single('file'), async (req, res) => {
     let result;
     if (provider === 'openai') {
       result = await openaiService.editImageWithText(sanitizedPrompt, req.file.buffer);
-    } else {
+    } else if (provider === 'gemini') {
       const base64 = req.file.buffer.toString('base64');
       result = await geminiService.editImageWithText(sanitizedPrompt, base64);
+    } else {
+      // Default to openai for image editing
+      result = await openaiService.editImageWithText(sanitizedPrompt, req.file.buffer);
     }
     
     await finalize(taskId, result, req);

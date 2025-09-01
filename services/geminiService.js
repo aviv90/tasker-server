@@ -123,6 +123,7 @@ async function generateVideoWithText(prompt) {
         console.log('⏳ Polling for video generation completion...');
         const maxWaitTime = 10 * 60 * 1000; // 10 minutes
         const startTime = Date.now();
+        let pollAttempts = 0;
         
         while (!operation.done) {
             if (Date.now() - startTime > maxWaitTime) {
@@ -130,6 +131,8 @@ async function generateVideoWithText(prompt) {
                 return { error: { message: 'Video generation timed out after 10 minutes', code: 'TIMEOUT', provider: 'gemini' } };
             }
             await new Promise(resolve => setTimeout(resolve, 10000));
+            pollAttempts++;
+            console.log(`🔄 Polling attempt ${pollAttempts} for Veo 3 text-to-video generation`);
             operation = await veoClient.operations.getVideosOperation({ operation });
         }
         
@@ -222,6 +225,7 @@ async function generateVideoWithImage(prompt, imageBuffer) {
         console.log('⏳ Polling for video generation completion...');
         const maxWaitTime = 10 * 60 * 1000; // 10 minutes
         const startTime = Date.now();
+        let pollAttempts = 0;
         
         while (!operation.done) {
             if (Date.now() - startTime > maxWaitTime) {
@@ -229,6 +233,8 @@ async function generateVideoWithImage(prompt, imageBuffer) {
                 return { error: { message: 'Video generation timed out after 10 minutes', code: 'TIMEOUT', provider: 'gemini' } };
             }
             await new Promise(resolve => setTimeout(resolve, 10000));
+            pollAttempts++;
+            console.log(`🔄 Polling attempt ${pollAttempts} for Veo 3 image-to-video generation`);
             operation = await veoClient.operations.getVideosOperation({ operation });
         }
         
