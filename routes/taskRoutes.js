@@ -6,7 +6,7 @@ const geminiService = require('../services/geminiService');
 const openaiService = require('../services/openaiService');
 const replicateService = require('../services/replicateService');
 const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
-const { isErrorResult, getTaskError } = require('../utils/errorHandler');
+const { isErrorResult } = require('../utils/errorHandler');
 const fs = require('fs');
 const path = require('path');
 
@@ -65,7 +65,7 @@ router.post('/start-task', async (req, res) => {
         }
     } catch (error) {
         // Service already logs the error, just store it
-        taskStore.set(taskId, getTaskError(error));
+        taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
     }
 });
 
@@ -78,7 +78,7 @@ router.get('/task-status/:taskId', (req, res) => {
 function finalizeVideo(taskId, result, prompt, req = null) {
     try {
         if (isErrorResult(result)) {
-            taskStore.set(taskId, getTaskError(result));
+            taskStore.set(taskId, { status: 'error', ...result });
             return;
         }
         let outResult = result.result; // expected URL from providers like replicate/gemini
@@ -107,14 +107,14 @@ function finalizeVideo(taskId, result, prompt, req = null) {
         });
     } catch (error) {
         // Store error without duplicate logging
-        taskStore.set(taskId, getTaskError(error, 'finalizeVideo'));
+        taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
     }
 }
 
 function finalizeTask(taskId, result, req, fileExtension = 'png') {
     try {
         if (isErrorResult(result)) {
-            taskStore.set(taskId, getTaskError(result));
+            taskStore.set(taskId, { status: 'error', ...result });
             return;
         }
         
@@ -128,7 +128,7 @@ function finalizeTask(taskId, result, req, fileExtension = 'png') {
         if (buffer) {
             fs.writeFileSync(outputPath, buffer);
         } else {
-            taskStore.set(taskId, getTaskError({ message: 'No buffer data', code: 'NO_BUFFER' }));
+            taskStore.set(taskId, { status: 'error', error: { message: 'No buffer data', code: 'NO_BUFFER' } });
             return;
         }
 
@@ -141,7 +141,7 @@ function finalizeTask(taskId, result, req, fileExtension = 'png') {
         });
     } catch (error) {
         console.error(`❌ Error in finalizeTask:`, error);
-        taskStore.set(taskId, getTaskError(error, 'finalizeTask'));
+        taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
     }
 }
 
