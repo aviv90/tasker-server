@@ -7,6 +7,7 @@ const openaiService = require('../services/openaiService');
 const replicateService = require('../services/replicateService');
 const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
 const { isErrorResult } = require('../utils/errorHandler');
+const { finalizeVideo } = require('../utils/videoUtils');
 const fs = require('fs');
 const path = require('path');
 
@@ -74,42 +75,6 @@ router.get('/task-status/:taskId', (req, res) => {
     if (!task) return res.status(404).json({ error: 'Task not found' });
     res.json(task);
 });
-
-function finalizeVideo(taskId, result, prompt, req = null) {
-    try {
-        if (isErrorResult(result)) {
-            taskStore.set(taskId, { status: 'error', ...result });
-            return;
-        }
-        let outResult = result.result; // expected URL from providers like replicate/gemini
-
-        // Handle Gemini path: returns videoBuffer (no result URL yet)
-        if (!outResult && result.videoBuffer) {
-            const fs = require('fs');
-            const path = require('path');
-            const filename = `${taskId}.mp4`;
-            const outputDir = path.join(__dirname, '..', 'public', 'tmp');
-            if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
-            const outputPath = path.join(outputDir, filename);
-            fs.writeFileSync(outputPath, result.videoBuffer);
-            outResult = `/static/${filename}`;
-            if (req) {
-                const host = `${req.protocol}://${req.get('host')}`;
-                outResult = `${host}${outResult}`;
-            }
-        }
-
-        taskStore.set(taskId, {
-            status: 'done',
-            result: outResult,
-            text: result.text || prompt,
-            cost: result.cost
-        });
-    } catch (error) {
-        // Store error without duplicate logging
-        taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
-    }
-}
 
 function finalizeTask(taskId, result, req, fileExtension = 'png') {
     try {
