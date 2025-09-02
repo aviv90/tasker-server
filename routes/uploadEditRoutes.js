@@ -12,6 +12,7 @@ const taskStore = require('../store/taskStore');
 const geminiService = require('../services/geminiService');
 const openaiService = require('../services/openaiService');
 const replicateService = require('../services/replicateService');
+const kieService = require('../services/kieService');
 const lemonfoxService = require('../services/lemonfoxService');
 const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
 const { isErrorResult, getTaskError } = require('../utils/errorHandler');
@@ -79,6 +80,8 @@ router.post('/upload-video', upload.single('file'), async (req, res) => {
       result = await replicateService.generateVideoFromImage(req.file.buffer, prompt, model);
     } else if (provider === 'gemini') {
       result = await geminiService.generateVideoWithImage(prompt, req.file.buffer);
+    } else if (provider === 'kie') {
+      result = await kieService.generateVideoWithImage(prompt, req.file.buffer, model);
     } else {
       // Default to replicate for image-to-video generation
       result = await replicateService.generateVideoFromImage(req.file.buffer, prompt, model);

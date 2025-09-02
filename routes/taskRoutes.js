@@ -5,6 +5,7 @@ const taskStore = require('../store/taskStore');
 const geminiService = require('../services/geminiService');
 const openaiService = require('../services/openaiService');
 const replicateService = require('../services/replicateService');
+const kieService = require('../services/kieService');
 const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
 const { isErrorResult } = require('../utils/errorHandler');
 const { finalizeVideo } = require('../utils/videoUtils');
@@ -52,6 +53,8 @@ router.post('/start-task', async (req, res) => {
                 result = await replicateService.generateVideoWithText(sanitizedPrompt, model);
             } else if (provider === 'gemini') {
                 result = await geminiService.generateVideoWithText(sanitizedPrompt);
+            } else if (provider === 'kie') {
+                result = await kieService.generateVideoWithText(sanitizedPrompt, model);
             } else {
                 // Default to replicate for video generation
                 result = await replicateService.generateVideoWithText(sanitizedPrompt, model);

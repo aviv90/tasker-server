@@ -42,7 +42,7 @@ async function generateImageWithText(prompt) {
         }
         
         console.log('❌ OpenAI: No base64 image data found');
-        return { error: { message: 'No base64 image data found in response', code: 'NO_IMAGE_DATA', provider: 'openai' } };
+        return { error: 'No base64 image data found in response' };
     } catch (err) {
         console.error('❌ OpenAI image generation error:', err);
         // Throw the error so it gets caught by the route's catch block
@@ -89,7 +89,7 @@ async function editImageWithText(prompt, imageBuffer) {
         }
         
         console.log('❌ OpenAI edit: No base64 image data found');
-        return { error: { message: 'No base64 image data found in response', code: 'NO_IMAGE_DATA', provider: 'openai-edit' } };
+        return { error: 'No base64 image data found in response' };
     } catch (err) {
         console.error('❌ OpenAI image edit error:', err);
         // Throw the error so it gets caught by the route's catch block

@@ -1,4 +1,4 @@
-const { GoogleGenerativeAI, GenerateContentConfig } = require('@google/generative-ai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genai = require('@google/genai');
 const { sanitizeText } = require('../utils/textSanitizer');
 
@@ -44,7 +44,7 @@ async function generateImageWithText(prompt) {
         
         if (!imageBuffer) {
             console.log('❌ Gemini: No image data found in response');
-            return { error: { message: 'No image data found in response', code: 'NO_IMAGE_DATA', provider: 'gemini' } };
+            return { error: 'No image data found in response' };
         }
         
         console.log('✅ Gemini image generated successfully');
@@ -95,7 +95,7 @@ async function editImageWithText(prompt, base64Image) {
         
         if (!imageBuffer) {
             console.log('❌ Gemini edit: No image data found in response');
-            return { error: { message: 'No image data found in response', code: 'NO_IMAGE_DATA', provider: 'gemini-edit' } };
+            return { error: 'No image data found in response' };
         }
         
         console.log('✅ Gemini image edited successfully');
@@ -128,7 +128,7 @@ async function generateVideoWithText(prompt) {
         while (!operation.done) {
             if (Date.now() - startTime > maxWaitTime) {
                 console.error('❌ Veo 3 text-to-video generation timed out');
-                return { error: { message: 'Video generation timed out after 10 minutes', code: 'TIMEOUT', provider: 'gemini' } };
+                return { error: 'Video generation timed out after 10 minutes' };
             }
             await new Promise(resolve => setTimeout(resolve, 10000));
             pollAttempts++;
@@ -151,7 +151,7 @@ async function generateVideoWithText(prompt) {
             console.log('📥 SDK download completed');
         } catch (downloadError) {
             console.error('❌ SDK download failed:', downloadError);
-            return { error: { message: `Failed to download video file: ${downloadError.message}`, code: 'DOWNLOAD_FAILED', provider: 'gemini' } };
+            return { error: `Failed to download video file: ${downloadError.message}` };
         }
         
         // בדיקה שהקובץ נוצר ושלם
@@ -184,7 +184,7 @@ async function generateVideoWithText(prompt) {
         
         if (!fileReady) {
             console.error('❌ Video file was not properly downloaded');
-            return { error: { message: 'Video file was not downloaded successfully', code: 'NO_FILE', provider: 'gemini' } };
+            return { error: 'Video file was not downloaded successfully' };
         }
         
         // לא מוחקים את הקובץ, כי צריך לינק להורדה
@@ -196,7 +196,7 @@ async function generateVideoWithText(prompt) {
         };
     } catch (err) {
         console.error('❌ Veo 3 text-to-video generation error:', err);
-        return { error: { message: err.message || 'Unknown error', code: 'GENERIC_ERROR', provider: 'gemini' } };
+        return { error: err.message || 'Unknown error' };
     }
 }
 
@@ -230,7 +230,7 @@ async function generateVideoWithImage(prompt, imageBuffer) {
         while (!operation.done) {
             if (Date.now() - startTime > maxWaitTime) {
                 console.error('❌ Veo 3 image-to-video generation timed out');
-                return { error: { message: 'Video generation timed out after 10 minutes', code: 'TIMEOUT', provider: 'gemini' } };
+                return { error: 'Video generation timed out after 10 minutes' };
             }
             await new Promise(resolve => setTimeout(resolve, 10000));
             pollAttempts++;
@@ -253,7 +253,7 @@ async function generateVideoWithImage(prompt, imageBuffer) {
             console.log('📥 SDK download completed');
         } catch (downloadError) {
             console.error('❌ SDK download failed:', downloadError);
-            return { error: { message: `Failed to download video file: ${downloadError.message}`, code: 'DOWNLOAD_FAILED', provider: 'gemini' } };
+            return { error: `Failed to download video file: ${downloadError.message}` };
         }
         
         // Check that the file was created and is complete
@@ -286,7 +286,7 @@ async function generateVideoWithImage(prompt, imageBuffer) {
         
         if (!fileReady) {
             console.error('❌ Video file was not properly downloaded');
-            return { error: { message: 'Video file was not downloaded successfully', code: 'NO_FILE', provider: 'gemini' } };
+            return { error: 'Video file was not downloaded successfully' };
         }
         
         console.log('✅ Veo 3 image-to-video generated successfully.');
@@ -296,7 +296,7 @@ async function generateVideoWithImage(prompt, imageBuffer) {
         };
     } catch (err) {
         console.error('❌ Veo 3 image-to-video generation error:', err);
-        return { error: { message: err.message || 'Unknown error', code: 'GENERIC_ERROR', provider: 'gemini' } };
+        return { error: err.message || 'Unknown error' };
     }
 }
 
