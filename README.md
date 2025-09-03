@@ -18,6 +18,11 @@ A powerful Node.js server providing unified access to multiple AI providers for 
 ### 🎤 Audio Processing
 - **Audio Transcription**: Convert speech to text
 
+### 🎵 Music Generation
+- **Text-to-Music**: Generate music with lyrics from text prompts
+- **Instrumental Music**: Create background music and soundtracks
+- **Multiple Models**: Suno V3.5, V4, V4.5, V4.5Plus for different quality levels
+
 ## 🔌 Supported Providers
 
 ### **🥇 Kie.ai** (All-in-One Platform)
@@ -78,6 +83,31 @@ Content-Type: application/json
 }
 ```
 
+### Text-to-Music
+```bash
+POST /api/start-task
+Content-Type: application/json
+
+{
+  "type": "text-to-music",
+  "prompt": "A happy song about summer vacation and good times with friends",
+  "model": "V4_5"
+}
+```
+
+### Instrumental Music
+```bash
+POST /api/start-task
+Content-Type: application/json
+
+{
+  "type": "text-to-music",
+  "prompt": "Relaxing ambient background music for studying",
+  "instrumental": true,
+  "model": "V4_5"
+}
+```
+
 ### Task Status
 ```bash
 GET /api/task-status/:taskId
@@ -120,14 +150,17 @@ npm start
 ### **For Maximum Quality**
 - **Video**: `provider=kie&model=veo3` (HD 1080p with audio)
 - **Image**: `provider=gemini` (Gemini 2.5 Flash)
+- **Music**: `provider=kie&model=V4_5PLUS` (Highest quality Suno model)
 
 ### **For Speed**  
 - **Video**: `provider=kie&model=veo3_fast` (Fast generation)
 - **Image**: `provider=openai` (DALL-E 3)
+- **Music**: `provider=kie&model=V4` (Fast music generation)
 
 ### **For Reliability**
 - **Video**: `provider=replicate&model=kling-v2.1` (Stable, proven)
 - **Image**: `provider=gemini` (Consistent results)
+- **Music**: `provider=kie&model=V4_5` (Balanced quality and reliability)
 
 ## 🔍 Response Format
 
@@ -159,9 +192,18 @@ For issues and questions:
 
 ## 📊 Provider Comparison
 
-| Provider | Video Quality | Speed | Cost | Models |
-|----------|---------------|-------|------|--------|
-| **Kie.ai** | 🥇 Excellent | ⚡ Fast | 💰 Low | 8+ models |
-| **Gemini** | 🥈 Very Good | ⚡ Fast | 💰 Low | Veo 3 |
-| **Replicate** | 🥈 Very Good | 🐌 Medium | 💰💰 Medium | 10+ models |
-| **OpenAI** | 🥇 Excellent | ⚡ Fast | 💰💰💰 High | DALL-E 3 |
+| Provider | Video Quality | Image Quality | Music Quality | Speed | Cost | Models |
+|----------|---------------|---------------|---------------|-------|------|--------|
+| **Kie.ai** | 🥇 Excellent | ➖ N/A | 🥇 Excellent | ⚡ Fast | 💰 Low | 15+ models |
+| **Gemini** | 🥈 Very Good | 🥇 Excellent | ➖ N/A | ⚡ Fast | 💰 Low | Veo 3, Gemini 2.5 |
+| **Replicate** | 🥈 Very Good | ➖ N/A | ➖ N/A | 🐌 Medium | 💰💰 Medium | 10+ models |
+| **OpenAI** | ➖ N/A | 🥇 Excellent | ➖ N/A | ⚡ Fast | 💰💰💰 High | DALL-E 3 |
+
+### 🎵 Music Generation Options (Kie.ai/Suno)
+
+| Model | Quality | Speed | Use Case |
+|-------|---------|-------|----------|
+| **V4_5PLUS** | 🥇 Best | 🐌 Slow | Professional production |
+| **V4_5** | 🥈 High | ⚡ Medium | Balanced quality/speed |
+| **V4** | 🥉 Good | ⚡ Fast | Quick demos/prototypes |
+| **V3_5** | 🥉 Basic | ⚡ Very Fast | Simple background music |

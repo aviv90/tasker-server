@@ -6,6 +6,7 @@ const geminiService = require('../services/geminiService');
 const openaiService = require('../services/openaiService');
 const replicateService = require('../services/replicateService');
 const kieService = require('../services/kieService');
+const musicService = require('../services/musicService');
 const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
 const { isErrorResult } = require('../utils/errorHandler');
 const { finalizeVideo } = require('../utils/videoUtils');
@@ -61,10 +62,33 @@ router.post('/start-task', async (req, res) => {
             }
             
             await finalizeVideo(taskId, result, sanitizedPrompt, req);
+        } else if (type === 'text-to-music') {
+            let result;
+            
+            // Music generation is only supported through Kie.ai (Suno)
+            // No need to specify provider - it's automatic
+            const options = {};
+            
+            // Only allow model selection - everything else is automatic
+            if (req.body.model) options.model = req.body.model;
+            
+            // Check if user specifically wants instrumental (optional)
+            const isInstrumental = req.body.instrumental === true;
+            
+            console.log(`🎵 Generating ${isInstrumental ? 'instrumental' : 'vocal'} music for prompt: "${sanitizedPrompt}"`);
+            
+            if (isInstrumental) {
+                result = await musicService.generateInstrumentalMusic(sanitizedPrompt, options);
+            } else {
+                // Default: music with lyrics using automatic mode
+                result = await musicService.generateMusicWithLyrics(sanitizedPrompt, options);
+            }
+            
+            await finalizeMusic(taskId, result, sanitizedPrompt, req);
         } else {
             taskStore.set(taskId, { 
                 status: 'error', 
-                error: { message: 'Unsupported task type', type: type, supportedTypes: ['text-to-image', 'text-to-video'] }
+                error: { message: 'Unsupported task type', type: type, supportedTypes: ['text-to-image', 'text-to-video', 'text-to-music'] }
             });
         }
     } catch (error) {
@@ -109,6 +133,56 @@ function finalizeTask(taskId, result, req, fileExtension = 'png') {
         });
     } catch (error) {
         console.error(`❌ Error in finalizeTask:`, error);
+        taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
+    }
+}
+
+function finalizeMusic(taskId, result, prompt, req) {
+    try {
+        if (isErrorResult(result)) {
+            console.log(`❌ Music generation failed for task ${taskId}:`, result.error);
+            taskStore.set(taskId, { status: 'error', error: result.error });
+            return;
+        }
+        
+        const filename = `${taskId}.mp3`;
+        const outputDir = path.join(__dirname, '..', 'public', 'tmp');
+        if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+        const outputPath = path.join(outputDir, filename);
+        
+        if (result.audioBuffer) {
+            fs.writeFileSync(outputPath, result.audioBuffer);
+            console.log(`✅ Music file saved: ${filename}`);
+        } else {
+            console.error(`❌ No audio buffer in result for task ${taskId}`);
+            taskStore.set(taskId, { status: 'error', error: 'No audio buffer data' });
+            return;
+        }
+
+        const host = `${req.protocol}://${req.get('host')}`;
+        const taskResult = {
+            status: 'done',
+            result: `${host}/static/${filename}`,
+            text: result.text || prompt,
+            type: 'music'
+        };
+
+        // Add metadata if available
+        if (result.metadata) {
+            taskResult.metadata = {
+                title: result.metadata.title,
+                duration: result.metadata.duration,
+                tags: result.metadata.tags,
+                model: result.metadata.model,
+                type: result.metadata.type
+            };
+        }
+
+        taskStore.set(taskId, taskResult);
+        console.log(`✅ Music generation completed for task ${taskId}`);
+        
+    } catch (error) {
+        console.error(`❌ Error in finalizeMusic:`, error);
         taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
     }
 }

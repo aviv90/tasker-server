@@ -200,4 +200,24 @@ function finalizeTranscription(taskId, result) {
   }
 }
 
+// Callback route for Kie.ai music generation notifications
+router.post('/music/callback', (req, res) => {
+  try {
+    console.log('🎵 Received music generation callback:', req.body);
+    
+    // Acknowledge the callback
+    res.status(200).json({ 
+      status: 'received', 
+      message: 'Callback processed successfully' 
+    });
+    
+    // The actual status checking is handled by polling in musicService
+    // This is just for optional webhook notifications
+    
+  } catch (error) {
+    console.error('❌ Error processing music callback:', error);
+    res.status(500).json({ error: 'Callback processing failed' });
+  }
+});
+
 module.exports = router;
