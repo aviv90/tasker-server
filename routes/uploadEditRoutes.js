@@ -22,10 +22,15 @@ const fs = require('fs');
 const path = require('path');
 
 // Configure ffmpeg for different environments
-const ffmpegPath = process.env.NODE_ENV === 'production' ? '/app/.apt/usr/bin/ffmpeg' : 'ffmpeg';
-ffmpeg.setFfmpegPath(ffmpegPath);
-
-console.log(`🔧 Using ffmpeg path: ${ffmpegPath}`);
+if (process.env.NODE_ENV === 'production') {
+  const ffmpegPath = '/app/.apt/usr/bin/ffmpeg';
+  ffmpeg.setFfmpegPath(ffmpegPath);
+  // Also add to PATH as backup
+  process.env.PATH = `/app/.apt/usr/bin:${process.env.PATH}`;
+  console.log(`🔧 Using ffmpeg path: ${ffmpegPath}`);
+} else {
+  console.log(`🔧 Using system ffmpeg`);
+}
 
 /**
  * Convert audio buffer to MP3 using ffmpeg
