@@ -233,14 +233,24 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
   }
 
   // Validate file format and size
-  const allowedTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/m4a'];
+  const allowedTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/wave'];
+  const rejectedTypes = ['audio/ogg', 'audio/webm', 'audio/flac'];
   const maxSize = 10 * 1024 * 1024; // 10MB
-  const minSize = 1024; // 1KB
+  const minSize = 50 * 1024; // 50KB (approximately 6+ seconds of audio)
+
+  console.log(`📁 File received: ${req.file.originalname}, type: ${req.file.mimetype}, size: ${Math.round(req.file.size / 1024)}KB`);
+
+  if (rejectedTypes.includes(req.file.mimetype)) {
+    return res.status(400).json({
+      status: 'error',
+      error: `File type ${req.file.mimetype} is not supported by the AI service. Please convert to MP3 or WAV format first.`
+    });
+  }
 
   if (!allowedTypes.includes(req.file.mimetype)) {
     return res.status(400).json({
       status: 'error',
-      error: `Unsupported file type: ${req.file.mimetype}. Supported: MP3, WAV, M4A`
+      error: `Unsupported file type: ${req.file.mimetype}. Please use MP3 or WAV format only.`
     });
   }
 
@@ -254,7 +264,7 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
   if (req.file.size < minSize) {
     return res.status(400).json({
       status: 'error',
-      error: `File too small: ${req.file.size} bytes. Min size: 1KB`
+      error: `File too small: ${Math.round(req.file.size / 1024)}KB. Please upload at least 6-10 seconds of clear speech (minimum 50KB).`
     });
   }
 
