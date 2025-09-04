@@ -188,11 +188,17 @@ async function generateVideoWithText(prompt) {
         }
         
         // לא מוחקים את הקובץ, כי צריך לינק להורדה
-        // מחזירים רק buffer ו-text, הלינק הציבורי ייבנה ב-finalizeTask
+        // מחזירים buffer, text ו-result path שייעשה לו prefix ב-finalizeVideo
         console.log('✅ Veo 3 text-to-video generated successfully.');
+        
+        const videoBuffer = fs.readFileSync(tempFilePath);
+        const filename = path.basename(tempFilePath);
+        const publicPath = `/static/${filename}`;
+        
         return {
             text: cleanPrompt,
-            videoBuffer: fs.readFileSync(tempFilePath)
+            videoBuffer: videoBuffer,
+            result: publicPath // This will be processed by finalizeVideo to create full URL
         };
     } catch (err) {
         console.error('❌ Veo 3 text-to-video generation error:', err);
@@ -287,9 +293,15 @@ async function generateVideoWithImage(prompt, imageBuffer) {
         }
         
         console.log('✅ Veo 3 image-to-video generated successfully.');
+        
+        const videoBuffer = fs.readFileSync(tempFilePath);
+        const filename = path.basename(tempFilePath);
+        const publicPath = `/static/${filename}`;
+        
         return {
             text: cleanPrompt,
-            videoBuffer: fs.readFileSync(tempFilePath)
+            videoBuffer: videoBuffer,
+            result: publicPath // This will be processed by finalizeVideo to create full URL
         };
     } catch (err) {
         console.error('❌ Veo 3 image-to-video generation error:', err);

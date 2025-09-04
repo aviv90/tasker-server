@@ -162,10 +162,15 @@ class MusicService {
 
                         console.log(`✅ Suno music generated successfully. Duration: ${firstTrack.duration}s`);
                         
+                        const finalAudioBuffer2 = fs.readFileSync(tempFilePath);
+                        const filename = path.basename(tempFilePath);
+                        const publicPath = `/static/${filename}`;
+                        
                         // Return comprehensive music data
                         return {
                             text: cleanPrompt,
-                            audioBuffer: fs.readFileSync(tempFilePath),
+                            audioBuffer: finalAudioBuffer2,
+                            result: publicPath, // This will be processed to create full URL
                             metadata: {
                                 title: firstTrack.title || options.title || 'Generated Music',
                                 duration: firstTrack.duration,
@@ -312,9 +317,14 @@ class MusicService {
 
                 console.log(`✅ Suno ${type} music generated successfully`);
                 
+                const finalAudioBuffer = fs.readFileSync(tempFilePath);
+                const filename = path.basename(tempFilePath);
+                const publicPath = `/static/${filename}`;
+                
                 return {
                     text: musicOptions.prompt || musicOptions.title || `Generated ${type} music`,
-                    audioBuffer: fs.readFileSync(tempFilePath),
+                    audioBuffer: finalAudioBuffer,
+                    result: publicPath, // This will be processed to create full URL
                     metadata: {
                         title: firstTrack.title,
                         duration: firstTrack.duration,
