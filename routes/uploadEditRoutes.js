@@ -232,6 +232,34 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
     });
   }
 
+  // Validate file format and size
+  const allowedTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/m4a'];
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  const minSize = 1024; // 1KB
+
+  if (!allowedTypes.includes(req.file.mimetype)) {
+    return res.status(400).json({
+      status: 'error',
+      error: `Unsupported file type: ${req.file.mimetype}. Supported: MP3, WAV, M4A`
+    });
+  }
+
+  if (req.file.size > maxSize) {
+    return res.status(400).json({
+      status: 'error',
+      error: `File too large: ${Math.round(req.file.size / 1024 / 1024)}MB. Max size: 10MB`
+    });
+  }
+
+  if (req.file.size < minSize) {
+    return res.status(400).json({
+      status: 'error',
+      error: `File too small: ${req.file.size} bytes. Min size: 1KB`
+    });
+  }
+
+  console.log(`📁 File validation passed: ${req.file.originalname}, type: ${req.file.mimetype}, size: ${Math.round(req.file.size / 1024)}KB`);
+
   const taskId = uuidv4();
   taskStore.set(taskId, { status: 'pending' });
   res.json({ taskId });
