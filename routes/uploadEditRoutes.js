@@ -220,4 +220,61 @@ router.post('/music/callback', (req, res) => {
   }
 });
 
+// Speech-to-Song endpoint
+router.post('/speech-to-song', upload.single('audio'), async (req, res) => {
+  console.log(`🎤 Starting Speech-to-Song generation for task ${req.body.taskId || 'new'}`);
+  
+  // Validate required fields
+  if (!req.file) {
+    return res.status(400).json({ 
+      status: 'error', 
+      error: 'Missing audio file' 
+    });
+  }
+
+  const taskId = uuidv4();
+  taskStore.set(taskId, { status: 'pending' });
+  res.json({ taskId });
+
+  try {
+    const musicService = require('../services/musicService');
+    
+    // Extract options from request
+    const options = {
+      title: req.body.title,
+      style: req.body.style,
+      vocalGender: req.body.vocalGender,
+      styleWeight: req.body.styleWeight ? parseFloat(req.body.styleWeight) : undefined,
+      audioWeight: req.body.audioWeight ? parseFloat(req.body.audioWeight) : undefined,
+      weirdnessConstraint: req.body.weirdnessConstraint ? parseFloat(req.body.weirdnessConstraint) : undefined
+    };
+
+    console.log(`🎵 Processing speech-to-song with options:`, options);
+
+    // Generate song from speech
+    const result = await musicService.generateSongFromSpeech(req.file.buffer, options);
+
+    if (isErrorResult(result)) {
+      const errorMessage = getTaskError(result);
+      console.error(`❌ Speech-to-Song generation failed for task ${taskId}:`, errorMessage);
+      taskStore.set(taskId, { status: 'failed', error: errorMessage });
+    } else {
+      console.log(`✅ Speech-to-Song generation completed for task ${taskId}`);
+      taskStore.set(taskId, { 
+        status: 'completed', 
+        result: result,
+        type: 'speech-to-song',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+  } catch (error) {
+    console.error(`❌ Speech-to-Song generation error for task ${taskId}:`, error);
+    taskStore.set(taskId, { 
+      status: 'failed', 
+      error: error.message || 'Speech-to-Song generation failed' 
+    });
+  }
+});
+
 module.exports = router;

@@ -345,6 +345,198 @@ class MusicService {
 
         return { error: `${type} music generation timed out after 20 minutes` };
     }
+
+    async generateSongFromSpeech(audioBuffer, options = {}) {
+        try {
+            console.log(`🎤 Starting Speech-to-Song generation with Add Instrumental`);
+            
+            // Step 1: Upload audio file and get public URL
+            const uploadResult = await this._uploadAudioFile(audioBuffer);
+            if (uploadResult.error) {
+                return { error: `Audio upload failed: ${uploadResult.error}` };
+            }
+
+            // Step 2: Generate song with random creative parameters
+            const styles = [
+                'pop, catchy, upbeat',
+                'acoustic, folk, warm', 
+                'electronic, synth, modern',
+                'rock, energetic, guitar',
+                'jazz, smooth, sophisticated',
+                'country, storytelling, guitar',
+                'indie, alternative, creative',
+                'ballad, emotional, piano'
+            ];
+
+            const negativeStyles = [
+                'noise, distorted, harsh',
+                'monotone, boring, repetitive',
+                'chaotic, disorganized',
+                'overly complex, confusing'
+            ];
+
+            const selectedStyle = styles[Math.floor(Math.random() * styles.length)];
+            const selectedNegative = negativeStyles[Math.floor(Math.random() * negativeStyles.length)];
+            
+            // Create add-instrumental request
+            const instrumentalOptions = {
+                uploadUrl: uploadResult.uploadUrl,
+                title: options.title || 'Generated Song from Speech',
+                tags: options.style || selectedStyle,
+                negativeTags: options.negativeStyle || selectedNegative,
+                callBackUrl: uploadResult.callbackUrl,
+                vocalGender: options.vocalGender || (Math.random() > 0.5 ? 'm' : 'f'),
+                styleWeight: options.styleWeight || Math.round((0.4 + Math.random() * 0.4) * 100) / 100, // 0.4-0.8
+                audioWeight: options.audioWeight || Math.round((0.5 + Math.random() * 0.3) * 100) / 100, // 0.5-0.8
+                weirdnessConstraint: options.weirdnessConstraint || Math.round((0.2 + Math.random() * 0.4) * 100) / 100 // 0.2-0.6
+            };
+
+            return await this._generateInstrumental(instrumentalOptions);
+        } catch (err) {
+            console.error('❌ Speech-to-Song generation error:', err);
+            return { error: err.message || 'Unknown error' };
+        }
+    }
+
+    async _uploadAudioFile(audioBuffer) {
+        try {
+            const filename = `speech_${uuidv4()}.mp3`;
+            const tempFilePath = path.join(__dirname, '..', 'public', 'tmp', filename);
+            const outputDir = path.dirname(tempFilePath);
+            
+            if (!fs.existsSync(outputDir)) {
+                fs.mkdirSync(outputDir, { recursive: true });
+            }
+            
+            // Save audio file temporarily
+            fs.writeFileSync(tempFilePath, audioBuffer);
+            
+            // Create public URL for the uploaded file
+            let baseUrl = process.env.BASE_URL;
+            
+            // Auto-detect based on environment
+            if (!baseUrl) {
+                if (process.env.HEROKU_APP_NAME) {
+                    baseUrl = `https://${process.env.HEROKU_APP_NAME}.herokuapp.com`;
+                } else if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+                    baseUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+                } else if (process.env.VERCEL_URL) {
+                    baseUrl = `https://${process.env.VERCEL_URL}`;
+                } else {
+                    baseUrl = 'http://localhost:3000';
+                    console.warn('⚠️  Using localhost - this will not work with external APIs!');
+                }
+            }
+            
+            const uploadUrl = `${baseUrl}/static/${filename}`;
+            const callbackUrl = this._getCallbackUrl();
+            
+            console.log(`✅ Audio file uploaded successfully: ${uploadUrl}`);
+            return { uploadUrl, callbackUrl };
+        } catch (error) {
+            console.error('❌ Audio upload error:', error);
+            return { error: error.message || 'Audio upload failed' };
+        }
+    }
+
+    async _generateInstrumental(instrumentalOptions) {
+        try {
+            console.log(`🎼 Submitting Add Instrumental request`);
+            
+            // Submit add-instrumental task
+            const generateResponse = await fetch(`${this.baseUrl}/api/v1/generate/add-instrumental`, {
+                method: 'POST',
+                headers: this.headers,
+                body: JSON.stringify(instrumentalOptions)
+            });
+
+            const generateData = await generateResponse.json();
+            
+            if (!generateResponse.ok || generateData.code !== 200) {
+                console.error('❌ Add Instrumental API error:', generateData);
+                return { error: generateData.message || 'Add Instrumental request failed' };
+            }
+
+            const taskId = generateData.data.taskId;
+            console.log(`✅ Add Instrumental task submitted successfully. Task ID: ${taskId}`);
+
+            // Poll for completion
+            const maxWaitTime = 20 * 60 * 1000; // 20 minutes
+            const startTime = Date.now();
+            let pollAttempts = 0;
+
+            while (Date.now() - startTime < maxWaitTime) {
+                pollAttempts++;
+                console.log(`🔄 Polling attempt ${pollAttempts} for Add Instrumental task ${taskId}`);
+
+                const statusResponse = await fetch(`${this.baseUrl}/api/v1/generate/record-info?taskId=${taskId}`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${this.apiKey}` }
+                });
+
+                const statusData = await statusResponse.json();
+
+                if (!statusResponse.ok || statusData.code !== 200) {
+                    console.error('❌ Status check error:', statusData);
+                    return { error: `Status check failed: ${statusData.message || 'Unknown error'}` };
+                }
+
+                const status = statusData.data;
+                console.log(`📊 Add Instrumental status: ${status.status}`);
+
+                if (status.status === 'SUCCESS') {
+                    console.log(`🎉 Add Instrumental generation completed successfully!`);
+                    
+                    return {
+                        taskId: taskId,
+                        status: 'completed',
+                        songs: status.recordResults?.map(result => ({
+                            id: result.id,
+                            title: result.title,
+                            audioUrl: result.audioUrl,
+                            videoUrl: result.videoUrl,
+                            imageUrl: result.imageUrl,
+                            tags: result.tags,
+                            prompt: instrumentalOptions.tags,
+                            duration: result.duration,
+                            createdAt: result.createdAt
+                        })) || []
+                    };
+
+                } else if (['CREATE_TASK_FAILED', 'GENERATE_AUDIO_FAILED', 'SENSITIVE_WORD_ERROR'].includes(status.status)) {
+                    return { error: status.errorMessage || `Add Instrumental generation failed: ${status.status}` };
+                }
+
+                // Still processing
+                await new Promise(resolve => setTimeout(resolve, 30000));
+            }
+
+            return { error: `Add Instrumental generation timed out after 20 minutes` };
+        } catch (err) {
+            console.error('❌ Add Instrumental generation error:', err);
+            return { error: err.message || 'Unknown error' };
+        }
+    }
+
+    _getCallbackUrl() {
+        let baseUrl = process.env.BASE_URL;
+        
+        // Auto-detect the base URL based on environment
+        if (!baseUrl) {
+            if (process.env.HEROKU_APP_NAME) {
+                baseUrl = `https://${process.env.HEROKU_APP_NAME}.herokuapp.com`;
+            } else if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+                baseUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+            } else if (process.env.VERCEL_URL) {
+                baseUrl = `https://${process.env.VERCEL_URL}`;
+            } else {
+                baseUrl = 'http://localhost:3000';
+                console.warn('⚠️  No BASE_URL configured. Using localhost for callbacks - this may not work with external APIs!');
+            }
+        }
+        
+        return `${baseUrl}/api/music/callback`;
+    }
 }
 
 // Create and export instance
@@ -352,5 +544,6 @@ const musicService = new MusicService();
 
 module.exports = {
     generateMusicWithLyrics: musicService.generateMusicWithLyrics.bind(musicService),
-    generateInstrumentalMusic: musicService.generateInstrumentalMusic.bind(musicService)
+    generateInstrumentalMusic: musicService.generateInstrumentalMusic.bind(musicService),
+    generateSongFromSpeech: musicService.generateSongFromSpeech.bind(musicService)
 };

@@ -7,11 +7,15 @@ const uploadEditRoutes = require('./routes/uploadEditRoutes');
 
 app.enable('trust proxy');
 app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
 app.use('/static', express.static(path.join(__dirname, 'public', 'tmp')));
 app.use('/api', taskRoutes);
 app.use('/api', uploadEditRoutes);
+
+// Add music callback endpoint
+app.post('/api/music/callback', (req, res) => {
+    console.log('🎵 Music generation callback received:', req.body);
+    res.json({ status: 'received' });
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
@@ -22,5 +26,6 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('  POST /api/upload-video - Upload image and generate video');
     console.log('  POST /api/upload-video-edit - Upload video and edit/transform');
     console.log('  POST /api/upload-transcribe - Upload audio and transcribe to text');
+    console.log('  POST /api/speech-to-song - Transform speech recording into song');
     console.log('  GET /api/task-status/:taskId - Check task status');
 });
