@@ -18,6 +18,54 @@ const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
 const { isErrorResult, getTaskError } = require('../utils/errorHandler');
 const fs = require('fs');
 const path = require('path');
+const ffmpeg = require('fluent-ffmpeg');
+
+// Audio conversion function
+async function convertAudioToMp3(inputBuffer, originalMimetype) {
+  return new Promise((resolve, reject) => {
+    const tempInputFile = path.join(__dirname, '..', 'public', 'tmp', `temp_input_${Date.now()}`);
+    const tempOutputFile = path.join(__dirname, '..', 'public', 'tmp', `temp_output_${Date.now()}.mp3`);
+    
+    try {
+      // Write input buffer to temp file
+      fs.writeFileSync(tempInputFile, inputBuffer);
+      
+      console.log(`🔄 Converting ${originalMimetype} to MP3...`);
+      
+      ffmpeg(tempInputFile)
+        .toFormat('mp3')
+        .audioCodec('libmp3lame')
+        .audioBitrate('128k')
+        .audioChannels(2)
+        .audioFrequency(44100)
+        .on('end', () => {
+          try {
+            console.log('✅ Audio conversion completed');
+            const convertedBuffer = fs.readFileSync(tempOutputFile);
+            
+            // Cleanup temp files
+            if (fs.existsSync(tempInputFile)) fs.unlinkSync(tempInputFile);
+            if (fs.existsSync(tempOutputFile)) fs.unlinkSync(tempOutputFile);
+            
+            resolve(convertedBuffer);
+          } catch (readError) {
+            reject(readError);
+          }
+        })
+        .on('error', (err) => {
+          console.error('❌ Audio conversion failed:', err);
+          // Cleanup temp files
+          if (fs.existsSync(tempInputFile)) fs.unlinkSync(tempInputFile);
+          if (fs.existsSync(tempOutputFile)) fs.unlinkSync(tempOutputFile);
+          reject(err);
+        })
+        .save(tempOutputFile);
+        
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
 
 router.post('/upload-edit', upload.single('file'), async (req, res) => {  
   const { prompt, provider } = req.body;
@@ -232,25 +280,19 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
     });
   }
 
-  // Validate file format and size
-  const allowedTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/wave'];
-  const rejectedTypes = ['audio/ogg', 'audio/webm', 'audio/flac'];
+  // Validate file format and size  
+  const supportedTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/wave'];
+  const convertibleTypes = ['audio/ogg', 'audio/opus', 'audio/webm', 'audio/m4a', 'audio/aac'];
+  const allSupportedTypes = [...supportedTypes, ...convertibleTypes];
   const maxSize = 10 * 1024 * 1024; // 10MB
-  const minSize = 50 * 1024; // 50KB (approximately 6+ seconds of audio)
+  const minSize = 10 * 1024; // 10KB (small files for testing)
 
   console.log(`📁 File received: ${req.file.originalname}, type: ${req.file.mimetype}, size: ${Math.round(req.file.size / 1024)}KB`);
 
-  if (rejectedTypes.includes(req.file.mimetype)) {
+  if (!allSupportedTypes.includes(req.file.mimetype)) {
     return res.status(400).json({
       status: 'error',
-      error: `File type ${req.file.mimetype} is not supported by the AI service. Please convert to MP3 or WAV format first.`
-    });
-  }
-
-  if (!allowedTypes.includes(req.file.mimetype)) {
-    return res.status(400).json({
-      status: 'error',
-      error: `Unsupported file type: ${req.file.mimetype}. Please use MP3 or WAV format only.`
+      error: `Unsupported file type: ${req.file.mimetype}. Supported: MP3, WAV, OGG, OPUS, WebM, M4A, AAC`
     });
   }
 
@@ -264,9 +306,11 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
   if (req.file.size < minSize) {
     return res.status(400).json({
       status: 'error',
-      error: `File too small: ${Math.round(req.file.size / 1024)}KB. Please upload at least 6-10 seconds of clear speech (minimum 50KB).`
+      error: `File too small: ${Math.round(req.file.size / 1024)}KB. Please upload at least a few seconds of clear speech.`
     });
   }
+
+  console.log(`📁 File validation passed: ${req.file.originalname}, type: ${req.file.mimetype}, size: ${Math.round(req.file.size / 1024)}KB`);
 
   console.log(`📁 File validation passed: ${req.file.originalname}, type: ${req.file.mimetype}, size: ${Math.round(req.file.size / 1024)}KB`);
 
@@ -276,6 +320,25 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
 
   try {
     const musicService = require('../services/musicService');
+    
+    // Convert audio if needed
+    let audioBuffer = req.file.buffer;
+    let fileType = req.file.mimetype;
+    
+    if (convertibleTypes.includes(req.file.mimetype)) {
+      console.log(`🔄 Converting ${req.file.mimetype} to MP3...`);
+      try {
+        audioBuffer = await convertAudioToMp3(req.file.buffer, req.file.mimetype);
+        fileType = 'audio/mp3';
+        console.log(`✅ Conversion completed successfully`);
+      } catch (conversionError) {
+        console.error(`❌ Audio conversion failed:`, conversionError);
+        return res.status(500).json({
+          status: 'error',
+          error: `Failed to convert ${req.file.mimetype} to MP3. Please try uploading an MP3 or WAV file instead.`
+        });
+      }
+    }
     
     // Extract options from request
     const options = {
@@ -288,9 +351,10 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
     };
 
     console.log(`🎵 Processing speech-to-song with options:`, options);
+    console.log(`🎤 Using audio format: ${fileType}, size: ${Math.round(audioBuffer.length / 1024)}KB`);
 
     // Generate song from speech
-    const result = await musicService.generateSongFromSpeech(req.file.buffer, options);
+    const result = await musicService.generateSongFromSpeech(audioBuffer, options);
 
     if (isErrorResult(result)) {
       const errorMessage = getTaskError(result);
