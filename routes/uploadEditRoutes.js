@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const { Readable } = require('stream');
+const ffmpeg = require('fluent-ffmpeg');
 const upload = multer({
   limits: {
     fileSize: 50 * 1024 * 1024,
@@ -18,9 +20,7 @@ const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
 const { isErrorResult, getTaskError } = require('../utils/errorHandler');
 const fs = require('fs');
 const path = require('path');
-const ffmpeg = require('fluent-ffmpeg');
 
-// Audio conversion function
 // Configure ffmpeg for different environments
 const ffmpegPath = process.env.NODE_ENV === 'production' ? '/app/.apt/usr/bin/ffmpeg' : 'ffmpeg';
 ffmpeg.setFfmpegPath(ffmpegPath);
