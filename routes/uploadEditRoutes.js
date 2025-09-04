@@ -312,11 +312,8 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
 
   console.log(`📁 File validation passed: ${req.file.originalname}, type: ${req.file.mimetype}, size: ${Math.round(req.file.size / 1024)}KB`);
 
-  console.log(`📁 File validation passed: ${req.file.originalname}, type: ${req.file.mimetype}, size: ${Math.round(req.file.size / 1024)}KB`);
-
   const taskId = uuidv4();
   taskStore.set(taskId, { status: 'pending' });
-  res.json({ taskId });
 
   try {
     const musicService = require('../services/musicService');
@@ -333,12 +330,16 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
         console.log(`✅ Conversion completed successfully`);
       } catch (conversionError) {
         console.error(`❌ Audio conversion failed:`, conversionError);
-        return res.status(500).json({
-          status: 'error',
-          error: `Failed to convert ${req.file.mimetype} to MP3. Please try uploading an MP3 or WAV file instead.`
+        taskStore.set(taskId, { 
+          status: 'failed', 
+          error: `Failed to convert ${req.file.mimetype} to MP3. Server doesn't have ffmpeg. Please try uploading an MP3 or WAV file instead.` 
         });
+        res.json({ taskId }); // Send the taskId so user can check status
+        return;
       }
     }
+    
+    res.json({ taskId }); // Send response here, after conversion check
     
     // Extract options from request
     const options = {
