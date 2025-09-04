@@ -445,6 +445,16 @@ class MusicService {
             const callbackUrl = this._getCallbackUrl();
             
             console.log(`✅ Audio file uploaded successfully: ${uploadUrl}`);
+            console.log(`📞 Callback URL: ${callbackUrl}`);
+            
+            // Test if file is accessible (optional debug)
+            try {
+                const testResponse = await fetch(uploadUrl, { method: 'HEAD' });
+                console.log(`🌐 File accessibility test: ${testResponse.status} ${testResponse.statusText}`);
+            } catch (testError) {
+                console.warn(`⚠️  File accessibility test failed: ${testError.message}`);
+            }
+            
             return { uploadUrl, callbackUrl };
         } catch (error) {
             console.error('❌ Audio upload error:', error);
@@ -455,6 +465,7 @@ class MusicService {
     async _generateInstrumental(instrumentalOptions) {
         try {
             console.log(`🎼 Submitting Add Instrumental request`);
+            console.log(`📋 Request parameters:`, JSON.stringify(instrumentalOptions, null, 2));
             
             // Submit add-instrumental task
             const generateResponse = await fetch(`${this.baseUrl}/api/v1/generate/add-instrumental`, {
@@ -464,6 +475,7 @@ class MusicService {
             });
 
             const generateData = await generateResponse.json();
+            console.log(`📥 API Response:`, JSON.stringify(generateData, null, 2));
             
             if (!generateResponse.ok || generateData.code !== 200) {
                 console.error('❌ Add Instrumental API error:', generateData);
@@ -496,6 +508,11 @@ class MusicService {
 
                 const status = statusData.data;
                 console.log(`📊 Add Instrumental status: ${status.status}`);
+                
+                // Log full status for debugging
+                if (status.status !== 'PENDING' && status.status !== 'SUCCESS') {
+                    console.log(`🔍 Full status data:`, JSON.stringify(status, null, 2));
+                }
 
                 if (status.status === 'SUCCESS') {
                     console.log(`🎉 Add Instrumental generation completed successfully!`);
@@ -517,6 +534,8 @@ class MusicService {
                     };
 
                 } else if (['CREATE_TASK_FAILED', 'GENERATE_AUDIO_FAILED', 'SENSITIVE_WORD_ERROR'].includes(status.status)) {
+                    console.error(`❌ Add Instrumental failed with status: ${status.status}`);
+                    console.error(`❌ Error details:`, JSON.stringify(status, null, 2));
                     return { error: status.errorMessage || `Add Instrumental generation failed: ${status.status}` };
                 }
 
