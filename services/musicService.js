@@ -414,14 +414,27 @@ class MusicService {
             // Create public URL for the uploaded file
             let baseUrl = process.env.BASE_URL;
             
+            // Debug environment variables
+            console.log('🔍 Environment debug:');
+            console.log('  BASE_URL:', process.env.BASE_URL);
+            console.log('  HEROKU_APP_NAME:', process.env.HEROKU_APP_NAME);
+            console.log('  PORT:', process.env.PORT);
+            
             // Auto-detect based on environment
             if (!baseUrl) {
                 if (process.env.HEROKU_APP_NAME) {
                     baseUrl = `https://${process.env.HEROKU_APP_NAME}.herokuapp.com`;
+                    console.log('🟢 Detected Heroku environment');
+                } else if (process.env.PORT && process.env.PORT !== '3000') {
+                    // Likely Heroku without HEROKU_APP_NAME - construct from request
+                    baseUrl = `https://tasker-server-eb22b09c778f.herokuapp.com`; // Temporary hardcode
+                    console.log('🟡 Detected Heroku-like environment (using hardcoded URL)');
                 } else if (process.env.RAILWAY_PUBLIC_DOMAIN) {
                     baseUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+                    console.log('🟢 Detected Railway environment');
                 } else if (process.env.VERCEL_URL) {
                     baseUrl = `https://${process.env.VERCEL_URL}`;
+                    console.log('🟢 Detected Vercel environment');
                 } else {
                     baseUrl = 'http://localhost:3000';
                     console.warn('⚠️  Using localhost - this will not work with external APIs!');

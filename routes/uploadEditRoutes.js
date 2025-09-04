@@ -221,7 +221,7 @@ router.post('/music/callback', (req, res) => {
 });
 
 // Speech-to-Song endpoint
-router.post('/speech-to-song', upload.single('audio'), async (req, res) => {
+router.post('/speech-to-song', upload.single('file'), async (req, res) => {
   console.log(`🎤 Starting Speech-to-Song generation for task ${req.body.taskId || 'new'}`);
   
   // Validate required fields
