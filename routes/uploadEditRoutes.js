@@ -21,49 +21,50 @@ const path = require('path');
 const ffmpeg = require('fluent-ffmpeg');
 
 // Audio conversion function
-async function convertAudioToMp3(inputBuffer, originalMimetype) {
+// Configure ffmpeg for different environments
+const ffmpegPath = process.env.NODE_ENV === 'production' ? '/app/.apt/usr/bin/ffmpeg' : 'ffmpeg';
+ffmpeg.setFfmpegPath(ffmpegPath);
+
+console.log(`🔧 Using ffmpeg path: ${ffmpegPath}`);
+
+/**
+ * Convert audio buffer to MP3 using ffmpeg
+ * @param {Buffer} inputBuffer - The input audio buffer
+ * @param {string} inputMimetype - The MIME type of input
+ * @returns {Promise<Buffer>} - The converted MP3 buffer
+ */
+function convertAudioToMp3(inputBuffer, inputMimetype) {
   return new Promise((resolve, reject) => {
-    const tempInputFile = path.join(__dirname, '..', 'public', 'tmp', `temp_input_${Date.now()}`);
-    const tempOutputFile = path.join(__dirname, '..', 'public', 'tmp', `temp_output_${Date.now()}.mp3`);
+    console.log(`🔄 Starting conversion from ${inputMimetype} to MP3...`);
     
-    try {
-      // Write input buffer to temp file
-      fs.writeFileSync(tempInputFile, inputBuffer);
-      
-      console.log(`🔄 Converting ${originalMimetype} to MP3...`);
-      
-      ffmpeg(tempInputFile)
-        .toFormat('mp3')
-        .audioCodec('libmp3lame')
-        .audioBitrate('128k')
-        .audioChannels(2)
-        .audioFrequency(44100)
-        .on('end', () => {
-          try {
-            console.log('✅ Audio conversion completed');
-            const convertedBuffer = fs.readFileSync(tempOutputFile);
-            
-            // Cleanup temp files
-            if (fs.existsSync(tempInputFile)) fs.unlinkSync(tempInputFile);
-            if (fs.existsSync(tempOutputFile)) fs.unlinkSync(tempOutputFile);
-            
-            resolve(convertedBuffer);
-          } catch (readError) {
-            reject(readError);
-          }
-        })
-        .on('error', (err) => {
-          console.error('❌ Audio conversion failed:', err);
-          // Cleanup temp files
-          if (fs.existsSync(tempInputFile)) fs.unlinkSync(tempInputFile);
-          if (fs.existsSync(tempOutputFile)) fs.unlinkSync(tempOutputFile);
-          reject(err);
-        })
-        .save(tempOutputFile);
-        
-    } catch (error) {
-      reject(error);
-    }
+    const outputChunks = [];
+    const inputFormat = inputMimetype.split('/')[1].split(';')[0]; // Extract format from mimetype
+    
+    const converter = ffmpeg()
+      .input(Readable.from(inputBuffer))
+      .inputFormat(inputFormat === 'ogg' ? 'ogg' : inputFormat)
+      .audioCodec('mp3')
+      .audioFrequency(44100) 
+      .audioBitrate('128k')
+      .format('mp3')
+      .on('start', (commandLine) => {
+        console.log(`🎵 FFmpeg command: ${commandLine}`);
+      })
+      .on('progress', (progress) => {
+        console.log(`⏳ Processing: ${progress.percent ? Math.round(progress.percent) : '?'}% done`);
+      })
+      .on('error', (err) => {
+        console.error(`❌ FFmpeg error: ${err.message}`);
+        reject(new Error(`Audio conversion failed: ${err.message}`));
+      })
+      .on('end', () => {
+        console.log(`✅ Conversion completed successfully`);
+        resolve(Buffer.concat(outputChunks));
+      });
+
+    const stream = converter.pipe();
+    stream.on('data', (chunk) => outputChunks.push(chunk));
+    stream.on('error', reject);
   });
 }
 
