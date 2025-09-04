@@ -1,6 +1,9 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genai = require('@google/genai');
 const { sanitizeText } = require('../utils/textSanitizer');
+const fs = require('fs');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const veoClient = new genai.GoogleGenAI({
@@ -109,9 +112,6 @@ async function editImageWithText(prompt, base64Image) {
 
 async function generateVideoWithText(prompt) {
     try {
-        const fs = require('fs');
-        const path = require('path');
-        const { v4: uuidv4 } = require('uuid');
         console.log('🎬 Starting Veo 3 text-to-video generation');
         const cleanPrompt = sanitizeText(prompt);
         
@@ -202,9 +202,6 @@ async function generateVideoWithText(prompt) {
 
 async function generateVideoWithImage(prompt, imageBuffer) {
     try {
-        const fs = require('fs');
-        const path = require('path');
-        const { v4: uuidv4 } = require('uuid');
         console.log('🎬 Starting Veo 3 image-to-video generation');
         
         const cleanPrompt = sanitizeText(prompt);

@@ -1,4 +1,7 @@
 const { sanitizeText } = require('../utils/textSanitizer');
+const fs = require('fs');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
 class MusicService {
     constructor() {
@@ -12,10 +15,6 @@ class MusicService {
 
     async generateMusicWithLyrics(prompt, options = {}) {
         try {
-            const fs = require('fs');
-            const path = require('path');
-            const { v4: uuidv4 } = require('uuid');
-            
             console.log(`🎵 Starting Suno music generation with lyrics`);
             
             const cleanPrompt = sanitizeText(prompt);
@@ -209,10 +208,6 @@ class MusicService {
 
     async generateInstrumentalMusic(prompt, options = {}) {
         try {
-            const fs = require('fs');
-            const path = require('path');
-            const { v4: uuidv4 } = require('uuid');
-            
             console.log(`🎼 Starting Suno instrumental music generation`);
             
             const cleanPrompt = sanitizeText(prompt);
@@ -240,10 +235,6 @@ class MusicService {
 
     // Helper method to avoid code duplication
     async _generateMusic(musicOptions, type = 'with-lyrics') {
-        const { v4: uuidv4 } = require('uuid');
-        const fs = require('fs');
-        const path = require('path');
-
         // Submit generation task
         const generateResponse = await fetch(`${this.baseUrl}/api/v1/generate`, {
             method: 'POST',

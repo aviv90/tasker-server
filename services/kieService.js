@@ -1,4 +1,7 @@
 const { sanitizeText } = require('../utils/textSanitizer');
+const fs = require('fs');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
 class KieService {
     constructor() {
@@ -12,10 +15,6 @@ class KieService {
 
     async generateVideoWithText(prompt, model = 'veo3') {
         try {
-            const fs = require('fs');
-            const path = require('path');
-            const { v4: uuidv4 } = require('uuid');
-            
             console.log(`🎬 Starting Kie.ai ${model} text-to-video generation`);
             
             const cleanPrompt = sanitizeText(prompt);
@@ -152,9 +151,15 @@ class KieService {
                         }
 
                         console.log(`✅ Kie.ai ${model} text-to-video generated successfully.`);
+                        
+                        const finalVideoBuffer = fs.readFileSync(tempFilePath);
+                        const filename = path.basename(tempFilePath);
+                        const publicPath = `/static/${filename}`;
+                        
                         return {
                             text: cleanPrompt,
-                            videoBuffer: fs.readFileSync(tempFilePath)
+                            videoBuffer: finalVideoBuffer,
+                            result: publicPath
                         };
 
                     } catch (downloadError) {
@@ -184,10 +189,6 @@ class KieService {
 
     async generateVideoWithImage(prompt, imageBuffer, model = 'veo3') {
         try {
-            const fs = require('fs');
-            const path = require('path');
-            const { v4: uuidv4 } = require('uuid');
-            
             console.log(`🎬 Starting Kie.ai ${model} image-to-video generation`);
             
             const cleanPrompt = sanitizeText(prompt);
@@ -352,9 +353,15 @@ class KieService {
                         try { fs.unlinkSync(tempImagePath); } catch (e) {}
 
                         console.log(`✅ Kie.ai ${model} image-to-video generated successfully.`);
+                        
+                        const finalVideoBuffer = fs.readFileSync(tempFilePath);
+                        const filename = path.basename(tempFilePath);
+                        const publicPath = `/static/${filename}`;
+                        
                         return {
                             text: cleanPrompt,
-                            videoBuffer: fs.readFileSync(tempFilePath)
+                            videoBuffer: finalVideoBuffer,
+                            result: publicPath
                         };
 
                     } catch (downloadError) {

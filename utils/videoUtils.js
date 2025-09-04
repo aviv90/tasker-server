@@ -20,10 +20,15 @@ function finalizeVideo(taskId, result, prompt, req = null) {
       const outputPath = path.join(outputDir, filename);
       fs.writeFileSync(outputPath, result.videoBuffer);
       videoURL = `/static/${filename}`;
-      if (req) {
-        const host = `${req.protocol}://${req.get('host')}`;
-        videoURL = `${host}${videoURL}`;
-      }
+    }
+    
+    // If videoBuffer exists but result also exists (Gemini case), save the buffer to the correct file
+    if (result.videoBuffer && videoURL && videoURL.startsWith('/static/')) {
+      const filename = path.basename(videoURL);
+      const outputDir = path.join(__dirname, '..', 'public', 'tmp');
+      if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+      const outputPath = path.join(outputDir, filename);
+      fs.writeFileSync(outputPath, result.videoBuffer);
     }
     
     // Handle cases where videoURL starts with /static/ and needs host prefix
