@@ -24,10 +24,13 @@ const path = require('path');
 // Configure ffmpeg for different environments
 if (process.env.NODE_ENV === 'production') {
   const ffmpegPath = '/app/.apt/usr/bin/ffmpeg';
+  const ffprobePath = '/app/.apt/usr/bin/ffprobe';
   ffmpeg.setFfmpegPath(ffmpegPath);
+  ffmpeg.setFfprobePath(ffprobePath);
   // Also add to PATH as backup
   process.env.PATH = `/app/.apt/usr/bin:${process.env.PATH}`;
   console.log(`🔧 Using ffmpeg path: ${ffmpegPath}`);
+  console.log(`🔧 Using ffprobe path: ${ffprobePath}`);
 } else {
   console.log(`🔧 Using system ffmpeg`);
 }
