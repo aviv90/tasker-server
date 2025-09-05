@@ -356,33 +356,31 @@ class MusicService {
                 return { error: `Audio upload failed: ${uploadResult.error}` };
             }
 
-            // Step 2: Generate song with aggressive voice preservation
+            // Step 2: Generate song with full-length voice preservation
             const styles = [
-                'speech preservation, voice clarity',
-                'natural voice, minimal instrumental', 
-                'spoken lyrics, clear vocals',
-                'original speech, light backing',
-                'voice-first arrangement, subtle music',
-                'vocal recording, background accompaniment',
-                'speech-based song, voice prominent',
-                'unprocessed vocals, gentle instruments'
+                'full vocals throughout, complete speech preservation',
+                'entire recording with music, no cutting', 
+                'full-length vocal track, musical accompaniment',
+                'complete audio duration, voice from start to end',
+                'uncut vocals, full speech with backing music',
+                'preserve entire recording, musical arrangement',
+                'speech throughout entire song, continuous vocals',
+                'full audio length, voice prominence maintained'
             ];
 
             const negativeStyles = [
-                'heavy autotune, pitch shift, voice effects',
-                'melody override, vocal transformation', 
-                'singing conversion, pitch correction',
-                'artificial vocals, robotic processing',
-                'harmony generation, voice modification',
-                'auto-melody, synthetic vocals',
-                'vocal replacement, processed speech',
-                'pitch adjustment, voice changing'
+                'intro only, cut vocals, shortened speech',
+                'instrumental intro, delayed vocals, truncated audio', 
+                'fade in vocals, cut short, incomplete recording',
+                'music without speech, instrumental sections only',
+                'partial vocals, intro music only, incomplete speech',
+                'shortened duration, cut audio, missing speech parts'
             ];
 
             const selectedStyle = styles[Math.floor(Math.random() * styles.length)];
             const selectedNegative = negativeStyles[Math.floor(Math.random() * negativeStyles.length)];
             
-            // Create add-instrumental request (experimental speech preservation)
+            // Create add-instrumental request (full-length speech preservation)
             const instrumentalOptions = {
                 uploadUrl: uploadResult.uploadUrl,
                 title: options.title || 'Generated Song from Speech',
@@ -390,17 +388,17 @@ class MusicService {
                 negativeTags: options.negativeStyle || selectedNegative,
                 callBackUrl: uploadResult.callbackUrl,
                 vocalGender: options.vocalGender || (Math.random() > 0.5 ? 'm' : 'f'),
-                styleWeight: options.styleWeight || Math.round((0.4 + Math.random() * 0.3) * 100) / 100, // 0.4-0.7 (moderate style influence)
-                audioWeight: options.audioWeight || Math.round((0.5 + Math.random() * 0.2) * 100) / 100, // 0.5-0.7 (balanced preservation)
-                weirdnessConstraint: options.weirdnessConstraint || Math.round((0.3 + Math.random() * 0.4) * 100) / 100 // 0.3-0.7 (allow more creativity)
+                styleWeight: options.styleWeight || Math.round((0.2 + Math.random() * 0.2) * 100) / 100, // 0.2-0.4 (low style interference)
+                audioWeight: options.audioWeight || Math.round((0.75 + Math.random() * 0.2) * 100) / 100, // 0.75-0.95 (high original audio preservation)
+                weirdnessConstraint: options.weirdnessConstraint || Math.round((0.2 + Math.random() * 0.2) * 100) / 100 // 0.2-0.4 (controlled but not extreme)
             };
 
-            console.log(`🎛️ Experimental speech preservation:`, {
+            console.log(`🎛️ Full-length speech preservation:`, {
                 audioWeight: instrumentalOptions.audioWeight,
                 styleWeight: instrumentalOptions.styleWeight, 
                 weirdnessConstraint: instrumentalOptions.weirdnessConstraint,
-                tags: instrumentalOptions.tags,
-                negativeTags: instrumentalOptions.negativeTags
+                tags: `"${instrumentalOptions.tags}"`,
+                negativeTags: `"${instrumentalOptions.negativeTags}"`
             });
 
             return await this._generateInstrumental(instrumentalOptions);
@@ -523,7 +521,7 @@ class MusicService {
                     
                     return {
                         taskId: taskId,
-                        status: 'completed',
+                        status: 'done',
                         songs: songs
                     };
 
