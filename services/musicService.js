@@ -378,33 +378,20 @@ class MusicService {
             const selectedStyle = styles[Math.floor(Math.random() * styles.length)];
             const selectedNegative = negativeStyles[Math.floor(Math.random() * negativeStyles.length)];
             
-            // Create upload-cover request (better for speech-to-song)
-            const coverOptions = {
+            // Create add-instrumental request (optimized for speech-to-song)
+            const instrumentalOptions = {
                 uploadUrl: uploadResult.uploadUrl,
-                prompt: `Transform this speech recording into a musical song with ${selectedStyle}`,
-                style: options.style || selectedStyle,
                 title: options.title || 'Generated Song from Speech',
-                customMode: true,
-                instrumental: false, // We want vocals/singing, not just instrumental
-                model: 'V4_5', // Use newer model for better results
+                tags: options.style || selectedStyle,
                 negativeTags: options.negativeStyle || selectedNegative,
                 callBackUrl: uploadResult.callbackUrl,
                 vocalGender: options.vocalGender || (Math.random() > 0.5 ? 'm' : 'f'),
-                styleWeight: options.styleWeight || Math.round((0.3 + Math.random() * 0.3) * 100) / 100, // 0.3-0.6
-                audioWeight: options.audioWeight || Math.round((0.7 + Math.random() * 0.2) * 100) / 100, // 0.7-0.9 (preserve original)
-                weirdnessConstraint: options.weirdnessConstraint || Math.round((0.1 + Math.random() * 0.2) * 100) / 100 // 0.1-0.3
+                styleWeight: options.styleWeight || 0.4, // Lower to preserve original voice character
+                audioWeight: options.audioWeight || 0.8, // Higher to maintain original audio prominence  
+                weirdnessConstraint: options.weirdnessConstraint || 0.2 // Lower for more predictable, voice-focused results
             };
 
-            console.log(`🎛️ Upload-Cover parameters:`, {
-                audioWeight: coverOptions.audioWeight,
-                styleWeight: coverOptions.styleWeight, 
-                weirdnessConstraint: coverOptions.weirdnessConstraint,
-                vocalGender: coverOptions.vocalGender,
-                instrumental: coverOptions.instrumental,
-                model: coverOptions.model
-            });
-
-            return await this._generateCover(coverOptions);
+            return await this._generateInstrumental(instrumentalOptions);
         } catch (err) {
             console.error('❌ Speech-to-Song generation error:', err);
             return { error: err.message || 'Unknown error' };
@@ -489,100 +476,9 @@ class MusicService {
         }
     }
 
-    async _generateCover(coverOptions) {
-        try {
-            console.log(`🎼 Submitting Upload-Cover request`);
-            console.log(`📋 Request parameters:`, JSON.stringify(coverOptions, null, 2));
-            
-            // Submit upload-cover task
-            const generateResponse = await fetch(`${this.baseUrl}/api/v1/generate/upload-cover`, {
-                method: 'POST',
-                headers: this.headers,
-                body: JSON.stringify(coverOptions)
-            });
-
-            const generateData = await generateResponse.json();
-            console.log(`📥 Upload-Cover API Response:`, JSON.stringify(generateData, null, 2));
-            
-            if (!generateResponse.ok || generateData.code !== 200) {
-                console.error('❌ Upload-Cover API error:', generateData);
-                return { error: generateData.message || 'Upload-Cover request failed' };
-            }
-
-            const taskId = generateData.data.taskId;
-            console.log(`✅ Upload-Cover task submitted successfully. Task ID: ${taskId}`);
-
-            // Poll for completion
-            const maxWaitTime = 20 * 60 * 1000; // 20 minutes
-            const startTime = Date.now();
-            let pollAttempts = 0;
-
-            while (Date.now() - startTime < maxWaitTime) {
-                pollAttempts++;
-                console.log(`🔄 Polling attempt ${pollAttempts} for Upload-Cover task ${taskId}`);
-
-                const statusResponse = await fetch(`${this.baseUrl}/api/v1/generate/record-info?taskId=${taskId}`, {
-                    method: 'GET',
-                    headers: { 'Authorization': `Bearer ${this.apiKey}` }
-                });
-
-                const statusData = await statusResponse.json();
-
-                if (!statusResponse.ok || statusData.code !== 200) {
-                    console.error('❌ Status check error:', statusData);
-                    return { error: `Status check failed: ${statusData.message || 'Unknown error'}` };
-                }
-
-                const status = statusData.data;
-                console.log(`📊 Upload-Cover status: ${status.status}`);
-                
-                if (status.status === 'SUCCESS') {
-                    console.log(`🎉 Upload-Cover generation completed successfully!`);
-                    
-                    // Extract songs from the correct location in the response
-                    let songs = [];
-                    
-                    if (status.response && status.response.sunoData) {
-                        // Use the detailed sunoData from the response
-                        songs = status.response.sunoData.map(result => ({
-                            id: result.id,
-                            title: result.title,
-                            audioUrl: result.audioUrl,
-                            sourceAudioUrl: result.sourceAudioUrl,
-                            imageUrl: result.imageUrl,
-                            tags: result.tags,
-                            duration: result.duration,
-                            createdAt: result.createTime
-                        }));
-                    }
-                    
-                    return {
-                        taskId: taskId,
-                        status: 'completed',
-                        songs: songs
-                    };
-
-                } else if (['CREATE_TASK_FAILED', 'GENERATE_AUDIO_FAILED', 'SENSITIVE_WORD_ERROR'].includes(status.status)) {
-                    console.error(`❌ Upload-Cover failed with status: ${status.status}`);
-                    console.error(`❌ Error details:`, JSON.stringify(status, null, 2));
-                    return { error: status.errorMessage || `Upload-Cover generation failed: ${status.status}` };
-                }
-
-                // Still processing
-                await new Promise(resolve => setTimeout(resolve, 30000));
-            }
-
-            return { error: `Upload-Cover generation timed out after 20 minutes` };
-        } catch (err) {
-            console.error('❌ Upload-Cover generation error:', err);
-            return { error: err.message || 'Unknown error' };
-        }
-    }
-
     async _generateInstrumental(instrumentalOptions) {
         try {
             console.log(`🎼 Submitting Add Instrumental request`);
-            console.log(`📋 Request parameters:`, JSON.stringify(instrumentalOptions, null, 2));
             
             // Submit add-instrumental task
             const generateResponse = await fetch(`${this.baseUrl}/api/v1/generate/add-instrumental`, {
@@ -592,7 +488,6 @@ class MusicService {
             });
 
             const generateData = await generateResponse.json();
-            console.log(`📥 API Response:`, JSON.stringify(generateData, null, 2));
             
             if (!generateResponse.ok || generateData.code !== 200) {
                 console.error('❌ Add Instrumental API error:', generateData);
@@ -600,7 +495,7 @@ class MusicService {
             }
 
             const taskId = generateData.data.taskId;
-            console.log(`✅ Add Instrumental task submitted successfully. Task ID: ${taskId}`);
+            console.log(`✅ Add Instrumental task submitted: ${taskId}`);
 
             // Poll for completion
             const maxWaitTime = 20 * 60 * 1000; // 20 minutes
@@ -609,7 +504,7 @@ class MusicService {
 
             while (Date.now() - startTime < maxWaitTime) {
                 pollAttempts++;
-                console.log(`🔄 Polling attempt ${pollAttempts} for Add Instrumental task ${taskId}`);
+                console.log(`🔄 Polling attempt ${pollAttempts} for task ${taskId}`);
 
                 const statusResponse = await fetch(`${this.baseUrl}/api/v1/generate/record-info?taskId=${taskId}`, {
                     method: 'GET',
@@ -626,19 +521,12 @@ class MusicService {
                 const status = statusData.data;
                 console.log(`📊 Add Instrumental status: ${status.status}`);
                 
-                // Log full status for debugging
-                if (status.status !== 'PENDING' && status.status !== 'SUCCESS') {
-                    console.log(`🔍 Full status data:`, JSON.stringify(status, null, 2));
-                }
-
                 if (status.status === 'SUCCESS') {
-                    console.log(`🎉 Add Instrumental generation completed successfully!`);
+                    console.log(`🎉 Add Instrumental completed successfully!`);
                     
-                    // Extract songs from the correct location in the response
+                    // Extract songs from the response
                     let songs = [];
-                    
                     if (status.response && status.response.sunoData) {
-                        // Use the detailed sunoData from the response
                         songs = status.response.sunoData.map(result => ({
                             id: result.id,
                             title: result.title,
@@ -649,19 +537,6 @@ class MusicService {
                             duration: result.duration,
                             createdAt: result.createTime
                         }));
-                    } else if (status.recordResults) {
-                        // Fallback to recordResults if available
-                        songs = status.recordResults.map(result => ({
-                            id: result.id,
-                            title: result.title,
-                            audioUrl: result.audioUrl,
-                            videoUrl: result.videoUrl,
-                            imageUrl: result.imageUrl,
-                            tags: result.tags,
-                            prompt: instrumentalOptions.tags,
-                            duration: result.duration,
-                            createdAt: result.createdAt
-                        }));
                     }
                     
                     return {
@@ -671,8 +546,7 @@ class MusicService {
                     };
 
                 } else if (['CREATE_TASK_FAILED', 'GENERATE_AUDIO_FAILED', 'SENSITIVE_WORD_ERROR'].includes(status.status)) {
-                    console.error(`❌ Add Instrumental failed with status: ${status.status}`);
-                    console.error(`❌ Error details:`, JSON.stringify(status, null, 2));
+                    console.error(`❌ Add Instrumental failed: ${status.status}`);
                     return { error: status.errorMessage || `Add Instrumental generation failed: ${status.status}` };
                 }
 
