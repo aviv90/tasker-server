@@ -104,7 +104,10 @@ async function convertAudioToMp3(inputBuffer, inputMimetype) {
 
     const uploadResponse = await fetch(uploadTask.result.form.url, {
       method: 'POST',
-      body: form
+      body: form,
+      headers: {
+        ...form.getHeaders()
+      }
     });
 
     if (!uploadResponse.ok) {
