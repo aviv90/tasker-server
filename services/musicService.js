@@ -356,29 +356,29 @@ class MusicService {
                 return { error: `Audio upload failed: ${uploadResult.error}` };
             }
 
-            // Step 2: Generate song with random creative parameters
+            // Step 2: Generate song with speech-focused creative parameters
             const styles = [
-                'pop, catchy, upbeat',
-                'acoustic, folk, warm', 
-                'electronic, synth, modern',
-                'rock, energetic, guitar',
-                'jazz, smooth, sophisticated',
-                'country, storytelling, guitar',
-                'indie, alternative, creative',
-                'ballad, emotional, piano'
+                'vocal accompaniment, soft instrumental',
+                'acoustic backing, vocal support', 
+                'gentle instrumental, voice-centered',
+                'vocal harmony, light instruments',
+                'speech-to-song, melodic backing',
+                'conversational singing, warm backing',
+                'spoken word music, atmospheric',
+                'vocal-driven, minimalist instrumental'
             ];
 
             const negativeStyles = [
-                'noise, distorted, harsh',
-                'monotone, boring, repetitive',
-                'chaotic, disorganized',
-                'overly complex, confusing'
+                'heavy drums, overpowering instruments',
+                'loud bass, aggressive sounds', 
+                'complex arrangements, busy mixing',
+                'overwhelming music, voice drowning'
             ];
 
             const selectedStyle = styles[Math.floor(Math.random() * styles.length)];
             const selectedNegative = negativeStyles[Math.floor(Math.random() * negativeStyles.length)];
             
-            // Create add-instrumental request
+            // Create add-instrumental request with enhanced audio preservation
             const instrumentalOptions = {
                 uploadUrl: uploadResult.uploadUrl,
                 title: options.title || 'Generated Song from Speech',
@@ -386,10 +386,17 @@ class MusicService {
                 negativeTags: options.negativeStyle || selectedNegative,
                 callBackUrl: uploadResult.callbackUrl,
                 vocalGender: options.vocalGender || (Math.random() > 0.5 ? 'm' : 'f'),
-                styleWeight: options.styleWeight || Math.round((0.4 + Math.random() * 0.4) * 100) / 100, // 0.4-0.8
-                audioWeight: options.audioWeight || Math.round((0.5 + Math.random() * 0.3) * 100) / 100, // 0.5-0.8
-                weirdnessConstraint: options.weirdnessConstraint || Math.round((0.2 + Math.random() * 0.4) * 100) / 100 // 0.2-0.6
+                styleWeight: options.styleWeight || Math.round((0.3 + Math.random() * 0.3) * 100) / 100, // 0.3-0.6 (lower to preserve original)
+                audioWeight: options.audioWeight || Math.round((0.7 + Math.random() * 0.2) * 100) / 100, // 0.7-0.9 (higher to preserve original audio)
+                weirdnessConstraint: options.weirdnessConstraint || Math.round((0.1 + Math.random() * 0.2) * 100) / 100 // 0.1-0.3 (lower for more predictable results)
             };
+
+            console.log(`🎛️ Audio processing parameters:`, {
+                audioWeight: instrumentalOptions.audioWeight,
+                styleWeight: instrumentalOptions.styleWeight, 
+                weirdnessConstraint: instrumentalOptions.weirdnessConstraint,
+                vocalGender: instrumentalOptions.vocalGender
+            });
 
             return await this._generateInstrumental(instrumentalOptions);
         } catch (err) {
