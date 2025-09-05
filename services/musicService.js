@@ -356,29 +356,31 @@ class MusicService {
                 return { error: `Audio upload failed: ${uploadResult.error}` };
             }
 
-            // Step 2: Generate song with speech-focused creative parameters
+            // Step 2: Generate song with maximum voice preservation
             const styles = [
-                'vocal accompaniment, soft instrumental',
-                'acoustic backing, vocal support', 
-                'gentle instrumental, voice-centered',
-                'vocal harmony, light instruments',
-                'speech-to-song, melodic backing',
-                'conversational singing, warm backing',
-                'spoken word music, atmospheric',
-                'vocal-driven, minimalist instrumental'
+                'voice preservation, minimal instrumental',
+                'original voice, subtle backing', 
+                'clear speech, light accompaniment',
+                'voice-first, background music',
+                'natural speech melody, soft instruments',
+                'unmodified vocals, gentle support',
+                'speech clarity, atmospheric backing',
+                'original voice character, minimal processing'
             ];
 
             const negativeStyles = [
-                'heavy drums, overpowering instruments',
-                'loud bass, aggressive sounds', 
-                'complex arrangements, busy mixing',
-                'overwhelming music, voice drowning'
+                'heavy autotune, voice modification',
+                'pitch correction, vocal effects', 
+                'voice transformation, heavy processing',
+                'artificial vocals, distorted speech',
+                'melody override, voice replacement',
+                'synthetic vocals, robotic processing'
             ];
 
             const selectedStyle = styles[Math.floor(Math.random() * styles.length)];
             const selectedNegative = negativeStyles[Math.floor(Math.random() * negativeStyles.length)];
             
-            // Create add-instrumental request (optimized for speech-to-song)
+            // Create add-instrumental request (maximum voice preservation)
             const instrumentalOptions = {
                 uploadUrl: uploadResult.uploadUrl,
                 title: options.title || 'Generated Song from Speech',
@@ -386,9 +388,9 @@ class MusicService {
                 negativeTags: options.negativeStyle || selectedNegative,
                 callBackUrl: uploadResult.callbackUrl,
                 vocalGender: options.vocalGender || (Math.random() > 0.5 ? 'm' : 'f'),
-                styleWeight: options.styleWeight || 0.4, // Lower to preserve original voice character
-                audioWeight: options.audioWeight || 0.8, // Higher to maintain original audio prominence  
-                weirdnessConstraint: options.weirdnessConstraint || 0.2 // Lower for more predictable, voice-focused results
+                styleWeight: options.styleWeight || 0.1, // Minimal style influence - keep original voice
+                audioWeight: options.audioWeight || 1.0, // Maximum audio weight - preserve original voice completely
+                weirdnessConstraint: options.weirdnessConstraint || 0.1 // Minimal weirdness - keep speech natural
             };
 
             return await this._generateInstrumental(instrumentalOptions);
