@@ -14,6 +14,9 @@ const upload = multer({
 });
 const { v4: uuidv4 } = require('uuid');
 const taskStore = require('../store/taskStore');
+
+// Map between our task IDs and Kie.ai task IDs for callback handling
+const kieTaskMapping = new Map();
 const geminiService = require('../services/geminiService');
 const openaiService = require('../services/openaiService');
 const replicateService = require('../services/replicateService');
@@ -306,14 +309,50 @@ router.post('/music/callback', (req, res) => {
   try {
     console.log('🎵 Received music generation callback:', req.body);
     
+    const callbackData = req.body;
+    
+    // Find our task ID based on the Kie.ai task ID
+    if (callbackData.data && callbackData.data.task_id) {
+      const kieTaskId = callbackData.data.task_id;
+      const ourTaskId = kieTaskMapping.get(kieTaskId);
+      
+      if (ourTaskId && callbackData.data.callbackType === 'complete' && callbackData.code === 200) {
+        console.log(`🎵 Processing callback for our task ${ourTaskId}, Kie task ${kieTaskId}`);
+        
+        // Extract songs from callback data
+        const songs = callbackData.data.data || [];
+        console.log(`🎵 Found ${songs.length} songs in callback`);
+        
+        if (songs.length > 0) {
+          // Get the first song URL
+          const firstSong = songs[0];
+          const songUrl = firstSong.audioUrl || firstSong.audio_url;
+          
+          console.log(`🎵 Song URL: ${songUrl}`);
+          
+          if (songUrl) {
+            // Update our task store with the direct URL
+            taskStore.set(ourTaskId, { 
+              status: 'completed', 
+              result: songUrl,
+              type: 'speech-to-song',
+              timestamp: new Date().toISOString()
+            });
+            
+            console.log(`✅ Updated task ${ourTaskId} with song URL via callback`);
+          }
+        }
+        
+        // Clean up the mapping
+        kieTaskMapping.delete(kieTaskId);
+      }
+    }
+    
     // Acknowledge the callback
     res.status(200).json({ 
       status: 'received', 
       message: 'Callback processed successfully' 
     });
-    
-    // The actual status checking is handled by polling in musicService
-    // This is just for optional webhook notifications
     
   } catch (error) {
     console.error('❌ Error processing music callback:', error);
@@ -408,6 +447,12 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
 
     // Generate song from speech
     const result = await musicService.generateSongFromSpeech(audioBuffer, options);
+
+    // Store the mapping between our task ID and Kie.ai task ID for callback handling
+    if (result.taskId) {
+      kieTaskMapping.set(result.taskId, taskId);
+      console.log(`🔗 Mapped Kie task ${result.taskId} to our task ${taskId}`);
+    }
 
     if (isErrorResult(result)) {
       const errorMessage = getTaskError(result);

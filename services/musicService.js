@@ -516,6 +516,7 @@ class MusicService {
 
                 if (status.status === 'SUCCESS') {
                     console.log(`🎉 Add Instrumental generation completed successfully!`);
+                    console.log(`🔍 Full success status data:`, JSON.stringify(status, null, 2));
                     
                     return {
                         taskId: taskId,
