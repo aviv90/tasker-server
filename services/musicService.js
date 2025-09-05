@@ -348,7 +348,7 @@ class MusicService {
 
     async generateSongFromSpeech(audioBuffer, options = {}) {
         try {
-            console.log(`🎤 Starting Speech-to-Song generation with Upload-Extend API`);
+            console.log(`🎤 Starting Speech-to-Song generation with Add Instrumental API`);
             
             // Step 1: Upload audio file and get public URL
             const uploadResult = await this._uploadAudioFile(audioBuffer);
@@ -370,25 +370,22 @@ class MusicService {
                 console.error(`❌ Upload URL accessibility test failed:`, testError.message);
             }
 
-            // Step 2: Use Upload-Extend API - according to documentation
-            const extendOptions = {
+            // Step 2: Use Add Instrumental API - better for preserving vocals
+            const instrumentalOptions = {
                 uploadUrl: uploadResult.uploadUrl,
-                defaultParamFlag: true, // Use custom parameters for better control
-                instrumental: false, // We want to preserve the voice, not create pure instrumental
-                continueAt: 1, // Start extending from 1 second (required when defaultParamFlag is true)
-                model: options.model || 'V4_5', // Required for all requests
-                prompt: options.prompt || 'Add gentle musical accompaniment while preserving the original voice and speech',
-                style: options.style || 'Acoustic Pop', // Required when defaultParamFlag is true and instrumental is false
-                title: options.title || 'Extended Speech with Music', // Required when defaultParamFlag is true
-                audioWeight: 0.8, // Higher weight to preserve original audio characteristics
-                styleWeight: 0.3, // Lower style weight to preserve original voice
-                weirdnessConstraint: 0.2, // Lower creativity to stay closer to original
+                title: options.title || 'Speech with Musical Accompaniment',
+                tags: options.tags || 'gentle, acoustic, soft, vocal accompaniment, speech enhancement',
+                negativeTags: options.negativeTags || 'heavy metal, fast drums, aggressive, overwhelming instruments, loud bass',
+                audioWeight: 0.9, // Very high weight to preserve original audio/voice
+                styleWeight: 0.2, // Low style weight to not overwhelm the original voice
+                weirdnessConstraint: 0.1, // Very low creativity to stay close to original
+                vocalGender: options.vocalGender || 'm', // Optional: specify gender if known
                 callBackUrl: uploadResult.callbackUrl
             };
 
-            console.log(`🎼 Using Upload-Extend API with voice preservation:`, extendOptions);
+            console.log(`🎼 Using Add Instrumental API with voice preservation:`, instrumentalOptions);
 
-            return await this._generateExtend(extendOptions);
+            return await this._generateInstrumental(instrumentalOptions);
         } catch (err) {
             console.error('❌ Speech-to-Song generation error:', err);
             return { error: err.message || 'Unknown error' };
