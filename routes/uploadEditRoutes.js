@@ -4,6 +4,7 @@ const multer = require('multer');
 const CloudConvert = require('cloudconvert');
 const FormData = require('form-data');
 const { Readable } = require('stream');
+const axios = require('axios');
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -86,23 +87,50 @@ async function convertAudioToMp3(inputBuffer, inputMimetype) {
 
     console.log(`🚀 CloudConvert job created: ${job.id}`);
 
-    // Upload file using SDK
+    // Upload file using SDK - try with Buffer directly
     const uploadTask = job.tasks.find(task => task.name === 'import');
     
-    // Create a proper readable stream from buffer
-    const inputFile = new Readable({
-      read() {
-        this.push(inputBuffer);
-        this.push(null);
-      }
-    });
-
     console.log(`📤 Uploading file: audio.${inputFormat}, size: ${inputBuffer.length} bytes`);
+    console.log(`📤 Upload task details:`, JSON.stringify(uploadTask, null, 2));
 
-    await cloudconvert.tasks.upload(uploadTask, inputFile, `audio.${inputFormat}`, {
-      size: inputBuffer.length
-    });
-    console.log(`📤 File uploaded successfully using SDK`);
+    // Try direct HTTP upload if SDK fails with buffer
+    try {
+      console.log(`📤 Trying SDK upload with buffer...`);
+      const uploadResponse = await cloudconvert.tasks.upload(uploadTask, inputBuffer, `audio.${inputFormat}`);
+      console.log(`📤 File uploaded successfully using SDK:`, uploadResponse);
+    } catch (uploadError) {
+      console.error(`❌ SDK Upload failed, trying direct HTTP:`, uploadError);
+      
+      // Fallback to direct HTTP upload
+      const formData = new FormData();
+      formData.append('file', inputBuffer, {
+        filename: `audio.${inputFormat}`,
+        contentType: audioMimeType
+      });
+      
+      const uploadUrl = uploadTask.result?.form?.url;
+      if (!uploadUrl) {
+        throw new Error('No upload URL found in task result');
+      }
+      
+      console.log(`📤 Upload URL:`, uploadUrl);
+      
+      // Add form fields from task result
+      if (uploadTask.result?.form?.parameters) {
+        Object.entries(uploadTask.result.form.parameters).forEach(([key, value]) => {
+          formData.append(key, value);
+        });
+      }
+      
+      const uploadResponse = await axios.post(uploadUrl, formData, {
+        headers: {
+          'Authorization': `Bearer ${process.env.CLOUDCONVERT_API_KEY}`,
+          ...formData.getHeaders()
+        }
+      });
+      
+      console.log(`📤 File uploaded successfully using HTTP:`, uploadResponse.status);
+    }
 
     // Wait for conversion to complete
     job = await cloudconvert.jobs.wait(job.id);
