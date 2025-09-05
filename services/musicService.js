@@ -378,27 +378,33 @@ class MusicService {
             const selectedStyle = styles[Math.floor(Math.random() * styles.length)];
             const selectedNegative = negativeStyles[Math.floor(Math.random() * negativeStyles.length)];
             
-            // Create add-instrumental request with enhanced audio preservation
-            const instrumentalOptions = {
+            // Create upload-cover request (better for speech-to-song)
+            const coverOptions = {
                 uploadUrl: uploadResult.uploadUrl,
+                prompt: `Transform this speech recording into a musical song with ${selectedStyle}`,
+                style: options.style || selectedStyle,
                 title: options.title || 'Generated Song from Speech',
-                tags: options.style || selectedStyle,
+                customMode: true,
+                instrumental: false, // We want vocals/singing, not just instrumental
+                model: 'V4_5', // Use newer model for better results
                 negativeTags: options.negativeStyle || selectedNegative,
                 callBackUrl: uploadResult.callbackUrl,
                 vocalGender: options.vocalGender || (Math.random() > 0.5 ? 'm' : 'f'),
-                styleWeight: options.styleWeight || Math.round((0.3 + Math.random() * 0.3) * 100) / 100, // 0.3-0.6 (lower to preserve original)
-                audioWeight: options.audioWeight || Math.round((0.7 + Math.random() * 0.2) * 100) / 100, // 0.7-0.9 (higher to preserve original audio)
-                weirdnessConstraint: options.weirdnessConstraint || Math.round((0.1 + Math.random() * 0.2) * 100) / 100 // 0.1-0.3 (lower for more predictable results)
+                styleWeight: options.styleWeight || Math.round((0.3 + Math.random() * 0.3) * 100) / 100, // 0.3-0.6
+                audioWeight: options.audioWeight || Math.round((0.7 + Math.random() * 0.2) * 100) / 100, // 0.7-0.9 (preserve original)
+                weirdnessConstraint: options.weirdnessConstraint || Math.round((0.1 + Math.random() * 0.2) * 100) / 100 // 0.1-0.3
             };
 
-            console.log(`🎛️ Audio processing parameters:`, {
-                audioWeight: instrumentalOptions.audioWeight,
-                styleWeight: instrumentalOptions.styleWeight, 
-                weirdnessConstraint: instrumentalOptions.weirdnessConstraint,
-                vocalGender: instrumentalOptions.vocalGender
+            console.log(`🎛️ Upload-Cover parameters:`, {
+                audioWeight: coverOptions.audioWeight,
+                styleWeight: coverOptions.styleWeight, 
+                weirdnessConstraint: coverOptions.weirdnessConstraint,
+                vocalGender: coverOptions.vocalGender,
+                instrumental: coverOptions.instrumental,
+                model: coverOptions.model
             });
 
-            return await this._generateInstrumental(instrumentalOptions);
+            return await this._generateCover(coverOptions);
         } catch (err) {
             console.error('❌ Speech-to-Song generation error:', err);
             return { error: err.message || 'Unknown error' };
@@ -415,8 +421,22 @@ class MusicService {
                 fs.mkdirSync(outputDir, { recursive: true });
             }
             
-            // Save audio file temporarily
+            // Save audio file temporarily with proper headers
             fs.writeFileSync(tempFilePath, audioBuffer);
+            
+            // Verify file was written correctly
+            const fileStats = fs.statSync(tempFilePath);
+            console.log(`💾 Audio file saved: ${filename}, size: ${fileStats.size} bytes`);
+            
+            // Test if the file is a valid audio file by reading first few bytes
+            const buffer = fs.readFileSync(tempFilePath);
+            const header = buffer.toString('hex', 0, 4);
+            console.log(`🔍 File header (first 4 bytes): ${header}`);
+            
+            // MP3 files should start with ID3 tag (494433) or MPEG frame sync (FFFB/FFF3/etc)
+            if (!header.startsWith('4944') && !header.startsWith('fff')) {
+                console.log(`⚠️ Warning: File may not be a valid MP3. Header: ${header}`);
+            }
             
             // Create public URL for the uploaded file
             let baseUrl = process.env.BASE_URL;
@@ -466,6 +486,96 @@ class MusicService {
         } catch (error) {
             console.error('❌ Audio upload error:', error);
             return { error: error.message || 'Audio upload failed' };
+        }
+    }
+
+    async _generateCover(coverOptions) {
+        try {
+            console.log(`🎼 Submitting Upload-Cover request`);
+            console.log(`📋 Request parameters:`, JSON.stringify(coverOptions, null, 2));
+            
+            // Submit upload-cover task
+            const generateResponse = await fetch(`${this.baseUrl}/api/v1/generate/upload-cover`, {
+                method: 'POST',
+                headers: this.headers,
+                body: JSON.stringify(coverOptions)
+            });
+
+            const generateData = await generateResponse.json();
+            console.log(`📥 Upload-Cover API Response:`, JSON.stringify(generateData, null, 2));
+            
+            if (!generateResponse.ok || generateData.code !== 200) {
+                console.error('❌ Upload-Cover API error:', generateData);
+                return { error: generateData.message || 'Upload-Cover request failed' };
+            }
+
+            const taskId = generateData.data.taskId;
+            console.log(`✅ Upload-Cover task submitted successfully. Task ID: ${taskId}`);
+
+            // Poll for completion
+            const maxWaitTime = 20 * 60 * 1000; // 20 minutes
+            const startTime = Date.now();
+            let pollAttempts = 0;
+
+            while (Date.now() - startTime < maxWaitTime) {
+                pollAttempts++;
+                console.log(`🔄 Polling attempt ${pollAttempts} for Upload-Cover task ${taskId}`);
+
+                const statusResponse = await fetch(`${this.baseUrl}/api/v1/generate/record-info?taskId=${taskId}`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${this.apiKey}` }
+                });
+
+                const statusData = await statusResponse.json();
+
+                if (!statusResponse.ok || statusData.code !== 200) {
+                    console.error('❌ Status check error:', statusData);
+                    return { error: `Status check failed: ${statusData.message || 'Unknown error'}` };
+                }
+
+                const status = statusData.data;
+                console.log(`📊 Upload-Cover status: ${status.status}`);
+                
+                if (status.status === 'SUCCESS') {
+                    console.log(`🎉 Upload-Cover generation completed successfully!`);
+                    
+                    // Extract songs from the correct location in the response
+                    let songs = [];
+                    
+                    if (status.response && status.response.sunoData) {
+                        // Use the detailed sunoData from the response
+                        songs = status.response.sunoData.map(result => ({
+                            id: result.id,
+                            title: result.title,
+                            audioUrl: result.audioUrl,
+                            sourceAudioUrl: result.sourceAudioUrl,
+                            imageUrl: result.imageUrl,
+                            tags: result.tags,
+                            duration: result.duration,
+                            createdAt: result.createTime
+                        }));
+                    }
+                    
+                    return {
+                        taskId: taskId,
+                        status: 'completed',
+                        songs: songs
+                    };
+
+                } else if (['CREATE_TASK_FAILED', 'GENERATE_AUDIO_FAILED', 'SENSITIVE_WORD_ERROR'].includes(status.status)) {
+                    console.error(`❌ Upload-Cover failed with status: ${status.status}`);
+                    console.error(`❌ Error details:`, JSON.stringify(status, null, 2));
+                    return { error: status.errorMessage || `Upload-Cover generation failed: ${status.status}` };
+                }
+
+                // Still processing
+                await new Promise(resolve => setTimeout(resolve, 30000));
+            }
+
+            return { error: `Upload-Cover generation timed out after 20 minutes` };
+        } catch (err) {
+            console.error('❌ Upload-Cover generation error:', err);
+            return { error: err.message || 'Unknown error' };
         }
     }
 
