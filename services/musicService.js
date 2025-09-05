@@ -516,12 +516,25 @@ class MusicService {
 
                 if (status.status === 'SUCCESS') {
                     console.log(`🎉 Add Instrumental generation completed successfully!`);
-                    console.log(`🔍 Full success status data:`, JSON.stringify(status, null, 2));
                     
-                    return {
-                        taskId: taskId,
-                        status: 'completed',
-                        songs: status.recordResults?.map(result => ({
+                    // Extract songs from the correct location in the response
+                    let songs = [];
+                    
+                    if (status.response && status.response.sunoData) {
+                        // Use the detailed sunoData from the response
+                        songs = status.response.sunoData.map(result => ({
+                            id: result.id,
+                            title: result.title,
+                            audioUrl: result.audioUrl,
+                            sourceAudioUrl: result.sourceAudioUrl,
+                            imageUrl: result.imageUrl,
+                            tags: result.tags,
+                            duration: result.duration,
+                            createdAt: result.createTime
+                        }));
+                    } else if (status.recordResults) {
+                        // Fallback to recordResults if available
+                        songs = status.recordResults.map(result => ({
                             id: result.id,
                             title: result.title,
                             audioUrl: result.audioUrl,
@@ -531,7 +544,13 @@ class MusicService {
                             prompt: instrumentalOptions.tags,
                             duration: result.duration,
                             createdAt: result.createdAt
-                        })) || []
+                        }));
+                    }
+                    
+                    return {
+                        taskId: taskId,
+                        status: 'completed',
+                        songs: songs
                     };
 
                 } else if (['CREATE_TASK_FAILED', 'GENERATE_AUDIO_FAILED', 'SENSITIVE_WORD_ERROR'].includes(status.status)) {

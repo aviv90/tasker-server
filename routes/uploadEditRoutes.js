@@ -307,7 +307,7 @@ function finalizeTranscription(taskId, result) {
 // Callback route for Kie.ai music generation notifications
 router.post('/music/callback', (req, res) => {
   try {
-    console.log('🎵 Received music generation callback:', req.body);
+    console.log('🎵 Received music generation callback:', JSON.stringify(req.body, null, 2));
     
     const callbackData = req.body;
     
@@ -324,11 +324,11 @@ router.post('/music/callback', (req, res) => {
         console.log(`🎵 Found ${songs.length} songs in callback`);
         
         if (songs.length > 0) {
-          // Get the first song URL
+          // Get the first song - try multiple possible field names
           const firstSong = songs[0];
-          const songUrl = firstSong.audioUrl || firstSong.audio_url;
+          const songUrl = firstSong.audioUrl || firstSong.audio_url || firstSong.url;
           
-          console.log(`🎵 Song URL: ${songUrl}`);
+          console.log(`🎵 Song URL from callback: ${songUrl}`);
           
           if (songUrl) {
             // Update our task store with the direct URL
@@ -340,11 +340,15 @@ router.post('/music/callback', (req, res) => {
             });
             
             console.log(`✅ Updated task ${ourTaskId} with song URL via callback`);
+            
+            // Clean up the mapping
+            kieTaskMapping.delete(kieTaskId);
+          } else {
+            console.log(`⚠️ No audioUrl found in callback song data:`, JSON.stringify(firstSong, null, 2));
           }
+        } else {
+          console.log(`⚠️ No songs found in callback data`);
         }
-        
-        // Clean up the mapping
-        kieTaskMapping.delete(kieTaskId);
       }
     }
     
