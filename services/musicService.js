@@ -356,31 +356,33 @@ class MusicService {
                 return { error: `Audio upload failed: ${uploadResult.error}` };
             }
 
-            // Step 2: Generate song with maximum voice preservation
+            // Step 2: Generate song with aggressive voice preservation
             const styles = [
-                'voice preservation, minimal instrumental',
-                'original voice, subtle backing', 
-                'clear speech, light accompaniment',
-                'voice-first, background music',
-                'natural speech melody, soft instruments',
-                'unmodified vocals, gentle support',
-                'speech clarity, atmospheric backing',
-                'original voice character, minimal processing'
+                'speech preservation, voice clarity',
+                'natural voice, minimal instrumental', 
+                'spoken lyrics, clear vocals',
+                'original speech, light backing',
+                'voice-first arrangement, subtle music',
+                'vocal recording, background accompaniment',
+                'speech-based song, voice prominent',
+                'unprocessed vocals, gentle instruments'
             ];
 
             const negativeStyles = [
-                'heavy autotune, voice modification',
-                'pitch correction, vocal effects', 
-                'voice transformation, heavy processing',
-                'artificial vocals, distorted speech',
-                'melody override, voice replacement',
-                'synthetic vocals, robotic processing'
+                'heavy autotune, pitch shift, voice effects',
+                'melody override, vocal transformation', 
+                'singing conversion, pitch correction',
+                'artificial vocals, robotic processing',
+                'harmony generation, voice modification',
+                'auto-melody, synthetic vocals',
+                'vocal replacement, processed speech',
+                'pitch adjustment, voice changing'
             ];
 
             const selectedStyle = styles[Math.floor(Math.random() * styles.length)];
             const selectedNegative = negativeStyles[Math.floor(Math.random() * negativeStyles.length)];
             
-            // Create add-instrumental request (optimized ranges for speech-to-song)
+            // Create add-instrumental request (experimental speech preservation)
             const instrumentalOptions = {
                 uploadUrl: uploadResult.uploadUrl,
                 title: options.title || 'Generated Song from Speech',
@@ -388,15 +390,17 @@ class MusicService {
                 negativeTags: options.negativeStyle || selectedNegative,
                 callBackUrl: uploadResult.callbackUrl,
                 vocalGender: options.vocalGender || (Math.random() > 0.5 ? 'm' : 'f'),
-                styleWeight: options.styleWeight || Math.round((0.3 + Math.random() * 0.3) * 100) / 100, // 0.3-0.6 (preserve original voice)
-                audioWeight: options.audioWeight || Math.round((0.7 + Math.random() * 0.2) * 100) / 100, // 0.7-0.9 (high voice preservation)
-                weirdnessConstraint: options.weirdnessConstraint || Math.round((0.1 + Math.random() * 0.2) * 100) / 100 // 0.1-0.3 (controlled variation)
+                styleWeight: options.styleWeight || Math.round((0.4 + Math.random() * 0.3) * 100) / 100, // 0.4-0.7 (moderate style influence)
+                audioWeight: options.audioWeight || Math.round((0.5 + Math.random() * 0.2) * 100) / 100, // 0.5-0.7 (balanced preservation)
+                weirdnessConstraint: options.weirdnessConstraint || Math.round((0.3 + Math.random() * 0.4) * 100) / 100 // 0.3-0.7 (allow more creativity)
             };
 
-            console.log(`🎛️ Audio parameters:`, {
+            console.log(`🎛️ Experimental speech preservation:`, {
                 audioWeight: instrumentalOptions.audioWeight,
                 styleWeight: instrumentalOptions.styleWeight, 
-                weirdnessConstraint: instrumentalOptions.weirdnessConstraint
+                weirdnessConstraint: instrumentalOptions.weirdnessConstraint,
+                tags: instrumentalOptions.tags,
+                negativeTags: instrumentalOptions.negativeTags
             });
 
             return await this._generateInstrumental(instrumentalOptions);
