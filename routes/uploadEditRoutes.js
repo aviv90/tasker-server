@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { Readable } = require('stream');
-const ffmpeg = require('fluent-ffmpeg');
+const CloudConvert = require('cloudconvert');
+const FormData = require('form-data');
 const upload = multer({
   limits: {
     fileSize: 50 * 1024 * 1024,
@@ -21,59 +21,99 @@ const { isErrorResult, getTaskError } = require('../utils/errorHandler');
 const fs = require('fs');
 const path = require('path');
 
-// Configure ffmpeg for different environments
-if (process.env.NODE_ENV === 'production') {
-  const ffmpegPath = '/app/.apt/usr/bin/ffmpeg';
-  const ffprobePath = '/app/.apt/usr/bin/ffprobe';
-  ffmpeg.setFfmpegPath(ffmpegPath);
-  ffmpeg.setFfprobePath(ffprobePath);
-  // Also add to PATH as backup
-  process.env.PATH = `/app/.apt/usr/bin:${process.env.PATH}`;
-  console.log(`🔧 Using ffmpeg path: ${ffmpegPath}`);
-  console.log(`🔧 Using ffprobe path: ${ffprobePath}`);
-} else {
-  console.log(`🔧 Using system ffmpeg`);
-}
+// Initialize CloudConvert for audio conversion
+const cloudconvert = new CloudConvert(process.env.CLOUDCONVERT_API_KEY || 'demo-key');
 
 /**
- * Convert audio buffer to MP3 using ffmpeg
- * @param {Buffer} inputBuffer - The input audio buffer
- * @param {string} inputMimetype - The MIME type of input
+ * Convert audio to MP3 using CloudConvert API
+ * @param {Buffer} inputBuffer - The input audio buffer  
+ * @param {string} inputMimetype - The input file mimetype
  * @returns {Promise<Buffer>} - The converted MP3 buffer
  */
-function convertAudioToMp3(inputBuffer, inputMimetype) {
-  return new Promise((resolve, reject) => {
-    console.log(`🔄 Starting conversion from ${inputMimetype} to MP3...`);
+async function convertAudioToMp3(inputBuffer, inputMimetype) {
+  console.log(`🔄 Starting CloudConvert conversion from ${inputMimetype} to MP3...`);
+  
+  try {
+    // Determine input format from mimetype
+    const formatMap = {
+      'audio/ogg': 'ogg',
+      'audio/opus': 'opus', 
+      'audio/webm': 'webm',
+      'audio/m4a': 'm4a',
+      'audio/aac': 'aac',
+      'audio/mp4': 'mp4'
+    };
     
-    const outputChunks = [];
-    const inputFormat = inputMimetype.split('/')[1].split(';')[0]; // Extract format from mimetype
-    
-    const converter = ffmpeg()
-      .input(Readable.from(inputBuffer))
-      .inputFormat(inputFormat === 'ogg' ? 'ogg' : inputFormat)
-      .audioCodec('mp3')
-      .audioFrequency(44100) 
-      .audioBitrate('128k')
-      .format('mp3')
-      .on('start', (commandLine) => {
-        console.log(`🎵 FFmpeg command: ${commandLine}`);
-      })
-      .on('progress', (progress) => {
-        console.log(`⏳ Processing: ${progress.percent ? Math.round(progress.percent) : '?'}% done`);
-      })
-      .on('error', (err) => {
-        console.error(`❌ FFmpeg error: ${err.message}`);
-        reject(new Error(`Audio conversion failed: ${err.message}`));
-      })
-      .on('end', () => {
-        console.log(`✅ Conversion completed successfully`);
-        resolve(Buffer.concat(outputChunks));
-      });
+    const inputFormat = formatMap[inputMimetype] || inputMimetype.split('/')[1];
+    console.log(`📂 Input format: ${inputFormat}`);
 
-    const stream = converter.pipe();
-    stream.on('data', (chunk) => outputChunks.push(chunk));
-    stream.on('error', reject);
-  });
+    // Create conversion job
+    const job = await cloudconvert.jobs.create({
+      tasks: {
+        'import': {
+          operation: 'import/upload'
+        },
+        'convert': {
+          operation: 'convert',
+          input: 'import',
+          input_format: inputFormat,
+          output_format: 'mp3',
+          options: {
+            audio_codec: 'mp3',
+            audio_bitrate: 128,
+            audio_frequency: 44100
+          }
+        },
+        'export': {
+          operation: 'export/url',
+          input: 'convert'
+        }
+      }
+    });
+
+    console.log(`🚀 CloudConvert job created: ${job.id}`);
+
+    // Upload the file
+    const uploadTask = job.tasks.find(task => task.name === 'import');
+    const form = new FormData();
+    form.append('file', inputBuffer, {
+      filename: `audio.${inputFormat}`,
+      contentType: inputMimetype
+    });
+
+    const uploadResponse = await fetch(uploadTask.result.form.url, {
+      method: 'POST',
+      body: form
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+    }
+
+    console.log(`📤 File uploaded successfully`);
+
+    // Wait for conversion to complete
+    const completedJob = await cloudconvert.jobs.wait(job.id);
+    console.log(`⏳ Conversion completed`);
+
+    // Download the converted file
+    const exportTask = completedJob.tasks.find(task => task.name === 'export');
+    const downloadUrl = exportTask.result.files[0].url;
+    
+    const downloadResponse = await fetch(downloadUrl);
+    if (!downloadResponse.ok) {
+      throw new Error(`Download failed: ${downloadResponse.statusText}`);
+    }
+
+    const convertedBuffer = Buffer.from(await downloadResponse.arrayBuffer());
+    console.log(`✅ CloudConvert conversion completed successfully. Output size: ${Math.round(convertedBuffer.length / 1024)}KB`);
+    
+    return convertedBuffer;
+
+  } catch (error) {
+    console.error(`❌ CloudConvert conversion failed:`, error);
+    throw new Error(`Audio conversion failed: ${error.message}`);
+  }
 }
 
 router.post('/upload-edit', upload.single('file'), async (req, res) => {  
@@ -341,7 +381,7 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
         console.error(`❌ Audio conversion failed:`, conversionError);
         taskStore.set(taskId, { 
           status: 'failed', 
-          error: `Failed to convert ${req.file.mimetype} to MP3. Server doesn't have ffmpeg. Please try uploading an MP3 or WAV file instead.` 
+          error: `Failed to convert ${req.file.mimetype} to MP3 using CloudConvert API. ${conversionError.message}` 
         });
         res.json({ taskId }); // Send the taskId so user can check status
         return;
