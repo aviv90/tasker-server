@@ -348,7 +348,7 @@ class MusicService {
 
     async generateSongFromSpeech(audioBuffer, options = {}) {
         try {
-            console.log(`🎤 Starting Speech-to-Song generation with Upload-Cover API`);
+            console.log(`🎤 Starting Speech-to-Song generation with Upload-Extend API`);
             
             // Step 1: Upload audio file and get public URL
             const uploadResult = await this._uploadAudioFile(audioBuffer);
@@ -366,30 +366,108 @@ class MusicService {
                     }
                 });
                 console.log(`🌐 External access test: ${testResponse.status} ${testResponse.statusText}`);
-                if (!testResponse.ok) {
-                    console.error(`❌ Upload URL not accessible externally!`);
-                    return { error: `Audio file not accessible to external API: ${testResponse.status}` };
-                }
             } catch (testError) {
                 console.error(`❌ Upload URL accessibility test failed:`, testError.message);
-                return { error: `Audio file not accessible to external API: ${testError.message}` };
             }
 
-            // Step 2: Use Upload-Cover API for better speech handling
-            const coverOptions = {
+            // Step 2: Use Upload-Extend API - simpler and preserves original style
+            const extendOptions = {
                 uploadUrl: uploadResult.uploadUrl,
-                title: options.title || 'Generated Song from Speech',
-                tags: options.style || 'speech to song, vocal preservation, clear voice, maintain original audio',
-                instrumental: false, // We want vocals, not instrumental
-                model: 'V4_5', // Use V4.5 model for better quality
+                defaultParamFlag: false, // Use original audio parameters - this should preserve the voice!
+                prompt: options.prompt || 'Add gentle musical accompaniment while preserving the original voice and speech',
                 callBackUrl: uploadResult.callbackUrl
             };
 
-            console.log(`🎼 Using Upload-Cover API with speech-focused settings:`, coverOptions);
+            console.log(`🎼 Using Upload-Extend API with voice preservation:`, extendOptions);
 
-            return await this._generateCover(coverOptions);
+            return await this._generateExtend(extendOptions);
         } catch (err) {
             console.error('❌ Speech-to-Song generation error:', err);
+            return { error: err.message || 'Unknown error' };
+        }
+    }
+
+    async _generateExtend(extendOptions) {
+        try {
+            console.log(`🎼 Submitting Upload-Extend request`);
+            
+            // Submit upload-extend task
+            const generateResponse = await fetch(`${this.baseUrl}/api/v1/generate/upload-extend`, {
+                method: 'POST',
+                headers: this.headers,
+                body: JSON.stringify(extendOptions)
+            });
+
+            const generateData = await generateResponse.json();
+            
+            if (!generateResponse.ok || generateData.code !== 200) {
+                console.error('❌ Upload-Extend API error:', generateData);
+                return { error: generateData.message || 'Upload-Extend request failed' };
+            }
+
+            const taskId = generateData.data.taskId;
+            console.log(`✅ Upload-Extend task submitted: ${taskId}`);
+
+            // Poll for completion
+            const maxWaitTime = 20 * 60 * 1000; // 20 minutes
+            const startTime = Date.now();
+            let pollAttempts = 0;
+
+            while (Date.now() - startTime < maxWaitTime) {
+                pollAttempts++;
+                console.log(`🔄 Polling attempt ${pollAttempts} for task ${taskId}`);
+
+                const statusResponse = await fetch(`${this.baseUrl}/api/v1/generate/record-info?taskId=${taskId}`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${this.apiKey}` }
+                });
+
+                const statusData = await statusResponse.json();
+
+                if (!statusResponse.ok || statusData.code !== 200) {
+                    console.error('❌ Status check error:', statusData);
+                    return { error: `Status check failed: ${statusData.message || 'Unknown error'}` };
+                }
+
+                const status = statusData.data;
+                console.log(`📊 Upload-Extend status: ${status.status}`);
+                
+                if (status.status === 'SUCCESS') {
+                    console.log(`🎉 Upload-Extend completed successfully!`);
+                    
+                    // Extract songs from the response
+                    let songs = [];
+                    if (status.response && status.response.sunoData) {
+                        songs = status.response.sunoData.map(result => ({
+                            id: result.id,
+                            title: result.title,
+                            audioUrl: result.audioUrl,
+                            sourceAudioUrl: result.sourceAudioUrl,
+                            imageUrl: result.imageUrl,
+                            tags: result.tags,
+                            duration: result.duration,
+                            createdAt: result.createTime
+                        }));
+                    }
+                    
+                    return {
+                        taskId: taskId,
+                        status: 'done',
+                        songs: songs
+                    };
+
+                } else if (['CREATE_TASK_FAILED', 'GENERATE_AUDIO_FAILED', 'SENSITIVE_WORD_ERROR'].includes(status.status)) {
+                    console.error(`❌ Upload-Extend failed: ${status.status}`);
+                    return { error: status.errorMessage || `Upload-Extend generation failed: ${status.status}` };
+                }
+
+                // Still processing
+                await new Promise(resolve => setTimeout(resolve, 30000));
+            }
+
+            return { error: `Upload-Extend generation timed out after 20 minutes` };
+        } catch (err) {
+            console.error('❌ Upload-Extend generation error:', err);
             return { error: err.message || 'Unknown error' };
         }
     }
