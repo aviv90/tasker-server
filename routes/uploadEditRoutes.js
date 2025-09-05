@@ -417,14 +417,14 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
     
     console.log(`🎤 Using original audio format: ${fileType}, size: ${Math.round(audioBuffer.length / 1024)}KB`);
     
-    // Extract options from request with defaults
+    // Extract options from request with optimized defaults
     const options = {
       title: req.body.title || 'Generated Song from Speech',
       style: req.body.style || 'original voice, subtle backing',
       vocalGender: req.body.vocalGender || (Math.random() > 0.5 ? 'm' : 'f'),
-      styleWeight: req.body.styleWeight ? parseFloat(req.body.styleWeight) : 0.1, // Minimal style influence
-      audioWeight: req.body.audioWeight ? parseFloat(req.body.audioWeight) : 1.0, // Maximum voice preservation  
-      weirdnessConstraint: req.body.weirdnessConstraint ? parseFloat(req.body.weirdnessConstraint) : 0.1 // Minimal weirdness
+      styleWeight: req.body.styleWeight ? parseFloat(req.body.styleWeight) : undefined, // Let service generate random in 0.3-0.6 range
+      audioWeight: req.body.audioWeight ? parseFloat(req.body.audioWeight) : undefined, // Let service generate random in 0.7-0.9 range
+      weirdnessConstraint: req.body.weirdnessConstraint ? parseFloat(req.body.weirdnessConstraint) : undefined // Let service generate random in 0.1-0.3 range
     };
 
     console.log(`🎵 Processing speech-to-song with options:`, options);

@@ -380,7 +380,7 @@ class MusicService {
             const selectedStyle = styles[Math.floor(Math.random() * styles.length)];
             const selectedNegative = negativeStyles[Math.floor(Math.random() * negativeStyles.length)];
             
-            // Create add-instrumental request (maximum voice preservation)
+            // Create add-instrumental request (optimized ranges for speech-to-song)
             const instrumentalOptions = {
                 uploadUrl: uploadResult.uploadUrl,
                 title: options.title || 'Generated Song from Speech',
@@ -388,10 +388,16 @@ class MusicService {
                 negativeTags: options.negativeStyle || selectedNegative,
                 callBackUrl: uploadResult.callbackUrl,
                 vocalGender: options.vocalGender || (Math.random() > 0.5 ? 'm' : 'f'),
-                styleWeight: options.styleWeight || 0.1, // Minimal style influence - keep original voice
-                audioWeight: options.audioWeight || 1.0, // Maximum audio weight - preserve original voice completely
-                weirdnessConstraint: options.weirdnessConstraint || 0.1 // Minimal weirdness - keep speech natural
+                styleWeight: options.styleWeight || Math.round((0.3 + Math.random() * 0.3) * 100) / 100, // 0.3-0.6 (preserve original voice)
+                audioWeight: options.audioWeight || Math.round((0.7 + Math.random() * 0.2) * 100) / 100, // 0.7-0.9 (high voice preservation)
+                weirdnessConstraint: options.weirdnessConstraint || Math.round((0.1 + Math.random() * 0.2) * 100) / 100 // 0.1-0.3 (controlled variation)
             };
+
+            console.log(`🎛️ Audio parameters:`, {
+                audioWeight: instrumentalOptions.audioWeight,
+                styleWeight: instrumentalOptions.styleWeight, 
+                weirdnessConstraint: instrumentalOptions.weirdnessConstraint
+            });
 
             return await this._generateInstrumental(instrumentalOptions);
         } catch (err) {
