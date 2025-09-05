@@ -93,6 +93,9 @@ async function convertAudioToMp3(inputBuffer, inputMimetype) {
     // Wait for conversion to complete
     job = await cloudconvert.jobs.wait(job.id);
     console.log(`⏳ Conversion completed`);
+    
+    // Log all tasks to see what failed
+    console.log(`🔍 All job tasks:`, JSON.stringify(job.tasks, null, 2));
 
     // Download the converted file
     const exportTask = job.tasks.find(task => task.name === 'export');
