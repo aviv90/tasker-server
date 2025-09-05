@@ -402,7 +402,7 @@ class MusicService {
 
     async _uploadAudioFile(audioBuffer) {
         try {
-            const filename = `speech_${uuidv4()}.mp3`;
+            const filename = `speech_${uuidv4()}.mp3`; // Keep .mp3 extension for compatibility
             const tempFilePath = path.join(__dirname, '..', 'public', 'tmp', filename);
             const outputDir = path.dirname(tempFilePath);
             
@@ -410,66 +410,36 @@ class MusicService {
                 fs.mkdirSync(outputDir, { recursive: true });
             }
             
-            // Save audio file temporarily with proper headers
+            // Save audio file temporarily
             fs.writeFileSync(tempFilePath, audioBuffer);
             
             // Verify file was written correctly
             const fileStats = fs.statSync(tempFilePath);
             console.log(`💾 Audio file saved: ${filename}, size: ${fileStats.size} bytes`);
             
-            // Test if the file is a valid audio file by reading first few bytes
-            const buffer = fs.readFileSync(tempFilePath);
-            const header = buffer.toString('hex', 0, 4);
-            console.log(`🔍 File header (first 4 bytes): ${header}`);
-            
-            // MP3 files should start with ID3 tag (494433) or MPEG frame sync (FFFB/FFF3/etc)
-            if (!header.startsWith('4944') && !header.startsWith('fff')) {
-                console.log(`⚠️ Warning: File may not be a valid MP3. Header: ${header}`);
-            }
-            
             // Create public URL for the uploaded file
             let baseUrl = process.env.BASE_URL;
-            
-            // Debug environment variables
-            console.log('🔍 Environment debug:');
-            console.log('  BASE_URL:', process.env.BASE_URL);
-            console.log('  HEROKU_APP_NAME:', process.env.HEROKU_APP_NAME);
-            console.log('  PORT:', process.env.PORT);
             
             // Auto-detect based on environment
             if (!baseUrl) {
                 if (process.env.HEROKU_APP_NAME) {
                     baseUrl = `https://${process.env.HEROKU_APP_NAME}.herokuapp.com`;
-                    console.log('🟢 Detected Heroku environment');
                 } else if (process.env.PORT && process.env.PORT !== '3000') {
                     // Likely Heroku without HEROKU_APP_NAME - construct from request
-                    baseUrl = `https://tasker-server-eb22b09c778f.herokuapp.com`; // Temporary hardcode
-                    console.log('🟡 Detected Heroku-like environment (using hardcoded URL)');
+                    baseUrl = `https://tasker-server-eb22b09c778f.herokuapp.com`;
                 } else if (process.env.RAILWAY_PUBLIC_DOMAIN) {
                     baseUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
-                    console.log('🟢 Detected Railway environment');
                 } else if (process.env.VERCEL_URL) {
                     baseUrl = `https://${process.env.VERCEL_URL}`;
-                    console.log('🟢 Detected Vercel environment');
                 } else {
                     baseUrl = 'http://localhost:3000';
-                    console.warn('⚠️  Using localhost - this will not work with external APIs!');
                 }
             }
             
             const uploadUrl = `${baseUrl}/static/${filename}`;
             const callbackUrl = this._getCallbackUrl();
             
-            console.log(`✅ Audio file uploaded successfully: ${uploadUrl}`);
-            console.log(`📞 Callback URL: ${callbackUrl}`);
-            
-            // Test if file is accessible (optional debug)
-            try {
-                const testResponse = await fetch(uploadUrl, { method: 'HEAD' });
-                console.log(`🌐 File accessibility test: ${testResponse.status} ${testResponse.statusText}`);
-            } catch (testError) {
-                console.warn(`⚠️  File accessibility test failed: ${testError.message}`);
-            }
+            console.log(`✅ Audio file uploaded: ${uploadUrl}`);
             
             return { uploadUrl, callbackUrl };
         } catch (error) {

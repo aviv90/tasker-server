@@ -377,15 +377,13 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
   }
 
   // Validate file format and size  
-  const supportedTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/wave'];
-  const convertibleTypes = ['audio/ogg', 'audio/opus', 'audio/webm', 'audio/m4a', 'audio/aac'];
-  const allSupportedTypes = [...supportedTypes, ...convertibleTypes];
+  const supportedTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/wave', 'audio/ogg', 'audio/opus', 'audio/webm', 'audio/m4a', 'audio/aac'];
   const maxSize = 10 * 1024 * 1024; // 10MB
-  const minSize = 10 * 1024; // 10KB (small files for testing)
+  const minSize = 10 * 1024; // 10KB
 
   console.log(`📁 File received: ${req.file.originalname}, type: ${req.file.mimetype}, size: ${Math.round(req.file.size / 1024)}KB`);
 
-  if (!allSupportedTypes.includes(req.file.mimetype)) {
+  if (!supportedTypes.includes(req.file.mimetype)) {
     return res.status(400).json({
       status: 'error',
       error: `Unsupported file type: ${req.file.mimetype}. Supported: MP3, WAV, OGG, OPUS, WebM, M4A, AAC`
@@ -406,44 +404,27 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
     });
   }
 
-  console.log(`📁 File validation passed: ${req.file.originalname}, type: ${req.file.mimetype}, size: ${Math.round(req.file.size / 1024)}KB`);
-
   const taskId = uuidv4();
   taskStore.set(taskId, { status: 'pending' });
+  res.json({ taskId }); // Send response immediately
 
   try {
     const musicService = require('../services/musicService');
     
-    // Convert audio if needed
-    let audioBuffer = req.file.buffer;
-    let fileType = req.file.mimetype;
+    // Use original audio buffer directly (no conversion)
+    const audioBuffer = req.file.buffer;
+    const fileType = req.file.mimetype;
     
-    if (convertibleTypes.includes(req.file.mimetype)) {
-      try {
-        audioBuffer = await convertAudioToMp3(req.file.buffer, req.file.mimetype);
-        fileType = 'audio/mp3';
-        console.log(`✅ Conversion completed successfully`);
-      } catch (conversionError) {
-        console.error(`❌ Audio conversion failed:`, conversionError);
-        taskStore.set(taskId, { 
-          status: 'failed', 
-          error: `Failed to convert ${req.file.mimetype} to MP3 using CloudConvert API. ${conversionError.message}` 
-        });
-        res.json({ taskId }); // Send the taskId so user can check status
-        return;
-      }
-    }
+    console.log(`🎤 Using original audio format: ${fileType}, size: ${Math.round(audioBuffer.length / 1024)}KB`);
     
-    res.json({ taskId }); // Send response here, after conversion check
-    
-    // Extract options from request
+    // Extract options from request with defaults
     const options = {
-      title: req.body.title,
-      style: req.body.style,
-      vocalGender: req.body.vocalGender,
-      styleWeight: req.body.styleWeight ? parseFloat(req.body.styleWeight) : undefined,
-      audioWeight: req.body.audioWeight ? parseFloat(req.body.audioWeight) : undefined,
-      weirdnessConstraint: req.body.weirdnessConstraint ? parseFloat(req.body.weirdnessConstraint) : undefined
+      title: req.body.title || 'Generated Song from Speech',
+      style: req.body.style || 'original voice, subtle backing',
+      vocalGender: req.body.vocalGender || (Math.random() > 0.5 ? 'm' : 'f'),
+      styleWeight: req.body.styleWeight ? parseFloat(req.body.styleWeight) : 0.1, // Minimal style influence
+      audioWeight: req.body.audioWeight ? parseFloat(req.body.audioWeight) : 1.0, // Maximum voice preservation  
+      weirdnessConstraint: req.body.weirdnessConstraint ? parseFloat(req.body.weirdnessConstraint) : 0.1 // Minimal weirdness
     };
 
     console.log(`🎵 Processing speech-to-song with options:`, options);
