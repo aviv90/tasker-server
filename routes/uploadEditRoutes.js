@@ -96,6 +96,13 @@ async function convertAudioToMp3(inputBuffer, inputMimetype) {
 
     // Download the converted file
     const exportTask = job.tasks.find(task => task.name === 'export');
+    
+    console.log(`📥 Export task:`, JSON.stringify(exportTask, null, 2));
+    
+    if (!exportTask || !exportTask.result || !exportTask.result.files || !exportTask.result.files[0]) {
+      throw new Error('No export file found in CloudConvert response');
+    }
+    
     const file = exportTask.result.files[0];
     
     const downloadResponse = await fetch(file.url);
