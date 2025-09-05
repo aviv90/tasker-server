@@ -374,6 +374,7 @@ class MusicService {
             const extendOptions = {
                 uploadUrl: uploadResult.uploadUrl,
                 defaultParamFlag: false, // Use original audio parameters - this should preserve the voice!
+                instrumental: false, // We want to preserve the voice, not create pure instrumental
                 prompt: options.prompt || 'Add gentle musical accompaniment while preserving the original voice and speech',
                 callBackUrl: uploadResult.callbackUrl
             };
