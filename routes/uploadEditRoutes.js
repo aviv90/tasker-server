@@ -33,6 +33,11 @@ const cloudconvert = new CloudConvert(process.env.CLOUDCONVERT_API_KEY || 'demo-
 async function convertAudioToMp3(inputBuffer, inputMimetype) {
   console.log(`🔄 Starting CloudConvert conversion from ${inputMimetype} to MP3...`);
   
+  // Check API key
+  if (!process.env.CLOUDCONVERT_API_KEY || process.env.CLOUDCONVERT_API_KEY === 'demo-key' || process.env.CLOUDCONVERT_API_KEY === 'your_cloudconvert_api_key_here') {
+    throw new Error('CloudConvert API key not configured properly');
+  }
+  
   try {
     // Determine input format from mimetype
     const formatMap = {
@@ -75,7 +80,23 @@ async function convertAudioToMp3(inputBuffer, inputMimetype) {
 
     // Upload the file
     const uploadTask = job.tasks.find(task => task.name === 'import');
+    
+    console.log(`📤 Upload task:`, JSON.stringify(uploadTask, null, 2));
+    
+    if (!uploadTask || !uploadTask.result || !uploadTask.result.form) {
+      throw new Error('Invalid upload task structure from CloudConvert');
+    }
+    
     const form = new FormData();
+    
+    // Add all form fields from CloudConvert
+    if (uploadTask.result.form.parameters) {
+      Object.entries(uploadTask.result.form.parameters).forEach(([key, value]) => {
+        form.append(key, value);
+      });
+    }
+    
+    // Add the file last
     form.append('file', inputBuffer, {
       filename: `audio.${inputFormat}`,
       contentType: inputMimetype
@@ -87,7 +108,8 @@ async function convertAudioToMp3(inputBuffer, inputMimetype) {
     });
 
     if (!uploadResponse.ok) {
-      throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+      const errorText = await uploadResponse.text();
+      throw new Error(`Upload failed: ${uploadResponse.statusText} - ${errorText}`);
     }
 
     console.log(`📤 File uploaded successfully`);
