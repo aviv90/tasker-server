@@ -370,12 +370,18 @@ class MusicService {
                 console.error(`❌ Upload URL accessibility test failed:`, testError.message);
             }
 
-            // Step 2: Use Upload-Extend API - simpler and preserves original style
+            // Step 2: Use Upload-Extend API - according to documentation
             const extendOptions = {
                 uploadUrl: uploadResult.uploadUrl,
-                defaultParamFlag: false, // Use original audio parameters - this should preserve the voice!
+                defaultParamFlag: true, // Use custom parameters for better control
                 instrumental: false, // We want to preserve the voice, not create pure instrumental
                 prompt: options.prompt || 'Add gentle musical accompaniment while preserving the original voice and speech',
+                style: options.style || 'Acoustic Pop', // Required when defaultParamFlag is true and instrumental is false
+                title: options.title || 'Extended Speech with Music', // Required when defaultParamFlag is true
+                model: options.model || 'V4_5', // Use latest model
+                audioWeight: 0.8, // Higher weight to preserve original audio characteristics
+                styleWeight: 0.3, // Lower style weight to preserve original voice
+                weirdnessConstraint: 0.2, // Lower creativity to stay closer to original
                 callBackUrl: uploadResult.callbackUrl
             };
 
