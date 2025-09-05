@@ -380,6 +380,7 @@ class MusicService {
                 uploadUrl: uploadResult.uploadUrl,
                 title: options.title || 'Generated Song from Speech',
                 tags: options.style || 'speech to song, vocal preservation, clear voice, maintain original audio',
+                instrumental: false, // We want vocals, not instrumental
                 callBackUrl: uploadResult.callbackUrl
             };
 
