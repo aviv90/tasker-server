@@ -370,22 +370,17 @@ class MusicService {
                 console.error(`❌ Upload URL accessibility test failed:`, testError.message);
             }
 
-            // Step 2: Use Add Instrumental API - better for preserving vocals
-            const instrumentalOptions = {
+            // Step 2: Try Upload-Extend API with speech-friendly parameters
+            const extendOptions = {
                 uploadUrl: uploadResult.uploadUrl,
-                title: options.title || 'Speech with Musical Accompaniment',
-                tags: options.tags || 'gentle, acoustic, soft, vocal accompaniment, speech enhancement',
-                negativeTags: options.negativeTags || 'heavy metal, fast drums, aggressive, overwhelming instruments, loud bass',
-                audioWeight: 0.9, // Very high weight to preserve original audio/voice
-                styleWeight: 0.2, // Low style weight to not overwhelm the original voice
-                weirdnessConstraint: 0.1, // Very low creativity to stay close to original
-                vocalGender: options.vocalGender || 'm', // Optional: specify gender if known
+                defaultParamFlag: false, // Use default parameters to preserve original audio better
+                prompt: options.prompt || 'Add very gentle background music while keeping the original speech clear and audible',
                 callBackUrl: uploadResult.callbackUrl
             };
 
-            console.log(`🎼 Using Add Instrumental API with voice preservation:`, instrumentalOptions);
+            console.log(`🎼 Using Upload-Extend API with speech preservation:`, extendOptions);
 
-            return await this._generateInstrumental(instrumentalOptions);
+            return await this._generateExtend(extendOptions);
         } catch (err) {
             console.error('❌ Speech-to-Song generation error:', err);
             return { error: err.message || 'Unknown error' };
