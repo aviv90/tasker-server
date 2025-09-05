@@ -381,6 +381,7 @@ class MusicService {
                 title: options.title || 'Generated Song from Speech',
                 tags: options.style || 'speech to song, vocal preservation, clear voice, maintain original audio',
                 instrumental: false, // We want vocals, not instrumental
+                model: 'V4_5', // Use V4.5 model for better quality
                 callBackUrl: uploadResult.callbackUrl
             };
 
