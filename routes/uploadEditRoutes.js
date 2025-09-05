@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const CloudConvert = require('cloudconvert');
 const FormData = require('form-data');
+const { Readable } = require('stream');
 const upload = multer({
   limits: {
     fileSize: 50 * 1024 * 1024,
@@ -52,8 +53,8 @@ async function convertAudioToMp3(inputBuffer, inputMimetype) {
     const inputFormat = formatMap[inputMimetype] || inputMimetype.split('/')[1];
     console.log(`📂 Input format: ${inputFormat}`);
 
-    // Create conversion job
-    const job = await cloudconvert.jobs.create({
+    // Use the CloudConvert SDK upload method instead of manual fetch
+    let job = await cloudconvert.jobs.create({
       tasks: {
         'import': {
           operation: 'import/upload'
@@ -78,54 +79,24 @@ async function convertAudioToMp3(inputBuffer, inputMimetype) {
 
     console.log(`🚀 CloudConvert job created: ${job.id}`);
 
-    // Upload the file
+    // Upload file using SDK
     const uploadTask = job.tasks.find(task => task.name === 'import');
-    
-    console.log(`📤 Upload task:`, JSON.stringify(uploadTask, null, 2));
-    
-    if (!uploadTask || !uploadTask.result || !uploadTask.result.form) {
-      throw new Error('Invalid upload task structure from CloudConvert');
-    }
-    
-    const form = new FormData();
-    
-    // Add all form fields from CloudConvert
-    if (uploadTask.result.form.parameters) {
-      Object.entries(uploadTask.result.form.parameters).forEach(([key, value]) => {
-        form.append(key, value);
-      });
-    }
-    
-    // Add the file last
-    form.append('file', inputBuffer, {
-      filename: `audio.${inputFormat}`,
-      contentType: inputMimetype
-    });
+    const inputFile = new Readable();
+    inputFile.push(inputBuffer);
+    inputFile.push(null);
 
-    const uploadResponse = await fetch(uploadTask.result.form.url, {
-      method: 'POST',
-      body: form,
-      headers: {
-        ...form.getHeaders()
-      }
-    });
-
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      throw new Error(`Upload failed: ${uploadResponse.statusText} - ${errorText}`);
-    }
-
-    console.log(`📤 File uploaded successfully`);
+    await cloudconvert.tasks.upload(uploadTask, inputFile, `audio.${inputFormat}`);
+    console.log(`📤 File uploaded successfully using SDK`);
 
     // Wait for conversion to complete
-    const completedJob = await cloudconvert.jobs.wait(job.id);
+    job = await cloudconvert.jobs.wait(job.id);
     console.log(`⏳ Conversion completed`);
 
     // Download the converted file
-    const exportTask = completedJob.tasks.find(task => task.name === 'export');
-    const downloadUrl = exportTask.result.files[0].url;
+    const exportTask = job.tasks.find(task => task.name === 'export');
+    const file = exportTask.result.files[0];
     
-    const downloadResponse = await fetch(downloadUrl);
+    const downloadResponse = await fetch(file.url);
     if (!downloadResponse.ok) {
       throw new Error(`Download failed: ${downloadResponse.statusText}`);
     }
