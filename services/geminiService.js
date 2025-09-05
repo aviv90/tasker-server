@@ -36,6 +36,12 @@ async function generateImageWithText(prompt) {
         let text = '';
         let imageBuffer = null;
         
+        // Check if content and parts exist
+        if (!cand.content || !cand.content.parts) {
+            console.log('❌ Gemini: No content or parts found in candidate');
+            return { error: 'Invalid response structure from Gemini' };
+        }
+        
         // Process all parts in the response
         for (const part of cand.content.parts) {
             if (part.text) {
@@ -86,6 +92,12 @@ async function editImageWithText(prompt, base64Image) {
         const cand = response.candidates[0];
         let text = '';
         let imageBuffer = null;
+        
+        // Check if content and parts exist
+        if (!cand.content || !cand.content.parts) {
+            console.log('❌ Gemini edit: No content or parts found in candidate');
+            return { error: 'Invalid response structure from Gemini' };
+        }
         
         // Process all parts in the response
         for (const part of cand.content.parts) {
