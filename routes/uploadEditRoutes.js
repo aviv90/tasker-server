@@ -5,6 +5,7 @@ const CloudConvert = require('cloudconvert');
 const FormData = require('form-data');
 const { Readable } = require('stream');
 const upload = multer({
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 50 * 1024 * 1024,
     fieldSize: 50 * 1024 * 1024
@@ -358,6 +359,7 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
   const minSize = 10 * 1024; // 10KB (small files for testing)
 
   console.log(`📁 File received: ${req.file.originalname}, type: ${req.file.mimetype}, size: ${Math.round(req.file.size / 1024)}KB`);
+  console.log(`📊 Buffer info - size: ${req.file.size} bytes, buffer length: ${req.file.buffer ? req.file.buffer.length : 'undefined'} bytes`);
 
   if (!allSupportedTypes.includes(req.file.mimetype)) {
     return res.status(400).json({
