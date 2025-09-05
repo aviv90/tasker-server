@@ -34,6 +34,12 @@ const cloudconvert = new CloudConvert(process.env.CLOUDCONVERT_API_KEY || 'demo-
 async function convertAudioToMp3(inputBuffer, inputMimetype) {
   console.log(`🔄 Starting CloudConvert conversion from ${inputMimetype} to MP3...`);
   
+  // Validate buffer is not empty
+  if (!inputBuffer || inputBuffer.length === 0) {
+    throw new Error('Input buffer is empty');
+  }
+  console.log(`📊 Input buffer size: ${inputBuffer.length} bytes`);
+  
   // Check API key
   if (!process.env.CLOUDCONVERT_API_KEY || process.env.CLOUDCONVERT_API_KEY === 'demo-key' || process.env.CLOUDCONVERT_API_KEY === 'your_cloudconvert_api_key_here') {
     throw new Error('CloudConvert API key not configured properly');
@@ -81,9 +87,16 @@ async function convertAudioToMp3(inputBuffer, inputMimetype) {
 
     // Upload file using SDK
     const uploadTask = job.tasks.find(task => task.name === 'import');
-    const inputFile = new Readable();
-    inputFile.push(inputBuffer);
-    inputFile.push(null);
+    
+    // Create a proper readable stream from buffer
+    const inputFile = new Readable({
+      read() {
+        this.push(inputBuffer);
+        this.push(null);
+      }
+    });
+
+    console.log(`📤 Uploading file: audio.${inputFormat}, size: ${inputBuffer.length} bytes`);
 
     await cloudconvert.tasks.upload(uploadTask, inputFile, `audio.${inputFormat}`, {
       size: inputBuffer.length
@@ -381,6 +394,19 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
     
     if (convertibleTypes.includes(req.file.mimetype)) {
       console.log(`🔄 Converting ${req.file.mimetype} to MP3...`);
+      console.log(`📊 Original buffer size: ${req.file.buffer.length} bytes`);
+      
+      // Validate that buffer is not empty before conversion
+      if (!req.file.buffer || req.file.buffer.length === 0) {
+        console.error(`❌ File buffer is empty!`);
+        taskStore.set(taskId, { 
+          status: 'failed', 
+          error: `Uploaded file is empty or corrupted` 
+        });
+        res.json({ taskId });
+        return;
+      }
+      
       try {
         audioBuffer = await convertAudioToMp3(req.file.buffer, req.file.mimetype);
         fileType = 'audio/mp3';
