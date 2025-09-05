@@ -40,7 +40,6 @@ async function convertAudioToMp3(inputBuffer, inputMimetype) {
   if (!inputBuffer || inputBuffer.length === 0) {
     throw new Error('Input buffer is empty');
   }
-  console.log(`📊 Input buffer size: ${inputBuffer.length} bytes`);
   
   // Check API key
   if (!process.env.CLOUDCONVERT_API_KEY || process.env.CLOUDCONVERT_API_KEY === 'demo-key' || process.env.CLOUDCONVERT_API_KEY === 'your_cloudconvert_api_key_here') {
@@ -59,9 +58,8 @@ async function convertAudioToMp3(inputBuffer, inputMimetype) {
     };
     
     const inputFormat = formatMap[inputMimetype] || inputMimetype.split('/')[1];
-    console.log(`📂 Input format: ${inputFormat}`);
 
-    // Use the CloudConvert SDK upload method instead of manual fetch
+    // Create CloudConvert job
     let job = await cloudconvert.jobs.create({
       tasks: {
         'import': {
@@ -87,56 +85,12 @@ async function convertAudioToMp3(inputBuffer, inputMimetype) {
 
     console.log(`🚀 CloudConvert job created: ${job.id}`);
 
-    // Upload file using SDK - try with Buffer directly
+    // Upload file using direct buffer (this method works!)
     const uploadTask = job.tasks.find(task => task.name === 'import');
-    
-    console.log(`📤 Uploading file: audio.${inputFormat}, size: ${inputBuffer.length} bytes`);
-    console.log(`📤 Upload task details:`, JSON.stringify(uploadTask, null, 2));
-
-    // Try direct HTTP upload if SDK fails with buffer
-    try {
-      console.log(`📤 Trying SDK upload with buffer...`);
-      const uploadResponse = await cloudconvert.tasks.upload(uploadTask, inputBuffer, `audio.${inputFormat}`);
-      console.log(`📤 File uploaded successfully using SDK:`, uploadResponse);
-    } catch (uploadError) {
-      console.error(`❌ SDK Upload failed, trying direct HTTP:`, uploadError);
-      
-      // Fallback to direct HTTP upload
-      const formData = new FormData();
-      formData.append('file', inputBuffer, {
-        filename: `audio.${inputFormat}`,
-        contentType: audioMimeType
-      });
-      
-      const uploadUrl = uploadTask.result?.form?.url;
-      if (!uploadUrl) {
-        throw new Error('No upload URL found in task result');
-      }
-      
-      console.log(`📤 Upload URL:`, uploadUrl);
-      
-      // Add form fields from task result
-      if (uploadTask.result?.form?.parameters) {
-        Object.entries(uploadTask.result.form.parameters).forEach(([key, value]) => {
-          formData.append(key, value);
-        });
-      }
-      
-      const uploadResponse = await axios.post(uploadUrl, formData, {
-        headers: {
-          'Authorization': `Bearer ${process.env.CLOUDCONVERT_API_KEY}`,
-          ...formData.getHeaders()
-        }
-      });
-      
-      console.log(`📤 File uploaded successfully using HTTP:`, uploadResponse.status);
-    }
+    await cloudconvert.tasks.upload(uploadTask, inputBuffer, `audio.${inputFormat}`);
 
     // Wait for conversion to complete
-    job = await cloudconvert.jobs.wait(job.id);
-    console.log(`⏳ Conversion completed`);
-    
-    // Log all tasks to see what failed
+    job = await cloudconvert.jobs.wait(job.id);    // Log all tasks to see what failed
     console.log(`🔍 All job tasks:`, JSON.stringify(job.tasks, null, 2));
 
     // Download the converted file
@@ -387,7 +341,6 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
   const minSize = 10 * 1024; // 10KB (small files for testing)
 
   console.log(`📁 File received: ${req.file.originalname}, type: ${req.file.mimetype}, size: ${Math.round(req.file.size / 1024)}KB`);
-  console.log(`📊 Buffer info - size: ${req.file.size} bytes, buffer length: ${req.file.buffer ? req.file.buffer.length : 'undefined'} bytes`);
 
   if (!allSupportedTypes.includes(req.file.mimetype)) {
     return res.status(400).json({
@@ -423,20 +376,6 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
     let fileType = req.file.mimetype;
     
     if (convertibleTypes.includes(req.file.mimetype)) {
-      console.log(`🔄 Converting ${req.file.mimetype} to MP3...`);
-      console.log(`📊 Original buffer size: ${req.file.buffer.length} bytes`);
-      
-      // Validate that buffer is not empty before conversion
-      if (!req.file.buffer || req.file.buffer.length === 0) {
-        console.error(`❌ File buffer is empty!`);
-        taskStore.set(taskId, { 
-          status: 'failed', 
-          error: `Uploaded file is empty or corrupted` 
-        });
-        res.json({ taskId });
-        return;
-      }
-      
       try {
         audioBuffer = await convertAudioToMp3(req.file.buffer, req.file.mimetype);
         fileType = 'audio/mp3';
@@ -476,9 +415,16 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
       taskStore.set(taskId, { status: 'failed', error: errorMessage });
     } else {
       console.log(`✅ Speech-to-Song generation completed for task ${taskId}`);
+      
+      // Extract the first song URL for simple response format
+      let songUrl = null;
+      if (result.songs && result.songs.length > 0) {
+        songUrl = result.songs[0].audioUrl;
+      }
+      
       taskStore.set(taskId, { 
         status: 'completed', 
-        result: result,
+        result: songUrl || result, // Use simple URL or fallback to full result
         type: 'speech-to-song',
         timestamp: new Date().toISOString()
       });
