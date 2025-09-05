@@ -333,7 +333,7 @@ router.post('/music/callback', (req, res) => {
           if (songUrl) {
             // Update our task store with the direct URL
             taskStore.set(ourTaskId, { 
-              status: 'completed', 
+              status: 'done', 
               result: songUrl,
               type: 'speech-to-song',
               timestamp: new Date().toISOString()
@@ -427,7 +427,7 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
       weirdnessConstraint: req.body.weirdnessConstraint ? parseFloat(req.body.weirdnessConstraint) : undefined // Let service generate random in 0.1-0.3 range
     };
 
-    console.log(`🎵 Processing speech-to-song with options:`, options);
+    console.log(`🎵 Starting speech-to-song generation`);
     console.log(`🎤 Using audio format: ${fileType}, size: ${Math.round(audioBuffer.length / 1024)}KB`);
 
     // Generate song from speech
@@ -453,7 +453,7 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
       }
       
       taskStore.set(taskId, { 
-        status: 'completed', 
+        status: 'done', 
         result: songUrl || result, // Use simple URL or fallback to full result
         type: 'speech-to-song',
         timestamp: new Date().toISOString()

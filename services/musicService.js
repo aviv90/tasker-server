@@ -388,12 +388,12 @@ class MusicService {
                 negativeTags: options.negativeStyle || selectedNegative,
                 callBackUrl: uploadResult.callbackUrl,
                 vocalGender: options.vocalGender || (Math.random() > 0.5 ? 'm' : 'f'),
-                styleWeight: options.styleWeight || Math.round((0.2 + Math.random() * 0.2) * 100) / 100, // 0.2-0.4 (low style interference)
-                audioWeight: options.audioWeight || Math.round((0.75 + Math.random() * 0.2) * 100) / 100, // 0.75-0.95 (high original audio preservation)
-                weirdnessConstraint: options.weirdnessConstraint || Math.round((0.2 + Math.random() * 0.2) * 100) / 100 // 0.2-0.4 (controlled but not extreme)
+                styleWeight: options.styleWeight || Math.round((0.15 + Math.random() * 0.15) * 100) / 100, // 0.15-0.3 (minimal style interference)
+                audioWeight: options.audioWeight || Math.round((0.8 + Math.random() * 0.15) * 100) / 100, // 0.8-0.95 (very high original audio preservation)
+                weirdnessConstraint: options.weirdnessConstraint || Math.round((0.1 + Math.random() * 0.1) * 100) / 100 // 0.1-0.2 (minimal weirdness for stability)
             };
 
-            console.log(`🎛️ Full-length speech preservation:`, {
+            console.log(`🎛️ Optimized speech preservation:`, {
                 audioWeight: instrumentalOptions.audioWeight,
                 styleWeight: instrumentalOptions.styleWeight, 
                 weirdnessConstraint: instrumentalOptions.weirdnessConstraint,
