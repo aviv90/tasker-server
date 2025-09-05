@@ -85,7 +85,9 @@ async function convertAudioToMp3(inputBuffer, inputMimetype) {
     inputFile.push(inputBuffer);
     inputFile.push(null);
 
-    await cloudconvert.tasks.upload(uploadTask, inputFile, `audio.${inputFormat}`);
+    await cloudconvert.tasks.upload(uploadTask, inputFile, `audio.${inputFormat}`, {
+      size: inputBuffer.length
+    });
     console.log(`📤 File uploaded successfully using SDK`);
 
     // Wait for conversion to complete
