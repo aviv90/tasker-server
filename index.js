@@ -2,8 +2,16 @@ require('dotenv').config();
 const express = require('express');
 const app = express();
 const path = require('path');
+const fs = require('fs');
 const taskRoutes = require('./routes/taskRoutes');
 const uploadEditRoutes = require('./routes/uploadEditRoutes');
+
+// Ensure tmp directory exists (important for Heroku deployments)
+const tmpDir = path.join(__dirname, 'public', 'tmp');
+if (!fs.existsSync(tmpDir)) {
+    fs.mkdirSync(tmpDir, { recursive: true });
+    console.log('📁 Created public/tmp directory for static files');
+}
 
 app.enable('trust proxy');
 app.use(express.json({ limit: '50mb' }));

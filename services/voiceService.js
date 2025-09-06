@@ -1,6 +1,15 @@
 const { ElevenLabsClient } = require('@elevenlabs/elevenlabs-js');
 const { v4: uuidv4 } = require('uuid');
 
+/**
+ * Voice Service for ElevenLabs API integration
+ * 
+ * Uses the latest and most advanced models:
+ * - eleven_v3: Most advanced TTS model with 70+ languages support and highest emotional expression
+ * - IVC (Instant Voice Cloning): Create voices from audio samples
+ * 
+ * @version 2.0.0 - Updated to use Eleven v3 as default model for superior quality
+ */
 class VoiceService {
     constructor() {
         this.client = null;
@@ -89,15 +98,22 @@ class VoiceService {
                     }
                 });
 
-                if (!result.data || !result.data.voiceId) {
+                console.log('🔍 Voice cloning result:', result);
+
+                // Handle different response formats
+                const voiceId = result.voiceId || result.data?.voiceId;
+                const requiresVerification = result.requiresVerification || result.data?.requiresVerification || false;
+
+                if (!voiceId) {
+                    console.error('❌ No voice ID in response:', result);
                     return { error: 'Voice cloning failed - no voice ID returned' };
                 }
 
-                console.log(`✅ Voice clone created successfully: ${result.data.voiceId}`);
+                console.log(`✅ Voice clone created successfully: ${voiceId}`);
 
                 return {
-                    voiceId: result.data.voiceId,
-                    requiresVerification: result.data.requiresVerification || false,
+                    voiceId: voiceId,
+                    requiresVerification: requiresVerification,
                     name: options.name || `Voice_${Date.now()}`,
                     metadata: {
                         service: 'ElevenLabs',
@@ -159,9 +175,12 @@ class VoiceService {
             const client = this.initializeClient();
             const voices = await client.voices.getAll();
             
+            // Handle different response formats
+            const voiceList = voices.voices || voices.data?.voices || [];
+            
             return {
-                voices: voices.data?.voices || [],
-                total: voices.data?.voices?.length || 0
+                voices: voiceList,
+                total: voiceList.length
             };
         } catch (err) {
             console.error('❌ Error fetching voices:', err.message);
@@ -179,7 +198,8 @@ class VoiceService {
             const client = this.initializeClient();
             const voice = await client.voices.get(voiceId);
             
-            return voice.data || {};
+            // Handle different response formats
+            return voice || voice.data || {};
         } catch (err) {
             console.error('❌ Error fetching voice:', err.message);
             return { error: err.message || 'Failed to fetch voice details' };
@@ -221,14 +241,79 @@ class VoiceService {
 
             const client = this.initializeClient();
             
-            // TTS request options
+            // Determine language code - default to Hebrew if not provided
+            let languageCode = options.languageCode || 'he';
+            
+            // Map some common language codes to ISO 639-1 format
+            const languageMap = {
+                'auto': null, // Let the model decide
+                'unknown': 'he', // Default to Hebrew for unknown languages
+                'hebrew': 'he',
+                'he': 'he',
+                'english': 'en',
+                'en': 'en',
+                'spanish': 'es',
+                'es': 'es',
+                'french': 'fr',
+                'fr': 'fr',
+                'german': 'de',
+                'de': 'de',
+                'italian': 'it',
+                'it': 'it',
+                'portuguese': 'pt',
+                'pt': 'pt',
+                'polish': 'pl',
+                'pl': 'pl',
+                'turkish': 'tr',
+                'tr': 'tr',
+                'russian': 'ru',
+                'ru': 'ru',
+                'dutch': 'nl',
+                'nl': 'nl',
+                'czech': 'cs',
+                'cs': 'cs',
+                'arabic': 'ar',
+                'ar': 'ar',
+                'chinese': 'zh',
+                'zh': 'zh',
+                'japanese': 'ja',
+                'ja': 'ja',
+                'hindi': 'hi',
+                'hi': 'hi'
+            };
+            
+            // If language is in our map, use the mapped value
+            if (languageMap.hasOwnProperty(languageCode)) {
+                languageCode = languageMap[languageCode];
+            }
+            
+            // Use Eleven v3 as default - the most advanced model with 70+ languages support
+            let modelId = options.modelId || 'eleven_v3';
+            
+            console.log(`🚀 Using Eleven v3 model (most advanced) for language: ${languageCode || 'auto-detect'}`);
+            
+            // Note: eleven_v3 is the newest and most expressive model with support for 70+ languages
+            // It provides the highest quality audio generation and supports all our required features
+            
+            console.log(`🌐 Language code: ${languageCode || 'auto-detect'}, Model: ${modelId}`);
+            
+            // TTS request options - build conditionally based on model capabilities
             const ttsRequest = {
                 text: text,
-                modelId: options.modelId || 'eleven_multilingual_v2',
+                modelId: modelId,
                 outputFormat: options.outputFormat || 'mp3_44100_128',
-                optimizeStreamingLatency: options.optimizeStreamingLatency || 0,
+                languageCode: languageCode,
                 voiceSettings: options.voiceSettings || null
             };
+
+            // Add optimize_streaming_latency only for models that support it
+            // eleven_v3 does NOT support this parameter
+            if (modelId !== 'eleven_v3' && options.optimizeStreamingLatency !== undefined) {
+                ttsRequest.optimizeStreamingLatency = options.optimizeStreamingLatency || 0;
+                console.log(`⚡ Added streaming latency optimization: ${ttsRequest.optimizeStreamingLatency}`);
+            } else if (modelId === 'eleven_v3') {
+                console.log(`⚡ Eleven v3 model - streaming latency optimization not supported (and not needed)`);
+            }
 
             console.log(`🔄 Generating speech for ${text.length} characters...`);
             const audioStream = await client.textToSpeech.convert(voiceId, ttsRequest);
@@ -253,13 +338,21 @@ class VoiceService {
             const fs = require('fs');
             const path = require('path');
             
+            // Ensure the tmp directory exists (important for Heroku)
+            const tmpDir = path.join(process.cwd(), 'public', 'tmp');
+            if (!fs.existsSync(tmpDir)) {
+                fs.mkdirSync(tmpDir, { recursive: true });
+                console.log('📁 Created tmp directory');
+            }
+            
             const audioFileName = `tts_${uuidv4()}.mp3`;
-            const audioFilePath = path.join(process.cwd(), 'public', 'tmp', audioFileName);
+            const audioFilePath = path.join(tmpDir, audioFileName);
             fs.writeFileSync(audioFilePath, audioBuffer);
             
-            const audioUrl = `/tmp/${audioFileName}`;
+            const audioUrl = `/static/tmp/${audioFileName}`;
             
             console.log('✅ Text-to-speech conversion completed');
+            console.log(`🔗 Audio available at: ${audioUrl}`);
             
             return {
                 audioUrl: audioUrl,

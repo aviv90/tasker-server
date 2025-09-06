@@ -3,6 +3,15 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
+/**
+ * Speech Service for ElevenLabs Speech-to-Text API integration
+ * 
+ * Uses the latest and most advanced models:
+ * - scribe_v1_experimental: Latest STT model with improved multilingual performance,
+ *   reduced hallucinations during silence, and better handling of early transcript termination
+ * 
+ * @version 2.0.0 - Updated to use experimental model for superior transcription quality
+ */
 class SpeechService {
     constructor() {
         // Don't initialize ElevenLabs client in constructor
@@ -64,7 +73,7 @@ class SpeechService {
                     const fileStream = fs.createReadStream(tempPath);
                     
                     const transcriptionRequest = {
-                        modelId: options.model || 'scribe_v1',
+                        modelId: options.model || 'scribe_v1_experimental', // Use the latest experimental version with improved multilingual performance
                         file: fileStream,
                         languageCode: options.language || null,
                         enableLogging: options.logging !== false
@@ -101,7 +110,7 @@ class SpeechService {
                         result: text,
                         metadata: {
                             service: 'ElevenLabs',
-                            model: options.model || 'scribe_v1',
+                            model: options.model || 'scribe_v1_experimental', // Use the latest experimental version with improved multilingual performance
                             language: transcriptionResult.detected_language || options.language || 'auto',
                             confidence: transcriptionResult.confidence || null,
                             processing_time: transcriptionResult.processing_time_ms || null,

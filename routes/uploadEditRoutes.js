@@ -285,11 +285,22 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
 
     // Step 3: Text-to-Speech with cloned voice
     console.log(`🔄 Step 3: Converting text to speech with cloned voice...`);
+    
+    // Extract detected language from transcription metadata
+    const detectedLanguage = transcriptionResult.metadata?.language || 'auto';
+    console.log(`🌐 Detected language from transcription: ${detectedLanguage}`);
+    
     const ttsOptions = {
-      modelId: req.body.ttsModel || 'eleven_multilingual_v2',
+      modelId: req.body.ttsModel || 'eleven_v3', // Use the most advanced model by default
       outputFormat: req.body.outputFormat || 'mp3_44100_128',
-      optimizeStreamingLatency: parseInt(req.body.optimizeStreamingLatency) || 0
+      languageCode: detectedLanguage !== 'auto' ? detectedLanguage : 'he' // Default to Hebrew
     };
+
+    // Only add optimizeStreamingLatency if explicitly requested and not using eleven_v3
+    if (req.body.optimizeStreamingLatency && (req.body.ttsModel && req.body.ttsModel !== 'eleven_v3')) {
+      ttsOptions.optimizeStreamingLatency = parseInt(req.body.optimizeStreamingLatency);
+      console.log(`⚡ Added streaming latency optimization: ${ttsOptions.optimizeStreamingLatency}`);
+    }
 
     const ttsResult = await voiceService.textToSpeech(voiceId, transcribedText, ttsOptions);
     
@@ -316,9 +327,22 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
       transcriptionMetadata: transcriptionResult.metadata,
       voiceCloneMetadata: voiceCloneResult.metadata,
       ttsMetadata: ttsResult.metadata
-    });
+    }, req);
 
     console.log(`🎉 Full voice processing pipeline completed successfully!`);
+
+    // Step 4: Clean up - delete the temporary voice clone
+    console.log(`🧹 Step 4: Cleaning up voice clone ${voiceId}...`);
+    try {
+      const deleteResult = await voiceService.deleteVoice(voiceId);
+      if (deleteResult.error) {
+        console.warn(`⚠️ Warning: Could not delete voice clone ${voiceId}:`, deleteResult.error);
+      } else {
+        console.log(`✅ Voice clone ${voiceId} deleted successfully`);
+      }
+    } catch (cleanupError) {
+      console.warn(`⚠️ Warning: Voice cleanup failed:`, cleanupError.message);
+    }
     
   } catch (error) {
     console.error(`❌ Pipeline error:`, error);
@@ -403,33 +427,25 @@ function finalizeTranscription(taskId, result) {
   }
 }
 
-function finalizeVoiceProcessing(taskId, result) {
+function finalizeVoiceProcessing(taskId, result, req = null) {
   try {
     if (!result || result.error) {
       taskStore.set(taskId, getTaskError(result));
       return;
     }
 
+    // Create full URL for audio file
+    let audioURL = result.result || result.audioUrl;
+    if (req && audioURL && audioURL.startsWith('/static/')) {
+      const host = `${req.protocol}://${req.get('host')}`;
+      audioURL = `${host}${audioURL}`;
+    }
+
     const taskResult = {
       status: 'done',
       text: result.text,
-      result: result.result || result.audioUrl, // Audio URL from TTS
-      voiceId: result.voiceId,
-      audioUrl: result.audioUrl,
-      type: 'voice_processing_complete',
-      timestamp: new Date().toISOString()
+      result: audioURL
     };
-
-    // Add all metadata
-    if (result.transcriptionMetadata) {
-      taskResult.transcriptionMetadata = result.transcriptionMetadata;
-    }
-    if (result.voiceCloneMetadata) {
-      taskResult.voiceCloneMetadata = result.voiceCloneMetadata;
-    }
-    if (result.ttsMetadata) {
-      taskResult.ttsMetadata = result.ttsMetadata;
-    }
 
     // Add any error info (for partial failures)
     if (result.error) {
@@ -437,7 +453,7 @@ function finalizeVoiceProcessing(taskId, result) {
     }
 
     taskStore.set(taskId, taskResult);
-    console.log(`✅ Voice processing pipeline completed. Text: ${result.text?.length || 0} chars, Voice ID: ${result.voiceId}`);
+    console.log(`✅ Voice processing completed: ${result.text?.length || 0} chars → ${audioURL}`);
   } catch (error) {
     console.error(`❌ Error in finalizeVoiceProcessing:`, error);
     taskStore.set(taskId, getTaskError(error));
@@ -602,6 +618,62 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
     taskStore.set(taskId, { 
       status: 'failed', 
       error: error.message || 'Speech-to-Song generation failed' 
+    });
+  }
+});
+
+// Cleanup endpoint - delete all custom voices
+router.post('/cleanup-voices', async (req, res) => {
+  try {
+    console.log('🧹 Starting voice cleanup...');
+    
+    const result = await voiceService.getVoices();
+    if (result.error) {
+      return res.status(500).json({ status: 'error', error: result.error });
+    }
+
+    const voices = result.voices || [];
+    console.log(`Found ${voices.length} total voices`);
+
+    // Filter only custom voices (not built-in ElevenLabs voices)
+    const customVoices = voices.filter(voice => 
+      voice.category === 'cloned' || 
+      voice.category === 'premade' && voice.sharing?.status === 'private' ||
+      voice.name?.startsWith('Voice_')
+    );
+
+    console.log(`Found ${customVoices.length} custom voices to delete`);
+
+    let deletedCount = 0;
+    let errors = [];
+
+    for (const voice of customVoices) {
+      try {
+        const deleteResult = await voiceService.deleteVoice(voice.voice_id);
+        if (deleteResult.error) {
+          errors.push(`${voice.name}: ${deleteResult.error}`);
+        } else {
+          deletedCount++;
+          console.log(`✅ Deleted voice: ${voice.name} (${voice.voice_id})`);
+        }
+      } catch (error) {
+        errors.push(`${voice.name}: ${error.message}`);
+      }
+    }
+
+    res.json({
+      status: 'done',
+      message: `Cleanup completed: ${deletedCount} voices deleted`,
+      deleted: deletedCount,
+      total: customVoices.length,
+      errors: errors.length > 0 ? errors : undefined
+    });
+
+  } catch (error) {
+    console.error('❌ Voice cleanup error:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      error: error.message || 'Voice cleanup failed' 
     });
   }
 });
