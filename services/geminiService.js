@@ -321,4 +321,56 @@ async function generateVideoWithImage(prompt, imageBuffer) {
     }
 }
 
-module.exports = { generateImageWithText, editImageWithText, generateVideoWithText, generateVideoWithImage };
+/**
+ * Generate text response using Gemini (like a chatbot)
+ * @param {string} prompt - User input text
+ * @param {Object} options - Additional options
+ * @returns {Object} - Response with generated text
+ */
+async function generateTextResponse(prompt, options = {}) {
+    try {
+        console.log('💬 Starting Gemini text generation');
+        
+        // Sanitize prompt
+        const cleanPrompt = sanitizeText(prompt);
+        
+        const model = genAI.getGenerativeModel({ 
+            model: options.model || "gemini-2.5-flash" 
+        });
+        
+        const result = await model.generateContent(cleanPrompt);
+        const response = result.response;
+        
+        if (!response.candidates || response.candidates.length === 0) {
+            console.log('❌ Gemini: No candidates returned');
+            return { error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' };
+        }
+        
+        const text = response.text();
+        
+        if (!text || text.trim().length === 0) {
+            console.log('❌ Gemini: Empty text response');
+            return { error: 'Empty response from Gemini' };
+        }
+        
+        console.log(`✅ Gemini text generated: ${text.substring(0, 100)}...`);
+        
+        return {
+            text: text.trim(),
+            originalPrompt: cleanPrompt,
+            metadata: {
+                service: 'Gemini',
+                model: options.model || "gemini-2.5-flash",
+                type: 'text_generation',
+                characterCount: text.length,
+                created_at: new Date().toISOString()
+            }
+        };
+        
+    } catch (err) {
+        console.error('❌ Gemini text generation error:', err);
+        return { error: err.message || 'Text generation failed' };
+    }
+}
+
+module.exports = { generateImageWithText, editImageWithText, generateVideoWithText, generateVideoWithImage, generateTextResponse };

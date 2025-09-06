@@ -236,7 +236,8 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
   res.json({ taskId });
 
   try {
-    console.log(`🎤 Starting full voice processing pipeline...`);
+    console.log(`🎤 Starting enhanced voice processing pipeline with Gemini integration...`);
+    console.log(`📋 Pipeline: Transcription → Voice Clone → Gemini Response → Text-to-Speech → Cleanup`);
     
     // Step 1: Speech-to-Text transcription
     const originalExtension = path.extname(req.file.originalname).slice(1).toLowerCase();
@@ -283,8 +284,27 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     const voiceId = voiceCloneResult.voiceId;
     console.log(`✅ Step 2 complete: Voice clone created with ID ${voiceId}`);
 
-    // Step 3: Text-to-Speech with cloned voice
-    console.log(`🔄 Step 3: Converting text to speech with cloned voice...`);
+    // Step 3: Generate Gemini response (Chatbot)
+    console.log(`🔄 Step 3: Generating Gemini response to transcribed text...`);
+    const geminiOptions = {
+      model: req.body.geminiModel || 'gemini-2.5-flash'
+    };
+
+    const geminiResult = await geminiService.generateTextResponse(transcribedText, geminiOptions);
+    
+    let textForTTS = transcribedText; // Default to original text
+    
+    if (geminiResult.error) {
+      console.warn('⚠️ Gemini generation failed:', geminiResult.error);
+      console.log('📝 Using original transcribed text for TTS');
+    } else {
+      textForTTS = geminiResult.text;
+      console.log(`✅ Step 3 complete: Gemini generated ${textForTTS.length} characters`);
+      console.log(`💬 Gemini response: "${textForTTS.substring(0, 100)}..."`);
+    }
+
+    // Step 4: Text-to-Speech with cloned voice
+    console.log(`🔄 Step 4: Converting text to speech with cloned voice...`);
     
     // Extract detected language from transcription metadata
     const detectedLanguage = transcriptionResult.metadata?.language || 'auto';
@@ -302,30 +322,36 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
       console.log(`⚡ Added streaming latency optimization: ${ttsOptions.optimizeStreamingLatency}`);
     }
 
-    const ttsResult = await voiceService.textToSpeech(voiceId, transcribedText, ttsOptions);
+    const ttsResult = await voiceService.textToSpeech(voiceId, textForTTS, ttsOptions);
     
     if (ttsResult.error) {
       console.error('❌ Text-to-speech failed:', ttsResult.error);
       // If TTS fails, still return transcription and voice clone info
       return await finalizeVoiceProcessing(taskId, {
         text: transcribedText,
+        originalText: transcribedText,
+        geminiResponse: geminiResult.error ? null : geminiResult.text,
         voiceId: voiceId,
         transcriptionMetadata: transcriptionResult.metadata,
         voiceCloneMetadata: voiceCloneResult.metadata,
+        geminiMetadata: geminiResult.error ? null : geminiResult.metadata,
         error: `TTS failed: ${ttsResult.error}`
       });
     }
 
-    console.log(`✅ Step 3 complete: Audio generated at ${ttsResult.audioUrl}`);
+    console.log(`✅ Step 4 complete: Audio generated at ${ttsResult.audioUrl}`);
 
     // Final result: Complete pipeline success
     await finalizeVoiceProcessing(taskId, {
-      text: transcribedText,
+      text: textForTTS, // The final text used for TTS (Gemini response or original)
+      originalText: transcribedText, // Keep original transcription
+      geminiResponse: geminiResult.error ? null : geminiResult.text, // Gemini response if successful
       result: ttsResult.audioUrl,
       voiceId: voiceId,
       audioUrl: ttsResult.audioUrl,
       transcriptionMetadata: transcriptionResult.metadata,
       voiceCloneMetadata: voiceCloneResult.metadata,
+      geminiMetadata: geminiResult.error ? null : geminiResult.metadata,
       ttsMetadata: ttsResult.metadata
     }, req);
 
