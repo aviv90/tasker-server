@@ -22,6 +22,7 @@ const openaiService = require('../services/openaiService');
 const replicateService = require('../services/replicateService');
 const kieService = require('../services/kieService');
 const lemonfoxService = require('../services/lemonfoxService');
+const speechService = require('../services/speechService');
 const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
 const { isErrorResult, getTaskError } = require('../utils/errorHandler');
 const fs = require('fs');
@@ -222,17 +223,62 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     return res.status(400).json({ status:'error', error:'Missing audio file' });
   }
 
+  // Validate file size for ElevenLabs (25MB limit)
+  const provider = req.body.provider || 'lemonfox'; // Default to lemonfox for backwards compatibility
+  
+  if (provider === 'elevenlabs' && req.file.size > 25 * 1024 * 1024) {
+    return res.status(413).json({
+      status: 'error',
+      error: `File too large for ElevenLabs: ${Math.round(req.file.size / 1024 / 1024)}MB. Maximum size is 25MB.`
+    });
+  }
+
   const taskId = uuidv4();
-  taskStore.set(taskId, { status:'pending' });
+  taskStore.set(taskId, { status:'pending', provider: provider });
   res.json({ taskId });
 
   try {
-    const filename = req.file.originalname || 'audio.wav';
-    const result = await lemonfoxService.transcribeAudio(req.file.buffer, filename);
+    console.log(`🎤 Transcription: ${provider} provider`);
     
-    await finalizeTranscription(taskId, result);
+    let result;
+    
+    if (provider === 'elevenlabs') {
+      const originalExtension = path.extname(req.file.originalname).slice(1).toLowerCase();
+      const elevenLabsFormats = ['mp3', 'wav', 'ogg', 'opus', 'webm', 'm4a', 'aac', 'flac'];
+      const format = elevenLabsFormats.includes(originalExtension) ? originalExtension : 'wav';
+      
+      const options = {
+        model: req.body.model || 'scribe_v1',
+        language: req.body.language === 'auto' ? null : req.body.language || null,
+        removeNoise: req.body.removeNoise !== 'false',
+        removeFiller: req.body.removeFiller !== 'false',
+        optimizeLatency: parseInt(req.body.optimizeLatency) || 0,
+        format: format
+      };
+      
+      result = await speechService.speechToText(req.file.buffer, options);
+      
+      // Transform ElevenLabs response to match lemonfox format for consistency
+      if (result.text && !result.error) {
+        result = {
+          text: result.text,
+          language: result.metadata?.language || 'unknown',
+          metadata: result.metadata
+        };
+      }
+    } else if (provider === 'lemonfox') {
+      const filename = req.file.originalname || 'audio.wav';
+      result = await lemonfoxService.transcribeAudio(req.file.buffer, filename);
+    } else {
+      return taskStore.set(taskId, { 
+        status: 'failed', 
+        error: `Unsupported provider: ${provider}. Supported providers: lemonfox, elevenlabs` 
+      });
+    }
+    
+    await finalizeTranscription(taskId, result, provider);
   } catch (error) {
-    console.error(`❌ Transcription error:`, error);
+    console.error(`❌ Transcription error with ${provider}:`, error);
     taskStore.set(taskId, getTaskError(error));
   }
 });
@@ -286,18 +332,29 @@ function finalize(taskId, result, req) {
   }
 }
 
-function finalizeTranscription(taskId, result) {
+function finalizeTranscription(taskId, result, provider = 'lemonfox') {
   try {
     if (!result || result.error) {
       taskStore.set(taskId, getTaskError(result));
       return;
     }
 
-    taskStore.set(taskId, {
+    const taskResult = {
       status:'done',
       result: result.text,
-      language: result.language
-    });
+      text: result.text, // Keep both for compatibility
+      language: result.language,
+      provider: provider,
+      timestamp: new Date().toISOString()
+    };
+
+    // Add metadata if available (ElevenLabs provides rich metadata)
+    if (result.metadata) {
+      taskResult.metadata = result.metadata;
+    }
+
+    taskStore.set(taskId, taskResult);
+    console.log(`✅ Transcription completed with ${provider}. Text length: ${result.text?.length || 0} characters`);
   } catch (error) {
     console.error(`❌ Error in finalizeTranscription:`, error);
     taskStore.set(taskId, getTaskError(error));

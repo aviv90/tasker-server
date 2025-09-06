@@ -16,7 +16,8 @@ A powerful Node.js server providing unified access to multiple AI providers for 
 - **HD Video Support**: 1080p high-definition videos
 
 ### 🎤 Audio Processing
-- **Audio Transcription**: Convert speech to text
+- **Audio Transcription**: Convert speech to text with Lemonfox API
+- **ElevenLabs Speech-to-Text**: High-quality multilingual speech recognition with advanced options
 
 ### 🎵 Music Generation
 - **Text-to-Music**: Generate music with lyrics from text prompts
@@ -44,6 +45,11 @@ A powerful Node.js server providing unified access to multiple AI providers for 
 - **Models**: DALL-E 3
 - **Features**: High-quality image generation and editing
 - **API**: `provider=openai`
+
+### **🎤 ElevenLabs**
+- **Models**: Scribe v1, Scribe v1 Experimental
+- **Features**: Advanced speech recognition, noise removal, filler word removal
+- **API**: `provider=elevenlabs&model=scribe_v1`
 
 ## 📡 API Endpoints
 
@@ -95,6 +101,27 @@ Content-Type: application/json
 }
 ```
 
+### Audio Transcription (Lemonfox)
+```bash
+POST /api/upload-transcribe
+Content-Type: multipart/form-data
+
+file: [audio file]
+```
+
+### Audio Transcription (ElevenLabs)
+```bash
+POST /api/upload-transcribe
+Content-Type: multipart/form-data
+
+file: [audio file]
+provider: "elevenlabs"
+model: "scribe_v1"
+language: "auto"
+removeNoise: "true"
+removeFiller: "true"
+```
+
 ### Instrumental Music
 ```bash
 POST /api/start-task
@@ -138,6 +165,7 @@ GEMINI_API_KEY=your_gemini_key
 OPENAI_API_KEY=your_openai_key  
 REPLICATE_API_KEY=your_replicate_key
 KIE_API_KEY=your_kie_api_key
+ELEVEN_API_KEY=your_elevenlabs_key
 ```
 
 5. **Start server**
@@ -151,16 +179,19 @@ npm start
 - **Video**: `provider=kie&model=veo3` (HD 1080p with audio)
 - **Image**: `provider=gemini` (Gemini 2.5 Flash)
 - **Music**: `provider=kie&model=V4_5PLUS` (Highest quality Suno model)
+- **Speech-to-Text**: `provider=elevenlabs&model=scribe_v1` (29+ languages)
 
 ### **For Speed**  
 - **Video**: `provider=kie&model=veo3_fast` (Fast generation)
 - **Image**: `provider=openai` (DALL-E 3)
 - **Music**: `provider=kie&model=V4` (Fast music generation)
+- **Speech-to-Text**: `provider=elevenlabs&model=scribe_v1_experimental` (Latest features)
 
 ### **For Reliability**
 - **Video**: `provider=replicate&model=kling-v2.1` (Stable, proven)
 - **Image**: `provider=gemini` (Consistent results)
 - **Music**: `provider=kie&model=V4_5` (Balanced quality and reliability)
+- **Speech-to-Text**: Default Lemonfox API (Simple, reliable)
 
 ## 🔍 Response Format
 
@@ -192,12 +223,13 @@ For issues and questions:
 
 ## 📊 Provider Comparison
 
-| Provider | Video Quality | Image Quality | Music Quality | Speed | Cost | Models |
-|----------|---------------|---------------|---------------|-------|------|--------|
-| **Kie.ai** | 🥇 Excellent | ➖ N/A | 🥇 Excellent | ⚡ Fast | 💰 Low | 15+ models |
-| **Gemini** | 🥈 Very Good | 🥇 Excellent | ➖ N/A | ⚡ Fast | 💰 Low | Veo 3, Gemini 2.5 |
-| **Replicate** | 🥈 Very Good | ➖ N/A | ➖ N/A | 🐌 Medium | 💰💰 Medium | 10+ models |
-| **OpenAI** | ➖ N/A | 🥇 Excellent | ➖ N/A | ⚡ Fast | 💰💰💰 High | DALL-E 3 |
+| Provider | Video Quality | Image Quality | Music Quality | Speech-to-Text | Speed | Cost | Models |
+|----------|---------------|---------------|---------------|----------------|-------|------|--------|
+| **Kie.ai** | 🥇 Excellent | ➖ N/A | 🥇 Excellent | ➖ N/A | ⚡ Fast | 💰 Low | 15+ models |
+| **Gemini** | 🥈 Very Good | 🥇 Excellent | ➖ N/A | ➖ N/A | ⚡ Fast | 💰 Low | Veo 3, Gemini 2.5 |
+| **Replicate** | 🥈 Very Good | ➖ N/A | ➖ N/A | ➖ N/A | 🐌 Medium | 💰💰 Medium | 10+ models |
+| **OpenAI** | ➖ N/A | 🥇 Excellent | ➖ N/A | ➖ N/A | ⚡ Fast | 💰💰💰 High | DALL-E 3 |
+| **ElevenLabs** | ➖ N/A | ➖ N/A | ➖ N/A | 🥇 Excellent | ⚡ Fast | 💰 Low | Multilingual STT |
 
 ### 🎵 Music Generation Options (Kie.ai/Suno)
 
@@ -207,3 +239,16 @@ For issues and questions:
 | **V4_5** | 🥈 High | ⚡ Medium | Balanced quality/speed |
 | **V4** | 🥉 Good | ⚡ Fast | Quick demos/prototypes |
 | **V3_5** | 🥉 Basic | ⚡ Very Fast | Simple background music |
+
+### 🎤 Speech-to-Text Options (ElevenLabs)
+
+| Model | Quality | Languages | Features | Use Case |
+|-------|---------|-----------|----------|----------|
+| **scribe_v1** | 🥇 Best | 29+ Languages | Noise removal, filler removal | Professional transcription |
+| **scribe_v1_experimental** | 🥈 High | 29+ Languages | Latest improvements, experimental | Testing new features |
+
+#### Available Options:
+- **Language**: Auto-detect or specify (en, es, fr, de, it, pt, hi, ar, etc.)
+- **Noise Removal**: Remove background noise (default: true)
+- **Filler Removal**: Remove "um", "uh", filler words (default: true)
+- **Optimize Latency**: 0-4 (0=highest quality, 4=lowest latency)
