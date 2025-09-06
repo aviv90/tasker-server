@@ -16,7 +16,7 @@ A powerful Node.js server providing unified access to multiple AI providers for 
 - **HD Video Support**: 1080p high-definition videos
 
 ### 🎤 Audio Processing
-- **Audio Transcription**: Convert speech to text with Lemonfox API
+- **Audio Transcription**: Convert speech to text with ElevenLabs API
 - **ElevenLabs Speech-to-Text**: High-quality multilingual speech recognition with advanced options
 
 ### 🎵 Music Generation
@@ -101,7 +101,7 @@ Content-Type: application/json
 }
 ```
 
-### Audio Transcription (Lemonfox)
+### Audio Transcription (ElevenLabs)
 ```bash
 POST /api/upload-transcribe
 Content-Type: multipart/form-data
@@ -191,7 +191,7 @@ npm start
 - **Video**: `provider=replicate&model=kling-v2.1` (Stable, proven)
 - **Image**: `provider=gemini` (Consistent results)
 - **Music**: `provider=kie&model=V4_5` (Balanced quality and reliability)
-- **Speech-to-Text**: Default Lemonfox API (Simple, reliable)
+- **Speech-to-Text**: ElevenLabs API (High-quality, multilingual)
 
 ## 🔍 Response Format
 
