@@ -1,2 +1,0 @@
-# This file ensures the tmp directory exists in git repository
-# Temporary files in this directory are served as static files at /static/tmp/

@@ -349,7 +349,7 @@ class VoiceService {
             const audioFilePath = path.join(tmpDir, audioFileName);
             fs.writeFileSync(audioFilePath, audioBuffer);
             
-            const audioUrl = `/static/tmp/${audioFileName}`;
+            const audioUrl = `/static/${audioFileName}`; // Changed from /static/tmp/ to /static/
             
             console.log('✅ Text-to-speech conversion completed');
             console.log(`🔗 Audio available at: ${audioUrl}`);
