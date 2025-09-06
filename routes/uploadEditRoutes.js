@@ -22,6 +22,7 @@ const openaiService = require('../services/openaiService');
 const replicateService = require('../services/replicateService');
 const kieService = require('../services/kieService');
 const speechService = require('../services/speechService');
+const { voiceService } = require('../services/voiceService');
 const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
 const { isErrorResult, getTaskError } = require('../utils/errorHandler');
 const fs = require('fs');
@@ -235,13 +236,14 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
   res.json({ taskId });
 
   try {
-    console.log(`🎤 Speech-to-Text transcription started`);
+    console.log(`🎤 Starting full voice processing pipeline...`);
     
+    // Step 1: Speech-to-Text transcription
     const originalExtension = path.extname(req.file.originalname).slice(1).toLowerCase();
     const supportedFormats = ['mp3', 'wav', 'ogg', 'opus', 'webm', 'm4a', 'aac', 'flac'];
     const format = supportedFormats.includes(originalExtension) ? originalExtension : 'wav';
     
-    const options = {
+    const transcriptionOptions = {
       model: req.body.model || 'scribe_v1',
       language: req.body.language === 'auto' ? null : req.body.language || null,
       removeNoise: req.body.removeNoise !== 'false',
@@ -250,11 +252,76 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
       format: format
     };
     
-    const result = await speechService.speechToText(req.file.buffer, options);
+    console.log(`🔄 Step 1: Transcribing speech...`);
+    const transcriptionResult = await speechService.speechToText(req.file.buffer, transcriptionOptions);
     
-    await finalizeTranscription(taskId, result);
+    if (transcriptionResult.error) {
+      console.error('❌ Transcription failed:', transcriptionResult.error);
+      return await finalizeTranscription(taskId, transcriptionResult);
+    }
+
+    const transcribedText = transcriptionResult.text;
+    console.log(`✅ Step 1 complete: Transcribed ${transcribedText.length} characters`);
+
+    // Step 2: Create Instant Voice Clone
+    console.log(`🔄 Step 2: Creating voice clone...`);
+    const voiceName = req.body.voiceName || `Voice_${Date.now()}`;
+    const voiceCloneOptions = {
+      name: voiceName,
+      description: req.body.voiceDescription || 'Auto-generated voice clone',
+      removeBackgroundNoise: req.body.removeBackgroundNoise !== 'false'
+    };
+
+    const voiceCloneResult = await voiceService.createInstantVoiceClone(req.file.buffer, voiceCloneOptions);
+    
+    if (voiceCloneResult.error) {
+      console.error('❌ Voice cloning failed:', voiceCloneResult.error);
+      // If voice cloning fails, still return transcription
+      return await finalizeTranscription(taskId, transcriptionResult);
+    }
+
+    const voiceId = voiceCloneResult.voiceId;
+    console.log(`✅ Step 2 complete: Voice clone created with ID ${voiceId}`);
+
+    // Step 3: Text-to-Speech with cloned voice
+    console.log(`🔄 Step 3: Converting text to speech with cloned voice...`);
+    const ttsOptions = {
+      modelId: req.body.ttsModel || 'eleven_multilingual_v2',
+      outputFormat: req.body.outputFormat || 'mp3_44100_128',
+      optimizeStreamingLatency: parseInt(req.body.optimizeStreamingLatency) || 0
+    };
+
+    const ttsResult = await voiceService.textToSpeech(voiceId, transcribedText, ttsOptions);
+    
+    if (ttsResult.error) {
+      console.error('❌ Text-to-speech failed:', ttsResult.error);
+      // If TTS fails, still return transcription and voice clone info
+      return await finalizeVoiceProcessing(taskId, {
+        text: transcribedText,
+        voiceId: voiceId,
+        transcriptionMetadata: transcriptionResult.metadata,
+        voiceCloneMetadata: voiceCloneResult.metadata,
+        error: `TTS failed: ${ttsResult.error}`
+      });
+    }
+
+    console.log(`✅ Step 3 complete: Audio generated at ${ttsResult.audioUrl}`);
+
+    // Final result: Complete pipeline success
+    await finalizeVoiceProcessing(taskId, {
+      text: transcribedText,
+      result: ttsResult.audioUrl,
+      voiceId: voiceId,
+      audioUrl: ttsResult.audioUrl,
+      transcriptionMetadata: transcriptionResult.metadata,
+      voiceCloneMetadata: voiceCloneResult.metadata,
+      ttsMetadata: ttsResult.metadata
+    });
+
+    console.log(`🎉 Full voice processing pipeline completed successfully!`);
+    
   } catch (error) {
-    console.error(`❌ Transcription error:`, error);
+    console.error(`❌ Pipeline error:`, error);
     taskStore.set(taskId, getTaskError(error));
   }
 });
@@ -332,6 +399,47 @@ function finalizeTranscription(taskId, result) {
     console.log(`✅ Transcription completed. Text length: ${result.text?.length || 0} characters`);
   } catch (error) {
     console.error(`❌ Error in finalizeTranscription:`, error);
+    taskStore.set(taskId, getTaskError(error));
+  }
+}
+
+function finalizeVoiceProcessing(taskId, result) {
+  try {
+    if (!result || result.error) {
+      taskStore.set(taskId, getTaskError(result));
+      return;
+    }
+
+    const taskResult = {
+      status: 'done',
+      text: result.text,
+      result: result.result || result.audioUrl, // Audio URL from TTS
+      voiceId: result.voiceId,
+      audioUrl: result.audioUrl,
+      type: 'voice_processing_complete',
+      timestamp: new Date().toISOString()
+    };
+
+    // Add all metadata
+    if (result.transcriptionMetadata) {
+      taskResult.transcriptionMetadata = result.transcriptionMetadata;
+    }
+    if (result.voiceCloneMetadata) {
+      taskResult.voiceCloneMetadata = result.voiceCloneMetadata;
+    }
+    if (result.ttsMetadata) {
+      taskResult.ttsMetadata = result.ttsMetadata;
+    }
+
+    // Add any error info (for partial failures)
+    if (result.error) {
+      taskResult.warning = result.error;
+    }
+
+    taskStore.set(taskId, taskResult);
+    console.log(`✅ Voice processing pipeline completed. Text: ${result.text?.length || 0} chars, Voice ID: ${result.voiceId}`);
+  } catch (error) {
+    console.error(`❌ Error in finalizeVoiceProcessing:`, error);
     taskStore.set(taskId, getTaskError(error));
   }
 }
