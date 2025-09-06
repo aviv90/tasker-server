@@ -343,7 +343,7 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
 
     // Final result: Complete pipeline success
     await finalizeVoiceProcessing(taskId, {
-      text: textForTTS, // The final text used for TTS (Gemini response or original)
+      text: transcribedText, // The original transcribed text
       originalText: transcribedText, // Keep original transcription
       geminiResponse: geminiResult.error ? null : geminiResult.text, // Gemini response if successful
       result: ttsResult.audioUrl,
