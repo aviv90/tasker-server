@@ -277,8 +277,11 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     
     if (voiceCloneResult.error) {
       console.error('❌ Voice cloning failed:', voiceCloneResult.error);
-      // If voice cloning fails, still return transcription
-      return await finalizeTranscription(taskId, transcriptionResult);
+      // If voice cloning fails, return error with transcription
+      return await finalizeVoiceProcessing(taskId, {
+        text: transcribedText,
+        error: voiceCloneResult.error
+      }, req);
     }
 
     const voiceId = voiceCloneResult.voiceId;
@@ -326,17 +329,11 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     
     if (ttsResult.error) {
       console.error('❌ Text-to-speech failed:', ttsResult.error);
-      // If TTS fails, still return transcription and voice clone info
+      // If TTS fails, return error with transcription
       return await finalizeVoiceProcessing(taskId, {
         text: transcribedText,
-        originalText: transcribedText,
-        geminiResponse: geminiResult.error ? null : geminiResult.text,
-        voiceId: voiceId,
-        transcriptionMetadata: transcriptionResult.metadata,
-        voiceCloneMetadata: voiceCloneResult.metadata,
-        geminiMetadata: geminiResult.error ? null : geminiResult.metadata,
-        error: `TTS failed: ${ttsResult.error}`
-      });
+        error: ttsResult.error
+      }, req);
     }
 
     console.log(`✅ Step 4 complete: Audio generated at ${ttsResult.audioUrl}`);
@@ -427,11 +424,24 @@ function finalize(taskId, result, req) {
 
 function finalizeTranscription(taskId, result) {
   try {
+    // Check if there's an error
     if (!result || result.error) {
-      taskStore.set(taskId, getTaskError(result));
+      const errorResult = {
+        status: 'error',
+        error: result.error || 'Transcription failed'
+      };
+      
+      // If we have transcribed text despite the error, include it
+      if (result?.text) {
+        errorResult.text = result.text;
+      }
+      
+      taskStore.set(taskId, errorResult);
+      console.log(`❌ Transcription failed: ${result?.error || 'Unknown error'}`);
       return;
     }
 
+    // Success case
     const taskResult = {
       status:'done',
       result: result.text,
@@ -455,12 +465,24 @@ function finalizeTranscription(taskId, result) {
 
 function finalizeVoiceProcessing(taskId, result, req = null) {
   try {
-    if (!result || result.error) {
-      taskStore.set(taskId, getTaskError(result));
+    // Check if there's an error
+    if (result.error) {
+      const errorResult = {
+        status: 'error',
+        error: result.error
+      };
+      
+      // If we have transcribed text, include it
+      if (result.text) {
+        errorResult.text = result.text;
+      }
+      
+      taskStore.set(taskId, errorResult);
+      console.log(`❌ Voice processing failed: ${result.error}`);
       return;
     }
 
-    // Create full URL for audio file
+    // Success case - create full URL for audio file
     let audioURL = result.result || result.audioUrl;
     if (req && audioURL && audioURL.startsWith('/static/')) {
       const host = `${req.protocol}://${req.get('host')}`;
@@ -472,11 +494,6 @@ function finalizeVoiceProcessing(taskId, result, req = null) {
       text: result.text,
       result: audioURL
     };
-
-    // Add any error info (for partial failures)
-    if (result.error) {
-      taskResult.warning = result.error;
-    }
 
     taskStore.set(taskId, taskResult);
     console.log(`✅ Voice processing completed: ${result.text?.length || 0} chars → ${audioURL}`);
