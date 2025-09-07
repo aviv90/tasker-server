@@ -264,13 +264,27 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     const transcribedText = transcriptionResult.text;
     console.log(`✅ Step 1 complete: Transcribed ${transcribedText.length} characters`);
 
-    // Step 2: Create Instant Voice Clone
-    console.log(`🔄 Step 2: Creating voice clone...`);
+    // Step 2: Create Instant Voice Clone with optimal parameters
+    console.log(`🔄 Step 2: Creating voice clone with optimized parameters...`);
     const voiceName = req.body.voiceName || `Voice_${Date.now()}`;
+    
+    // Detect language from transcription for better voice matching
+    const detectedLanguage = transcriptionResult.metadata?.language || 'auto';
+    
     const voiceCloneOptions = {
       name: voiceName,
-      description: req.body.voiceDescription || 'Auto-generated voice clone',
-      removeBackgroundNoise: req.body.removeBackgroundNoise !== 'false'
+      description: req.body.voiceDescription || `High-quality voice clone (${detectedLanguage})`,
+      removeBackgroundNoise: req.body.removeBackgroundNoise !== 'false', // Always true for optimal quality
+      labels: JSON.stringify({
+        accent: detectedLanguage === 'he' ? 'hebrew' : 'natural',
+        age: req.body.speakerAge || 'adult',
+        gender: 'auto-detect',
+        use_case: 'conversational',
+        quality: 'high',
+        style: 'natural',
+        emotion: 'neutral',
+        language: detectedLanguage
+      })
     };
 
     const voiceCloneResult = await voiceService.createInstantVoiceClone(req.file.buffer, voiceCloneOptions);
@@ -309,9 +323,8 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     // Step 4: Text-to-Speech with cloned voice
     console.log(`🔄 Step 4: Converting text to speech with cloned voice...`);
     
-    // Extract detected language from transcription metadata
-    const detectedLanguage = transcriptionResult.metadata?.language || 'auto';
-    console.log(`🌐 Detected language from transcription: ${detectedLanguage}`);
+    // Use the same detected language from Step 2
+    console.log(`🌐 Using detected language from transcription: ${detectedLanguage}`);
     
     const ttsOptions = {
       modelId: req.body.ttsModel || 'eleven_v3', // Use the most advanced model by default

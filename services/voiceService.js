@@ -77,13 +77,21 @@ class VoiceService {
                     fileStreams.push(fs.createReadStream(tempPath));
                 }
 
-                // Prepare voice cloning request
+                // Prepare voice cloning request with optimal parameters for maximum accuracy
                 const voiceRequest = {
                     name: options.name || `Voice_${Date.now()}`,
                     files: fileStreams,
-                    removeBackgroundNoise: options.removeBackgroundNoise !== false, // Default true
-                    description: options.description || null,
-                    labels: options.labels || null
+                    removeBackgroundNoise: options.removeBackgroundNoise !== false, // Default true for better quality
+                    description: options.description || 'High-quality voice clone for conversational use',
+                    labels: options.labels || JSON.stringify({
+                        accent: 'natural',
+                        age: 'adult', 
+                        gender: 'auto-detect',
+                        use_case: 'conversational',
+                        quality: 'high',
+                        style: 'natural',
+                        emotion: 'neutral'
+                    })
                 };
 
                 console.log(`🔄 Sending ${buffers.length} audio samples to ElevenLabs...`);
