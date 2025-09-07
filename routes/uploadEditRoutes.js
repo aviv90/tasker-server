@@ -277,12 +277,9 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
       removeBackgroundNoise: req.body.removeBackgroundNoise !== 'false', // Always true for optimal quality
       labels: JSON.stringify({
         accent: detectedLanguage === 'he' ? 'hebrew' : 'natural',
-        age: req.body.speakerAge || 'adult',
-        gender: 'auto-detect',
         use_case: 'conversational',
         quality: 'high',
         style: 'natural',
-        emotion: 'neutral',
         language: detectedLanguage
       })
     };

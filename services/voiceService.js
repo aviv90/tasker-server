@@ -85,8 +85,6 @@ class VoiceService {
                     description: options.description || 'High-quality voice clone for conversational use',
                     labels: options.labels || JSON.stringify({
                         accent: 'natural',
-                        age: 'adult', 
-                        gender: 'auto-detect',
                         use_case: 'conversational',
                         quality: 'high',
                         style: 'natural',
