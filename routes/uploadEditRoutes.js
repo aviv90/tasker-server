@@ -349,13 +349,12 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     console.log(`✅ Step 4 complete: Audio generated at ${ttsResult.audioUrl}`);
 
     // Final result: Complete pipeline success
+    console.log(`📝 Finalizing with transcribed text: "${transcribedText.substring(0, 100)}..."`);
     await finalizeVoiceProcessing(taskId, {
-      text: transcribedText, // The original transcribed text
-      originalText: transcribedText, // Keep original transcription
-      geminiResponse: geminiResult.error ? null : geminiResult.text, // Gemini response if successful
+      text: transcribedText, // The original transcribed text - this is what should be returned
       result: ttsResult.audioUrl,
+      geminiResponse: geminiResult.error ? null : geminiResult.text, // Gemini response if successful
       voiceId: voiceId,
-      audioUrl: ttsResult.audioUrl,
       transcriptionMetadata: transcriptionResult.metadata,
       voiceCloneMetadata: voiceCloneResult.metadata,
       geminiMetadata: geminiResult.error ? null : geminiResult.metadata,
@@ -505,6 +504,7 @@ function finalizeVoiceProcessing(taskId, result, req = null) {
       result: audioURL
     };
 
+    console.log(`📝 Saving final result with text: "${result.text?.substring(0, 100) || 'MISSING TEXT'}..."`);
     taskStore.set(taskId, taskResult);
     console.log(`✅ Voice processing completed: ${result.text?.length || 0} chars → ${audioURL}`);
   } catch (error) {
