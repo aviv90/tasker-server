@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const taskRoutes = require('./routes/taskRoutes');
 const uploadEditRoutes = require('./routes/uploadEditRoutes');
+const whatsappRoutes = require('./routes/whatsappRoutes');
 
 // Ensure tmp directory exists (important for Heroku deployments)
 const tmpDir = path.join(__dirname, 'public', 'tmp');
@@ -18,6 +19,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use('/static', express.static(path.join(__dirname, 'public', 'tmp')));
 app.use('/api', taskRoutes);
 app.use('/api', uploadEditRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 
 // Add music callback endpoint
 app.post('/api/music/callback', (req, res) => {
@@ -28,8 +30,8 @@ app.post('/api/music/callback', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log('� Using CloudConvert API for audio conversion');
-    console.log('�📋 Available endpoints:');
+    console.log('🔄 Using CloudConvert API for audio conversion');
+    console.log('📋 Available endpoints:');
     console.log('  POST /api/start-task - Start text-to-image/video/music generation');
     console.log('  POST /api/upload-edit - Upload and edit images');
     console.log('  POST /api/upload-video - Upload image and generate video');
@@ -37,4 +39,5 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('  POST /api/upload-transcribe - Upload audio and transcribe to text');
     console.log('  POST /api/speech-to-song - Transform speech recording into song');
     console.log('  GET /api/task-status/:taskId - Check task status');
+    console.log('  POST /api/whatsapp/webhook - WhatsApp Green API webhook endpoint');
 });
