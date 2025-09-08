@@ -48,15 +48,15 @@ router.post('/webhook', async (req, res) => {
     // Handle different webhook types
     switch (typeWebhook) {
       case 'incomingMessageReceived':
-        await handleIncomingMessage(body);
+        await handleIncomingMessage(req.body);
         break;
         
       case 'outgoingMessageStatus':
-        await handleMessageStatus(body);
+        await handleMessageStatus(req.body);
         break;
         
       case 'incomingCall':
-        await handleIncomingCall(body);
+        await handleIncomingCall(req.body);
         break;
         
       default:
@@ -74,29 +74,37 @@ router.post('/webhook', async (req, res) => {
 
 /**
  * Handle incoming WhatsApp message
- * @param {Object} messageData - Message data from Green API
+ * @param {Object} webhookData - Full webhook data from Green API
  */
-async function handleIncomingMessage(messageData) {
+async function handleIncomingMessage(webhookData) {
   try {
+    // Extract data from Green API webhook structure
     const {
       idMessage,
       timestamp,
-      typeMessage,
+      instanceData,
+      senderData,
+      messageData
+    } = webhookData;
+
+    const {
       chatId,
-      senderId,
+      sender: senderId,
       senderName,
-      textMessage,
-      downloadUrl,
-      caption,
-      fileName,
-      jpegThumbnail
+      chatName
+    } = senderData;
+
+    const {
+      typeMessage
     } = messageData;
 
     console.log(`📨 New ${typeMessage} message from ${senderName} (${senderId})`);
     console.log(`💬 Chat ID: ${chatId}`);
+    console.log(`🏷️ Chat Name: ${chatName}`);
     
     switch (typeMessage) {
       case 'textMessage':
+        const { textMessage } = messageData.textMessageData || {};
         await handleTextMessage({
           messageId: idMessage,
           chatId,
@@ -107,50 +115,69 @@ async function handleIncomingMessage(messageData) {
         break;
         
       case 'audioMessage':
+        const audioData = messageData.fileMessageData || {};
         await handleAudioMessage({
           messageId: idMessage,
           chatId,
           senderId,
           senderName,
-          downloadUrl,
-          caption,
-          fileName
+          downloadUrl: audioData.downloadUrl,
+          caption: audioData.caption,
+          fileName: audioData.fileName
         });
         break;
         
       case 'imageMessage':
+        const imageData = messageData.fileMessageData || {};
         await handleImageMessage({
           messageId: idMessage,
           chatId,
           senderId,
           senderName,
-          downloadUrl,
-          caption,
-          fileName,
-          thumbnail: jpegThumbnail
+          downloadUrl: imageData.downloadUrl,
+          caption: imageData.caption,
+          fileName: imageData.fileName,
+          thumbnail: imageData.jpegThumbnail
         });
         break;
         
       case 'videoMessage':
+        const videoData = messageData.fileMessageData || {};
         await handleVideoMessage({
           messageId: idMessage,
           chatId,
           senderId,
           senderName,
-          downloadUrl,
-          caption,
-          fileName
+          downloadUrl: videoData.downloadUrl,
+          caption: videoData.caption,
+          fileName: videoData.fileName,
+          videoNote: videoData.videoNote  // Special field for instant video messages
         });
         break;
         
       case 'documentMessage':
+        const docData = messageData.fileMessageData || {};
         await handleDocumentMessage({
           messageId: idMessage,
           chatId,
           senderId,
           senderName,
-          downloadUrl,
-          fileName
+          downloadUrl: docData.downloadUrl,
+          fileName: docData.fileName
+        });
+        break;
+        
+      case 'quotedMessage':
+        // Handle quoted/reply messages
+        const quotedData = messageData.extendedTextMessageData || {};
+        const quotedMsg = messageData.quotedMessage || {};
+        await handleQuotedMessage({
+          messageId: idMessage,
+          chatId,
+          senderId,
+          senderName,
+          text: quotedData.text,
+          quotedMessage: quotedMsg
         });
         break;
         
@@ -172,8 +199,9 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
   // TODO: Add your text message processing logic here
   // Examples:
   // - Bot commands
-  // - AI responses
+  // - AI responses  
   // - Voice synthesis from text
+  // - Integration with existing voice pipeline
   
   // Example: Auto-reply
   // await sendWhatsAppMessage(chatId, {
@@ -228,8 +256,13 @@ async function handleImageMessage({ messageId, chatId, senderId, senderName, dow
 /**
  * Handle video message
  */
-async function handleVideoMessage({ messageId, chatId, senderId, senderName, downloadUrl, caption, fileName }) {
+async function handleVideoMessage({ messageId, chatId, senderId, senderName, downloadUrl, caption, fileName, videoNote }) {
   console.log(`🎥 Video message received: ${fileName || 'video'}`);
+  
+  if (videoNote) {
+    console.log(`📱 This is an instant video message`);
+  }
+  
   console.log(`🔗 Download URL: ${downloadUrl}`);
   
   if (caption) {
@@ -250,38 +283,52 @@ async function handleDocumentMessage({ messageId, chatId, senderId, senderName, 
 }
 
 /**
+ * Handle quoted/reply message
+ */
+async function handleQuotedMessage({ messageId, chatId, senderId, senderName, text, quotedMessage }) {
+  console.log(`💬 Reply message: "${text}"`);
+  console.log(`🔄 Replying to ${quotedMessage.typeMessage} from ${quotedMessage.participant}`);
+  
+  // Log original message content based on type
+  switch (quotedMessage.typeMessage) {
+    case 'textMessage':
+      console.log(`   Original text: "${quotedMessage.textMessage}"`);
+      break;
+    case 'imageMessage':
+    case 'videoMessage':
+    case 'documentMessage':
+    case 'audioMessage':
+      console.log(`   Original file: ${quotedMessage.caption || 'No caption'}`);
+      break;
+    default:
+      console.log(`   Original message type: ${quotedMessage.typeMessage}`);
+  }
+  
+  // TODO: Add your quoted message processing logic here
+  // Examples:
+  // - Context-aware responses based on quoted content
+  // - Thread-like conversation handling
+}
+
+/**
  * Handle message status updates
  */
-async function handleMessageStatus(statusData) {
-  const { idMessage, status, timestamp, chatId } = statusData;
+async function handleMessageStatus(webhookData) {
+  // Green API status structure might be different, let's log it first
+  console.log(`📊 Message status update:`, JSON.stringify(webhookData, null, 2));
   
-  console.log(`📊 Message ${idMessage} status: ${status}`);
-  
-  // Status can be: sent, delivered, read, failed, etc.
-  switch (status) {
-    case 'sent':
-      console.log('✅ Message sent successfully');
-      break;
-    case 'delivered':
-      console.log('📨 Message delivered');
-      break;
-    case 'read':
-      console.log('👀 Message read by recipient');
-      break;
-    case 'failed':
-      console.log('❌ Message failed to send');
-      break;
-  }
+  // TODO: Extract proper status data based on actual Green API format
+  // const { idMessage, status, timestamp, chatId } = statusData;
+  // console.log(`📊 Message ${idMessage} status: ${status}`);
 }
 
 /**
  * Handle incoming call notifications
  */
-async function handleIncomingCall(callData) {
-  const { from, timestamp } = callData;
-  console.log(`📞 Incoming call from: ${from}`);
+async function handleIncomingCall(webhookData) {
+  console.log(`📞 Incoming call:`, JSON.stringify(webhookData, null, 2));
   
-  // TODO: Handle incoming calls if needed
+  // TODO: Handle incoming calls based on actual Green API format
 }
 
 /**
