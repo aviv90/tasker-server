@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { sendTextMessage, sendFileByUrl } = require('../services/greenApiService');
 const { generateTextResponse } = require('../services/openaiService');
+const { generateTextResponse: generateGeminiResponse } = require('../services/geminiService');
 const conversationManager = require('../services/conversationManager');
 
 /**
@@ -229,6 +230,16 @@ function parseCommand(message) {
     };
   }
   
+  // Gemini Chat command: * + space + text
+  if (text.startsWith('* ')) {
+    const prompt = text.substring(2).trim(); // Remove "* "
+    return {
+      type: 'gemini_chat',
+      prompt: prompt,
+      originalMessage: text
+    };
+  }
+  
   // Special commands for conversation management
   if (text.toLowerCase() === '/clear' || text.toLowerCase() === '/reset') {
     return {
@@ -289,6 +300,32 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
         console.log(`✅ OpenAI response sent to ${senderName}`);
         break;
         
+      case 'gemini_chat':
+        console.log(`🔮 Processing Gemini chat request from ${senderName}`);
+        
+        // Get conversation history
+        const geminiConversationHistory = conversationManager.getHistory(chatId);
+        
+        // Add user message to conversation
+        conversationManager.addMessage(chatId, 'user', command.prompt);
+        
+        // Send to Gemini with context
+        const geminiResponse = await generateGeminiResponse(command.prompt, geminiConversationHistory);
+        
+        if (geminiResponse.error) {
+          console.error('❌ Gemini generation failed:', geminiResponse.error);
+          // Add error response to conversation
+          conversationManager.addMessage(chatId, 'assistant', geminiResponse.text);
+          await sendTextMessage(chatId, geminiResponse.text);
+        } else {
+          // Add AI response to conversation
+          conversationManager.addMessage(chatId, 'assistant', geminiResponse.text);
+          await sendTextMessage(chatId, geminiResponse.text);
+        }
+        
+        console.log(`✅ Gemini response sent to ${senderName}`);
+        break;
+        
       case 'clear_conversation':
         const cleared = conversationManager.clearSession(chatId);
         if (cleared) {
@@ -316,11 +353,11 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
         break;
         
       case 'unknown':
-        // Message that doesn't start with #
+        // Message that doesn't start with # or *
         console.log(`ℹ️ Regular message from ${senderName}, no action taken`);
         
         // Can add help message or just not respond
-        // await sendTextMessage(chatId, `שלום ${senderName}! 👋\n\nכדי לשוחח איתי, התחל את ההודעה עם # ואז השאלה שלך.\n\nדוגמה: # מה השעה?\n\nפקודות נוספות:\n/clear - מחיקת היסטוריה\n/history - הצגת היסטוריה`);
+        // await sendTextMessage(chatId, `שלום ${senderName}! 👋\n\nכדי לשוחח איתי, התחל את ההודעה עם:\n🤖 # [שאלה] - OpenAI Chat\n🔮 * [שאלה] - Gemini Chat\n\nפקודות נוספות:\n/clear - מחיקת היסטוריה\n/history - הצגת היסטוריה`);
         break;
         
       default:

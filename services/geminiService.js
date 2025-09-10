@@ -322,12 +322,13 @@ async function generateVideoWithImage(prompt, imageBuffer) {
 }
 
 /**
- * Generate text response using Gemini (like a chatbot)
+ * Generate text response using Gemini with conversation history support
  * @param {string} prompt - User input text
+ * @param {Array} conversationHistory - Previous messages in conversation
  * @param {Object} options - Additional options
  * @returns {Object} - Response with generated text
  */
-async function generateTextResponse(prompt, options = {}) {
+async function generateTextResponse(prompt, conversationHistory = [], options = {}) {
     try {
         console.log('💬 Starting Gemini text generation');
         
@@ -337,8 +338,34 @@ async function generateTextResponse(prompt, options = {}) {
         const model = genAI.getGenerativeModel({ 
             model: options.model || "gemini-2.5-flash" 
         });
-        
-        const result = await model.generateContent(cleanPrompt);
+
+        // Build conversation contents for Gemini
+        const contents = [];
+
+        // Add conversation history if exists
+        if (conversationHistory && conversationHistory.length > 0) {
+            console.log(`🧠 Using conversation history: ${conversationHistory.length} previous messages`);
+            
+            for (const msg of conversationHistory) {
+                // Convert OpenAI format to Gemini format
+                const role = msg.role === 'assistant' ? 'model' : 'user';
+                contents.push({
+                    role: role,
+                    parts: [{ text: msg.content }]
+                });
+            }
+        }
+
+        // Add current user message
+        contents.push({
+            role: 'user',
+            parts: [{ text: cleanPrompt }]
+        });
+
+        console.log(`🔮 Sending to Gemini: "${cleanPrompt}" (with ${conversationHistory.length} context messages)`);
+
+        // Generate response with history
+        const result = await model.generateContent({ contents });
         const response = result.response;
         
         if (!response.candidates || response.candidates.length === 0) {
@@ -369,7 +396,12 @@ async function generateTextResponse(prompt, options = {}) {
         
     } catch (err) {
         console.error('❌ Gemini text generation error:', err);
-        return { error: err.message || 'Text generation failed' };
+        
+        // Emergency response
+        return { 
+            text: 'מצטער, קרתה שגיאה בעיבוד הבקשה שלך עם Gemini. נסה שוב מאוחר יותר.',
+            error: err.message || 'Text generation failed' 
+        };
     }
 }
 
