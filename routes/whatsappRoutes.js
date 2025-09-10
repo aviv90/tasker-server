@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const { sendTextMessage, sendFileByUrl } = require('../services/greenApiService');
+const { generateTextResponse } = require('../services/openaiService');
 
 /**
  * WhatsApp Green API Integration Routes
@@ -191,22 +193,82 @@ async function handleIncomingMessage(webhookData) {
 }
 
 /**
+ * Parse user command from WhatsApp message
+ * @param {string} message - The text message from user
+ * @returns {object} - Parsed command object
+ */
+function parseCommand(message) {
+  const text = message.trim();
+  
+  // OpenAI Chat command: # + space + text
+  if (text.startsWith('# ')) {
+    const prompt = text.substring(2).trim(); // Remove "# "
+    return {
+      type: 'openai_chat',
+      prompt: prompt,
+      originalMessage: text
+    };
+  }
+  
+  // Later we'll add more commands like:
+  // /image, /music, /video etc.
+  
+  return {
+    type: 'unknown',
+    prompt: text,
+    originalMessage: text
+  };
+}
+
+/**
  * Handle text message
  */
 async function handleTextMessage({ messageId, chatId, senderId, senderName, text }) {
   console.log(`💬 Text message: "${text}"`);
   
-  // TODO: Add your text message processing logic here
-  // Examples:
-  // - Bot commands
-  // - AI responses  
-  // - Voice synthesis from text
-  // - Integration with existing voice pipeline
-  
-  // Example: Auto-reply
-  // await sendWhatsAppMessage(chatId, {
-  //   text: `Hello ${senderName}! I received your message: "${text}"`
-  // });
+  try {
+    // Parse the command
+    const command = parseCommand(text);
+    console.log(`🎯 Parsed command:`, command);
+    
+    switch (command.type) {
+      case 'openai_chat':
+        console.log(`🤖 Processing OpenAI chat request from ${senderName}`);
+        
+        // Send "processing..." message
+        await sendTextMessage(chatId, "🤖 מעבד את השאלה שלך...");
+        
+        // Send to OpenAI
+        const aiResponse = await generateTextResponse(command.prompt);
+        
+        // Send response back
+        await sendTextMessage(chatId, aiResponse.text);
+        
+        console.log(`✅ OpenAI response sent to ${senderName}`);
+        break;
+        
+      case 'unknown':
+        // Message that doesn't start with #
+        console.log(`ℹ️ Regular message from ${senderName}, no action taken`);
+        
+        // Can add help message or just not respond
+        // await sendTextMessage(chatId, `שלום ${senderName}! 👋\n\nכדי לשוחח איתי, התחל את ההודעה עם # ואז השאלה שלך.\n\nדוגמה: # מה השעה?`);
+        break;
+        
+      default:
+        console.log(`ℹ️ Unsupported command type: ${command.type}`);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error handling text message:', error);
+    
+    // Send useful error message to user
+    try {
+      await sendTextMessage(chatId, `❌ מצטער ${senderName}, קרתה שגיאה בעיבוד ההודעה שלך. נסה שוב מאוחר יותר.`);
+    } catch (sendError) {
+      console.error('❌ Failed to send error message:', sendError);
+    }
+  }
 }
 
 /**

@@ -97,4 +97,62 @@ async function editImageWithText(prompt, imageBuffer) {
     }
 }
 
-module.exports = { generateImageWithText, editImageWithText };
+/**
+ * Generate text response using OpenAI Chat API
+ * @param {string} prompt - User's input text
+ * @param {Array} conversationHistory - Previous messages (for future context support)
+ * @returns {Promise<{text: string, usage: object}>}
+ */
+async function generateTextResponse(prompt, conversationHistory = []) {
+  try {
+    const apiKey = process.env.OPENAI_API_KEY;
+    
+    if (!apiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
+
+    // For now we'll send only the current message
+    // Later we'll add conversationHistory support
+    const messages = [
+      {
+        role: 'system',
+        content: 'אתה עוזר AI ידידותי שמסוגל לענות בעברית ובאנגלית. תן תשובות מועילות וקצרות.'
+      },
+      {
+        role: 'user',
+        content: prompt
+      }
+    ];
+
+    console.log('🤖 Sending to OpenAI Chat:', prompt);
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini', // Cost-effective and good model
+      messages: messages,
+      max_tokens: 1000,
+      temperature: 0.7
+    });
+
+    const aiResponse = response.choices[0].message.content;
+    const usage = response.usage;
+
+    console.log('✅ OpenAI Chat response received');
+    console.log('💰 Tokens used:', usage);
+
+    return {
+      text: aiResponse,
+      usage: usage
+    };
+
+  } catch (error) {
+    console.error('❌ Error generating OpenAI response:', error);
+    
+    // Emergency response
+    return {
+      text: 'מצטער, קרתה שגיאה בעיבוד הבקשה שלך. נסה שוב מאוחר יותר.',
+      usage: null
+    };
+  }
+}
+
+module.exports = { generateImageWithText, editImageWithText, generateTextResponse };
