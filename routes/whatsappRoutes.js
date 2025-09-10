@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { sendTextMessage, sendFileByUrl } = require('../services/greenApiService');
 const { generateTextResponse } = require('../services/openaiService');
+const conversationManager = require('../services/conversationManager');
 
 /**
  * WhatsApp Green API Integration Routes
@@ -71,6 +72,24 @@ router.post('/webhook', async (req, res) => {
   } catch (error) {
     console.error('❌ Error processing WhatsApp webhook:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * Get conversation statistics (for monitoring)
+ * @route GET /api/whatsapp/stats
+ */
+router.get('/stats', (req, res) => {
+  try {
+    const stats = conversationManager.getStats();
+    res.json({
+      status: 'success',
+      timestamp: new Date().toISOString(),
+      stats: stats
+    });
+  } catch (error) {
+    console.error('❌ Error getting conversation stats:', error);
+    res.status(500).json({ error: 'Failed to get stats' });
   }
 });
 
@@ -210,6 +229,23 @@ function parseCommand(message) {
     };
   }
   
+  // Special commands for conversation management
+  if (text.toLowerCase() === '/clear' || text.toLowerCase() === '/reset') {
+    return {
+      type: 'clear_conversation',
+      prompt: text,
+      originalMessage: text
+    };
+  }
+  
+  if (text.toLowerCase() === '/history' || text.toLowerCase() === '/context') {
+    return {
+      type: 'show_history',
+      prompt: text,
+      originalMessage: text
+    };
+  }
+  
   // Later we'll add more commands like:
   // /image, /music, /video etc.
   
@@ -235,11 +271,17 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
       case 'openai_chat':
         console.log(`🤖 Processing OpenAI chat request from ${senderName}`);
         
-        // Send "processing..." message
-        await sendTextMessage(chatId, "🤖 מעבד את השאלה שלך...");
+        // Get conversation history
+        const conversationHistory = conversationManager.getHistory(chatId);
         
-        // Send to OpenAI
-        const aiResponse = await generateTextResponse(command.prompt);
+        // Add user message to conversation
+        conversationManager.addMessage(chatId, 'user', command.prompt);
+        
+        // Send to OpenAI with context
+        const aiResponse = await generateTextResponse(command.prompt, conversationHistory);
+        
+        // Add AI response to conversation
+        conversationManager.addMessage(chatId, 'assistant', aiResponse.text);
         
         // Send response back
         await sendTextMessage(chatId, aiResponse.text);
@@ -247,12 +289,38 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
         console.log(`✅ OpenAI response sent to ${senderName}`);
         break;
         
+      case 'clear_conversation':
+        const cleared = conversationManager.clearSession(chatId);
+        if (cleared) {
+          await sendTextMessage(chatId, "🗑️ היסטוריית השיחה נמחקה. התחלנו שיחה חדשה!");
+          console.log(`🗑️ Conversation cleared for ${senderName}`);
+        } else {
+          await sendTextMessage(chatId, "ℹ️ אין היסטוריית שיחה לניקוי.");
+        }
+        break;
+        
+      case 'show_history':
+        const hasSession = conversationManager.hasActiveSession(chatId);
+        const history = conversationManager.getHistory(chatId);
+        
+        if (!hasSession || history.length === 0) {
+          await sendTextMessage(chatId, "📝 אין היסטוריית שיחה נוכחית.");
+        } else {
+          const historyText = `📝 היסטוריית השיחה (${history.length} הודעות):\n\n` +
+            history.map((msg, index) => 
+              `${index + 1}. ${msg.role === 'user' ? '👤' : '🤖'} ${msg.content.substring(0, 50)}${msg.content.length > 50 ? '...' : ''}`
+            ).join('\n');
+          
+          await sendTextMessage(chatId, historyText);
+        }
+        break;
+        
       case 'unknown':
         // Message that doesn't start with #
         console.log(`ℹ️ Regular message from ${senderName}, no action taken`);
         
         // Can add help message or just not respond
-        // await sendTextMessage(chatId, `שלום ${senderName}! 👋\n\nכדי לשוחח איתי, התחל את ההודעה עם # ואז השאלה שלך.\n\nדוגמה: # מה השעה?`);
+        // await sendTextMessage(chatId, `שלום ${senderName}! 👋\n\nכדי לשוחח איתי, התחל את ההודעה עם # ואז השאלה שלך.\n\nדוגמה: # מה השעה?\n\nפקודות נוספות:\n/clear - מחיקת היסטוריה\n/history - הצגת היסטוריה`);
         break;
         
       default:

@@ -98,9 +98,9 @@ async function editImageWithText(prompt, imageBuffer) {
 }
 
 /**
- * Generate text response using OpenAI Chat API
+ * Generate text response using OpenAI Chat API with conversation history
  * @param {string} prompt - User's input text
- * @param {Array} conversationHistory - Previous messages (for future context support)
+ * @param {Array} conversationHistory - Previous messages in conversation
  * @returns {Promise<{text: string, usage: object}>}
  */
 async function generateTextResponse(prompt, conversationHistory = []) {
@@ -111,20 +111,27 @@ async function generateTextResponse(prompt, conversationHistory = []) {
       throw new Error('OpenAI API key not configured');
     }
 
-    // For now we'll send only the current message
-    // Later we'll add conversationHistory support
+    // Build messages array with system prompt + conversation history + current message
     const messages = [
       {
         role: 'system',
-        content: 'אתה עוזר AI ידידותי שמסוגל לענות בעברית ובאנגלית. תן תשובות מועילות וקצרות.'
-      },
-      {
-        role: 'user',
-        content: prompt
+        content: 'אתה עוזר AI ידידותי שמסוגל לענות בעברית ובאנגלית. תן תשובות מועילות וקצרות. אתה זוכר את השיחה הקודמת ויכול להתייחס להקשר של ההודעות הקודמות.'
       }
     ];
 
-    console.log('🤖 Sending to OpenAI Chat:', prompt);
+    // Add conversation history if exists
+    if (conversationHistory && conversationHistory.length > 0) {
+      messages.push(...conversationHistory);
+      console.log(`🧠 Using conversation history: ${conversationHistory.length} previous messages`);
+    }
+
+    // Add current user message
+    messages.push({
+      role: 'user',
+      content: prompt
+    });
+
+    console.log(`🤖 Sending to OpenAI Chat: "${prompt}" (with ${conversationHistory.length} context messages)`);
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini', // Cost-effective and good model
