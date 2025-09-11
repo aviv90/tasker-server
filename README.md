@@ -29,6 +29,14 @@ A powerful Node.js server providing unified access to multiple AI providers for 
 - **OpenAI Chat**: Advanced text generation with context awareness
 - **Conversation Management**: Maintains chat history for coherent conversations
 
+### 📱 WhatsApp Commands (WaSender API)
+- **`* [prompt]`** - Gemini AI Chat
+- **`# [prompt]`** - OpenAI Chat (primary method)
+- **`? [prompt]`** - OpenAI Chat (alternative method)
+- **`/clear`** - Clear conversation history
+- **`/history`** - Show conversation history
+- **`/help`** - Show available commands
+
 ## 🔌 Supported Providers
 
 ### **🥇 Kie.ai** (All-in-One Platform)

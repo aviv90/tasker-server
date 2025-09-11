@@ -228,7 +228,8 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
 
 💬 **AI Chat:**
 🔮 \`* [שאלה]\` - Gemini Chat
-🤖 \`? [שאלה]\` - OpenAI Chat
+🤖 \`# [שאלה]\` - OpenAI Chat (סולמית)
+🤖 \`? [שאלה]\` - OpenAI Chat (סימן שאלה)
 
 ⚙️ **ניהול שיחה:**
 🗑️ \`/clear\` - מחיקת היסטוריה
@@ -237,7 +238,8 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
 
 💡 **דוגמאות:**
 \`* מה ההבדל בין AI לבין ML?\`
-\`? כתוב לי שיר על חתול\``;
+\`# כתוב לי שיר על חתול\`
+\`? מה מזג האוויר היום?\``;
 
         await sendTextMessage(chatId, helpMessage);
         break;
@@ -338,9 +340,19 @@ function parseTextCommand(text) {
     };
   }
 
-  // OpenAI Chat command: ? + space + text
+  // OpenAI Chat command: ? + space + text (alternative method)
   if (text.startsWith('? ')) {
     const prompt = text.substring(2).trim(); // Remove "? "
+    return {
+      type: 'openai_chat',
+      prompt: prompt,
+      originalMessage: text
+    };
+  }
+
+  // OpenAI Chat command: # + space + text (primary method like Green API)
+  if (text.startsWith('# ')) {
+    const prompt = text.substring(2).trim(); // Remove "# "
     return {
       type: 'openai_chat',
       prompt: prompt,
