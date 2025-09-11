@@ -1,3 +1,22 @@
+/**
+ * Gemini AI Service
+ * 
+ * 🚨 BACKWARD COMPATIBILITY RULE:
+ * When adding new functions, create separate versions for WhatsApp vs Tasker:
+ * 
+ * TASKER FUNCTIONS (for /api/start-task polling):
+ * - Return: { text: string, imageBuffer: Buffer } or { error: string }
+ * - Save files using taskId in finalizeTask()
+ * 
+ * WHATSAPP FUNCTIONS (for /api/whatsapp/webhook):
+ * - Return: { success: boolean, imageUrl: string, description: string }
+ * - Save files with UUID and create public URLs
+ * 
+ * Examples:
+ * - generateImageWithText() → Tasker format
+ * - generateImageForWhatsApp() → WhatsApp format
+ */
+
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genai = require('@google/genai');
 const { sanitizeText } = require('../utils/textSanitizer');
@@ -12,7 +31,7 @@ const veoClient = new genai.GoogleGenAI({
 
 async function generateImageWithText(prompt) {
     try {
-        console.log('🎨 Starting Gemini image generation');
+        console.log('🎨 Starting Gemini image generation (Tasker compatible)');
         
         // Sanitize prompt as an extra safety measure
         const cleanPrompt = sanitizeText(prompt);
@@ -56,12 +75,108 @@ async function generateImageWithText(prompt) {
             return { error: 'No image data found in response' };
         }
         
-        console.log('✅ Gemini image generated successfully');
+        console.log('✅ Gemini image generated successfully (Tasker format)');
         return { text: text || prompt, imageBuffer };
     } catch (err) {
         console.error('❌ Gemini image generation error:', err);
         // Throw the error so it gets caught by the route's catch block
         throw err;
+    }
+}
+
+async function generateImageForWhatsApp(prompt) {
+    try {
+        console.log('🎨 Starting Gemini image generation (WhatsApp format)');
+        
+        // Sanitize prompt as an extra safety measure
+        const cleanPrompt = sanitizeText(prompt);
+        
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.5-flash-image-preview" 
+        });
+        
+        const result = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: cleanPrompt }] }],
+            generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
+        });
+        
+        const response = result.response;
+        if (!response.candidates || response.candidates.length === 0) {
+            console.log('❌ Gemini: No candidates returned');
+            return { 
+                success: false, 
+                error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' 
+            };
+        }
+        
+        const cand = response.candidates[0];
+        let text = '';
+        let imageBuffer = null;
+        
+        // Check if content and parts exist
+        if (!cand.content || !cand.content.parts) {
+            console.log('❌ Gemini: No content or parts found in candidate');
+            return { 
+                success: false, 
+                error: 'Invalid response structure from Gemini' 
+            };
+        }
+        
+        // Process all parts in the response
+        for (const part of cand.content.parts) {
+            if (part.text) {
+                text += part.text;
+            } else if (part.inlineData?.data) {
+                imageBuffer = Buffer.from(part.inlineData.data, 'base64');
+            }
+        }
+        
+        if (!imageBuffer) {
+            console.log('❌ Gemini: No image data found in response');
+            return { 
+                success: false, 
+                error: 'No image data found in response' 
+            };
+        }
+        
+        // Save image to tmp folder and create accessible URL
+        const fs = require('fs');
+        const path = require('path');
+        const { v4: uuidv4 } = require('uuid');
+        
+        const imageId = uuidv4();
+        const fileName = `${imageId}.png`;
+        const filePath = path.join(__dirname, '..', 'public', 'tmp', fileName);
+        
+        // Ensure tmp directory exists
+        const tmpDir = path.dirname(filePath);
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        
+        // Write image file
+        fs.writeFileSync(filePath, imageBuffer);
+        
+        // Create public URL (assuming server is accessible at current port)
+        const serverUrl = process.env.SERVER_URL || 'http://localhost:3000';
+        const imageUrl = `${serverUrl}/tmp/${fileName}`;
+        
+        console.log('✅ Gemini image generated successfully (WhatsApp format)');
+        console.log(`🖼️ Image saved to: ${filePath}`);
+        console.log(`🔗 Public URL: ${imageUrl}`);
+        
+        return { 
+            success: true,
+            imageUrl: imageUrl,
+            description: text || `תמונה שנוצרה על בסיס: ${cleanPrompt}`,
+            fileName: fileName
+        };
+    } catch (err) {
+        console.error('❌ Gemini image generation error:', err);
+        return { 
+            success: false, 
+            error: err.message || 'Unknown error occurred during image generation' 
+        };
     }
 }
 
@@ -405,4 +520,4 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
     }
 }
 
-module.exports = { generateImageWithText, editImageWithText, generateVideoWithText, generateVideoWithImage, generateTextResponse };
+module.exports = { generateImageWithText, generateImageForWhatsApp, editImageWithText, generateVideoWithText, generateVideoWithImage, generateTextResponse };

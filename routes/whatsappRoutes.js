@@ -2,15 +2,25 @@ const express = require('express');
 const router = express.Router();
 const { sendTextMessage, sendFileByUrl } = require('../services/greenApiService');
 const { generateTextResponse } = require('../services/openaiService');
-const { generateTextResponse: generateGeminiResponse } = require('../services/geminiService');
+const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp } = require('../services/geminiService');
 const conversationManager = require('../services/conversationManager');
 
 /**
  * WhatsApp Green API Integration Routes
  * 
- * Handles incoming webhooks from Green API WhatsApp service
+ * 🚨 BACKWARD COMPATIBILITY RULE:
+ * Any new WhatsApp functionality MUST maintain backward compatibility 
+ * with Tasker Android polling system (/api/start-task + /api/task-status).
  * 
- * @version 1.0.0
+ * When adding new features:
+ * 1. Create separate functions for WhatsApp vs Tasker formats
+ * 2. WhatsApp functions return: { success, imageUrl, description }
+ * 3. Tasker functions return: { text, imageBuffer } or { error }
+ * 4. Both use same underlying AI/generation logic
+ * 
+ * Examples:
+ * - generateImageWithText() - for Tasker (returns Buffer)
+ * - generateImageForWhatsApp() - for WhatsApp (returns URL)
  */
 
 /**
@@ -240,6 +250,16 @@ function parseCommand(message) {
     };
   }
   
+  // Gemini Image Generation command: ** + space + text
+  if (text.startsWith('** ')) {
+    const prompt = text.substring(3).trim(); // Remove "** "
+    return {
+      type: 'gemini_image',
+      prompt: prompt,
+      originalMessage: text
+    };
+  }
+  
   // Special commands for conversation management
   if (text.toLowerCase() === '/clear' || text.toLowerCase() === '/reset') {
     return {
@@ -252,6 +272,14 @@ function parseCommand(message) {
   if (text.toLowerCase() === '/history' || text.toLowerCase() === '/context') {
     return {
       type: 'show_history',
+      prompt: text,
+      originalMessage: text
+    };
+  }
+  
+  if (text.toLowerCase() === '/help' || text.toLowerCase() === '/עזרה') {
+    return {
+      type: 'show_help',
       prompt: text,
       originalMessage: text
     };
@@ -326,6 +354,39 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
         console.log(`✅ Gemini response sent to ${senderName}`);
         break;
         
+      case 'gemini_image':
+        console.log(`🎨 Processing Gemini image generation request from ${senderName}`);
+        
+        try {
+          // Add user message to conversation
+          conversationManager.addMessage(chatId, 'user', command.prompt);
+          
+          // Generate image with Gemini (WhatsApp format)
+          const imageResult = await generateImageForWhatsApp(command.prompt);
+          
+          if (imageResult.success && imageResult.imageUrl) {
+            // Send Gemini's text response first (like "אני אצור תמונה של...")
+            if (imageResult.description && imageResult.description.length > 0) {
+              await sendTextMessage(chatId, imageResult.description);
+              
+              // Add Gemini's response to conversation history
+              conversationManager.addMessage(chatId, 'assistant', imageResult.description);
+            }
+            
+            // Send the generated image (without caption to avoid duplication)
+            await sendFileByUrl(chatId, imageResult.imageUrl, "");
+            
+            console.log(`✅ Gemini image sent to ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, '❌ סליחה, לא הצלחתי ליצור תמונה. נסה שוב מאוחר יותר.');
+            console.log(`❌ Gemini image generation failed for ${senderName}`);
+          }
+        } catch (imageError) {
+          console.error('❌ Error in Gemini image generation:', imageError);
+          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת התמונה.');
+        }
+        break;
+        
       case 'clear_conversation':
         const cleared = conversationManager.clearSession(chatId);
         if (cleared) {
@@ -352,12 +413,42 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
         }
         break;
         
+      case 'show_help':
+        const helpMessage = `שלום ${senderName}! 👋
+
+🤖 **פקודות הבוט:**
+
+💬 **צ'אט עם AI:**
+🤖 \`# [שאלה]\` - OpenAI Chat
+🔮 \`* [שאלה]\` - Gemini Chat
+
+🎨 **יצירת תמונות:**
+🖼️ \`** [תיאור]\` - יצירת תמונה עם Gemini (טקסט + תמונה)
+
+⚙️ **ניהול שיחה:**
+🗑️ \`/clear\` - מחיקת היסטוריה
+📝 \`/history\` - הצגת היסטוריה
+❓ \`/help\` - הצגת עזרה זו
+
+💡 **דוגמאות:**
+\`# מה השעה בטוקיו?\`
+\`* מה ההבדל בין AI לבין ML?\`
+\`** חתול כתום שיושב על עץ\``;
+
+        await sendTextMessage(chatId, helpMessage);
+        break;
+        
       case 'unknown':
         // Message that doesn't start with # or *
         console.log(`ℹ️ Regular message from ${senderName}, no action taken`);
         
-        // Can add help message or just not respond
-        // await sendTextMessage(chatId, `שלום ${senderName}! 👋\n\nכדי לשוחח איתי, התחל את ההודעה עם:\n🤖 # [שאלה] - OpenAI Chat\n🔮 * [שאלה] - Gemini Chat\n\nפקודות נוספות:\n/clear - מחיקת היסטוריה\n/history - הצגת היסטוריה`);
+        // Send a brief help message for unknown commands
+        await sendTextMessage(chatId, `שלום ${senderName}! 👋
+
+לשליחת הודעה לבוט, התחל עם:
+🤖 \`#\` לOpenAI | 🔮 \`*\` לGemini | 🎨 \`**\` לתמונה
+
+שלח \`/help\` לעזרה מלאה`);
         break;
         
       default:
