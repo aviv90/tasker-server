@@ -63,19 +63,28 @@ async function handleIncomingMessage(webhookData) {
     const senderName = senderData.senderName || senderId;
     
     console.log(`📱 Message from: ${senderName} (${chatId})`);
+    console.log(`📋 Message type: ${messageData.typeMessage}`);
     
-    // Handle text messages
+    // Handle text messages (both regular and extended)
+    let messageText = null;
+    
     if (messageData.typeMessage === 'textMessage') {
-      const messageText = messageData.textMessageData?.textMessage;
-      
-      if (messageText) {
-        await handleTextMessage({
-          chatId,
-          senderId,
-          senderName,
-          messageText: messageText.trim()
-        });
-      }
+      messageText = messageData.textMessageData?.textMessage;
+      console.log(`📝 Regular text message: "${messageText}"`);
+    } else if (messageData.typeMessage === 'extendedTextMessage') {
+      messageText = messageData.extendedTextMessageData?.text;
+      console.log(`📝 Extended text message: "${messageText}"`);
+    }
+    
+    if (messageText) {
+      await handleTextMessage({
+        chatId,
+        senderId,
+        senderName,
+        messageText: messageText.trim()
+      });
+    } else {
+      console.log(`ℹ️ Unsupported message type: ${messageData.typeMessage}`);
     }
   } catch (error) {
     console.error('❌ Error handling incoming message:', error);
