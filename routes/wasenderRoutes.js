@@ -152,7 +152,7 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
           const geminiResponse = await generateGeminiResponse(command.prompt, history);
           
           if (geminiResponse.error) {
-            await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת התגובה.');
+            await sendTextMessage(chatId, geminiResponse.error);
             console.log(`❌ Gemini error for ${senderName}: ${geminiResponse.error}`);
           } else {
             // Add AI response to conversation
@@ -163,7 +163,7 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
           console.log(`✅ Gemini response sent to ${senderName}`);
         } catch (geminiError) {
           console.error('❌ Error in Gemini chat:', geminiError);
-          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד הבקשה שלך.');
+          await sendTextMessage(chatId, `❌ ${geminiError.message || geminiError}`);
         }
         break;
 
@@ -181,7 +181,7 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
           const openaiResponse = await generateOpenAIResponse(command.prompt, openaiHistory);
           
           if (openaiResponse.error) {
-            await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת התגובה.');
+            await sendTextMessage(chatId, openaiResponse.error);
             console.log(`❌ OpenAI error for ${senderName}: ${openaiResponse.error}`);
           } else {
             // Add AI response to conversation
@@ -192,7 +192,7 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
           console.log(`✅ OpenAI response sent to ${senderName}`);
         } catch (openaiError) {
           console.error('❌ Error in OpenAI chat:', openaiError);
-          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד הבקשה שלך.');
+          await sendTextMessage(chatId, `❌ ${openaiError.message || openaiError}`);
         }
         break;
 
