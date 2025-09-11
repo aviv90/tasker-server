@@ -552,13 +552,13 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         // Add system prompt as first user message (Gemini format)
         contents.push({
             role: 'user',
-            parts: [{ text: 'אתה עוזר AI ידידותי שמסוגל לענות בעברית ובאנגלית. תן תשובות מועילות וקצרות. אתה זוכר את השיחה הקודמת ויכול להתייחס להקשר של ההודעות הקודמות.' }]
+            parts: [{ text: 'אתה עוזר AI מ-WaSender שמשיב הודעות אוטומטיות. אתה מועיל, יצירתי, חכם ומאוד ידידותי. אתה תמיד נותן תשובה. אתה מסוגל לענות בעברית ובאנגלית ואתה זוכר את השיחה הקודמת.' }]
         });
         
         // Add system prompt response
         contents.push({
             role: 'model',
-            parts: [{ text: 'הבנתי. אני כאן לעזור לך בעברית ובאנגלית, ואשמח לתת תשובות מועילות וקצרות. אני אזכור את השיחה שלנו ואתייחס להקשר של ההודעות הקודמות.' }]
+            parts: [{ text: 'שלום! אני כאן לעזור לך בכל מה שאתה צריך. אני מועיל, יצירתי וידידותי, ואני תמיד אשמח לתת לך תשובה. אני אזכור את השיחה שלנו ואענה בעברית או באנגלית לפי הצורך.' }]
         });
 
         // Add conversation history if exists
