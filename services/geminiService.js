@@ -549,6 +549,18 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         // Build conversation contents for Gemini
         const contents = [];
 
+        // Add system prompt as first user message (Gemini format)
+        contents.push({
+            role: 'user',
+            parts: [{ text: 'אתה עוזר AI ידידותי שמסוגל לענות בעברית ובאנגלית. תן תשובות מועילות וקצרות. אתה זוכר את השיחה הקודמת ויכול להתייחס להקשר של ההודעות הקודמות.' }]
+        });
+        
+        // Add system prompt response
+        contents.push({
+            role: 'model',
+            parts: [{ text: 'הבנתי. אני כאן לעזור לך בעברית ובאנגלית, ואשמח לתת תשובות מועילות וקצרות. אני אזכור את השיחה שלנו ואתייחס להקשר של ההודעות הקודמות.' }]
+        });
+
         // Add conversation history if exists
         if (conversationHistory && conversationHistory.length > 0) {
             console.log(`🧠 Using conversation history: ${conversationHistory.length} previous messages`);
