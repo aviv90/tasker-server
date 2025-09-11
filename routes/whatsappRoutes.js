@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { sendTextMessage, sendFileByUrl } = require('../services/greenApiService');
+const { sendTextMessage, sendFileByUrl, downloadFile } = require('../services/greenApiService');
 const { generateTextResponse, generateImageForWhatsApp: generateOpenAIImageForWhatsApp } = require('../services/openaiService');
-const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp } = require('../services/geminiService');
+const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp } = require('../services/geminiService');
 const conversationManager = require('../services/conversationManager');
 
 /**
@@ -171,7 +171,8 @@ async function handleIncomingMessage(webhookData, req) {
           downloadUrl: imageData.downloadUrl,
           caption: imageData.caption,
           fileName: imageData.fileName,
-          thumbnail: imageData.jpegThumbnail
+          thumbnail: imageData.jpegThumbnail,
+          req
         });
         break;
         
@@ -466,6 +467,7 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
 🎨 **יצירת תמונות:**
 🖼️ \`** [תיאור]\` - יצירת תמונה עם Gemini
 🎯 \`## [תיאור]\` - יצירת תמונה עם OpenAI
+✏️ \`* [בקשה]\` - עריכת תמונה (שלח תמונה עם caption)
 
 ⚙️ **ניהול שיחה:**
 🗑️ \`/clear\` - מחיקת היסטוריה
@@ -476,7 +478,8 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
 \`# מה השעה בטוקיו?\`
 \`* מה ההבדל בין AI לבין ML?\`
 \`** חתול כתום שיושב על עץ\`
-\`## כלב זהוב רץ בחוף הים\``;
+\`## כלב זהוב רץ בחוף הים\`
+📸 שלח תמונה עם caption: \`* הוסף כובע אדום\``;
 
         await sendTextMessage(chatId, helpMessage);
         break;
@@ -543,15 +546,54 @@ async function handleAudioMessage({ messageId, chatId, senderId, senderName, dow
 /**
  * Handle image message
  */
-async function handleImageMessage({ messageId, chatId, senderId, senderName, downloadUrl, caption, fileName, thumbnail }) {
+async function handleImageMessage({ messageId, chatId, senderId, senderName, downloadUrl, caption, fileName, thumbnail, req }) {
   console.log(`🖼️ Image message received: ${fileName || 'image'}`);
   console.log(`🔗 Download URL: ${downloadUrl}`);
   
   if (caption) {
     console.log(`📝 Caption: ${caption}`);
+    
+    // Check if caption starts with "* " for image editing
+    if (caption.startsWith('* ')) {
+      const editPrompt = caption.substring(2).trim(); // Remove "* "
+      console.log(`🎨 Image editing request from ${senderName}: "${editPrompt}"`);
+      
+      try {
+        // Add user message to conversation
+        conversationManager.addMessage(chatId, 'user', `[Image Edit] ${editPrompt}`);
+        
+        // Download the image from Green API
+        console.log('📥 Downloading image for editing...');
+        const imageBuffer = await downloadFile(downloadUrl);
+        
+        // Convert to base64
+        const base64Image = imageBuffer.toString('base64');
+        
+        // Edit image with Gemini
+        const editResult = await editImageForWhatsApp(editPrompt, base64Image, req);
+        
+        if (editResult.success && editResult.imageUrl) {
+          // Send the edited image
+          console.log(`🔗 Sending edited image: ${editResult.imageUrl}`);
+          console.log(`📄 File name: ${editResult.fileName || "edited_image.png"}`);
+          await sendFileByUrl(chatId, editResult.imageUrl, "", editResult.fileName || "edited_image.png");
+          
+          console.log(`✅ Edited image sent to ${senderName}`);
+        } else {
+          await sendTextMessage(chatId, '❌ סליחה, לא הצלחתי לערוך את התמונה. נסה שוב מאוחר יותר.');
+          console.log(`❌ Image editing failed for ${senderName}`);
+        }
+      } catch (editError) {
+        console.error('❌ Error in image editing:', editError);
+        await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעריכת התמונה.');
+      }
+      
+      return; // Exit early for edit requests
+    }
   }
   
-  // TODO: Add your image processing logic here
+  // Regular image message (no caption or non-edit caption)
+  console.log(`ℹ️ Regular image message from ${senderName}, no action taken`);
 }
 
 /**

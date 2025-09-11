@@ -112,7 +112,35 @@ async function sendFileByUrl(chatId, urlFile, caption = '', fileName = '') {
   }
 }
 
+/**
+ * Download file from Green API
+ * @param {string} downloadUrl - Download URL from Green API
+ * @returns {Promise<Buffer>} - File buffer
+ */
+async function downloadFile(downloadUrl) {
+  try {
+    console.log('📥 Downloading file from Green API:', downloadUrl);
+    
+    const response = await fetch(downloadUrl);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Green API download error:', errorText);
+      throw new Error(`Download failed: ${response.status}`);
+    }
+    
+    const fileBuffer = Buffer.from(await response.arrayBuffer());
+    console.log(`✅ File downloaded successfully, size: ${fileBuffer.length} bytes`);
+    return fileBuffer;
+    
+  } catch (error) {
+    console.error('❌ Error downloading file from Green API:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   sendTextMessage,
-  sendFileByUrl
+  sendFileByUrl,
+  downloadFile
 };

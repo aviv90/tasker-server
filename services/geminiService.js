@@ -237,6 +237,98 @@ async function editImageWithText(prompt, base64Image) {
     }
 }
 
+async function editImageForWhatsApp(prompt, base64Image, req) {
+    try {
+        console.log('🖼️ Starting Gemini image editing (WhatsApp format)');
+        
+        // Sanitize prompt as an extra safety measure
+        const cleanPrompt = sanitizeText(prompt);
+        
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.5-flash-image-preview" 
+        });
+        
+        const result = await model.generateContent({
+            contents: [
+                { role: "user", parts: [{ inlineData: { mimeType: "image/jpeg", data: base64Image } }, { text: cleanPrompt }] }
+            ],
+            generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
+        });
+        
+        const response = result.response;
+        if (!response.candidates || response.candidates.length === 0) {
+            console.log('❌ Gemini edit: No candidates returned');
+            return { 
+                success: false, 
+                error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' 
+            };
+        }
+        
+        const cand = response.candidates[0];
+        let text = '';
+        let imageBuffer = null;
+        
+        // Check if content and parts exist
+        if (!cand.content || !cand.content.parts) {
+            console.log('❌ Gemini edit: No content or parts found in candidate');
+            return { 
+                success: false, 
+                error: 'Invalid response structure from Gemini' 
+            };
+        }
+        
+        // Process all parts in the response
+        for (const part of cand.content.parts) {
+            if (part.text) {
+                text += part.text;
+            } else if (part.inlineData?.data) {
+                imageBuffer = Buffer.from(part.inlineData.data, 'base64');
+            }
+        }
+        
+        if (!imageBuffer) {
+            console.log('❌ Gemini edit: No image data found in response');
+            return { 
+                success: false, 
+                error: 'No image data found in response' 
+            };
+        }
+        
+        // Save to public directory
+        const fileName = `gemini_edit_${uuidv4()}.png`;
+        const filePath = path.join(__dirname, '..', 'public', 'tmp', fileName);
+        
+        // Ensure tmp directory exists
+        const tmpDir = path.dirname(filePath);
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        
+        // Write image file
+        fs.writeFileSync(filePath, imageBuffer);
+        
+        // Create public URL using centralized URL utility
+        const imageUrl = getStaticFileUrl(fileName, req);
+        
+        console.log('✅ Gemini image edited successfully (WhatsApp format)');
+        console.log(`🖼️ Edited image saved to: ${filePath}`);
+        console.log(`🔗 Public URL: ${imageUrl}`);
+        
+        return { 
+            success: true,
+            imageUrl: imageUrl,
+            description: "", // No text description - only send the edited image
+            fileName: fileName
+        };
+    } catch (err) {
+        console.error('❌ Gemini image edit error:', err);
+        return { 
+            success: false, 
+            error: err.message || 'Unknown error occurred during image editing' 
+        };
+    }
+}
+
 async function generateVideoWithText(prompt) {
     try {
         console.log('🎬 Starting Veo 3 text-to-video generation');
@@ -520,4 +612,4 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
     }
 }
 
-module.exports = { generateImageWithText, generateImageForWhatsApp, editImageWithText, generateVideoWithText, generateVideoWithImage, generateTextResponse };
+module.exports = { generateImageWithText, generateImageForWhatsApp, editImageWithText, editImageForWhatsApp, generateVideoWithText, generateVideoWithImage, generateTextResponse };
