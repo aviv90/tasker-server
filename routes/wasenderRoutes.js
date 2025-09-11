@@ -32,7 +32,7 @@ router.post('/webhook', async (req, res) => {
     console.log('📋 WaSender webhook headers:', JSON.stringify(req.headers, null, 2));
 
     // Verify webhook secret for security
-    const receivedSecret = req.headers['x-wasender-signature'];
+    const receivedSecret = req.headers['x-webhook-signature'];
     const expectedSecret = process.env.WASENDER_WEBHOOK_SECRET;
     
     if (!expectedSecret) {
@@ -40,16 +40,21 @@ router.post('/webhook', async (req, res) => {
       return res.status(500).json({ error: 'Webhook secret not configured' });
     }
 
-    // Basic security check (WaSender may use different signature verification)
-    // TODO: Implement proper signature verification based on WaSender documentation
+    // Verify signature (WaSender sends the secret directly in header)
+    if (receivedSecret !== expectedSecret) {
+      console.error('❌ Invalid webhook signature');
+      console.log(`Expected: ${expectedSecret}`);
+      console.log(`Received: ${receivedSecret}`);
+      return res.status(403).json({ error: 'Invalid signature' });
+    }
     
     const webhookData = req.body;
     
     // Handle different webhook event types based on WaSender format
-    if (webhookData.type === 'messages.upsert' && webhookData.data) {
-      await handleIncomingMessage(webhookData.data, req);
+    if (webhookData.event === 'messages.received' && webhookData.data && webhookData.data.messages) {
+      await handleIncomingMessage(webhookData.data.messages, req);
     } else {
-      console.log(`ℹ️ Unhandled webhook type: ${webhookData.type}`);
+      console.log(`ℹ️ Unhandled webhook event: ${webhookData.event}`);
     }
 
     res.status(200).json({ status: 'success' });
@@ -81,13 +86,23 @@ async function handleIncomingMessage(messageData, req) {
 
     // Handle different message types
     if (messageData.message?.conversation) {
-      // Text message
+      // Simple text message
       await handleTextMessage({
         messageId,
         chatId,
         senderId,
         senderName,
         text: messageData.message.conversation,
+        req
+      });
+    } else if (messageData.message?.extendedTextMessage?.text) {
+      // Extended text message (with formatting, replies, etc.)
+      await handleTextMessage({
+        messageId,
+        chatId,
+        senderId,
+        senderName,
+        text: messageData.message.extendedTextMessage.text,
         req
       });
     } else if (messageData.message?.imageMessage) {
@@ -104,6 +119,7 @@ async function handleIncomingMessage(messageData, req) {
       });
     } else {
       console.log(`ℹ️ Unsupported message type from ${senderName}`);
+      console.log('Message structure:', JSON.stringify(messageData.message, null, 2));
     }
   } catch (error) {
     console.error('❌ Error handling incoming message:', error);
