@@ -29,7 +29,7 @@ A powerful Node.js server providing unified access to multiple AI providers for 
 - **OpenAI Chat**: Advanced text generation with context awareness
 - **Conversation Management**: Maintains chat history for coherent conversations
 
-### 📱 WhatsApp Commands (WaSender API)
+### 📱 WhatsApp Commands (Green API)
 - **`* [prompt]`** - Gemini AI Chat
 - **`# [prompt]`** - OpenAI Chat
 - **`/clear`** - Clear conversation history

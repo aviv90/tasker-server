@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const taskRoutes = require('./routes/taskRoutes');
 const uploadEditRoutes = require('./routes/uploadEditRoutes');
-const wasenderRoutes = require('./routes/wasenderRoutes');
+const whatsappRoutes = require('./routes/whatsappRoutes');
 
 // Ensure tmp directory exists (important for Heroku deployments)
 const tmpDir = path.join(__dirname, 'public', 'tmp');
@@ -19,7 +19,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use('/static', express.static(path.join(__dirname, 'public', 'tmp')));
 app.use('/api', taskRoutes);
 app.use('/api', uploadEditRoutes);
-app.use('/api/wasenderapi', wasenderRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 
 // Add music callback endpoint
 app.post('/api/music/callback', (req, res) => {
@@ -39,5 +39,5 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('  POST /api/upload-transcribe - Upload audio and transcribe to text');
     console.log('  POST /api/speech-to-song - Transform speech recording into song');
     console.log('  GET /api/task-status/:taskId - Check task status');
-    console.log('  POST /api/wasenderapi/webhook - WaSender WhatsApp webhook endpoint');
+    console.log('  POST /api/whatsapp/webhook - Green API WhatsApp webhook endpoint');
 });

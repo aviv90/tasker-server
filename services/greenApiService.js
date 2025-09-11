@@ -1,140 +1,98 @@
+const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
+
 /**
  * Green API WhatsApp Service
- * Handles sending messages through Green API
+ * Handles sending messages and files via Green API
  */
+
+const GREEN_API_URL = process.env.GREEN_API_URL || 'https://api.green-api.com';
+const GREEN_API_ID_INSTANCE = process.env.GREEN_API_ID_INSTANCE || 'your_instance_id';
+const GREEN_API_API_TOKEN_INSTANCE = process.env.GREEN_API_API_TOKEN_INSTANCE || 'your_api_token';
 
 /**
  * Send text message via Green API
- * @param {string} chatId - WhatsApp chat ID (e.g., "972543995202@c.us")
- * @param {string} message - Text message to send
  */
 async function sendTextMessage(chatId, message) {
   try {
-    // We'll add the details after we get them from Green API Console
-    const instanceId = process.env.GREEN_API_INSTANCE_ID;
-    const apiToken = process.env.GREEN_API_TOKEN;
+    const url = `${GREEN_API_URL}/waInstance${GREEN_API_ID_INSTANCE}/sendMessage/${GREEN_API_API_TOKEN_INSTANCE}`;
     
-    if (!instanceId || !apiToken) {
-      console.error('❌ Green API credentials not configured');
-      throw new Error('Green API credentials missing');
-    }
-
-    const url = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${apiToken}`;
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        chatId: chatId,
-        message: message
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Green API send error:', errorText);
-      throw new Error(`Green API error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    console.log('✅ Message sent successfully:', result);
-    return result;
-
-  } catch (error) {
-    console.error('❌ Error sending WhatsApp message:', error);
-    throw error;
-  }
-}
-
-/**
- * Send file (image/audio/video/document) via Green API
- * @param {string} chatId - WhatsApp chat ID
- * @param {string} urlFile - URL of the file to send
- * @param {string} caption - Caption for the file (optional)
- * @param {string} fileName - File name (optional)
- */
-async function sendFileByUrl(chatId, urlFile, caption = '', fileName = '') {
-  try {
-    const instanceId = process.env.GREEN_API_INSTANCE_ID;
-    const apiToken = process.env.GREEN_API_TOKEN;
-    
-    if (!instanceId || !apiToken) {
-      throw new Error('Green API credentials missing');
-    }
-
-    const url = `https://api.green-api.com/waInstance${instanceId}/sendFileByUrl/${apiToken}`;
-    
-    // fileName is REQUIRED by Green API - use default if empty
-    const finalFileName = fileName && fileName.trim() !== '' ? fileName : 'file.png';
-    
-    // Build request body - fileName is always required
-    const requestBody = {
+    const data = {
       chatId: chatId,
-      urlFile: urlFile,
-      fileName: finalFileName
+      message: message
     };
-    
-    // Only add caption if not empty
-    if (caption && caption.trim() !== '') {
-      requestBody.caption = caption;
-    }
-    
-    console.log('📤 Sending file via Green API:', {
-      chatId,
-      urlFile,
-      fileName: finalFileName,
-      hasCaption: !!caption
-    });
-    
-    const response = await fetch(url, {
-      method: 'POST',
+
+    const response = await axios.post(url, data, {
       headers: {
         'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody)
+      }
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Green API send file error:', errorText);
-      throw new Error(`Green API error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    console.log('✅ File sent successfully:', result);
-    return result;
-
+    console.log(`📤 Message sent to ${chatId}:`, message.substring(0, 50) + '...');
+    return response.data;
   } catch (error) {
-    console.error('❌ Error sending WhatsApp file:', error);
+    console.error('❌ Error sending text message:', error.message);
     throw error;
   }
 }
 
 /**
- * Download file from Green API
- * @param {string} downloadUrl - Download URL from Green API
- * @returns {Promise<Buffer>} - File buffer
+ * Send file by URL via Green API
  */
-async function downloadFile(downloadUrl) {
+async function sendFileByUrl(chatId, fileUrl, fileName, caption = '') {
   try {
-    console.log('📥 Downloading file from Green API:', downloadUrl);
+    const url = `${GREEN_API_URL}/waInstance${GREEN_API_ID_INSTANCE}/sendFileByUrl/${GREEN_API_API_TOKEN_INSTANCE}`;
     
-    const response = await fetch(downloadUrl);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Green API download error:', errorText);
-      throw new Error(`Download failed: ${response.status}`);
-    }
-    
-    const fileBuffer = Buffer.from(await response.arrayBuffer());
-    console.log(`✅ File downloaded successfully, size: ${fileBuffer.length} bytes`);
-    return fileBuffer;
-    
+    const data = {
+      chatId: chatId,
+      urlFile: fileUrl,
+      fileName: fileName,
+      caption: caption
+    };
+
+    const response = await axios.post(url, data, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log(`📤 File sent to ${chatId}: ${fileName}`);
+    return response.data;
   } catch (error) {
-    console.error('❌ Error downloading file from Green API:', error);
+    console.error('❌ Error sending file:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Download file from WhatsApp message
+ */
+async function downloadFile(downloadUrl, fileName) {
+  try {
+    const response = await axios.get(downloadUrl, {
+      responseType: 'stream'
+    });
+
+    const tempDir = path.join(__dirname, '..', 'public', 'tmp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const filePath = path.join(tempDir, fileName);
+    const writer = fs.createWriteStream(filePath);
+
+    response.data.pipe(writer);
+
+    return new Promise((resolve, reject) => {
+      writer.on('finish', () => {
+        console.log(`📥 File downloaded: ${fileName}`);
+        resolve(filePath);
+      });
+      writer.on('error', reject);
+    });
+  } catch (error) {
+    console.error('❌ Error downloading file:', error.message);
     throw error;
   }
 }
