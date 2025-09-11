@@ -168,7 +168,7 @@ async function generateImageForWhatsApp(prompt, req = null) {
         return { 
             success: true,
             imageUrl: imageUrl,
-            description: text || `תמונה שנוצרה על בסיס: ${cleanPrompt}`,
+            description: "", // No text description - only send the image
             fileName: fileName
         };
     } catch (err) {
