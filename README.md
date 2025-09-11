@@ -24,6 +24,11 @@ A powerful Node.js server providing unified access to multiple AI providers for 
 - **Instrumental Music**: Create background music and soundtracks
 - **Multiple Models**: Suno V3.5, V4, V4.5, V4.5Plus for different quality levels
 
+### 💬 AI Chat
+- **Gemini Chat**: Text conversation with conversation history support
+- **OpenAI Chat**: Advanced text generation with context awareness
+- **Conversation Management**: Maintains chat history for coherent conversations
+
 ## 🔌 Supported Providers
 
 ### **🥇 Kie.ai** (All-in-One Platform)
@@ -98,6 +103,34 @@ Content-Type: application/json
   "type": "text-to-music",
   "prompt": "A happy song about summer vacation and good times with friends",
   "model": "V4_5"
+}
+```
+
+### AI Chat - Gemini
+```bash
+POST /api/start-task
+Content-Type: application/json
+
+{
+  "type": "gemini-chat",
+  "prompt": "מה ההבדל בין AI לבין ML?",
+  "conversationHistory": [
+    { "role": "user", "content": "בוקר טוב" },
+    { "role": "assistant", "content": "בוקר טוב! איך אוכל לעזור לך היום?" }
+  ]
+}
+```
+
+### AI Chat - OpenAI
+```bash
+POST /api/start-task
+Content-Type: application/json
+
+{
+  "type": "openai-chat",
+  "prompt": "כתוב לי שיר על חתול",
+  "conversationHistory": []
+}
 }
 ```
 

@@ -85,10 +85,30 @@ router.post('/start-task', async (req, res) => {
             }
             
             await finalizeMusic(taskId, result, sanitizedPrompt, req);
+        } else if (type === 'gemini-chat') {
+            let result;
+            
+            // Gemini text chat with conversation history
+            const conversationHistory = req.body.conversationHistory || [];
+            
+            console.log(`🔮 Generating Gemini chat response for: "${sanitizedPrompt}"`);
+            result = await geminiService.generateTextResponse(sanitizedPrompt, conversationHistory);
+            
+            await finalizeTextResponse(taskId, result, sanitizedPrompt, req);
+        } else if (type === 'openai-chat') {
+            let result;
+            
+            // OpenAI text chat with conversation history
+            const conversationHistory = req.body.conversationHistory || [];
+            
+            console.log(`🤖 Generating OpenAI chat response for: "${sanitizedPrompt}"`);
+            result = await openaiService.generateTextResponse(sanitizedPrompt, conversationHistory);
+            
+            await finalizeTextResponse(taskId, result, sanitizedPrompt, req);
         } else {
             taskStore.set(taskId, { 
                 status: 'error', 
-                error: { message: 'Unsupported task type', type: type, supportedTypes: ['text-to-image', 'text-to-video', 'text-to-music'] }
+                error: { message: 'Unsupported task type', type: type, supportedTypes: ['text-to-image', 'text-to-video', 'text-to-music', 'gemini-chat', 'openai-chat'] }
             });
         }
     } catch (error) {
@@ -187,6 +207,44 @@ function finalizeMusic(taskId, result, prompt, req) {
     }
 }
 
+function finalizeTextResponse(taskId, result, prompt, req) {
+    try {
+        if (isErrorResult(result)) {
+            console.log(`❌ Text generation failed for task ${taskId}:`, result.error);
+            taskStore.set(taskId, { status: 'error', error: result.error });
+            return;
+        }
+        
+        console.log(`✅ Text response generated for task ${taskId}`);
+        
+        const taskResult = {
+            status: 'done',
+            result: result.text || prompt,
+            text: result.text || prompt,
+            type: 'text'
+        };
 
+        // Add metadata if available
+        if (result.metadata) {
+            taskResult.metadata = {
+                service: result.metadata.service,
+                model: result.metadata.model,
+                characterCount: result.metadata.characterCount,
+                created_at: result.metadata.created_at
+            };
+        }
+
+        // Add original prompt for reference
+        if (result.originalPrompt) {
+            taskResult.originalPrompt = result.originalPrompt;
+        }
+
+        taskStore.set(taskId, taskResult);
+        console.log(`📋 Task ${taskId} completed successfully`);
+    } catch (error) {
+        console.error(`❌ Error in finalizeTextResponse:`, error);
+        taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
+    }
+}
 
 module.exports = router;

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { sendTextMessage, sendFileByUrl, downloadFile } = require('../services/wasenderService');
 const { generateTextResponse: generateGeminiResponse, editImageForWhatsApp } = require('../services/geminiService');
+const { generateTextResponse: generateOpenAIResponse } = require('../services/openaiService');
 const conversationManager = require('../services/conversationManager');
 
 /**
@@ -85,24 +86,24 @@ async function handleIncomingMessage(messageData, req) {
     console.log(`📱 Message from: ${senderName} (${chatId})`);
 
     // Handle different message types
+    let messageText = null;
+    
     if (messageData.message?.conversation) {
       // Simple text message
-      await handleTextMessage({
-        messageId,
-        chatId,
-        senderId,
-        senderName,
-        text: messageData.message.conversation,
-        req
-      });
+      messageText = messageData.message.conversation;
     } else if (messageData.message?.extendedTextMessage?.text) {
       // Extended text message (with formatting, replies, etc.)
+      messageText = messageData.message.extendedTextMessage.text;
+    }
+    
+    if (messageText) {
+      // Handle text message only once
       await handleTextMessage({
         messageId,
         chatId,
         senderId,
         senderName,
-        text: messageData.message.extendedTextMessage.text,
+        text: messageText,
         req
       });
     } else if (messageData.message?.imageMessage) {
@@ -166,6 +167,35 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
         }
         break;
 
+      case 'openai_chat':
+        console.log(`🤖 Processing OpenAI chat request from ${senderName}`);
+        
+        try {
+          // Add user message to conversation
+          conversationManager.addMessage(chatId, 'user', command.prompt);
+          
+          // Get conversation history for context
+          const openaiHistory = conversationManager.getHistory(chatId);
+          
+          // Generate OpenAI response
+          const openaiResponse = await generateOpenAIResponse(command.prompt, openaiHistory);
+          
+          if (openaiResponse.error) {
+            await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת התגובה.');
+            console.log(`❌ OpenAI error for ${senderName}: ${openaiResponse.error}`);
+          } else {
+            // Add AI response to conversation
+            conversationManager.addMessage(chatId, 'assistant', openaiResponse.text);
+            await sendTextMessage(chatId, openaiResponse.text);
+          }
+          
+          console.log(`✅ OpenAI response sent to ${senderName}`);
+        } catch (openaiError) {
+          console.error('❌ Error in OpenAI chat:', openaiError);
+          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד הבקשה שלך.');
+        }
+        break;
+
       case 'clear_conversation':
         const cleared = conversationManager.clearSession(chatId);
         if (cleared) {
@@ -196,8 +226,9 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
       case 'help':
         const helpMessage = `🤖 **WaSender Bot Commands:**
 
-💬 **Gemini Chat:**
+💬 **AI Chat:**
 🔮 \`* [שאלה]\` - Gemini Chat
+🤖 \`? [שאלה]\` - OpenAI Chat
 
 ⚙️ **ניהול שיחה:**
 🗑️ \`/clear\` - מחיקת היסטוריה
@@ -205,7 +236,8 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
 ❓ \`/help\` - הצגת עזרה זו
 
 💡 **דוגמאות:**
-\`* מה ההבדל בין AI לבין ML?\``;
+\`* מה ההבדל בין AI לבין ML?\`
+\`? כתוב לי שיר על חתול\``;
 
         await sendTextMessage(chatId, helpMessage);
         break;
@@ -301,6 +333,16 @@ function parseTextCommand(text) {
     const prompt = text.substring(2).trim(); // Remove "* "
     return {
       type: 'gemini_chat',
+      prompt: prompt,
+      originalMessage: text
+    };
+  }
+
+  // OpenAI Chat command: ? + space + text
+  if (text.startsWith('? ')) {
+    const prompt = text.substring(2).trim(); // Remove "? "
+    return {
+      type: 'openai_chat',
       prompt: prompt,
       originalMessage: text
     };
