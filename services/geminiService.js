@@ -552,7 +552,7 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         // Add system prompt as first user message (Gemini format)
         contents.push({
             role: 'user',
-            parts: [{ text: 'אתה עוזר AI מ-WaSender שמשיב הודעות אוטומטיות. אתה מועיל, יצירתי, חכם ומאוד ידידותי. אתה תמיד נותן תשובה. אתה מסוגל לענות בעברית ובאנגלית ואתה זוכר את השיחה הקודמת.' }]
+            parts: [{ text: 'אתה עוזר AI מ-Green API שמשיב הודעות אוטומטיות. אתה מועיל, יצירתי, חכם ומאוד ידידותי. אתה תמיד נותן תשובה. אתה מסוגל לענות בעברית ובאנגלית ואתה זוכר את השיחה הקודמת.' }]
         });
         
         // Add system prompt response
