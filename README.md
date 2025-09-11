@@ -31,8 +31,7 @@ A powerful Node.js server providing unified access to multiple AI providers for 
 
 ### 📱 WhatsApp Commands (WaSender API)
 - **`* [prompt]`** - Gemini AI Chat
-- **`# [prompt]`** - OpenAI Chat (primary method)
-- **`? [prompt]`** - OpenAI Chat (alternative method)
+- **`# [prompt]`** - OpenAI Chat
 - **`/clear`** - Clear conversation history
 - **`/history`** - Show conversation history
 - **`/help`** - Show available commands
