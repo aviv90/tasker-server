@@ -62,7 +62,7 @@ router.post('/webhook', async (req, res) => {
     // Handle different webhook types
     switch (typeWebhook) {
       case 'incomingMessageReceived':
-        await handleIncomingMessage(req.body);
+        await handleIncomingMessage(req.body, req);
         break;
         
       case 'outgoingMessageStatus':
@@ -107,8 +107,9 @@ router.get('/stats', (req, res) => {
 /**
  * Handle incoming WhatsApp message
  * @param {Object} webhookData - Full webhook data from Green API
+ * @param {Object} req - Express request object for URL generation
  */
-async function handleIncomingMessage(webhookData) {
+async function handleIncomingMessage(webhookData, req) {
   try {
     // Extract data from Green API webhook structure
     const {
@@ -142,7 +143,8 @@ async function handleIncomingMessage(webhookData) {
           chatId,
           senderId,
           senderName,
-          text: textMessage
+          text: textMessage,
+          req
         });
         break;
         
@@ -298,7 +300,7 @@ function parseCommand(message) {
 /**
  * Handle text message
  */
-async function handleTextMessage({ messageId, chatId, senderId, senderName, text }) {
+async function handleTextMessage({ messageId, chatId, senderId, senderName, text, req }) {
   console.log(`💬 Text message: "${text}"`);
   
   try {
@@ -362,7 +364,7 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
           conversationManager.addMessage(chatId, 'user', command.prompt);
           
           // Generate image with Gemini (WhatsApp format)
-          const imageResult = await generateImageForWhatsApp(command.prompt);
+          const imageResult = await generateImageForWhatsApp(command.prompt, req);
           
           if (imageResult.success && imageResult.imageUrl) {
             // Send Gemini's text response first (like "אני אצור תמונה של...")

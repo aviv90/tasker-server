@@ -20,6 +20,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genai = require('@google/genai');
 const { sanitizeText } = require('../utils/textSanitizer');
+const { getStaticFileUrl } = require('../utils/urlUtils');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
@@ -84,7 +85,7 @@ async function generateImageWithText(prompt) {
     }
 }
 
-async function generateImageForWhatsApp(prompt) {
+async function generateImageForWhatsApp(prompt, req = null) {
     try {
         console.log('🎨 Starting Gemini image generation (WhatsApp format)');
         
@@ -157,9 +158,8 @@ async function generateImageForWhatsApp(prompt) {
         // Write image file
         fs.writeFileSync(filePath, imageBuffer);
         
-        // Create public URL (server serves static files from /static path)
-        const serverUrl = process.env.SERVER_URL || 'http://localhost:3000';
-        const imageUrl = `${serverUrl}/static/${fileName}`;
+        // Create public URL using centralized URL utility
+        const imageUrl = getStaticFileUrl(fileName, req);
         
         console.log('✅ Gemini image generated successfully (WhatsApp format)');
         console.log(`🖼️ Image saved to: ${filePath}`);

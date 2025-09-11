@@ -1,4 +1,5 @@
 const { sanitizeText } = require('../utils/textSanitizer');
+const { getStaticFileUrl } = require('../utils/urlUtils');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
@@ -206,7 +207,7 @@ class KieService {
             fs.writeFileSync(tempImagePath, imageBuffer);
 
             // Create public URL for the image
-            const imageUrl = `${process.env.PUBLIC_URL || 'http://localhost:3000'}/tmp/${tempImageName}`;
+            const imageUrl = getStaticFileUrl(`tmp/${tempImageName}`);
 
             // Step 2: Submit video generation task with image
             const generateResponse = await fetch(`${this.baseUrl}/api/v1/veo/generate`, {

@@ -1,4 +1,5 @@
 const { sanitizeText } = require('../utils/textSanitizer');
+const { getApiUrl, getStaticFileUrl } = require('../utils/urlUtils');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
@@ -42,7 +43,7 @@ class MusicService {
                 customMode: false, // Let Suno be creative
                 instrumental: false, // We want lyrics
                 model: options.model || 'V4_5', // Use V4.5 for better quality
-                callBackUrl: `${process.env.PUBLIC_URL || 'http://localhost:3000'}/api/music/callback`
+                callBackUrl: getApiUrl('/api/music/callback')
             };
             
             console.log(`🎼 Using automatic mode with prompt: "${cleanPrompt}"`);
@@ -223,7 +224,7 @@ class MusicService {
                 customMode: false, // Let Suno be creative  
                 instrumental: true, // No lyrics
                 model: options.model || 'V4_5',
-                callBackUrl: `${process.env.PUBLIC_URL || 'http://localhost:3000'}/api/music/callback`
+                callBackUrl: getApiUrl('/api/music/callback')
             };
 
             console.log(`🎹 Using automatic instrumental mode with prompt: "${cleanPrompt}"`);
@@ -575,25 +576,7 @@ class MusicService {
             console.log(`💾 Audio file saved: ${filename}, size: ${fileStats.size} bytes`);
             
             // Create public URL for the uploaded file
-            let baseUrl = process.env.BASE_URL;
-            
-            // Auto-detect based on environment
-            if (!baseUrl) {
-                if (process.env.HEROKU_APP_NAME) {
-                    baseUrl = `https://${process.env.HEROKU_APP_NAME}.herokuapp.com`;
-                } else if (process.env.PORT && process.env.PORT !== '3000') {
-                    // Likely Heroku without HEROKU_APP_NAME - construct from request
-                    baseUrl = `https://tasker-server-eb22b09c778f.herokuapp.com`;
-                } else if (process.env.RAILWAY_PUBLIC_DOMAIN) {
-                    baseUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
-                } else if (process.env.VERCEL_URL) {
-                    baseUrl = `https://${process.env.VERCEL_URL}`;
-                } else {
-                    baseUrl = 'http://localhost:3000';
-                }
-            }
-            
-            const uploadUrl = `${baseUrl}/static/${filename}`;
+            const uploadUrl = getStaticFileUrl(filename);
             const callbackUrl = this._getCallbackUrl();
             
             console.log(`✅ Audio file uploaded: ${uploadUrl}`);
@@ -691,23 +674,7 @@ class MusicService {
     }
 
     _getCallbackUrl() {
-        let baseUrl = process.env.BASE_URL;
-        
-        // Auto-detect the base URL based on environment
-        if (!baseUrl) {
-            if (process.env.HEROKU_APP_NAME) {
-                baseUrl = `https://${process.env.HEROKU_APP_NAME}.herokuapp.com`;
-            } else if (process.env.RAILWAY_PUBLIC_DOMAIN) {
-                baseUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
-            } else if (process.env.VERCEL_URL) {
-                baseUrl = `https://${process.env.VERCEL_URL}`;
-            } else {
-                baseUrl = 'http://localhost:3000';
-                console.warn('⚠️  No BASE_URL configured. Using localhost for callbacks - this may not work with external APIs!');
-            }
-        }
-        
-        return `${baseUrl}/api/music/callback`;
+        return getApiUrl('/api/music/callback');
     }
 }
 
