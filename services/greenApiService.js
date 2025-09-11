@@ -66,17 +66,28 @@ async function sendFileByUrl(chatId, urlFile, caption = '', fileName = '') {
 
     const url = `https://api.green-api.com/waInstance${instanceId}/sendFileByUrl/${apiToken}`;
     
+    // Build request body - only include non-empty fields
+    const requestBody = {
+      chatId: chatId,
+      urlFile: urlFile
+    };
+    
+    // Only add caption if not empty
+    if (caption && caption.trim() !== '') {
+      requestBody.caption = caption;
+    }
+    
+    // Only add fileName if not empty
+    if (fileName && fileName.trim() !== '') {
+      requestBody.fileName = fileName;
+    }
+    
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        chatId: chatId,
-        urlFile: urlFile,
-        caption: caption,
-        fileName: fileName
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
