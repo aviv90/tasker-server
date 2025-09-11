@@ -7,7 +7,6 @@ const path = require('path');
  * Handles sending messages and files via Green API
  */
 
-const GREEN_API_URL = process.env.GREEN_API_URL || 'https://api.green-api.com';
 const GREEN_API_ID_INSTANCE = process.env.GREEN_API_ID_INSTANCE || 'your_instance_id';
 const GREEN_API_API_TOKEN_INSTANCE = process.env.GREEN_API_API_TOKEN_INSTANCE || 'your_api_token';
 
@@ -16,7 +15,7 @@ const GREEN_API_API_TOKEN_INSTANCE = process.env.GREEN_API_API_TOKEN_INSTANCE ||
  */
 async function sendTextMessage(chatId, message) {
   try {
-    const url = `${GREEN_API_URL}/waInstance${GREEN_API_ID_INSTANCE}/sendMessage/${GREEN_API_API_TOKEN_INSTANCE}`;
+    const url = `https://api.green-api.com/waInstance${GREEN_API_ID_INSTANCE}/sendMessage/${GREEN_API_API_TOKEN_INSTANCE}`;
     
     const data = {
       chatId: chatId,
@@ -42,7 +41,7 @@ async function sendTextMessage(chatId, message) {
  */
 async function sendFileByUrl(chatId, fileUrl, fileName, caption = '') {
   try {
-    const url = `${GREEN_API_URL}/waInstance${GREEN_API_ID_INSTANCE}/sendFileByUrl/${GREEN_API_API_TOKEN_INSTANCE}`;
+    const url = `https://api.green-api.com/waInstance${GREEN_API_ID_INSTANCE}/sendFileByUrl/${GREEN_API_API_TOKEN_INSTANCE}`;
     
     const data = {
       chatId: chatId,
