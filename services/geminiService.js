@@ -373,7 +373,7 @@ async function generateVideoWithText(prompt) {
             return { error: `Failed to download video file: ${downloadError.message}` };
         }
         
-        // בדיקה שהקובץ נוצר ושלם
+        // Check if the file was created and is complete
         let retries = 0;
         let fileReady = false;
         
@@ -384,12 +384,12 @@ async function generateVideoWithText(prompt) {
                 try {
                     const stats = fs.statSync(tempFilePath);
                     
-                    // בדיקה שהקובץ לא ריק ושהוא יציב (גודל לא משתנה)
+                    // Check that the file is not empty and stable (size doesn't change)
                     if (stats.size > 0) {
                         await new Promise(resolve => setTimeout(resolve, 500));
                         const newStats = fs.statSync(tempFilePath);
                         
-                        if (newStats.size === stats.size && stats.size > 10000) { // לפחות 10KB
+                        if (newStats.size === stats.size && stats.size > 10000) { // At least 10KB
                             fileReady = true;
                             break;
                         }
@@ -406,8 +406,8 @@ async function generateVideoWithText(prompt) {
             return { error: 'Video file was not downloaded successfully' };
         }
         
-        // לא מוחקים את הקובץ, כי צריך לינק להורדה
-        // מחזירים buffer, text ו-result path שייעשה לו prefix ב-finalizeVideo
+        // Don't delete the file, we need the download link
+        // Return buffer, text and result path that will be prefixed in finalizeVideo
         console.log('✅ Veo 3 text-to-video generated successfully.');
         
         const videoBuffer = fs.readFileSync(tempFilePath);
