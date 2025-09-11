@@ -1,6 +1,10 @@
 const OpenAI = require('openai');
 const axios = require('axios');
 const { sanitizeText } = require('../utils/textSanitizer');
+const { getStaticFileUrl } = require('../utils/urlUtils');
+const fs = require('fs');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
@@ -162,4 +166,77 @@ async function generateTextResponse(prompt, conversationHistory = []) {
   }
 }
 
-module.exports = { generateImageWithText, editImageWithText, generateTextResponse };
+async function generateImageForWhatsApp(prompt, req) {
+    try {
+        console.log('🎨 Starting OpenAI image generation (WhatsApp format)');
+        
+        // Sanitize prompt as an extra safety measure
+        const cleanPrompt = sanitizeText(prompt);
+        
+        // Use gpt-image-1 which always returns base64
+        const response = await openai.images.generate({
+            model: "gpt-image-1",
+            prompt: cleanPrompt,
+            n: 1,
+            quality: "high",
+            output_format: "png"
+        });
+        
+        if (!response.data || response.data.length === 0) {
+            console.log('❌ OpenAI: No image generated');
+            return { 
+                success: false, 
+                error: 'No image generated' 
+            };
+        }
+        
+        const imageData = response.data[0];
+        
+        // OpenAI gpt-image-1 returns base64 data directly
+        if (!imageData.b64_json) {
+            console.log('❌ OpenAI: No base64 data found');
+            return { 
+                success: false, 
+                error: 'No image data found' 
+            };
+        }
+        
+        // Convert base64 to buffer
+        const imageBuffer = Buffer.from(imageData.b64_json, 'base64');
+        
+        // Save to public directory
+        const fileName = `openai_${uuidv4()}.png`;
+        const filePath = path.join(__dirname, '..', 'public', 'tmp', fileName);
+        
+        // Ensure tmp directory exists
+        const tmpDir = path.dirname(filePath);
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        
+        // Write image file
+        fs.writeFileSync(filePath, imageBuffer);
+        
+        // Create public URL using centralized URL utility
+        const imageUrl = getStaticFileUrl(fileName, req);
+        
+        console.log('✅ OpenAI image generated successfully (WhatsApp format)');
+        console.log(`🖼️ Image saved to: ${filePath}`);
+        console.log(`🔗 Public URL: ${imageUrl}`);
+        
+        return { 
+            success: true,
+            imageUrl: imageUrl,
+            description: "", // No text description - only send the image
+            fileName: fileName
+        };
+    } catch (err) {
+        console.error('❌ OpenAI image generation error:', err);
+        return { 
+            success: false, 
+            error: err.message || 'Unknown error occurred during image generation' 
+        };
+    }
+}
+
+module.exports = { generateImageWithText, editImageWithText, generateTextResponse, generateImageForWhatsApp };

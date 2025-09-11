@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { sendTextMessage, sendFileByUrl } = require('../services/greenApiService');
-const { generateTextResponse } = require('../services/openaiService');
+const { generateTextResponse, generateImageForWhatsApp: generateOpenAIImageForWhatsApp } = require('../services/openaiService');
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp } = require('../services/geminiService');
 const conversationManager = require('../services/conversationManager');
 
@@ -262,6 +262,16 @@ function parseCommand(message) {
     };
   }
   
+  // OpenAI Image Generation command: ## + space + text
+  if (text.startsWith('## ')) {
+    const prompt = text.substring(3).trim(); // Remove "## "
+    return {
+      type: 'openai_image',
+      prompt: prompt,
+      originalMessage: text
+    };
+  }
+  
   // Special commands for conversation management
   if (text.toLowerCase() === '/clear' || text.toLowerCase() === '/reset') {
     return {
@@ -391,6 +401,33 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
         }
         break;
         
+      case 'openai_image':
+        console.log(`🎨 Processing OpenAI image generation request from ${senderName}`);
+        
+        try {
+          // Add user message to conversation
+          conversationManager.addMessage(chatId, 'user', command.prompt);
+          
+          // Generate image with OpenAI (WhatsApp format)
+          const imageResult = await generateOpenAIImageForWhatsApp(command.prompt, req);
+          
+          if (imageResult.success && imageResult.imageUrl) {
+            // Send only the generated image (no text description)
+            console.log(`🔗 Sending OpenAI image: ${imageResult.imageUrl}`);
+            console.log(`📄 File name: ${imageResult.fileName || "openai_image.png"}`);
+            await sendFileByUrl(chatId, imageResult.imageUrl, "", imageResult.fileName || "openai_image.png");
+            
+            console.log(`✅ OpenAI image sent to ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, '❌ סליחה, לא הצלחתי ליצור תמונה עם OpenAI. נסה שוב מאוחר יותר.');
+            console.log(`❌ OpenAI image generation failed for ${senderName}`);
+          }
+        } catch (imageError) {
+          console.error('❌ Error in OpenAI image generation:', imageError);
+          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת התמונה.');
+        }
+        break;
+        
       case 'clear_conversation':
         const cleared = conversationManager.clearSession(chatId);
         if (cleared) {
@@ -427,7 +464,8 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
 🔮 \`* [שאלה]\` - Gemini Chat
 
 🎨 **יצירת תמונות:**
-🖼️ \`** [תיאור]\` - יצירת תמונה עם Gemini (טקסט + תמונה)
+🖼️ \`** [תיאור]\` - יצירת תמונה עם Gemini
+🎯 \`## [תיאור]\` - יצירת תמונה עם OpenAI
 
 ⚙️ **ניהול שיחה:**
 🗑️ \`/clear\` - מחיקת היסטוריה
@@ -437,7 +475,8 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
 💡 **דוגמאות:**
 \`# מה השעה בטוקיו?\`
 \`* מה ההבדל בין AI לבין ML?\`
-\`** חתול כתום שיושב על עץ\``;
+\`** חתול כתום שיושב על עץ\`
+\`## כלב זהוב רץ בחוף הים\``;
 
         await sendTextMessage(chatId, helpMessage);
         break;
