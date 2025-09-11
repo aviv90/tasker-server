@@ -66,10 +66,14 @@ async function sendFileByUrl(chatId, urlFile, caption = '', fileName = '') {
 
     const url = `https://api.green-api.com/waInstance${instanceId}/sendFileByUrl/${apiToken}`;
     
-    // Build request body - only include non-empty fields
+    // fileName is REQUIRED by Green API - use default if empty
+    const finalFileName = fileName && fileName.trim() !== '' ? fileName : 'file.png';
+    
+    // Build request body - fileName is always required
     const requestBody = {
       chatId: chatId,
-      urlFile: urlFile
+      urlFile: urlFile,
+      fileName: finalFileName
     };
     
     // Only add caption if not empty
@@ -77,10 +81,12 @@ async function sendFileByUrl(chatId, urlFile, caption = '', fileName = '') {
       requestBody.caption = caption;
     }
     
-    // Only add fileName if not empty
-    if (fileName && fileName.trim() !== '') {
-      requestBody.fileName = fileName;
-    }
+    console.log('📤 Sending file via Green API:', {
+      chatId,
+      urlFile,
+      fileName: finalFileName,
+      hasCaption: !!caption
+    });
     
     const response = await fetch(url, {
       method: 'POST',

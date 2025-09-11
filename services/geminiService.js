@@ -157,9 +157,9 @@ async function generateImageForWhatsApp(prompt) {
         // Write image file
         fs.writeFileSync(filePath, imageBuffer);
         
-        // Create public URL (assuming server is accessible at current port)
+        // Create public URL (server serves static files from /static path)
         const serverUrl = process.env.SERVER_URL || 'http://localhost:3000';
-        const imageUrl = `${serverUrl}/tmp/${fileName}`;
+        const imageUrl = `${serverUrl}/static/${fileName}`;
         
         console.log('✅ Gemini image generated successfully (WhatsApp format)');
         console.log(`🖼️ Image saved to: ${filePath}`);

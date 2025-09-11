@@ -374,6 +374,8 @@ async function handleTextMessage({ messageId, chatId, senderId, senderName, text
             }
             
             // Send the generated image (without caption to avoid duplication)
+            console.log(`🔗 Sending image: ${imageResult.imageUrl}`);
+            console.log(`📄 File name: ${imageResult.fileName || "generated_image.png"}`);
             await sendFileByUrl(chatId, imageResult.imageUrl, "", imageResult.fileName || "generated_image.png");
             
             console.log(`✅ Gemini image sent to ${senderName}`);
