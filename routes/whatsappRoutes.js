@@ -80,11 +80,15 @@ router.post('/webhook', async (req, res) => {
     const webhookData = req.body;
     console.log('📱 Green API webhook received:', JSON.stringify(webhookData, null, 2));
 
-    // Handle different webhook types
+    // Handle different webhook types asynchronously
     if (webhookData.typeWebhook === 'incomingMessageReceived') {
-      await handleIncomingMessage(webhookData);
+      // Process in background - don't await
+      handleIncomingMessage(webhookData).catch(error => {
+        console.error('❌ Error in async webhook processing:', error.message || error);
+      });
     }
 
+    // Return 200 OK immediately
     res.status(200).json({ status: 'ok' });
   } catch (error) {
     console.error('❌ Error processing webhook:', error.message || error);
@@ -132,7 +136,8 @@ async function handleIncomingMessage(webhookData) {
     }
     
     if (messageText) {
-      await handleTextMessage({
+      // Process message asynchronously - don't await
+      processTextMessageAsync({
         chatId,
         senderId,
         senderName,
@@ -144,6 +149,16 @@ async function handleIncomingMessage(webhookData) {
   } catch (error) {
     console.error('❌ Error handling incoming message:', error.message || error);
   }
+}
+
+/**
+ * Process text message asynchronously (no await from webhook)
+ */
+function processTextMessageAsync(messageData) {
+  // Run in background without blocking webhook response
+  handleTextMessage(messageData).catch(error => {
+    console.error('❌ Error in async message processing:', error.message || error);
+  });
 }
 
 /**
