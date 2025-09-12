@@ -231,10 +231,6 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         }
         break;
 
-      case 'disabled_command':
-        await sendTextMessage(chatId, '🚨 פקודה זו מבוטלת זמנית עקב בעיה טכנית');
-        break;
-
       case 'gemini_image':
         console.log(`🎨 Processing Gemini image generation request from ${senderName}`);
         
@@ -318,12 +314,12 @@ function parseTextCommand(text) {
 
   text = text.trim();
 
-  // OpenAI Image Generation command: ## + space + text - TEMPORARILY DISABLED
+  // OpenAI Image Generation command: ## + space + text
   if (text.startsWith('## ')) {
-    console.log('🚨 OpenAI image command DISABLED due to infinite loop issue');
+    const prompt = text.substring(3).trim(); // Remove "## "
     return {
-      type: 'disabled_command',
-      prompt: 'OpenAI image generation temporarily disabled',
+      type: 'openai_image',
+      prompt: prompt,
       originalMessage: text
     };
   }
