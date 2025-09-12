@@ -36,7 +36,6 @@ function getServerBaseUrl(req = null) {
     
     // Production fallback (update this when deploying to different servers)
     if (process.env.NODE_ENV === 'production') {
-        console.warn('⚠️ No SERVER_URL set in production environment');
         return 'https://tasker-server-eb22b09c778f.herokuapp.com';
     }
     
