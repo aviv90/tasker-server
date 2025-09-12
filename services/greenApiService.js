@@ -56,7 +56,7 @@ async function sendFileByUrl(chatId, fileUrl, fileName, caption = '') {
       }
     });
 
-    console.log(`📤 File sent to ${chatId}: ${fileName}`);
+    console.log(`📤 File sent to ${chatId}: ${fileName}${caption ? ' with caption: ' + caption : ''}`);
     return response.data;
   } catch (error) {
     console.error('❌ Error sending file:', error.message);

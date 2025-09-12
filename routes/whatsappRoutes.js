@@ -254,19 +254,20 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
           console.log('🔍 OPENAI RESULT IN WHATSAPP ROUTE:', JSON.stringify(openaiResultForLog, null, 2));
           
           if (openaiImageResult.success && openaiImageResult.imageUrl) {
-            // Send OpenAI's text response first (if exists)
-            if (openaiImageResult.description && openaiImageResult.description.length > 0) {
-              await sendTextMessage(chatId, openaiImageResult.description);
-              
-              // Add OpenAI's response to conversation history
-              conversationManager.addMessage(chatId, 'assistant', openaiImageResult.description);
+            // Send the generated image with text as caption (if exists)
+            const fileName = `openai_image_${Date.now()}.png`;
+            const caption = openaiImageResult.description && openaiImageResult.description.length > 0 
+              ? openaiImageResult.description 
+              : '';
+            
+            await sendFileByUrl(chatId, openaiImageResult.imageUrl, fileName, caption);
+            
+            // Add AI response to conversation history
+            if (caption) {
+              conversationManager.addMessage(chatId, 'assistant', caption);
             }
             
-            // Send the generated image with proper filename
-            const fileName = `openai_image_${Date.now()}.png`;
-            await sendFileByUrl(chatId, openaiImageResult.imageUrl, fileName);
-            
-            console.log(`✅ OpenAI image sent to ${senderName}`);
+            console.log(`✅ OpenAI image sent to ${senderName}${caption ? ' with caption: ' + caption : ''}`);
           } else {
             const errorMsg = openaiImageResult.error || 'לא הצלחתי ליצור תמונה. נסה שוב מאוחר יותר.';
             await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
@@ -297,19 +298,20 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
           console.log('🔍 GEMINI RESULT IN WHATSAPP ROUTE:', JSON.stringify(geminiResultForLog, null, 2));
           
           if (imageResult.success && imageResult.imageUrl) {
-            // Send Gemini's text response first (like "אני אצור תמונה של...")
-            if (imageResult.description && imageResult.description.length > 0) {
-              await sendTextMessage(chatId, imageResult.description);
-              
-              // Add Gemini's response to conversation history
-              conversationManager.addMessage(chatId, 'assistant', imageResult.description);
+            // Send the generated image with text as caption
+            const fileName = `gemini_image_${Date.now()}.png`;
+            const caption = imageResult.description && imageResult.description.length > 0 
+              ? imageResult.description 
+              : '';
+            
+            await sendFileByUrl(chatId, imageResult.imageUrl, fileName, caption);
+            
+            // Add both user request and AI response to conversation history
+            if (caption) {
+              conversationManager.addMessage(chatId, 'assistant', caption);
             }
             
-            // Send the generated image with proper filename
-            const fileName = `gemini_image_${Date.now()}.png`;
-            await sendFileByUrl(chatId, imageResult.imageUrl, fileName);
-            
-            console.log(`✅ Gemini image sent to ${senderName}`);
+            console.log(`✅ Gemini image sent to ${senderName}${caption ? ' with caption: ' + caption : ''}`);
           } else {
             // Check if Gemini returned text instead of image
             if (imageResult.textResponse) {

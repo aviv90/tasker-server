@@ -297,7 +297,7 @@ async function generateImageForWhatsApp(prompt, req = null) {
         return { 
             success: true,
             imageUrl: imageUrl,
-            description: "", // No text description - only send the image
+            description: text.trim() || "", // Include text as caption/description
             fileName: fileName
         };
     } catch (err) {
