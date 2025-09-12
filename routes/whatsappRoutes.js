@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { sendTextMessage, sendFileByUrl, downloadFile } = require('../services/greenApiService');
-const { generateTextResponse: generateOpenAIResponse } = require('../services/openaiService');
+const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage } = require('../services/openaiService');
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp } = require('../services/geminiService');
 const conversationManager = require('../services/conversationManager');
 
@@ -14,6 +14,9 @@ async function sendAck(chatId, command) {
   switch (command.type) {
     case 'gemini_image':
       ackMessage = '🎨 קיבלתי. מיד יוצר תמונה';
+      break;
+    case 'openai_image':
+      ackMessage = '🖼️ קיבלתי. מיד יוצר תמונה';
       break;
     case 'video_generation':
       ackMessage = '🎬 קיבלתי. מיד יוצר וידאו';
@@ -193,6 +196,41 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         }
         break;
 
+      case 'openai_image':
+        console.log(`🖼️ Processing OpenAI image generation request from ${senderName}`);
+        
+        try {
+          // Add user message to conversation
+          conversationManager.addMessage(chatId, 'user', `יצירת תמונה: ${command.prompt}`);
+          
+          // Generate image with OpenAI (WhatsApp format)
+          const openaiImageResult = await generateOpenAIImage(command.prompt);
+          
+          if (openaiImageResult.success && openaiImageResult.imageUrl) {
+            // Send OpenAI's text response first (if exists)
+            if (openaiImageResult.description && openaiImageResult.description.length > 0) {
+              await sendTextMessage(chatId, openaiImageResult.description);
+              
+              // Add OpenAI's response to conversation history
+              conversationManager.addMessage(chatId, 'assistant', openaiImageResult.description);
+            }
+            
+            // Send the generated image with proper filename
+            const fileName = `openai_image_${Date.now()}.png`;
+            await sendFileByUrl(chatId, openaiImageResult.imageUrl, fileName);
+            
+            console.log(`✅ OpenAI image sent to ${senderName}`);
+          } else {
+            const errorMsg = openaiImageResult.error || 'לא הצלחתי ליצור תמונה. נסה שוב מאוחר יותר.';
+            await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
+            console.log(`❌ OpenAI image generation failed for ${senderName}: ${errorMsg}`);
+          }
+        } catch (openaiImageError) {
+          console.error('❌ Error in OpenAI image generation:', openaiImageError.message || openaiImageError);
+          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת התמונה.');
+        }
+        break;
+
       case 'gemini_image':
         console.log(`🎨 Processing Gemini image generation request from ${senderName}`);
         
@@ -252,7 +290,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         break;
 
       case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ';
+        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n## דרקון אדום עף בשמיים';
 
         await sendTextMessage(chatId, helpMessage);
         break;
@@ -275,6 +313,16 @@ function parseTextCommand(text) {
   }
 
   text = text.trim();
+
+  // OpenAI Image Generation command: ## + space + text
+  if (text.startsWith('## ')) {
+    const prompt = text.substring(3).trim(); // Remove "## "
+    return {
+      type: 'openai_image',
+      prompt: prompt,
+      originalMessage: text
+    };
+  }
 
   // Gemini Image Generation command: ** + space + text
   if (text.startsWith('** ')) {
