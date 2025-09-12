@@ -49,7 +49,7 @@ async function generateImageWithText(prompt) {
         const response = result.response;
         if (!response.candidates || response.candidates.length === 0) {
             console.log('❌ Gemini: No candidates returned');
-            return { error: 'לא הצלחתי ליצור תמונה. נסה עם תיאור אחר או נסה שוב מאוחר יותר.' };
+            return { error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' };
         }
         
         const cand = response.candidates[0];
@@ -106,7 +106,7 @@ async function generateImageForWhatsApp(prompt, req = null) {
             console.log('❌ Gemini: No candidates returned');
             return { 
                 success: false, 
-                error: 'לא הצלחתי ליצור תמונה. נסה עם תיאור אחר או נסה שוב מאוחר יותר.' 
+                error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' 
             };
         }
         
@@ -201,7 +201,7 @@ async function editImageWithText(prompt, base64Image) {
         const response = result.response;
         if (!response.candidates || response.candidates.length === 0) {
             console.log('❌ Gemini edit: No candidates returned');
-            return { error: 'לא הצלחתי לערוך את התמונה. נסה עם הוראות אחרות.' };
+            return { error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' };
         }
         
         const cand = response.candidates[0];
@@ -260,7 +260,7 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
             console.log('❌ Gemini edit: No candidates returned');
             return { 
                 success: false, 
-                error: 'לא הצלחתי לערוך את התמונה. נסה עם הוראות אחרות.' 
+                error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' 
             };
         }
         
@@ -589,14 +589,14 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         
         if (!response.candidates || response.candidates.length === 0) {
             console.log('❌ Gemini: No candidates returned');
-            return { error: 'לא הצלחתי לענות על השאלה. נסה שוב או נסח את השאלה אחרת.' };
+            return { error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' };
         }
         
         const text = response.text();
         
         if (!text || text.trim().length === 0) {
             console.log('❌ Gemini: Empty text response');
-            return { error: 'קיבלתי תשובה ריקה. נסה שוב.' };
+            return { error: 'Empty response from Gemini' };
         }
         
         console.log(`✅ Gemini text generated: ${text.substring(0, 100)}...`);
