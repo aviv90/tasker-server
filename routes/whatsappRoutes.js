@@ -5,6 +5,17 @@ const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: 
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp } = require('../services/geminiService');
 const conversationManager = require('../services/conversationManager');
 
+// Message deduplication cache - prevent processing duplicate messages
+const processedMessages = new Set();
+
+// Clean up old processed messages every 30 minutes
+setInterval(() => {
+  if (processedMessages.size > 1000) {
+    processedMessages.clear();
+    console.log('🧹 Cleared processed messages cache');
+  }
+}, 30 * 60 * 1000);
+
 /**
  * Send immediate acknowledgment for long-running commands
  */
@@ -89,12 +100,25 @@ async function handleIncomingMessage(webhookData) {
     const messageData = webhookData.messageData;
     const senderData = webhookData.senderData;
     
+    // Extract message ID for deduplication
+    const messageId = webhookData.idMessage;
+    
+    // Check if we already processed this message
+    if (processedMessages.has(messageId)) {
+      console.log(`🔄 Duplicate message detected, skipping: ${messageId}`);
+      return;
+    }
+    
+    // Mark message as processed
+    processedMessages.add(messageId);
+    
     const chatId = senderData.chatId;
     const senderId = senderData.sender;
     const senderName = senderData.senderName || senderId;
     
     console.log(`📱 Message from: ${senderName} (${chatId})`);
     console.log(`📋 Message type: ${messageData.typeMessage}`);
+    console.log(`🆔 Message ID: ${messageId}`);
     
     // Handle text messages (both regular and extended)
     let messageText = null;
