@@ -97,14 +97,16 @@ async function generateImageForWhatsApp(prompt, req = null) {
             model: "gemini-2.5-flash-image-preview" 
         });
         
-        // Force image generation by being more explicit in the prompt (in Hebrew)
-        const imagePrompt = `צור תמונה של: ${cleanPrompt}. אני רוצה תמונה חזותית, לא רק טקסט.`;
+        // Force image generation with clear instruction
+        const imagePrompt = `Generate an image of: ${cleanPrompt}. 
+        IMPORTANT: You must create a visual image. Do not just provide text.
+        Create the image and respond in Hebrew.`;
         
         const result = await model.generateContent({
             contents: [{ role: "user", parts: [{ text: imagePrompt }] }],
             generationConfig: { 
-                responseModalities: ["IMAGE"], // Force only image generation
-                temperature: 0.8
+                responseModalities: ["TEXT", "IMAGE"], // Allow both text and image
+                temperature: 0.7
             }
         });
         
