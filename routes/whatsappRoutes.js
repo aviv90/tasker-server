@@ -6,6 +6,34 @@ const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp }
 const conversationManager = require('../services/conversationManager');
 
 /**
+ * Send immediate acknowledgment for long-running commands
+ */
+async function sendAck(chatId, command) {
+  let ackMessage = '';
+  
+  switch (command.type) {
+    case 'gemini_image':
+      ackMessage = '🎨 קיבלתי. מיד יוצר תמונה';
+      break;
+    case 'video_generation':
+      ackMessage = '🎬 קיבלתי. מיד יוצר וידאו';
+      break;
+    case 'voice_generation':
+      ackMessage = '🎤 קיבלתי. מיד יוצר קול';
+      break;
+    default:
+      return; // No ACK needed for this command
+  }
+  
+  try {
+    await sendTextMessage(chatId, ackMessage);
+    console.log(`✅ ACK sent for ${command.type}`);
+  } catch (error) {
+    console.error('❌ Error sending ACK:', error.message || error);
+  }
+}
+
+/**
  * WhatsApp Green API Integration Routes
  * 
  * 🚨 BACKWARD COMPATIBILITY RULE:
@@ -105,6 +133,9 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
   }
 
   console.log(`🤖 Executing command: ${command.type}`);
+
+  // Send immediate ACK for long-running commands
+  await sendAck(chatId, command);
 
   try {
     switch (command.type) {
