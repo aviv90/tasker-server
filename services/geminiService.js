@@ -152,9 +152,15 @@ async function generateImageForWhatsApp(prompt, req = null) {
             model: "gemini-2.5-flash-image-preview" 
         });
         
+        // Force image generation by being more explicit in the prompt
+        const imagePrompt = `Create an image of: ${cleanPrompt}. Generate a visual image, not just text.`;
+        
         const result = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: cleanPrompt }] }],
-            generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
+            contents: [{ role: "user", parts: [{ text: imagePrompt }] }],
+            generationConfig: { 
+                responseModalities: ["IMAGE"], // Force only image generation
+                temperature: 0.8
+            }
         });
         
         // Log result structure without base64 data to avoid flooding logs
@@ -246,6 +252,17 @@ async function generateImageForWhatsApp(prompt, req = null) {
                 return value;
             }));
             console.log('🔍 GEMINI ALL PARTS PROCESSED (WhatsApp):', JSON.stringify(allPartsForLog, null, 2));
+            
+            // Return the text response if we got text but no image
+            if (text && text.trim().length > 0) {
+                console.log('📝 Gemini returned text instead of image, sending text response');
+                return { 
+                    success: false, 
+                    error: 'No image data found in response',
+                    textResponse: text.trim() // Include the text response
+                };
+            }
+            
             return { 
                 success: false, 
                 error: 'No image data found in response' 

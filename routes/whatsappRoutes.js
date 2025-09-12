@@ -311,9 +311,18 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             
             console.log(`✅ Gemini image sent to ${senderName}`);
           } else {
-            const errorMsg = imageResult.error || 'לא הצלחתי ליצור תמונה. נסה שוב מאוחר יותר.';
-            await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
-            console.log(`❌ Gemini image generation failed for ${senderName}: ${errorMsg}`);
+            // Check if Gemini returned text instead of image
+            if (imageResult.textResponse) {
+              console.log('📝 Gemini returned text instead of image, sending text response');
+              await sendTextMessage(chatId, imageResult.textResponse);
+              
+              // Add Gemini's text response to conversation history
+              conversationManager.addMessage(chatId, 'assistant', imageResult.textResponse);
+            } else {
+              const errorMsg = imageResult.error || 'לא הצלחתי ליצור תמונה. נסה שוב מאוחר יותר.';
+              await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
+              console.log(`❌ Gemini image generation failed for ${senderName}: ${errorMsg}`);
+            }
           }
         } catch (imageError) {
           console.error('❌ Error in Gemini image generation:', imageError.message || imageError);
