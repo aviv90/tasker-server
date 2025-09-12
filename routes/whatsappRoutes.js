@@ -244,6 +244,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
           
           // Generate image with OpenAI (WhatsApp format)
           const openaiImageResult = await generateOpenAIImage(command.prompt);
+          console.log('🔍 OPENAI RESULT IN WHATSAPP ROUTE:', JSON.stringify(openaiImageResult, null, 2));
           
           if (openaiImageResult.success && openaiImageResult.imageUrl) {
             // Send OpenAI's text response first (if exists)
@@ -279,6 +280,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
           
           // Generate image with Gemini (WhatsApp format)
           const imageResult = await generateImageForWhatsApp(command.prompt);
+          console.log('🔍 GEMINI RESULT IN WHATSAPP ROUTE:', JSON.stringify(imageResult, null, 2));
           
           if (imageResult.success && imageResult.imageUrl) {
             // Send Gemini's text response first (like "אני אצור תמונה של...")

@@ -46,33 +46,47 @@ async function generateImageWithText(prompt) {
             generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
         });
         
+        console.log('🔍 GEMINI RAW RESULT (Tasker):', JSON.stringify(result, null, 2));
+        
         const response = result.response;
+        console.log('🔍 GEMINI RESPONSE OBJECT (Tasker):', JSON.stringify(response, null, 2));
+        
         if (!response.candidates || response.candidates.length === 0) {
             console.log('❌ Gemini: No candidates returned');
+            console.log('🔍 GEMINI PROMPT FEEDBACK (Tasker):', JSON.stringify(response.promptFeedback, null, 2));
             return { error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' };
         }
         
         const cand = response.candidates[0];
+        console.log('🔍 GEMINI CANDIDATE (Tasker):', JSON.stringify(cand, null, 2));
+        
         let text = '';
         let imageBuffer = null;
         
         // Check if content and parts exist
         if (!cand.content || !cand.content.parts) {
             console.log('❌ Gemini: No content or parts found in candidate');
+            console.log('🔍 GEMINI CANDIDATE STRUCTURE (Tasker):', JSON.stringify(cand, null, 2));
             return { error: 'Invalid response structure from Gemini' };
         }
         
         // Process all parts in the response
+        console.log('🔍 GEMINI PARTS (Tasker):', JSON.stringify(cand.content.parts, null, 2));
+        
         for (const part of cand.content.parts) {
+            console.log('🔍 GEMINI PROCESSING PART (Tasker):', JSON.stringify(part, null, 2));
             if (part.text) {
                 text += part.text;
+                console.log('📝 GEMINI TEXT FOUND (Tasker):', part.text);
             } else if (part.inlineData?.data) {
                 imageBuffer = Buffer.from(part.inlineData.data, 'base64');
+                console.log('🖼️ GEMINI IMAGE DATA FOUND (Tasker): Buffer length =', imageBuffer.length);
             }
         }
         
         if (!imageBuffer) {
             console.log('❌ Gemini: No image data found in response');
+            console.log('🔍 GEMINI ALL PARTS PROCESSED (Tasker):', JSON.stringify(cand.content.parts, null, 2));
             return { error: 'No image data found in response' };
         }
         
@@ -101,9 +115,14 @@ async function generateImageForWhatsApp(prompt, req = null) {
             generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
         });
         
+        console.log('🔍 GEMINI RAW RESULT (WhatsApp):', JSON.stringify(result, null, 2));
+        
         const response = result.response;
+        console.log('🔍 GEMINI RESPONSE OBJECT (WhatsApp):', JSON.stringify(response, null, 2));
+        
         if (!response.candidates || response.candidates.length === 0) {
             console.log('❌ Gemini: No candidates returned');
+            console.log('🔍 GEMINI PROMPT FEEDBACK:', JSON.stringify(response.promptFeedback, null, 2));
             return { 
                 success: false, 
                 error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' 
@@ -111,12 +130,15 @@ async function generateImageForWhatsApp(prompt, req = null) {
         }
         
         const cand = response.candidates[0];
+        console.log('🔍 GEMINI CANDIDATE (WhatsApp):', JSON.stringify(cand, null, 2));
+        
         let text = '';
         let imageBuffer = null;
         
         // Check if content and parts exist
         if (!cand.content || !cand.content.parts) {
             console.log('❌ Gemini: No content or parts found in candidate');
+            console.log('🔍 GEMINI CANDIDATE STRUCTURE:', JSON.stringify(cand, null, 2));
             return { 
                 success: false, 
                 error: 'Invalid response structure from Gemini' 
@@ -124,16 +146,22 @@ async function generateImageForWhatsApp(prompt, req = null) {
         }
         
         // Process all parts in the response
+        console.log('🔍 GEMINI PARTS (WhatsApp):', JSON.stringify(cand.content.parts, null, 2));
+        
         for (const part of cand.content.parts) {
+            console.log('🔍 GEMINI PROCESSING PART (WhatsApp):', JSON.stringify(part, null, 2));
             if (part.text) {
                 text += part.text;
+                console.log('📝 GEMINI TEXT FOUND (WhatsApp):', part.text);
             } else if (part.inlineData?.data) {
                 imageBuffer = Buffer.from(part.inlineData.data, 'base64');
+                console.log('🖼️ GEMINI IMAGE DATA FOUND (WhatsApp): Buffer length =', imageBuffer.length);
             }
         }
         
         if (!imageBuffer) {
             console.log('❌ Gemini: No image data found in response');
+            console.log('🔍 GEMINI ALL PARTS PROCESSED (WhatsApp):', JSON.stringify(cand.content.parts, null, 2));
             return { 
                 success: false, 
                 error: 'No image data found in response' 

@@ -27,17 +27,23 @@ async function generateImageWithText(prompt) {
             // Note: response_format is not supported for gpt-image-1 - it always returns base64
         });
         
+        console.log('🔍 OPENAI RAW RESPONSE (Tasker):', JSON.stringify(response, null, 2));
+        
         if (!response.data || response.data.length === 0) {
             console.log('❌ OpenAI: No image generated');
+            console.log('🔍 OPENAI RESPONSE DATA (Tasker):', JSON.stringify(response, null, 2));
             return { error: 'No image generated' };
         }
         
         const imageData = response.data[0];
+        console.log('🔍 OPENAI IMAGE DATA (Tasker):', JSON.stringify(imageData, null, 2));
+        
         const revisedPrompt = imageData.revised_prompt || prompt;
         
         // gpt-image-1 always returns b64_json (base64 data)
         if (imageData.b64_json) {
             const imageBuffer = Buffer.from(imageData.b64_json, 'base64');
+            console.log('🖼️ OPENAI IMAGE BUFFER CREATED (Tasker): Buffer length =', imageBuffer.length);
             console.log('✅ OpenAI image generated successfully');
             return { 
                 text: revisedPrompt, 
@@ -46,6 +52,7 @@ async function generateImageWithText(prompt) {
         }
         
         console.log('❌ OpenAI: No base64 image data found');
+        console.log('🔍 OPENAI IMAGE DATA STRUCTURE (Tasker):', JSON.stringify(imageData, null, 2));
         return { error: 'No base64 image data found in response' };
     } catch (err) {
         console.error('❌ OpenAI image generation error:', err);
@@ -182,8 +189,11 @@ async function generateImageForWhatsApp(prompt, req) {
             output_format: "png"
         });
         
+        console.log('🔍 OPENAI RAW RESPONSE (WhatsApp):', JSON.stringify(response, null, 2));
+        
         if (!response.data || response.data.length === 0) {
             console.log('❌ OpenAI: No image generated');
+            console.log('🔍 OPENAI RESPONSE DATA (WhatsApp):', JSON.stringify(response, null, 2));
             return { 
                 success: false, 
                 error: 'No image generated' 
@@ -191,10 +201,12 @@ async function generateImageForWhatsApp(prompt, req) {
         }
         
         const imageData = response.data[0];
+        console.log('🔍 OPENAI IMAGE DATA (WhatsApp):', JSON.stringify(imageData, null, 2));
         
         // OpenAI gpt-image-1 returns base64 data directly
         if (!imageData.b64_json) {
             console.log('❌ OpenAI: No base64 data found');
+            console.log('🔍 OPENAI IMAGE DATA STRUCTURE (WhatsApp):', JSON.stringify(imageData, null, 2));
             return { 
                 success: false, 
                 error: 'No image data found' 
@@ -203,6 +215,7 @@ async function generateImageForWhatsApp(prompt, req) {
         
         // Convert base64 to buffer
         const imageBuffer = Buffer.from(imageData.b64_json, 'base64');
+        console.log('🖼️ OPENAI IMAGE BUFFER CREATED (WhatsApp): Buffer length =', imageBuffer.length);
         
         // Save to public directory
         const fileName = `openai_${uuidv4()}.png`;
