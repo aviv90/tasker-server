@@ -27,43 +27,17 @@ async function generateImageWithText(prompt) {
             // Note: response_format is not supported for gpt-image-1 - it always returns base64
         });
         
-        // Log response structure without base64 data to avoid flooding logs
-        const responseForLog = JSON.parse(JSON.stringify(response, (key, value) => {
-            if (key === 'b64_json' && typeof value === 'string' && value.length > 100) {
-                return `[BASE64_DATA_${value.length}_CHARS]`;
-            }
-            return value;
-        }));
-        console.log('🔍 OPENAI RAW RESPONSE (Tasker):', JSON.stringify(responseForLog, null, 2));
-        
         if (!response.data || response.data.length === 0) {
             console.log('❌ OpenAI: No image generated');
-            const responseDataForLog = JSON.parse(JSON.stringify(response, (key, value) => {
-                if (key === 'b64_json' && typeof value === 'string' && value.length > 100) {
-                    return `[BASE64_DATA_${value.length}_CHARS]`;
-                }
-                return value;
-            }));
-            console.log('🔍 OPENAI RESPONSE DATA (Tasker):', JSON.stringify(responseDataForLog, null, 2));
             return { error: 'No image generated' };
         }
         
         const imageData = response.data[0];
-        // Log image data structure without base64 data
-        const imageDataForLog = JSON.parse(JSON.stringify(imageData, (key, value) => {
-            if (key === 'b64_json' && typeof value === 'string' && value.length > 100) {
-                return `[BASE64_DATA_${value.length}_CHARS]`;
-            }
-            return value;
-        }));
-        console.log('🔍 OPENAI IMAGE DATA (Tasker):', JSON.stringify(imageDataForLog, null, 2));
-        
         const revisedPrompt = imageData.revised_prompt || prompt;
         
         // gpt-image-1 always returns b64_json (base64 data)
         if (imageData.b64_json) {
             const imageBuffer = Buffer.from(imageData.b64_json, 'base64');
-            console.log('🖼️ OPENAI IMAGE BUFFER CREATED (Tasker): Buffer length =', imageBuffer.length);
             console.log('✅ OpenAI image generated successfully');
             return { 
                 text: revisedPrompt, 
@@ -72,13 +46,6 @@ async function generateImageWithText(prompt) {
         }
         
         console.log('❌ OpenAI: No base64 image data found');
-        const imageStructureForLog = JSON.parse(JSON.stringify(imageData, (key, value) => {
-            if (key === 'b64_json' && typeof value === 'string' && value.length > 100) {
-                return `[BASE64_DATA_${value.length}_CHARS]`;
-            }
-            return value;
-        }));
-        console.log('🔍 OPENAI IMAGE DATA STRUCTURE (Tasker):', JSON.stringify(imageStructureForLog, null, 2));
         return { error: 'No base64 image data found in response' };
     } catch (err) {
         console.error('❌ OpenAI image generation error:', err);
@@ -215,24 +182,9 @@ async function generateImageForWhatsApp(prompt, req) {
             output_format: "png"
         });
         
-        // Log response structure without base64 data to avoid flooding logs
-        const responseForLog = JSON.parse(JSON.stringify(response, (key, value) => {
-            if (key === 'b64_json' && typeof value === 'string' && value.length > 100) {
-                return `[BASE64_DATA_${value.length}_CHARS]`;
-            }
-            return value;
-        }));
-        console.log('🔍 OPENAI RAW RESPONSE (WhatsApp):', JSON.stringify(responseForLog, null, 2));
         
         if (!response.data || response.data.length === 0) {
             console.log('❌ OpenAI: No image generated');
-            const responseDataForLog = JSON.parse(JSON.stringify(response, (key, value) => {
-                if (key === 'b64_json' && typeof value === 'string' && value.length > 100) {
-                    return `[BASE64_DATA_${value.length}_CHARS]`;
-                }
-                return value;
-            }));
-            console.log('🔍 OPENAI RESPONSE DATA (WhatsApp):', JSON.stringify(responseDataForLog, null, 2));
             return { 
                 success: false, 
                 error: 'No image generated' 
@@ -240,25 +192,11 @@ async function generateImageForWhatsApp(prompt, req) {
         }
         
         const imageData = response.data[0];
-        // Log image data structure without base64 data
-        const imageDataForLog = JSON.parse(JSON.stringify(imageData, (key, value) => {
-            if (key === 'b64_json' && typeof value === 'string' && value.length > 100) {
-                return `[BASE64_DATA_${value.length}_CHARS]`;
-            }
-            return value;
-        }));
-        console.log('🔍 OPENAI IMAGE DATA (WhatsApp):', JSON.stringify(imageDataForLog, null, 2));
+        const revisedPrompt = imageData.revised_prompt || null;
         
         // OpenAI gpt-image-1 returns base64 data directly
         if (!imageData.b64_json) {
             console.log('❌ OpenAI: No base64 data found');
-            const imageStructureForLog = JSON.parse(JSON.stringify(imageData, (key, value) => {
-                if (key === 'b64_json' && typeof value === 'string' && value.length > 100) {
-                    return `[BASE64_DATA_${value.length}_CHARS]`;
-                }
-                return value;
-            }));
-            console.log('🔍 OPENAI IMAGE DATA STRUCTURE (WhatsApp):', JSON.stringify(imageStructureForLog, null, 2));
             return { 
                 success: false, 
                 error: 'No image data found' 
@@ -267,7 +205,6 @@ async function generateImageForWhatsApp(prompt, req) {
         
         // Convert base64 to buffer
         const imageBuffer = Buffer.from(imageData.b64_json, 'base64');
-        console.log('🖼️ OPENAI IMAGE BUFFER CREATED (WhatsApp): Buffer length =', imageBuffer.length);
         
         // Save to public directory
         const fileName = `openai_${uuidv4()}.png`;
@@ -292,7 +229,7 @@ async function generateImageForWhatsApp(prompt, req) {
         return { 
             success: true,
             imageUrl: imageUrl,
-            description: "", // No text description - only send the image
+            description: revisedPrompt || "", // Include revised prompt as description if available
             fileName: fileName
         };
     } catch (err) {

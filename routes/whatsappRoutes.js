@@ -244,14 +244,6 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
           
           // Generate image with OpenAI (WhatsApp format)
           const openaiImageResult = await generateOpenAIImage(command.prompt);
-          // Log result structure without base64 data to avoid flooding logs
-          const openaiResultForLog = JSON.parse(JSON.stringify(openaiImageResult, (key, value) => {
-            if ((key === 'b64_json' || key === 'imageUrl') && typeof value === 'string' && value.length > 100) {
-              return `[DATA_${value.length}_CHARS]`;
-            }
-            return value;
-          }));
-          console.log('🔍 OPENAI RESULT IN WHATSAPP ROUTE:', JSON.stringify(openaiResultForLog, null, 2));
           
           if (openaiImageResult.success && openaiImageResult.imageUrl) {
             // Send the generated image with text as caption (if exists)
@@ -288,14 +280,6 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
           
           // Generate image with Gemini (WhatsApp format)
           const imageResult = await generateImageForWhatsApp(command.prompt);
-          // Log result structure without base64 data to avoid flooding logs
-          const geminiResultForLog = JSON.parse(JSON.stringify(imageResult, (key, value) => {
-            if ((key === 'data' || key === 'imageUrl') && typeof value === 'string' && value.length > 100) {
-              return `[DATA_${value.length}_CHARS]`;
-            }
-            return value;
-          }));
-          console.log('🔍 GEMINI RESULT IN WHATSAPP ROUTE:', JSON.stringify(geminiResultForLog, null, 2));
           
           if (imageResult.success && imageResult.imageUrl) {
             // Send the generated image with text as caption
