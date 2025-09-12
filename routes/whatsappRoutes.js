@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { sendTextMessage, sendFileByUrl, downloadFile } = require('../services/greenApiService');
 const { generateTextResponse: generateOpenAIResponse } = require('../services/openaiService');
-const { generateTextResponse: generateGeminiResponse } = require('../services/geminiService');
+const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp } = require('../services/geminiService');
 const conversationManager = require('../services/conversationManager');
 
 /**
@@ -162,6 +162,40 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         }
         break;
 
+      case 'gemini_image':
+        console.log(`🎨 Processing Gemini image generation request from ${senderName}`);
+        
+        try {
+          // Add user message to conversation
+          conversationManager.addMessage(chatId, 'user', `יצירת תמונה: ${command.prompt}`);
+          
+          // Generate image with Gemini (WhatsApp format)
+          const imageResult = await generateImageForWhatsApp(command.prompt);
+          
+          if (imageResult.success && imageResult.imageUrl) {
+            // Send Gemini's text response first (like "אני אצור תמונה של...")
+            if (imageResult.description && imageResult.description.length > 0) {
+              await sendTextMessage(chatId, imageResult.description);
+              
+              // Add Gemini's response to conversation history
+              conversationManager.addMessage(chatId, 'assistant', imageResult.description);
+            }
+            
+            // Send the generated image (without caption to avoid duplication)
+            await sendFileByUrl(chatId, imageResult.imageUrl, "");
+            
+            console.log(`✅ Gemini image sent to ${senderName}`);
+          } else {
+            const errorMsg = imageResult.error || 'לא הצלחתי ליצור תמונה. נסה שוב מאוחר יותר.';
+            await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
+            console.log(`❌ Gemini image generation failed for ${senderName}: ${errorMsg}`);
+          }
+        } catch (imageError) {
+          console.error('❌ Error in Gemini image generation:', imageError);
+          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת התמונה.');
+        }
+        break;
+
       case 'clear_conversation':
         const cleared = conversationManager.clearSession(chatId);
         if (cleared) {
@@ -186,7 +220,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         break;
 
       case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול';
+        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ';
 
         await sendTextMessage(chatId, helpMessage);
         break;
@@ -209,6 +243,16 @@ function parseTextCommand(text) {
   }
 
   text = text.trim();
+
+  // Gemini Image Generation command: ** + space + text
+  if (text.startsWith('** ')) {
+    const prompt = text.substring(3).trim(); // Remove "** "
+    return {
+      type: 'gemini_image',
+      prompt: prompt,
+      originalMessage: text
+    };
+  }
 
   // Gemini Chat command: * + space + text
   if (text.startsWith('* ')) {
