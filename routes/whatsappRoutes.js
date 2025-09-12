@@ -45,7 +45,7 @@ router.post('/webhook', async (req, res) => {
 
     res.status(200).json({ status: 'ok' });
   } catch (error) {
-    console.error('❌ Error processing webhook:', error);
+    console.error('❌ Error processing webhook:', error.message || error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -87,7 +87,7 @@ async function handleIncomingMessage(webhookData) {
       console.log(`ℹ️ Unsupported message type: ${messageData.typeMessage}`);
     }
   } catch (error) {
-    console.error('❌ Error handling incoming message:', error);
+    console.error('❌ Error handling incoming message:', error.message || error);
   }
 }
 
@@ -130,7 +130,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             await sendTextMessage(chatId, geminiResponse.text);
           }
         } catch (geminiError) {
-          console.error('❌ Error in Gemini chat:', geminiError);
+          console.error('❌ Error in Gemini chat:', geminiError.message || geminiError);
           await sendTextMessage(chatId, `❌ ${geminiError.message || geminiError}`);
         }
         break;
@@ -157,7 +157,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             await sendTextMessage(chatId, openaiResponse.text);
           }
         } catch (openaiError) {
-          console.error('❌ Error in OpenAI chat:', openaiError);
+          console.error('❌ Error in OpenAI chat:', openaiError.message || openaiError);
           await sendTextMessage(chatId, `❌ ${openaiError.message || openaiError}`);
         }
         break;
@@ -181,8 +181,9 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
               conversationManager.addMessage(chatId, 'assistant', imageResult.description);
             }
             
-            // Send the generated image (without caption to avoid duplication)
-            await sendFileByUrl(chatId, imageResult.imageUrl, "");
+            // Send the generated image with proper filename
+            const fileName = `gemini_image_${Date.now()}.png`;
+            await sendFileByUrl(chatId, imageResult.imageUrl, fileName);
             
             console.log(`✅ Gemini image sent to ${senderName}`);
           } else {
@@ -191,7 +192,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             console.log(`❌ Gemini image generation failed for ${senderName}: ${errorMsg}`);
           }
         } catch (imageError) {
-          console.error('❌ Error in Gemini image generation:', imageError);
+          console.error('❌ Error in Gemini image generation:', imageError.message || imageError);
           await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת התמונה.');
         }
         break;
@@ -229,7 +230,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         console.log(`❓ Unknown command type: ${command.type}`);
     }
   } catch (error) {
-    console.error('❌ Error executing command:', error);
+    console.error('❌ Error executing command:', error.message || error);
     await sendTextMessage(chatId, `❌ ${error.message || error}`);
   }
 }

@@ -60,6 +60,13 @@ async function sendFileByUrl(chatId, fileUrl, fileName, caption = '') {
     return response.data;
   } catch (error) {
     console.error('❌ Error sending file:', error.message);
+    
+    // Log the response details if available for debugging
+    if (error.response) {
+      console.error(`❌ Green API Error: ${error.response.status} - ${error.response.statusText}`);
+      console.error('❌ Response data:', error.response.data);
+    }
+    
     throw error;
   }
 }
