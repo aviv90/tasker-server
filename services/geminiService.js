@@ -97,10 +97,16 @@ async function generateImageForWhatsApp(prompt, req = null) {
             model: "gemini-2.5-flash-image-preview" 
         });
         
-        // Force image generation with clear instruction
-        const imagePrompt = `Generate an image of: ${cleanPrompt}. 
-        IMPORTANT: You must create a visual image. Do not just provide text.
-        Create the image and respond in Hebrew.`;
+        // Force image generation with very strong instruction
+        const imagePrompt = `CREATE IMAGE: ${cleanPrompt}
+        
+        MANDATORY REQUIREMENTS:
+        1. You MUST generate a visual image - this is not optional
+        2. Do NOT respond with only text - an image is required
+        3. If you describe the image, do it in Hebrew and be specific about what you created
+        4. Focus on creating the image first, then optionally describe it
+        
+        Generate the requested image now.`;
         
         const result = await model.generateContent({
             contents: [{ role: "user", parts: [{ text: imagePrompt }] }],
@@ -152,13 +158,14 @@ async function generateImageForWhatsApp(prompt, req = null) {
                 return { 
                     success: false, 
                     error: 'No image data found in response',
-                    textResponse: text.trim() // Include the text response
+                    textResponse: `מצטער, לא הצלחתי ליצור תמונה הפעם. ${text.trim()}` // Better fallback message
                 };
             }
             
             return { 
                 success: false, 
-                error: 'No image data found in response' 
+                error: 'No image data found in response',
+                textResponse: 'מצטער, לא הצלחתי ליצור תמונה כרגע. אנא נסה שוב עם תיאור אחר או מאוחר יותר.'
             };
         }
         
@@ -187,10 +194,20 @@ async function generateImageForWhatsApp(prompt, req = null) {
         console.log(`🖼️ Image saved to: ${filePath}`);
         console.log(`🔗 Public URL: ${imageUrl}`);
         
+        // Filter out generic phrases and keep only the actual description
+        let description = text.trim();
+        if (description) {
+            // Remove generic phrases that aren't descriptive
+            description = description
+                .replace(/^(הנה התמונה שלך:|הנה תמונה של|בטח, הנה|הנה:|Here's your image:|Here is)/gi, '')
+                .replace(/[:.]\s*$/, '') // Remove trailing colons and dots
+                .trim();
+        }
+        
         return { 
             success: true,
             imageUrl: imageUrl,
-            description: text.trim() || "", // Include text as caption/description
+            description: description || "", // Clean description only
             fileName: fileName
         };
     } catch (err) {
