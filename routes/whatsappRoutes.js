@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { sendTextMessage, sendFileByUrl, downloadFile } = require('../services/greenApiService');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
-const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp } = require('../services/geminiService');
+const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp } = require('../services/geminiService');
 const conversationManager = require('../services/conversationManager');
 
 // Message deduplication cache - prevent processing duplicate messages
@@ -31,6 +31,9 @@ async function sendAck(chatId, command) {
       break;
     case 'veo3_video':
       ackMessage = '🎬 קיבלתי. מיד יוצר וידאו עם Veo 3';
+      break;
+    case 'veo3_image_to_video':
+      ackMessage = '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Veo 3';
       break;
     case 'voice_generation':
       ackMessage = '🎤 קיבלתי. מיד יוצר קול';
@@ -142,8 +145,22 @@ async function handleIncomingMessage(webhookData) {
       
       console.log(`🖼️ Image message received with caption: "${caption}"`);
       
+      // Check if caption starts with "### " for Veo 3 image-to-video
+      if (caption.startsWith('### ')) {
+        const prompt = caption.substring(4).trim(); // Remove "### "
+        console.log(`🎬 Veo 3 image-to-video request with prompt: "${prompt}"`);
+        
+        // Process Veo 3 image-to-video asynchronously
+        processImageToVideoAsync({
+          chatId,
+          senderId,
+          senderName,
+          imageUrl: imageData.downloadUrl,
+          prompt: prompt
+        });
+      }
       // Check if caption starts with "*" for Gemini image editing
-      if (caption.startsWith('* ')) {
+      else if (caption.startsWith('* ')) {
         const prompt = caption.substring(2).trim(); // Remove "* "
         console.log(`🎨 Gemini image edit request with prompt: "${prompt}"`);
         
@@ -172,7 +189,7 @@ async function handleIncomingMessage(webhookData) {
           service: 'openai'
         });
       } else {
-        console.log(`ℹ️ Image received but no edit command (caption should start with "* " for Gemini or "# " for OpenAI)`);
+        console.log(`ℹ️ Image received but no command (use "### " for video, "* " for Gemini edit, or "# " for OpenAI edit)`);
       }
     } else if (messageText) {
       // Process text message asynchronously - don't await
@@ -207,6 +224,16 @@ function processImageEditAsync(imageData) {
   // Run in background without blocking webhook response
   handleImageEdit(imageData).catch(error => {
     console.error('❌ Error in async image edit processing:', error.message || error);
+  });
+}
+
+/**
+ * Process image-to-video message asynchronously (no await from webhook)
+ */
+function processImageToVideoAsync(imageData) {
+  // Run in background without blocking webhook response
+  handleImageToVideo(imageData).catch(error => {
+    console.error('❌ Error in async image-to-video processing:', error.message || error);
   });
 }
 
@@ -262,6 +289,48 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
   } catch (error) {
     console.error(`❌ Error in ${service} image editing:`, error.message || error);
     await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעריכת התמונה.');
+  }
+}
+
+/**
+ * Handle image-to-video with Veo 3
+ */
+async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prompt }) {
+  console.log(`🎬 Processing Veo 3 image-to-video request from ${senderName}: "${prompt}"`);
+  
+  try {
+    // Send immediate ACK
+    const ackMessage = '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Veo 3...';
+    await sendTextMessage(chatId, ackMessage);
+    
+    // Add user message to conversation
+    conversationManager.addMessage(chatId, 'user', `יצירת וידאו מתמונה: ${prompt}`);
+    
+    // Download the image first
+    console.log(`📥 Downloading image from URL (${imageUrl.length} chars)`);
+    const imageBuffer = await downloadFile(imageUrl);
+    
+    // Generate video with Veo 3
+    const videoResult = await generateVideoFromImageForWhatsApp(prompt, imageBuffer);
+    
+    if (videoResult.success && videoResult.videoUrl) {
+      // Send the generated video without caption
+      const fileName = `veo3_image_video_${Date.now()}.mp4`;
+      
+      await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
+      
+      // Add AI response to conversation history
+      conversationManager.addMessage(chatId, 'assistant', `וידאו נוצר מתמונה: ${videoResult.description || 'וידאו חדש'}`);
+      
+      console.log(`✅ Veo 3 image-to-video sent to ${senderName}`);
+    } else {
+      const errorMsg = videoResult.error || 'לא הצלחתי ליצור וידאו מהתמונה. נסה שוב מאוחר יותר.';
+      await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
+      console.log(`❌ Veo 3 image-to-video failed for ${senderName}: ${errorMsg}`);
+    }
+  } catch (error) {
+    console.error('❌ Error in Veo 3 image-to-video:', error.message || error);
+    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת הוידאו מהתמונה.');
   }
 }
 
@@ -475,7 +544,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         break;
 
       case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n## דרקון אדום עף בשמיים\n#### שפן אומר Hi\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול';
+        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n## דרקון אדום עף בשמיים\n#### שפן אומר Hi\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה';
 
         await sendTextMessage(chatId, helpMessage);
         break;
