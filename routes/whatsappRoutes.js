@@ -3,6 +3,7 @@ const router = express.Router();
 const { sendTextMessage, sendFileByUrl, downloadFile } = require('../services/greenApiService');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp } = require('../services/geminiService');
+const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage } = require('../services/replicateService');
 const conversationManager = require('../services/conversationManager');
 
 // Message deduplication cache - prevent processing duplicate messages
@@ -34,6 +35,9 @@ async function sendAck(chatId, command) {
       break;
     case 'veo3_image_to_video':
       ackMessage = '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Veo 3';
+      break;
+    case 'kling_image_to_video':
+      ackMessage = '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Kling 2.1';
       break;
     case 'voice_generation':
       ackMessage = '🎤 קיבלתי. מיד יוצר קול';
@@ -156,7 +160,23 @@ async function handleIncomingMessage(webhookData) {
           senderId,
           senderName,
           imageUrl: imageData.downloadUrl,
-          prompt: prompt
+          prompt: prompt,
+          service: 'veo3'
+        });
+      }
+      // Check if caption starts with "## " for Kling image-to-video
+      else if (caption.startsWith('## ')) {
+        const prompt = caption.substring(3).trim(); // Remove "## "
+        console.log(`🎬 Kling 2.1 image-to-video request with prompt: "${prompt}"`);
+        
+        // Process Kling image-to-video asynchronously
+        processImageToVideoAsync({
+          chatId,
+          senderId,
+          senderName,
+          imageUrl: imageData.downloadUrl,
+          prompt: prompt,
+          service: 'kling'
         });
       }
       // Check if caption starts with "*" for Gemini image editing
@@ -189,7 +209,7 @@ async function handleIncomingMessage(webhookData) {
           service: 'openai'
         });
       } else {
-        console.log(`ℹ️ Image received but no command (use "### " for video, "* " for Gemini edit, or "# " for OpenAI edit)`);
+        console.log(`ℹ️ Image received but no command (use "### " for Veo 3 video, "## " for Kling video, "* " for Gemini edit, or "# " for OpenAI edit)`);
       }
     } else if (messageText) {
       // Process text message asynchronously - don't await
@@ -293,44 +313,52 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
 }
 
 /**
- * Handle image-to-video with Veo 3
+ * Handle image-to-video with Veo 3 or Kling
  */
-async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prompt }) {
-  console.log(`🎬 Processing Veo 3 image-to-video request from ${senderName}: "${prompt}"`);
+async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prompt, service = 'veo3' }) {
+  const serviceName = service === 'veo3' ? 'Veo 3' : 'Kling 2.1 Master';
+  console.log(`🎬 Processing ${serviceName} image-to-video request from ${senderName}: "${prompt}"`);
   
   try {
     // Send immediate ACK
-    const ackMessage = '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Veo 3...';
+    const ackMessage = service === 'veo3' 
+      ? '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Veo 3...'
+      : '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Kling 2.1...';
     await sendTextMessage(chatId, ackMessage);
     
     // Add user message to conversation
-    conversationManager.addMessage(chatId, 'user', `יצירת וידאו מתמונה: ${prompt}`);
+    conversationManager.addMessage(chatId, 'user', `יצירת וידאו מתמונה (${serviceName}): ${prompt}`);
     
     // Download the image first
     console.log(`📥 Downloading image from URL (${imageUrl.length} chars)`);
     const imageBuffer = await downloadFile(imageUrl);
     
-    // Generate video with Veo 3
-    const videoResult = await generateVideoFromImageForWhatsApp(prompt, imageBuffer);
+    // Generate video with selected service
+    let videoResult;
+    if (service === 'veo3') {
+      videoResult = await generateVideoFromImageForWhatsApp(prompt, imageBuffer);
+    } else {
+      videoResult = await generateKlingVideoFromImage(imageBuffer, prompt);
+    }
     
     if (videoResult.success && videoResult.videoUrl) {
       // Send the generated video without caption
-      const fileName = `veo3_image_video_${Date.now()}.mp4`;
+      const fileName = `${service}_image_video_${Date.now()}.mp4`;
       
       await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
       
       // Add AI response to conversation history
-      conversationManager.addMessage(chatId, 'assistant', `וידאו נוצר מתמונה: ${videoResult.description || 'וידאו חדש'}`);
+      conversationManager.addMessage(chatId, 'assistant', `וידאו נוצר מתמונה (${serviceName}): ${videoResult.description || 'וידאו חדש'}`);
       
-      console.log(`✅ Veo 3 image-to-video sent to ${senderName}`);
+      console.log(`✅ ${serviceName} image-to-video sent to ${senderName}`);
     } else {
-      const errorMsg = videoResult.error || 'לא הצלחתי ליצור וידאו מהתמונה. נסה שוב מאוחר יותר.';
+      const errorMsg = videoResult.error || `לא הצלחתי ליצור וידאו מהתמונה עם ${serviceName}. נסה שוב מאוחר יותר.`;
       await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
-      console.log(`❌ Veo 3 image-to-video failed for ${senderName}: ${errorMsg}`);
+      console.log(`❌ ${serviceName} image-to-video failed for ${senderName}: ${errorMsg}`);
     }
   } catch (error) {
-    console.error('❌ Error in Veo 3 image-to-video:', error.message || error);
-    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת הוידאו מהתמונה.');
+    console.error(`❌ Error in ${serviceName} image-to-video:`, error.message || error);
+    await sendTextMessage(chatId, `❌ סליחה, הייתה שגיאה ביצירת הוידאו מהתמונה עם ${serviceName}.`);
   }
 }
 
@@ -544,7 +572,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         break;
 
       case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n## דרקון אדום עף בשמיים\n#### שפן אומר Hi\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה';
+        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling';
 
         await sendTextMessage(chatId, helpMessage);
         break;

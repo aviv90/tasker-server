@@ -169,7 +169,8 @@ async function generateVideoFromImage(imageBuffer, prompt = null, model = 'kling
             input = {
                 ...input,
                 start_image: base64Image, // Kling uses start_image instead of image
-                duration: 5
+                duration: 5,
+                aspect_ratio: "9:16" // Vertical format for mobile
             };
             // Remove the image key for Kling
             delete input.image;
@@ -326,8 +327,116 @@ async function generateVideoFromVideo(inputVideoBuffer, prompt) {
     }
 }
 
+async function generateVideoFromImageForWhatsApp(imageBuffer, prompt, req = null) {
+    try {
+        console.log('🎬 Starting Kling v2.1 Master image-to-video generation (WhatsApp format)');
+        
+        const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+        
+        // Kling v2.1 Master parameters for WhatsApp (9:16 format)
+        const input = {
+            start_image: base64Image,
+            prompt: prompt || "animate this image with smooth motion",
+            duration: 5,
+            aspect_ratio: "9:16" // Vertical format for mobile
+        };
+        
+        const prediction = await replicate.predictions.create({
+            version: MODELS.IMAGE_TO_VIDEO,
+            input: input
+        });
+
+        if (!prediction?.id) {
+            return { 
+                success: false, 
+                error: 'No prediction ID received from Replicate' 
+            };
+        }
+
+        console.log('🔄 Polling for completion');
+        
+        const maxAttempts = 80; // Kling can take longer
+        let attempts = 0;
+        
+        while (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            
+            const status = await replicate.predictions.get(prediction.id);
+            attempts++;
+            
+            console.log(`🔄 Attempt ${attempts}/${maxAttempts} - Status: ${status.status}`);
+            
+            if (status.status === 'succeeded' && status.output) {
+                console.log('✅ Kling v2.1 Master image-to-video generation completed');
+                
+                // Save video to tmp folder and create accessible URL
+                const { getStaticFileUrl } = require('../utils/urlUtils');
+                const fs = require('fs');
+                const path = require('path');
+                const { v4: uuidv4 } = require('uuid');
+                const axios = require('axios');
+                
+                const videoId = uuidv4();
+                const fileName = `kling_image_video_${videoId}.mp4`;
+                const filePath = path.join(__dirname, '..', 'public', 'tmp', fileName);
+                
+                // Ensure tmp directory exists
+                const tmpDir = path.dirname(filePath);
+                if (!fs.existsSync(tmpDir)) {
+                    fs.mkdirSync(tmpDir, { recursive: true });
+                }
+                
+                // Download video from Replicate URL
+                const videoResponse = await axios.get(status.output, { 
+                    responseType: 'arraybuffer' 
+                });
+                
+                // Write video file
+                fs.writeFileSync(filePath, videoResponse.data);
+                
+                // Create public URL using centralized URL utility
+                const videoUrl = getStaticFileUrl(fileName, req);
+                
+                console.log('✅ Kling v2.1 Master image-to-video generated successfully (WhatsApp format)');
+                console.log(`🎬 Video saved to: ${filePath}`);
+                console.log(`🔗 Public URL: ${videoUrl}`);
+                
+                return { 
+                    success: true,
+                    videoUrl: videoUrl,
+                    description: prompt || "וידאו נוצר מתמונה",
+                    fileName: fileName
+                };
+            }
+            
+            if (status.status === 'failed') {
+                const errorMessage = extractErrorDetails(status.error);
+                console.error('❌ Kling v2.1 Master image-to-video generation failed:', errorMessage);
+                return { 
+                    success: false, 
+                    error: errorMessage 
+                };
+            }
+        }
+        
+        console.error('❌ Kling v2.1 Master image-to-video generation timed out');
+        return { 
+            success: false, 
+            error: `Video generation timed out after ${maxAttempts} attempts` 
+        };
+        
+    } catch (err) {
+        console.error('❌ Kling v2.1 Master image-to-video generation error:', err);
+        return { 
+            success: false, 
+            error: err.message || 'Unknown error occurred during image-to-video generation' 
+        };
+    }
+}
+
 module.exports = { 
     generateVideoWithText, 
     generateVideoFromImage, 
-    generateVideoFromVideo 
+    generateVideoFromVideo,
+    generateVideoFromImageForWhatsApp
 };
