@@ -194,20 +194,10 @@ async function generateImageForWhatsApp(prompt, req = null) {
         console.log(`🖼️ Image saved to: ${filePath}`);
         console.log(`🔗 Public URL: ${imageUrl}`);
         
-        // Filter out generic phrases and keep only the actual description
-        let description = text.trim();
-        if (description) {
-            // Remove generic phrases that aren't descriptive
-            description = description
-                .replace(/^(הנה התמונה שלך:|הנה תמונה של|בטח, הנה|הנה:|Here's your image:|Here is)/gi, '')
-                .replace(/[:.]\s*$/, '') // Remove trailing colons and dots
-                .trim();
-        }
-        
         return { 
             success: true,
             imageUrl: imageUrl,
-            description: description || "", // Clean description only
+            description: text.trim() || "", // Send exactly what Gemini writes
             fileName: fileName
         };
     } catch (err) {
