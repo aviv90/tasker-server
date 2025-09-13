@@ -431,18 +431,15 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
           const videoResult = await generateVideoForWhatsApp(command.prompt);
           
           if (videoResult.success && videoResult.videoUrl) {
-            // Send the generated video with text as caption
+            // Send the generated video without caption
             const fileName = `veo3_video_${Date.now()}.mp4`;
-            const caption = videoResult.description && videoResult.description.length > 0 
-              ? `🎬 וידאו נוצר: ${videoResult.description}` 
-              : '🎬 וידאו נוצר בהצלחה';
             
-            await sendFileByUrl(chatId, videoResult.videoUrl, fileName, caption);
+            await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
             
             // Add AI response to conversation history
-            conversationManager.addMessage(chatId, 'assistant', caption);
+            conversationManager.addMessage(chatId, 'assistant', `וידאו נוצר: ${videoResult.description || 'וידאו חדש'}`);
             
-            console.log(`✅ Veo 3 video sent to ${senderName} with caption: ${caption}`);
+            console.log(`✅ Veo 3 video sent to ${senderName}`);
           } else {
             const errorMsg = videoResult.error || 'לא הצלחתי ליצור וידאו. נסה שוב מאוחר יותר.';
             await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
