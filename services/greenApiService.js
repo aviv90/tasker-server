@@ -76,7 +76,7 @@ async function sendFileByUrl(chatId, fileUrl, fileName, caption = '') {
  */
 async function downloadFile(downloadUrl, fileName = null) {
   try {
-    console.log(`📥 Downloading file from: ${downloadUrl}`);
+    console.log(`📥 Downloading file from URL (${downloadUrl.length} chars)`);
     
     const response = await axios.get(downloadUrl, {
       responseType: 'arraybuffer'

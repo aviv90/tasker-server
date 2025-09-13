@@ -142,9 +142,9 @@ async function handleIncomingMessage(webhookData) {
       
       console.log(`🖼️ Image message received with caption: "${caption}"`);
       
-      // Check if caption starts with "~" for image editing
-      if (caption.startsWith('~ ')) {
-        const prompt = caption.substring(2).trim(); // Remove "~ "
+      // Check if caption starts with "*" for image editing
+      if (caption.startsWith('* ')) {
+        const prompt = caption.substring(2).trim(); // Remove "* "
         console.log(`🎨 Image edit request with prompt: "${prompt}"`);
         
         // Process image editing asynchronously
@@ -156,7 +156,7 @@ async function handleIncomingMessage(webhookData) {
           prompt: prompt
         });
       } else {
-        console.log(`ℹ️ Image received but no edit command (caption should start with "~ ")`);
+        console.log(`ℹ️ Image received but no edit command (caption should start with "* ")`);
       }
     } else if (messageText) {
       // Process text message asynchronously - don't await
@@ -420,7 +420,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         break;
 
       case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n✨ עריכת תמונות:\n🖼️ שלח תמונה עם כותרת: ~ [הוראות עריכה]\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n## דרקון אדום עף בשמיים\n🖼️ תמונה + כותרת: ~ הוסף כובע אדום';
+        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n✨ עריכת תמונות:\n🖼️ שלח תמונה עם כותרת: * [הוראות עריכה]\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n## דרקון אדום עף בשמיים\n🖼️ תמונה + כותרת: * הוסף כובע אדום';
 
         await sendTextMessage(chatId, helpMessage);
         break;
