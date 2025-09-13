@@ -1025,7 +1025,17 @@ async function generateChatSummary(messages) {
         let formattedMessages = '';
         messages.forEach((msg, index) => {
             const timestamp = new Date(msg.timestamp * 1000).toLocaleString('he-IL');
-            const sender = msg.senderName || msg.sender || 'משתמש';
+            
+            // Use WhatsApp display name only (chatName), fallback to phone number
+            let sender = 'משתמש';
+            if (msg.chatName) {
+                sender = msg.chatName;
+            } else if (msg.sender) {
+                // Extract phone number from sender ID (e.g., "972543995202@c.us" -> "972543995202")
+                const phoneMatch = msg.sender.match(/^(\d+)@/);
+                sender = phoneMatch ? phoneMatch[1] : msg.sender;
+            }
+            
             const messageText = msg.textMessage || msg.caption || '[מדיה]';
             
             formattedMessages += `${index + 1}. ${timestamp} - ${sender}: ${messageText}\n`;
