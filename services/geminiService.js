@@ -360,14 +360,13 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
 
 async function generateVideoWithText(prompt) {
     try {
-        console.log('🎬 Starting Veo 3 text-to-video generation (Tasker format)');
+        console.log('🎬 Starting Veo 3 text-to-video generation (Tasker format) - Stable version');
         const cleanPrompt = sanitizeText(prompt);
         
         let operation = await veoClient.models.generateVideos({
-            model: "veo-3.0-generate-preview",
+            model: "veo-3.0-generate-001", // Stable version
             prompt: cleanPrompt,
-            aspectRatio: "9:16", // Vertical format for mobile
-            quality: "high"
+            aspectRatio: "9:16" // Vertical format for mobile (720p resolution)
         });
         
         console.log('⏳ Polling for video generation completion...');
@@ -467,8 +466,9 @@ async function generateVideoWithImage(prompt, imageBuffer) {
         
         // Step 1: Generate video with Veo 3 using the provided image
         let operation = await veoClient.models.generateVideos({
-            model: "veo-3.0-generate-preview",
+            model: "veo-3.0-generate-001", // Stable version
             prompt: cleanPrompt,
+            aspectRatio: "9:16", // Vertical format for mobile (720p resolution)
             image: {
                 imageBytes: imageBase64,
                 mimeType: "image/png",
@@ -561,14 +561,13 @@ async function generateVideoWithImage(prompt, imageBuffer) {
 
 async function generateVideoForWhatsApp(prompt, req = null) {
     try {
-        console.log('🎬 Starting Veo 3 text-to-video generation (WhatsApp format)');
+        console.log('🎬 Starting Veo 3 text-to-video generation (WhatsApp format) - Stable version');
         const cleanPrompt = sanitizeText(prompt);
         
         let operation = await veoClient.models.generateVideos({
-            model: "veo-3.0-generate-preview",
+            model: "veo-3.0-generate-001", // Stable version
             prompt: cleanPrompt,
-            aspectRatio: "9:16", // Vertical format for mobile
-            quality: "high"
+            aspectRatio: "9:16" // Vertical format for mobile (720p resolution)
         });
         
         console.log('⏳ Polling for video generation completion...');
