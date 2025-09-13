@@ -546,10 +546,98 @@ async function generateVideoFromVideoForWhatsApp(videoBuffer, prompt, req = null
     }
 }
 
+async function generateVideoWithTextForWhatsApp(prompt, req = null) {
+    try {
+        console.log('🎬 Starting Kling v2.1 Master text-to-video generation (WhatsApp format)');
+        
+        // Use Kling v2.1 Master with mobile-optimized settings
+        const inputParams = {
+            prompt: prompt,
+            aspect_ratio: "9:16", // Vertical format for mobile
+            duration: 5,
+            negative_prompt: ""
+        };
+        
+        const prediction = await replicate.predictions.create({
+            version: MODELS.TEXT_TO_VIDEO,
+            input: inputParams
+        });
+
+        if (!prediction?.id) {
+            return { 
+                success: false, 
+                error: 'No prediction ID received from Replicate' 
+            };
+        }
+
+        console.log('🔄 Polling for Kling text-to-video completion');
+        
+        const maxAttempts = 80; // Kling can take longer
+        let attempts = 0;
+        
+        while (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            attempts++;
+            
+            console.log(`🔄 Polling attempt ${attempts}/${maxAttempts} for Kling text-to-video`);
+            
+            try {
+                const result = await replicate.predictions.get(prediction.id);
+                
+                if (result.status === 'succeeded' && result.output) {
+                    console.log('✅ Kling text-to-video completed (WhatsApp format)');
+                    
+                    let videoURL = result.output;
+                    if (Array.isArray(result.output)) {
+                        videoURL = result.output[0];
+                    }
+                    
+                    return { 
+                        success: true,
+                        videoUrl: videoURL,
+                        description: prompt,
+                        fileName: `kling_video_${Date.now()}.mp4`
+                    };
+                }
+                
+                if (result.status === 'failed' || result.status === 'canceled') {
+                    const errorMsg = result.error || `Task ${result.status}`;
+                    return { 
+                        success: false, 
+                        error: errorMsg 
+                    };
+                }
+                
+            } catch (pollError) {
+                console.log(`❌ Polling attempt ${attempts} failed:`, pollError.message);
+                if (pollError.response?.status === 401 || pollError.response?.status === 402 || pollError.response?.status === 429) {
+                    return { 
+                        success: false, 
+                        error: extractErrorDetails(pollError) 
+                    };
+                }
+            }
+        }
+        
+        return { 
+            success: false, 
+            error: 'Kling text-to-video generation timed out after 13+ minutes' 
+        };
+
+    } catch (err) {
+        console.error('❌ Kling text-to-video generation error:', err);
+        return { 
+            success: false, 
+            error: err.message || 'Unknown error occurred during text-to-video generation' 
+        };
+    }
+}
+
 module.exports = { 
     generateVideoWithText, 
     generateVideoFromImage, 
     generateVideoFromVideo,
     generateVideoFromImageForWhatsApp,
-    generateVideoFromVideoForWhatsApp
+    generateVideoFromVideoForWhatsApp,
+    generateVideoWithTextForWhatsApp
 };

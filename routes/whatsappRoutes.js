@@ -4,7 +4,7 @@ const { sendTextMessage, sendFileByUrl, downloadFile } = require('../services/gr
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp } = require('../services/geminiService');
-const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage, generateVideoFromVideoForWhatsApp: generateRunwayVideoFromVideo } = require('../services/replicateService');
+const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage, generateVideoFromVideoForWhatsApp: generateRunwayVideoFromVideo, generateVideoWithTextForWhatsApp: generateKlingVideoFromText } = require('../services/replicateService');
 const speechService = require('../services/speechService');
 const { voiceService } = require('../services/voiceService');
 const conversationManager = require('../services/conversationManager');
@@ -47,6 +47,9 @@ async function sendAck(chatId, command) {
       break;
     case 'runway_video_to_video':
       ackMessage = '🎬 קיבלתי את הווידאו. מיד עובד עליו עם RunwayML Gen4';
+      break;
+    case 'kling_text_to_video':
+      ackMessage = '🎬 מתחיל יצירת וידאו עם Kling 2.1 Master';
       break;
     case 'voice_generation':
       ackMessage = '🎤 קיבלתי. מיד יוצר קול';
@@ -788,6 +791,37 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         }
         break;
 
+      case 'kling_text_to_video':
+        console.log(`🎬 Processing Kling text-to-video generation request from ${senderName}`);
+        
+        try {
+          // Add user message to conversation
+          conversationManager.addMessage(chatId, 'user', `יצירת וידאו עם Kling: ${command.prompt}`);
+          
+          // Generate video with Kling 2.1 Master (WhatsApp format)
+          const videoResult = await generateKlingVideoFromText(command.prompt);
+          
+          if (videoResult.success && videoResult.videoUrl) {
+            // Send the generated video without caption
+            const fileName = videoResult.fileName || `kling_video_${Date.now()}.mp4`;
+            
+            await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
+            
+            // Add AI response to conversation history
+            conversationManager.addMessage(chatId, 'assistant', `וידאו נוצר: ${videoResult.description || command.prompt}`);
+            
+            console.log(`✅ Kling text-to-video sent to ${senderName}`);
+          } else {
+            const errorMsg = videoResult.error || 'לא הצלחתי ליצור את הווידאו. נסה שוב מאוחר יותר.';
+            await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
+            console.log(`❌ Kling text-to-video failed for ${senderName}: ${errorMsg}`);
+          }
+        } catch (videoError) {
+          console.error('❌ Error in Kling text-to-video generation:', videoError.message || videoError);
+          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת הווידאו עם Kling.');
+        }
+        break;
+
       case 'clear_conversation':
         const cleared = conversationManager.clearSession(chatId);
         if (cleared) {
@@ -812,7 +846,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         break;
 
       case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n🎬 שלח וידאו עם כותרת: ## [תיאור] - עיבוד וידאו עם RunwayML Gen4\n\n🎤 עיבוד קולי:\n🗣️ שלח הקלטה קולית - תמלול + תגובת AI + שיבוט קול\n📝 Flow: קול → תמלול → Gemini → קול חדש בקולך\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling\n🎬 וידאו + כותרת: ## שפר את הווידאו ותוסיף אפקטים\n🎤 שלח הקלטה קולית לעיבוד מלא';
+        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎥 ### [תיאור] - יצירת וידאו עם Kling 2.1 Master (9:16)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n🎬 שלח וידאו עם כותרת: ## [תיאור] - עיבוד וידאו עם RunwayML Gen4\n\n🎤 עיבוד קולי:\n🗣️ שלח הקלטה קולית - תמלול + תגובת AI + שיבוט קול\n📝 Flow: קול → תמלול → Gemini → קול חדש בקולך\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n### חתול רוקד בגשם\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling\n🎬 וידאו + כותרת: ## שפר את הווידאו ותוסיף אפקטים\n🎤 שלח הקלטה קולית לעיבוד מלא';
 
         await sendTextMessage(chatId, helpMessage);
         break;
@@ -841,6 +875,16 @@ function parseTextCommand(text) {
     const prompt = text.substring(5).trim(); // Remove "#### "
     return {
       type: 'veo3_video',
+      prompt: prompt,
+      originalMessage: text
+    };
+  }
+
+  // Kling Text-to-Video Generation command: ### + space + text
+  if (text.startsWith('### ')) {
+    const prompt = text.substring(4).trim(); // Remove "### "
+    return {
+      type: 'kling_text_to_video',
       prompt: prompt,
       originalMessage: text
     };
