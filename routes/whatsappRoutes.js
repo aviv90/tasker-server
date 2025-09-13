@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { sendTextMessage, sendFileByUrl, downloadFile } = require('../services/greenApiService');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
-const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp } = require('../services/geminiService');
+const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp } = require('../services/geminiService');
 const conversationManager = require('../services/conversationManager');
 
 // Message deduplication cache - prevent processing duplicate messages
@@ -29,8 +29,8 @@ async function sendAck(chatId, command) {
     case 'openai_image':
       ackMessage = '🖼️ קיבלתי. מיד יוצר תמונה';
       break;
-    case 'video_generation':
-      ackMessage = '🎬 קיבלתי. מיד יוצר וידאו';
+    case 'veo3_video':
+      ackMessage = '🎬 קיבלתי. מיד יוצר וידאו עם Veo 3';
       break;
     case 'voice_generation':
       ackMessage = '🎤 קיבלתי. מיד יוצר קול';
@@ -420,6 +420,40 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         }
         break;
 
+      case 'veo3_video':
+        console.log(`🎬 Processing Veo 3 video generation request from ${senderName}`);
+        
+        try {
+          // Add user message to conversation
+          conversationManager.addMessage(chatId, 'user', `יצירת וידאו: ${command.prompt}`);
+          
+          // Generate video with Veo 3 (WhatsApp format)
+          const videoResult = await generateVideoForWhatsApp(command.prompt);
+          
+          if (videoResult.success && videoResult.videoUrl) {
+            // Send the generated video with text as caption
+            const fileName = `veo3_video_${Date.now()}.mp4`;
+            const caption = videoResult.description && videoResult.description.length > 0 
+              ? `🎬 וידאו נוצר: ${videoResult.description}` 
+              : '🎬 וידאו נוצר בהצלחה';
+            
+            await sendFileByUrl(chatId, videoResult.videoUrl, fileName, caption);
+            
+            // Add AI response to conversation history
+            conversationManager.addMessage(chatId, 'assistant', caption);
+            
+            console.log(`✅ Veo 3 video sent to ${senderName} with caption: ${caption}`);
+          } else {
+            const errorMsg = videoResult.error || 'לא הצלחתי ליצור וידאו. נסה שוב מאוחר יותר.';
+            await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
+            console.log(`❌ Veo 3 video generation failed for ${senderName}: ${errorMsg}`);
+          }
+        } catch (videoError) {
+          console.error('❌ Error in Veo 3 video generation:', videoError.message || videoError);
+          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת הוידאו.');
+        }
+        break;
+
       case 'clear_conversation':
         const cleared = conversationManager.clearSession(chatId);
         if (cleared) {
@@ -444,7 +478,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         break;
 
       case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n## דרקון אדום עף בשמיים\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול';
+        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n## דרקון אדום עף בשמיים\n#### שפן אומר Hi\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול';
 
         await sendTextMessage(chatId, helpMessage);
         break;
@@ -467,6 +501,16 @@ function parseTextCommand(text) {
   }
 
   text = text.trim();
+
+  // Veo 3 Video Generation command: #### + space + text
+  if (text.startsWith('#### ')) {
+    const prompt = text.substring(5).trim(); // Remove "#### "
+    return {
+      type: 'veo3_video',
+      prompt: prompt,
+      originalMessage: text
+    };
+  }
 
   // OpenAI Image Generation command: ## + space + text
   if (text.startsWith('## ')) {

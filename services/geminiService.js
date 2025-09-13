@@ -360,12 +360,14 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
 
 async function generateVideoWithText(prompt) {
     try {
-        console.log('🎬 Starting Veo 3 text-to-video generation');
+        console.log('🎬 Starting Veo 3 text-to-video generation (Tasker format)');
         const cleanPrompt = sanitizeText(prompt);
         
         let operation = await veoClient.models.generateVideos({
             model: "veo-3.0-generate-preview",
             prompt: cleanPrompt,
+            aspectRatio: "9:16", // Vertical format for mobile
+            quality: "high"
         });
         
         console.log('⏳ Polling for video generation completion...');
@@ -557,6 +559,116 @@ async function generateVideoWithImage(prompt, imageBuffer) {
     }
 }
 
+async function generateVideoForWhatsApp(prompt, req = null) {
+    try {
+        console.log('🎬 Starting Veo 3 text-to-video generation (WhatsApp format)');
+        const cleanPrompt = sanitizeText(prompt);
+        
+        let operation = await veoClient.models.generateVideos({
+            model: "veo-3.0-generate-preview",
+            prompt: cleanPrompt,
+            aspectRatio: "9:16", // Vertical format for mobile
+            quality: "high"
+        });
+        
+        console.log('⏳ Polling for video generation completion...');
+        const maxWaitTime = 10 * 60 * 1000; // 10 minutes
+        const startTime = Date.now();
+        let pollAttempts = 0;
+        
+        while (!operation.done) {
+            if (Date.now() - startTime > maxWaitTime) {
+                console.error('❌ Veo 3 text-to-video generation timed out');
+                return { 
+                    success: false, 
+                    error: 'Video generation timed out after 10 minutes' 
+                };
+            }
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            pollAttempts++;
+            console.log(`🔄 Polling attempt ${pollAttempts} for Veo 3 text-to-video generation`);
+            operation = await veoClient.operations.getVideosOperation({ operation });
+        }
+        
+        const videoFile = operation.response.generatedVideos[0].video;
+        
+        const fileName = `veo3_video_${uuidv4()}.mp4`;
+        const filePath = path.join(__dirname, '..', 'public', 'tmp', fileName);
+        const tmpDir = path.dirname(filePath);
+        
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        
+        try {
+            await veoClient.files.download({ file: videoFile, downloadPath: filePath });
+            console.log('📥 SDK download completed');
+        } catch (downloadError) {
+            console.error('❌ SDK download failed:', downloadError);
+            return { 
+                success: false, 
+                error: `Failed to download video file: ${downloadError.message}` 
+            };
+        }
+        
+        // Check if the file was created and is complete
+        let retries = 0;
+        let fileReady = false;
+        
+        while (!fileReady && retries < 15) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            if (fs.existsSync(filePath)) {
+                try {
+                    const stats = fs.statSync(filePath);
+                    
+                    // Check that the file is not empty and stable (size doesn't change)
+                    if (stats.size > 0) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        const newStats = fs.statSync(filePath);
+                        
+                        if (newStats.size === stats.size && stats.size > 100000) { // At least 100KB for video
+                            fileReady = true;
+                            break;
+                        }
+                    }
+                } catch (statError) {
+                    // Continue retrying
+                }
+            }
+            retries++;
+        }
+        
+        if (!fileReady) {
+            console.error('❌ Video file was not properly downloaded');
+            return { 
+                success: false, 
+                error: 'Video file was not downloaded successfully' 
+            };
+        }
+        
+        // Create public URL using centralized URL utility
+        const videoUrl = getStaticFileUrl(fileName, req);
+        
+        console.log('✅ Veo 3 text-to-video generated successfully (WhatsApp format)');
+        console.log(`🎬 Video saved to: ${filePath}`);
+        console.log(`🔗 Public URL: ${videoUrl}`);
+        
+        return { 
+            success: true,
+            videoUrl: videoUrl,
+            description: cleanPrompt, // Include the prompt as description
+            fileName: fileName
+        };
+    } catch (err) {
+        console.error('❌ Veo 3 text-to-video generation error:', err);
+        return { 
+            success: false, 
+            error: err.message || 'Unknown error occurred during video generation' 
+        };
+    }
+}
+
 /**
  * Generate text response using Gemini with conversation history support
  * @param {string} prompt - User input text
@@ -653,4 +765,4 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
     }
 }
 
-module.exports = { generateImageWithText, generateImageForWhatsApp, editImageWithText, editImageForWhatsApp, generateVideoWithText, generateVideoWithImage, generateTextResponse };
+module.exports = { generateImageWithText, generateImageForWhatsApp, editImageWithText, editImageForWhatsApp, generateVideoWithText, generateVideoWithImage, generateVideoForWhatsApp, generateTextResponse };
