@@ -5,7 +5,7 @@ const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: 
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp } = require('../services/geminiService');
 const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage } = require('../services/replicateService');
 const speechService = require('../services/speechService');
-const voiceService = require('../services/voiceService');
+const { voiceService } = require('../services/voiceService');
 const conversationManager = require('../services/conversationManager');
 
 // Message deduplication cache - prevent processing duplicate messages
@@ -434,16 +434,20 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 
     // Step 2: Create Instant Voice Clone
     console.log(`🔄 Step 2: Creating voice clone...`);
-    const voiceCloneResult = await voiceService.createInstantVoiceClone(
-      audioBuffer,
-      `WhatsApp Voice Clone ${Date.now()}`,
-      {
-        format: 'ogg',
-        language: transcriptionResult.detectedLanguage || 'he',
-        removeNoise: true,
-        enhanceAudio: true
-      }
-    );
+    const voiceCloneOptions = {
+      name: `WhatsApp Voice Clone ${Date.now()}`,
+      description: `Voice clone from WhatsApp audio`,
+      removeBackgroundNoise: true,
+      labels: JSON.stringify({
+        accent: transcriptionResult.detectedLanguage === 'he' ? 'hebrew' : 'natural',
+        use_case: 'conversational',
+        quality: 'high',
+        style: 'natural',
+        language: transcriptionResult.detectedLanguage || 'he'
+      })
+    };
+    
+    const voiceCloneResult = await voiceService.createInstantVoiceClone(audioBuffer, voiceCloneOptions);
     
     if (voiceCloneResult.error) {
       console.error('❌ Voice cloning failed:', voiceCloneResult.error);
