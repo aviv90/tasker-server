@@ -511,7 +511,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     console.log(`📝 Transcribed: "${transcribedText}"`);
 
     // Send transcription to user first
-    await sendTextMessage(chatId, `📝 תמלול: "${transcribedText}"`);
+    await sendTextMessage(chatId, `📝 תמלול ההקלטה של ${senderName}: "${transcribedText}"`);
 
     // Step 2: Create Instant Voice Clone
     console.log(`🔄 Step 2: Creating voice clone...`);
