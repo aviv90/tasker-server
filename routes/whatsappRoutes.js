@@ -545,19 +545,26 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     const history = conversationManager.getHistory(chatId);
     const geminiResult = await generateGeminiResponse(transcribedText, history);
     
-    let textForTTS = transcribedText; // Default to original text
-    
     if (geminiResult.error) {
-      console.warn('⚠️ Gemini generation failed:', geminiResult.error);
-      console.log('📝 Using original transcribed text for TTS');
-    } else {
-      textForTTS = geminiResult.text;
-      console.log(`✅ Step 3 complete: Gemini generated ${textForTTS.length} characters`);
-      console.log(`💬 Gemini response: "${textForTTS.substring(0, 100)}..."`);
+      console.error('❌ Gemini generation failed:', geminiResult.error);
+      await sendTextMessage(chatId, `❌ סליחה, לא הצלחתי ליצור תגובה: ${geminiResult.error}`);
       
-      // Add AI response to conversation history
-      conversationManager.addMessage(chatId, 'assistant', textForTTS);
+      // Clean up voice clone before returning
+      try {
+        await voiceService.deleteVoice(voiceId);
+        console.log(`🧹 Voice clone ${voiceId} deleted (cleanup after Gemini error)`);
+      } catch (cleanupError) {
+        console.warn('⚠️ Could not delete voice clone:', cleanupError.message);
+      }
+      return;
     }
+
+    const geminiResponse = geminiResult.text;
+    console.log(`✅ Step 3 complete: Gemini generated ${geminiResponse.length} characters`);
+    console.log(`💬 Gemini response: "${geminiResponse.substring(0, 100)}..."`);
+    
+    // Add AI response to conversation history
+    conversationManager.addMessage(chatId, 'assistant', geminiResponse);
 
     // Step 4: Text-to-Speech with cloned voice
     console.log(`🔄 Step 4: Converting text to speech with cloned voice...`);
@@ -568,12 +575,12 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
       languageCode: detectedLanguage !== 'auto' ? detectedLanguage : 'he'
     };
 
-    const ttsResult = await voiceService.textToSpeech(voiceId, textForTTS, ttsOptions);
+    const ttsResult = await voiceService.textToSpeech(voiceId, geminiResponse, ttsOptions);
     
     if (ttsResult.error) {
       console.error('❌ Text-to-speech failed:', ttsResult.error);
       // If TTS fails, send text response instead
-      await sendTextMessage(chatId, `💬 ${textForTTS}`);
+      await sendTextMessage(chatId, `💬 ${geminiResponse}`);
       return;
     }
 
