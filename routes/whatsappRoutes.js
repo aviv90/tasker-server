@@ -4,6 +4,8 @@ const { sendTextMessage, sendFileByUrl, downloadFile } = require('../services/gr
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp } = require('../services/geminiService');
 const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage } = require('../services/replicateService');
+const speechService = require('../services/speechService');
+const voiceService = require('../services/voiceService');
 const conversationManager = require('../services/conversationManager');
 
 // Message deduplication cache - prevent processing duplicate messages
@@ -38,6 +40,9 @@ async function sendAck(chatId, command) {
       break;
     case 'kling_image_to_video':
       ackMessage = '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Kling 2.1';
+      break;
+    case 'voice_processing':
+      ackMessage = '🎤 קיבלתי את ההקלטה. מתחיל עיבוד קולי...';
       break;
     case 'voice_generation':
       ackMessage = '🎤 קיבלתי. מיד יוצר קול';
@@ -211,6 +216,20 @@ async function handleIncomingMessage(webhookData) {
       } else {
         console.log(`ℹ️ Image received but no command (use "### " for Veo 3 video, "## " for Kling video, "* " for Gemini edit, or "# " for OpenAI edit)`);
       }
+    }
+    // Handle voice messages for voice-to-voice processing
+    else if (messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage') {
+      const audioData = messageData.fileMessageData || messageData.audioMessageData;
+      
+      console.log(`🎤 Voice message received`);
+      
+      // Process voice-to-voice asynchronously
+      processVoiceMessageAsync({
+        chatId,
+        senderId,
+        senderName,
+        audioUrl: audioData.downloadUrl
+      });
     } else if (messageText) {
       // Process text message asynchronously - don't await
       processTextMessageAsync({
@@ -254,6 +273,16 @@ function processImageToVideoAsync(imageData) {
   // Run in background without blocking webhook response
   handleImageToVideo(imageData).catch(error => {
     console.error('❌ Error in async image-to-video processing:', error.message || error);
+  });
+}
+
+/**
+ * Process voice message asynchronously (no await from webhook)
+ */
+function processVoiceMessageAsync(voiceData) {
+  // Run in background without blocking webhook response
+  handleVoiceMessage(voiceData).catch(error => {
+    console.error('❌ Error in async voice processing:', error.message || error);
   });
 }
 
@@ -359,6 +388,132 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
   } catch (error) {
     console.error(`❌ Error in ${serviceName} image-to-video:`, error.message || error);
     await sendTextMessage(chatId, `❌ סליחה, הייתה שגיאה ביצירת הוידאו מהתמונה עם ${serviceName}.`);
+  }
+}
+
+/**
+ * Handle voice message with full voice-to-voice processing
+ * Flow: Speech-to-Text → Voice Clone → Gemini Response → Text-to-Speech
+ */
+async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
+  console.log(`🎤 Processing voice-to-voice request from ${senderName}`);
+  
+  try {
+    // Send immediate ACK
+    await sendAck(chatId, { type: 'voice_processing' });
+    
+    // Step 1: Download audio file
+    console.log(`📥 Downloading audio from URL (${audioUrl.length} chars)`);
+    const audioBuffer = await downloadFile(audioUrl);
+    
+    // Step 2: Speech-to-Text transcription
+    console.log(`🔄 Step 1: Transcribing speech...`);
+    const transcriptionOptions = {
+      model: 'scribe_v1',
+      language: null, // Auto-detect
+      removeNoise: true,
+      removeFiller: true,
+      optimizeLatency: 0,
+      format: 'ogg' // WhatsApp audio format
+    };
+    
+    const transcriptionResult = await speechService.speechToText(audioBuffer, transcriptionOptions);
+    
+    if (transcriptionResult.error) {
+      console.error('❌ Transcription failed:', transcriptionResult.error);
+      await sendTextMessage(chatId, `❌ סליחה, לא הצלחתי לתמלל את ההקלטה: ${transcriptionResult.error}`);
+      return;
+    }
+
+    const transcribedText = transcriptionResult.text;
+    console.log(`✅ Step 1 complete: Transcribed ${transcribedText.length} characters`);
+    console.log(`📝 Transcribed: "${transcribedText}"`);
+
+    // Send transcription to user first
+    await sendTextMessage(chatId, `📝 תמלול: "${transcribedText}"`);
+
+    // Step 2: Create Instant Voice Clone
+    console.log(`🔄 Step 2: Creating voice clone...`);
+    const voiceCloneResult = await voiceService.createInstantVoiceClone(
+      audioBuffer,
+      `WhatsApp Voice Clone ${Date.now()}`,
+      {
+        format: 'ogg',
+        language: transcriptionResult.detectedLanguage || 'he',
+        removeNoise: true,
+        enhanceAudio: true
+      }
+    );
+    
+    if (voiceCloneResult.error) {
+      console.error('❌ Voice cloning failed:', voiceCloneResult.error);
+      await sendTextMessage(chatId, `❌ סליחה, לא הצלחתי ליצור שיבוט קול: ${voiceCloneResult.error}`);
+      return;
+    }
+
+    const voiceId = voiceCloneResult.voiceId;
+    const detectedLanguage = transcriptionResult.detectedLanguage || 'he';
+    console.log(`✅ Step 2 complete: Voice cloned (ID: ${voiceId}), Language: ${detectedLanguage}`);
+
+    // Add user message to conversation
+    conversationManager.addMessage(chatId, 'user', `הקלטה קולית: ${transcribedText}`);
+
+    // Step 3: Generate Gemini response
+    console.log(`🔄 Step 3: Generating Gemini response...`);
+    const history = conversationManager.getHistory(chatId);
+    const geminiResult = await generateGeminiResponse(transcribedText, history);
+    
+    let textForTTS = transcribedText; // Default to original text
+    
+    if (geminiResult.error) {
+      console.warn('⚠️ Gemini generation failed:', geminiResult.error);
+      console.log('📝 Using original transcribed text for TTS');
+    } else {
+      textForTTS = geminiResult.text;
+      console.log(`✅ Step 3 complete: Gemini generated ${textForTTS.length} characters`);
+      console.log(`💬 Gemini response: "${textForTTS.substring(0, 100)}..."`);
+      
+      // Add AI response to conversation history
+      conversationManager.addMessage(chatId, 'assistant', textForTTS);
+    }
+
+    // Step 4: Text-to-Speech with cloned voice
+    console.log(`🔄 Step 4: Converting text to speech with cloned voice...`);
+    
+    const ttsOptions = {
+      modelId: 'eleven_v3', // Use the most advanced model
+      outputFormat: 'mp3_44100_128',
+      languageCode: detectedLanguage !== 'auto' ? detectedLanguage : 'he'
+    };
+
+    const ttsResult = await voiceService.textToSpeech(voiceId, textForTTS, ttsOptions);
+    
+    if (ttsResult.error) {
+      console.error('❌ Text-to-speech failed:', ttsResult.error);
+      // If TTS fails, send text response instead
+      await sendTextMessage(chatId, `💬 ${textForTTS}`);
+      return;
+    }
+
+    console.log(`✅ Step 4 complete: Audio generated at ${ttsResult.audioUrl}`);
+
+    // Step 5: Send voice response back to user
+    const fileName = `voice_response_${Date.now()}.mp3`;
+    await sendFileByUrl(chatId, ttsResult.audioUrl, fileName, '');
+    
+    console.log(`✅ Voice-to-voice processing complete for ${senderName}`);
+
+    // Cleanup: Delete the cloned voice (optional - ElevenLabs has limits)
+    try {
+      await voiceService.deleteVoice(voiceId);
+      console.log(`🧹 Cleanup: Voice ${voiceId} deleted`);
+    } catch (cleanupError) {
+      console.warn('⚠️ Voice cleanup failed:', cleanupError.message);
+    }
+
+  } catch (error) {
+    console.error('❌ Error in voice-to-voice processing:', error.message || error);
+    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד ההקלטה הקולית.');
   }
 }
 
@@ -572,7 +727,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         break;
 
       case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling';
+        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n\n🎤 עיבוד קולי:\n🗣️ שלח הקלטה קולית - תמלול + תגובת AI + שיבוט קול\n📝 Flow: קול → תמלול → Gemini → קול חדש בקולך\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling\n🎤 שלח הקלטה קולית לעיבוד מלא';
 
         await sendTextMessage(chatId, helpMessage);
         break;
