@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { sendTextMessage, sendFileByUrl, downloadFile } = require('../services/greenApiService');
-const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage } = require('../services/openaiService');
+const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp } = require('../services/geminiService');
 const conversationManager = require('../services/conversationManager');
 
@@ -142,21 +142,37 @@ async function handleIncomingMessage(webhookData) {
       
       console.log(`🖼️ Image message received with caption: "${caption}"`);
       
-      // Check if caption starts with "*" for image editing
+      // Check if caption starts with "*" for Gemini image editing
       if (caption.startsWith('* ')) {
         const prompt = caption.substring(2).trim(); // Remove "* "
-        console.log(`🎨 Image edit request with prompt: "${prompt}"`);
+        console.log(`🎨 Gemini image edit request with prompt: "${prompt}"`);
         
-        // Process image editing asynchronously
+        // Process Gemini image editing asynchronously
         processImageEditAsync({
           chatId,
           senderId,
           senderName,
           imageUrl: imageData.downloadUrl,
-          prompt: prompt
+          prompt: prompt,
+          service: 'gemini'
+        });
+      } 
+      // Check if caption starts with "#" for OpenAI image editing
+      else if (caption.startsWith('# ')) {
+        const prompt = caption.substring(2).trim(); // Remove "# "
+        console.log(`🖼️ OpenAI image edit request with prompt: "${prompt}"`);
+        
+        // Process OpenAI image editing asynchronously
+        processImageEditAsync({
+          chatId,
+          senderId,
+          senderName,
+          imageUrl: imageData.downloadUrl,
+          prompt: prompt,
+          service: 'openai'
         });
       } else {
-        console.log(`ℹ️ Image received but no edit command (caption should start with "* ")`);
+        console.log(`ℹ️ Image received but no edit command (caption should start with "* " for Gemini or "# " for OpenAI)`);
       }
     } else if (messageText) {
       // Process text message asynchronously - don't await
@@ -195,29 +211,37 @@ function processImageEditAsync(imageData) {
 }
 
 /**
- * Handle image edit with Gemini AI
+ * Handle image edit with AI (Gemini or OpenAI)
  */
-async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt }) {
-  console.log(`🎨 Processing image edit request from ${senderName}: "${prompt}"`);
+async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt, service }) {
+  console.log(`🎨 Processing ${service} image edit request from ${senderName}: "${prompt}"`);
   
   try {
     // Send immediate ACK
-    await sendTextMessage(chatId, '🖼️ קיבלתי את התמונה. מיד עורך אותה...');
+    const ackMessage = service === 'gemini' 
+      ? '🎨 קיבלתי את התמונה. מיד עורך אותה עם Gemini...'
+      : '🖼️ קיבלתי את התמונה. מיד עורך אותה עם OpenAI...';
+    await sendTextMessage(chatId, ackMessage);
     
     // Add user message to conversation
-    conversationManager.addMessage(chatId, 'user', `עריכת תמונה: ${prompt}`);
+    conversationManager.addMessage(chatId, 'user', `עריכת תמונה (${service}): ${prompt}`);
     
     // Download the image first
-    console.log(`📥 Downloading image from: ${imageUrl}`);
+    console.log(`📥 Downloading image from URL (${imageUrl.length} chars)`);
     const imageBuffer = await downloadFile(imageUrl);
     const base64Image = imageBuffer.toString('base64');
     
-    // Edit image with Gemini
-    const editResult = await editImageForWhatsApp(prompt, base64Image);
+    // Edit image with selected AI service
+    let editResult;
+    if (service === 'gemini') {
+      editResult = await editImageForWhatsApp(prompt, base64Image);
+    } else if (service === 'openai') {
+      editResult = await editOpenAIImage(prompt, base64Image);
+    }
     
     if (editResult.success && editResult.imageUrl) {
       // Send the edited image with caption
-      const fileName = `gemini_edit_${Date.now()}.png`;
+      const fileName = `${service}_edit_${Date.now()}.png`;
       const caption = editResult.description && editResult.description.length > 0 
         ? editResult.description 
         : '';
@@ -229,14 +253,14 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt 
         conversationManager.addMessage(chatId, 'assistant', caption);
       }
       
-      console.log(`✅ Gemini edited image sent to ${senderName}${caption ? ' with caption: ' + caption : ''}`);
+      console.log(`✅ ${service} edited image sent to ${senderName}${caption ? ' with caption: ' + caption : ''}`);
     } else {
       const errorMsg = editResult.error || 'לא הצלחתי לערוך את התמונה. נסה שוב מאוחר יותר.';
       await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
-      console.log(`❌ Gemini image edit failed for ${senderName}: ${errorMsg}`);
+      console.log(`❌ ${service} image edit failed for ${senderName}: ${errorMsg}`);
     }
   } catch (error) {
-    console.error('❌ Error in image editing:', error.message || error);
+    console.error(`❌ Error in ${service} image editing:`, error.message || error);
     await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעריכת התמונה.');
   }
 }
@@ -420,7 +444,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         break;
 
       case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n✨ עריכת תמונות:\n🖼️ שלח תמונה עם כותרת: * [הוראות עריכה]\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n## דרקון אדום עף בשמיים\n🖼️ תמונה + כותרת: * הוסף כובע אדום';
+        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n## דרקון אדום עף בשמיים\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול';
 
         await sendTextMessage(chatId, helpMessage);
         break;
