@@ -470,13 +470,13 @@ async function generateVideoWithImage(prompt, imageBuffer) {
         let operation = await veoClient.models.generateVideos({
             model: "veo-3.0-generate-001", // Stable version
             prompt: cleanPrompt,
-            config: {
-                aspectRatio: "9:16" // Vertical format for mobile (720p resolution)
-            },
             image: {
                 imageBytes: imageBase64,
-                mimeType: "image/png",
+                mimeType: "image/jpeg", // Try JPEG instead of PNG
             },
+            config: {
+                aspectRatio: "9:16" // Vertical format for mobile (720p resolution)
+            }
         });
         
         console.log('⏳ Polling for video generation completion...');
@@ -685,13 +685,13 @@ async function generateVideoFromImageForWhatsApp(prompt, imageBuffer, req = null
         let operation = await veoClient.models.generateVideos({
             model: "veo-3.0-generate-001", // Stable version
             prompt: cleanPrompt,
-            config: {
-                aspectRatio: "9:16" // Vertical format for mobile (720p resolution)
-            },
             image: {
                 imageBytes: imageBase64,
-                mimeType: "image/png",
+                mimeType: "image/jpeg", // Try JPEG instead of PNG
             },
+            config: {
+                aspectRatio: "9:16" // Vertical format for mobile (720p resolution)
+            }
         });
         
         console.log('⏳ Polling for video generation completion...');
