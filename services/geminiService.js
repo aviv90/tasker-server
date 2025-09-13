@@ -1014,4 +1014,52 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
     }
 }
 
-module.exports = { generateImageWithText, generateImageForWhatsApp, editImageWithText, editImageForWhatsApp, generateVideoWithText, generateVideoWithImage, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateTextResponse };
+/**
+ * Generate chat summary using Gemini
+ */
+async function generateChatSummary(messages) {
+    try {
+        console.log(`📝 Generating chat summary for ${messages.length} messages`);
+        
+        // Format messages for Gemini
+        let formattedMessages = '';
+        messages.forEach((msg, index) => {
+            const timestamp = new Date(msg.timestamp * 1000).toLocaleString('he-IL');
+            const sender = msg.senderName || msg.sender || 'משתמש';
+            const messageText = msg.textMessage || msg.caption || '[מדיה]';
+            
+            formattedMessages += `${index + 1}. ${timestamp} - ${sender}: ${messageText}\n`;
+        });
+        
+        const summaryPrompt = `אנא צור סיכום קצר וברור של השיחה הבאה. התמקד בנושאים העיקריים, החלטות שהתקבלו, ונקודות חשובות:
+
+הודעות השיחה:
+${formattedMessages}
+
+סיכום השיחה:`;
+
+        const model = getGeminiClient().getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const result = await model.generateContent(summaryPrompt);
+        
+        if (!result.response) {
+            throw new Error('No response from Gemini');
+        }
+        
+        const summaryText = result.response.text();
+        console.log(`✅ Chat summary generated: ${summaryText.length} characters`);
+        
+        return {
+            success: true,
+            summary: summaryText
+        };
+        
+    } catch (err) {
+        console.error('❌ Chat summary generation error:', err);
+        return {
+            success: false,
+            error: err.message || 'Chat summary generation failed'
+        };
+    }
+}
+
+module.exports = { generateImageWithText, generateImageForWhatsApp, editImageWithText, editImageForWhatsApp, generateVideoWithText, generateVideoWithImage, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateTextResponse, generateChatSummary };

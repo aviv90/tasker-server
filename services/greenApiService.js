@@ -104,8 +104,44 @@ async function downloadFile(downloadUrl, fileName = null) {
   }
 }
 
+/**
+ * Get chat history (last N messages) from Green API
+ */
+async function getChatHistory(chatId, count = 10) {
+  try {
+    console.log(`📜 Getting last ${count} messages from chat: ${chatId}`);
+    
+    const url = `https://api.green-api.com/waInstance${GREEN_API_ID_INSTANCE}/getChatHistory/${GREEN_API_API_TOKEN_INSTANCE}`;
+    
+    const data = {
+      chatId: chatId,
+      count: count
+    };
+
+    const response = await axios.post(url, data, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log(`📜 Retrieved ${response.data.length || 0} messages from chat history`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error getting chat history:', error.message);
+    
+    // Log the response details if available for debugging
+    if (error.response) {
+      console.error(`❌ Green API Error: ${error.response.status} - ${error.response.statusText}`);
+      console.error('❌ Response data:', error.response.data);
+    }
+    
+    throw error;
+  }
+}
+
 module.exports = {
   sendTextMessage,
   sendFileByUrl,
-  downloadFile
+  downloadFile,
+  getChatHistory
 };
