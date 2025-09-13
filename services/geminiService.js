@@ -346,7 +346,7 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
         return { 
             success: true,
             imageUrl: imageUrl,
-            description: "", // No text description - only send the edited image
+            description: text.trim() || "", // Include text description from Gemini
             fileName: fileName
         };
     } catch (err) {

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { sendTextMessage, sendFileByUrl, downloadFile } = require('../services/greenApiService');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage } = require('../services/openaiService');
-const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp } = require('../services/geminiService');
+const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp } = require('../services/geminiService');
 const conversationManager = require('../services/conversationManager');
 
 // Message deduplication cache - prevent processing duplicate messages
@@ -135,8 +135,31 @@ async function handleIncomingMessage(webhookData) {
       console.log(`📝 Extended text message: "${messageText}"`);
     }
     
-    if (messageText) {
-      // Process message asynchronously - don't await
+    // Handle image messages for image-to-image editing
+    if (messageData.typeMessage === 'imageMessage') {
+      const imageData = messageData.fileMessageData || messageData.imageMessageData;
+      const caption = imageData?.caption || '';
+      
+      console.log(`🖼️ Image message received with caption: "${caption}"`);
+      
+      // Check if caption starts with "~" for image editing
+      if (caption.startsWith('~ ')) {
+        const prompt = caption.substring(2).trim(); // Remove "~ "
+        console.log(`🎨 Image edit request with prompt: "${prompt}"`);
+        
+        // Process image editing asynchronously
+        processImageEditAsync({
+          chatId,
+          senderId,
+          senderName,
+          imageUrl: imageData.downloadUrl,
+          prompt: prompt
+        });
+      } else {
+        console.log(`ℹ️ Image received but no edit command (caption should start with "~ ")`);
+      }
+    } else if (messageText) {
+      // Process text message asynchronously - don't await
       processTextMessageAsync({
         chatId,
         senderId,
@@ -159,6 +182,63 @@ function processTextMessageAsync(messageData) {
   handleTextMessage(messageData).catch(error => {
     console.error('❌ Error in async message processing:', error.message || error);
   });
+}
+
+/**
+ * Process image edit message asynchronously (no await from webhook)
+ */
+function processImageEditAsync(imageData) {
+  // Run in background without blocking webhook response
+  handleImageEdit(imageData).catch(error => {
+    console.error('❌ Error in async image edit processing:', error.message || error);
+  });
+}
+
+/**
+ * Handle image edit with Gemini AI
+ */
+async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt }) {
+  console.log(`🎨 Processing image edit request from ${senderName}: "${prompt}"`);
+  
+  try {
+    // Send immediate ACK
+    await sendTextMessage(chatId, '🖼️ קיבלתי את התמונה. מיד עורך אותה...');
+    
+    // Add user message to conversation
+    conversationManager.addMessage(chatId, 'user', `עריכת תמונה: ${prompt}`);
+    
+    // Download the image first
+    console.log(`📥 Downloading image from: ${imageUrl}`);
+    const imageBuffer = await downloadFile(imageUrl);
+    const base64Image = imageBuffer.toString('base64');
+    
+    // Edit image with Gemini
+    const editResult = await editImageForWhatsApp(prompt, base64Image);
+    
+    if (editResult.success && editResult.imageUrl) {
+      // Send the edited image with caption
+      const fileName = `gemini_edit_${Date.now()}.png`;
+      const caption = editResult.description && editResult.description.length > 0 
+        ? editResult.description 
+        : '';
+      
+      await sendFileByUrl(chatId, editResult.imageUrl, fileName, caption);
+      
+      // Add AI response to conversation history
+      if (caption) {
+        conversationManager.addMessage(chatId, 'assistant', caption);
+      }
+      
+      console.log(`✅ Gemini edited image sent to ${senderName}${caption ? ' with caption: ' + caption : ''}`);
+    } else {
+      const errorMsg = editResult.error || 'לא הצלחתי לערוך את התמונה. נסה שוב מאוחר יותר.';
+      await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
+      console.log(`❌ Gemini image edit failed for ${senderName}: ${errorMsg}`);
+    }
+  } catch (error) {
+    console.error('❌ Error in image editing:', error.message || error);
+    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעריכת התמונה.');
+  }
 }
 
 /**
@@ -340,7 +420,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         break;
 
       case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n## דרקון אדום עף בשמיים';
+        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n✨ עריכת תמונות:\n🖼️ שלח תמונה עם כותרת: ~ [הוראות עריכה]\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n## דרקון אדום עף בשמיים\n🖼️ תמונה + כותרת: ~ הוסף כובע אדום';
 
         await sendTextMessage(chatId, helpMessage);
         break;

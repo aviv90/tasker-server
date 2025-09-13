@@ -72,31 +72,32 @@ async function sendFileByUrl(chatId, fileUrl, fileName, caption = '') {
 }
 
 /**
- * Download file from WhatsApp message
+ * Download file from WhatsApp message and return as Buffer
  */
-async function downloadFile(downloadUrl, fileName) {
+async function downloadFile(downloadUrl, fileName = null) {
   try {
+    console.log(`📥 Downloading file from: ${downloadUrl}`);
+    
     const response = await axios.get(downloadUrl, {
-      responseType: 'stream'
+      responseType: 'arraybuffer'
     });
 
-    const tempDir = path.join(__dirname, '..', 'public', 'tmp');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
+    const buffer = Buffer.from(response.data);
+    console.log(`📥 File downloaded as buffer: ${buffer.length} bytes`);
+    
+    // If fileName is provided, also save to file (for backward compatibility)
+    if (fileName) {
+      const tempDir = path.join(__dirname, '..', 'public', 'tmp');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+
+      const filePath = path.join(tempDir, fileName);
+      fs.writeFileSync(filePath, buffer);
+      console.log(`📥 File also saved to: ${filePath}`);
     }
-
-    const filePath = path.join(tempDir, fileName);
-    const writer = fs.createWriteStream(filePath);
-
-    response.data.pipe(writer);
-
-    return new Promise((resolve, reject) => {
-      writer.on('finish', () => {
-        console.log(`📥 File downloaded: ${fileName}`);
-        resolve(filePath);
-      });
-      writer.on('error', reject);
-    });
+    
+    return buffer;
   } catch (error) {
     console.error('❌ Error downloading file:', error.message);
     throw error;
