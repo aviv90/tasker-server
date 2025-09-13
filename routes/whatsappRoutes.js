@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { sendTextMessage, sendFileByUrl, downloadFile } = require('../services/greenApiService');
+const { getStaticFileUrl } = require('../utils/urlUtils');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp } = require('../services/geminiService');
 const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage } = require('../services/replicateService');
@@ -503,7 +504,13 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 
     // Step 5: Send voice response back to user
     const fileName = `voice_response_${Date.now()}.mp3`;
-    await sendFileByUrl(chatId, ttsResult.audioUrl, fileName, '');
+    
+    // Convert relative URL to full URL for Green API
+    const fullAudioUrl = ttsResult.audioUrl.startsWith('http') 
+      ? ttsResult.audioUrl 
+      : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
+    
+    await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
     
     console.log(`✅ Voice-to-voice processing complete for ${senderName}`);
 
