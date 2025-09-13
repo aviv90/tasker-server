@@ -434,9 +434,122 @@ async function generateVideoFromImageForWhatsApp(imageBuffer, prompt, req = null
     }
 }
 
+async function generateVideoFromVideoForWhatsApp(videoBuffer, prompt, req = null) {
+    try {
+        console.log('🎬 Starting RunwayML Gen4 video-to-video generation (WhatsApp format)');
+        
+        // Create temporary file for video processing
+        const tempDir = path.join(__dirname, '..', 'public', 'tmp');
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
+        
+        const tempVideoPath = path.join(tempDir, `temp_video_${Date.now()}.mp4`);
+        fs.writeFileSync(tempVideoPath, videoBuffer);
+
+        const videoBase64 = fs.readFileSync(tempVideoPath).toString('base64');
+        const videoDataUrl = `data:video/mp4;base64,${videoBase64}`;
+
+        const input = {
+            prompt: prompt || "enhance and transform this video",
+            video: videoDataUrl,
+            aspect_ratio: "9:16" // Vertical format for mobile
+        };
+        
+        console.log('🔄 Calling RunwayML Gen4 API');
+        const output = await replicate.run(MODELS.VIDEO_TO_VIDEO, { input });
+        
+        // Clean up temp file
+        try {
+            fs.unlinkSync(tempVideoPath);
+        } catch (cleanupError) {
+            console.warn('Could not clean up temp file:', cleanupError.message);
+        }
+        
+        if (!output) {
+            return { 
+                success: false, 
+                error: 'No output received from RunwayML Gen4' 
+            };
+        }
+        
+        // Handle different response types
+        let videoURL = null;
+        
+        // Handle ReadableStream response
+        if (output && typeof output.getReader === 'function') {
+            console.log('🔄 Converting ReadableStream to file');
+            
+            const reader = output.getReader();
+            const chunks = [];
+            
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                }
+                
+                const processedVideoBuffer = Buffer.concat(chunks);
+                const outputFilename = `runway_video_${Date.now()}.mp4`;
+                const outputPath = path.join(tempDir, outputFilename);
+                
+                fs.writeFileSync(outputPath, processedVideoBuffer);
+                
+                // Create public URL using centralized URL utility
+                const { getStaticFileUrl } = require('../utils/urlUtils');
+                videoURL = getStaticFileUrl(outputFilename, req);
+                
+                console.log('✅ RunwayML Gen4 video-to-video completed (WhatsApp format)');
+                
+            } catch (streamError) {
+                return { 
+                    success: false, 
+                    error: `Failed to read video stream: ${streamError.message}` 
+                };
+            }
+        } else {
+            // Handle direct URL response
+            if (Array.isArray(output)) {
+                videoURL = output[0];
+            } else if (typeof output === 'object' && output.video) {
+                videoURL = output.video;
+            } else if (typeof output === 'object' && output.output) {
+                videoURL = output.output;
+            } else {
+                videoURL = output;
+            }
+            
+            console.log('✅ RunwayML Gen4 video-to-video completed (WhatsApp format)');
+        }
+        
+        if (!videoURL) {
+            return { 
+                success: false, 
+                error: 'No video URL received from RunwayML Gen4' 
+            };
+        }
+        
+        return { 
+            success: true,
+            videoUrl: videoURL,
+            description: prompt || "וידאו עובד מחדש",
+            fileName: `runway_video_${Date.now()}.mp4`
+        };
+        
+    } catch (err) {
+        console.error('❌ RunwayML Gen4 video-to-video generation error:', err);
+        return { 
+            success: false, 
+            error: err.message || 'Unknown error occurred during video-to-video generation' 
+        };
+    }
+}
+
 module.exports = { 
     generateVideoWithText, 
     generateVideoFromImage, 
     generateVideoFromVideo,
-    generateVideoFromImageForWhatsApp
+    generateVideoFromImageForWhatsApp,
+    generateVideoFromVideoForWhatsApp
 };

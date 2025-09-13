@@ -4,7 +4,7 @@ const { sendTextMessage, sendFileByUrl, downloadFile } = require('../services/gr
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp } = require('../services/geminiService');
-const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage } = require('../services/replicateService');
+const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage, generateVideoFromVideoForWhatsApp: generateRunwayVideoFromVideo } = require('../services/replicateService');
 const speechService = require('../services/speechService');
 const { voiceService } = require('../services/voiceService');
 const conversationManager = require('../services/conversationManager');
@@ -44,6 +44,9 @@ async function sendAck(chatId, command) {
       break;
     case 'voice_processing':
       ackMessage = '🎤 קיבלתי את ההקלטה. מתחיל עיבוד קולי...';
+      break;
+    case 'runway_video_to_video':
+      ackMessage = '🎬 קיבלתי את הווידאו. מיד עובד עליו עם RunwayML Gen4';
       break;
     case 'voice_generation':
       ackMessage = '🎤 קיבלתי. מיד יוצר קול';
@@ -218,6 +221,30 @@ async function handleIncomingMessage(webhookData) {
         console.log(`ℹ️ Image received but no command (use "### " for Veo 3 video, "## " for Kling video, "* " for Gemini edit, or "# " for OpenAI edit)`);
       }
     }
+    // Handle video messages for video-to-video processing
+    else if (messageData.typeMessage === 'videoMessage') {
+      const videoData = messageData.fileMessageData || messageData.videoMessageData;
+      const caption = videoData?.caption || '';
+      
+      console.log(`🎬 Video message received with caption: "${caption}"`);
+      
+      // Check if caption starts with "# " for RunwayML Gen4 video-to-video
+      if (caption.startsWith('# ')) {
+        const prompt = caption.substring(2).trim(); // Remove "# "
+        console.log(`🎬 RunwayML Gen4 video-to-video request with prompt: "${prompt}"`);
+        
+        // Process RunwayML video-to-video asynchronously
+        processVideoToVideoAsync({
+          chatId,
+          senderId,
+          senderName,
+          videoUrl: videoData.downloadUrl,
+          prompt: prompt
+        });
+      } else {
+        console.log(`ℹ️ Video received but no command (use "# " for RunwayML Gen4 video-to-video)`);
+      }
+    }
     // Handle voice messages for voice-to-voice processing
     else if (messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage') {
       const audioData = messageData.fileMessageData || messageData.audioMessageData;
@@ -284,6 +311,16 @@ function processVoiceMessageAsync(voiceData) {
   // Run in background without blocking webhook response
   handleVoiceMessage(voiceData).catch(error => {
     console.error('❌ Error in async voice processing:', error.message || error);
+  });
+}
+
+/**
+ * Process video-to-video message asynchronously (no await from webhook)
+ */
+function processVideoToVideoAsync(videoData) {
+  // Run in background without blocking webhook response
+  handleVideoToVideo(videoData).catch(error => {
+    console.error('❌ Error in async video-to-video processing:', error.message || error);
   });
 }
 
@@ -387,6 +424,46 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
   } catch (error) {
     console.error(`❌ Error in ${serviceName} image-to-video:`, error.message || error);
     await sendTextMessage(chatId, `❌ סליחה, הייתה שגיאה ביצירת הוידאו מהתמונה עם ${serviceName}.`);
+  }
+}
+
+/**
+ * Handle video-to-video with RunwayML Gen4
+ */
+async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prompt }) {
+  console.log(`🎬 Processing RunwayML Gen4 video-to-video request from ${senderName}: "${prompt}"`);
+  
+  try {
+    // Send immediate ACK
+    await sendAck(chatId, { type: 'runway_video_to_video' });
+    
+    // Add user message to conversation
+    conversationManager.addMessage(chatId, 'user', `עיבוד וידאו: ${prompt}`);
+    
+    // Download the video first
+    const videoBuffer = await downloadFile(videoUrl);
+    
+    // Generate video with RunwayML Gen4
+    const videoResult = await generateRunwayVideoFromVideo(videoBuffer, prompt);
+    
+    if (videoResult.success && videoResult.videoUrl) {
+      // Send the generated video without caption
+      const fileName = `runway_video_${Date.now()}.mp4`;
+      
+      await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
+      
+      // Add AI response to conversation history
+      conversationManager.addMessage(chatId, 'assistant', `וידאו עובד מחדש: ${videoResult.description || 'וידאו חדש'}`);
+      
+      console.log(`✅ RunwayML Gen4 video-to-video sent to ${senderName}`);
+    } else {
+      const errorMsg = videoResult.error || 'לא הצלחתי לעבד את הווידאו. נסה שוב מאוחר יותר.';
+      await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
+      console.log(`❌ RunwayML Gen4 video-to-video failed for ${senderName}: ${errorMsg}`);
+    }
+  } catch (error) {
+    console.error('❌ Error in RunwayML Gen4 video-to-video:', error.message || error);
+    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד הווידאו.');
   }
 }
 
@@ -735,7 +812,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         break;
 
       case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n\n🎤 עיבוד קולי:\n🗣️ שלח הקלטה קולית - תמלול + תגובת AI + שיבוט קול\n📝 Flow: קול → תמלול → Gemini → קול חדש בקולך\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling\n🎤 שלח הקלטה קולית לעיבוד מלא';
+        const helpMessage = '🤖 Green API Bot Commands:\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n🎬 שלח וידאו עם כותרת: # [תיאור] - עיבוד וידאו עם RunwayML Gen4\n\n🎤 עיבוד קולי:\n🗣️ שלח הקלטה קולית - תמלול + תגובת AI + שיבוט קול\n📝 Flow: קול → תמלול → Gemini → קול חדש בקולך\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling\n🎬 וידאו + כותרת: # שפר את הווידאו ותוסיף אפקטים\n🎤 שלח הקלטה קולית לעיבוד מלא';
 
         await sendTextMessage(chatId, helpMessage);
         break;
