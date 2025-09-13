@@ -837,7 +837,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         
         try {
           // Get last 10 messages from Green API
-          const chatHistory = await getChatHistory(chatId, 10);
+          const chatHistory = await getChatHistory(chatId, 30);
           
           if (!chatHistory || chatHistory.length === 0) {
             await sendTextMessage(chatId, '📝 אין מספיק הודעות בשיחה כדי ליצור סיכום.');
