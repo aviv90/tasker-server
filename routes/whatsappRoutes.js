@@ -304,7 +304,6 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
     conversationManager.addMessage(chatId, 'user', `עריכת תמונה (${service}): ${prompt}`);
     
     // Download the image first
-    console.log(`📥 Downloading image from URL (${imageUrl.length} chars)`);
     const imageBuffer = await downloadFile(imageUrl);
     const base64Image = imageBuffer.toString('base64');
     
@@ -360,7 +359,6 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
     conversationManager.addMessage(chatId, 'user', `יצירת וידאו מתמונה (${serviceName}): ${prompt}`);
     
     // Download the image first
-    console.log(`📥 Downloading image from URL (${imageUrl.length} chars)`);
     const imageBuffer = await downloadFile(imageUrl);
     
     // Generate video with selected service
@@ -404,7 +402,6 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     await sendAck(chatId, { type: 'voice_processing' });
     
     // Step 1: Download audio file
-    console.log(`📥 Downloading audio from URL (${audioUrl.length} chars)`);
     const audioBuffer = await downloadFile(audioUrl);
     
     // Step 2: Speech-to-Text transcription
