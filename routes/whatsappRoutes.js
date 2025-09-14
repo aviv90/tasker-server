@@ -1082,6 +1082,11 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
           // Generate music with Suno (WhatsApp format)
           const musicResult = await generateMusicWithLyrics(command.prompt);
           
+          // Debug: Log full metadata structure
+          if (musicResult.metadata) {
+            console.log('🎵 Full Suno metadata:', JSON.stringify(musicResult.metadata, null, 2));
+          }
+          
           if (musicResult.error) {
             const errorMsg = musicResult.error || 'לא הצלחתי ליצור שיר. נסה שוב מאוחר יותר.';
             await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
@@ -1102,20 +1107,34 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             let songInfo = '';
             if (musicResult.metadata) {
               const meta = musicResult.metadata;
+              
+              // Debug logging for lyrics
+              console.log('🎵 Suno metadata check:');
+              console.log('- meta.lyrics:', meta.lyrics ? 'EXISTS' : 'MISSING');
+              console.log('- meta.lyric:', meta.lyric ? 'EXISTS' : 'MISSING');
+              console.log('- meta.gptDescriptionPrompt:', meta.gptDescriptionPrompt ? 'EXISTS' : 'MISSING');
+              
               songInfo = `🎵 **${meta.title || 'שיר חדש'}**\n`;
               if (meta.duration) songInfo += `⏱️ משך: ${Math.round(meta.duration)}s\n`;
               if (meta.model) songInfo += `🤖 מודל: ${meta.model}\n`;
               
-              // Add lyrics if available
-              if (meta.lyrics) {
+              // Add lyrics if available - with better fallback logic
+              if (meta.lyrics && meta.lyrics.trim()) {
                 songInfo += `\n📝 **מילי השיר:**\n${meta.lyrics}`;
-              } else if (meta.lyric) {
+                console.log('✅ Using meta.lyrics');
+              } else if (meta.lyric && meta.lyric.trim()) {
                 songInfo += `\n📝 **מילי השיר:**\n${meta.lyric}`;
-              } else if (meta.gptDescriptionPrompt) {
+                console.log('✅ Using meta.lyric');
+              } else if (meta.gptDescriptionPrompt && meta.gptDescriptionPrompt.trim()) {
                 songInfo += `\n📝 **תיאור השיר:**\n${meta.gptDescriptionPrompt}`;
+                console.log('✅ Using meta.gptDescriptionPrompt');
+              } else {
+                console.log('⚠️ No lyrics or description found in metadata');
+                songInfo += `\n📝 **מילי השיר:** לא זמינות`;
               }
             } else {
               songInfo = `🎵 השיר מוכן!`;
+              console.log('⚠️ No metadata available for song');
             }
             
             await sendTextMessage(chatId, songInfo);
