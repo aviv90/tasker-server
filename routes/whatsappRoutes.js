@@ -32,34 +32,34 @@ async function sendAck(chatId, command) {
   
   switch (command.type) {
     case 'gemini_image':
-      ackMessage = '🎨 קיבלתי. מיד יוצר תמונה';
+      ackMessage = '🎨 קיבלתי. מיד יוצר תמונה עם Gemini...';
       break;
     case 'openai_image':
-      ackMessage = '🖼️ קיבלתי. מיד יוצר תמונה';
+      ackMessage = '🖼️ קיבלתי. מיד יוצר תמונה עם OpenAI...';
       break;
     case 'veo3_video':
-      ackMessage = '🎬 קיבלתי. מיד יוצר וידאו עם Veo 3';
+      ackMessage = '🎬 קיבלתי. מיד יוצר וידאו עם Veo 3...';
       break;
     case 'veo3_image_to_video':
-      ackMessage = '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Veo 3';
+      ackMessage = '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Veo 3...';
       break;
     case 'kling_image_to_video':
-      ackMessage = '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Kling 2.1';
+      ackMessage = '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Kling 2.1...';
       break;
     case 'voice_processing':
-      ackMessage = '🎤 קיבלתי את ההקלטה. מתחיל עיבוד קולי...';
+      ackMessage = '🎤 קיבלתי את ההקלטה. מתחיל עיבוד קולי עם ElevenLabs + Gemini...';
       break;
     case 'runway_video_to_video':
-      ackMessage = '🎬 קיבלתי את הווידאו. מיד עובד עליו עם RunwayML Gen4';
+      ackMessage = '🎬 קיבלתי את הווידאו. מיד עובד עליו עם RunwayML Gen4...';
       break;
     case 'kling_text_to_video':
-      ackMessage = '🎬 מתחיל יצירת וידאו עם Kling 2.1 Master';
+      ackMessage = '🎬 מתחיל יצירת וידאו עם Kling 2.1 Master...';
       break;
     case 'chat_summary':
-      ackMessage = '📝 מכין סיכום של השיחה...';
+      ackMessage = '📝 מכין סיכום של השיחה עם Gemini...';
       break;
     case 'voice_generation':
-      ackMessage = '🎤 קיבלתי. מיד יוצר קול';
+      ackMessage = '🎤 קיבלתי. מיד יוצר קול עם ElevenLabs...';
       break;
     case 'music_generation':
       ackMessage = '🎵 קיבלתי. מתחיל יצירת שיר עם Suno...';
@@ -810,8 +810,10 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
 
   console.log(`🤖 Executing command: ${command.type}`);
 
-  // Send immediate ACK for long-running commands
-  await sendAck(chatId, command);
+  // Send immediate ACK for long-running commands (skip chat commands)
+  if (command.type !== 'gemini_chat' && command.type !== 'openai_chat') {
+    await sendAck(chatId, command);
+  }
 
   try {
     switch (command.type) {
