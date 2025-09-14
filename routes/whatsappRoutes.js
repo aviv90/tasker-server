@@ -59,7 +59,7 @@ async function sendAck(chatId, command) {
       ackMessage = '🎤 קיבלתי. מיד יוצר קול';
       break;
     case 'music_generation':
-      ackMessage = '🎵 קיבלתי. מתחיל יצירת שיר עם Suno (עד 20 דקות)...';
+      ackMessage = '🎵 קיבלתי. מתחיל יצירת שיר עם Suno...';
       break;
     default:
       return; // No ACK needed for this command
@@ -422,19 +422,12 @@ async function handleOutgoingMessage(webhookData) {
         console.log(`ℹ️ Outgoing video received but no command (use "## " for RunwayML Gen4 video-to-video)`);
       }
     }
-    // Handle voice messages for voice-to-voice processing
+    // Handle voice messages - but skip processing for outgoing messages
     else if (messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage') {
       const audioData = messageData.fileMessageData || messageData.audioMessageData;
       
-      console.log(`🎤 Outgoing voice message received`);
-      
-      // Process voice-to-voice asynchronously
-      processVoiceMessageAsync({
-        chatId,
-        senderId,
-        senderName,
-        audioUrl: audioData.downloadUrl
-      });
+      console.log(`🎤 Outgoing voice message received - skipping voice processing (only process incoming voice messages)`);
+      // Don't process outgoing voice messages to avoid unwanted transcription
     } else if (messageText) {
       // Process text message asynchronously - don't await
       processTextMessageAsync({
@@ -760,15 +753,15 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 
     console.log(`✅ Step 4 complete: Audio generated at ${ttsResult.audioUrl}`);
 
-    // Step 5: Send voice response back to user
-    const fileName = `voice_response_${Date.now()}.mp3`;
+    // Step 5: Send voice response back to user as voice note
+    const fileName = `voice_response_${Date.now()}.ogg`; // Use .ogg for voice notes
     
     // Convert relative URL to full URL for Green API
     const fullAudioUrl = ttsResult.audioUrl.startsWith('http') 
       ? ttsResult.audioUrl 
       : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
     
-    await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
+    await sendFileByUrl(chatId, fullAudioUrl, fileName, ''); // No caption for voice notes
     
     console.log(`✅ Voice-to-voice processing complete for ${senderName}`);
 
@@ -1076,25 +1069,39 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
             console.log(`❌ Music generation failed for ${senderName}: ${errorMsg}`);
           } else if (musicResult.audioBuffer && musicResult.result) {
-            // Send the generated music file
-            const fileName = `suno_music_${Date.now()}.mp3`;
+            // Send the generated music file as voice note
+            const fileName = `suno_music_${Date.now()}.ogg`; // Use .ogg for voice notes
             
             // Convert relative path to full URL for Green API
             const fullAudioUrl = musicResult.result.startsWith('http') 
               ? musicResult.result 
               : getStaticFileUrl(musicResult.result.replace('/static/', ''));
             
-            // Create caption with music metadata
-            let caption = '';
+            // Send as voice message (no caption for voice notes)
+            await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
+            
+            // Send song information and lyrics as separate text message
+            let songInfo = '';
             if (musicResult.metadata) {
               const meta = musicResult.metadata;
-              caption = `🎵 ${meta.title || 'שיר חדש'}\n`;
-              if (meta.duration) caption += `⏱️ משך: ${Math.round(meta.duration)}s\n`;
-              if (meta.model) caption += `🤖 מודל: ${meta.model}\n`;
-              caption += `🎼 פרומפט: ${meta.prompt || command.prompt}`;
+              songInfo = `🎵 **${meta.title || 'שיר חדש'}**\n`;
+              if (meta.duration) songInfo += `⏱️ משך: ${Math.round(meta.duration)}s\n`;
+              if (meta.model) songInfo += `🤖 מודל: ${meta.model}\n`;
+              songInfo += `🎼 פרומפט: ${meta.prompt || command.prompt}\n`;
+              
+              // Add lyrics if available
+              if (meta.lyrics) {
+                songInfo += `\n📝 **מילי השיר:**\n${meta.lyrics}`;
+              } else if (meta.lyric) {
+                songInfo += `\n📝 **מילי השיר:**\n${meta.lyric}`;
+              } else if (meta.gptDescriptionPrompt) {
+                songInfo += `\n📝 **תיאור השיר:**\n${meta.gptDescriptionPrompt}`;
+              }
+            } else {
+              songInfo = `🎵 השיר מוכן!\n🎼 פרומפט: ${command.prompt}`;
             }
             
-            await sendFileByUrl(chatId, fullAudioUrl, fileName, caption);
+            await sendTextMessage(chatId, songInfo);
             
             // Add AI response to conversation history
             const responseText = `שיר נוצר: ${musicResult.metadata?.title || command.prompt}`;
@@ -1112,7 +1119,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         break;
 
       case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n✨ **הפקודות עובדות גם כשאתה שולח אותן!**\n💬 כל פקודה שתשלח תעבד וההתשובה תחזור לאותה שיחה\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎥 ### [תיאור] - יצירת וידאו עם Kling 2.1 Master (9:16)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n🎬 שלח וידאו עם כותרת: ## [תיאור] - עיבוד וידאו עם RunwayML Gen4\n\n🎵 יצירת מוזיקה:\n🎶 **** [תיאור] - יצירת שיר עם Suno (עד 20 דקות)\n📝 דוגמה: **** שיר עצוב על גשם בחורף\n\n🎤 עיבוד קולי:\n🗣️ שלח הקלטה קולית - תמלול + תגובת AI + שיבוט קול\n📝 Flow: קול → תמלול → Gemini → קול חדש בקולך\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n📝 סכם שיחה - סיכום 10 ההודעות האחרונות\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n### חתול רוקד בגשם\n**** שיר רוק על אהבה\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling\n🎬 וידאו + כותרת: ## שפר את הווידאו ותוסיף אפקטים\n🎤 שלח הקלטה קולית לעיבוד מלא\n📝 סכם שיחה';
+        const helpMessage = '🤖 Green API Bot Commands:\n\n✨ **הפקודות עובדות גם כשאתה שולח אותן!**\n💬 כל פקודה שתשלח תעבד וההתשובה תחזור לאותה שיחה\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎥 ### [תיאור] - יצירת וידאו עם Kling 2.1 Master (9:16)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n🎬 שלח וידאו עם כותרת: ## [תיאור] - עיבוד וידאו עם RunwayML Gen4\n\n🎵 יצירת מוזיקה:\n🎶 **** [תיאור] - יצירת שיר עם Suno (עד 20 דקות)\n📝 דוגמה: **** שיר עצוב על גשם בחורף\n🎵 השיר נשלח כ-voice note + מילי השיר בהודעת טקסט\n\n🎤 עיבוד קולי:\n🗣️ שלח הקלטה קולית - תמלול + תגובת AI + שיבוט קול\n📝 Flow: קול → תמלול → Gemini → קול חדש בקולך\n🎤 התגובה הקולית נשלחת כ-voice note\n⚠️ הודעות קוליות שלך לא מתעבדות (רק נכנסות)\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n📝 סכם שיחה - סיכום 10 ההודעות האחרונות\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n### חתול רוקד בגשם\n**** שיר רוק על אהבה\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling\n🎬 וידאו + כותרת: ## שפר את הווידאו ותוסיף אפקטים\n🎤 שלח הקלטה קולית לעיבוד מלא\n📝 סכם שיחה';
 
         await sendTextMessage(chatId, helpMessage);
         break;
