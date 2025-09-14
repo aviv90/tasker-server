@@ -320,13 +320,14 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     // Step 4: Text-to-Speech with cloned voice
     console.log(`🔄 Step 4: Converting text to speech with cloned voice...`);
     
-    // Use the same detected language from Step 2
-    console.log(`🌐 Using detected language from transcription: ${detectedLanguage}`);
+    // Detect language from the text that will be converted to speech
+    const ttsLanguage = voiceService.detectLanguage(textForTTS);
+    console.log(`🌐 Detected TTS language: ${ttsLanguage} (from text: "${textForTTS.substring(0, 50)}...")`);
     
     const ttsOptions = {
       modelId: req.body.ttsModel || 'eleven_v3', // Use the most advanced model by default
       outputFormat: req.body.outputFormat || 'mp3_44100_128',
-      languageCode: detectedLanguage !== 'auto' ? detectedLanguage : 'he' // Default to Hebrew
+      languageCode: ttsLanguage
     };
 
     // Only add optimizeStreamingLatency if explicitly requested and not using eleven_v3

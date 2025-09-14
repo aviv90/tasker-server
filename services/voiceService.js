@@ -455,6 +455,56 @@ class VoiceService {
     }
 
     /**
+     * Detect language from text content
+     * @param {string} text - Text to analyze
+     * @returns {string} - Language code (he, en, ar, etc.)
+     */
+    detectLanguage(text) {
+        if (!text || typeof text !== 'string') {
+            return 'en'; // Default to English
+        }
+        
+        // Hebrew detection - check for Hebrew characters
+        const hebrewRegex = /[\u0590-\u05FF]/;
+        if (hebrewRegex.test(text)) {
+            return 'he';
+        }
+        
+        // Arabic detection - check for Arabic characters  
+        const arabicRegex = /[\u0600-\u06FF]/;
+        if (arabicRegex.test(text)) {
+            return 'ar';
+        }
+        
+        // Russian detection - check for Cyrillic characters
+        const russianRegex = /[\u0400-\u04FF]/;
+        if (russianRegex.test(text)) {
+            return 'ru';
+        }
+        
+        // Spanish detection - check for Spanish-specific characters
+        const spanishRegex = /[ñáéíóúüÑÁÉÍÓÚÜ]/;
+        if (spanishRegex.test(text)) {
+            return 'es';
+        }
+        
+        // French detection - check for French-specific characters
+        const frenchRegex = /[àâäéèêëïîôöùûüÿçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÇ]/;
+        if (frenchRegex.test(text)) {
+            return 'fr';
+        }
+        
+        // German detection - check for German-specific characters
+        const germanRegex = /[äöüßÄÖÜ]/;
+        if (germanRegex.test(text)) {
+            return 'de';
+        }
+        
+        // Default to English for Latin characters or unknown
+        return 'en';
+    }
+
+    /**
      * Text-to-Speech with random voice selection
      * @param {string} text - Text to convert to speech
      * @param {Object} options - TTS options (optional)
@@ -463,6 +513,10 @@ class VoiceService {
     async textToSpeechWithRandomVoice(text, options = {}) {
         try {
             console.log(`🎲 Starting TTS with random voice for text: "${text.substring(0, 50)}..."`);
+            
+            // Detect language from text
+            const detectedLanguage = this.detectLanguage(text);
+            console.log(`🌐 Detected language: ${detectedLanguage}`);
             
             // Get random voice
             const randomVoiceResult = await this.getRandomVoice();
@@ -477,8 +531,15 @@ class VoiceService {
                 return { error: 'No voice ID received from random voice selection' };
             }
             
-            // Generate speech with the selected voice
-            const ttsResult = await this.textToSpeech(voiceId, text, options);
+            // Prepare TTS options with detected language
+            const ttsOptions = {
+                ...options,
+                languageCode: detectedLanguage,
+                modelId: options.modelId || 'eleven_v3' // Use eleven_v3 for best multilingual support
+            };
+            
+            // Generate speech with the selected voice and language
+            const ttsResult = await this.textToSpeech(voiceId, text, ttsOptions);
             
             if (ttsResult.error) {
                 return { error: ttsResult.error };

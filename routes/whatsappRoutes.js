@@ -739,10 +739,14 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     // Step 4: Text-to-Speech with cloned voice
     console.log(`🔄 Step 4: Converting text to speech with cloned voice...`);
     
+    // Detect language from Gemini response text for accurate pronunciation
+    const responseLanguage = voiceService.detectLanguage(geminiResponse);
+    console.log(`🌐 Detected response language: ${responseLanguage}`);
+    
     const ttsOptions = {
       modelId: 'eleven_v3', // Use the most advanced model
       outputFormat: 'mp3_44100_128',
-      languageCode: detectedLanguage !== 'auto' ? detectedLanguage : 'he'
+      languageCode: responseLanguage
     };
 
     const ttsResult = await voiceService.textToSpeech(voiceId, geminiResponse, ttsOptions);
