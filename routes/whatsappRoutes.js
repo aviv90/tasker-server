@@ -1105,7 +1105,6 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
               songInfo = `🎵 **${meta.title || 'שיר חדש'}**\n`;
               if (meta.duration) songInfo += `⏱️ משך: ${Math.round(meta.duration)}s\n`;
               if (meta.model) songInfo += `🤖 מודל: ${meta.model}\n`;
-              songInfo += `🎼 פרומפט: ${meta.prompt || command.prompt}\n`;
               
               // Add lyrics if available
               if (meta.lyrics) {
@@ -1116,7 +1115,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
                 songInfo += `\n📝 **תיאור השיר:**\n${meta.gptDescriptionPrompt}`;
               }
             } else {
-              songInfo = `🎵 השיר מוכן!\n🎼 פרומפט: ${command.prompt}`;
+              songInfo = `🎵 השיר מוכן!`;
             }
             
             await sendTextMessage(chatId, songInfo);
