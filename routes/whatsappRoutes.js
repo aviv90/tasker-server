@@ -678,6 +678,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     
     if (transcriptionResult.error) {
       console.error('❌ Transcription failed:', transcriptionResult.error);
+      // We don't know the language yet, so use Hebrew as default for error messages
       await sendTextMessage(chatId, `❌ סליחה, לא הצלחתי לתמלל את ההקלטה: ${transcriptionResult.error}`);
       return;
     }
@@ -686,21 +687,30 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     console.log(`✅ Step 1 complete: Transcribed ${transcribedText.length} characters`);
     console.log(`📝 Transcribed: "${transcribedText}"`);
 
-    // Send transcription to user first
-    await sendTextMessage(chatId, `📝 תמלול ההקלטה של ${senderName}: "${transcribedText}"`);
+    // Send transcription to user first - in the detected language
+    const transcriptionMessage = originalLanguage === 'he' 
+      ? `📝 תמלול ההקלטה של ${senderName}: "${transcribedText}"`
+      : `📝 Transcription from ${senderName}: "${transcribedText}"`;
+    
+    await sendTextMessage(chatId, transcriptionMessage);
 
     // Step 2: Create Instant Voice Clone
     console.log(`🔄 Step 2: Creating voice clone...`);
+    
+    // Use our own language detection on the transcribed text for consistency
+    const originalLanguage = voiceService.detectLanguage(transcribedText);
+    console.log(`🌐 STT detected: ${transcriptionResult.detectedLanguage}, Our detection: ${originalLanguage}`);
+    
     const voiceCloneOptions = {
       name: `WhatsApp Voice Clone ${Date.now()}`,
       description: `Voice clone from WhatsApp audio`,
       removeBackgroundNoise: true,
       labels: JSON.stringify({
-        accent: transcriptionResult.detectedLanguage === 'he' ? 'hebrew' : 'natural',
+        accent: originalLanguage === 'he' ? 'hebrew' : 'natural',
         use_case: 'conversational',
         quality: 'high',
         style: 'natural',
-        language: transcriptionResult.detectedLanguage || 'he'
+        language: originalLanguage
       })
     };
     
@@ -719,14 +729,36 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     // Add user message to conversation
     conversationManager.addMessage(chatId, 'user', `הקלטה קולית: ${transcribedText}`);
 
-    // Step 3: Generate Gemini response
-    console.log(`🔄 Step 3: Generating Gemini response...`);
+    // Step 3: Generate Gemini response in the same language as the original
+    console.log(`🔄 Step 3: Generating Gemini response in ${originalLanguage}...`);
     const history = conversationManager.getHistory(chatId);
-    const geminiResult = await generateGeminiResponse(transcribedText, history);
+    
+    // Create language-aware prompt for Gemini
+    const languageInstruction = originalLanguage === 'he' 
+      ? '' // Hebrew is default, no need for special instruction
+      : originalLanguage === 'en' 
+        ? 'Please respond in English. ' 
+        : originalLanguage === 'ar' 
+          ? 'يرجى الرد باللغة العربية. '
+          : originalLanguage === 'ru' 
+            ? 'Пожалуйста, отвечайте на русском языке. '
+            : originalLanguage === 'es' 
+              ? 'Por favor responde en español. '
+              : originalLanguage === 'fr' 
+                ? 'Veuillez répondre en français. '
+                : originalLanguage === 'de' 
+                  ? 'Bitte antworten Sie auf Deutsch. '
+                  : `Please respond in the same language as this message. `;
+    
+    const geminiPrompt = languageInstruction + transcribedText;
+    const geminiResult = await generateGeminiResponse(geminiPrompt, history);
     
     if (geminiResult.error) {
       console.error('❌ Gemini generation failed:', geminiResult.error);
-      await sendTextMessage(chatId, `❌ סליחה, לא הצלחתי ליצור תגובה: ${geminiResult.error}`);
+      const errorMessage = originalLanguage === 'he' 
+        ? `❌ סליחה, לא הצלחתי ליצור תגובה: ${geminiResult.error}`
+        : `❌ Sorry, I couldn't generate a response: ${geminiResult.error}`;
+      await sendTextMessage(chatId, errorMessage);
       
       // Clean up voice clone before returning
       try {
@@ -748,9 +780,11 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     // Step 4: Text-to-Speech with cloned voice
     console.log(`🔄 Step 4: Converting text to speech with cloned voice...`);
     
-    // Detect language from Gemini response text for accurate pronunciation
-    const responseLanguage = voiceService.detectLanguage(geminiResponse);
-    console.log(`🌐 Detected response language: ${responseLanguage}`);
+    // Use the original language for TTS to maintain consistency throughout the flow
+    const responseLanguage = originalLanguage; // Force same language as original
+    console.log(`🌐 Language consistency enforced:`);
+    console.log(`   - Original (from user): ${originalLanguage}`);
+    console.log(`   - TTS (forced same): ${responseLanguage}`);
     
     const ttsOptions = {
       modelId: 'eleven_v3', // Use the most advanced model

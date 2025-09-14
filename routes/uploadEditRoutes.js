@@ -268,19 +268,23 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     console.log(`🔄 Step 2: Creating voice clone with optimized parameters...`);
     const voiceName = req.body.voiceName || `Voice_${Date.now()}`;
     
-    // Detect language from transcription for better voice matching
-    const detectedLanguage = transcriptionResult.metadata?.language || 'auto';
+    // Use our own language detection on transcribed text for consistency
+    const originalLanguage = voiceService.detectLanguage(transcribedText);
+    const sttDetected = transcriptionResult.metadata?.language || 'auto';
+    console.log(`🌐 Language detection for voice clone:`);
+    console.log(`   - STT detected: ${sttDetected}`);
+    console.log(`   - Our detection: ${originalLanguage}`);
     
     const voiceCloneOptions = {
       name: voiceName,
-      description: req.body.voiceDescription || `High-quality voice clone (${detectedLanguage})`,
+      description: req.body.voiceDescription || `High-quality voice clone (${originalLanguage})`,
       removeBackgroundNoise: req.body.removeBackgroundNoise !== 'false', // Always true for optimal quality
       labels: JSON.stringify({
-        accent: detectedLanguage === 'he' ? 'hebrew' : 'natural',
+        accent: originalLanguage === 'he' ? 'hebrew' : 'natural',
         use_case: 'conversational',
         quality: 'high',
         style: 'natural',
-        language: detectedLanguage
+        language: originalLanguage
       })
     };
 
@@ -320,9 +324,14 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     // Step 4: Text-to-Speech with cloned voice
     console.log(`🔄 Step 4: Converting text to speech with cloned voice...`);
     
-    // Detect language from the text that will be converted to speech
-    const ttsLanguage = voiceService.detectLanguage(textForTTS);
-    console.log(`🌐 Detected TTS language: ${ttsLanguage} (from text: "${textForTTS.substring(0, 50)}...")`);
+    // Use original language detection for consistency (from transcription)
+    const originalLanguage = voiceService.detectLanguage(transcribedText);
+    
+    // For TTS, use the original language to maintain consistency throughout the flow
+    const ttsLanguage = originalLanguage;
+    console.log(`🌐 Language consistency in upload-transcribe:`);
+    console.log(`   - Original (from transcription): ${originalLanguage}`);
+    console.log(`   - TTS (forced same): ${ttsLanguage}`);
     
     const ttsOptions = {
       modelId: req.body.ttsModel || 'eleven_v3', // Use the most advanced model by default
