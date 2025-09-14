@@ -324,9 +324,6 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     // Step 4: Text-to-Speech with cloned voice
     console.log(`🔄 Step 4: Converting text to speech with cloned voice...`);
     
-    // Use original language detection for consistency (from transcription)
-    const originalLanguage = voiceService.detectLanguage(transcribedText);
-    
     // For TTS, use the original language to maintain consistency throughout the flow
     const ttsLanguage = originalLanguage;
     console.log(`🌐 Language consistency in upload-transcribe:`);
