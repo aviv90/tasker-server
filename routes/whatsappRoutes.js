@@ -687,6 +687,10 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     console.log(`✅ Step 1 complete: Transcribed ${transcribedText.length} characters`);
     console.log(`📝 Transcribed: "${transcribedText}"`);
 
+    // Use our own language detection on the transcribed text for consistency
+    const originalLanguage = voiceService.detectLanguage(transcribedText);
+    console.log(`🌐 STT detected: ${transcriptionResult.detectedLanguage}, Our detection: ${originalLanguage}`);
+
     // Send transcription to user first - in the detected language
     const transcriptionMessage = originalLanguage === 'he' 
       ? `📝 תמלול ההקלטה של ${senderName}: "${transcribedText}"`
@@ -696,10 +700,6 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 
     // Step 2: Create Instant Voice Clone
     console.log(`🔄 Step 2: Creating voice clone...`);
-    
-    // Use our own language detection on the transcribed text for consistency
-    const originalLanguage = voiceService.detectLanguage(transcribedText);
-    console.log(`🌐 STT detected: ${transcriptionResult.detectedLanguage}, Our detection: ${originalLanguage}`);
     
     const voiceCloneOptions = {
       name: `WhatsApp Voice Clone ${Date.now()}`,
