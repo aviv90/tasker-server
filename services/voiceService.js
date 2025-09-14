@@ -184,6 +184,11 @@ class VoiceService {
             // Handle different response formats
             const voiceList = voices.voices || voices.data?.voices || [];
             
+            console.log(`🎤 Retrieved ${voiceList.length} voices from ElevenLabs`);
+            if (voiceList.length > 0) {
+                console.log(`🔍 First voice sample:`, JSON.stringify(voiceList[0], null, 2));
+            }
+            
             return {
                 voices: voiceList,
                 total: voiceList.length
@@ -418,7 +423,7 @@ class VoiceService {
             
             // Filter only available voices (not cloned ones that might be deleted)
             const availableVoices = voices.filter(voice => 
-                voice.voice_id && 
+                (voice.voice_id || voice.voiceId || voice.id) && 
                 voice.category !== 'cloned' // Prefer built-in voices for stability
             );
             
@@ -426,8 +431,11 @@ class VoiceService {
                 // If no built-in voices, use any available voice
                 const randomIndex = Math.floor(Math.random() * voices.length);
                 const selectedVoice = voices[randomIndex];
+                console.log(`🎲 Fallback: Selected any voice: ${selectedVoice.name} (${selectedVoice.voice_id || selectedVoice.voiceId})`);
+                console.log(`🔍 Fallback voice object:`, JSON.stringify(selectedVoice, null, 2));
+                
                 return {
-                    voiceId: selectedVoice.voice_id,
+                    voiceId: selectedVoice.voice_id || selectedVoice.voiceId || selectedVoice.id,
                     voiceName: selectedVoice.name,
                     voiceCategory: selectedVoice.category
                 };
@@ -437,10 +445,11 @@ class VoiceService {
             const randomIndex = Math.floor(Math.random() * availableVoices.length);
             const selectedVoice = availableVoices[randomIndex];
             
-            console.log(`🎲 Selected random voice: ${selectedVoice.name} (${selectedVoice.voice_id})`);
+            console.log(`🎲 Selected random voice: ${selectedVoice.name} (${selectedVoice.voice_id || selectedVoice.voiceId})`);
+            console.log(`🔍 Voice object:`, JSON.stringify(selectedVoice, null, 2));
             
             return {
-                voiceId: selectedVoice.voice_id,
+                voiceId: selectedVoice.voice_id || selectedVoice.voiceId || selectedVoice.id,
                 voiceName: selectedVoice.name,
                 voiceCategory: selectedVoice.category
             };
@@ -468,6 +477,11 @@ class VoiceService {
             
             const { voiceId, voiceName, voiceCategory } = randomVoiceResult;
             console.log(`🎤 Using voice: ${voiceName} (${voiceCategory})`);
+            console.log(`🔍 Voice ID: ${voiceId}`);
+            
+            if (!voiceId) {
+                return { error: 'No voice ID received from random voice selection' };
+            }
             
             // Generate speech with the selected voice
             const ttsResult = await this.textToSpeech(voiceId, text, options);
