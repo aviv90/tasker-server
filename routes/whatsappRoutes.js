@@ -61,6 +61,9 @@ async function sendAck(chatId, command) {
     case 'music_generation':
       ackMessage = '🎵 קיבלתי. מתחיל יצירת שיר עם Suno...';
       break;
+    case 'text_to_speech':
+      ackMessage = '🗣️ קיבלתי. מיד יוצר דיבור עם ElevenLabs...';
+      break;
     default:
       return; // No ACK needed for this command
   }
@@ -1118,8 +1121,60 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         }
         break;
 
+      case 'text_to_speech':
+        console.log(`🗣️ Processing text-to-speech request from ${senderName}`);
+        
+        try {
+          // Add user message to conversation
+          conversationManager.addMessage(chatId, 'user', `יצירת דיבור: ${command.prompt}`);
+          
+          // Generate speech with random voice
+          const ttsResult = await voiceService.textToSpeechWithRandomVoice(command.prompt);
+          
+          if (ttsResult.error) {
+            const errorMsg = ttsResult.error || 'לא הצלחתי ליצור דיבור. נסה שוב מאוחר יותר.';
+            await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
+            console.log(`❌ TTS failed for ${senderName}: ${errorMsg}`);
+          } else if (ttsResult.audioUrl) {
+            // Send the generated speech as voice note
+            const fileName = `tts_${Date.now()}.ogg`; // Use .ogg for voice notes
+            
+            // Convert relative URL to full URL for Green API
+            const fullAudioUrl = ttsResult.audioUrl.startsWith('http') 
+              ? ttsResult.audioUrl 
+              : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
+            
+            // Send as voice message (no caption for voice notes)
+            await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
+            
+            // Send voice information as separate text message
+            let voiceInfo = `🗣️ **הדיבור מוכן!**\n`;
+            voiceInfo += `📝 טקסט: ${command.prompt}\n`;
+            
+            if (ttsResult.voiceInfo) {
+              voiceInfo += `🎤 קול: ${ttsResult.voiceInfo.voiceName}\n`;
+              voiceInfo += `🏷️ סוג: ${ttsResult.voiceInfo.voiceCategory}`;
+            }
+            
+            await sendTextMessage(chatId, voiceInfo);
+            
+            // Add AI response to conversation history
+            const responseText = `דיבור נוצר: ${command.prompt}`;
+            conversationManager.addMessage(chatId, 'assistant', responseText);
+            
+            console.log(`✅ TTS sent to ${senderName}: ${ttsResult.voiceInfo?.voiceName || 'Unknown voice'}`);
+          } else {
+            await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת הדיבור.');
+            console.log(`❌ TTS failed for ${senderName}: No audio URL in result`);
+          }
+        } catch (ttsError) {
+          console.error('❌ Error in text-to-speech:', ttsError.message || ttsError);
+          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת הדיבור.');
+        }
+        break;
+
       case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n✨ **הפקודות עובדות גם כשאתה שולח אותן!**\n💬 כל פקודה שתשלח תעבד וההתשובה תחזור לאותה שיחה\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎥 ### [תיאור] - יצירת וידאו עם Kling 2.1 Master (9:16)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n🎬 שלח וידאו עם כותרת: ## [תיאור] - עיבוד וידאו עם RunwayML Gen4\n\n🎵 יצירת מוזיקה:\n🎶 **** [תיאור] - יצירת שיר עם Suno (עד 20 דקות)\n📝 דוגמה: **** שיר עצוב על גשם בחורף\n🎵 השיר נשלח כ-voice note + מילי השיר בהודעת טקסט\n\n🎤 עיבוד קולי:\n🗣️ שלח הקלטה קולית - תמלול + תגובת AI + שיבוט קול\n📝 Flow: קול → תמלול → Gemini → קול חדש בקולך\n🎤 התגובה הקולית נשלחת כ-voice note\n⚠️ הודעות קוליות שלך לא מתעבדות (רק נכנסות)\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n📝 סכם שיחה - סיכום 10 ההודעות האחרונות\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n### חתול רוקד בגשם\n**** שיר רוק על אהבה\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling\n🎬 וידאו + כותרת: ## שפר את הווידאו ותוסיף אפקטים\n🎤 שלח הקלטה קולית לעיבוד מלא\n📝 סכם שיחה';
+        const helpMessage = '🤖 Green API Bot Commands:\n\n✨ **הפקודות עובדות גם כשאתה שולח אותן!**\n💬 כל פקודה שתשלח תעבד וההתשובה תחזור לאותה שיחה\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎥 ### [תיאור] - יצירת וידאו עם Kling 2.1 Master (9:16)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n🎬 שלח וידאו עם כותרת: ## [תיאור] - עיבוד וידאו עם RunwayML Gen4\n\n🎵 יצירת מוזיקה:\n🎶 **** [תיאור] - יצירת שיר עם Suno (עד 20 דקות)\n📝 דוגמה: **** שיר עצוב על גשם בחורף\n🎵 השיר נשלח כ-voice note + מילי השיר בהודעת טקסט\n\n🗣️ יצירת דיבור:\n🎙️ *** [טקסט] - Text-to-Speech עם ElevenLabs (קול אקראי)\n📝 דוגמה: *** שלום, איך שלומך היום?\n🎤 הדיבור נשלח כ-voice note + פרטי הקול בהודעת טקסט\n\n🎤 עיבוד קולי:\n🗣️ שלח הקלטה קולית - תמלול + תגובת AI + שיבוט קול\n📝 Flow: קול → תמלול → Gemini → קול חדש בקולך\n🎤 התגובה הקולית נשלחת כ-voice note\n⚠️ הודעות קוליות שלך לא מתעבדות (רק נכנסות)\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n📝 סכם שיחה - סיכום 10 ההודעות האחרונות\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n### חתול רוקד בגשם\n**** שיר רוק על אהבה\n*** שלום, איך שלומך היום?\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling\n🎬 וידאו + כותרת: ## שפר את הווידאו ותוסיף אפקטים\n🎤 שלח הקלטה קולית לעיבוד מלא\n📝 סכם שיחה';
 
         await sendTextMessage(chatId, helpMessage);
         break;
@@ -1148,6 +1203,16 @@ function parseTextCommand(text) {
     const prompt = text.substring(5).trim(); // Remove "**** "
     return {
       type: 'music_generation',
+      prompt: prompt,
+      originalMessage: text
+    };
+  }
+
+  // Text-to-Speech command: *** + space + text
+  if (text.startsWith('*** ')) {
+    const prompt = text.substring(4).trim(); // Remove "*** "
+    return {
+      type: 'text_to_speech',
       prompt: prompt,
       originalMessage: text
     };

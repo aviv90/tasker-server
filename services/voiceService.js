@@ -401,6 +401,97 @@ class VoiceService {
     }
 
     /**
+     * Get a random available voice ID for text-to-speech
+     * @returns {Object} - Random voice ID or error
+     */
+    async getRandomVoice() {
+        try {
+            const voicesResult = await this.getVoices();
+            if (voicesResult.error) {
+                return { error: voicesResult.error };
+            }
+            
+            const voices = voicesResult.voices || [];
+            if (voices.length === 0) {
+                return { error: 'No voices available' };
+            }
+            
+            // Filter only available voices (not cloned ones that might be deleted)
+            const availableVoices = voices.filter(voice => 
+                voice.voice_id && 
+                voice.category !== 'cloned' // Prefer built-in voices for stability
+            );
+            
+            if (availableVoices.length === 0) {
+                // If no built-in voices, use any available voice
+                const randomIndex = Math.floor(Math.random() * voices.length);
+                const selectedVoice = voices[randomIndex];
+                return {
+                    voiceId: selectedVoice.voice_id,
+                    voiceName: selectedVoice.name,
+                    voiceCategory: selectedVoice.category
+                };
+            }
+            
+            // Select random voice from available built-in voices
+            const randomIndex = Math.floor(Math.random() * availableVoices.length);
+            const selectedVoice = availableVoices[randomIndex];
+            
+            console.log(`🎲 Selected random voice: ${selectedVoice.name} (${selectedVoice.voice_id})`);
+            
+            return {
+                voiceId: selectedVoice.voice_id,
+                voiceName: selectedVoice.name,
+                voiceCategory: selectedVoice.category
+            };
+        } catch (err) {
+            console.error('❌ Error getting random voice:', err.message);
+            return { error: err.message || 'Failed to get random voice' };
+        }
+    }
+
+    /**
+     * Text-to-Speech with random voice selection
+     * @param {string} text - Text to convert to speech
+     * @param {Object} options - TTS options (optional)
+     * @returns {Object} - Audio result with voice info
+     */
+    async textToSpeechWithRandomVoice(text, options = {}) {
+        try {
+            console.log(`🎲 Starting TTS with random voice for text: "${text.substring(0, 50)}..."`);
+            
+            // Get random voice
+            const randomVoiceResult = await this.getRandomVoice();
+            if (randomVoiceResult.error) {
+                return { error: `Failed to get random voice: ${randomVoiceResult.error}` };
+            }
+            
+            const { voiceId, voiceName, voiceCategory } = randomVoiceResult;
+            console.log(`🎤 Using voice: ${voiceName} (${voiceCategory})`);
+            
+            // Generate speech with the selected voice
+            const ttsResult = await this.textToSpeech(voiceId, text, options);
+            
+            if (ttsResult.error) {
+                return { error: ttsResult.error };
+            }
+            
+            // Return result with voice information
+            return {
+                ...ttsResult,
+                voiceInfo: {
+                    voiceId,
+                    voiceName,
+                    voiceCategory
+                }
+            };
+        } catch (err) {
+            console.error('❌ Error in TTS with random voice:', err.message);
+            return { error: err.message || 'Text-to-speech with random voice failed' };
+        }
+    }
+
+    /**
      * Get available voice cloning options
      * @returns {Object} - Available options
      */
