@@ -185,9 +185,6 @@ class VoiceService {
             const voiceList = voices.voices || voices.data?.voices || [];
             
             console.log(`🎤 Retrieved ${voiceList.length} voices from ElevenLabs`);
-            if (voiceList.length > 0) {
-                console.log(`🔍 First voice sample:`, JSON.stringify(voiceList[0], null, 2));
-            }
             
             return {
                 voices: voiceList,
@@ -431,8 +428,7 @@ class VoiceService {
                 // If no built-in voices, use any available voice
                 const randomIndex = Math.floor(Math.random() * voices.length);
                 const selectedVoice = voices[randomIndex];
-                console.log(`🎲 Fallback: Selected any voice: ${selectedVoice.name} (${selectedVoice.voice_id || selectedVoice.voiceId})`);
-                console.log(`🔍 Fallback voice object:`, JSON.stringify(selectedVoice, null, 2));
+                console.log(`🎲 Fallback: Selected any voice: ${selectedVoice.name}`);
                 
                 return {
                     voiceId: selectedVoice.voice_id || selectedVoice.voiceId || selectedVoice.id,
@@ -445,8 +441,7 @@ class VoiceService {
             const randomIndex = Math.floor(Math.random() * availableVoices.length);
             const selectedVoice = availableVoices[randomIndex];
             
-            console.log(`🎲 Selected random voice: ${selectedVoice.name} (${selectedVoice.voice_id || selectedVoice.voiceId})`);
-            console.log(`🔍 Voice object:`, JSON.stringify(selectedVoice, null, 2));
+            console.log(`🎲 Selected random voice: ${selectedVoice.name}`);
             
             return {
                 voiceId: selectedVoice.voice_id || selectedVoice.voiceId || selectedVoice.id,
@@ -476,8 +471,7 @@ class VoiceService {
             }
             
             const { voiceId, voiceName, voiceCategory } = randomVoiceResult;
-            console.log(`🎤 Using voice: ${voiceName} (${voiceCategory})`);
-            console.log(`🔍 Voice ID: ${voiceId}`);
+            console.log(`🎤 Using voice: ${voiceName}`);
             
             if (!voiceId) {
                 return { error: 'No voice ID received from random voice selection' };
