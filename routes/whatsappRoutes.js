@@ -9,12 +9,65 @@ const { generateMusicWithLyrics } = require('../services/musicService');
 const speechService = require('../services/speechService');
 const { voiceService } = require('../services/voiceService');
 const conversationManager = require('../services/conversationManager');
+const fs = require('fs');
+const path = require('path');
 
 // Message deduplication cache - prevent processing duplicate messages
 const processedMessages = new Set();
 
 // Voice transcription toggle - controls whether voice messages are processed
 let voiceTranscriptionEnabled = true;
+
+// Voice transcription exclude list - contacts who won't trigger voice processing
+let voiceTranscriptionExcludeList = new Set();
+
+// Path to the exclude list file
+const EXCLUDE_LIST_FILE = path.join(__dirname, '..', 'store', 'voiceExcludeList.json');
+
+/**
+ * Load voice transcription exclude list from file
+ */
+function loadExcludeList() {
+  try {
+    // Ensure store directory exists
+    const storeDir = path.dirname(EXCLUDE_LIST_FILE);
+    if (!fs.existsSync(storeDir)) {
+      fs.mkdirSync(storeDir, { recursive: true });
+      console.log('📁 Created store directory for voice exclude list');
+    }
+
+    if (fs.existsSync(EXCLUDE_LIST_FILE)) {
+      const data = fs.readFileSync(EXCLUDE_LIST_FILE, 'utf8');
+      const excludeArray = JSON.parse(data);
+      voiceTranscriptionExcludeList = new Set(excludeArray);
+      console.log(`📋 Loaded voice exclude list: ${excludeArray.length} contacts excluded`);
+      if (excludeArray.length > 0) {
+        console.log(`🚫 Excluded contacts: ${excludeArray.join(', ')}`);
+      }
+    } else {
+      console.log('📋 No voice exclude list file found, starting with empty list');
+    }
+  } catch (error) {
+    console.error('❌ Error loading voice exclude list:', error.message);
+    voiceTranscriptionExcludeList = new Set(); // Fallback to empty set
+  }
+}
+
+/**
+ * Save voice transcription exclude list to file
+ */
+function saveExcludeList() {
+  try {
+    const excludeArray = Array.from(voiceTranscriptionExcludeList);
+    fs.writeFileSync(EXCLUDE_LIST_FILE, JSON.stringify(excludeArray, null, 2), 'utf8');
+    console.log(`💾 Saved voice exclude list: ${excludeArray.length} contacts`);
+  } catch (error) {
+    console.error('❌ Error saving voice exclude list:', error.message);
+  }
+}
+
+// Load exclude list on startup
+loadExcludeList();
 
 // Clean up old processed messages every 30 minutes
 setInterval(() => {
@@ -275,6 +328,12 @@ async function handleIncomingMessage(webhookData) {
       // Check if voice transcription is enabled
       if (!voiceTranscriptionEnabled) {
         console.log(`🔇 Voice transcription is disabled - skipping voice processing`);
+        return;
+      }
+      
+      // Check if sender is in exclude list
+      if (voiceTranscriptionExcludeList.has(senderName)) {
+        console.log(`🚫 Voice transcription excluded for ${senderName} - skipping voice processing`);
         return;
       }
       
@@ -1152,29 +1211,19 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             if (musicResult.metadata) {
               const meta = musicResult.metadata;
               
-              // Debug logging for lyrics
-              console.log('🎵 Suno metadata check:');
-              console.log('- meta.lyrics:', meta.lyrics ? 'EXISTS' : 'MISSING');
-              console.log('- meta.lyric:', meta.lyric ? 'EXISTS' : 'MISSING');
-              console.log('- meta.gptDescriptionPrompt:', meta.gptDescriptionPrompt ? 'EXISTS' : 'MISSING');
-              
               songInfo = `🎵 **${meta.title || 'שיר חדש'}**\n`;
               if (meta.duration) songInfo += `⏱️ משך: ${Math.round(meta.duration)}s\n`;
               if (meta.model) songInfo += `🤖 מודל: ${meta.model}\n`;
               
               // Add lyrics if available - with better fallback logic
               if (meta.lyrics && meta.lyrics.trim()) {
-                songInfo += `\n📝 **מילי השיר:**\n${meta.lyrics}`;
-                console.log('✅ Using meta.lyrics');
+                songInfo += `\n📝 **מילות השיר:**\n${meta.lyrics}`;
               } else if (meta.lyric && meta.lyric.trim()) {
-                songInfo += `\n📝 **מילי השיר:**\n${meta.lyric}`;
-                console.log('✅ Using meta.lyric');
+                songInfo += `\n📝 **מילות השיר:**\n${meta.lyric}`;
               } else if (meta.gptDescriptionPrompt && meta.gptDescriptionPrompt.trim()) {
                 songInfo += `\n📝 **תיאור השיר:**\n${meta.gptDescriptionPrompt}`;
-                console.log('✅ Using meta.gptDescriptionPrompt');
               } else {
-                console.log('⚠️ No lyrics or description found in metadata');
-                songInfo += `\n📝 **מילי השיר:** לא זמינות`;
+                songInfo += `\n📝 **מילות השיר:** לא זמינות`;
               }
             } else {
               songInfo = `🎵 השיר מוכן!`;
@@ -1240,7 +1289,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         break;
 
       case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n✨ **הפקודות עובדות גם כשאתה שולח אותן!**\n💬 כל פקודה שתשלח תעבד וההתשובה תחזור לאותה שיחה\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎥 ### [תיאור] - יצירת וידאו עם Kling 2.1 Master (9:16)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n🎬 שלח וידאו עם כותרת: ## [תיאור] - עיבוד וידאו עם RunwayML Gen4\n\n🎵 יצירת מוזיקה:\n🎶 **** [תיאור] - יצירת שיר עם Suno (עד 20 דקות)\n📝 דוגמה: **** שיר עצוב על גשם בחורף\n🎵 השיר נשלח כ-voice note + מילי השיר בהודעת טקסט\n\n🗣️ יצירת דיבור:\n🎙️ *** [טקסט] - Text-to-Speech עם ElevenLabs (קול אקראי)\n📝 דוגמה: *** שלום, איך שלומך היום?\n🎤 הדיבור נשלח כ-voice note\n\n🎤 עיבוד קולי:\n🗣️ שלח הקלטה קולית - תמלול + תגובת AI + שיבוט קול\n📝 Flow: קול → תמלול → Gemini → קול חדש בקולך\n🎤 התגובה הקולית נשלחת כ-voice note\n⚠️ הודעות קוליות שלך לא מתעבדות (רק נכנסות)\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n📝 סכם שיחה - סיכום 10 ההודעות האחרונות\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n🔊 בקרת תמלול:\n🔊 הפעל תמלול - הפעלת עיבוד הודעות קוליות\n🔇 כבה תמלול - כיבוי עיבוד הודעות קוליות\nℹ️ סטטוס תמלול - בדיקת מצב התמלול הנוכחי\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n### חתול רוקד בגשם\n**** שיר רוק על אהבה\n*** שלום, איך שלומך היום?\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling\n🎬 וידאו + כותרת: ## שפר את הווידאו ותוסיף אפקטים\n🎤 שלח הקלטה קולית לעיבוד מלא\n📝 סכם שיחה';
+        const helpMessage = '🤖 Green API Bot Commands:\n\n✨ **הפקודות עובדות גם כשאתה שולח אותן!**\n💬 כל פקודה שתשלח תעבד וההתשובה תחזור לאותה שיחה\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎥 ### [תיאור] - יצירת וידאו עם Kling 2.1 Master (9:16)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n🎬 שלח וידאו עם כותרת: ## [תיאור] - עיבוד וידאו עם RunwayML Gen4\n\n🎵 יצירת מוזיקה:\n🎶 **** [תיאור] - יצירת שיר עם Suno (עד 20 דקות)\n📝 דוגמה: **** שיר עצוב על גשם בחורף\n🎵 השיר נשלח כ-voice note + מילות השיר בהודעת טקסט\n\n🗣️ יצירת דיבור:\n🎙️ *** [טקסט] - Text-to-Speech עם ElevenLabs (קול אקראי)\n📝 דוגמה: *** שלום, איך שלומך היום?\n🎤 הדיבור נשלח כ-voice note\n\n🎤 עיבוד קולי:\n🗣️ שלח הקלטה קולית - תמלול + תגובת AI + שיבוט קול\n📝 Flow: קול → תמלול → Gemini → קול חדש בקולך\n🎤 התגובה הקולית נשלחת כ-voice note\n⚠️ הודעות קוליות שלך לא מתעבדות (רק נכנסות)\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n📝 סכם שיחה - סיכום 10 ההודעות האחרונות\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n🔊 בקרת תמלול:\n🔊 הפעל תמלול - הפעלת עיבוד הודעות קוליות\n🔇 כבה תמלול - כיבוי עיבוד הודעות קוליות\nℹ️ סטטוס תמלול - בדיקת מצב התמלול + רשימת מוחרגים\n🚫 הסר מתמלול <שם> - הוצאת איש קשר מתמלול קולי\n✅ הוסף לתמלול <שם> - החזרת איש קשר לתמלול קולי\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n### חתול רוקד בגשם\n**** שיר רוק על אהבה\n*** שלום, איך שלומך היום?\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling\n🎬 וידאו + כותרת: ## שפר את הווידאו ותוסיף אפקטים\n🎤 שלח הקלטה קולית לעיבוד מלא\n📝 סכם שיחה\n🚫 הסר מתמלול יוסי\n✅ הוסף לתמלול דנה';
 
         await sendTextMessage(chatId, helpMessage);
         break;
@@ -1260,9 +1309,38 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
       case 'voice_transcription_status':
         const statusIcon = voiceTranscriptionEnabled ? '🔊' : '🔇';
         const statusText = voiceTranscriptionEnabled ? 'פעיל' : 'כבוי';
-        await sendTextMessage(chatId, `${statusIcon} סטטוס תמלול הודעות קוליות: ${statusText}`);
-        console.log(`ℹ️ Voice transcription status checked by ${senderName}: ${statusText}`);
+        let statusMessage = `${statusIcon} סטטוס תמלול הודעות קוליות: ${statusText}`;
+        
+        if (voiceTranscriptionExcludeList.size > 0) {
+          const excludedList = Array.from(voiceTranscriptionExcludeList).join('\n• ');
+          statusMessage += `\n\n🚫 אנשי קשר מוחרגים (${voiceTranscriptionExcludeList.size}):\n• ${excludedList}`;
+        } else {
+          statusMessage += '\n\nℹ️ אין אנשי קשר מוחרגים';
+        }
+        
+        await sendTextMessage(chatId, statusMessage);
+        console.log(`ℹ️ Voice transcription status checked by ${senderName}: ${statusText}, excluded: ${voiceTranscriptionExcludeList.size}`);
         break;
+
+      case 'exclude_from_transcription':
+        voiceTranscriptionExcludeList.add(command.contactName);
+        saveExcludeList(); // Save to file
+        await sendTextMessage(chatId, `🚫 ${command.contactName} הוסר מתמלול הודעות קוליות`);
+        console.log(`🚫 ${command.contactName} excluded from voice transcription by ${senderName}`);
+        break;
+
+      case 'include_in_transcription':
+        const wasExcluded = voiceTranscriptionExcludeList.delete(command.contactName);
+        if (wasExcluded) {
+          saveExcludeList(); // Save to file only if there was a change
+          await sendTextMessage(chatId, `✅ ${command.contactName} הוחזר לתמלול הודעות קוליות`);
+          console.log(`✅ ${command.contactName} included back in voice transcription by ${senderName}`);
+        } else {
+          await sendTextMessage(chatId, `ℹ️ ${command.contactName} כבר לא היה מוחרג מתמלול`);
+          console.log(`ℹ️ ${command.contactName} was not in exclude list (requested by ${senderName})`);
+        }
+        break;
+
 
       default:
         console.log(`❓ Unknown command type: ${command.type}`);
@@ -1394,6 +1472,30 @@ function parseTextCommand(text) {
 
   if (text === 'סטטוס תמלול') {
     return { type: 'voice_transcription_status' };
+  }
+
+
+  // Voice transcription exclude list management
+  if (text.startsWith('הסר מתמלול ')) {
+    const contactName = text.substring('הסר מתמלול '.length).trim();
+    if (contactName) {
+      return { 
+        type: 'exclude_from_transcription', 
+        contactName: contactName,
+        originalMessage: text 
+      };
+    }
+  }
+
+  if (text.startsWith('הוסף לתמלול ')) {
+    const contactName = text.substring('הוסף לתמלול '.length).trim();
+    if (contactName) {
+      return { 
+        type: 'include_in_transcription', 
+        contactName: contactName,
+        originalMessage: text 
+      };
+    }
   }
 
   return null;

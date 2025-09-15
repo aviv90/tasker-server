@@ -104,7 +104,6 @@ class MusicService {
 
                     // Take the first track (Suno usually generates 2 variations)
                     const firstTrack = tracks[0];
-                    console.log(`🎼 First track data:`, JSON.stringify(firstTrack, null, 2));
                     const audioUrl = firstTrack.audioUrl;
 
                     if (!audioUrl) {
