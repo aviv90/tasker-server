@@ -736,12 +736,8 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     const detectedLanguage = transcriptionResult.detectedLanguage || 'he';
     console.log(`✅ Step 2 complete: Voice cloned (ID: ${voiceId}), Language: ${detectedLanguage}`);
 
-    // Add user message to conversation
-    conversationManager.addMessage(chatId, 'user', `הקלטה קולית: ${transcribedText}`);
-
     // Step 3: Generate Gemini response in the same language as the original
     console.log(`🔄 Step 3: Generating Gemini response in ${originalLanguage}...`);
-    const history = conversationManager.getHistory(chatId);
     
     // Create language-aware prompt for Gemini
     const languageInstruction = originalLanguage === 'he' 
@@ -761,7 +757,11 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
                   : `Please respond in the same language as this message. `;
     
     const geminiPrompt = languageInstruction + transcribedText;
-    const geminiResult = await generateGeminiResponse(geminiPrompt, history);
+    // Voice processing doesn't need conversation history - treat each voice message independently
+    const geminiResult = await generateGeminiResponse(geminiPrompt, []);
+    
+    // Add user message to conversation AFTER getting Gemini response to avoid duplication
+    conversationManager.addMessage(chatId, 'user', `הקלטה קולית: ${transcribedText}`);
     
     if (geminiResult.error) {
       console.error('❌ Gemini generation failed:', geminiResult.error);
