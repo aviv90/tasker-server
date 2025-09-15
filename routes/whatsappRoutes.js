@@ -643,29 +643,33 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
     }
     
     if (editResult.success) {
-      if (editResult.textOnly) {
-        // Send only text response
+      let sentSomething = false;
+      
+      // Send text response if available
+      if (editResult.description && editResult.description.trim()) {
         await sendTextMessage(chatId, editResult.description);
         
         // Add AI response to conversation history
         conversationManager.addMessage(chatId, 'assistant', editResult.description);
         
         console.log(`✅ ${service} edit text response sent to ${senderName}: ${editResult.description}`);
-      } else if (editResult.imageUrl) {
-        // Send the edited image with caption
+        sentSomething = true;
+      }
+      
+      // Send image if available (even if we already sent text)
+      if (editResult.imageUrl) {
         const fileName = `${service}_edit_${Date.now()}.png`;
-        const caption = editResult.description && editResult.description.length > 0 
-          ? editResult.description 
-          : '';
         
-        await sendFileByUrl(chatId, editResult.imageUrl, fileName, caption);
+        await sendFileByUrl(chatId, editResult.imageUrl, fileName, '');
         
-        // Add AI response to conversation history
-        if (caption) {
-          conversationManager.addMessage(chatId, 'assistant', caption);
-        }
-        
-        console.log(`✅ ${service} edited image sent to ${senderName}${caption ? ' with caption: ' + caption : ''}`);
+        console.log(`✅ ${service} edited image sent to ${senderName}`);
+        sentSomething = true;
+      }
+      
+      // If nothing was sent, it means we have success but no content
+      if (!sentSomething) {
+        await sendTextMessage(chatId, '✅ העיבוד הושלם בהצלחה');
+        console.log(`✅ ${service} edit completed but no content to send to ${senderName}`);
       }
     } else {
       const errorMsg = editResult.error || 'לא הצלחתי לערוך את התמונה. נסה שוב מאוחר יותר.';
@@ -1269,6 +1273,8 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
                 songInfo += `\n📝 **מילות השיר:**\n${meta.lyrics}`;
               } else if (meta.lyric && meta.lyric.trim()) {
                 songInfo += `\n📝 **מילות השיר:**\n${meta.lyric}`;
+              } else if (meta.prompt && meta.prompt.trim()) {
+                songInfo += `\n📝 **מילות השיר:**\n${meta.prompt}`;
               } else if (meta.gptDescriptionPrompt && meta.gptDescriptionPrompt.trim()) {
                 songInfo += `\n📝 **תיאור השיר:**\n${meta.gptDescriptionPrompt}`;
               } else {
