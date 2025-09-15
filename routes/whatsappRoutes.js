@@ -331,9 +331,13 @@ async function handleIncomingMessage(webhookData) {
         return;
       }
       
+      // Use senderContactName if available, otherwise fallback to senderName
+      const contactName = senderContactName || senderName;
+      console.log(`🔍 Checking exclude list for: "${contactName}" (senderContactName: "${senderContactName}", senderName: "${senderName}")`);
+      
       // Check if sender contact name is in exclude list
-      if (voiceTranscriptionExcludeList.has(senderContactName)) {
-        console.log(`🚫 Voice transcription excluded for ${senderContactName} - skipping voice processing`);
+      if (voiceTranscriptionExcludeList.has(contactName)) {
+        console.log(`🚫 Voice transcription excluded for ${contactName} - skipping voice processing`);
         return;
       }
       
