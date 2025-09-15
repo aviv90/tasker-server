@@ -24,6 +24,9 @@ let voiceTranscriptionExcludeList = new Set();
 // Path to the exclude list file
 const EXCLUDE_LIST_FILE = path.join(__dirname, '..', 'store', 'voiceExcludeList.json');
 
+// Path to the transcription status file
+const TRANSCRIPTION_STATUS_FILE = path.join(__dirname, '..', 'store', 'voiceTranscriptionStatus.json');
+
 /**
  * Load voice transcription exclude list from file
  */
@@ -66,8 +69,48 @@ function saveExcludeList() {
   }
 }
 
-// Load exclude list on startup
+/**
+ * Load voice transcription status from file
+ */
+function loadTranscriptionStatus() {
+  try {
+    // Ensure store directory exists
+    const storeDir = path.join(__dirname, '..', 'store');
+    if (!fs.existsSync(storeDir)) {
+      fs.mkdirSync(storeDir, { recursive: true });
+      console.log('📁 Created store directory for transcription status');
+    }
+
+    if (fs.existsSync(TRANSCRIPTION_STATUS_FILE)) {
+      const data = fs.readFileSync(TRANSCRIPTION_STATUS_FILE, 'utf8');
+      const statusData = JSON.parse(data);
+      voiceTranscriptionEnabled = statusData.enabled !== false; // Default to true if not specified
+      console.log(`📋 Loaded voice transcription status: ${voiceTranscriptionEnabled ? 'enabled' : 'disabled'}`);
+    } else {
+      console.log('📋 No transcription status file found, defaulting to enabled');
+    }
+  } catch (error) {
+    console.error('❌ Error loading transcription status:', error.message);
+    voiceTranscriptionEnabled = true; // Default to enabled on error
+  }
+}
+
+/**
+ * Save voice transcription status to file
+ */
+function saveTranscriptionStatus() {
+  try {
+    const statusData = { enabled: voiceTranscriptionEnabled };
+    fs.writeFileSync(TRANSCRIPTION_STATUS_FILE, JSON.stringify(statusData, null, 2), 'utf8');
+    console.log(`💾 Saved voice transcription status: ${voiceTranscriptionEnabled ? 'enabled' : 'disabled'}`);
+  } catch (error) {
+    console.error('❌ Error saving transcription status:', error.message);
+  }
+}
+
+// Load exclude list and transcription status on startup
 loadExcludeList();
+loadTranscriptionStatus();
 
 // Clean up old processed messages every 30 minutes
 setInterval(() => {
@@ -1302,12 +1345,14 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
 
       case 'enable_voice_transcription':
         voiceTranscriptionEnabled = true;
+        saveTranscriptionStatus(); // Save to file
         await sendTextMessage(chatId, '🔊 תמלול הודעות קוליות הופעל');
         console.log(`✅ Voice transcription enabled by ${senderName}`);
         break;
 
       case 'disable_voice_transcription':
         voiceTranscriptionEnabled = false;
+        saveTranscriptionStatus(); // Save to file
         await sendTextMessage(chatId, '🔇 תמלול הודעות קוליות כובה');
         console.log(`🔇 Voice transcription disabled by ${senderName}`);
         break;
