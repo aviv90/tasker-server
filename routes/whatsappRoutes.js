@@ -209,6 +209,7 @@ async function handleIncomingMessage(webhookData) {
     const chatId = senderData.chatId;
     const senderId = senderData.sender;
     const senderName = senderData.senderName || senderId;
+    const senderContactName = senderData.senderContactName || "";
     
     console.log(`📱 Message from: ${senderName} (${chatId})`);
     console.log(`📋 Message type: ${messageData.typeMessage}`);
@@ -387,6 +388,7 @@ async function handleOutgoingMessage(webhookData) {
     const chatId = senderData.chatId;
     const senderId = senderData.sender;
     const senderName = senderData.senderName || senderId;
+    const senderContactName = senderData.senderContactName || "";
     
     console.log(`📤 Outgoing message from: ${senderName} (${chatId})`);
     console.log(`📋 Message type: ${messageData.typeMessage}`);
