@@ -1325,7 +1325,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
       case 'exclude_from_transcription':
         voiceTranscriptionExcludeList.add(command.contactName);
         saveExcludeList(); // Save to file
-        await sendTextMessage(chatId, `🚫 ${command.contactName} הוסר מתמלול הודעות קוליות`);
+        await sendTextMessage(chatId, `🚫 ${command.contactName} נוסף לרשימת המוחרגים - הודעות קוליות שלו לא יתומללו`);
         console.log(`🚫 Contact ${command.contactName} excluded from voice transcription by ${senderName}`);
         break;
 
@@ -1333,7 +1333,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         const wasExcluded = voiceTranscriptionExcludeList.delete(command.contactName);
         if (wasExcluded) {
           saveExcludeList(); // Save to file only if there was a change
-          await sendTextMessage(chatId, `✅ ${command.contactName} הוחזר לתמלול הודעות קוליות`);
+          await sendTextMessage(chatId, `✅ ${command.contactName} הוסר מרשימת המוחרגים - הודעות קוליות שלו יתומללו שוב`);
           console.log(`✅ Contact ${command.contactName} included back in voice transcription by ${senderName}`);
         } else {
           await sendTextMessage(chatId, `ℹ️ ${command.contactName} כבר לא היה מוחרג מתמלול`);
