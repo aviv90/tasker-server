@@ -534,21 +534,31 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
       editResult = await editOpenAIImage(prompt, base64Image);
     }
     
-    if (editResult.success && editResult.imageUrl) {
-      // Send the edited image with caption
-      const fileName = `${service}_edit_${Date.now()}.png`;
-      const caption = editResult.description && editResult.description.length > 0 
-        ? editResult.description 
-        : '';
-      
-      await sendFileByUrl(chatId, editResult.imageUrl, fileName, caption);
-      
-      // Add AI response to conversation history
-      if (caption) {
-        conversationManager.addMessage(chatId, 'assistant', caption);
+    if (editResult.success) {
+      if (editResult.textOnly) {
+        // Send only text response
+        await sendTextMessage(chatId, editResult.description);
+        
+        // Add AI response to conversation history
+        conversationManager.addMessage(chatId, 'assistant', editResult.description);
+        
+        console.log(`✅ ${service} edit text response sent to ${senderName}: ${editResult.description}`);
+      } else if (editResult.imageUrl) {
+        // Send the edited image with caption
+        const fileName = `${service}_edit_${Date.now()}.png`;
+        const caption = editResult.description && editResult.description.length > 0 
+          ? editResult.description 
+          : '';
+        
+        await sendFileByUrl(chatId, editResult.imageUrl, fileName, caption);
+        
+        // Add AI response to conversation history
+        if (caption) {
+          conversationManager.addMessage(chatId, 'assistant', caption);
+        }
+        
+        console.log(`✅ ${service} edited image sent to ${senderName}${caption ? ' with caption: ' + caption : ''}`);
       }
-      
-      console.log(`✅ ${service} edited image sent to ${senderName}${caption ? ' with caption: ' + caption : ''}`);
     } else {
       const errorMsg = editResult.error || 'לא הצלחתי לערוך את התמונה. נסה שוב מאוחר יותר.';
       await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);

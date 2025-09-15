@@ -97,16 +97,8 @@ async function generateImageForWhatsApp(prompt, req = null) {
             model: "gemini-2.5-flash-image-preview" 
         });
         
-        // Force image generation with very strong instruction
-        const imagePrompt = `CREATE IMAGE: ${cleanPrompt}
-        
-        MANDATORY REQUIREMENTS:
-        1. You MUST generate a visual image - this is not optional
-        2. Do NOT respond with only text - an image is required
-        3. If you describe the image, do it in Hebrew and be specific about what you created
-        4. Focus on creating the image first, then optionally describe it
-        
-        Generate the requested image now.`;
+        // Send the prompt as-is without additional instructions
+        const imagePrompt = cleanPrompt;
         
         const result = await model.generateContent({
             contents: [{ role: "user", parts: [{ text: imagePrompt }] }],
@@ -158,7 +150,7 @@ async function generateImageForWhatsApp(prompt, req = null) {
                 return { 
                     success: false, 
                     error: 'No image data found in response',
-                    textResponse: `מצטער, לא הצלחתי ליצור תמונה הפעם. ${text.trim()}` // Better fallback message
+                    textResponse: text.trim() // Send exactly what Gemini wrote
                 };
             }
             
@@ -317,6 +309,17 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
         
         if (!imageBuffer) {
             console.log('❌ Gemini edit: No image data found in response');
+            
+            // Return the text response if we got text but no image
+            if (text && text.trim().length > 0) {
+                console.log('📝 Gemini edit returned text instead of image, sending text response');
+                return { 
+                    success: true,  // Changed to true since we have content
+                    textOnly: true, // Flag to indicate this is text-only response
+                    description: text.trim() // Send exactly what Gemini wrote
+                };
+            }
+            
             return { 
                 success: false, 
                 error: 'No image data found in response' 
@@ -942,13 +945,13 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         // Add system prompt as first user message (Gemini format)
         contents.push({
             role: 'user',
-            parts: [{ text: 'אתה עוזר AI מ-Green API שמשיב הודעות אוטומטיות. אתה מועיל, יצירתי, חכם ומאוד ידידותי. אתה תמיד נותן תשובה. אתה מסוגל לענות בעברית ובאנגלית ואתה זוכר את השיחה הקודמת.' }]
+            parts: [{ text: 'אתה עוזר AI ידידותי ומועיל. תן תשובות קצרות וברורות.' }]
         });
         
         // Add system prompt response
         contents.push({
             role: 'model',
-            parts: [{ text: 'שלום! אני כאן לעזור לך בכל מה שאתה צריך. אני מועיל, יצירתי וידידותי, ואני תמיד אשמח לתת לך תשובה. אני אזכור את השיחה שלנו ואענה בעברית או באנגלית לפי הצורך.' }]
+            parts: [{ text: 'שלום! אני כאן לעזור לך. במה אוכל לסייע?' }]
         });
 
         // Add conversation history if exists

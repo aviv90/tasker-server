@@ -119,7 +119,7 @@ async function generateTextResponse(prompt, conversationHistory = []) {
     const messages = [
       {
         role: 'system',
-        content: 'אתה עוזר AI מ-Green API שמשיב הודעות אוטומטיות. אתה מועיל, יצירתי, חכם ומאוד ידידותי. אתה תמיד נותן תשובה. אתה מסוגל לענות בעברית ובאנגלית ואתה זוכר את השיחה הקודמת.'
+        content: 'אתה עוזר AI ידידותי ומועיל. תן תשובות קצרות וברורות.'
       },
       {
         role: 'user',
@@ -127,7 +127,7 @@ async function generateTextResponse(prompt, conversationHistory = []) {
       },
       {
         role: 'assistant',
-        content: 'שלום! אני כאן לעזור לך בכל מה שאתה צריך. אני מועיל, יצירתי וידידותי, ואני תמיד אשמח לתת לך תשובה. אני אזכור את השיחה שלנו ואענה בעברית או באנגלית לפי הצורך. במה אוכל לעזור לך היום? 😊'
+        content: 'שלום! אני כאן לעזור לך. במה אוכל לסייע? 😊'
       }
     ];
 
@@ -285,6 +285,19 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
         // gpt-image-1 always returns b64_json (base64 data)
         if (!imageData.b64_json) {
             console.log('❌ OpenAI edit: No base64 data found');
+            
+            // OpenAI doesn't typically return text-only for image edits,
+            // but handle gracefully if it happens
+            const revisedText = imageData.revised_prompt || cleanPrompt;
+            if (revisedText && revisedText.trim().length > 0) {
+                console.log('📝 OpenAI edit returned text instead of image, sending text response');
+                return { 
+                    success: true,  // Changed to true since we have content
+                    textOnly: true, // Flag to indicate this is text-only response
+                    description: revisedText.trim() // Send the revised prompt or original prompt
+                };
+            }
+            
             return { 
                 success: false, 
                 error: 'No image data found' 
