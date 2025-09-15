@@ -32,10 +32,10 @@ async function sendAck(chatId, command) {
   
   switch (command.type) {
     case 'gemini_image':
-      ackMessage = '🎨 קיבלתי. מיד יוצר תמונה עם Gemini...';
+      ackMessage = '🎨 קיבלתי. מיד מעבד עם Gemini...';
       break;
     case 'openai_image':
-      ackMessage = '🖼️ קיבלתי. מיד יוצר תמונה עם OpenAI...';
+      ackMessage = '🖼️ קיבלתי. מיד מעבד עם OpenAI...';
       break;
     case 'veo3_video':
       ackMessage = '🎬 קיבלתי. מיד יוצר וידאו עם Veo 3...';
@@ -515,8 +515,8 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
   try {
     // Send immediate ACK
     const ackMessage = service === 'gemini' 
-      ? '🎨 קיבלתי את התמונה. מיד עורך אותה עם Gemini...'
-      : '🖼️ קיבלתי את התמונה. מיד עורך אותה עם OpenAI...';
+      ? '🎨 קיבלתי את התמונה. מיד מעבד אותה עם Gemini...'
+      : '🖼️ קיבלתי את התמונה. מיד מעבד אותה עם OpenAI...';
     await sendTextMessage(chatId, ackMessage);
     
     // Add user message to conversation
