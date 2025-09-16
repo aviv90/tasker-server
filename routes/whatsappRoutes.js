@@ -1205,6 +1205,31 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         }
         break;
 
+      case 'command_list':
+        console.log(`📜 Processing command list request from ${senderName}`);
+        
+        try {
+          // Define path to the command list file
+          const COMMAND_LIST_FILE = path.join(__dirname, '..', 'store', 'commandList.txt');
+          
+          // Check if file exists
+          if (fs.existsSync(COMMAND_LIST_FILE)) {
+            // Read the command list file
+            const commandListContent = fs.readFileSync(COMMAND_LIST_FILE, 'utf8');
+            
+            // Send the command list to the user
+            await sendTextMessage(chatId, commandListContent);
+            console.log(`✅ Command list sent to ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, '❌ רשימת הפקודות לא נמצאה. פנה למנהל המערכת.');
+            console.log(`❌ Command list file not found: ${COMMAND_LIST_FILE}`);
+          }
+        } catch (commandListError) {
+          console.error('❌ Error reading command list:', commandListError.message || commandListError);
+          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בטעינת רשימת הפקודות.');
+        }
+        break;
+
       case 'clear_conversation':
         const cleared = conversationManager.clearSession(chatId);
         if (cleared) {
@@ -1501,6 +1526,11 @@ function parseTextCommand(text) {
   // Chat summary
   if (text === 'סכם שיחה') {
     return { type: 'chat_summary' };
+  }
+
+  // Command list
+  if (text === 'רשימת פקודות') {
+    return { type: 'command_list' };
   }
 
   // Clear conversation
