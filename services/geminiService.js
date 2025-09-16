@@ -945,13 +945,13 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         // Add system prompt as first user message (Gemini format)
         contents.push({
             role: 'user',
-            parts: [{ text: 'אתה עוזר AI ידידותי ומועיל. תן תשובות קצרות וברורות.' }]
+            parts: [{ text: 'אתה עוזר AI ידידותי, אדיב ונעים. תן תשובות טבעיות ונעימות. אל תחשוב בקול רם ואל תכתוב את תהליך החשיבה שלך - תן רק את התשובה הסופית.' }]
         });
         
         // Add system prompt response
         contents.push({
             role: 'model',
-            parts: [{ text: 'שלום! אני כאן לעזור לך. במה אוכל לסייע?' }]
+            parts: [{ text: 'שלום! איך אני יכול לעזור לך היום?' }]
         });
 
         // Add conversation history if exists
@@ -985,17 +985,65 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
             return { error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' };
         }
         
-        const text = response.text();
+        let text = response.text();
         
         if (!text || text.trim().length === 0) {
             console.log('❌ Gemini: Empty text response');
             return { error: 'Empty response from Gemini' };
         }
         
+        // Clean up verbose thinking patterns that sometimes appear
+        text = text.trim();
+        
+        // Remove "SPECIAL INSTRUCTION" blocks and thinking patterns
+        if (text.includes('SPECIAL INSTRUCTION:') || text.includes('Think step-by-step')) {
+            console.log('🧹 Detected verbose thinking pattern, extracting final answer...');
+            
+            // Try to extract the final answer after all the thinking
+            const lines = text.split('\n');
+            let finalAnswer = '';
+            let foundFinalAnswer = false;
+            
+            // Look for the actual answer (usually after all the verbose thinking)
+            for (let i = lines.length - 1; i >= 0; i--) {
+                const line = lines[i].trim();
+                if (line && 
+                    !line.includes('SPECIAL INSTRUCTION') && 
+                    !line.includes('Think step-by-step') &&
+                    !line.includes('Let\'s consider') &&
+                    !line.includes('This is') &&
+                    !line.includes('My current instruction') &&
+                    !line.includes('The user is') &&
+                    !line.startsWith('*') &&
+                    !line.startsWith('1.') &&
+                    !line.startsWith('2.') &&
+                    !line.startsWith('3.') &&
+                    !line.startsWith('4.') &&
+                    !line.includes('proverb') &&
+                    line.length < 200) { // Reasonable answer length
+                    finalAnswer = line;
+                    foundFinalAnswer = true;
+                    break;
+                }
+            }
+            
+            if (foundFinalAnswer && finalAnswer) {
+                text = finalAnswer;
+                console.log(`🎯 Extracted final answer: ${text}`);
+            } else {
+                // Fallback: take the last non-empty line that looks like an answer
+                const lastLine = lines[lines.length - 1].trim();
+                if (lastLine && lastLine.length < 200) {
+                    text = lastLine;
+                    console.log(`🔄 Using last line as fallback: ${text}`);
+                }
+            }
+        }
+        
         console.log(`✅ Gemini text generated: ${text.substring(0, 100)}...`);
         
         return {
-            text: text.trim(),
+            text: text,
             originalPrompt: cleanPrompt,
             metadata: {
                 service: 'Gemini',

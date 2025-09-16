@@ -119,7 +119,7 @@ async function generateTextResponse(prompt, conversationHistory = []) {
     const messages = [
       {
         role: 'system',
-        content: 'אתה עוזר AI ידידותי ומועיל. תן תשובות קצרות וברורות.'
+        content: 'אתה עוזר AI ידידותי, אדיב ונעים. תן תשובות טבעיות ונעימות באופן שיחתי. היה חם ומקשיב.'
       },
       {
         role: 'user',
@@ -127,7 +127,7 @@ async function generateTextResponse(prompt, conversationHistory = []) {
       },
       {
         role: 'assistant',
-        content: 'שלום! אני כאן לעזור לך. במה אוכל לסייע? 😊'
+        content: 'שלום! אני כאן ושמח לעזור לך. מה מעניין אותך היום?'
       }
     ];
 
