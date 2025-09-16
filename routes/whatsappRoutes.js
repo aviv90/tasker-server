@@ -628,7 +628,7 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
     await sendTextMessage(chatId, ackMessage);
     
     // Add user message to conversation
-    conversationManager.addMessage(chatId, 'user', `עריכת תמונה (${service}): ${prompt}`);
+    await await conversationManager.addMessage(chatId, 'user', `עריכת תמונה (${service}): ${prompt}`);
     
     // Download the image first
     const imageBuffer = await downloadFile(imageUrl);
@@ -650,7 +650,7 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
         await sendTextMessage(chatId, editResult.description);
         
         // Add AI response to conversation history
-        conversationManager.addMessage(chatId, 'assistant', editResult.description);
+        await await conversationManager.addMessage(chatId, 'assistant', editResult.description);
         
         console.log(`✅ ${service} edit text response sent to ${senderName}: ${editResult.description}`);
         sentSomething = true;
@@ -697,7 +697,7 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
     await sendTextMessage(chatId, ackMessage);
     
     // Add user message to conversation
-    conversationManager.addMessage(chatId, 'user', `יצירת וידאו מתמונה (${serviceName}): ${prompt}`);
+    await await conversationManager.addMessage(chatId, 'user', `יצירת וידאו מתמונה (${serviceName}): ${prompt}`);
     
     // Download the image first
     const imageBuffer = await downloadFile(imageUrl);
@@ -717,7 +717,7 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
       await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
       
       // Add AI response to conversation history
-      conversationManager.addMessage(chatId, 'assistant', `וידאו נוצר מתמונה (${serviceName}): ${videoResult.description || 'וידאו חדש'}`);
+      await await conversationManager.addMessage(chatId, 'assistant', `וידאו נוצר מתמונה (${serviceName}): ${videoResult.description || 'וידאו חדש'}`);
       
       console.log(`✅ ${serviceName} image-to-video sent to ${senderName}`);
     } else {
@@ -742,7 +742,7 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
     await sendAck(chatId, { type: 'runway_video_to_video' });
     
     // Add user message to conversation
-    conversationManager.addMessage(chatId, 'user', `עיבוד וידאו: ${prompt}`);
+    await await conversationManager.addMessage(chatId, 'user', `עיבוד וידאו: ${prompt}`);
     
     // Download the video first
     const videoBuffer = await downloadFile(videoUrl);
@@ -757,7 +757,7 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
       await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
       
       // Add AI response to conversation history
-      conversationManager.addMessage(chatId, 'assistant', `וידאו עובד מחדש: ${videoResult.description || 'וידאו חדש'}`);
+      await await conversationManager.addMessage(chatId, 'assistant', `וידאו עובד מחדש: ${videoResult.description || 'וידאו חדש'}`);
       
       console.log(`✅ RunwayML Gen4 video-to-video sent to ${senderName}`);
     } else {
@@ -873,7 +873,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     const geminiResult = await generateGeminiResponse(geminiPrompt, []);
     
     // Add user message to conversation AFTER getting Gemini response to avoid duplication
-    conversationManager.addMessage(chatId, 'user', `הקלטה קולית: ${transcribedText}`);
+    await await conversationManager.addMessage(chatId, 'user', `הקלטה קולית: ${transcribedText}`);
     
     if (geminiResult.error) {
       console.error('❌ Gemini generation failed:', geminiResult.error);
@@ -897,7 +897,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     console.log(`💬 Gemini response: "${geminiResponse.substring(0, 100)}..."`);
     
     // Add AI response to conversation history
-    conversationManager.addMessage(chatId, 'assistant', geminiResponse);
+    await await conversationManager.addMessage(chatId, 'assistant', geminiResponse);
 
     // Step 4: Text-to-Speech with cloned voice
     console.log(`🔄 Step 4: Converting text to speech with cloned voice...`);
@@ -978,10 +978,10 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         
         try {
           // Add user message to conversation
-          conversationManager.addMessage(chatId, 'user', command.prompt);
+          await await conversationManager.addMessage(chatId, 'user', command.prompt);
           
           // Get conversation history for context
-          const history = conversationManager.getHistory(chatId);
+          const history = await await conversationManager.getHistory(chatId);
           
           // Generate Gemini response
           const geminiResponse = await generateGeminiResponse(command.prompt, history);
@@ -991,7 +991,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             console.log(`❌ Gemini error for ${senderName}: ${geminiResponse.error}`);
           } else {
             // Add AI response to conversation
-            conversationManager.addMessage(chatId, 'assistant', geminiResponse.text);
+            await await conversationManager.addMessage(chatId, 'assistant', geminiResponse.text);
             await sendTextMessage(chatId, geminiResponse.text);
           }
         } catch (geminiError) {
@@ -1005,10 +1005,10 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         
         try {
           // Add user message to conversation
-          conversationManager.addMessage(chatId, 'user', command.prompt);
+          await await conversationManager.addMessage(chatId, 'user', command.prompt);
           
           // Get conversation history for context
-          const openaiHistory = conversationManager.getHistory(chatId);
+          const openaiHistory = await await conversationManager.getHistory(chatId);
           
           // Generate OpenAI response
           const openaiResponse = await generateOpenAIResponse(command.prompt, openaiHistory);
@@ -1018,7 +1018,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             console.log(`❌ OpenAI error for ${senderName}: ${openaiResponse.error}`);
           } else {
             // Add AI response to conversation
-            conversationManager.addMessage(chatId, 'assistant', openaiResponse.text);
+            await await conversationManager.addMessage(chatId, 'assistant', openaiResponse.text);
             await sendTextMessage(chatId, openaiResponse.text);
           }
         } catch (openaiError) {
@@ -1032,7 +1032,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         
         try {
           // Add user message to conversation
-          conversationManager.addMessage(chatId, 'user', `יצירת תמונה: ${command.prompt}`);
+          await conversationManager.addMessage(chatId, 'user', `יצירת תמונה: ${command.prompt}`);
           
           // Generate image with OpenAI (WhatsApp format)
           const openaiImageResult = await generateOpenAIImage(command.prompt);
@@ -1048,7 +1048,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             
             // Add AI response to conversation history
             if (caption) {
-              conversationManager.addMessage(chatId, 'assistant', caption);
+              await conversationManager.addMessage(chatId, 'assistant', caption);
             }
             
             console.log(`✅ OpenAI image sent to ${senderName}${caption ? ' with caption: ' + caption : ''}`);
@@ -1068,7 +1068,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         
         try {
           // Add user message to conversation
-          conversationManager.addMessage(chatId, 'user', `יצירת תמונה: ${command.prompt}`);
+          await conversationManager.addMessage(chatId, 'user', `יצירת תמונה: ${command.prompt}`);
           
           // Generate image with Gemini (WhatsApp format)
           const imageResult = await generateImageForWhatsApp(command.prompt);
@@ -1084,7 +1084,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             
             // Add both user request and AI response to conversation history
             if (caption) {
-              conversationManager.addMessage(chatId, 'assistant', caption);
+              await conversationManager.addMessage(chatId, 'assistant', caption);
             }
             
             console.log(`✅ Gemini image sent to ${senderName}${caption ? ' with caption: ' + caption : ''}`);
@@ -1095,7 +1095,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
               await sendTextMessage(chatId, imageResult.textResponse);
               
               // Add Gemini's text response to conversation history
-              conversationManager.addMessage(chatId, 'assistant', imageResult.textResponse);
+              await conversationManager.addMessage(chatId, 'assistant', imageResult.textResponse);
             } else {
               const errorMsg = imageResult.error || 'לא הצלחתי ליצור תמונה. נסה שוב מאוחר יותר.';
               await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
@@ -1113,7 +1113,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         
         try {
           // Add user message to conversation
-          conversationManager.addMessage(chatId, 'user', `יצירת וידאו: ${command.prompt}`);
+          await conversationManager.addMessage(chatId, 'user', `יצירת וידאו: ${command.prompt}`);
           
           // Generate video with Veo 3 (WhatsApp format)
           const videoResult = await generateVideoForWhatsApp(command.prompt);
@@ -1125,7 +1125,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
             
             // Add AI response to conversation history
-            conversationManager.addMessage(chatId, 'assistant', `וידאו נוצר: ${videoResult.description || 'וידאו חדש'}`);
+            await conversationManager.addMessage(chatId, 'assistant', `וידאו נוצר: ${videoResult.description || 'וידאו חדש'}`);
             
             console.log(`✅ Veo 3 video sent to ${senderName}`);
           } else {
@@ -1144,7 +1144,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         
         try {
           // Add user message to conversation
-          conversationManager.addMessage(chatId, 'user', `יצירת וידאו עם Kling: ${command.prompt}`);
+          await conversationManager.addMessage(chatId, 'user', `יצירת וידאו עם Kling: ${command.prompt}`);
           
           // Generate video with Kling 2.1 Master (WhatsApp format)
           const videoResult = await generateKlingVideoFromText(command.prompt);
@@ -1156,7 +1156,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
             
             // Add AI response to conversation history
-            conversationManager.addMessage(chatId, 'assistant', `וידאו נוצר: ${videoResult.description || command.prompt}`);
+            await conversationManager.addMessage(chatId, 'assistant', `וידאו נוצר: ${videoResult.description || command.prompt}`);
             
             console.log(`✅ Kling text-to-video sent to ${senderName}`);
           } else {
@@ -1190,8 +1190,8 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             await sendTextMessage(chatId, `📝 **סיכום השיחה:**\n\n${summaryResult.summary}`);
             
             // Add to conversation history
-            conversationManager.addMessage(chatId, 'user', 'בקשה לסיכום שיחה');
-            conversationManager.addMessage(chatId, 'assistant', `סיכום השיחה: ${summaryResult.summary}`);
+            await conversationManager.addMessage(chatId, 'user', 'בקשה לסיכום שיחה');
+            await conversationManager.addMessage(chatId, 'assistant', `סיכום השיחה: ${summaryResult.summary}`);
             
             console.log(`✅ Chat summary sent to ${senderName}`);
           } else {
@@ -1230,17 +1230,26 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         }
         break;
 
-      case 'clear_conversation':
-        const cleared = conversationManager.clearSession(chatId);
-        if (cleared) {
-          await sendTextMessage(chatId, '🗑️ היסטוריית השיחה נמחקה בהצלחה');
-        } else {
-          await sendTextMessage(chatId, 'ℹ️ אין היסטוריית שיחה למחיקה');
+      case 'clear_all_conversations':
+        console.log(`🗑️ Processing clear all conversations request from ${senderName}`);
+        
+        try {
+          const deletedCount = await conversationManager.clearAllSessions();
+          if (deletedCount > 0) {
+            await sendTextMessage(chatId, `🗑️ כל היסטוריית השיחות נמחקה בהצלחה (${deletedCount} הודעות נמחקו)`);
+            console.log(`✅ All conversations cleared by ${senderName}: ${deletedCount} messages deleted`);
+          } else {
+            await sendTextMessage(chatId, 'ℹ️ לא נמצאה היסטוריית שיחות למחיקה');
+            console.log(`ℹ️ No conversations to clear (requested by ${senderName})`);
+          }
+        } catch (error) {
+          console.error('❌ Error clearing all conversations:', error);
+          await sendTextMessage(chatId, '❌ שגיאה במחיקת כל היסטוריית השיחות');
         }
         break;
 
       case 'show_history':
-        const history = conversationManager.getHistory(chatId);
+        const history = await conversationManager.getHistory(chatId);
         if (history.length === 0) {
           await sendTextMessage(chatId, 'ℹ️ אין היסטוריית שיחה');
         } else {
@@ -1258,7 +1267,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         
         try {
           // Add user message to conversation
-          conversationManager.addMessage(chatId, 'user', `יצירת שיר: ${command.prompt}`);
+          await conversationManager.addMessage(chatId, 'user', `יצירת שיר: ${command.prompt}`);
           
           // Generate music with Suno (WhatsApp format)
           const musicResult = await generateMusicWithLyrics(command.prompt);
@@ -1314,7 +1323,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             
             // Add AI response to conversation history
             const responseText = `שיר נוצר: ${musicResult.metadata?.title || command.prompt}`;
-            conversationManager.addMessage(chatId, 'assistant', responseText);
+            await conversationManager.addMessage(chatId, 'assistant', responseText);
             
             console.log(`✅ Music sent to ${senderName}: ${musicResult.metadata?.title || 'Generated Music'}`);
           } else {
@@ -1332,7 +1341,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         
         try {
           // Add user message to conversation
-          conversationManager.addMessage(chatId, 'user', `יצירת דיבור: ${command.prompt}`);
+          await conversationManager.addMessage(chatId, 'user', `יצירת דיבור: ${command.prompt}`);
           
           // Generate speech with random voice
           const ttsResult = await voiceService.textToSpeechWithRandomVoice(command.prompt);
@@ -1355,7 +1364,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             
             // Add AI response to conversation history
             const responseText = `דיבור נוצר: ${command.prompt}`;
-            conversationManager.addMessage(chatId, 'assistant', responseText);
+            await conversationManager.addMessage(chatId, 'assistant', responseText);
             
             console.log(`✅ TTS sent to ${senderName}: ${ttsResult.voiceInfo?.voiceName || 'Unknown voice'}`);
           } else {
@@ -1533,9 +1542,9 @@ function parseTextCommand(text) {
     return { type: 'command_list' };
   }
 
-  // Clear conversation
-  if (text.toLowerCase() === '/clear') {
-    return { type: 'clear_conversation' };
+  // Clear all conversations (admin command)
+  if (text === 'נקה DB') {
+    return { type: 'clear_all_conversations' };
   }
 
   // Show history
