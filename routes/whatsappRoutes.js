@@ -15,102 +15,10 @@ const path = require('path');
 // Message deduplication cache - prevent processing duplicate messages
 const processedMessages = new Set();
 
-// Voice transcription toggle - controls whether voice messages are processed
-let voiceTranscriptionEnabled = true;
+// Voice transcription is now managed through the database
+// No more in-memory variables or JSON files
 
-// Voice transcription exclude list - contact names that won't trigger voice processing
-let voiceTranscriptionExcludeList = new Set();
-
-// Path to the exclude list file
-const EXCLUDE_LIST_FILE = path.join(__dirname, '..', 'store', 'voiceExcludeList.json');
-
-// Path to the transcription status file
-const TRANSCRIPTION_STATUS_FILE = path.join(__dirname, '..', 'store', 'voiceTranscriptionStatus.json');
-
-/**
- * Load voice transcription exclude list from file
- */
-function loadExcludeList() {
-  try {
-    // Ensure store directory exists
-    const storeDir = path.dirname(EXCLUDE_LIST_FILE);
-    if (!fs.existsSync(storeDir)) {
-      fs.mkdirSync(storeDir, { recursive: true });
-      console.log('📁 Created store directory for voice exclude list');
-    }
-
-    if (fs.existsSync(EXCLUDE_LIST_FILE)) {
-      const data = fs.readFileSync(EXCLUDE_LIST_FILE, 'utf8');
-      const excludeArray = JSON.parse(data);
-      voiceTranscriptionExcludeList = new Set(excludeArray);
-      console.log(`📋 Loaded voice exclude list: ${excludeArray.length} contacts excluded`);
-      if (excludeArray.length > 0) {
-        console.log(`🚫 Excluded contacts: ${excludeArray.join(', ')}`);
-      }
-    } else {
-      console.log('📋 No voice exclude list file found, starting with empty list');
-    }
-  } catch (error) {
-    console.error('❌ Error loading voice exclude list:', error.message);
-    voiceTranscriptionExcludeList = new Set(); // Fallback to empty set
-  }
-}
-
-/**
- * Save voice transcription exclude list to file
- */
-function saveExcludeList() {
-  try {
-    const excludeArray = Array.from(voiceTranscriptionExcludeList);
-    fs.writeFileSync(EXCLUDE_LIST_FILE, JSON.stringify(excludeArray, null, 2), 'utf8');
-    console.log(`💾 Saved voice exclude list: ${excludeArray.length} contacts`);
-  } catch (error) {
-    console.error('❌ Error saving voice exclude list:', error.message);
-  }
-}
-
-/**
- * Load voice transcription status from file
- */
-function loadTranscriptionStatus() {
-  try {
-    // Ensure store directory exists
-    const storeDir = path.join(__dirname, '..', 'store');
-    if (!fs.existsSync(storeDir)) {
-      fs.mkdirSync(storeDir, { recursive: true });
-      console.log('📁 Created store directory for transcription status');
-    }
-
-    if (fs.existsSync(TRANSCRIPTION_STATUS_FILE)) {
-      const data = fs.readFileSync(TRANSCRIPTION_STATUS_FILE, 'utf8');
-      const statusData = JSON.parse(data);
-      voiceTranscriptionEnabled = statusData.enabled !== false; // Default to true if not specified
-      console.log(`📋 Loaded voice transcription status: ${voiceTranscriptionEnabled ? 'enabled' : 'disabled'}`);
-    } else {
-      console.log('📋 No transcription status file found, defaulting to enabled');
-    }
-  } catch (error) {
-    console.error('❌ Error loading transcription status:', error.message);
-    voiceTranscriptionEnabled = true; // Default to enabled on error
-  }
-}
-
-/**
- * Save voice transcription status to file
- */
-function saveTranscriptionStatus() {
-  try {
-    const statusData = { enabled: voiceTranscriptionEnabled };
-    fs.writeFileSync(TRANSCRIPTION_STATUS_FILE, JSON.stringify(statusData, null, 2), 'utf8');
-    console.log(`💾 Saved voice transcription status: ${voiceTranscriptionEnabled ? 'enabled' : 'disabled'}`);
-  } catch (error) {
-    console.error('❌ Error saving transcription status:', error.message);
-  }
-}
-
-// Load exclude list and transcription status on startup
-loadExcludeList();
-loadTranscriptionStatus();
+// All voice transcription settings are now managed through the database
 
 // Clean up old processed messages every 30 minutes
 setInterval(() => {
@@ -369,19 +277,29 @@ async function handleIncomingMessage(webhookData) {
       
       console.log(`🎤 Voice message received`);
       
-      // Check if voice transcription is enabled
-      if (!voiceTranscriptionEnabled) {
-        console.log(`🔇 Voice transcription is disabled - skipping voice processing`);
-        return;
-      }
-      
       // Use senderContactName if available, otherwise fallback to senderName
       const contactName = senderContactName || senderName;
-      console.log(`🔍 Checking exclude list for: "${contactName}" (senderContactName: "${senderContactName}", senderName: "${senderName}")`);
+      console.log(`🔍 Checking voice transcription for: "${contactName}" (senderContactName: "${senderContactName}", senderName: "${senderName}")`);
       
-      // Check if sender contact name is in exclude list
-      if (voiceTranscriptionExcludeList.has(contactName)) {
-        console.log(`🚫 Voice transcription excluded for ${contactName} - skipping voice processing`);
+      try {
+        // Check if voice transcription is enabled globally
+        const isEnabled = await conversationManager.getVoiceTranscriptionStatus();
+        if (!isEnabled) {
+          console.log(`🔇 Voice transcription is globally disabled - skipping voice processing`);
+          return;
+        }
+        
+        // Check if sender is in allow list (new logic: must be in allow list to process)
+        const isInAllowList = await conversationManager.isInVoiceAllowList(contactName);
+        if (!isInAllowList) {
+          console.log(`🚫 Voice transcription not allowed for ${contactName} (not in allow list) - skipping voice processing`);
+          return;
+        }
+        
+        console.log(`✅ Voice transcription allowed for ${contactName} - proceeding with processing`);
+      } catch (dbError) {
+        console.error('❌ Error checking voice transcription settings:', dbError);
+        console.log(`🔇 Skipping voice processing due to database error`);
         return;
       }
       
@@ -1384,51 +1302,82 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         break;
 
       case 'enable_voice_transcription':
-        voiceTranscriptionEnabled = true;
-        saveTranscriptionStatus(); // Save to file
-        await sendTextMessage(chatId, '🔊 תמלול הודעות קוליות הופעל');
-        console.log(`✅ Voice transcription enabled by ${senderName}`);
+        try {
+          await conversationManager.setVoiceTranscriptionStatus(true);
+          await sendTextMessage(chatId, '🔊 תמלול הודעות קוליות הופעל');
+          console.log(`✅ Voice transcription enabled by ${senderName}`);
+        } catch (error) {
+          console.error('❌ Error enabling voice transcription:', error);
+          await sendTextMessage(chatId, '❌ שגיאה בהפעלת התמלול');
+        }
         break;
 
       case 'disable_voice_transcription':
-        voiceTranscriptionEnabled = false;
-        saveTranscriptionStatus(); // Save to file
-        await sendTextMessage(chatId, '🔇 תמלול הודעות קוליות כובה');
-        console.log(`🔇 Voice transcription disabled by ${senderName}`);
+        try {
+          await conversationManager.setVoiceTranscriptionStatus(false);
+          await sendTextMessage(chatId, '🔇 תמלול הודעות קוליות כובה');
+          console.log(`🔇 Voice transcription disabled by ${senderName}`);
+        } catch (error) {
+          console.error('❌ Error disabling voice transcription:', error);
+          await sendTextMessage(chatId, '❌ שגיאה בכיבוי התמלול');
+        }
         break;
 
       case 'voice_transcription_status':
-        const statusIcon = voiceTranscriptionEnabled ? '🔊' : '🔇';
-        const statusText = voiceTranscriptionEnabled ? 'פעיל' : 'כבוי';
-        let statusMessage = `${statusIcon} סטטוס תמלול הודעות קוליות: ${statusText}`;
-        
-        if (voiceTranscriptionExcludeList.size > 0) {
-          const excludedList = Array.from(voiceTranscriptionExcludeList).join('\n• ');
-          statusMessage += `\n\n🚫 אנשי קשר מוחרגים (${voiceTranscriptionExcludeList.size}):\n• ${excludedList}`;
-        } else {
-          statusMessage += '\n\nℹ️ אין אנשי קשר מוחרגים';
+        try {
+          const isEnabled = await conversationManager.getVoiceTranscriptionStatus();
+          const allowList = await conversationManager.getVoiceAllowList();
+          
+          const statusIcon = isEnabled ? '🔊' : '🔇';
+          const statusText = isEnabled ? 'פעיל' : 'כבוי';
+          let statusMessage = `${statusIcon} סטטוס תמלול הודעות קוליות: ${statusText}`;
+          
+          if (allowList.length > 0) {
+            const allowedList = allowList.join('\n• ');
+            statusMessage += `\n\n✅ אנשי קשר מורשים (${allowList.length}):\n• ${allowedList}`;
+          } else {
+            statusMessage += '\n\nℹ️ אין אנשי קשר מורשים (תמלול כבוי לכולם)';
+          }
+          
+          await sendTextMessage(chatId, statusMessage);
+          console.log(`ℹ️ Voice transcription status checked by ${senderName}: ${statusText}, allowed: ${allowList.length}`);
+        } catch (error) {
+          console.error('❌ Error getting voice transcription status:', error);
+          await sendTextMessage(chatId, '❌ שגיאה בקבלת סטטוס התמלול');
         }
-        
-        await sendTextMessage(chatId, statusMessage);
-        console.log(`ℹ️ Voice transcription status checked by ${senderName}: ${statusText}, excluded: ${voiceTranscriptionExcludeList.size}`);
         break;
 
       case 'exclude_from_transcription':
-        voiceTranscriptionExcludeList.add(command.contactName);
-        saveExcludeList(); // Save to file
-        await sendTextMessage(chatId, `🚫 ${command.contactName} נוסף לרשימת המוחרגים - הודעות קוליות שלו לא יתומללו`);
-        console.log(`🚫 Contact ${command.contactName} excluded from voice transcription by ${senderName}`);
+        // Note: "הסר מתמלול" now means "remove from allow list" (opposite logic)
+        try {
+          const wasRemoved = await conversationManager.removeFromVoiceAllowList(command.contactName);
+          if (wasRemoved) {
+            await sendTextMessage(chatId, `🚫 ${command.contactName} הוסר מרשימת המורשים - הודעות קוליות שלו לא יתומללו`);
+            console.log(`🚫 Contact ${command.contactName} removed from voice allow list by ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, `ℹ️ ${command.contactName} כבר לא היה ברשימת המורשים`);
+            console.log(`ℹ️ Contact ${command.contactName} was not in allow list (requested by ${senderName})`);
+          }
+        } catch (error) {
+          console.error('❌ Error removing from voice allow list:', error);
+          await sendTextMessage(chatId, '❌ שגיאה בהסרה מרשימת המורשים');
+        }
         break;
 
       case 'include_in_transcription':
-        const wasExcluded = voiceTranscriptionExcludeList.delete(command.contactName);
-        if (wasExcluded) {
-          saveExcludeList(); // Save to file only if there was a change
-          await sendTextMessage(chatId, `✅ ${command.contactName} הוסר מרשימת המוחרגים - הודעות קוליות שלו יתומללו שוב`);
-          console.log(`✅ Contact ${command.contactName} included back in voice transcription by ${senderName}`);
-        } else {
-          await sendTextMessage(chatId, `ℹ️ ${command.contactName} כבר לא היה מוחרג מתמלול`);
-          console.log(`ℹ️ Contact ${command.contactName} was not in exclude list (requested by ${senderName})`);
+        // Note: "הוסף לתמלול" now means "add to allow list"
+        try {
+          const wasAdded = await conversationManager.addToVoiceAllowList(command.contactName);
+          if (wasAdded) {
+            await sendTextMessage(chatId, `✅ ${command.contactName} נוסף לרשימת המורשים - הודעות קוליות שלו יתומללו`);
+            console.log(`✅ Contact ${command.contactName} added to voice allow list by ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, `ℹ️ ${command.contactName} כבר היה ברשימת המורשים`);
+            console.log(`ℹ️ Contact ${command.contactName} was already in allow list (requested by ${senderName})`);
+          }
+        } catch (error) {
+          console.error('❌ Error adding to voice allow list:', error);
+          await sendTextMessage(chatId, '❌ שגיאה בהוספה לרשימת המורשים');
         }
         break;
 

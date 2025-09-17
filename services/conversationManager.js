@@ -35,7 +35,7 @@ class ConversationManager {
         console.log('📁 Connected to SQLite database');
         
         // Create conversations table
-        const createTableSQL = `
+        const createConversationsTableSQL = `
           CREATE TABLE IF NOT EXISTS conversations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             chat_id TEXT NOT NULL,
@@ -46,28 +46,79 @@ class ConversationManager {
           )
         `;
         
-        this.db.run(createTableSQL, (err) => {
+        // Create voice transcription settings table
+        const createVoiceSettingsTableSQL = `
+          CREATE TABLE IF NOT EXISTS voice_settings (
+            id INTEGER PRIMARY KEY,
+            enabled BOOLEAN NOT NULL DEFAULT 0
+          )
+        `;
+        
+        // Create voice allow list table
+        const createVoiceAllowListTableSQL = `
+          CREATE TABLE IF NOT EXISTS voice_allow_list (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contact_name TEXT NOT NULL UNIQUE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `;
+        
+        this.db.run(createConversationsTableSQL, (err) => {
           if (err) {
             console.error('❌ Error creating conversations table:', err.message);
             reject(err);
             return;
           }
           
-          // Create index for performance
-          const createIndexSQL = `
-            CREATE INDEX IF NOT EXISTS idx_chat_timestamp 
-            ON conversations(chat_id, timestamp DESC)
-          `;
-          
-          this.db.run(createIndexSQL, (err) => {
+          this.db.run(createVoiceSettingsTableSQL, (err) => {
             if (err) {
-              console.error('❌ Error creating index:', err.message);
+              console.error('❌ Error creating voice_settings table:', err.message);
               reject(err);
               return;
             }
             
-            console.log('✅ Database tables and indexes ready');
-            resolve();
+            this.db.run(createVoiceAllowListTableSQL, (err) => {
+              if (err) {
+                console.error('❌ Error creating voice_allow_list table:', err.message);
+                reject(err);
+                return;
+              }
+              
+              // Create indexes for performance
+              const createConversationsIndexSQL = `
+                CREATE INDEX IF NOT EXISTS idx_chat_timestamp 
+                ON conversations(chat_id, timestamp DESC)
+              `;
+              
+              const createVoiceAllowIndexSQL = `
+                CREATE INDEX IF NOT EXISTS idx_contact_name 
+                ON voice_allow_list(contact_name)
+              `;
+              
+              this.db.run(createConversationsIndexSQL, (err) => {
+                if (err) {
+                  console.error('❌ Error creating conversations index:', err.message);
+                  reject(err);
+                  return;
+                }
+                
+                this.db.run(createVoiceAllowIndexSQL, (err) => {
+                  if (err) {
+                    console.error('❌ Error creating voice allow index:', err.message);
+                    reject(err);
+                    return;
+                  }
+                  
+                  // Initialize voice settings if not exists
+                  this.initializeVoiceSettings()
+                    .then(() => {
+                      console.log('✅ Database tables and indexes ready');
+                      resolve();
+                    })
+                    .catch(reject);
+                });
+              });
+            });
           });
         });
       });
@@ -299,6 +350,230 @@ class ConversationManager {
         }
         
         resolve(row.count > 0);
+      });
+    });
+  }
+
+  /**
+   * Initialize voice settings with default values
+   */
+  initializeVoiceSettings() {
+    return new Promise((resolve, reject) => {
+      // Check if settings already exist
+      const checkSQL = `SELECT COUNT(*) as count FROM voice_settings WHERE id = 1`;
+      
+      this.db.get(checkSQL, [], (err, row) => {
+        if (err) {
+          console.error('❌ Error checking voice settings:', err.message);
+          reject(err);
+          return;
+        }
+        
+        if (row.count === 0) {
+          // Insert default settings (disabled by default)
+          const insertSQL = `INSERT INTO voice_settings (id, enabled) VALUES (1, 0)`;
+          
+          this.db.run(insertSQL, [], (err) => {
+            if (err) {
+              console.error('❌ Error initializing voice settings:', err.message);
+              reject(err);
+              return;
+            }
+            
+            console.log('📋 Voice transcription initialized: disabled (default)');
+            resolve();
+          });
+        } else {
+          console.log('📋 Voice settings already exist');
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * Get voice transcription status
+   * @returns {Promise<boolean>} - True if enabled, false if disabled
+   */
+  getVoiceTranscriptionStatus() {
+    return new Promise((resolve, reject) => {
+      const selectSQL = `SELECT enabled FROM voice_settings WHERE id = 1`;
+      
+      this.db.get(selectSQL, [], (err, row) => {
+        if (err) {
+          console.error('❌ Error getting voice status:', err.message);
+          reject(err);
+          return;
+        }
+        
+        const enabled = row ? Boolean(row.enabled) : false;
+        resolve(enabled);
+      });
+    });
+  }
+
+  /**
+   * Set voice transcription status
+   * @param {boolean} enabled - True to enable, false to disable
+   * @returns {Promise<void>}
+   */
+  setVoiceTranscriptionStatus(enabled) {
+    return new Promise((resolve, reject) => {
+      const updateSQL = `
+        INSERT OR REPLACE INTO voice_settings (id, enabled) 
+        VALUES (1, ?)
+      `;
+      
+      this.db.run(updateSQL, [enabled ? 1 : 0], (err) => {
+        if (err) {
+          console.error('❌ Error setting voice status:', err.message);
+          reject(err);
+          return;
+        }
+        
+        console.log(`💾 Voice transcription status updated: ${enabled ? 'enabled' : 'disabled'}`);
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Add contact to voice transcription allow list
+   * @param {string} contactName - Contact name to add
+   * @returns {Promise<boolean>} - True if added, false if already existed
+   */
+  addToVoiceAllowList(contactName) {
+    return new Promise((resolve, reject) => {
+      const insertSQL = `
+        INSERT OR IGNORE INTO voice_allow_list (contact_name) 
+        VALUES (?)
+      `;
+      
+      this.db.run(insertSQL, [contactName], function(err) {
+        if (err) {
+          console.error('❌ Error adding to voice allow list:', err.message);
+          reject(err);
+          return;
+        }
+        
+        const wasAdded = this.changes > 0;
+        if (wasAdded) {
+          console.log(`✅ Added ${contactName} to voice allow list`);
+        }
+        resolve(wasAdded);
+      });
+    });
+  }
+
+  /**
+   * Remove contact from voice transcription allow list
+   * @param {string} contactName - Contact name to remove
+   * @returns {Promise<boolean>} - True if removed, false if didn't exist
+   */
+  removeFromVoiceAllowList(contactName) {
+    return new Promise((resolve, reject) => {
+      const deleteSQL = `DELETE FROM voice_allow_list WHERE contact_name = ?`;
+      
+      this.db.run(deleteSQL, [contactName], function(err) {
+        if (err) {
+          console.error('❌ Error removing from voice allow list:', err.message);
+          reject(err);
+          return;
+        }
+        
+        const wasRemoved = this.changes > 0;
+        if (wasRemoved) {
+          console.log(`🚫 Removed ${contactName} from voice allow list`);
+        }
+        resolve(wasRemoved);
+      });
+    });
+  }
+
+  /**
+   * Check if contact is in voice transcription allow list
+   * @param {string} contactName - Contact name to check
+   * @returns {Promise<boolean>} - True if in allow list, false otherwise
+   */
+  isInVoiceAllowList(contactName) {
+    return new Promise((resolve, reject) => {
+      const selectSQL = `SELECT COUNT(*) as count FROM voice_allow_list WHERE contact_name = ?`;
+      
+      this.db.get(selectSQL, [contactName], (err, row) => {
+        if (err) {
+          console.error('❌ Error checking voice allow list:', err.message);
+          reject(err);
+          return;
+        }
+        
+        resolve(row.count > 0);
+      });
+    });
+  }
+
+  /**
+   * Get all contacts in voice transcription allow list
+   * @returns {Promise<Array>} - Array of contact names
+   */
+  getVoiceAllowList() {
+    return new Promise((resolve, reject) => {
+      const selectSQL = `SELECT contact_name FROM voice_allow_list ORDER BY contact_name`;
+      
+      this.db.all(selectSQL, [], (err, rows) => {
+        if (err) {
+          console.error('❌ Error getting voice allow list:', err.message);
+          reject(err);
+          return;
+        }
+        
+        const contacts = rows.map(row => row.contact_name);
+        resolve(contacts);
+      });
+    });
+  }
+
+  /**
+   * Clear all voice transcription settings and allow list
+   * @returns {Promise<number>} - Number of contacts removed from allow list
+   */
+  clearVoiceSettings() {
+    return new Promise((resolve, reject) => {
+      // First, count how many will be deleted
+      const countSQL = `SELECT COUNT(*) as count FROM voice_allow_list`;
+      
+      this.db.get(countSQL, [], (err, row) => {
+        if (err) {
+          console.error('❌ Error counting voice allow list:', err.message);
+          reject(err);
+          return;
+        }
+        
+        const contactCount = row.count;
+        
+        // Clear allow list
+        const clearAllowListSQL = `DELETE FROM voice_allow_list`;
+        
+        this.db.run(clearAllowListSQL, [], (err) => {
+          if (err) {
+            console.error('❌ Error clearing voice allow list:', err.message);
+            reject(err);
+            return;
+          }
+          
+          // Reset voice settings to disabled
+          const resetSettingsSQL = `UPDATE voice_settings SET enabled = 0 WHERE id = 1`;
+          
+          this.db.run(resetSettingsSQL, [], (err) => {
+            if (err) {
+              console.error('❌ Error resetting voice settings:', err.message);
+              reject(err);
+              return;
+            }
+            
+            console.log(`🗑️ Voice settings cleared: ${contactCount} contacts removed, transcription disabled`);
+            resolve(contactCount);
+          });
+        });
       });
     });
   }
