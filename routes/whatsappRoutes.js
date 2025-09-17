@@ -73,7 +73,7 @@ async function sendAck(chatId, command) {
       ackMessage = '🗣️ קיבלתי. מיד יוצר דיבור עם ElevenLabs...';
       break;
     case 'grok_image':
-      ackMessage = '🎨 קיבלתי. מיד יוצר תמונה עם Grok 4...';
+      ackMessage = '🎨 קיבלתי. מיד יוצר תמונה עם Grok...';
       break;
     default:
       return; // No ACK needed for this command
