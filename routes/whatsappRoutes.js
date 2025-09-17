@@ -4,6 +4,7 @@ const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory } = require
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary } = require('../services/geminiService');
+const { generateTextResponse: generateGrokResponse } = require('../services/grokService');
 const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage, generateVideoFromVideoForWhatsApp: generateRunwayVideoFromVideo, generateVideoWithTextForWhatsApp: generateKlingVideoFromText } = require('../services/replicateService');
 const { generateMusicWithLyrics } = require('../services/musicService');
 const speechService = require('../services/speechService');
@@ -936,12 +937,39 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
             console.log(`❌ OpenAI error for ${senderName}: ${openaiResponse.error}`);
           } else {
             // Add AI response to conversation
-            await await conversationManager.addMessage(chatId, 'assistant', openaiResponse.text);
+            await conversationManager.addMessage(chatId, 'assistant', openaiResponse.text);
             await sendTextMessage(chatId, openaiResponse.text);
           }
         } catch (openaiError) {
           console.error('❌ Error in OpenAI chat:', openaiError.message || openaiError);
           await sendTextMessage(chatId, `❌ ${openaiError.message || openaiError}`);
+        }
+        break;
+
+      case 'grok_chat':
+        console.log(`🤖 Processing Grok chat request from ${senderName}`);
+        
+        try {
+          // Add user message to conversation
+          await conversationManager.addMessage(chatId, 'user', command.prompt);
+          
+          // Get conversation history for context
+          const grokHistory = await conversationManager.getHistory(chatId);
+          
+          // Generate Grok response
+          const grokResponse = await generateGrokResponse(command.prompt, grokHistory);
+          
+          if (grokResponse.error) {
+            await sendTextMessage(chatId, grokResponse.error);
+            console.log(`❌ Grok error for ${senderName}: ${grokResponse.error}`);
+          } else {
+            // Add AI response to conversation
+            await conversationManager.addMessage(chatId, 'assistant', grokResponse.text);
+            await sendTextMessage(chatId, grokResponse.text);
+          }
+        } catch (grokError) {
+          console.error('❌ Error in Grok chat:', grokError.message || grokError);
+          await sendTextMessage(chatId, `❌ ${grokError.message || grokError}`);
         }
         break;
 
@@ -1296,7 +1324,7 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         break;
 
       case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n✨ **הפקודות עובדות גם כשאתה שולח אותן!**\n💬 כל פקודה שתשלח תעבד וההתשובה תחזור לאותה שיחה\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎥 ### [תיאור] - יצירת וידאו עם Kling 2.1 Master (9:16)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n🎬 שלח וידאו עם כותרת: ## [תיאור] - עיבוד וידאו עם RunwayML Gen4\n\n🎵 יצירת מוזיקה:\n🎶 **** [תיאור] - יצירת שיר עם Suno (עד 20 דקות)\n📝 דוגמה: **** שיר עצוב על גשם בחורף\n🎵 השיר נשלח כ-voice note + מילות השיר בהודעת טקסט\n\n🗣️ יצירת דיבור:\n🎙️ *** [טקסט] - Text-to-Speech עם ElevenLabs (קול אקראי)\n📝 דוגמה: *** שלום, איך שלומך היום?\n🎤 הדיבור נשלח כ-voice note\n\n🎤 עיבוד קולי:\n🗣️ שלח הקלטה קולית - תמלול + תגובת AI + שיבוט קול\n📝 Flow: קול → תמלול → Gemini → קול חדש בקולך\n🎤 התגובה הקולית נשלחת כ-voice note\n⚠️ הודעות קוליות שלך לא מתעבדות (רק נכנסות)\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n📝 סכם שיחה - סיכום 10 ההודעות האחרונות\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n🔊 בקרת תמלול:\n🔊 הפעל תמלול - הפעלת עיבוד הודעות קוליות\n🔇 כבה תמלול - כיבוי עיבוד הודעות קוליות\nℹ️ סטטוס תמלול - בדיקת מצב התמלול + רשימת מוחרגים\n🚫 הסר מתמלול <שם> - הוצאת איש קשר מתמלול קולי\n✅ הוסף לתמלול <שם> - החזרת איש קשר לתמלול קולי\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n### חתול רוקד בגשם\n**** שיר רוק על אהבה\n*** שלום, איך שלומך היום?\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling\n🎬 וידאו + כותרת: ## שפר את הווידאו ותוסיף אפקטים\n🎤 שלח הקלטה קולית לעיבוד מלא\n📝 סכם שיחה\n🚫 הסר מתמלול קרלוס\n✅ הוסף לתמלול דנה';
+        const helpMessage = '🤖 Green API Bot Commands:\n\n✨ **הפקודות עובדות גם כשאתה שולח אותן!**\n💬 כל פקודה שתשלח תעבד וההתשובה תחזור לאותה שיחה\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n🚀 + [שאלה] - Grok Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎥 ### [תיאור] - יצירת וידאו עם Kling 2.1 Master (9:16)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n🎬 שלח וידאו עם כותרת: ## [תיאור] - עיבוד וידאו עם RunwayML Gen4\n\n🎵 יצירת מוזיקה:\n🎶 **** [תיאור] - יצירת שיר עם Suno (עד 20 דקות)\n📝 דוגמה: **** שיר עצוב על גשם בחורף\n🎵 השיר נשלח כ-voice note + מילות השיר בהודעת טקסט\n\n🗣️ יצירת דיבור:\n🎙️ *** [טקסט] - Text-to-Speech עם ElevenLabs (קול אקראי)\n📝 דוגמה: *** שלום, איך שלומך היום?\n🎤 הדיבור נשלח כ-voice note\n\n🎤 עיבוד קולי:\n🗣️ שלח הקלטה קולית - תמלול + תגובת AI + שיבוט קול\n📝 Flow: קול → תמלול → Gemini → קול חדש בקולך\n🎤 התגובה הקולית נשלחת כ-voice note\n⚠️ הודעות קוליות שלך לא מתעבדות (רק נכנסות)\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n📝 סכם שיחה - סיכום 10 ההודעות האחרונות\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n🔊 בקרת תמלול:\n🔊 הפעל תמלול - הפעלת עיבוד הודעות קוליות\n🔇 כבה תמלול - כיבוי עיבוד הודעות קוליות\nℹ️ סטטוס תמלול - בדיקת מצב התמלול + רשימת מורשים\n✅ הוסף לתמלול <שם> - הוספת איש קשר לרשימת המורשים\n🚫 הסר מתמלול <שם> - הסרת איש קשר מרשימת המורשים\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n+ מה אתה חושב על העתיד של AI?\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n### חתול רוקד בגשם\n**** שיר רוק על אהבה\n*** שלום, איך שלומך היום?\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling\n🎬 וידאו + כותרת: ## שפר את הווידאו ותוסיף אפקטים\n🎤 שלח הקלטה קולית לעיבוד מלא\n📝 סכם שיחה\n🚫 הסר מתמלול קרלוס\n✅ הוסף לתמלול דנה';
 
         await sendTextMessage(chatId, helpMessage);
         break;
@@ -1476,6 +1504,16 @@ function parseTextCommand(text) {
     const prompt = text.substring(2).trim(); // Remove "# "
     return {
       type: 'openai_chat',
+      prompt: prompt,
+      originalMessage: text
+    };
+  }
+
+  // Grok Chat command: + + space + text
+  if (text.startsWith('+ ')) {
+    const prompt = text.substring(2).trim(); // Remove "+ "
+    return {
+      type: 'grok_chat',
       prompt: prompt,
       originalMessage: text
     };
