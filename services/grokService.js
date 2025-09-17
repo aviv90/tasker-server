@@ -9,7 +9,7 @@ class GrokService {
   constructor() {
     this.apiKey = process.env.GROK_API_KEY;
     this.baseUrl = 'https://api.x.ai/v1';
-    this.model = 'grok-3'; // Updated model (grok-beta was deprecated on 2025-09-15)
+    this.model = 'grok-4'; // Latest and strongest model (upgraded from grok-3)
     
     if (!this.apiKey) {
       console.warn('⚠️ GROK_API_KEY not found in environment variables');
@@ -121,11 +121,124 @@ class GrokService {
       };
     }
   }
+
+  /**
+   * Generate image using Grok with prompt
+   * @param {string} prompt - User's image generation prompt
+   * @returns {Promise<{imageUrl?: string, description?: string, success: boolean}>}
+   */
+  async generateImageForWhatsApp(prompt) {
+    try {
+      if (!this.apiKey) {
+        throw new Error('Grok API key not configured');
+      }
+
+      // Sanitize prompt
+      const cleanPrompt = sanitizeText(prompt);
+
+      console.log(`🎨 Generating image with Grok: "${cleanPrompt}"`);
+
+      // Try image generation endpoint (similar to OpenAI's structure)
+      const response = await fetch(`${this.baseUrl}/images/generations`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prompt: cleanPrompt,
+          model: this.model,
+          size: '1024x1024',
+          quality: 'standard',
+          n: 1
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ Grok image generation error:', response.status, errorData);
+        
+        // If image generation is not supported, return text-only response
+        if (response.status === 404 || response.status === 400) {
+          console.log('🔄 Image generation not supported, falling back to text response');
+          const textResponse = await this.generateTextResponse(`צור תיאור מפורט לתמונה: ${cleanPrompt}`);
+          return {
+            success: true,
+            textOnly: true,
+            description: textResponse.text,
+            originalPrompt: cleanPrompt,
+            metadata: {
+              service: 'Grok',
+              model: this.model,
+              type: 'image_description_fallback',
+              created_at: new Date().toISOString()
+            }
+          };
+        }
+        
+        throw new Error(`Grok image API error: ${response.status} - ${errorData}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.data || data.data.length === 0) {
+        throw new Error('No image data received from Grok API');
+      }
+
+      const imageUrl = data.data[0].url;
+      const description = data.data[0].revised_prompt || cleanPrompt;
+
+      console.log('✅ Grok image generated successfully');
+
+      return {
+        success: true,
+        imageUrl: imageUrl,
+        description: description,
+        originalPrompt: cleanPrompt,
+        metadata: {
+          service: 'Grok',
+          model: this.model,
+          type: 'image_generation',
+          created_at: new Date().toISOString()
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ Error generating Grok image:', error);
+      
+      // Fallback to text description
+      try {
+        console.log('🔄 Falling back to text description');
+        const textResponse = await this.generateTextResponse(`צור תיאור מפורט וחי לתמונה: ${prompt}`);
+        return {
+          success: true,
+          textOnly: true,
+          description: textResponse.text,
+          error: error.message,
+          originalPrompt: prompt,
+          metadata: {
+            service: 'Grok',
+            model: this.model,
+            type: 'image_description_fallback',
+            created_at: new Date().toISOString()
+          }
+        };
+      } catch (fallbackError) {
+        console.error('❌ Fallback text generation also failed:', fallbackError);
+        return {
+          success: false,
+          error: 'מצטער, קרתה שגיאה ביצירת התמונה ובתיאורה. נסה שוב מאוחר יותר.',
+          originalPrompt: prompt
+        };
+      }
+    }
+  }
 }
 
 // Create and export instance
 const grokService = new GrokService();
 
 module.exports = {
-  generateTextResponse: grokService.generateTextResponse.bind(grokService)
+  generateTextResponse: grokService.generateTextResponse.bind(grokService),
+  generateImageForWhatsApp: grokService.generateImageForWhatsApp.bind(grokService)
 };

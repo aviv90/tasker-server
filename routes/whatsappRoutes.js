@@ -72,6 +72,9 @@ async function sendAck(chatId, command) {
     case 'text_to_speech':
       ackMessage = '🗣️ קיבלתי. מיד יוצר דיבור עם ElevenLabs...';
       break;
+    case 'grok_image':
+      ackMessage = '🎨 קיבלתי. מיד יוצר תמונה עם Grok 4...';
+      break;
     default:
       return; // No ACK needed for this command
   }
@@ -973,6 +976,35 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         }
         break;
 
+      case 'grok_image':
+        console.log(`🖼️ Processing Grok image generation request from ${senderName}`);
+        
+        try {
+          const { generateImageForWhatsApp: generateGrokImage } = require('../services/grokService');
+          const grokImageResult = await generateGrokImage(command.prompt);
+          
+          if (!grokImageResult.success) {
+            await sendTextMessage(chatId, grokImageResult.error || 'שגיאה ביצירת התמונה עם Grok');
+            console.log(`❌ Grok image error for ${senderName}: ${grokImageResult.error}`);
+          } else {
+            // Send both image and text if available
+            if (grokImageResult.imageUrl && grokImageResult.description) {
+              await sendFileByUrl(chatId, grokImageResult.imageUrl, 'grok_image.png', '');
+              await sendTextMessage(chatId, grokImageResult.description);
+            } else if (grokImageResult.imageUrl) {
+              await sendFileByUrl(chatId, grokImageResult.imageUrl, 'grok_image.png', '');
+            } else if (grokImageResult.description) {
+              await sendTextMessage(chatId, grokImageResult.description);
+            } else {
+              await sendTextMessage(chatId, '✅ התמונה נוצרה בהצלחה עם Grok');
+            }
+          }
+        } catch (grokImageError) {
+          console.error('❌ Error in Grok image generation:', grokImageError.message || grokImageError);
+          await sendTextMessage(chatId, `❌ שגיאה ביצירת תמונה עם Grok: ${grokImageError.message || grokImageError}`);
+        }
+        break;
+
       case 'openai_image':
         console.log(`🖼️ Processing OpenAI image generation request from ${senderName}`);
         
@@ -1504,6 +1536,16 @@ function parseTextCommand(text) {
     const prompt = text.substring(2).trim(); // Remove "# "
     return {
       type: 'openai_chat',
+      prompt: prompt,
+      originalMessage: text
+    };
+  }
+
+  // Grok Image Generation command: ++ + space + text
+  if (text.startsWith('++ ')) {
+    const prompt = text.substring(3).trim(); // Remove "++ "
+    return {
+      type: 'grok_image',
       prompt: prompt,
       originalMessage: text
     };
