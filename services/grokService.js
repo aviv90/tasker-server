@@ -138,7 +138,10 @@ class GrokService {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          prompt: cleanPrompt
+          prompt: cleanPrompt,
+          model: "grok-2-image",
+          response_format: "url",
+          n: 1
         })
       });
 
@@ -169,7 +172,7 @@ class GrokService {
           originalPrompt: cleanPrompt,
           metadata: {
             service: 'Grok',
-            model: this.model,
+            model: 'grok-2-image',
             type: 'image_generation',
             created_at: new Date().toISOString()
           }
@@ -186,8 +189,8 @@ class GrokService {
             description: textContent,
             originalPrompt: cleanPrompt,
             metadata: {
-            service: 'Grok',
-            model: this.model,
+              service: 'Grok',
+              model: 'grok-2-image',
               type: 'text_response',
               created_at: new Date().toISOString()
             }
