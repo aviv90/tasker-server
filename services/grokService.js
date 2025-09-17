@@ -138,11 +138,7 @@ class GrokService {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          prompt: cleanPrompt,
-          model: this.model, // Use the main Grok model (grok-4)
-          size: '1024x1024',
-          quality: 'standard',
-          n: 1
+          prompt: cleanPrompt
         })
       });
 
