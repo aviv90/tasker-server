@@ -9,7 +9,7 @@ class GrokService {
   constructor() {
     this.apiKey = process.env.GROK_API_KEY;
     this.baseUrl = 'https://api.x.ai/v1';
-    this.model = 'grok-beta'; // Default model
+    this.model = 'grok-3'; // Updated model (grok-beta was deprecated on 2025-09-15)
     
     if (!this.apiKey) {
       console.warn('⚠️ GROK_API_KEY not found in environment variables');
