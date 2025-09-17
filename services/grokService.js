@@ -37,15 +37,7 @@ class GrokService {
       const messages = [
         {
           role: 'system',
-          content: 'אתה Grok - עוזר AI ידידותי, אדיב ונעים של x.ai. תן תשובות טבעיות ונעימות באופן שיחתי. היה חם, מקשיב ומעט הומוריסטי כמו שמתאים לאופי של Grok.'
-        },
-        {
-          role: 'user',
-          content: 'היי Grok, איך אתה?'
-        },
-        {
-          role: 'assistant',
-          content: 'שלום! אני Grok ואני כאן לעזור לך. מה מעניין אותך היום? יש לי תשובות (וגם קצת הומור) 😊'
+          content: 'אתה Grok - עוזר AI ידידותי, אדיב ונעים של x.ai. תן תשובות טבעיות ונעימות באופן שיחתי. היה חם, מקשיב ומעט הומוריסטי כמו שמתאים לאופי של Grok.\n\nכל שיחה היא עצמאית ורציפה עם המשתמש. אם יש הודעות קודמות, זו המשך של אותה שיחה - לא מעגל או חזרה על דברים. תגיב באופן טבעי להודעה הנוכחית בהקשר השיחה.'
         }
       ];
 
@@ -138,7 +130,7 @@ class GrokService {
 
       console.log(`🎨 Generating image with Grok: "${cleanPrompt}"`);
 
-      // Try image generation endpoint (similar to OpenAI's structure)
+      // Call xAI image generation API
       const response = await fetch(`${this.baseUrl}/images/generations`, {
         method: 'POST',
         headers: {
@@ -147,7 +139,7 @@ class GrokService {
         },
         body: JSON.stringify({
           prompt: cleanPrompt,
-          model: this.model,
+          model: this.model, // Use the main Grok model (grok-4)
           size: '1024x1024',
           quality: 'standard',
           n: 1
@@ -157,80 +149,69 @@ class GrokService {
       if (!response.ok) {
         const errorData = await response.text();
         console.error('❌ Grok image generation error:', response.status, errorData);
-        
-        // If image generation is not supported, return text-only response
-        if (response.status === 404 || response.status === 400) {
-          console.log('🔄 Image generation not supported, falling back to text response');
-          const textResponse = await this.generateTextResponse(`צור תיאור מפורט לתמונה: ${cleanPrompt}`);
-          return {
-            success: true,
-            textOnly: true,
-            description: textResponse.text,
-            originalPrompt: cleanPrompt,
-            metadata: {
-              service: 'Grok',
-              model: this.model,
-              type: 'image_description_fallback',
-              created_at: new Date().toISOString()
-            }
-          };
-        }
-        
-        throw new Error(`Grok image API error: ${response.status} - ${errorData}`);
+        return {
+          success: false,
+          error: `Grok image generation failed: ${response.status} - ${errorData}`,
+          originalPrompt: cleanPrompt
+        };
       }
 
       const data = await response.json();
 
-      if (!data.data || data.data.length === 0) {
-        throw new Error('No image data received from Grok API');
-      }
+      // Handle successful response - return whatever Grok provides
+      if (data.data && data.data.length > 0) {
+        const imageData = data.data[0];
+        const imageUrl = imageData.url;
+        const description = imageData.revised_prompt || '';
 
-      const imageUrl = data.data[0].url;
-      const description = data.data[0].revised_prompt || cleanPrompt;
+        console.log('✅ Grok image generated successfully');
 
-      console.log('✅ Grok image generated successfully');
-
-      return {
-        success: true,
-        imageUrl: imageUrl,
-        description: description,
-        originalPrompt: cleanPrompt,
-        metadata: {
-          service: 'Grok',
-          model: this.model,
-          type: 'image_generation',
-          created_at: new Date().toISOString()
-        }
-      };
-
-    } catch (error) {
-      console.error('❌ Error generating Grok image:', error);
-      
-      // Fallback to text description
-      try {
-        console.log('🔄 Falling back to text description');
-        const textResponse = await this.generateTextResponse(`צור תיאור מפורט וחי לתמונה: ${prompt}`);
         return {
           success: true,
-          textOnly: true,
-          description: textResponse.text,
-          error: error.message,
-          originalPrompt: prompt,
+          imageUrl: imageUrl,
+          description: description,
+          originalPrompt: cleanPrompt,
           metadata: {
             service: 'Grok',
             model: this.model,
-            type: 'image_description_fallback',
+            type: 'image_generation',
             created_at: new Date().toISOString()
           }
         };
-      } catch (fallbackError) {
-        console.error('❌ Fallback text generation also failed:', fallbackError);
-        return {
-          success: false,
-          error: 'מצטער, קרתה שגיאה ביצירת התמונה ובתיאורה. נסה שוב מאוחר יותר.',
-          originalPrompt: prompt
-        };
+      } else {
+        // If no image but response is successful, maybe it returned text only
+        const textContent = data.choices?.[0]?.message?.content || data.text || '';
+        
+        if (textContent) {
+          console.log('📝 Grok returned text response instead of image');
+          return {
+            success: true,
+            textOnly: true,
+            description: textContent,
+            originalPrompt: cleanPrompt,
+            metadata: {
+            service: 'Grok',
+            model: this.model,
+              type: 'text_response',
+              created_at: new Date().toISOString()
+            }
+          };
+        } else {
+          return {
+            success: false,
+            error: 'No image or text data received from Grok API',
+            originalPrompt: cleanPrompt
+          };
+        }
       }
+
+    } catch (error) {
+      console.error('❌ Error generating Grok image:', error);
+      return {
+        success: false,
+        error: error.message || 'Unknown error occurred during image generation',
+        originalPrompt: prompt
+      };
     }
   }
 }
