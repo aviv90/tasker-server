@@ -23,9 +23,10 @@ class AuthStore {
       // Get the allow list from database
       const allowList = await conversationManager.getMediaAllowList();
       
-      // If no restrictions are set, allow all users
+      // If no users in allow list, deny access (closed by default like transcription)
       if (allowList.length === 0) {
-        return true;
+        console.log(`🚫 Media creation denied - no users in allow list (closed by default)`);
+        return false;
       }
 
       // Use the EXACT same identifier logic as voice transcription
@@ -43,8 +44,8 @@ class AuthStore {
       return false;
     } catch (error) {
       console.error('❌ Error checking media authorization:', error);
-      // On error, default to allowing (fail-open for better UX)
-      return true;
+      // On error, default to denying (fail-closed for security, like transcription)
+      return false;
     }
   }
 
@@ -104,14 +105,16 @@ class AuthStore {
       const authorizedUsers = await this.getAuthorizedUsers();
       return {
         mediaCreationUsers: authorizedUsers.length,
-        openToAll: authorizedUsers.length === 0,
+        openToAll: false, // Always closed by default, never open to all
+        closedByDefault: authorizedUsers.length === 0,
         authorizedUsers: authorizedUsers
       };
     } catch (error) {
       console.error('❌ Error getting authorization status:', error);
       return {
         mediaCreationUsers: 0,
-        openToAll: true,
+        openToAll: false,
+        closedByDefault: true,
         authorizedUsers: []
       };
     }

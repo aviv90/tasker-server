@@ -1416,15 +1416,15 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
           const status = await authStore.getStatus();
           const allowList = status.authorizedUsers;
           
-          const statusIcon = status.openToAll ? '🔓' : '🔐';
-          const statusText = status.openToAll ? 'פתוח לכולם' : 'מוגבל למורשים';
+          const statusIcon = status.closedByDefault ? '🔐' : '🔐';
+          const statusText = status.closedByDefault ? 'סגור לכולם (ברירת מחדל)' : 'מוגבל למורשים';
           let statusMessage = `${statusIcon} סטטוס יצירת תוכן מולטימדיה: ${statusText}`;
           
           if (allowList.length > 0) {
             const allowedList = allowList.join('\n• ');
             statusMessage += `\n\n✅ אנשי קשר מורשים (${allowList.length}):\n• ${allowedList}`;
           } else {
-            statusMessage += '\n\nℹ️ אין אנשי קשר מורשים (יצירה פתוחה לכולם)';
+            statusMessage += '\n\nℹ️ אין אנשי קשר מורשים (יצירה סגורה לכולם)';
           }
           
           statusMessage += '\n\n📋 פקודות ניהול:\n' +
