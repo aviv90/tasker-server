@@ -120,33 +120,34 @@ class ConversationManager {
                 `;
                 
                 this.db.run(createConversationsIndexSQL, (err) => {
-                if (err) {
-                  console.error('❌ Error creating conversations index:', err.message);
-                  reject(err);
-                  return;
-                }
-                
-                this.db.run(createVoiceAllowIndexSQL, (err) => {
                   if (err) {
-                    console.error('❌ Error creating voice allow index:', err.message);
+                    console.error('❌ Error creating conversations index:', err.message);
                     reject(err);
                     return;
                   }
                   
-                  this.db.run(createMediaAllowIndexSQL, (err) => {
+                  this.db.run(createVoiceAllowIndexSQL, (err) => {
                     if (err) {
-                      console.error('❌ Error creating media allow index:', err.message);
+                      console.error('❌ Error creating voice allow index:', err.message);
                       reject(err);
                       return;
                     }
                     
-                    // Initialize voice settings if not exists
-                    this.initializeVoiceSettings()
-                      .then(() => {
-                        console.log('✅ Database tables and indexes ready');
-                        resolve();
-                      })
-                      .catch(reject);
+                    this.db.run(createMediaAllowIndexSQL, (err) => {
+                      if (err) {
+                        console.error('❌ Error creating media allow index:', err.message);
+                        reject(err);
+                        return;
+                      }
+                      
+                      // Initialize voice settings if not exists
+                      this.initializeVoiceSettings()
+                        .then(() => {
+                          console.log('✅ Database tables and indexes ready');
+                          resolve();
+                        })
+                        .catch(reject);
+                    });
                   });
                 });
               });
