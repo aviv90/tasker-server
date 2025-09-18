@@ -10,6 +10,7 @@ const { generateMusicWithLyrics } = require('../services/musicService');
 const speechService = require('../services/speechService');
 const { voiceService } = require('../services/voiceService');
 const conversationManager = require('../services/conversationManager');
+const authStore = require('../store/authStore');
 const fs = require('fs');
 const path = require('path');
 
@@ -20,6 +21,26 @@ const processedMessages = new Set();
 // No more in-memory variables or JSON files
 
 // All voice transcription settings are now managed through the database
+
+/**
+ * Check if user is authorized for media creation (images, videos, music)
+ * @param {Object} senderData - WhatsApp sender data from Green API
+ * @returns {boolean} - True if user is authorized
+ */
+function isAuthorizedForMediaCreation(senderData) {
+  return authStore.isAuthorizedForMediaCreation(senderData);
+}
+
+/**
+ * Send unauthorized access message
+ * @param {string} chatId - WhatsApp chat ID
+ * @param {string} feature - Feature name (for logging)
+ */
+async function sendUnauthorizedMessage(chatId, feature) {
+  const message = '🔒 סליחה, אין לך הרשאה להשתמש בתכונה זו. פנה למנהל המערכת.';
+  await sendTextMessage(chatId, message);
+  console.log(`🚫 Unauthorized access attempt to ${feature}`);
+}
 
 // Clean up old processed messages every 30 minutes
 setInterval(() => {
@@ -1008,6 +1029,12 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
       case 'openai_image':
         console.log(`🖼️ Processing OpenAI image generation request from ${senderName}`);
         
+        // Check authorization for media creation
+        if (!isAuthorizedForMediaCreation({ senderContactName, senderName, sender: senderId, chatId })) {
+          await sendUnauthorizedMessage(chatId, 'OpenAI image generation');
+          return;
+        }
+        
         try {
           // Add user message to conversation
           await conversationManager.addMessage(chatId, 'user', `יצירת תמונה: ${command.prompt}`);
@@ -1043,6 +1070,12 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
 
       case 'gemini_image':
         console.log(`🎨 Processing Gemini image generation request from ${senderName}`);
+        
+        // Check authorization for media creation
+        if (!isAuthorizedForMediaCreation({ senderContactName, senderName, sender: senderId, chatId })) {
+          await sendUnauthorizedMessage(chatId, 'Gemini image generation');
+          return;
+        }
         
         try {
           // Add user message to conversation
@@ -1088,6 +1121,12 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
 
       case 'veo3_video':
         console.log(`🎬 Processing Veo 3 video generation request from ${senderName}`);
+        
+        // Check authorization for media creation
+        if (!isAuthorizedForMediaCreation({ senderContactName, senderName, sender: senderId, chatId })) {
+          await sendUnauthorizedMessage(chatId, 'Veo 3 video generation');
+          return;
+        }
         
         try {
           // Add user message to conversation
@@ -1243,6 +1282,12 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
       case 'music_generation':
         console.log(`🎵 Processing music generation request from ${senderName}`);
         
+        // Check authorization for media creation
+        if (!isAuthorizedForMediaCreation({ senderContactName, senderName, sender: senderId, chatId })) {
+          await sendUnauthorizedMessage(chatId, 'Suno music generation');
+          return;
+        }
+        
         try {
           // Add user message to conversation
           await conversationManager.addMessage(chatId, 'user', `יצירת שיר: ${command.prompt}`);
@@ -1361,6 +1406,27 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         await sendTextMessage(chatId, helpMessage);
         break;
 
+      case 'admin_help':
+        const adminHelpMessage = '🔐 Admin Commands:\n\n' +
+          '🎨 ניהול הרשאות יצירת תוכן:\n' +
+          '✅ הוסף ליצירה [שם איש קשר] - הוספת הרשאה ליצירת תמונות, וידאו ומוזיקה\n' +
+          '❌ הסר מיצירה [שם איש קשר] - הסרת הרשאה ליצירת תמונות, וידאו ומוזיקה\n\n' +
+          '🎤 ניהול הרשאות תמלול:\n' +
+          '🔊 הפעל תמלול - הפעלת עיבוד הודעות קוליות\n' +
+          '🔇 כבה תמלול - כיבוי עיבוד הודעות קוליות\n' +
+          'ℹ️ סטטוס תמלול - בדיקת מצב התמלול הנוכחי\n' +
+          '✅ הוסף לתמלול [שם איש קשר] - הוספה לרשימת המורשים\n' +
+          '❌ הסר מתמלול [שם איש קשר] - הסרה מרשימת המורשים\n\n' +
+          '💡 דוגמאות:\n' +
+          '• הוסף ליצירה יוסי\n' +
+          '• הסר מיצירה מרים\n' +
+          '• הוסף לתמלול דני\n' +
+          '• הסר מתמלול שרה\n\n' +
+          'ℹ️ השימוש בפקודות הניהול מוגבל למנהלי המערכת';
+        
+        await sendTextMessage(chatId, adminHelpMessage);
+        break;
+
       case 'enable_voice_transcription':
         try {
           await conversationManager.setVoiceTranscriptionStatus(true);
@@ -1441,6 +1507,35 @@ async function handleTextMessage({ chatId, senderId, senderName, messageText }) 
         }
         break;
 
+      case 'add_media_authorization':
+        try {
+          const wasAdded = authStore.addAuthorizedUser(command.contactName);
+          if (wasAdded) {
+            await sendTextMessage(chatId, `✅ ${command.contactName} נוסף לרשימת המורשים ליצירת תוכן מולטימדיה`);
+            console.log(`✅ Added ${command.contactName} to media creation authorization by ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, `ℹ️ ${command.contactName} כבר נמצא ברשימת המורשים ליצירת תוכן מולטימדיה`);
+          }
+        } catch (error) {
+          console.error('❌ Error adding media authorization:', error);
+          await sendTextMessage(chatId, '❌ שגיאה בהוספה לרשימת המורשים ליצירת תוכן');
+        }
+        break;
+
+      case 'remove_media_authorization':
+        try {
+          const wasRemoved = authStore.removeAuthorizedUser(command.contactName);
+          if (wasRemoved) {
+            await sendTextMessage(chatId, `✅ ${command.contactName} הוסר מרשימת המורשים ליצירת תוכן מולטימדיה`);
+            console.log(`✅ Removed ${command.contactName} from media creation authorization by ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, `ℹ️ ${command.contactName} לא נמצא ברשימת המורשים ליצירת תוכן מולטימדיה`);
+          }
+        } catch (error) {
+          console.error('❌ Error removing media authorization:', error);
+          await sendTextMessage(chatId, '❌ שגיאה בהסרה מרשימת המורשים ליצירת תוכן');
+        }
+        break;
 
       default:
         console.log(`❓ Unknown command type: ${command.type}`);
@@ -1586,6 +1681,11 @@ function parseTextCommand(text) {
     return { type: 'help' };
   }
 
+  // Admin help
+  if (text.toLowerCase() === '/admin') {
+    return { type: 'admin_help' };
+  }
+
   // Voice transcription controls
   if (text === 'הפעל תמלול') {
     return { type: 'enable_voice_transcription' };
@@ -1599,6 +1699,28 @@ function parseTextCommand(text) {
     return { type: 'voice_transcription_status' };
   }
 
+  // Media creation authorization commands
+  if (text.startsWith('הוסף ליצירה ')) {
+    const contactName = text.substring('הוסף ליצירה '.length).trim();
+    if (contactName) {
+      return { 
+        type: 'add_media_authorization', 
+        contactName: contactName,
+        originalMessage: text 
+      };
+    }
+  }
+
+  if (text.startsWith('הסר מיצירה ')) {
+    const contactName = text.substring('הסר מיצירה '.length).trim();
+    if (contactName) {
+      return { 
+        type: 'remove_media_authorization', 
+        contactName: contactName,
+        originalMessage: text 
+      };
+    }
+  }
 
   // Voice transcription exclude list management
   if (text.startsWith('הסר מתמלול ')) {
