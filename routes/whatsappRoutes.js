@@ -32,6 +32,25 @@ async function isAuthorizedForMediaCreation(senderData) {
 }
 
 /**
+ * Check if command requires media creation authorization
+ * @param {string} commandType - Command type
+ * @returns {boolean} - True if command requires authorization
+ */
+function requiresMediaAuthorization(commandType) {
+  const mediaCommands = [
+    'gemini_image',
+    'openai_image', 
+    'veo3_video',
+    'kling_text_to_video',
+    'kling_image_to_video',
+    'veo3_image_to_video',
+    'runway_video_to_video',
+    'music_generation'
+  ];
+  return mediaCommands.includes(commandType);
+}
+
+/**
  * Send unauthorized access message
  * @param {string} chatId - WhatsApp chat ID
  * @param {string} feature - Feature name (for logging)
@@ -911,6 +930,14 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
 
   console.log(`🤖 Executing command: ${command.type}`);
 
+  // Check authorization for media commands BEFORE sending ACK
+  if (requiresMediaAuthorization(command.type)) {
+    if (!(await isAuthorizedForMediaCreation({ senderContactName, senderName, sender: senderId, chatId }))) {
+      await sendUnauthorizedMessage(chatId, command.type);
+      return;
+    }
+  }
+
   // Send immediate ACK for long-running commands (skip chat commands)
   if (command.type !== 'gemini_chat' && command.type !== 'openai_chat') {
     await sendAck(chatId, command);
@@ -1031,12 +1058,6 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
       case 'openai_image':
         console.log(`🖼️ Processing OpenAI image generation request from ${senderName}`);
         
-        // Check authorization for media creation
-        if (!(await isAuthorizedForMediaCreation({ senderContactName, senderName, sender: senderId, chatId }))) {
-          await sendUnauthorizedMessage(chatId, 'OpenAI image generation');
-          return;
-        }
-        
         try {
           // Add user message to conversation
           await conversationManager.addMessage(chatId, 'user', `יצירת תמונה: ${command.prompt}`);
@@ -1072,12 +1093,6 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
 
       case 'gemini_image':
         console.log(`🎨 Processing Gemini image generation request from ${senderName}`);
-        
-        // Check authorization for media creation
-        if (!(await isAuthorizedForMediaCreation({ senderContactName, senderName, sender: senderId, chatId }))) {
-          await sendUnauthorizedMessage(chatId, 'Gemini image generation');
-          return;
-        }
         
         try {
           // Add user message to conversation
@@ -1123,12 +1138,6 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
 
       case 'veo3_video':
         console.log(`🎬 Processing Veo 3 video generation request from ${senderName}`);
-        
-        // Check authorization for media creation
-        if (!(await isAuthorizedForMediaCreation({ senderContactName, senderName, sender: senderId, chatId }))) {
-          await sendUnauthorizedMessage(chatId, 'Veo 3 video generation');
-          return;
-        }
         
         try {
           // Add user message to conversation
@@ -1283,12 +1292,6 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
 
       case 'music_generation':
         console.log(`🎵 Processing music generation request from ${senderName}`);
-        
-        // Check authorization for media creation
-        if (!(await isAuthorizedForMediaCreation({ senderContactName, senderName, sender: senderId, chatId }))) {
-          await sendUnauthorizedMessage(chatId, 'Suno music generation');
-          return;
-        }
         
         try {
           // Add user message to conversation
@@ -1473,6 +1476,13 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
           } else {
             statusMessage += '\n\nℹ️ אין אנשי קשר מורשים (תמלול כבוי לכולם)';
           }
+          
+          statusMessage += '\n\n📋 פקודות ניהול:\n' +
+            '• הפעל תמלול - הפעלת עיבוד הודעות קוליות\n' +
+            '• כבה תמלול - כיבוי עיבוד הודעות קוליות\n' +
+            '• הוסף לתמלול [שם] - הוספת הרשאה\n' +
+            '• הסר מתמלול [שם] - הסרת הרשאה\n' +
+            '• סטטוס תמלול - הצגת מצב נוכחי';
           
           await sendTextMessage(chatId, statusMessage);
           console.log(`ℹ️ Voice transcription status checked by ${senderName}: ${statusText}, allowed: ${allowList.length}`);
