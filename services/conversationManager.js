@@ -63,6 +63,15 @@ class ConversationManager {
           )
         `;
         
+        // Create media creation allow list table
+        const createMediaAllowListTableSQL = `
+          CREATE TABLE IF NOT EXISTS media_allow_list (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contact_name TEXT NOT NULL UNIQUE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `;
+        
         this.db.run(createConversationsTableSQL, (err) => {
           if (err) {
             console.error('❌ Error creating conversations table:', err.message);
@@ -84,7 +93,17 @@ class ConversationManager {
                 return;
               }
               
-              // Create indexes for performance
+              // Create media allow list table
+              this.db.run(createMediaAllowListTableSQL, (err) => {
+                if (err) {
+                  console.error('❌ Error creating media_allow_list table:', err.message);
+                  reject(err);
+                  return;
+                }
+                
+                console.log('📋 Media allow list table created');
+                
+                // Create indexes for performance
               const createConversationsIndexSQL = `
                 CREATE INDEX IF NOT EXISTS idx_chat_timestamp 
                 ON conversations(chat_id, timestamp DESC)
@@ -93,6 +112,11 @@ class ConversationManager {
               const createVoiceAllowIndexSQL = `
                 CREATE INDEX IF NOT EXISTS idx_contact_name 
                 ON voice_allow_list(contact_name)
+              `;
+              
+              const createMediaAllowIndexSQL = `
+                CREATE INDEX IF NOT EXISTS idx_media_contact_name 
+                ON media_allow_list(contact_name)
               `;
               
               this.db.run(createConversationsIndexSQL, (err) => {
@@ -109,13 +133,21 @@ class ConversationManager {
                     return;
                   }
                   
-                  // Initialize voice settings if not exists
-                  this.initializeVoiceSettings()
-                    .then(() => {
-                      console.log('✅ Database tables and indexes ready');
-                      resolve();
-                    })
-                    .catch(reject);
+                  this.db.run(createMediaAllowIndexSQL, (err) => {
+                    if (err) {
+                      console.error('❌ Error creating media allow index:', err.message);
+                      reject(err);
+                      return;
+                    }
+                    
+                    // Initialize voice settings if not exists
+                    this.initializeVoiceSettings()
+                      .then(() => {
+                        console.log('✅ Database tables and indexes ready');
+                        resolve();
+                      })
+                      .catch(reject);
+                  });
                 });
               });
             });
@@ -596,6 +628,101 @@ class ConversationManager {
       } else {
         resolve();
       }
+    });
+  }
+
+  /**
+   * Add contact to media creation allow list
+   * @param {string} contactName - Contact name to add
+   * @returns {Promise<boolean>} - True if added, false if already existed
+   */
+  addToMediaAllowList(contactName) {
+    return new Promise((resolve, reject) => {
+      const insertSQL = `
+        INSERT OR IGNORE INTO media_allow_list (contact_name) 
+        VALUES (?)
+      `;
+      
+      this.db.run(insertSQL, [contactName], function(err) {
+        if (err) {
+          console.error('❌ Error adding to media allow list:', err.message);
+          reject(err);
+          return;
+        }
+        
+        const wasAdded = this.changes > 0;
+        if (wasAdded) {
+          console.log(`✅ Added ${contactName} to media allow list`);
+        }
+        resolve(wasAdded);
+      });
+    });
+  }
+
+  /**
+   * Remove contact from media creation allow list
+   * @param {string} contactName - Contact name to remove
+   * @returns {Promise<boolean>} - True if removed, false if didn't exist
+   */
+  removeFromMediaAllowList(contactName) {
+    return new Promise((resolve, reject) => {
+      const deleteSQL = `DELETE FROM media_allow_list WHERE contact_name = ?`;
+      
+      this.db.run(deleteSQL, [contactName], function(err) {
+        if (err) {
+          console.error('❌ Error removing from media allow list:', err.message);
+          reject(err);
+          return;
+        }
+        
+        const wasRemoved = this.changes > 0;
+        if (wasRemoved) {
+          console.log(`🚫 Removed ${contactName} from media allow list`);
+        }
+        resolve(wasRemoved);
+      });
+    });
+  }
+
+  /**
+   * Check if contact is in media creation allow list
+   * @param {string} contactName - Contact name to check
+   * @returns {Promise<boolean>} - True if in allow list, false otherwise
+   */
+  isInMediaAllowList(contactName) {
+    return new Promise((resolve, reject) => {
+      const selectSQL = `SELECT COUNT(*) as count FROM media_allow_list WHERE contact_name = ?`;
+      
+      this.db.get(selectSQL, [contactName], (err, row) => {
+        if (err) {
+          console.error('❌ Error checking media allow list:', err.message);
+          reject(err);
+          return;
+        }
+        
+        resolve(row.count > 0);
+      });
+    });
+  }
+
+  /**
+   * Get all contacts in media creation allow list
+   * @returns {Promise<Array>} - Array of contact names
+   */
+  getMediaAllowList() {
+    return new Promise((resolve, reject) => {
+      const selectSQL = `SELECT contact_name FROM media_allow_list ORDER BY contact_name`;
+      
+      this.db.all(selectSQL, [], (err, rows) => {
+        if (err) {
+          console.error('❌ Error getting media allow list:', err.message);
+          reject(err);
+          return;
+        }
+        
+        const contacts = rows.map(row => row.contact_name);
+        resolve(contacts);
+      });
     });
   }
 }
