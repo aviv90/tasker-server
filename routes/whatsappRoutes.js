@@ -341,6 +341,7 @@ async function handleIncomingMessage(webhookData) {
         chatId,
         senderId,
         senderName,
+        senderContactName,
         messageText: messageText.trim()
       });
     } else {
@@ -497,6 +498,7 @@ async function handleOutgoingMessage(webhookData) {
         chatId,
         senderId,
         senderName,
+        senderContactName,
         messageText: messageText.trim()
       });
     } else {
@@ -897,7 +899,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 /**
  * Handle text message with AI chat functionality
  */
-async function handleTextMessage({ chatId, senderId, senderName, messageText }) {
+async function handleTextMessage({ chatId, senderId, senderName, senderContactName, messageText }) {
   console.log(`💬 Processing text: "${messageText}"`);
   
   const command = parseTextCommand(messageText);
