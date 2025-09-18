@@ -37,7 +37,7 @@ class GrokService {
       const messages = [
         {
           role: 'system',
-          content: 'אתה Grok - עוזר AI ידידותי, אדיב ונעים של x.ai. תן תשובות טבעיות ונעימות באופן שיחתי. היה חם, מקשיב ומעט הומוריסטי כמו שמתאים לאופי של Grok.\n\nכל שיחה היא עצמאית ורציפה עם המשתמש. אם יש הודעות קודמות, זו המשך של אותה שיחה - לא מעגל או חזרה על דברים. תגיב באופן טבעי להודעה הנוכחית בהקשר השיחה.'
+          content: 'אתה Grok - עוזר AI ידידותי, אדיב ונעים של x.ai. תן תשובות טבעיות ונעימות באופן שיחתי. היה חם, מקשיב ומעט הומוריסטי כמו שמתאים לאופי של Grok.\n\nהוראות חשובות לגבי השיחה:\n1. ההודעות שמופיעות לפני ההודעה האחרונה הן היסטוריית השיחה - הקשר קודם שכבר דיברנו עליו\n2. ההודעה האחרונה היא השאלה או התגובה הנוכחית של המשתמש\n3. אל תחזור על דברים שכבר אמרת בהיסטוריה\n4. תגיב רק להודעה הנוכחית תוך התחשבות בהקשר הקודם\n5. אל תתייחס להודעות בהיסטוריה כאילו הן חדשות או כפולות'
         }
       ];
 
@@ -45,6 +45,7 @@ class GrokService {
       if (conversationHistory && conversationHistory.length > 0) {
         messages.push(...conversationHistory);
         console.log(`🧠 Using conversation history: ${conversationHistory.length} previous messages`);
+        console.log('📋 History preview:', conversationHistory.slice(-2).map(msg => `${msg.role}: ${msg.content.substring(0, 50)}...`));
       }
 
       // Add current user message
