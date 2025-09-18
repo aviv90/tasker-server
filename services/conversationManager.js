@@ -104,22 +104,22 @@ class ConversationManager {
                 console.log('📋 Media allow list table created');
                 
                 // Create indexes for performance
-              const createConversationsIndexSQL = `
-                CREATE INDEX IF NOT EXISTS idx_chat_timestamp 
-                ON conversations(chat_id, timestamp DESC)
-              `;
-              
-              const createVoiceAllowIndexSQL = `
-                CREATE INDEX IF NOT EXISTS idx_contact_name 
-                ON voice_allow_list(contact_name)
-              `;
-              
-              const createMediaAllowIndexSQL = `
-                CREATE INDEX IF NOT EXISTS idx_media_contact_name 
-                ON media_allow_list(contact_name)
-              `;
-              
-              this.db.run(createConversationsIndexSQL, (err) => {
+                const createConversationsIndexSQL = `
+                  CREATE INDEX IF NOT EXISTS idx_chat_timestamp 
+                  ON conversations(chat_id, timestamp DESC)
+                `;
+                
+                const createVoiceAllowIndexSQL = `
+                  CREATE INDEX IF NOT EXISTS idx_contact_name 
+                  ON voice_allow_list(contact_name)
+                `;
+                
+                const createMediaAllowIndexSQL = `
+                  CREATE INDEX IF NOT EXISTS idx_media_contact_name 
+                  ON media_allow_list(contact_name)
+                `;
+                
+                this.db.run(createConversationsIndexSQL, (err) => {
                 if (err) {
                   console.error('❌ Error creating conversations index:', err.message);
                   reject(err);
