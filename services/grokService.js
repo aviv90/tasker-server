@@ -19,9 +19,9 @@ class GrokService {
   }
 
   /**
-   * Generate text response using Grok with conversation history
+   * Generate text response using Grok without conversation history
    * @param {string} prompt - User's input text
-   * @param {Array} conversationHistory - Previous messages in conversation
+   * @param {Array} conversationHistory - Previous messages in conversation (ignored for Grok)
    * @returns {Promise<{text: string, usage: object}>}
    */
   async generateTextResponse(prompt, conversationHistory = []) {
@@ -33,28 +33,19 @@ class GrokService {
       // Sanitize prompt
       const cleanPrompt = sanitizeText(prompt);
 
-      // Build messages array with system prompt + conversation history + current message
+      // Build messages array with system prompt + current message only (no history for Grok)
       const messages = [
         {
           role: 'system',
-          content: 'אתה Grok - עוזר AI ידידותי, אדיב ונעים של x.ai. תן תשובות טבעיות ונעימות באופן שיחתי. היה חם, מקשיב ומעט הומוריסטי כמו שמתאים לאופי של Grok.\n\nהוראות חשובות לגבי השיחה:\n1. ההודעות שמופיעות לפני ההודעה האחרונה הן היסטוריית השיחה - הקשר קודם שכבר דיברנו עליו\n2. ההודעה האחרונה היא השאלה או התגובה הנוכחית של המשתמש\n3. אל תחזור על דברים שכבר אמרת בהיסטוריה\n4. תגיב רק להודעה הנוכחית תוך התחשבות בהקשר הקודם\n5. אל תתייחס להודעות בהיסטוריה כאילו הן חדשות או כפולות'
+          content: 'אתה Grok - עוזר AI ידידותי, אדיב ונעים של x.ai. תן תשובות טבעיות ונעימות באופן שיחתי. היה חם, מקשיב ומעט הומוריסטי כמו שמתאים לאופי של Grok.'
+        },
+        {
+          role: 'user',
+          content: cleanPrompt
         }
       ];
 
-      // Add conversation history if exists
-      if (conversationHistory && conversationHistory.length > 0) {
-        messages.push(...conversationHistory);
-        console.log(`🧠 Using conversation history: ${conversationHistory.length} previous messages`);
-        console.log('📋 History preview:', conversationHistory.slice(-2).map(msg => `${msg.role}: ${msg.content.substring(0, 50)}...`));
-      }
-
-      // Add current user message
-      messages.push({
-        role: 'user',
-        content: cleanPrompt
-      });
-
-      console.log(`🤖 Sending to Grok: "${cleanPrompt}" (with ${conversationHistory.length} context messages)`);
+      console.log(`🤖 Sending to Grok: "${cleanPrompt}" (no conversation history)`);
 
       // Make API request to Grok
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
