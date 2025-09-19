@@ -950,12 +950,12 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
         
         try {
           // Add user message to conversation
-          await await conversationManager.addMessage(chatId, 'user', command.prompt);
+          await conversationManager.addMessage(chatId, 'user', command.prompt);
           
           // Get conversation history for context
-          const history = await await conversationManager.getHistory(chatId);
+          const history = await conversationManager.getHistory(chatId);
           
-          // Generate Gemini response
+          // Generate Gemini response with history
           const geminiResponse = await generateGeminiResponse(command.prompt, history);
           
           if (geminiResponse.error) {
@@ -963,8 +963,9 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             console.log(`❌ Gemini error for ${senderName}: ${geminiResponse.error}`);
           } else {
             // Add AI response to conversation
-            await await conversationManager.addMessage(chatId, 'assistant', geminiResponse.text);
+            await conversationManager.addMessage(chatId, 'assistant', geminiResponse.text);
             await sendTextMessage(chatId, geminiResponse.text);
+            console.log(`✅ Gemini chat completed for ${senderName} with history context (${history.length} messages)`);
           }
         } catch (geminiError) {
           console.error('❌ Error in Gemini chat:', geminiError.message || geminiError);
@@ -977,12 +978,12 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
         
         try {
           // Add user message to conversation
-          await await conversationManager.addMessage(chatId, 'user', command.prompt);
+          await conversationManager.addMessage(chatId, 'user', command.prompt);
           
           // Get conversation history for context
-          const openaiHistory = await await conversationManager.getHistory(chatId);
+          const openaiHistory = await conversationManager.getHistory(chatId);
           
-          // Generate OpenAI response
+          // Generate OpenAI response with history
           const openaiResponse = await generateOpenAIResponse(command.prompt, openaiHistory);
           
           if (openaiResponse.error) {
@@ -992,6 +993,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             // Add AI response to conversation
             await conversationManager.addMessage(chatId, 'assistant', openaiResponse.text);
             await sendTextMessage(chatId, openaiResponse.text);
+            console.log(`✅ OpenAI chat completed for ${senderName} with history context (${openaiHistory.length} messages)`);
           }
         } catch (openaiError) {
           console.error('❌ Error in OpenAI chat:', openaiError.message || openaiError);
@@ -1059,8 +1061,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
         console.log(`🖼️ Processing OpenAI image generation request from ${senderName}`);
         
         try {
-          // Add user message to conversation
-          await conversationManager.addMessage(chatId, 'user', `יצירת תמונה: ${command.prompt}`);
+          // Note: Image generation commands do NOT add to conversation history
           
           // Generate image with OpenAI (WhatsApp format)
           const openaiImageResult = await generateOpenAIImage(command.prompt);
@@ -1072,12 +1073,9 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
               ? openaiImageResult.description 
               : '';
             
-            await sendFileByUrl(chatId, openaiImageResult.imageUrl, fileName, caption);
-            
-            // Add AI response to conversation history
-            if (caption) {
-              await conversationManager.addMessage(chatId, 'assistant', caption);
-            }
+              await sendFileByUrl(chatId, openaiImageResult.imageUrl, fileName, caption);
+              
+              // Note: Image generation results do NOT add to conversation history
             
             console.log(`✅ OpenAI image sent to ${senderName}${caption ? ' with caption: ' + caption : ''}`);
           } else {
@@ -1095,8 +1093,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
         console.log(`🎨 Processing Gemini image generation request from ${senderName}`);
         
         try {
-          // Add user message to conversation
-          await conversationManager.addMessage(chatId, 'user', `יצירת תמונה: ${command.prompt}`);
+          // Note: Image generation commands do NOT add to conversation history
           
           // Generate image with Gemini (WhatsApp format)
           const imageResult = await generateImageForWhatsApp(command.prompt);
@@ -1108,22 +1105,18 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
               ? imageResult.description 
               : '';
             
-            await sendFileByUrl(chatId, imageResult.imageUrl, fileName, caption);
-            
-            // Add both user request and AI response to conversation history
-            if (caption) {
-              await conversationManager.addMessage(chatId, 'assistant', caption);
-            }
+              await sendFileByUrl(chatId, imageResult.imageUrl, fileName, caption);
+              
+              // Note: Image generation results do NOT add to conversation history
             
             console.log(`✅ Gemini image sent to ${senderName}${caption ? ' with caption: ' + caption : ''}`);
           } else {
             // Check if Gemini returned text instead of image
             if (imageResult.textResponse) {
               console.log('📝 Gemini returned text instead of image, sending text response');
-              await sendTextMessage(chatId, imageResult.textResponse);
-              
-              // Add Gemini's text response to conversation history
-              await conversationManager.addMessage(chatId, 'assistant', imageResult.textResponse);
+                await sendTextMessage(chatId, imageResult.textResponse);
+                
+                // Note: Image generation text responses do NOT add to conversation history
             } else {
               const errorMsg = imageResult.error || 'לא הצלחתי ליצור תמונה. נסה שוב מאוחר יותר.';
               await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
@@ -1140,8 +1133,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
         console.log(`🎬 Processing Veo 3 video generation request from ${senderName}`);
         
         try {
-          // Add user message to conversation
-          await conversationManager.addMessage(chatId, 'user', `יצירת וידאו: ${command.prompt}`);
+          // Note: Video generation commands do NOT add to conversation history
           
           // Generate video with Veo 3 (WhatsApp format)
           const videoResult = await generateVideoForWhatsApp(command.prompt);
@@ -1294,8 +1286,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
         console.log(`🎵 Processing music generation request from ${senderName}`);
         
         try {
-          // Add user message to conversation
-          await conversationManager.addMessage(chatId, 'user', `יצירת שיר: ${command.prompt}`);
+          // Note: Music generation commands do NOT add to conversation history
           
           // Generate music with Suno (WhatsApp format)
           const musicResult = await generateMusicWithLyrics(command.prompt);
