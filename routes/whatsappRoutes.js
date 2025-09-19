@@ -455,15 +455,9 @@ async function handleOutgoingMessage(webhookData) {
       // Check if caption starts with "### " for Veo 3 image-to-video
       if (caption.startsWith('### ')) {
         const prompt = caption.substring(4).trim(); // Remove "### "
-        console.log(`🎬 Outgoing Veo 3 image-to-video request with prompt: "${prompt}"`);
+        console.log(`🎬 Outgoing Veo 3 image-to-video request with prompt: "${prompt}" (bypassing authorization)`);
         
-        // Check authorization for media creation
-        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
-          await sendUnauthorizedMessage(chatId, 'video creation');
-          return;
-        }
-        
-        // Process Veo 3 image-to-video asynchronously
+        // Process Veo 3 image-to-video asynchronously (no authorization check for outgoing messages)
         processImageToVideoAsync({
           chatId,
           senderId,
@@ -476,15 +470,9 @@ async function handleOutgoingMessage(webhookData) {
       // Check if caption starts with "## " for Kling image-to-video
       else if (caption.startsWith('## ')) {
         const prompt = caption.substring(3).trim(); // Remove "## "
-        console.log(`🎬 Outgoing Kling 2.1 image-to-video request with prompt: "${prompt}"`);
+        console.log(`🎬 Outgoing Kling 2.1 image-to-video request with prompt: "${prompt}" (bypassing authorization)`);
         
-        // Check authorization for media creation
-        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
-          await sendUnauthorizedMessage(chatId, 'video creation');
-          return;
-        }
-        
-        // Process Kling image-to-video asynchronously
+        // Process Kling image-to-video asynchronously (no authorization check for outgoing messages)
         processImageToVideoAsync({
           chatId,
           senderId,
@@ -497,15 +485,9 @@ async function handleOutgoingMessage(webhookData) {
       // Check if caption starts with "*" for Gemini image editing
       else if (caption.startsWith('* ')) {
         const prompt = caption.substring(2).trim(); // Remove "* "
-        console.log(`🎨 Outgoing Gemini image edit request with prompt: "${prompt}"`);
+        console.log(`🎨 Outgoing Gemini image edit request with prompt: "${prompt}" (bypassing authorization)`);
         
-        // Check authorization for media creation
-        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
-          await sendUnauthorizedMessage(chatId, 'image editing');
-          return;
-        }
-        
-        // Process Gemini image editing asynchronously
+        // Process Gemini image editing asynchronously (no authorization check for outgoing messages)
         processImageEditAsync({
           chatId,
           senderId,
@@ -518,15 +500,9 @@ async function handleOutgoingMessage(webhookData) {
       // Check if caption starts with "#" for OpenAI image editing
       else if (caption.startsWith('# ')) {
         const prompt = caption.substring(2).trim(); // Remove "# "
-        console.log(`🖼️ Outgoing OpenAI image edit request with prompt: "${prompt}"`);
+        console.log(`🖼️ Outgoing OpenAI image edit request with prompt: "${prompt}" (bypassing authorization)`);
         
-        // Check authorization for media creation
-        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
-          await sendUnauthorizedMessage(chatId, 'image editing');
-          return;
-        }
-        
-        // Process OpenAI image editing asynchronously
+        // Process OpenAI image editing asynchronously (no authorization check for outgoing messages)
         processImageEditAsync({
           chatId,
           senderId,
@@ -549,15 +525,9 @@ async function handleOutgoingMessage(webhookData) {
       // Check if caption starts with "## " for RunwayML Gen4 video-to-video
       if (caption.startsWith('## ')) {
         const prompt = caption.substring(3).trim(); // Remove "## "
-        console.log(`🎬 Outgoing RunwayML Gen4 video-to-video request with prompt: "${prompt}"`);
+        console.log(`🎬 Outgoing RunwayML Gen4 video-to-video request with prompt: "${prompt}" (bypassing authorization)`);
         
-        // Check authorization for media creation
-        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
-          await sendUnauthorizedMessage(chatId, 'video editing');
-          return;
-        }
-        
-        // Process RunwayML video-to-video asynchronously
+        // Process RunwayML video-to-video asynchronously (no authorization check for outgoing messages)
         processVideoToVideoAsync({
           chatId,
           senderId,
@@ -583,7 +553,7 @@ async function handleOutgoingMessage(webhookData) {
         senderName,
         senderContactName,
         messageText: messageText.trim()
-      });
+      }, true); // isOutgoing = true
     } else {
       console.log(`ℹ️ Unsupported outgoing message type: ${messageData.typeMessage}`);
     }
@@ -595,9 +565,9 @@ async function handleOutgoingMessage(webhookData) {
 /**
  * Process text message asynchronously (no await from webhook)
  */
-function processTextMessageAsync(messageData) {
+function processTextMessageAsync(messageData, isOutgoing = false) {
   // Run in background without blocking webhook response
-  handleTextMessage(messageData).catch(error => {
+  handleTextMessage(messageData, isOutgoing).catch(error => {
     console.error('❌ Error in async message processing:', error.message || error);
   });
 }
@@ -977,8 +947,8 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 /**
  * Handle text message with AI chat functionality
  */
-async function handleTextMessage({ chatId, senderId, senderName, senderContactName, messageText }) {
-  console.log(`💬 Processing text: "${messageText}"`);
+async function handleTextMessage({ chatId, senderId, senderName, senderContactName, messageText }, isOutgoing = false) {
+  console.log(`💬 Processing text: "${messageText}" ${isOutgoing ? '(outgoing message)' : ''}`);
   
   const command = parseTextCommand(messageText);
   
@@ -987,10 +957,11 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
     return;
   }
 
-  console.log(`🤖 Executing command: ${command.type}`);
+  console.log(`🤖 Executing command: ${command.type} ${isOutgoing ? '(outgoing - bypassing authorization)' : ''}`);
 
-  // Check authorization for media commands BEFORE sending ACK
-  if (requiresMediaAuthorization(command.type)) {
+  // Check authorization for media commands BEFORE sending ACK (skip for outgoing messages)
+  // Management commands (transcription, media creation status, etc.) should work from outgoing messages
+  if (!isOutgoing && requiresMediaAuthorization(command.type)) {
     if (!(await isAuthorizedForMediaCreation({ senderContactName, senderName, sender: senderId, chatId }))) {
       await sendUnauthorizedMessage(chatId, command.type);
       return;
