@@ -39,13 +39,16 @@ async function isAuthorizedForMediaCreation(senderData) {
 function requiresMediaAuthorization(commandType) {
   const mediaCommands = [
     'gemini_image',
-    'openai_image', 
+    'openai_image',
+    'grok_image', 
     'veo3_video',
     'kling_text_to_video',
     'kling_image_to_video',
     'veo3_image_to_video',
     'runway_video_to_video',
-    'music_generation'
+    'music_generation',
+    'gemini_image_edit',
+    'openai_image_edit'
   ];
   return mediaCommands.includes(commandType);
 }
@@ -233,6 +236,12 @@ async function handleIncomingMessage(webhookData) {
         const prompt = caption.substring(4).trim(); // Remove "### "
         console.log(`🎬 Veo 3 image-to-video request with prompt: "${prompt}"`);
         
+        // Check authorization for media creation
+        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
+          await sendUnauthorizedMessage(chatId, 'video creation');
+          return;
+        }
+        
         // Process Veo 3 image-to-video asynchronously
         processImageToVideoAsync({
           chatId,
@@ -247,6 +256,12 @@ async function handleIncomingMessage(webhookData) {
       else if (caption.startsWith('## ')) {
         const prompt = caption.substring(3).trim(); // Remove "## "
         console.log(`🎬 Kling 2.1 image-to-video request with prompt: "${prompt}"`);
+        
+        // Check authorization for media creation
+        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
+          await sendUnauthorizedMessage(chatId, 'video creation');
+          return;
+        }
         
         // Process Kling image-to-video asynchronously
         processImageToVideoAsync({
@@ -263,6 +278,12 @@ async function handleIncomingMessage(webhookData) {
         const prompt = caption.substring(2).trim(); // Remove "* "
         console.log(`🎨 Gemini image edit request with prompt: "${prompt}"`);
         
+        // Check authorization for media creation
+        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
+          await sendUnauthorizedMessage(chatId, 'image editing');
+          return;
+        }
+        
         // Process Gemini image editing asynchronously
         processImageEditAsync({
           chatId,
@@ -277,6 +298,12 @@ async function handleIncomingMessage(webhookData) {
       else if (caption.startsWith('# ')) {
         const prompt = caption.substring(2).trim(); // Remove "# "
         console.log(`🖼️ OpenAI image edit request with prompt: "${prompt}"`);
+        
+        // Check authorization for media creation
+        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
+          await sendUnauthorizedMessage(chatId, 'image editing');
+          return;
+        }
         
         // Process OpenAI image editing asynchronously
         processImageEditAsync({
@@ -302,6 +329,12 @@ async function handleIncomingMessage(webhookData) {
       if (caption.startsWith('## ')) {
         const prompt = caption.substring(3).trim(); // Remove "## "
         console.log(`🎬 RunwayML Gen4 video-to-video request with prompt: "${prompt}"`);
+        
+        // Check authorization for media creation
+        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
+          await sendUnauthorizedMessage(chatId, 'video editing');
+          return;
+        }
         
         // Process RunwayML video-to-video asynchronously
         processVideoToVideoAsync({
@@ -423,6 +456,12 @@ async function handleOutgoingMessage(webhookData) {
         const prompt = caption.substring(4).trim(); // Remove "### "
         console.log(`🎬 Outgoing Veo 3 image-to-video request with prompt: "${prompt}"`);
         
+        // Check authorization for media creation
+        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
+          await sendUnauthorizedMessage(chatId, 'video creation');
+          return;
+        }
+        
         // Process Veo 3 image-to-video asynchronously
         processImageToVideoAsync({
           chatId,
@@ -437,6 +476,12 @@ async function handleOutgoingMessage(webhookData) {
       else if (caption.startsWith('## ')) {
         const prompt = caption.substring(3).trim(); // Remove "## "
         console.log(`🎬 Outgoing Kling 2.1 image-to-video request with prompt: "${prompt}"`);
+        
+        // Check authorization for media creation
+        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
+          await sendUnauthorizedMessage(chatId, 'video creation');
+          return;
+        }
         
         // Process Kling image-to-video asynchronously
         processImageToVideoAsync({
@@ -453,6 +498,12 @@ async function handleOutgoingMessage(webhookData) {
         const prompt = caption.substring(2).trim(); // Remove "* "
         console.log(`🎨 Outgoing Gemini image edit request with prompt: "${prompt}"`);
         
+        // Check authorization for media creation
+        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
+          await sendUnauthorizedMessage(chatId, 'image editing');
+          return;
+        }
+        
         // Process Gemini image editing asynchronously
         processImageEditAsync({
           chatId,
@@ -467,6 +518,12 @@ async function handleOutgoingMessage(webhookData) {
       else if (caption.startsWith('# ')) {
         const prompt = caption.substring(2).trim(); // Remove "# "
         console.log(`🖼️ Outgoing OpenAI image edit request with prompt: "${prompt}"`);
+        
+        // Check authorization for media creation
+        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
+          await sendUnauthorizedMessage(chatId, 'image editing');
+          return;
+        }
         
         // Process OpenAI image editing asynchronously
         processImageEditAsync({
@@ -492,6 +549,12 @@ async function handleOutgoingMessage(webhookData) {
       if (caption.startsWith('## ')) {
         const prompt = caption.substring(3).trim(); // Remove "## "
         console.log(`🎬 Outgoing RunwayML Gen4 video-to-video request with prompt: "${prompt}"`);
+        
+        // Check authorization for media creation
+        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
+          await sendUnauthorizedMessage(chatId, 'video editing');
+          return;
+        }
         
         // Process RunwayML video-to-video asynchronously
         processVideoToVideoAsync({
@@ -591,8 +654,7 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
       : '🖼️ קיבלתי את התמונה. מיד מעבד אותה עם OpenAI...';
     await sendTextMessage(chatId, ackMessage);
     
-    // Add user message to conversation
-    await await conversationManager.addMessage(chatId, 'user', `עריכת תמונה (${service}): ${prompt}`);
+    // Note: Image editing commands do NOT add to conversation history
     
     // Download the image first
     const imageBuffer = await downloadFile(imageUrl);
@@ -613,8 +675,7 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
       if (editResult.description && editResult.description.trim()) {
         await sendTextMessage(chatId, editResult.description);
         
-        // Add AI response to conversation history
-        await await conversationManager.addMessage(chatId, 'assistant', editResult.description);
+        // Note: Image editing results do NOT add to conversation history
         
         console.log(`✅ ${service} edit text response sent to ${senderName}: ${editResult.description}`);
         sentSomething = true;
@@ -660,8 +721,7 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
       : '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Kling 2.1...';
     await sendTextMessage(chatId, ackMessage);
     
-    // Add user message to conversation
-    await await conversationManager.addMessage(chatId, 'user', `יצירת וידאו מתמונה (${serviceName}): ${prompt}`);
+    // Note: Image-to-video commands do NOT add to conversation history
     
     // Download the image first
     const imageBuffer = await downloadFile(imageUrl);
@@ -705,8 +765,7 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
     // Send immediate ACK
     await sendAck(chatId, { type: 'runway_video_to_video' });
     
-    // Add user message to conversation
-    await await conversationManager.addMessage(chatId, 'user', `עיבוד וידאו: ${prompt}`);
+    // Note: Video-to-video commands do NOT add to conversation history
     
     // Download the video first
     const videoBuffer = await downloadFile(videoUrl);
@@ -720,8 +779,7 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
       
       await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
       
-      // Add AI response to conversation history
-      await await conversationManager.addMessage(chatId, 'assistant', `וידאו עובד מחדש: ${videoResult.description || 'וידאו חדש'}`);
+      // Note: Video-to-video results do NOT add to conversation history
       
       console.log(`✅ RunwayML Gen4 video-to-video sent to ${senderName}`);
     } else {
@@ -1011,7 +1069,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
           // Get conversation history for context
           const grokHistory = await conversationManager.getHistory(chatId);
           
-          // Generate Grok response
+          // Generate Grok response with history
           const grokResponse = await generateGrokResponse(command.prompt, grokHistory);
           
           if (grokResponse.error) {
@@ -1021,6 +1079,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             // Add AI response to conversation
             await conversationManager.addMessage(chatId, 'assistant', grokResponse.text);
             await sendTextMessage(chatId, grokResponse.text);
+            console.log(`✅ Grok chat completed for ${senderName} with history context (${grokHistory.length} messages)`);
           }
         } catch (grokError) {
           console.error('❌ Error in Grok chat:', grokError.message || grokError);
@@ -1032,12 +1091,13 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
         console.log(`🖼️ Processing Grok image generation request from ${senderName}`);
         
         try {
+          // Note: Image generation commands do NOT add to conversation history
+          
           const { generateImageForWhatsApp: generateGrokImage } = require('../services/grokService');
           const grokImageResult = await generateGrokImage(command.prompt);
           
           if (!grokImageResult.success) {
             await sendTextMessage(chatId, grokImageResult.error || 'שגיאה ביצירת התמונה עם Grok');
-            console.log(`❌ Grok image error for ${senderName}: ${grokImageResult.error}`);
           } else {
             // Send both image and text if available
             if (grokImageResult.imageUrl && grokImageResult.description) {
@@ -1050,6 +1110,8 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             } else {
               await sendTextMessage(chatId, '✅ התמונה נוצרה בהצלחה עם Grok');
             }
+            
+            console.log(`✅ Grok image sent to ${senderName}`);
           }
         } catch (grokImageError) {
           console.error('❌ Error in Grok image generation:', grokImageError.message || grokImageError);
