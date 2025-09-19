@@ -47,6 +47,7 @@ function requiresMediaAuthorization(commandType) {
     'veo3_image_to_video',
     'runway_video_to_video',
     'music_generation',
+    'text_to_speech',
     'gemini_image_edit',
     'openai_image_edit'
   ];
@@ -1206,8 +1207,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             
             await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
             
-            // Add AI response to conversation history
-            await conversationManager.addMessage(chatId, 'assistant', `וידאו נוצר: ${videoResult.description || 'וידאו חדש'}`);
+            // Note: Video generation results do NOT add to conversation history
             
             console.log(`✅ Veo 3 video sent to ${senderName}`);
           } else {
@@ -1225,8 +1225,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
         console.log(`🎬 Processing Kling text-to-video generation request from ${senderName}`);
         
         try {
-          // Add user message to conversation
-          await conversationManager.addMessage(chatId, 'user', `יצירת וידאו עם Kling: ${command.prompt}`);
+          // Note: Video generation commands do NOT add to conversation history
           
           // Generate video with Kling 2.1 Master (WhatsApp format)
           const videoResult = await generateKlingVideoFromText(command.prompt);
@@ -1237,8 +1236,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             
             await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
             
-            // Add AI response to conversation history
-            await conversationManager.addMessage(chatId, 'assistant', `וידאו נוצר: ${videoResult.description || command.prompt}`);
+            // Note: Video generation results do NOT add to conversation history
             
             console.log(`✅ Kling text-to-video sent to ${senderName}`);
           } else {
@@ -1402,9 +1400,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             
             await sendTextMessage(chatId, songInfo);
             
-            // Add AI response to conversation history
-            const responseText = `שיר נוצר: ${musicResult.metadata?.title || command.prompt}`;
-            await conversationManager.addMessage(chatId, 'assistant', responseText);
+            // Note: Music generation results do NOT add to conversation history
             
             console.log(`✅ Music sent to ${senderName}: ${musicResult.metadata?.title || 'Generated Music'}`);
           } else {
@@ -1421,8 +1417,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
         console.log(`🗣️ Processing text-to-speech request from ${senderName}`);
         
         try {
-          // Add user message to conversation
-          await conversationManager.addMessage(chatId, 'user', `יצירת דיבור: ${command.prompt}`);
+          // Note: Text-to-speech commands do NOT add to conversation history
           
           // Generate speech with random voice
           const ttsResult = await voiceService.textToSpeechWithRandomVoice(command.prompt);
@@ -1443,9 +1438,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             // Send as voice message (no caption for voice notes)
             await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
             
-            // Add AI response to conversation history
-            const responseText = `דיבור נוצר: ${command.prompt}`;
-            await conversationManager.addMessage(chatId, 'assistant', responseText);
+            // Note: Text-to-speech results do NOT add to conversation history
             
             console.log(`✅ TTS sent to ${senderName}: ${ttsResult.voiceInfo?.voiceName || 'Unknown voice'}`);
           } else {
