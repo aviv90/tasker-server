@@ -35,17 +35,29 @@ class ConversationManager {
       this.tryRestoreFromBackup();
     }
     
-    // Setup automatic backup for Heroku (every 10 minutes)
+    // Setup automatic backup for Heroku (more frequent)
     if (isHeroku) {
+      // Backup every 5 minutes instead of 10
       setInterval(() => {
         this.createBackup().catch(err => console.warn('⚠️ Auto-backup failed:', err));
-      }, 10 * 60 * 1000); // 10 minutes
-      console.log('⏰ Auto-backup scheduled every 10 minutes for Heroku');
+      }, 5 * 60 * 1000); // 5 minutes
+      console.log('⏰ Auto-backup scheduled every 5 minutes for Heroku');
+      
+      // Also backup on any important database changes
+      console.log('💾 Enhanced backup system enabled for Heroku');
     }
     
     console.log('💭 ConversationManager initialized with SQLite');
     console.log(`📝 Max messages per session: ${this.maxMessages}`);
     console.log(`💾 Database path: ${this.dbPath}`);
+    
+    // Create initial backup on startup (Heroku)
+    if (isHeroku) {
+      setTimeout(() => {
+        this.createBackup().catch(err => console.warn('⚠️ Initial backup failed:', err));
+      }, 2000); // Wait 2 seconds for DB to be fully initialized
+      console.log('⏰ Initial backup scheduled for 2 seconds after startup');
+    }
   }
 
   /**
@@ -496,10 +508,13 @@ class ConversationManager {
         }
         
         console.log(`💾 Voice transcription status updated: ${enabled ? 'enabled' : 'disabled'}`);
-        // Create backup after important changes (Heroku)
+        // Create immediate backup after important changes (Heroku)
         const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
         if (isHeroku) {
-          self.createBackup().catch(err => console.warn('⚠️ Backup after status change failed:', err));
+          // Backup immediately for critical changes
+          setImmediate(() => {
+            self.createBackup().catch(err => console.warn('⚠️ Backup after status change failed:', err));
+          });
         }
         resolve();
       });
@@ -531,10 +546,12 @@ class ConversationManager {
         const wasAdded = this.changes > 0;
         if (wasAdded) {
           console.log(`✅ Added ${contactName} to voice allow list`);
-          // Create backup after important changes (Heroku)
+          // Create immediate backup after important changes (Heroku)
           const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
           if (isHeroku) {
-            self.createBackup().catch(err => console.warn('⚠️ Backup after voice add failed:', err));
+            setImmediate(() => {
+              self.createBackup().catch(err => console.warn('⚠️ Backup after voice add failed:', err));
+            });
           }
         }
         resolve(wasAdded);
@@ -564,10 +581,12 @@ class ConversationManager {
         const wasRemoved = this.changes > 0;
         if (wasRemoved) {
           console.log(`🚫 Removed ${contactName} from voice allow list`);
-          // Create backup after important changes (Heroku)
+          // Create immediate backup after important changes (Heroku)
           const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
           if (isHeroku) {
-            self.createBackup().catch(err => console.warn('⚠️ Backup after voice remove failed:', err));
+            setImmediate(() => {
+              self.createBackup().catch(err => console.warn('⚠️ Backup after voice remove failed:', err));
+            });
           }
         }
         resolve(wasRemoved);
@@ -669,13 +688,33 @@ class ConversationManager {
   async tryRestoreFromBackup() {
     const fs = require('fs');
     const backupPath = '/tmp/conversations_backup.db';
+    const secondaryBackupPath = '/app/conversations_backup.db'; // Try app directory
     
     try {
-      // Check if backup exists and main DB doesn't
-      if (fs.existsSync(backupPath) && !fs.existsSync(this.dbPath)) {
-        console.log('🔄 Restoring database from backup...');
-        fs.copyFileSync(backupPath, this.dbPath);
-        console.log('✅ Database restored from backup');
+      // Check if main DB doesn't exist (fresh restart)
+      if (!fs.existsSync(this.dbPath)) {
+        console.log('🔍 Database not found, searching for backups...');
+        
+        // Try primary backup location first
+        if (fs.existsSync(backupPath)) {
+          console.log('🔄 Restoring database from primary backup...');
+          fs.copyFileSync(backupPath, this.dbPath);
+          console.log('✅ Database restored from primary backup');
+          return;
+        }
+        
+        // Try secondary backup location
+        if (fs.existsSync(secondaryBackupPath)) {
+          console.log('🔄 Restoring database from secondary backup...');
+          fs.copyFileSync(secondaryBackupPath, this.dbPath);
+          console.log('✅ Database restored from secondary backup');
+          return;
+        }
+        
+        // Try to restore from environment-based backup
+        await this.restoreFromEnvironmentBackup();
+        
+        console.log('ℹ️ No backups found, starting with fresh database');
       }
     } catch (error) {
       console.warn('⚠️ Could not restore from backup:', error.message);
@@ -688,14 +727,99 @@ class ConversationManager {
   async createBackup() {
     const fs = require('fs');
     const backupPath = '/tmp/conversations_backup.db';
+    const secondaryBackupPath = '/app/conversations_backup.db'; // Try app directory
     
     try {
       if (fs.existsSync(this.dbPath)) {
+        // Create primary backup
         fs.copyFileSync(this.dbPath, backupPath);
-        console.log('💾 Database backup created');
+        
+        // Create secondary backup in app directory
+        try {
+          fs.copyFileSync(this.dbPath, secondaryBackupPath);
+        } catch (secondaryError) {
+          console.warn('⚠️ Could not create secondary backup:', secondaryError.message);
+        }
+        
+        // Create environment-based backup
+        await this.createEnvironmentBackup();
+        
+        const backupInfo = {
+          primary: fs.existsSync(backupPath) ? '✅' : '❌',
+          secondary: fs.existsSync(secondaryBackupPath) ? '✅' : '❌',
+          timestamp: new Date().toISOString()
+        };
+        console.log('💾 Database backups created:', backupInfo);
       }
     } catch (error) {
       console.warn('⚠️ Could not create backup:', error.message);
+    }
+  }
+
+  /**
+   * Create environment-based backup (store essential data in env-like format)
+   */
+  async createEnvironmentBackup() {
+    try {
+      // Get essential data from database
+      const backupData = {
+        voiceAllowList: [],
+        mediaAllowList: [],
+        voiceSettings: { enabled: true },
+        timestamp: new Date().toISOString()
+      };
+      
+      // Get voice allow list
+      await new Promise((resolve, reject) => {
+        this.db.all('SELECT contact_name FROM voice_allow_list', (err, rows) => {
+          if (err) {
+            console.warn('⚠️ Could not backup voice allow list:', err.message);
+            resolve();
+            return;
+          }
+          backupData.voiceAllowList = rows.map(row => row.contact_name);
+          resolve();
+        });
+      });
+      
+      // Get media allow list (from authStore)
+      try {
+        const authStore = require('../store/authStore');
+        const authorizedUsers = await authStore.getAllAuthorizedUsers();
+        backupData.mediaAllowList = authorizedUsers;
+      } catch (authError) {
+        console.warn('⚠️ Could not backup media allow list:', authError.message);
+      }
+      
+      // Store as base64 encoded JSON (to avoid env variable issues)
+      const backupString = Buffer.from(JSON.stringify(backupData)).toString('base64');
+      
+      // In a real deployment, you might want to send this to a webhook or external service
+      console.log('💾 Environment backup data prepared (length:', backupString.length, 'chars)');
+      
+      // For debugging, show what we're backing up
+      console.log('📋 Backup contents:', {
+        voiceAllowList: backupData.voiceAllowList.length + ' contacts',
+        mediaAllowList: backupData.mediaAllowList.length + ' users',
+        timestamp: backupData.timestamp
+      });
+      
+    } catch (error) {
+      console.warn('⚠️ Could not create environment backup:', error.message);
+    }
+  }
+  
+  /**
+   * Restore from environment-based backup
+   */
+  async restoreFromEnvironmentBackup() {
+    try {
+      // In a real scenario, you would fetch this from an external service
+      // For now, we'll just log that we attempted it
+      console.log('🔍 Attempting to restore from environment backup...');
+      console.log('ℹ️ Environment backup restore not implemented yet (would require external storage)');
+    } catch (error) {
+      console.warn('⚠️ Could not restore from environment backup:', error.message);
     }
   }
 
@@ -755,10 +879,12 @@ class ConversationManager {
         const wasAdded = this.changes > 0;
         if (wasAdded) {
           console.log(`✅ Added ${contactName} to media allow list`);
-          // Create backup after important changes (Heroku)
+          // Create immediate backup after important changes (Heroku)
           const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
           if (isHeroku) {
-            self.createBackup().catch(err => console.warn('⚠️ Backup after media add failed:', err));
+            setImmediate(() => {
+              self.createBackup().catch(err => console.warn('⚠️ Backup after media add failed:', err));
+            });
           }
         }
         resolve(wasAdded);
@@ -788,10 +914,12 @@ class ConversationManager {
         const wasRemoved = this.changes > 0;
         if (wasRemoved) {
           console.log(`🚫 Removed ${contactName} from media allow list`);
-          // Create backup after important changes (Heroku)
+          // Create immediate backup after important changes (Heroku)
           const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
           if (isHeroku) {
-            self.createBackup().catch(err => console.warn('⚠️ Backup after media remove failed:', err));
+            setImmediate(() => {
+              self.createBackup().catch(err => console.warn('⚠️ Backup after media remove failed:', err));
+            });
           }
         }
         resolve(wasRemoved);
