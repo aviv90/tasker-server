@@ -806,10 +806,8 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     const originalLanguage = voiceService.detectLanguage(transcribedText);
     console.log(`🌐 STT detected: ${transcriptionResult.detectedLanguage}, Our detection: ${originalLanguage}`);
 
-    // Send transcription to user first - in the detected language
-    const transcriptionMessage = originalLanguage === 'he' 
-      ? `📝 תמלול ההקלטה של ${senderName}: "${transcribedText}"`
-      : `📝 Transcription from ${senderName}: "${transcribedText}"`;
+    // Send transcription to user first - always in Hebrew for consistency
+    const transcriptionMessage = `📝 תמלול ההודעה של ${senderName}: "${transcribedText}"`;
     
     await sendTextMessage(chatId, transcriptionMessage);
 
@@ -903,7 +901,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     
     const ttsOptions = {
       modelId: 'eleven_v3', // Use the most advanced model
-      outputFormat: 'mp3_44100_128',
+      outputFormat: 'ogg_vorbis', // Changed to OGG for WhatsApp compatibility
       languageCode: responseLanguage
     };
 

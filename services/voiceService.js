@@ -309,7 +309,7 @@ class VoiceService {
             const ttsRequest = {
                 text: text,
                 modelId: modelId,
-                outputFormat: options.outputFormat || 'mp3_44100_128',
+                outputFormat: options.outputFormat || 'ogg_vorbis', // Changed to OGG for WhatsApp compatibility
                 languageCode: languageCode,
                 voiceSettings: options.voiceSettings || null
             };
@@ -353,7 +353,7 @@ class VoiceService {
                 console.log('📁 Created tmp directory');
             }
             
-            const audioFileName = `tts_${uuidv4()}.mp3`;
+            const audioFileName = `tts_${uuidv4()}.ogg`; // Changed to .ogg for WhatsApp compatibility
             const audioFilePath = path.join(tmpDir, audioFileName);
             fs.writeFileSync(audioFilePath, audioBuffer);
             
