@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { sendTextMessage, sendFileByUrl, sendVoiceMessage, downloadFile, getChatHistory } = require('../services/greenApiService');
+const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory } = require('../services/greenApiService');
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary } = require('../services/geminiService');
@@ -228,19 +228,15 @@ async function handleIncomingMessage(webhookData) {
     const senderName = senderData.senderName || senderId;
     const senderContactName = senderData.senderContactName || "";
     
-    console.log(`📱 Message from: ${senderName} (${chatId})`);
-    console.log(`📋 Message type: ${messageData.typeMessage}`);
-    console.log(`🆔 Message ID: ${messageId}`);
+    console.log(`📱 ${senderName}: ${messageData.typeMessage}`);
     
     // Handle text messages (both regular and extended)
     let messageText = null;
     
     if (messageData.typeMessage === 'textMessage') {
       messageText = messageData.textMessageData?.textMessage;
-      console.log(`📝 Regular text message: "${messageText}"`);
     } else if (messageData.typeMessage === 'extendedTextMessage') {
       messageText = messageData.extendedTextMessageData?.text;
-      console.log(`📝 Extended text message: "${messageText}"`);
     }
     
     // Handle image messages for image-to-image editing
@@ -448,19 +444,15 @@ async function handleOutgoingMessage(webhookData) {
     const senderName = senderData.senderName || senderId;
     const senderContactName = senderData.senderContactName || "";
     
-    console.log(`📤 Outgoing message from: ${senderName} (${chatId})`);
-    console.log(`📋 Message type: ${messageData.typeMessage}`);
-    console.log(`🆔 Message ID: ${messageId}`);
+    console.log(`📤 ${senderName}: ${messageData.typeMessage}`);
     
     // Handle text messages (both regular and extended)
     let messageText = null;
     
     if (messageData.typeMessage === 'textMessage') {
       messageText = messageData.textMessageData?.textMessage;
-      console.log(`📝 Outgoing regular text message: "${messageText}"`);
     } else if (messageData.typeMessage === 'extendedTextMessage') {
       messageText = messageData.extendedTextMessageData?.text;
-      console.log(`📝 Outgoing extended text message: "${messageText}"`);
     }
     
     // Handle image messages for image-to-image editing
@@ -946,18 +938,11 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     console.log(`✅ Step 4 complete: Audio generated at ${ttsResult.audioUrl}`);
 
     // Step 5: Send voice response back to user as voice note
-    // Try OGG format first for better mobile compatibility, fallback to MP3
-    let audioUrlToSend = ttsResult.oggUrl || ttsResult.audioUrl;
+    const fullAudioUrl = ttsResult.audioUrl.startsWith('http') 
+      ? ttsResult.audioUrl 
+      : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
     
-    // Convert relative URL to full URL for Green API
-    const fullAudioUrl = audioUrlToSend.startsWith('http') 
-      ? audioUrlToSend 
-      : getStaticFileUrl(audioUrlToSend.replace('/static/', ''));
-    
-    console.log(`🎤 Sending voice message: ${audioUrlToSend.includes('.ogg') ? 'OGG format (mobile optimized)' : 'MP3 format'}`);
-    
-    // Use the dedicated sendVoiceMessage method with proper filename handling
-    await sendVoiceMessage(chatId, fullAudioUrl);
+    await sendFileByUrl(chatId, fullAudioUrl, `voice_${Date.now()}.mp3`, '');
     
     console.log(`✅ Voice-to-voice processing complete for ${senderName}`);
 
@@ -979,21 +964,20 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
  * Handle text message with AI chat functionality
  */
 async function handleTextMessage({ chatId, senderId, senderName, senderContactName, messageText }, isOutgoing = false) {
-  console.log(`💬 Processing text: "${messageText}" ${isOutgoing ? '(outgoing message)' : ''}`);
+  console.log(`💬 ${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''} ${isOutgoing ? '(outgoing)' : ''}`);
   
   const command = parseTextCommand(messageText);
   
   if (!command) {
-    console.log('ℹ️ Not a recognized command, ignoring');
     return;
   }
 
-  console.log(`🤖 Executing command: ${command.type} ${isOutgoing ? '(outgoing - bypassing authorization)' : ''}`);
+  console.log(`🤖 ${command.type} ${isOutgoing ? '(outgoing)' : ''}`);
 
   // SECURITY: Admin commands can only be executed from outgoing messages (sent by you)
   if (isAdminCommand(command.type) && !isOutgoing) {
     console.log(`🚫 Admin command ${command.type} blocked - only works from outgoing messages`);
-    await sendTextMessage(chatId, '🚫 פקודות ניהול יכולות להתבצע רק מהודעות שאתה שולח, לא מהודעות נכנסות');
+    // Silently ignore admin commands from incoming messages (no error message to user)
     return;
   }
 

@@ -794,15 +794,8 @@ class ConversationManager {
       // Store as base64 encoded JSON (to avoid env variable issues)
       const backupString = Buffer.from(JSON.stringify(backupData)).toString('base64');
       
-      // In a real deployment, you might want to send this to a webhook or external service
-      console.log('💾 Environment backup data prepared (length:', backupString.length, 'chars)');
-      
-      // For debugging, show what we're backing up
-      console.log('📋 Backup contents:', {
-        voiceAllowList: backupData.voiceAllowList.length + ' contacts',
-        mediaAllowList: backupData.mediaAllowList.length + ' users',
-        timestamp: backupData.timestamp
-      });
+      // Log backup summary
+      console.log(`📋 Environment backup: ${backupData.voiceAllowList.length} voice, ${backupData.mediaAllowList.length} media contacts`);
       
     } catch (error) {
       console.warn('⚠️ Could not create environment backup:', error.message);

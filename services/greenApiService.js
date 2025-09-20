@@ -104,78 +104,6 @@ async function downloadFile(downloadUrl, fileName = null) {
   }
 }
 
-/**
- * Send voice message via Green API
- * Uses sendFileByUrl with proper voice message formatting
- */
-async function sendVoiceMessage(chatId, audioUrl, fileName = null) {
-  try {
-    console.log(`🎤 Sending voice message to ${chatId}: ${audioUrl}`);
-    
-    // Ensure the fileName has the correct extension based on the audio format
-    let voiceFileName = fileName;
-    if (!voiceFileName) {
-      // Extract format from URL or default to mp3
-      const urlFormat = audioUrl.includes('.mp3') ? 'mp3' : 
-                       audioUrl.includes('.ogg') ? 'ogg' : 
-                       audioUrl.includes('.wav') ? 'wav' : 'mp3';
-      voiceFileName = `voice_${Date.now()}.${urlFormat}`;
-    } else {
-      // Ensure the fileName extension matches the actual audio format
-      const urlFormat = audioUrl.includes('.mp3') ? 'mp3' : 
-                       audioUrl.includes('.ogg') ? 'ogg' : 
-                       audioUrl.includes('.wav') ? 'wav' : 'mp3';
-      const currentExt = path.extname(voiceFileName).slice(1).toLowerCase();
-      
-      if (currentExt !== urlFormat) {
-        const baseName = path.basename(voiceFileName, path.extname(voiceFileName));
-        voiceFileName = `${baseName}.${urlFormat}`;
-        console.log(`🔄 Corrected filename extension to match audio format: ${voiceFileName}`);
-      }
-    }
-    
-    const url = `https://api.green-api.com/waInstance${GREEN_API_ID_INSTANCE}/sendFileByUrl/${GREEN_API_API_TOKEN_INSTANCE}`;
-    
-    const data = {
-      chatId: chatId,
-      urlFile: audioUrl,
-      fileName: voiceFileName,
-      caption: '' // Voice messages should not have captions
-    };
-
-    console.log(`🎤 Sending voice message with data:`, {
-      chatId,
-      urlFile: audioUrl,
-      fileName: voiceFileName
-    });
-    
-    // Additional validation before sending
-    console.log(`🔍 Voice message validation:`);
-    console.log(`   - URL accessible: ${audioUrl}`);
-    console.log(`   - File extension: ${path.extname(voiceFileName)}`);
-    console.log(`   - Expected format: MP3 (based on ElevenLabs output)`);
-    console.log(`   - Mobile compatibility: Sending as MP3 (should work on both Web and Mobile)`);
-
-    const response = await axios.post(url, data, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-
-    console.log(`✅ Voice message sent to ${chatId}: ${voiceFileName}`);
-    return response.data;
-  } catch (error) {
-    console.error('❌ Error sending voice message:', error.message);
-    
-    // Log the response details if available for debugging
-    if (error.response) {
-      console.error(`❌ Green API Error: ${error.response.status} - ${error.response.statusText}`);
-      console.error('❌ Response data:', error.response.data);
-    }
-    
-    throw error;
-  }
-}
 
 /**
  * Get chat history (last N messages) from Green API
@@ -215,7 +143,6 @@ async function getChatHistory(chatId, count = 10) {
 module.exports = {
   sendTextMessage,
   sendFileByUrl,
-  sendVoiceMessage,
   downloadFile,
   getChatHistory
 };
