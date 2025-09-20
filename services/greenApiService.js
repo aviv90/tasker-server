@@ -154,6 +154,7 @@ async function sendVoiceMessage(chatId, audioUrl, fileName = null) {
     console.log(`   - URL accessible: ${audioUrl}`);
     console.log(`   - File extension: ${path.extname(voiceFileName)}`);
     console.log(`   - Expected format: MP3 (based on ElevenLabs output)`);
+    console.log(`   - Mobile compatibility: Sending as MP3 (should work on both Web and Mobile)`);
 
     const response = await axios.post(url, data, {
       headers: {

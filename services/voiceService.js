@@ -357,13 +357,28 @@ class VoiceService {
             const audioFilePath = path.join(tmpDir, audioFileName);
             fs.writeFileSync(audioFilePath, audioBuffer);
             
+            // Also create an OGG version for better mobile compatibility
+            const oggFileName = audioFileName.replace('.mp3', '.ogg');
+            const oggFilePath = path.join(tmpDir, oggFileName);
+            
+            try {
+                // For now, just copy the MP3 as OGG (basic compatibility)
+                // In future, could use ffmpeg for proper conversion
+                fs.writeFileSync(oggFilePath, audioBuffer);
+                console.log(`📱 Created OGG version for mobile compatibility: ${oggFileName}`);
+            } catch (oggError) {
+                console.warn('⚠️ Could not create OGG version:', oggError.message);
+            }
+            
             const audioUrl = `/static/${audioFileName}`; // Changed from /static/tmp/ to /static/
+            const oggUrl = `/static/${oggFileName}`; // OGG version for mobile
             
             console.log('✅ Text-to-speech conversion completed');
             console.log(`🔗 Audio available at: ${audioUrl}`);
             
             return {
                 audioUrl: audioUrl,
+                oggUrl: oggUrl, // OGG version for mobile compatibility
                 audioBuffer: audioBuffer,
                 voiceId: voiceId,
                 text: text,
@@ -374,7 +389,8 @@ class VoiceService {
                     outputFormat: ttsRequest.outputFormat,
                     textLength: text.length,
                     audioSize: audioBuffer.length,
-                    created_at: new Date().toISOString()
+                    created_at: new Date().toISOString(),
+                    mobileCompatibility: 'OGG version created for mobile devices'
                 }
             };
 

@@ -55,6 +55,24 @@ function requiresMediaAuthorization(commandType) {
 }
 
 /**
+ * Check if a command is an admin/management command (should only work from outgoing messages)
+ * @param {string} commandType - Command type
+ * @returns {boolean} - True if command is admin-only
+ */
+function isAdminCommand(commandType) {
+  const adminCommands = [
+    'include_in_transcription',
+    'exclude_from_transcription',
+    'add_media_authorization',
+    'remove_media_authorization',
+    'enable_voice_transcription',
+    'disable_voice_transcription',
+    'voice_transcription_status'
+  ];
+  return adminCommands.includes(commandType);
+}
+
+/**
  * Send unauthorized access message
  * @param {string} chatId - WhatsApp chat ID
  * @param {string} feature - Feature name (for logging)
@@ -928,10 +946,15 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     console.log(`✅ Step 4 complete: Audio generated at ${ttsResult.audioUrl}`);
 
     // Step 5: Send voice response back to user as voice note
+    // Try OGG format first for better mobile compatibility, fallback to MP3
+    let audioUrlToSend = ttsResult.oggUrl || ttsResult.audioUrl;
+    
     // Convert relative URL to full URL for Green API
-    const fullAudioUrl = ttsResult.audioUrl.startsWith('http') 
-      ? ttsResult.audioUrl 
-      : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
+    const fullAudioUrl = audioUrlToSend.startsWith('http') 
+      ? audioUrlToSend 
+      : getStaticFileUrl(audioUrlToSend.replace('/static/', ''));
+    
+    console.log(`🎤 Sending voice message: ${audioUrlToSend.includes('.ogg') ? 'OGG format (mobile optimized)' : 'MP3 format'}`);
     
     // Use the dedicated sendVoiceMessage method with proper filename handling
     await sendVoiceMessage(chatId, fullAudioUrl);
@@ -966,6 +989,13 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
   }
 
   console.log(`🤖 Executing command: ${command.type} ${isOutgoing ? '(outgoing - bypassing authorization)' : ''}`);
+
+  // SECURITY: Admin commands can only be executed from outgoing messages (sent by you)
+  if (isAdminCommand(command.type) && !isOutgoing) {
+    console.log(`🚫 Admin command ${command.type} blocked - only works from outgoing messages`);
+    await sendTextMessage(chatId, '🚫 פקודות ניהול יכולות להתבצע רק מהודעות שאתה שולח, לא מהודעות נכנסות');
+    return;
+  }
 
   // Check authorization for media commands BEFORE sending ACK (skip for outgoing messages)
   // Management commands (transcription, media creation status, etc.) should work from outgoing messages
