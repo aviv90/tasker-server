@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory } = require('../services/greenApiService');
+const { sendTextMessage, sendFileByUrl, sendVoiceMessage, downloadFile, getChatHistory } = require('../services/greenApiService');
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary } = require('../services/geminiService');
@@ -928,14 +928,13 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     console.log(`✅ Step 4 complete: Audio generated at ${ttsResult.audioUrl}`);
 
     // Step 5: Send voice response back to user as voice note
-    const fileName = `voice_response_${Date.now()}.ogg`; // Use .ogg for voice notes
-    
     // Convert relative URL to full URL for Green API
     const fullAudioUrl = ttsResult.audioUrl.startsWith('http') 
       ? ttsResult.audioUrl 
       : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
     
-    await sendFileByUrl(chatId, fullAudioUrl, fileName, ''); // No caption for voice notes
+    // Use the dedicated sendVoiceMessage method with proper filename handling
+    await sendVoiceMessage(chatId, fullAudioUrl);
     
     console.log(`✅ Voice-to-voice processing complete for ${senderName}`);
 
