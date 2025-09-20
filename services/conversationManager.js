@@ -10,10 +10,38 @@ const path = require('path');
 class ConversationManager {
   constructor() {
     this.maxMessages = 10; // Keep only last 10 messages per user
-    this.dbPath = path.join(__dirname, '..', 'store', 'conversations.db');
+    
+    // Use persistent database location
+    // In Heroku, use /tmp for temporary persistence across restarts within same dyno
+    // For production, consider using external database service
+    const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
+    if (isHeroku) {
+      // Heroku: Use /tmp directory which persists during dyno lifecycle
+      this.dbPath = '/tmp/conversations.db';
+      console.log('🌐 Running on Heroku - using /tmp for database persistence');
+      console.log(`🔍 Environment check: NODE_ENV=${process.env.NODE_ENV}, DYNO=${process.env.DYNO}`);
+    } else {
+      // Local development: Use store directory
+      this.dbPath = path.join(__dirname, '..', 'store', 'conversations.db');
+      console.log('🏠 Running locally - using store directory');
+    }
+    
     this.db = null;
     
     this.initializeDatabase();
+    
+    // Try to restore from backup if database doesn't exist (Heroku restart scenario)
+    if (isHeroku) {
+      this.tryRestoreFromBackup();
+    }
+    
+    // Setup automatic backup for Heroku (every 10 minutes)
+    if (isHeroku) {
+      setInterval(() => {
+        this.createBackup().catch(err => console.warn('⚠️ Auto-backup failed:', err));
+      }, 10 * 60 * 1000); // 10 minutes
+      console.log('⏰ Auto-backup scheduled every 10 minutes for Heroku');
+    }
     
     console.log('💭 ConversationManager initialized with SQLite');
     console.log(`📝 Max messages per session: ${this.maxMessages}`);
@@ -465,6 +493,11 @@ class ConversationManager {
         }
         
         console.log(`💾 Voice transcription status updated: ${enabled ? 'enabled' : 'disabled'}`);
+        // Create backup after important changes (Heroku)
+        const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
+        if (isHeroku) {
+          this.createBackup().catch(err => console.warn('⚠️ Backup after status change failed:', err));
+        }
         resolve();
       });
     });
@@ -492,6 +525,11 @@ class ConversationManager {
         const wasAdded = this.changes > 0;
         if (wasAdded) {
           console.log(`✅ Added ${contactName} to voice allow list`);
+          // Create backup after important changes (Heroku)
+          const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
+          if (isHeroku) {
+            this.createBackup().catch(err => console.warn('⚠️ Backup after voice add failed:', err));
+          }
         }
         resolve(wasAdded);
       });
@@ -517,6 +555,11 @@ class ConversationManager {
         const wasRemoved = this.changes > 0;
         if (wasRemoved) {
           console.log(`🚫 Removed ${contactName} from voice allow list`);
+          // Create backup after important changes (Heroku)
+          const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
+          if (isHeroku) {
+            this.createBackup().catch(err => console.warn('⚠️ Backup after voice remove failed:', err));
+          }
         }
         resolve(wasRemoved);
       });
@@ -612,10 +655,56 @@ class ConversationManager {
   }
 
   /**
+   * Try to restore database from backup (for Heroku restarts)
+   */
+  async tryRestoreFromBackup() {
+    const fs = require('fs');
+    const backupPath = '/tmp/conversations_backup.db';
+    
+    try {
+      // Check if backup exists and main DB doesn't
+      if (fs.existsSync(backupPath) && !fs.existsSync(this.dbPath)) {
+        console.log('🔄 Restoring database from backup...');
+        fs.copyFileSync(backupPath, this.dbPath);
+        console.log('✅ Database restored from backup');
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not restore from backup:', error.message);
+    }
+  }
+
+  /**
+   * Create backup of current database (for Heroku persistence)
+   */
+  async createBackup() {
+    const fs = require('fs');
+    const backupPath = '/tmp/conversations_backup.db';
+    
+    try {
+      if (fs.existsSync(this.dbPath)) {
+        fs.copyFileSync(this.dbPath, backupPath);
+        console.log('💾 Database backup created');
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not create backup:', error.message);
+    }
+  }
+
+  /**
    * Close database connection (for graceful shutdown)
    */
   close() {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
+      // Create backup before closing (for Heroku)
+      const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
+      if (isHeroku) {
+        try {
+          await this.createBackup();
+        } catch (err) {
+          console.warn('⚠️ Backup failed during close:', err);
+        }
+      }
+      
       if (this.db) {
         this.db.close((err) => {
           if (err) {
@@ -654,6 +743,11 @@ class ConversationManager {
         const wasAdded = this.changes > 0;
         if (wasAdded) {
           console.log(`✅ Added ${contactName} to media allow list`);
+          // Create backup after important changes (Heroku)
+          const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
+          if (isHeroku) {
+            this.createBackup().catch(err => console.warn('⚠️ Backup after media add failed:', err));
+          }
         }
         resolve(wasAdded);
       });
@@ -679,6 +773,11 @@ class ConversationManager {
         const wasRemoved = this.changes > 0;
         if (wasRemoved) {
           console.log(`🚫 Removed ${contactName} from media allow list`);
+          // Create backup after important changes (Heroku)
+          const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
+          if (isHeroku) {
+            this.createBackup().catch(err => console.warn('⚠️ Backup after media remove failed:', err));
+          }
         }
         resolve(wasRemoved);
       });
