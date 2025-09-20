@@ -901,7 +901,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     
     const ttsOptions = {
       modelId: 'eleven_v3', // Use the most advanced model
-      outputFormat: 'ogg_vorbis', // Changed to OGG for WhatsApp compatibility
+      outputFormat: 'mp3_44100_128', // ElevenLabs doesn't support ogg_vorbis
       languageCode: responseLanguage
     };
 
@@ -909,8 +909,19 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     
     if (ttsResult.error) {
       console.error('❌ Text-to-speech failed:', ttsResult.error);
-      // If TTS fails, send text response instead
-      await sendTextMessage(chatId, `💬 ${geminiResponse}`);
+      // If TTS fails, send error message (don't send the Gemini response as text)
+      const errorMessage = originalLanguage === 'he' 
+        ? '❌ סליחה, לא הצלחתי ליצור תגובה קולית. נסה שוב.'
+        : '❌ Sorry, I couldn\'t generate voice response. Please try again.';
+      await sendTextMessage(chatId, errorMessage);
+      
+      // Clean up voice clone before returning
+      try {
+        await voiceService.deleteVoice(voiceId);
+        console.log(`🧹 Voice clone ${voiceId} deleted (cleanup after TTS error)`);
+      } catch (cleanupError) {
+        console.warn('⚠️ Could not delete voice clone:', cleanupError.message);
+      }
       return;
     }
 

@@ -332,7 +332,7 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     
     const ttsOptions = {
       modelId: req.body.ttsModel || 'eleven_v3', // Use the most advanced model by default
-      outputFormat: req.body.outputFormat || 'ogg_vorbis', // Changed default to OGG for better compatibility
+      outputFormat: req.body.outputFormat || 'mp3_44100_128', // ElevenLabs doesn't support ogg_vorbis
       languageCode: ttsLanguage
     };
 
