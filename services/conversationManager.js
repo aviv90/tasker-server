@@ -485,6 +485,9 @@ class ConversationManager {
         VALUES (1, ?)
       `;
       
+      // Save reference to class instance before callback
+      const self = this;
+      
       this.db.run(updateSQL, [enabled ? 1 : 0], (err) => {
         if (err) {
           console.error('❌ Error setting voice status:', err.message);
@@ -496,7 +499,7 @@ class ConversationManager {
         // Create backup after important changes (Heroku)
         const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
         if (isHeroku) {
-          this.createBackup().catch(err => console.warn('⚠️ Backup after status change failed:', err));
+          self.createBackup().catch(err => console.warn('⚠️ Backup after status change failed:', err));
         }
         resolve();
       });
@@ -515,6 +518,9 @@ class ConversationManager {
         VALUES (?)
       `;
       
+      // Save reference to class instance before callback
+      const self = this;
+      
       this.db.run(insertSQL, [contactName], function(err) {
         if (err) {
           console.error('❌ Error adding to voice allow list:', err.message);
@@ -528,7 +534,7 @@ class ConversationManager {
           // Create backup after important changes (Heroku)
           const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
           if (isHeroku) {
-            this.createBackup().catch(err => console.warn('⚠️ Backup after voice add failed:', err));
+            self.createBackup().catch(err => console.warn('⚠️ Backup after voice add failed:', err));
           }
         }
         resolve(wasAdded);
@@ -545,6 +551,9 @@ class ConversationManager {
     return new Promise((resolve, reject) => {
       const deleteSQL = `DELETE FROM voice_allow_list WHERE contact_name = ?`;
       
+      // Save reference to class instance before callback
+      const self = this;
+      
       this.db.run(deleteSQL, [contactName], function(err) {
         if (err) {
           console.error('❌ Error removing from voice allow list:', err.message);
@@ -558,7 +567,7 @@ class ConversationManager {
           // Create backup after important changes (Heroku)
           const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
           if (isHeroku) {
-            this.createBackup().catch(err => console.warn('⚠️ Backup after voice remove failed:', err));
+            self.createBackup().catch(err => console.warn('⚠️ Backup after voice remove failed:', err));
           }
         }
         resolve(wasRemoved);
@@ -733,6 +742,9 @@ class ConversationManager {
         VALUES (?)
       `;
       
+      // Save reference to class instance before callback
+      const self = this;
+      
       this.db.run(insertSQL, [contactName], function(err) {
         if (err) {
           console.error('❌ Error adding to media allow list:', err.message);
@@ -746,7 +758,7 @@ class ConversationManager {
           // Create backup after important changes (Heroku)
           const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
           if (isHeroku) {
-            this.createBackup().catch(err => console.warn('⚠️ Backup after media add failed:', err));
+            self.createBackup().catch(err => console.warn('⚠️ Backup after media add failed:', err));
           }
         }
         resolve(wasAdded);
@@ -763,6 +775,9 @@ class ConversationManager {
     return new Promise((resolve, reject) => {
       const deleteSQL = `DELETE FROM media_allow_list WHERE contact_name = ?`;
       
+      // Save reference to class instance before callback
+      const self = this;
+      
       this.db.run(deleteSQL, [contactName], function(err) {
         if (err) {
           console.error('❌ Error removing from media allow list:', err.message);
@@ -776,7 +791,7 @@ class ConversationManager {
           // Create backup after important changes (Heroku)
           const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
           if (isHeroku) {
-            this.createBackup().catch(err => console.warn('⚠️ Backup after media remove failed:', err));
+            self.createBackup().catch(err => console.warn('⚠️ Backup after media remove failed:', err));
           }
         }
         resolve(wasRemoved);
