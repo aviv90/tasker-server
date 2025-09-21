@@ -62,7 +62,8 @@ function isAdminCommand(commandType) {
     'exclude_from_transcription',
     'add_media_authorization',
     'remove_media_authorization',
-    'voice_transcription_status'
+    'voice_transcription_status',
+    'clear_all_conversations'
   ];
   return adminCommands.includes(commandType);
 }
@@ -1322,7 +1323,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
         console.log(`🗑️ Processing clear all conversations request from ${senderName}`);
         
         try {
-          const deletedCount = await conversationManager.clearAllSessions();
+          const deletedCount = await conversationManager.clearAllConversations();
           if (deletedCount > 0) {
             await sendTextMessage(chatId, `🗑️ כל היסטוריית השיחות נמחקה בהצלחה (${deletedCount} הודעות נמחקו)`);
             console.log(`✅ All conversations cleared by ${senderName}: ${deletedCount} messages deleted`);
@@ -1714,8 +1715,8 @@ function parseTextCommand(text) {
     return { type: 'command_list' };
   }
 
-  // Clear all conversations (admin command)
-  if (text === 'נקה DB') {
+  // Clear conversation history (admin command)
+  if (text === 'נקה היסטוריה') {
     return { type: 'clear_all_conversations' };
   }
 

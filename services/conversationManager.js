@@ -470,6 +470,25 @@ class ConversationManager {
   }
 
   /**
+   * Clear all conversations from database
+   */
+  async clearAllConversations() {
+    if (!this.isInitialized) {
+      throw new Error('Database not initialized');
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      const result = await client.query('DELETE FROM conversations');
+      console.log(`🗑️ Cleared ${result.rowCount} conversations from database`);
+      return result.rowCount;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Close database connection pool
    */
   async close() {
