@@ -455,4 +455,6 @@ class ConversationManager {
   }
 }
 
-module.exports = ConversationManager;
+// Create and export singleton instance
+const conversationManager = new ConversationManager();
+module.exports = conversationManager;
