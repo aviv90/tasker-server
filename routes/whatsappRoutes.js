@@ -176,7 +176,7 @@ router.post('/webhook', async (req, res) => {
     }
 
     const webhookData = req.body;
-    console.log('📱 Green API webhook received:', JSON.stringify(webhookData, null, 2));
+    console.log('📱 Green API webhook received:', webhookData.typeMessage || 'unknown type');
 
     // Handle different webhook types asynchronously
     if (webhookData.typeWebhook === 'incomingMessageReceived') {
@@ -738,7 +738,7 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
       await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
       
       // Add AI response to conversation history
-      await await conversationManager.addMessage(chatId, 'assistant', `וידאו נוצר מתמונה (${serviceName}): ${videoResult.description || 'וידאו חדש'}`);
+      await conversationManager.addMessage(chatId, 'assistant', `וידאו נוצר מתמונה (${serviceName}): ${videoResult.description || 'וידאו חדש'}`);
       
       console.log(`✅ ${serviceName} image-to-video sent to ${senderName}`);
     } else {
@@ -890,7 +890,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     const geminiResult = await generateGeminiResponse(geminiPrompt, []);
     
     // Add user message to conversation AFTER getting Gemini response to avoid duplication
-    await await conversationManager.addMessage(chatId, 'user', `הקלטה קולית: ${transcribedText}`);
+    await conversationManager.addMessage(chatId, 'user', `הקלטה קולית: ${transcribedText}`);
     
     if (geminiResult.error) {
       console.error('❌ Gemini generation failed:', geminiResult.error);
@@ -914,7 +914,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     console.log(`💬 Gemini response: "${geminiResponse.substring(0, 100)}..."`);
     
     // Add AI response to conversation history
-    await await conversationManager.addMessage(chatId, 'assistant', geminiResponse);
+    await conversationManager.addMessage(chatId, 'assistant', geminiResponse);
 
     // Step 4: Text-to-Speech with cloned voice
     console.log(`🔄 Step 4: Converting text to speech with cloned voice...`);
@@ -1362,7 +1362,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
           
           // Debug: Log full metadata structure
           if (musicResult.metadata) {
-            console.log('🎵 Full Suno metadata:', JSON.stringify(musicResult.metadata, null, 2));
+            console.log('🎵 Suno metadata available:', musicResult.metadata ? 'yes' : 'no');
           }
           
           if (musicResult.error) {
