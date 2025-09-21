@@ -33,8 +33,9 @@ class ConversationManager {
     // Try to restore from backup if database doesn't exist (Heroku restart scenario)
     // Note: This will be called after database initialization is complete
     
-    // Setup automatic backup for Heroku (hourly complete backup)
-    if (isHeroku) {
+    // DISABLED: Setup automatic backup for Heroku (hourly complete backup)
+    // This was causing infinite restart loops
+    if (false && isHeroku) {
       // Complete backup every hour
       setInterval(() => {
         this.createBackup().catch(err => console.warn('⚠️ Auto-backup failed:', err));
@@ -49,8 +50,9 @@ class ConversationManager {
     console.log(`📝 Max messages per session: ${this.maxMessages}`);
     console.log(`💾 Database path: ${this.dbPath}`);
     
-    // Create initial backup on startup (Heroku)
-    if (isHeroku) {
+    // DISABLED: Create initial backup on startup (Heroku)
+    // This was causing infinite restart loops
+    if (false && isHeroku) {
       setTimeout(() => {
         this.createBackup().catch(err => console.warn('⚠️ Initial backup failed:', err));
       }, 2000); // Wait 2 seconds for DB to be fully initialized
@@ -518,9 +520,10 @@ class ConversationManager {
         }
         
         console.log(`💾 Voice transcription status updated: ${enabled ? 'enabled' : 'disabled'}`);
-        // Create immediate backup after important changes (Heroku)
+        // DISABLED: Create immediate backup after important changes (Heroku)
+        // This was causing infinite restart loops
         const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
-        if (isHeroku) {
+        if (false && isHeroku) {
           // Backup immediately for critical changes
           setImmediate(() => {
             self.createBackup().catch(err => console.warn('⚠️ Backup after status change failed:', err));
@@ -556,9 +559,10 @@ class ConversationManager {
         const wasAdded = this.changes > 0;
         if (wasAdded) {
           console.log(`✅ Added ${contactName} to voice allow list`);
-          // Create immediate backup after important changes (Heroku)
+          // DISABLED: Create immediate backup after important changes (Heroku)
+          // This was causing infinite restart loops
           const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
-          if (isHeroku) {
+          if (false && isHeroku) {
             setImmediate(() => {
               self.createBackup().catch(err => console.warn('⚠️ Backup after voice add failed:', err));
             });
@@ -591,9 +595,10 @@ class ConversationManager {
         const wasRemoved = this.changes > 0;
         if (wasRemoved) {
           console.log(`🚫 Removed ${contactName} from voice allow list`);
-          // Create immediate backup after important changes (Heroku)
+          // DISABLED: Create immediate backup after important changes (Heroku)
+          // This was causing infinite restart loops
           const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
-          if (isHeroku) {
+          if (false && isHeroku) {
             setImmediate(() => {
               self.createBackup().catch(err => console.warn('⚠️ Backup after voice remove failed:', err));
             });
@@ -1174,9 +1179,10 @@ class ConversationManager {
    */
   close() {
     return new Promise(async (resolve, reject) => {
-      // Create backup before closing (for Heroku)
+      // DISABLED: Create backup before closing (for Heroku)
+      // This was causing infinite restart loops
       const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
-      if (isHeroku) {
+      if (false && isHeroku) {
         try {
           await this.createBackup();
         } catch (err) {
@@ -1225,9 +1231,10 @@ class ConversationManager {
         const wasAdded = this.changes > 0;
         if (wasAdded) {
           console.log(`✅ Added ${contactName} to media allow list`);
-          // Create immediate backup after important changes (Heroku)
+          // DISABLED: Create immediate backup after important changes (Heroku)
+          // This was causing infinite restart loops
           const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
-          if (isHeroku) {
+          if (false && isHeroku) {
             setImmediate(() => {
               self.createBackup().catch(err => console.warn('⚠️ Backup after media add failed:', err));
             });
@@ -1260,9 +1267,10 @@ class ConversationManager {
         const wasRemoved = this.changes > 0;
         if (wasRemoved) {
           console.log(`🚫 Removed ${contactName} from media allow list`);
-          // Create immediate backup after important changes (Heroku)
+          // DISABLED: Create immediate backup after important changes (Heroku)
+          // This was causing infinite restart loops
           const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
-          if (isHeroku) {
+          if (false && isHeroku) {
             setImmediate(() => {
               self.createBackup().catch(err => console.warn('⚠️ Backup after media remove failed:', err));
             });
