@@ -1020,7 +1020,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
           await conversationManager.addMessage(chatId, 'user', command.prompt);
           
           // Get conversation history for context
-          const history = await conversationManager.getHistory(chatId);
+          const history = await conversationManager.getConversationHistory(chatId);
           
           // Generate Gemini response with history
           const geminiResponse = await generateGeminiResponse(command.prompt, history);
@@ -1048,7 +1048,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
           await conversationManager.addMessage(chatId, 'user', command.prompt);
           
           // Get conversation history for context
-          const openaiHistory = await conversationManager.getHistory(chatId);
+          const openaiHistory = await conversationManager.getConversationHistory(chatId);
           
           // Generate OpenAI response with history
           const openaiResponse = await generateOpenAIResponse(command.prompt, openaiHistory);
@@ -1076,7 +1076,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
           await conversationManager.addMessage(chatId, 'user', command.prompt);
           
           // Get conversation history for context
-          const grokHistory = await conversationManager.getHistory(chatId);
+          const grokHistory = await conversationManager.getConversationHistory(chatId);
           
           // Generate Grok response with history
           const grokResponse = await generateGrokResponse(command.prompt, grokHistory);
@@ -1337,7 +1337,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
         break;
 
       case 'show_history':
-        const history = await conversationManager.getHistory(chatId);
+        const history = await conversationManager.getConversationHistory(chatId);
         if (history.length === 0) {
           await sendTextMessage(chatId, 'ℹ️ אין היסטוריית שיחה');
         } else {
