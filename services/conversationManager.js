@@ -6,6 +6,7 @@
 
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const axios = require('axios');
 
 class ConversationManager {
   constructor() {
@@ -756,7 +757,46 @@ class ConversationManager {
   }
 
   /**
+   * Update Heroku environment variable automatically
+   */
+  async updateHerokuConfigVar(backupString) {
+    try {
+      const herokuApiToken = process.env.HEROKU_API_TOKEN;
+      const herokuAppName = process.env.HEROKU_APP_NAME;
+      
+      if (!herokuApiToken || !herokuAppName) {
+        console.warn('⚠️ Heroku API credentials not configured - skipping automatic update');
+        return { success: false, reason: 'missing_credentials' };
+      }
+      
+      console.log('🔄 Updating Heroku config vars automatically...');
+      
+      const response = await axios.patch(
+        `https://api.heroku.com/apps/${herokuAppName}/config-vars`,
+        {
+          DB_BACKUP_DATA: backupString
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${herokuApiToken}`,
+            'Accept': 'application/vnd.heroku+json; version=3',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log('✅ Heroku config var updated successfully');
+      return { success: true };
+      
+    } catch (error) {
+      console.warn('⚠️ Failed to update Heroku config var:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Create complete database backup (all tables and data)
+   * Automatically updates Heroku environment variable if possible
    */
   async createEnvironmentBackup() {
     try {
@@ -827,8 +867,7 @@ class ConversationManager {
       // Store as base64 encoded JSON
       const backupString = Buffer.from(JSON.stringify(backupData)).toString('base64');
       
-      // Try to update environment variable if possible (this would require external service)
-      // For now, we'll just log the backup info
+      // Log backup info
       const totalEntries = backupData.conversations.length + backupData.voiceAllowList.length + backupData.mediaAllowList.length;
       console.log(`📋 Complete database backup created: ${totalEntries} total entries (${Math.round(backupString.length/1024)}KB)`);
       console.log(`   • ${backupData.conversations.length} conversation messages`);
@@ -836,12 +875,34 @@ class ConversationManager {
       console.log(`   • ${backupData.mediaAllowList.length} media allow entries`);
       console.log(`   • Voice transcription: ${backupData.voiceSettings.enabled ? 'enabled' : 'disabled'}`);
       
-      // Store the backup data for potential external upload
+      // Store the backup data
       this.lastBackupData = backupString;
       this.lastBackupTime = new Date();
       
+      // Try to update Heroku config var automatically
+      const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
+      let herokuUpdateResult = null;
+      
+      if (isHeroku) {
+        herokuUpdateResult = await this.updateHerokuConfigVar(backupString);
+      }
+      
+      // Return the backup data with update status
+      return {
+        success: true,
+        backupData: backupData,
+        backupString: backupString,
+        sizeKB: Math.round(backupString.length / 1024),
+        totalEntries: totalEntries,
+        herokuUpdate: herokuUpdateResult
+      };
+      
     } catch (error) {
       console.warn('⚠️ Could not create complete database backup:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
   
@@ -855,6 +916,57 @@ class ConversationManager {
       backupSize: this.lastBackupData ? Math.round(this.lastBackupData.length / 1024) : 0,
       backupSizeKB: this.lastBackupData ? `${Math.round(this.lastBackupData.length / 1024)}KB` : 'N/A'
     };
+  }
+  
+  /**
+   * Get database statistics for debugging
+   */
+  async getDatabaseStats() {
+    try {
+      const stats = {
+        conversations: 0,
+        voiceAllowList: 0,
+        mediaAllowList: 0,
+        voiceSettings: { enabled: false }
+      };
+      
+      // Count conversations
+      await new Promise((resolve) => {
+        this.db.get('SELECT COUNT(*) as count FROM conversations', (err, row) => {
+          if (!err && row) stats.conversations = row.count;
+          resolve();
+        });
+      });
+      
+      // Count voice allow list
+      await new Promise((resolve) => {
+        this.db.get('SELECT COUNT(*) as count FROM voice_allow_list', (err, row) => {
+          if (!err && row) stats.voiceAllowList = row.count;
+          resolve();
+        });
+      });
+      
+      // Count media allow list
+      await new Promise((resolve) => {
+        this.db.get('SELECT COUNT(*) as count FROM media_allow_list', (err, row) => {
+          if (!err && row) stats.mediaAllowList = row.count;
+          resolve();
+        });
+      });
+      
+      // Get voice settings
+      await new Promise((resolve) => {
+        this.db.get('SELECT enabled FROM voice_settings WHERE id = 1', (err, row) => {
+          if (!err && row) stats.voiceSettings.enabled = row.enabled === 1;
+          resolve();
+        });
+      });
+      
+      return stats;
+    } catch (error) {
+      console.warn('⚠️ Could not get database stats:', error.message);
+      return null;
+    }
   }
   
   /**

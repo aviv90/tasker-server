@@ -1562,14 +1562,32 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
           console.log(`📊 Backup status requested by ${senderName}`);
           
           const backupInfo = conversationManager.getBackupInfo();
+          const dbStats = await conversationManager.getDatabaseStats();
           const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
           const hasEnvBackup = !!process.env.DB_BACKUP_DATA;
+          const hasHerokuApiToken = !!process.env.HEROKU_API_TOKEN;
+          const hasHerokuAppName = !!process.env.HEROKU_APP_NAME;
           
           let statusMessage = '💾 סטטוס מערכת הגיבוי:\n\n';
           
           statusMessage += `🌐 סביבה: ${isHeroku ? 'Heroku (Production)' : 'Local Development'}\n`;
           statusMessage += `⏰ גיבוי אוטומטי: ${isHeroku ? 'פעיל (כל שעה)' : 'כבוי (רק בפיתוח)'}\n`;
-          statusMessage += `🔧 Environment Backup: ${hasEnvBackup ? 'מוגדר ✅' : 'לא מוגדר ❌'}\n\n`;
+          statusMessage += `🔧 Environment Backup: ${hasEnvBackup ? 'מוגדר ✅' : 'לא מוגדר ❌'}\n`;
+          
+          if (isHeroku) {
+            statusMessage += `🔑 Heroku API Token: ${hasHerokuApiToken ? 'מוגדר ✅' : 'לא מוגדר ❌'}\n`;
+            statusMessage += `📱 Heroku App Name: ${hasHerokuAppName ? 'מוגדר ✅' : 'לא מוגדר ❌'}\n`;
+            statusMessage += `🤖 עדכון אוטומטי: ${hasHerokuApiToken && hasHerokuAppName ? 'פעיל ✅' : 'כבוי ❌'}\n`;
+          }
+          statusMessage += `\n`;
+          
+          if (dbStats) {
+            statusMessage += `📊 נתונים במסד:\n`;
+            statusMessage += `• הודעות שיחה: ${dbStats.conversations}\n`;
+            statusMessage += `• מורשים לתמלול: ${dbStats.voiceAllowList}\n`;
+            statusMessage += `• מורשים ליצירה: ${dbStats.mediaAllowList}\n`;
+            statusMessage += `• הגדרות תמלול: ${dbStats.voiceSettings.enabled ? 'פעיל' : 'כבוי'}\n\n`;
+          }
           
           if (backupInfo.hasBackup) {
             const timeDiff = new Date() - backupInfo.backupTime;
@@ -1584,15 +1602,21 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
           }
           
           if (isHeroku) {
-            if (hasEnvBackup) {
+            if (hasHerokuApiToken && hasHerokuAppName) {
               statusMessage += `✅ המערכת מוגדרת נכון:\n`;
               statusMessage += `• גיבוי אוטומטי פעיל\n`;
+              statusMessage += `• עדכון אוטומטי פעיל\n`;
               statusMessage += `• שחזור אוטומטי פעיל\n`;
               statusMessage += `• נתונים מוגנים מפני deployment`;
             } else {
-              statusMessage += `⚠️ חסר הגדרת Environment Backup:\n`;
-              statusMessage += `• הוסף DB_BACKUP_DATA ל-Heroku Config Vars\n`;
-              statusMessage += `• בלי זה הנתונים יימחקו בכל deployment`;
+              statusMessage += `⚠️ חסרות הגדרות Heroku API:\n`;
+              if (!hasHerokuApiToken) {
+                statusMessage += `• הוסף HEROKU_API_TOKEN ל-Config Vars\n`;
+              }
+              if (!hasHerokuAppName) {
+                statusMessage += `• הוסף HEROKU_APP_NAME ל-Config Vars\n`;
+              }
+              statusMessage += `• בלי זה הגיבוי לא יעודכן אוטומטית`;
             }
           } else {
             statusMessage += `ℹ️ בפיתוח מקומי - הנתונים נשמרים ב-store/`;
@@ -1610,37 +1634,44 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
         try {
           console.log(`💾 Manual backup requested by ${senderName}`);
           
-          // Force create a complete backup
-          await conversationManager.createBackup();
+          // Force create a complete backup and get the data
+          const backupResult = await conversationManager.createEnvironmentBackup();
           
-          const backupInfo = conversationManager.getBackupInfo();
-          
-          if (backupInfo.hasBackup) {
+          if (backupResult.success) {
             let backupMessage = '💾 גיבוי מלא נוצר בהצלחה!\n\n';
             backupMessage += `📊 גיבוי כולל:\n`;
-            backupMessage += `• גודל: ${backupInfo.backupSizeKB}\n`;
+            backupMessage += `• גודל: ${backupResult.sizeKB}KB\n`;
+            backupMessage += `• הודעות שיחה: ${backupResult.backupData.conversations.length}\n`;
+            backupMessage += `• מורשים לתמלול: ${backupResult.backupData.voiceAllowList.length}\n`;
+            backupMessage += `• מורשים ליצירה: ${backupResult.backupData.mediaAllowList.length}\n`;
+            backupMessage += `• הגדרות תמלול: ${backupResult.backupData.voiceSettings.enabled ? 'פעיל' : 'כבוי'}\n`;
             backupMessage += `• זמן: ${new Date().toLocaleString('he-IL')}\n\n`;
             
             const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
-            const hasEnvBackup = !!process.env.DB_BACKUP_DATA;
             
             if (isHeroku) {
-              if (hasEnvBackup) {
-                backupMessage += `✅ הגיבוי נשמר במערכת האוטומטית\n`;
-                backupMessage += `🔄 יעודכן ב-environment variable בגיבוי הבא`;
+              if (backupResult.herokuUpdate && backupResult.herokuUpdate.success) {
+                backupMessage += `✅ הגיבוי נשמר אוטומטית ב-Heroku!\n`;
+                backupMessage += `🔄 Environment variable עודכן בהצלחה`;
+              } else if (backupResult.herokuUpdate && backupResult.herokuUpdate.reason === 'missing_credentials') {
+                backupMessage += `⚠️ הגיבוי נוצר אבל לא נשמר אוטומטית\n`;
+                backupMessage += `🔧 הוסף HEROKU_API_TOKEN ו-HEROKU_APP_NAME ל-Config Vars`;
+              } else if (backupResult.herokuUpdate && !backupResult.herokuUpdate.success) {
+                backupMessage += `⚠️ הגיבוי נוצר אבל עדכון Heroku נכשל\n`;
+                backupMessage += `❌ שגיאה: ${backupResult.herokuUpdate.error}`;
               } else {
-                backupMessage += `⚠️ הגיבוי נוצר אבל לא יישמר!\n`;
-                backupMessage += `🔧 הוסף DB_BACKUP_DATA ל-Heroku Config Vars`;
+                backupMessage += `⚠️ הגיבוי נוצר אבל לא נשמר אוטומטית\n`;
+                backupMessage += `🔧 הגדר את Heroku API credentials`;
               }
             } else {
               backupMessage += `💽 הגיבוי נשמר במערכת המקומית`;
             }
             
             await sendTextMessage(chatId, backupMessage);
-            console.log(`✅ Manual backup created and confirmed to ${senderName}`);
+            console.log(`✅ Manual backup created and sent to ${senderName}`);
           } else {
-            await sendTextMessage(chatId, '❌ שגיאה ביצירת הגיבוי');
-            console.log(`❌ Manual backup failed for ${senderName}`);
+            await sendTextMessage(chatId, `❌ שגיאה ביצירת הגיבוי: ${backupResult.error}`);
+            console.log(`❌ Manual backup failed for ${senderName}: ${backupResult.error}`);
           }
         } catch (error) {
           console.error('❌ Error creating manual backup:', error);
