@@ -62,8 +62,6 @@ function isAdminCommand(commandType) {
     'exclude_from_transcription',
     'add_media_authorization',
     'remove_media_authorization',
-    'enable_voice_transcription',
-    'disable_voice_transcription',
     'voice_transcription_status'
   ];
   return adminCommands.includes(commandType);
@@ -395,14 +393,7 @@ async function handleIncomingMessage(webhookData) {
       console.log(`🔍 Checking voice transcription for: "${contactName}" (chatType: ${chatType}, chatId: "${chatId}", senderContactName: "${senderContactName}", chatName: "${chatName}", senderName: "${senderName}")`);
       
       try {
-        // Check if voice transcription is enabled globally
-        const isEnabled = await conversationManager.getVoiceTranscriptionStatus();
-        if (!isEnabled) {
-          console.log(`🔇 Voice transcription is globally disabled - skipping voice processing`);
-          return;
-        }
-        
-        // Check if sender is in allow list (new logic: must be in allow list to process)
+        // Check if sender is in allow list (new logic: must be in allow list to process, like media creation)
         const isInAllowList = await conversationManager.isInVoiceAllowList(contactName);
         if (!isInAllowList) {
           console.log(`🚫 Voice transcription not allowed for ${contactName} (not in allow list) - skipping voice processing`);
@@ -1469,7 +1460,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
         break;
 
       case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n✨ **הפקודות עובדות גם כשאתה שולח אותן!**\n💬 כל פקודה שתשלח תעבד וההתשובה תחזור לאותה שיחה\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n🚀 + [שאלה] - Grok Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎥 ### [תיאור] - יצירת וידאו עם Kling 2.1 Master (9:16)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n🎬 שלח וידאו עם כותרת: ## [תיאור] - עיבוד וידאו עם RunwayML Gen4\n\n🎵 יצירת מוזיקה:\n🎶 **** [תיאור] - יצירת שיר עם Suno (עד 20 דקות)\n📝 דוגמה: **** שיר עצוב על גשם בחורף\n🎵 השיר נשלח כ-voice note + מילות השיר בהודעת טקסט\n\n🗣️ יצירת דיבור:\n🎙️ *** [טקסט] - Text-to-Speech עם ElevenLabs (קול אקראי)\n📝 דוגמה: *** שלום, איך שלומך היום?\n🎤 הדיבור נשלח כ-voice note\n\n🎤 עיבוד קולי:\n🗣️ שלח הקלטה קולית - תמלול + תגובת AI + שיבוט קול\n📝 Flow: קול → תמלול → Gemini → קול חדש בקולך\n🎤 התגובה הקולית נשלחת כ-voice note\n⚠️ הודעות קוליות שלך לא מתעבדות (רק נכנסות)\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n📝 סכם שיחה - סיכום 10 ההודעות האחרונות\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n🔊 בקרת תמלול:\n🔊 הפעל תמלול - הפעלת עיבוד הודעות קוליות\n🔇 כבה תמלול - כיבוי עיבוד הודעות קוליות\nℹ️ סטטוס תמלול - בדיקת מצב התמלול + רשימת מורשים\n✅ הוסף לתמלול <שם> - הוספת איש קשר לרשימת המורשים\n🚫 הסר מתמלול <שם> - הסרת איש קשר מרשימת המורשים\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n+ מה אתה חושב על העתיד של AI?\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n### חתול רוקד בגשם\n**** שיר רוק על אהבה\n*** שלום, איך שלומך היום?\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling\n🎬 וידאו + כותרת: ## שפר את הווידאו ותוסיף אפקטים\n🎤 שלח הקלטה קולית לעיבוד מלא\n📝 סכם שיחה\n🚫 הסר מתמלול קרלוס\n✅ הוסף לתמלול דנה';
+        const helpMessage = '🤖 Green API Bot Commands:\n\n✨ **הפקודות עובדות גם כשאתה שולח אותן!**\n💬 כל פקודה שתשלח תעבד וההתשובה תחזור לאותה שיחה\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n🚀 + [שאלה] - Grok Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎥 ### [תיאור] - יצירת וידאו עם Kling 2.1 Master (9:16)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n🎬 שלח וידאו עם כותרת: ## [תיאור] - עיבוד וידאו עם RunwayML Gen4\n\n🎵 יצירת מוזיקה:\n🎶 **** [תיאור] - יצירת שיר עם Suno (עד 20 דקות)\n📝 דוגמה: **** שיר עצוב על גשם בחורף\n🎵 השיר נשלח כ-voice note + מילות השיר בהודעת טקסט\n\n🗣️ יצירת דיבור:\n🎙️ *** [טקסט] - Text-to-Speech עם ElevenLabs (קול אקראי)\n📝 דוגמה: *** שלום, איך שלומך היום?\n🎤 הדיבור נשלח כ-voice note\n\n🎤 עיבוד קולי:\n🗣️ שלח הקלטה קולית - תמלול + תגובת AI + שיבוט קול\n📝 Flow: קול → תמלול → Gemini → קול חדש בקולך\n🎤 התגובה הקולית נשלחת כ-voice note\n⚠️ הודעות קוליות שלך לא מתעבדות (רק נכנסות)\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n📝 סכם שיחה - סיכום 10 ההודעות האחרונות\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n🔊 בקרת תמלול:\nℹ️ סטטוס תמלול - בדיקת מצב התמלול + רשימת מורשים\n✅ הוסף לתמלול <שם> - הוספת איש קשר לרשימת המורשים\n🚫 הסר מתמלול <שם> - הסרת איש קשר מרשימת המורשים\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n+ מה אתה חושב על העתיד של AI?\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n### חתול רוקד בגשם\n**** שיר רוק על אהבה\n*** שלום, איך שלומך היום?\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling\n🎬 וידאו + כותרת: ## שפר את הווידאו ותוסיף אפקטים\n🎤 שלח הקלטה קולית לעיבוד מלא\n📝 סכם שיחה\n🚫 הסר מתמלול קרלוס\n✅ הוסף לתמלול דנה';
 
         await sendTextMessage(chatId, helpMessage);
         break;
@@ -1502,47 +1493,22 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
         }
         break;
 
-      case 'enable_voice_transcription':
-        try {
-          await conversationManager.setVoiceTranscriptionStatus(true);
-          await sendTextMessage(chatId, '🔊 תמלול הודעות קוליות הופעל');
-          console.log(`✅ Voice transcription enabled by ${senderName}`);
-        } catch (error) {
-          console.error('❌ Error enabling voice transcription:', error);
-          await sendTextMessage(chatId, '❌ שגיאה בהפעלת התמלול');
-        }
-        break;
-
-      case 'disable_voice_transcription':
-        try {
-          await conversationManager.setVoiceTranscriptionStatus(false);
-          await sendTextMessage(chatId, '🔇 תמלול הודעות קוליות כובה');
-          console.log(`🔇 Voice transcription disabled by ${senderName}`);
-        } catch (error) {
-          console.error('❌ Error disabling voice transcription:', error);
-          await sendTextMessage(chatId, '❌ שגיאה בכיבוי התמלול');
-        }
-        break;
-
       case 'voice_transcription_status':
         try {
-          const isEnabled = await conversationManager.getVoiceTranscriptionStatus();
           const allowList = await conversationManager.getVoiceAllowList();
           
-          const statusIcon = isEnabled ? '🔊' : '🔇';
-          const statusText = isEnabled ? 'פעיל' : 'כבוי';
+          const statusIcon = '🔐';
+          const statusText = allowList.length > 0 ? 'מוגבל למורשים' : 'סגור לכולם (ברירת מחדל)';
           let statusMessage = `${statusIcon} סטטוס תמלול הודעות קוליות: ${statusText}`;
           
           if (allowList.length > 0) {
             const allowedList = allowList.join('\n• ');
             statusMessage += `\n\n✅ אנשי קשר מורשים (${allowList.length}):\n• ${allowedList}`;
           } else {
-            statusMessage += '\n\nℹ️ אין אנשי קשר מורשים (תמלול כבוי לכולם)';
+            statusMessage += '\n\nℹ️ אין אנשי קשר מורשים (תמלול סגור לכולם)';
           }
           
           statusMessage += '\n\n📋 פקודות ניהול:\n' +
-            '• הפעל תמלול - הפעלת עיבוד הודעות קוליות\n' +
-            '• כבה תמלול - כיבוי עיבוד הודעות קוליות\n' +
             '• הוסף לתמלול [שם] - הוספת הרשאה\n' +
             '• הסר מתמלול [שם] - הסרת הרשאה\n' +
             '• סטטוס תמלול - הצגת מצב נוכחי';
@@ -1769,14 +1735,6 @@ function parseTextCommand(text) {
   }
 
   // Voice transcription controls
-  if (text === 'הפעל תמלול') {
-    return { type: 'enable_voice_transcription' };
-  }
-
-  if (text === 'כבה תמלול') {
-    return { type: 'disable_voice_transcription' };
-  }
-
   if (text === 'סטטוס תמלול') {
     return { type: 'voice_transcription_status' };
   }
