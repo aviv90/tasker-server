@@ -31,9 +31,7 @@ class ConversationManager {
     this.initializeDatabase();
     
     // Try to restore from backup if database doesn't exist (Heroku restart scenario)
-    if (isHeroku) {
-      this.tryRestoreFromBackup();
-    }
+    // Note: This will be called after database initialization is complete
     
     // Setup automatic backup for Heroku (hourly complete backup)
     if (isHeroku) {
@@ -184,6 +182,18 @@ class ConversationManager {
                       this.initializeVoiceSettings()
                         .then(() => {
                           console.log('✅ Database tables and indexes ready');
+                          
+                          // Now that tables are created, try to restore from backup
+                          const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
+                          if (isHeroku) {
+                            // Restore from backup after tables are created
+                            setTimeout(() => {
+                              this.tryRestoreFromBackup().catch(err => {
+                                console.warn('⚠️ Backup restore failed:', err.message);
+                              });
+                            }, 100); // Small delay to ensure everything is ready
+                          }
+                          
                           resolve();
                         })
                         .catch(reject);
@@ -1080,19 +1090,26 @@ class ConversationManager {
         console.log(`✅ Restored ${backupData.conversations.length} conversation messages`);
       }
       
-      // Restore voice settings
+      // Restore voice settings (with error handling)
       if (backupData.voiceSettings) {
-        await new Promise((resolve) => {
-          this.db.run(
-            'INSERT OR REPLACE INTO voice_settings (id, enabled) VALUES (1, ?)',
-            [backupData.voiceSettings.enabled ? 1 : 0],
-            (err) => {
-              if (err) console.warn('⚠️ Could not restore voice settings:', err.message);
-              resolve();
-            }
-          );
-        });
-        console.log(`✅ Restored voice transcription settings (enabled: ${backupData.voiceSettings.enabled})`);
+        try {
+          await new Promise((resolve) => {
+            this.db.run(
+              'INSERT OR REPLACE INTO voice_settings (id, enabled) VALUES (1, ?)',
+              [backupData.voiceSettings.enabled ? 1 : 0],
+              (err) => {
+                if (err) {
+                  console.warn('⚠️ Could not restore voice settings:', err.message);
+                } else {
+                  console.log(`✅ Restored voice transcription settings (enabled: ${backupData.voiceSettings.enabled})`);
+                }
+                resolve();
+              }
+            );
+          });
+        } catch (error) {
+          console.warn('⚠️ Error restoring voice settings:', error.message);
+        }
       }
       
       // Restore voice allow list (support both old and new format)
