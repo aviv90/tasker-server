@@ -7,6 +7,10 @@ const taskRoutes = require('./routes/taskRoutes');
 const uploadEditRoutes = require('./routes/uploadEditRoutes');
 const whatsappRoutes = require('./routes/whatsappRoutes');
 
+// Initialize ConversationManager to ensure PostgreSQL connection is established
+const ConversationManager = require('./services/conversationManager');
+const conversationManager = new ConversationManager();
+
 // Ensure tmp directory exists (important for Heroku deployments)
 const tmpDir = path.join(__dirname, 'public', 'tmp');
 if (!fs.existsSync(tmpDir)) {
