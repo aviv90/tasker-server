@@ -340,6 +340,31 @@ class ConversationManager {
   }
 
   /**
+   * Check if contact is in voice allow list
+   */
+  async isInVoiceAllowList(contactName) {
+    if (!this.isInitialized) {
+      return false;
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      const result = await client.query(`
+        SELECT 1 FROM voice_allow_list 
+        WHERE contact_name = $1
+      `, [contactName]);
+      
+      return result.rows.length > 0;
+    } catch (error) {
+      console.error('❌ Error checking voice allow list:', error);
+      return false;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Add contact to media allow list
    */
   async addToMediaAllowList(contactName) {
