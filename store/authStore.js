@@ -29,10 +29,32 @@ class AuthStore {
         return false;
       }
 
-      // Use the EXACT same identifier logic as voice transcription
-      // contactName = senderContactName || senderName
-      const contactName = senderData.senderContactName || senderData.senderName;
-      console.log(`🔍 Checking media creation authorization for: "${contactName}" (senderContactName: "${senderData.senderContactName}", senderName: "${senderData.senderName}")`);
+      // Priority logic based on chat type:
+      // Group chat (@g.us): only check chatName
+      // Private chat (@c.us): check senderContactName first, then chatName, then senderName as fallback
+      let contactName = "";
+      const isGroupChat = senderData.chatId && senderData.chatId.endsWith('@g.us');
+      const isPrivateChat = senderData.chatId && senderData.chatId.endsWith('@c.us');
+      
+      if (isGroupChat) {
+        // Group chat - only use chatName
+        contactName = senderData.chatName || senderData.senderName;
+      } else if (isPrivateChat) {
+        // Private chat - priority: senderContactName → chatName → senderName
+        if (senderData.senderContactName && senderData.senderContactName.trim()) {
+          contactName = senderData.senderContactName;
+        } else if (senderData.chatName && senderData.chatName.trim()) {
+          contactName = senderData.chatName;
+        } else {
+          contactName = senderData.senderName;
+        }
+      } else {
+        // Fallback for unknown chat types
+        contactName = senderData.senderContactName || senderData.chatName || senderData.senderName;
+      }
+      
+      const chatType = isGroupChat ? 'group' : isPrivateChat ? 'private' : 'unknown';
+      console.log(`🔍 Checking media creation authorization for: "${contactName}" (chatType: ${chatType}, chatId: "${senderData.chatId}", senderContactName: "${senderData.senderContactName}", chatName: "${senderData.chatName}", senderName: "${senderData.senderName}")`);
       
       if (contactName && allowList.includes(contactName)) {
         console.log(`✅ Media creation allowed for ${contactName} - user is in allow list`);

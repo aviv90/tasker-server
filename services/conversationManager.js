@@ -785,7 +785,7 @@ class ConversationManager {
       // Get media allow list (from authStore)
       try {
         const authStore = require('../store/authStore');
-        const authorizedUsers = await authStore.getAllAuthorizedUsers();
+        const authorizedUsers = await authStore.getAuthorizedUsers();
         backupData.mediaAllowList = authorizedUsers;
       } catch (authError) {
         console.warn('⚠️ Could not backup media allow list:', authError.message);

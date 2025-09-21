@@ -227,6 +227,7 @@ async function handleIncomingMessage(webhookData) {
     const senderId = senderData.sender;
     const senderName = senderData.senderName || senderId;
     const senderContactName = senderData.senderContactName || "";
+    const chatName = senderData.chatName || "";
     
     console.log(`📱 ${senderName}: ${messageData.typeMessage}`);
     
@@ -252,7 +253,7 @@ async function handleIncomingMessage(webhookData) {
         console.log(`🎬 Veo 3 image-to-video request with prompt: "${prompt}"`);
         
         // Check authorization for media creation
-        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
+        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId })) {
           await sendUnauthorizedMessage(chatId, 'video creation');
           return;
         }
@@ -273,7 +274,7 @@ async function handleIncomingMessage(webhookData) {
         console.log(`🎬 Kling 2.1 image-to-video request with prompt: "${prompt}"`);
         
         // Check authorization for media creation
-        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
+        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId })) {
           await sendUnauthorizedMessage(chatId, 'video creation');
           return;
         }
@@ -294,7 +295,7 @@ async function handleIncomingMessage(webhookData) {
         console.log(`🎨 Gemini image edit request with prompt: "${prompt}"`);
         
         // Check authorization for media creation
-        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
+        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId })) {
           await sendUnauthorizedMessage(chatId, 'image editing');
           return;
         }
@@ -315,7 +316,7 @@ async function handleIncomingMessage(webhookData) {
         console.log(`🖼️ OpenAI image edit request with prompt: "${prompt}"`);
         
         // Check authorization for media creation
-        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
+        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId })) {
           await sendUnauthorizedMessage(chatId, 'image editing');
           return;
         }
@@ -346,7 +347,7 @@ async function handleIncomingMessage(webhookData) {
         console.log(`🎬 RunwayML Gen4 video-to-video request with prompt: "${prompt}"`);
         
         // Check authorization for media creation
-        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, senderName })) {
+        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId })) {
           await sendUnauthorizedMessage(chatId, 'video editing');
           return;
         }
@@ -369,9 +370,32 @@ async function handleIncomingMessage(webhookData) {
       
       console.log(`🎤 Voice message received`);
       
-      // Use senderContactName if available, otherwise fallback to senderName
-      const contactName = senderContactName || senderName;
-      console.log(`🔍 Checking voice transcription for: "${contactName}" (senderContactName: "${senderContactName}", senderName: "${senderName}")`);
+      // Priority logic based on chat type:
+      // Group chat (@g.us): only check chatName
+      // Private chat (@c.us): check senderContactName first, then chatName, then senderName as fallback
+      let contactName = "";
+      const isGroupChat = chatId && chatId.endsWith('@g.us');
+      const isPrivateChat = chatId && chatId.endsWith('@c.us');
+      
+      if (isGroupChat) {
+        // Group chat - only use chatName
+        contactName = chatName || senderName;
+      } else if (isPrivateChat) {
+        // Private chat - priority: senderContactName → chatName → senderName
+        if (senderContactName && senderContactName.trim()) {
+          contactName = senderContactName;
+        } else if (chatName && chatName.trim()) {
+          contactName = chatName;
+        } else {
+          contactName = senderName;
+        }
+      } else {
+        // Fallback for unknown chat types
+        contactName = senderContactName || chatName || senderName;
+      }
+      
+      const chatType = isGroupChat ? 'group' : isPrivateChat ? 'private' : 'unknown';
+      console.log(`🔍 Checking voice transcription for: "${contactName}" (chatType: ${chatType}, chatId: "${chatId}", senderContactName: "${senderContactName}", chatName: "${chatName}", senderName: "${senderName}")`);
       
       try {
         // Check if voice transcription is enabled globally
@@ -409,6 +433,7 @@ async function handleIncomingMessage(webhookData) {
         senderId,
         senderName,
         senderContactName,
+        chatName,
         messageText: messageText.trim()
       });
     } else {
@@ -443,6 +468,7 @@ async function handleOutgoingMessage(webhookData) {
     const senderId = senderData.sender;
     const senderName = senderData.senderName || senderId;
     const senderContactName = senderData.senderContactName || "";
+    const chatName = senderData.chatName || "";
     
     console.log(`📤 ${senderName}: ${messageData.typeMessage}`);
     
@@ -562,6 +588,7 @@ async function handleOutgoingMessage(webhookData) {
         senderId,
         senderName,
         senderContactName,
+        chatName,
         messageText: messageText.trim()
       }, true); // isOutgoing = true
     } else {
@@ -963,7 +990,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 /**
  * Handle text message with AI chat functionality
  */
-async function handleTextMessage({ chatId, senderId, senderName, senderContactName, messageText }, isOutgoing = false) {
+async function handleTextMessage({ chatId, senderId, senderName, senderContactName, chatName, messageText }, isOutgoing = false) {
   console.log(`💬 ${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''} ${isOutgoing ? '(outgoing)' : ''}`);
   
   const command = parseTextCommand(messageText);
@@ -984,7 +1011,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
   // Check authorization for media commands BEFORE sending ACK (skip for outgoing messages)
   // Management commands (transcription, media creation status, etc.) should work from outgoing messages
   if (!isOutgoing && requiresMediaAuthorization(command.type)) {
-    if (!(await isAuthorizedForMediaCreation({ senderContactName, senderName, sender: senderId, chatId }))) {
+    if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, sender: senderId, chatId }))) {
       await sendUnauthorizedMessage(chatId, command.type);
       return;
     }
