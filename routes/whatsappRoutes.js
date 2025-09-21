@@ -1566,7 +1566,6 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
           const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
           const hasEnvBackup = !!process.env.DB_BACKUP_DATA;
           const hasHerokuApiToken = !!process.env.HEROKU_API_TOKEN;
-          const hasHerokuAppName = !!process.env.HEROKU_APP_NAME;
           
           let statusMessage = '💾 סטטוס מערכת הגיבוי:\n\n';
           
@@ -1576,8 +1575,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
           
           if (isHeroku) {
             statusMessage += `🔑 Heroku API Token: ${hasHerokuApiToken ? 'מוגדר ✅' : 'לא מוגדר ❌'}\n`;
-            statusMessage += `📱 Heroku App Name: ${hasHerokuAppName ? 'מוגדר ✅' : 'לא מוגדר ❌'}\n`;
-            statusMessage += `🤖 עדכון אוטומטי: ${hasHerokuApiToken && hasHerokuAppName ? 'פעיל ✅' : 'כבוי ❌'}\n`;
+            statusMessage += `🤖 עדכון אוטומטי: ${hasHerokuApiToken ? 'פעיל ✅' : 'כבוי ❌'}\n`;
           }
           statusMessage += `\n`;
           
@@ -1602,20 +1600,15 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
           }
           
           if (isHeroku) {
-            if (hasHerokuApiToken && hasHerokuAppName) {
+            if (hasHerokuApiToken) {
               statusMessage += `✅ המערכת מוגדרת נכון:\n`;
               statusMessage += `• גיבוי אוטומטי פעיל\n`;
               statusMessage += `• עדכון אוטומטי פעיל\n`;
               statusMessage += `• שחזור אוטומטי פעיל\n`;
               statusMessage += `• נתונים מוגנים מפני deployment`;
             } else {
-              statusMessage += `⚠️ חסרות הגדרות Heroku API:\n`;
-              if (!hasHerokuApiToken) {
-                statusMessage += `• הוסף HEROKU_API_TOKEN ל-Config Vars\n`;
-              }
-              if (!hasHerokuAppName) {
-                statusMessage += `• הוסף HEROKU_APP_NAME ל-Config Vars\n`;
-              }
+              statusMessage += `⚠️ חסר הגדרת Heroku API Token:\n`;
+              statusMessage += `• הוסף HEROKU_API_TOKEN ל-Config Vars\n`;
               statusMessage += `• בלי זה הגיבוי לא יעודכן אוטומטית`;
             }
           } else {
@@ -1653,9 +1646,12 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
               if (backupResult.herokuUpdate && backupResult.herokuUpdate.success) {
                 backupMessage += `✅ הגיבוי נשמר אוטומטית ב-Heroku!\n`;
                 backupMessage += `🔄 Environment variable עודכן בהצלחה`;
-              } else if (backupResult.herokuUpdate && backupResult.herokuUpdate.reason === 'missing_credentials') {
+              } else if (backupResult.herokuUpdate && backupResult.herokuUpdate.reason === 'missing_token') {
                 backupMessage += `⚠️ הגיבוי נוצר אבל לא נשמר אוטומטית\n`;
-                backupMessage += `🔧 הוסף HEROKU_API_TOKEN ו-HEROKU_APP_NAME ל-Config Vars`;
+                backupMessage += `🔧 הוסף HEROKU_API_TOKEN ל-Config Vars`;
+              } else if (backupResult.herokuUpdate && backupResult.herokuUpdate.reason === 'missing_app_name') {
+                backupMessage += `⚠️ הגיבוי נוצר אבל לא נשמר אוטומטית\n`;
+                backupMessage += `🔧 לא ניתן לקבוע את שם האפליקציה`;
               } else if (backupResult.herokuUpdate && !backupResult.herokuUpdate.success) {
                 backupMessage += `⚠️ הגיבוי נוצר אבל עדכון Heroku נכשל\n`;
                 backupMessage += `❌ שגיאה: ${backupResult.herokuUpdate.error}`;

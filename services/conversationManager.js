@@ -762,14 +762,52 @@ class ConversationManager {
   async updateHerokuConfigVar(backupString) {
     try {
       const herokuApiToken = process.env.HEROKU_API_TOKEN;
-      const herokuAppName = process.env.HEROKU_APP_NAME;
       
-      if (!herokuApiToken || !herokuAppName) {
-        console.warn('⚠️ Heroku API credentials not configured - skipping automatic update');
-        return { success: false, reason: 'missing_credentials' };
+      if (!herokuApiToken) {
+        console.warn('⚠️ HEROKU_API_TOKEN not configured - skipping automatic update');
+        return { success: false, reason: 'missing_token' };
       }
       
-      console.log('🔄 Updating Heroku config vars automatically...');
+      // Get app name from Heroku environment (DYNO variable)
+      let herokuAppName = process.env.HEROKU_APP_NAME;
+      
+      // If not set, try to get it from DYNO variable
+      if (!herokuAppName && process.env.DYNO) {
+        // DYNO format: "web.1" or "worker.1" - extract app name from dyno
+        const dynoParts = process.env.DYNO.split('.');
+        if (dynoParts.length > 0) {
+          // Try to get app name from the dyno name
+          herokuAppName = process.env.DYNO.replace(/\.\d+$/, ''); // Remove the number part
+        }
+      }
+      
+      // If still no app name, try to get it from Heroku API
+      if (!herokuAppName) {
+        try {
+          console.log('🔍 Getting Heroku app name from API...');
+          const response = await axios.get('https://api.heroku.com/apps', {
+            headers: {
+              'Authorization': `Bearer ${herokuApiToken}`,
+              'Accept': 'application/vnd.heroku+json; version=3'
+            }
+          });
+          
+          if (response.data && response.data.length > 0) {
+            // Use the first app (most likely the current one)
+            herokuAppName = response.data[0].name;
+            console.log(`📱 Found Heroku app: ${herokuAppName}`);
+          }
+        } catch (apiError) {
+          console.warn('⚠️ Could not get app name from Heroku API:', apiError.message);
+        }
+      }
+      
+      if (!herokuAppName) {
+        console.warn('⚠️ Could not determine Heroku app name - skipping automatic update');
+        return { success: false, reason: 'missing_app_name' };
+      }
+      
+      console.log(`🔄 Updating Heroku config vars for app: ${herokuAppName}`);
       
       const response = await axios.patch(
         `https://api.heroku.com/apps/${herokuAppName}/config-vars`,
