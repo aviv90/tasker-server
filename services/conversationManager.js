@@ -19,7 +19,6 @@ class ConversationManager {
       // Heroku: Use /tmp directory which persists during dyno lifecycle
       this.dbPath = '/tmp/conversations.db';
       console.log('🌐 Running on Heroku - using /tmp for database persistence');
-      console.log(`🔍 Environment check: NODE_ENV=${process.env.NODE_ENV}, DYNO=${process.env.DYNO}`);
     } else {
       // Local development: Use store directory
       this.dbPath = path.join(__dirname, '..', 'store', 'conversations.db');

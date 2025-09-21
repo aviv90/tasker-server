@@ -17,10 +17,7 @@ const path = require('path');
 // Message deduplication cache - prevent processing duplicate messages
 const processedMessages = new Set();
 
-// Voice transcription is now managed through the database
-// No more in-memory variables or JSON files
-
-// All voice transcription settings are now managed through the database
+// Voice transcription and media authorization are managed through SQLite database
 
 /**
  * Check if user is authorized for media creation (images, videos, music)
