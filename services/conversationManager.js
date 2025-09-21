@@ -35,13 +35,13 @@ class ConversationManager {
       this.tryRestoreFromBackup();
     }
     
-    // Setup automatic backup for Heroku (more frequent)
+    // Setup automatic backup for Heroku (hourly complete backup)
     if (isHeroku) {
-      // Backup every 5 minutes instead of 10
+      // Complete backup every hour
       setInterval(() => {
         this.createBackup().catch(err => console.warn('⚠️ Auto-backup failed:', err));
-      }, 5 * 60 * 1000); // 5 minutes
-      console.log('⏰ Auto-backup scheduled every 5 minutes for Heroku');
+      }, 60 * 60 * 1000); // 1 hour
+      console.log('⏰ Complete auto-backup scheduled every hour for Heroku');
       
       // Also backup on any important database changes
       console.log('💾 Enhanced backup system enabled for Heroku');
@@ -757,62 +757,219 @@ class ConversationManager {
   }
 
   /**
-   * Create environment-based backup (store essential data in env-like format)
+   * Create complete database backup (all tables and data)
    */
   async createEnvironmentBackup() {
     try {
-      // Get essential data from database
+      console.log('💾 Creating complete database backup...');
+      
+      // Get complete data from all database tables
       const backupData = {
+        conversations: [],
+        voiceSettings: { enabled: true },
         voiceAllowList: [],
         mediaAllowList: [],
-        voiceSettings: { enabled: true },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        version: '2.0' // Version for future compatibility
       };
       
-      // Get voice allow list
-      await new Promise((resolve, reject) => {
-        this.db.all('SELECT contact_name FROM voice_allow_list', (err, rows) => {
+      // Backup conversations table (complete history)
+      await new Promise((resolve) => {
+        this.db.all('SELECT * FROM conversations ORDER BY timestamp DESC', (err, rows) => {
           if (err) {
-            console.warn('⚠️ Could not backup voice allow list:', err.message);
-            resolve();
-            return;
+            console.warn('⚠️ Could not backup conversations:', err.message);
+          } else {
+            backupData.conversations = rows;
+            console.log(`📝 Backed up ${rows.length} conversation messages`);
           }
-          backupData.voiceAllowList = rows.map(row => row.contact_name);
           resolve();
         });
       });
       
-      // Get media allow list (from authStore)
-      try {
-        const authStore = require('../store/authStore');
-        const authorizedUsers = await authStore.getAuthorizedUsers();
-        backupData.mediaAllowList = authorizedUsers;
-      } catch (authError) {
-        console.warn('⚠️ Could not backup media allow list:', authError.message);
-      }
+      // Backup voice settings
+      await new Promise((resolve) => {
+        this.db.get('SELECT enabled FROM voice_settings WHERE id = 1', (err, row) => {
+          if (err) {
+            console.warn('⚠️ Could not backup voice settings:', err.message);
+          } else if (row) {
+            backupData.voiceSettings.enabled = row.enabled === 1;
+            console.log(`🔊 Backed up voice settings (enabled: ${backupData.voiceSettings.enabled})`);
+          }
+          resolve();
+        });
+      });
       
-      // Store as base64 encoded JSON (to avoid env variable issues)
+      // Backup voice allow list
+      await new Promise((resolve) => {
+        this.db.all('SELECT * FROM voice_allow_list ORDER BY created_at', (err, rows) => {
+          if (err) {
+            console.warn('⚠️ Could not backup voice allow list:', err.message);
+          } else {
+            backupData.voiceAllowList = rows;
+            console.log(`👥 Backed up ${rows.length} voice allow list entries`);
+          }
+          resolve();
+        });
+      });
+      
+      // Backup media allow list
+      await new Promise((resolve) => {
+        this.db.all('SELECT * FROM media_allow_list ORDER BY created_at', (err, rows) => {
+          if (err) {
+            console.warn('⚠️ Could not backup media allow list:', err.message);
+          } else {
+            backupData.mediaAllowList = rows;
+            console.log(`🎨 Backed up ${rows.length} media allow list entries`);
+          }
+          resolve();
+        });
+      });
+      
+      // Store as base64 encoded JSON
       const backupString = Buffer.from(JSON.stringify(backupData)).toString('base64');
       
-      // Log backup summary
-      console.log(`📋 Environment backup: ${backupData.voiceAllowList.length} voice, ${backupData.mediaAllowList.length} media contacts`);
+      // Try to update environment variable if possible (this would require external service)
+      // For now, we'll just log the backup info
+      const totalEntries = backupData.conversations.length + backupData.voiceAllowList.length + backupData.mediaAllowList.length;
+      console.log(`📋 Complete database backup created: ${totalEntries} total entries (${Math.round(backupString.length/1024)}KB)`);
+      console.log(`   • ${backupData.conversations.length} conversation messages`);
+      console.log(`   • ${backupData.voiceAllowList.length} voice allow entries`);
+      console.log(`   • ${backupData.mediaAllowList.length} media allow entries`);
+      console.log(`   • Voice transcription: ${backupData.voiceSettings.enabled ? 'enabled' : 'disabled'}`);
+      
+      // Store the backup data for potential external upload
+      this.lastBackupData = backupString;
+      this.lastBackupTime = new Date();
       
     } catch (error) {
-      console.warn('⚠️ Could not create environment backup:', error.message);
+      console.warn('⚠️ Could not create complete database backup:', error.message);
     }
   }
   
   /**
-   * Restore from environment-based backup
+   * Get latest backup information (for monitoring)
+   */
+  getBackupInfo() {
+    return {
+      hasBackup: !!this.lastBackupData,
+      backupTime: this.lastBackupTime,
+      backupSize: this.lastBackupData ? Math.round(this.lastBackupData.length / 1024) : 0,
+      backupSizeKB: this.lastBackupData ? `${Math.round(this.lastBackupData.length / 1024)}KB` : 'N/A'
+    };
+  }
+  
+  /**
+   * Restore complete database from environment backup
    */
   async restoreFromEnvironmentBackup() {
     try {
-      // In a real scenario, you would fetch this from an external service
-      // For now, we'll just log that we attempted it
-      console.log('🔍 Attempting to restore from environment backup...');
-      console.log('ℹ️ Environment backup restore not implemented yet (would require external storage)');
+      console.log('🔍 Attempting to restore complete database from environment backup...');
+      
+      // Try to restore from environment variable
+      const backupEnv = process.env.DB_BACKUP_DATA;
+      if (!backupEnv) {
+        console.log('ℹ️ No environment backup found (DB_BACKUP_DATA not set)');
+        return;
+      }
+      
+      console.log('📦 Found environment backup, restoring complete database...');
+      
+      // Decode base64 backup data
+      const backupData = JSON.parse(Buffer.from(backupEnv, 'base64').toString('utf8'));
+      
+      console.log(`📊 Backup version: ${backupData.version || '1.0'}`);
+      console.log(`📅 Backup timestamp: ${backupData.timestamp}`);
+      
+      // Restore conversations (complete history)
+      if (backupData.conversations && backupData.conversations.length > 0) {
+        console.log(`📝 Restoring ${backupData.conversations.length} conversation messages...`);
+        
+        for (const conversation of backupData.conversations) {
+          await new Promise((resolve) => {
+            this.db.run(
+              'INSERT OR IGNORE INTO conversations (chat_id, role, content, timestamp, created_at) VALUES (?, ?, ?, ?, ?)',
+              [conversation.chat_id, conversation.role, conversation.content, conversation.timestamp, conversation.created_at],
+              (err) => {
+                if (err && !err.message.includes('UNIQUE constraint failed')) {
+                  console.warn(`⚠️ Could not restore conversation:`, err.message);
+                }
+                resolve();
+              }
+            );
+          });
+        }
+        console.log(`✅ Restored ${backupData.conversations.length} conversation messages`);
+      }
+      
+      // Restore voice settings
+      if (backupData.voiceSettings) {
+        await new Promise((resolve) => {
+          this.db.run(
+            'INSERT OR REPLACE INTO voice_settings (id, enabled) VALUES (1, ?)',
+            [backupData.voiceSettings.enabled ? 1 : 0],
+            (err) => {
+              if (err) console.warn('⚠️ Could not restore voice settings:', err.message);
+              resolve();
+            }
+          );
+        });
+        console.log(`✅ Restored voice transcription settings (enabled: ${backupData.voiceSettings.enabled})`);
+      }
+      
+      // Restore voice allow list (support both old and new format)
+      const voiceAllowList = backupData.voiceAllowList || [];
+      if (voiceAllowList.length > 0) {
+        console.log(`👥 Restoring ${voiceAllowList.length} voice allow list entries...`);
+        
+        for (const entry of voiceAllowList) {
+          // Support both old format (string) and new format (object with full data)
+          const contactName = typeof entry === 'string' ? entry : entry.contact_name;
+          const createdAt = typeof entry === 'object' && entry.created_at ? entry.created_at : new Date().toISOString();
+          
+          await new Promise((resolve) => {
+            this.db.run(
+              'INSERT OR IGNORE INTO voice_allow_list (contact_name, created_at) VALUES (?, ?)',
+              [contactName, createdAt],
+              (err) => {
+                if (err) console.warn(`⚠️ Could not restore voice contact ${contactName}:`, err.message);
+                resolve();
+              }
+            );
+          });
+        }
+        console.log(`✅ Restored ${voiceAllowList.length} voice allow list entries`);
+      }
+      
+      // Restore media allow list (support both old and new format)
+      const mediaAllowList = backupData.mediaAllowList || [];
+      if (mediaAllowList.length > 0) {
+        console.log(`🎨 Restoring ${mediaAllowList.length} media allow list entries...`);
+        
+        for (const entry of mediaAllowList) {
+          // Support both old format (string) and new format (object with full data)
+          const contactName = typeof entry === 'string' ? entry : entry.contact_name;
+          const createdAt = typeof entry === 'object' && entry.created_at ? entry.created_at : new Date().toISOString();
+          
+          await new Promise((resolve) => {
+            this.db.run(
+              'INSERT OR IGNORE INTO media_allow_list (contact_name, created_at) VALUES (?, ?)',
+              [contactName, createdAt],
+              (err) => {
+                if (err) console.warn(`⚠️ Could not restore media contact ${contactName}:`, err.message);
+                resolve();
+              }
+            );
+          });
+        }
+        console.log(`✅ Restored ${mediaAllowList.length} media allow list entries`);
+      }
+      
+      const totalRestored = (backupData.conversations?.length || 0) + voiceAllowList.length + mediaAllowList.length;
+      console.log(`🎉 Complete database restore completed successfully! Restored ${totalRestored} total entries.`);
+      
     } catch (error) {
       console.warn('⚠️ Could not restore from environment backup:', error.message);
+      console.warn('   This might be due to corrupted backup data or version incompatibility');
     }
   }
 

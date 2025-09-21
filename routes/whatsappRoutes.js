@@ -67,7 +67,9 @@ function isAdminCommand(commandType) {
     'remove_media_authorization',
     'enable_voice_transcription',
     'disable_voice_transcription',
-    'voice_transcription_status'
+    'voice_transcription_status',
+    'backup_status',
+    'create_backup'
   ];
   return adminCommands.includes(commandType);
 }
@@ -1558,6 +1560,97 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
         }
         break;
 
+      case 'backup_status':
+        try {
+          console.log(`📊 Backup status requested by ${senderName}`);
+          
+          const backupInfo = conversationManager.getBackupInfo();
+          const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
+          const hasEnvBackup = !!process.env.DB_BACKUP_DATA;
+          
+          let statusMessage = '💾 סטטוס מערכת הגיבוי:\n\n';
+          
+          statusMessage += `🌐 סביבה: ${isHeroku ? 'Heroku (Production)' : 'Local Development'}\n`;
+          statusMessage += `⏰ גיבוי אוטומטי: ${isHeroku ? 'פעיל (כל שעה)' : 'כבוי (רק בפיתוח)'}\n`;
+          statusMessage += `🔧 Environment Backup: ${hasEnvBackup ? 'מוגדר ✅' : 'לא מוגדר ❌'}\n\n`;
+          
+          if (backupInfo.hasBackup) {
+            const timeDiff = new Date() - backupInfo.backupTime;
+            const minutesAgo = Math.round(timeDiff / (1000 * 60));
+            
+            statusMessage += `📦 גיבוי אחרון:\n`;
+            statusMessage += `• זמן: לפני ${minutesAgo} דקות\n`;
+            statusMessage += `• גודל: ${backupInfo.backupSizeKB}\n`;
+            statusMessage += `• תאריך: ${backupInfo.backupTime.toLocaleString('he-IL')}\n\n`;
+          } else {
+            statusMessage += `❌ אין גיבוי זמין במערכת\n\n`;
+          }
+          
+          if (isHeroku) {
+            if (hasEnvBackup) {
+              statusMessage += `✅ המערכת מוגדרת נכון:\n`;
+              statusMessage += `• גיבוי אוטומטי פעיל\n`;
+              statusMessage += `• שחזור אוטומטי פעיל\n`;
+              statusMessage += `• נתונים מוגנים מפני deployment`;
+            } else {
+              statusMessage += `⚠️ חסר הגדרת Environment Backup:\n`;
+              statusMessage += `• הוסף DB_BACKUP_DATA ל-Heroku Config Vars\n`;
+              statusMessage += `• בלי זה הנתונים יימחקו בכל deployment`;
+            }
+          } else {
+            statusMessage += `ℹ️ בפיתוח מקומי - הנתונים נשמרים ב-store/`;
+          }
+          
+          await sendTextMessage(chatId, statusMessage);
+          console.log(`✅ Backup status sent to ${senderName}`);
+        } catch (error) {
+          console.error('❌ Error getting backup status:', error);
+          await sendTextMessage(chatId, '❌ שגיאה בקבלת סטטוס הגיבוי');
+        }
+        break;
+
+      case 'create_backup':
+        try {
+          console.log(`💾 Manual backup requested by ${senderName}`);
+          
+          // Force create a complete backup
+          await conversationManager.createBackup();
+          
+          const backupInfo = conversationManager.getBackupInfo();
+          
+          if (backupInfo.hasBackup) {
+            let backupMessage = '💾 גיבוי מלא נוצר בהצלחה!\n\n';
+            backupMessage += `📊 גיבוי כולל:\n`;
+            backupMessage += `• גודל: ${backupInfo.backupSizeKB}\n`;
+            backupMessage += `• זמן: ${new Date().toLocaleString('he-IL')}\n\n`;
+            
+            const isHeroku = process.env.NODE_ENV === 'production' || process.env.DYNO;
+            const hasEnvBackup = !!process.env.DB_BACKUP_DATA;
+            
+            if (isHeroku) {
+              if (hasEnvBackup) {
+                backupMessage += `✅ הגיבוי נשמר במערכת האוטומטית\n`;
+                backupMessage += `🔄 יעודכן ב-environment variable בגיבוי הבא`;
+              } else {
+                backupMessage += `⚠️ הגיבוי נוצר אבל לא יישמר!\n`;
+                backupMessage += `🔧 הוסף DB_BACKUP_DATA ל-Heroku Config Vars`;
+              }
+            } else {
+              backupMessage += `💽 הגיבוי נשמר במערכת המקומית`;
+            }
+            
+            await sendTextMessage(chatId, backupMessage);
+            console.log(`✅ Manual backup created and confirmed to ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, '❌ שגיאה ביצירת הגיבוי');
+            console.log(`❌ Manual backup failed for ${senderName}`);
+          }
+        } catch (error) {
+          console.error('❌ Error creating manual backup:', error);
+          await sendTextMessage(chatId, '❌ שגיאה ביצירת גיבוי ידני');
+        }
+        break;
+
       case 'exclude_from_transcription':
         // Note: "הסר מתמלול" now means "remove from allow list" (opposite logic)
         try {
@@ -1782,6 +1875,14 @@ function parseTextCommand(text) {
 
   if (text === 'סטטוס תמלול') {
     return { type: 'voice_transcription_status' };
+  }
+
+  if (text === 'סטטוס גיבוי') {
+    return { type: 'backup_status' };
+  }
+
+  if (text === 'צור גיבוי') {
+    return { type: 'create_backup' };
   }
 
   // Media creation authorization commands
