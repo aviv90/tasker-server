@@ -773,12 +773,9 @@ class ConversationManager {
       
       // If not set, try to get it from DYNO variable
       if (!herokuAppName && process.env.DYNO) {
-        // DYNO format: "web.1" or "worker.1" - extract app name from dyno
-        const dynoParts = process.env.DYNO.split('.');
-        if (dynoParts.length > 0) {
-          // Try to get app name from the dyno name
-          herokuAppName = process.env.DYNO.replace(/\.\d+$/, ''); // Remove the number part
-        }
+        // DYNO format: "web.1" or "worker.1" - this is NOT the app name
+        // The app name is different from the dyno type
+        console.log(`🔍 DYNO variable found: ${process.env.DYNO} (this is not the app name)`);
       }
       
       // If still no app name, try to get it from Heroku API
@@ -793,12 +790,33 @@ class ConversationManager {
           });
           
           if (response.data && response.data.length > 0) {
-            // Use the first app (most likely the current one)
-            herokuAppName = response.data[0].name;
-            console.log(`📱 Found Heroku app: ${herokuAppName}`);
+            // Try to find the current app by matching the dyno type
+            const currentDynoType = process.env.DYNO ? process.env.DYNO.split('.')[0] : 'web';
+            let foundApp = null;
+            
+            // First, try to find an app with matching dyno type
+            for (const app of response.data) {
+              if (app.name.includes(currentDynoType) || app.name.includes('tasker')) {
+                foundApp = app;
+                break;
+              }
+            }
+            
+            // If not found, use the first app
+            if (!foundApp && response.data.length > 0) {
+              foundApp = response.data[0];
+            }
+            
+            if (foundApp) {
+              herokuAppName = foundApp.name;
+              console.log(`📱 Found Heroku app: ${herokuAppName} (from ${response.data.length} total apps)`);
+            }
           }
         } catch (apiError) {
           console.warn('⚠️ Could not get app name from Heroku API:', apiError.message);
+          if (apiError.response) {
+            console.warn(`   Status: ${apiError.response.status}, Data: ${JSON.stringify(apiError.response.data)}`);
+          }
         }
       }
       
@@ -808,6 +826,7 @@ class ConversationManager {
       }
       
       console.log(`🔄 Updating Heroku config vars for app: ${herokuAppName}`);
+      console.log(`🔑 Using API token: ${herokuApiToken.substring(0, 8)}...`);
       
       const response = await axios.patch(
         `https://api.heroku.com/apps/${herokuAppName}/config-vars`,
@@ -828,6 +847,17 @@ class ConversationManager {
       
     } catch (error) {
       console.warn('⚠️ Failed to update Heroku config var:', error.message);
+      if (error.response) {
+        console.warn(`   Status: ${error.response.status}`);
+        console.warn(`   Data: ${JSON.stringify(error.response.data)}`);
+        
+        // Provide more specific error messages
+        if (error.response.status === 403) {
+          console.warn('   This usually means the API token is invalid or expired');
+        } else if (error.response.status === 404) {
+          console.warn('   This usually means the app name is incorrect');
+        }
+      }
       return { success: false, error: error.message };
     }
   }
