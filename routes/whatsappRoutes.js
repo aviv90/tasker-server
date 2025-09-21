@@ -17,7 +17,7 @@ const path = require('path');
 // Message deduplication cache - prevent processing duplicate messages
 const processedMessages = new Set();
 
-// Voice transcription and media authorization are managed through SQLite database
+// Voice transcription and media authorization are managed through PostgreSQL database
 
 /**
  * Check if user is authorized for media creation (images, videos, music)

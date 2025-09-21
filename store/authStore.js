@@ -1,7 +1,7 @@
 /**
  * Authorization Store - Manages user permissions for multimedia content creation
  * 
- * Uses SQLite database through conversationManager for persistent storage
+ * Uses PostgreSQL database through conversationManager for persistent storage
  * Maintains exact compatibility with voice transcription authorization system
  */
 
