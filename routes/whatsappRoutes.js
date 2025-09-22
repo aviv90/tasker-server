@@ -249,7 +249,7 @@ async function handleIncomingMessage(webhookData) {
         console.log(`🎬 Veo 3 image-to-video request with prompt: "${prompt}"`);
         
         // Check authorization for media creation
-        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId })) {
+        if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
           await sendUnauthorizedMessage(chatId, 'video creation');
           return;
         }
@@ -270,7 +270,7 @@ async function handleIncomingMessage(webhookData) {
         console.log(`🎬 Kling 2.1 image-to-video request with prompt: "${prompt}"`);
         
         // Check authorization for media creation
-        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId })) {
+        if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
           await sendUnauthorizedMessage(chatId, 'video creation');
           return;
         }
@@ -291,7 +291,7 @@ async function handleIncomingMessage(webhookData) {
         console.log(`🎨 Gemini image edit request with prompt: "${prompt}"`);
         
         // Check authorization for media creation
-        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId })) {
+        if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
           await sendUnauthorizedMessage(chatId, 'image editing');
           return;
         }
@@ -312,7 +312,7 @@ async function handleIncomingMessage(webhookData) {
         console.log(`🖼️ OpenAI image edit request with prompt: "${prompt}"`);
         
         // Check authorization for media creation
-        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId })) {
+        if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
           await sendUnauthorizedMessage(chatId, 'image editing');
           return;
         }
@@ -343,7 +343,7 @@ async function handleIncomingMessage(webhookData) {
         console.log(`🎬 RunwayML Gen4 video-to-video request with prompt: "${prompt}"`);
         
         // Check authorization for media creation
-        if (!authStore.isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId })) {
+        if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
           await sendUnauthorizedMessage(chatId, 'video editing');
           return;
         }
