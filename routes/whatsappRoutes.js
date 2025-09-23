@@ -176,7 +176,14 @@ router.post('/webhook', async (req, res) => {
     }
 
     const webhookData = req.body;
-    console.log('📱 Green API webhook received:', webhookData.typeMessage || 'unknown type');
+    // Log full webhook payload (all fields)
+    try {
+      console.log('📱 Green API webhook received (full payload):');
+      console.log(JSON.stringify(webhookData, null, 2));
+    } catch (e) {
+      console.log('📱 Green API webhook received (payload logging failed), raw object follows:');
+      console.log(webhookData);
+    }
 
     // Handle different webhook types asynchronously
     if (webhookData.typeWebhook === 'incomingMessageReceived') {
