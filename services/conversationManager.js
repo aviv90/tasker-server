@@ -13,7 +13,7 @@ class ConversationManager {
   /**
    * Initialize PostgreSQL database connection and create tables
    */
-  async initializeDatabase() {
+  async initializeDatabase(attempt = 1) {
     try {
       // Create connection pool
       this.pool = new Pool({
@@ -21,7 +21,7 @@ class ConversationManager {
         ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
         max: 10, // Maximum number of clients in the pool
         idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-        connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
+        connectionTimeoutMillis: 10000, // Allow up to 10s for cold starts / sleeping DBs
       });
 
       // Test connection
@@ -40,7 +40,15 @@ class ConversationManager {
       
     } catch (error) {
       console.error('❌ Database initialization failed:', error.message);
-      throw error;
+      // Retry with exponential backoff to avoid crashing the app on transient DB issues
+      const maxAttempts = 5;
+      if (attempt < maxAttempts) {
+        const delayMs = Math.min(30000, 2000 * Math.pow(2, attempt - 1));
+        console.warn(`⏳ Retrying DB init in ${Math.round(delayMs / 1000)}s (attempt ${attempt + 1}/${maxAttempts})...`);
+        setTimeout(() => this.initializeDatabase(attempt + 1).catch(() => {}), delayMs);
+      } else {
+        console.error('🚫 Giving up on DB initialization after multiple attempts. Running without DB until next restart.');
+      }
     }
   }
 
@@ -51,21 +59,21 @@ class ConversationManager {
     const client = await this.pool.connect();
     
     try {
-      // Create conversations table
+        // Create conversations table
       await client.query(`
-        CREATE TABLE IF NOT EXISTS conversations (
+          CREATE TABLE IF NOT EXISTS conversations (
           id SERIAL PRIMARY KEY,
           chat_id VARCHAR(255) NOT NULL,
           role VARCHAR(50) NOT NULL,
-          content TEXT NOT NULL,
+            content TEXT NOT NULL,
           timestamp BIGINT NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
+          )
       `);
-
+        
       // Create voice_settings table
       await client.query(`
-        CREATE TABLE IF NOT EXISTS voice_settings (
+          CREATE TABLE IF NOT EXISTS voice_settings (
           id SERIAL PRIMARY KEY,
           enabled BOOLEAN DEFAULT false,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -75,7 +83,7 @@ class ConversationManager {
 
       // Create voice_allow_list table
       await client.query(`
-        CREATE TABLE IF NOT EXISTS voice_allow_list (
+          CREATE TABLE IF NOT EXISTS voice_allow_list (
           id SERIAL PRIMARY KEY,
           contact_name VARCHAR(255) NOT NULL UNIQUE,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -84,7 +92,7 @@ class ConversationManager {
 
       // Create media_allow_list table
       await client.query(`
-        CREATE TABLE IF NOT EXISTS media_allow_list (
+          CREATE TABLE IF NOT EXISTS media_allow_list (
           id SERIAL PRIMARY KEY,
           contact_name VARCHAR(255) NOT NULL UNIQUE,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -156,8 +164,8 @@ class ConversationManager {
       
       const messageId = result.rows[0].id;
       console.log(`💬 Added ${role} message to ${chatId} (ID: ${messageId})`);
-      
-      // Keep only the last N messages for this chat
+        
+        // Keep only the last N messages for this chat
       await this.trimMessagesForChat(chatId);
       
       return messageId;
@@ -171,20 +179,20 @@ class ConversationManager {
    */
   async trimMessagesForChat(chatId) {
     if (!this.isInitialized) {
-      return;
-    }
-
+          return;
+        }
+        
     const client = await this.pool.connect();
     
     try {
       // Delete old messages, keeping only the last maxMessages
       await client.query(`
-        DELETE FROM conversations 
+          DELETE FROM conversations 
         WHERE chat_id = $1 
-        AND id NOT IN (
-          SELECT id FROM conversations 
+          AND id NOT IN (
+            SELECT id FROM conversations 
           WHERE chat_id = $1 
-          ORDER BY timestamp DESC 
+            ORDER BY timestamp DESC 
           LIMIT $2
         )
       `, [chatId, this.maxMessages]);
@@ -205,7 +213,7 @@ class ConversationManager {
     
     try {
       const result = await client.query(`
-        SELECT role, content, timestamp 
+        SELECT role, content, timestamp
         FROM conversations 
         WHERE chat_id = $1 
         ORDER BY timestamp ASC
@@ -307,8 +315,8 @@ class ConversationManager {
       `, [contactName]);
       
       const wasRemoved = result.rowCount > 0;
-      if (wasRemoved) {
-        console.log(`🚫 Removed ${contactName} from voice allow list`);
+        if (wasRemoved) {
+          console.log(`🚫 Removed ${contactName} from voice allow list`);
       }
       
       return wasRemoved;
