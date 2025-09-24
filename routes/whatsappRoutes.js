@@ -63,7 +63,10 @@ function isAdminCommand(commandType) {
     'add_media_authorization',
     'remove_media_authorization',
     'voice_transcription_status',
-    'clear_all_conversations'
+    'clear_all_conversations',
+    // New admin shortcuts without explicit name
+    'add_media_authorization_current',
+    'include_in_transcription_current'
   ];
   return adminCommands.includes(commandType);
 }
@@ -578,6 +581,140 @@ async function handleOutgoingMessage(webhookData) {
       console.log(`🎤 Outgoing voice message received - skipping voice processing (only process incoming voice messages)`);
       // Don't process outgoing voice messages to avoid unwanted transcription
     } else if (messageText) {
+      // Handle admin shortcut commands that use current contact (no explicit name)
+      const trimmed = messageText.trim();
+      if (trimmed === 'הוסף ליצירה') {
+        // Resolve current contact name using same priority logic as auth store
+        const isGroupChat = chatId && chatId.endsWith('@g.us');
+        const isPrivateChat = chatId && chatId.endsWith('@c.us');
+        let contactName = '';
+        if (isGroupChat) {
+          contactName = senderData.chatName || senderName;
+        } else if (isPrivateChat) {
+          if (senderData.senderContactName && senderData.senderContactName.trim()) {
+            contactName = senderData.senderContactName;
+          } else if (senderData.chatName && senderData.chatName.trim()) {
+            contactName = senderData.chatName;
+          } else {
+            contactName = senderName;
+          }
+        } else {
+          contactName = senderData.senderContactName || senderData.chatName || senderName;
+        }
+
+        if (!contactName || !contactName.trim()) {
+          console.warn('⚠️ Could not resolve contact name for add to media authorization');
+        } else {
+          const wasAdded = await authStore.addAuthorizedUser(contactName);
+          if (wasAdded) {
+            await sendTextMessage(chatId, `✅ ${contactName} נוסף לרשימת המורשים ליצירת מדיה`);
+            console.log(`✅ Added ${contactName} to media creation authorization (current chat) by ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, `ℹ️ ${contactName} כבר נמצא ברשימת המורשים ליצירת מדיה`);
+          }
+        }
+        return; // Stop further processing for this message
+      }
+
+      if (trimmed === 'הוסף לתמלול') {
+        // Resolve current contact name as above
+        const isGroupChat = chatId && chatId.endsWith('@g.us');
+        const isPrivateChat = chatId && chatId.endsWith('@c.us');
+        let contactName = '';
+        if (isGroupChat) {
+          contactName = senderData.chatName || senderName;
+        } else if (isPrivateChat) {
+          if (senderData.senderContactName && senderData.senderContactName.trim()) {
+            contactName = senderData.senderContactName;
+          } else if (senderData.chatName && senderData.chatName.trim()) {
+            contactName = senderData.chatName;
+          } else {
+            contactName = senderName;
+          }
+        } else {
+          contactName = senderData.senderContactName || senderData.chatName || senderName;
+        }
+
+        if (!contactName || !contactName.trim()) {
+          console.warn('⚠️ Could not resolve contact name for add to transcription');
+        } else {
+          const wasAdded = await conversationManager.addToVoiceAllowList(contactName);
+          if (wasAdded) {
+            await sendTextMessage(chatId, `✅ ${contactName} נוסף לרשימת המורשים לתמלול`);
+            console.log(`✅ Added ${contactName} to voice allow list (current chat) by ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, `ℹ️ ${contactName} כבר נמצא ברשימת המורשים לתמלול`);
+          }
+        }
+        return; // Stop further processing for this message
+      }
+
+      if (trimmed === 'הסר מיצירה') {
+        // Resolve current contact name
+        const isGroupChat = chatId && chatId.endsWith('@g.us');
+        const isPrivateChat = chatId && chatId.endsWith('@c.us');
+        let contactName = '';
+        if (isGroupChat) {
+          contactName = senderData.chatName || senderName;
+        } else if (isPrivateChat) {
+          if (senderData.senderContactName && senderData.senderContactName.trim()) {
+            contactName = senderData.senderContactName;
+          } else if (senderData.chatName && senderData.chatName.trim()) {
+            contactName = senderData.chatName;
+          } else {
+            contactName = senderName;
+          }
+        } else {
+          contactName = senderData.senderContactName || senderData.chatName || senderName;
+        }
+
+        if (!contactName || !contactName.trim()) {
+          console.warn('⚠️ Could not resolve contact name for remove from media authorization');
+        } else {
+          const wasRemoved = await authStore.removeAuthorizedUser(contactName);
+          if (wasRemoved) {
+            await sendTextMessage(chatId, `🚫 ${contactName} הוסר מרשימת המורשים ליצירת מדיה`);
+            console.log(`✅ Removed ${contactName} from media creation authorization (current chat) by ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, `ℹ️ ${contactName} לא נמצא ברשימת המורשים ליצירת מדיה`);
+          }
+        }
+        return; // Stop further processing for this message
+      }
+
+      if (trimmed === 'הסר מתמלול') {
+        // Resolve current contact name
+        const isGroupChat = chatId && chatId.endsWith('@g.us');
+        const isPrivateChat = chatId && chatId.endsWith('@c.us');
+        let contactName = '';
+        if (isGroupChat) {
+          contactName = senderData.chatName || senderName;
+        } else if (isPrivateChat) {
+          if (senderData.senderContactName && senderData.senderContactName.trim()) {
+            contactName = senderData.senderContactName;
+          } else if (senderData.chatName && senderData.chatName.trim()) {
+            contactName = senderData.chatName;
+          } else {
+            contactName = senderName;
+          }
+        } else {
+          contactName = senderData.senderContactName || senderData.chatName || senderName;
+        }
+
+        if (!contactName || !contactName.trim()) {
+          console.warn('⚠️ Could not resolve contact name for remove from transcription');
+        } else {
+          const wasRemoved = await conversationManager.removeFromVoiceAllowList(contactName);
+          if (wasRemoved) {
+            await sendTextMessage(chatId, `🚫 ${contactName} הוסר מרשימת המורשים לתמלול`);
+            console.log(`✅ Removed ${contactName} from voice allow list (current chat) by ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, `ℹ️ ${contactName} לא נמצא ברשימת המורשים לתמלול`);
+          }
+        }
+        return; // Stop further processing for this message
+      }
+
       // Process text message asynchronously - don't await
       processTextMessageAsync({
         chatId,
