@@ -454,6 +454,94 @@ class VoiceService {
     }
 
     /**
+     * Get voice that supports the specified language
+     * @param {string} languageCode - Language code (e.g., 'he', 'en', 'es')
+     * @returns {Object} - Voice information
+     */
+    async getVoiceForLanguage(languageCode) {
+        try {
+            const voicesResult = await this.getVoices();
+            if (voicesResult.error) {
+                return { error: voicesResult.error };
+            }
+            
+            const voices = voicesResult.voices || [];
+            if (voices.length === 0) {
+                return { error: 'No voices available' };
+            }
+            
+            // Language-specific voice preferences
+            const languageVoicePreferences = {
+                'he': ['Rachel', 'Sarah', 'Nicole', 'Bella', 'Antoni'], // Hebrew-friendly voices
+                'en': ['Rachel', 'Drew', 'Clyde', 'Paul', 'Domi'], // English voices
+                'es': ['Bella', 'Antoni', 'Elli', 'Josh', 'Arnold'], // Spanish voices
+                'fr': ['Bella', 'Antoni', 'Elli', 'Josh', 'Arnold'], // French voices
+                'de': ['Bella', 'Antoni', 'Elli', 'Josh', 'Arnold'], // German voices
+                'it': ['Bella', 'Antoni', 'Elli', 'Josh', 'Arnold'], // Italian voices
+                'pt': ['Bella', 'Antoni', 'Elli', 'Josh', 'Arnold'], // Portuguese voices
+                'ru': ['Bella', 'Antoni', 'Elli', 'Josh', 'Arnold'], // Russian voices
+                'ar': ['Bella', 'Antoni', 'Elli', 'Josh', 'Arnold'], // Arabic voices
+                'zh': ['Bella', 'Antoni', 'Elli', 'Josh', 'Arnold'], // Chinese voices
+                'ja': ['Bella', 'Antoni', 'Elli', 'Josh', 'Arnold'], // Japanese voices
+                'hi': ['Bella', 'Antoni', 'Elli', 'Josh', 'Arnold']  // Hindi voices
+            };
+            
+            // Get preferred voices for the language
+            const preferredVoices = languageVoicePreferences[languageCode] || languageVoicePreferences['en'];
+            
+            // Filter available voices and prioritize by language preference
+            const availableVoices = voices.filter(voice => 
+                (voice.voice_id || voice.voiceId || voice.id) && 
+                voice.category !== 'cloned' // Prefer built-in voices for stability
+            );
+            
+            if (availableVoices.length === 0) {
+                // Fallback to any available voice
+                const randomIndex = Math.floor(Math.random() * voices.length);
+                const selectedVoice = voices[randomIndex];
+                console.log(`🎲 Fallback: Selected any voice: ${selectedVoice.name}`);
+                
+                return {
+                    voiceId: selectedVoice.voice_id || selectedVoice.voiceId || selectedVoice.id,
+                    voiceName: selectedVoice.name,
+                    voiceCategory: selectedVoice.category
+                };
+            }
+            
+            // Try to find a preferred voice for the language
+            for (const preferredName of preferredVoices) {
+                const preferredVoice = availableVoices.find(voice => 
+                    voice.name && voice.name.toLowerCase().includes(preferredName.toLowerCase())
+                );
+                
+                if (preferredVoice) {
+                    console.log(`🎯 Found preferred voice for ${languageCode}: ${preferredVoice.name}`);
+                    return {
+                        voiceId: preferredVoice.voice_id || preferredVoice.voiceId || preferredVoice.id,
+                        voiceName: preferredVoice.name,
+                        voiceCategory: preferredVoice.category
+                    };
+                }
+            }
+            
+            // If no preferred voice found, select random from available voices
+            const randomIndex = Math.floor(Math.random() * availableVoices.length);
+            const selectedVoice = availableVoices[randomIndex];
+            
+            console.log(`🎲 Selected random voice for ${languageCode}: ${selectedVoice.name}`);
+            
+            return {
+                voiceId: selectedVoice.voice_id || selectedVoice.voiceId || selectedVoice.id,
+                voiceName: selectedVoice.name,
+                voiceCategory: selectedVoice.category
+            };
+        } catch (err) {
+            console.error('❌ Error getting voice for language:', err.message);
+            return { error: err.message || 'Failed to get voice for language' };
+        }
+    }
+
+    /**
      * Detect language from text content
      * @param {string} text - Text to analyze
      * @returns {string} - Language code (he, en, ar, etc.)
@@ -517,17 +605,17 @@ class VoiceService {
             const detectedLanguage = this.detectLanguage(text);
             console.log(`🌐 Detected language: ${detectedLanguage}`);
             
-            // Get random voice
-            const randomVoiceResult = await this.getRandomVoice();
-            if (randomVoiceResult.error) {
-                return { error: `Failed to get random voice: ${randomVoiceResult.error}` };
+            // Get voice that supports the detected language
+            const voiceResult = await this.getVoiceForLanguage(detectedLanguage);
+            if (voiceResult.error) {
+                return { error: `Failed to get voice for language ${detectedLanguage}: ${voiceResult.error}` };
             }
             
-            const { voiceId, voiceName, voiceCategory } = randomVoiceResult;
-            console.log(`🎤 Using voice: ${voiceName}`);
+            const { voiceId, voiceName, voiceCategory } = voiceResult;
+            console.log(`🎤 Using voice: ${voiceName} for language: ${detectedLanguage}`);
             
             if (!voiceId) {
-                return { error: 'No voice ID received from random voice selection' };
+                return { error: 'No voice ID received from voice selection' };
             }
             
             // Prepare TTS options with detected language

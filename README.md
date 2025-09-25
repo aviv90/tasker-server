@@ -18,6 +18,7 @@ A powerful Node.js server providing unified access to multiple AI providers for 
 ### 🎤 Audio Processing
 - **Audio Transcription**: Convert speech to text with ElevenLabs API
 - **ElevenLabs Speech-to-Text**: High-quality multilingual speech recognition with advanced options
+- **Text-to-Speech**: Convert text to speech with intelligent language detection and voice selection
 
 ### 🎵 Music Generation
 - **Text-to-Music**: Generate music with lyrics from text prompts
@@ -35,6 +36,7 @@ A powerful Node.js server providing unified access to multiple AI providers for 
 ### 📱 WhatsApp Commands (Green API)
 - **`* [prompt]`** - Gemini AI Chat
 - **`# [prompt]`** - OpenAI Chat
+- **`*** [text]`** - Text-to-Speech with intelligent language detection
 - **`/clear`** - Clear conversation history
 - **`/history`** - Show conversation history
 - **`/help`** - Show available commands
@@ -140,21 +142,18 @@ Content-Type: application/json
 }
 ```
 
-### Music Generation - Instrumental
+### Text-to-Speech
 ```bash
 POST /api/start-task
 Content-Type: application/json
 
 {
-  "type": "text-to-music",
-  "prompt": "Relaxing ambient music for meditation",
-  "instrumental": true,
-  "model": "V5",
-  "style": "Ambient",
-  "mood": "calm",
-  "tempo": "slow"
+  "type": "text-to-speech",
+  "prompt": "שלום, איך שלומך היום?"
 }
 ```
+
+**Note**: Automatically detects language and selects appropriate voice (Hebrew text → Hebrew voice, English text → English voice)
 
 ### AI Chat - Gemini
 ```bash
