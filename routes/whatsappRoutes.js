@@ -1102,7 +1102,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
       ? ttsResult.audioUrl 
       : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
     
-    await sendFileByUrl(chatId, fullAudioUrl, `voice_${Date.now()}.mp3`, '');
+    await sendFileByUrl(chatId, fullAudioUrl, `voice_${Date.now()}.opus`, '');
     
     console.log(`✅ Voice-to-voice processing complete for ${senderName}`);
 
@@ -1515,7 +1515,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             console.log(`❌ Music generation failed for ${senderName}: ${errorMsg}`);
           } else if (musicResult.audioBuffer && musicResult.result) {
             // Send the generated music file as voice note
-            const fileName = `suno_music_${Date.now()}.ogg`; // Use .ogg for voice notes
+            const fileName = `suno_music_${Date.now()}.opus`; // Use .opus for voice notes (WhatsApp voice note format)
             
             // Convert relative path to full URL for Green API
             const fullAudioUrl = musicResult.result.startsWith('http') 
@@ -1581,7 +1581,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             console.log(`❌ TTS failed for ${senderName}: ${errorMsg}`);
           } else if (ttsResult.audioUrl) {
             // Send the generated speech as voice note
-            const fileName = `tts_${Date.now()}.ogg`; // Use .ogg for voice notes
+            const fileName = `tts_${Date.now()}.opus`; // Use .opus for voice notes (WhatsApp voice note format)
             
             // Convert relative URL to full URL for Green API
             const fullAudioUrl = ttsResult.audioUrl.startsWith('http') 

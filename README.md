@@ -19,6 +19,7 @@ A powerful Node.js server providing unified access to multiple AI providers for 
 - **Audio Transcription**: Convert speech to text with ElevenLabs API
 - **ElevenLabs Speech-to-Text**: High-quality multilingual speech recognition with advanced options
 - **Text-to-Speech**: Convert text to speech with intelligent language detection and voice selection
+- **Voice Notes**: Audio files sent as WhatsApp voice notes (not regular audio files)
 
 ### 🎵 Music Generation
 - **Text-to-Music**: Generate music with lyrics from text prompts
@@ -154,6 +155,8 @@ Content-Type: application/json
 ```
 
 **Note**: Automatically detects language and selects appropriate voice (Hebrew text → Hebrew voice, English text → English voice)
+
+**Technical**: Audio files are sent with `.opus` extension to ensure WhatsApp displays them as voice notes
 
 ### AI Chat - Gemini
 ```bash
