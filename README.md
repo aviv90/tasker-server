@@ -22,7 +22,10 @@ A powerful Node.js server providing unified access to multiple AI providers for 
 ### 🎵 Music Generation
 - **Text-to-Music**: Generate music with lyrics from text prompts
 - **Instrumental Music**: Create background music and soundtracks
-- **Multiple Models**: Suno V3.5, V4, V4.5, V4.5Plus for different quality levels
+- **Advanced V5 Mode**: Full control over music generation with Suno V5
+- **Multiple Models**: Suno V4.5, V5 for different quality levels
+- **Backward Compatible**: Existing integrations (like Green API) work without changes
+- **Advanced Features**: Custom styles, genres, moods, tempo, instruments, vocal styles (optional)
 
 ### 💬 AI Chat
 - **Gemini Chat**: Text conversation with conversation history support
@@ -102,14 +105,54 @@ Content-Type: application/json
 ```
 
 ### Text-to-Music
+### Music Generation - Basic (Backward Compatible)
 ```bash
 POST /api/start-task
 Content-Type: application/json
 
 {
   "type": "text-to-music",
-  "prompt": "A happy song about summer vacation and good times with friends",
-  "model": "V4_5"
+  "prompt": "A happy song about summer vacation and good times with friends"
+}
+```
+
+**Note**: This basic call works exactly like before - no changes needed for existing integrations like Green API!
+
+### Music Generation - Advanced V5 Mode
+```bash
+POST /api/start-task
+Content-Type: application/json
+
+{
+  "type": "text-to-music",
+  "prompt": "A cinematic orchestral piece for a dramatic movie scene",
+  "advanced": true,
+  "model": "V5",
+  "style": "Cinematic",
+  "genre": "orchestral",
+  "mood": "dramatic",
+  "tempo": "slow",
+  "duration": 90,
+  "instruments": ["strings", "brass", "percussion"],
+  "key": "D minor",
+  "timeSignature": "4/4",
+  "quality": "high"
+}
+```
+
+### Music Generation - Instrumental
+```bash
+POST /api/start-task
+Content-Type: application/json
+
+{
+  "type": "text-to-music",
+  "prompt": "Relaxing ambient music for meditation",
+  "instrumental": true,
+  "model": "V5",
+  "style": "Ambient",
+  "mood": "calm",
+  "tempo": "slow"
 }
 ```
 

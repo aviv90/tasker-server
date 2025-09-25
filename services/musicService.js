@@ -37,14 +37,20 @@ class MusicService {
                 return `${words} ${randomSuffix}`.substring(0, 80);
             };
             
-            // Simple mode - let Suno handle everything automatically
+            // Basic mode - compatible with existing API, enhanced with V5
             const musicOptions = {
                 prompt: cleanPrompt,
                 customMode: false, // Let Suno be creative
                 instrumental: false, // We want lyrics
-                model: options.model || 'V4_5', // Use V4.5 for better quality
+                model: options.model || 'V5', // Use V5 for latest and best quality
                 callBackUrl: getApiUrl('/api/music/callback')
             };
+            
+            // Only add advanced parameters if they are explicitly provided
+            if (options.style) musicOptions.style = options.style;
+            if (options.title) musicOptions.title = options.title;
+            if (options.tags && Array.isArray(options.tags)) musicOptions.tags = options.tags;
+            if (options.duration) musicOptions.duration = options.duration;
             
             console.log(`🎼 Using automatic mode with prompt: "${cleanPrompt}"`);
 
@@ -220,14 +226,37 @@ class MusicService {
             
             const cleanPrompt = sanitizeText(prompt);
             
-            // Simple instrumental mode - let Suno handle everything automatically
+            // Random style selection for variety
+            const musicStyles = [
+                'Pop', 'Rock', 'Jazz', 'Classical', 'Electronic', 'Hip-Hop',
+                'Country', 'Folk', 'R&B', 'Reggae', 'Blues', 'Indie',
+                'Alternative', 'Soul', 'Funk', 'Dance', 'Acoustic', 'Lo-fi'
+            ];
+            
+            const randomStyle = musicStyles[Math.floor(Math.random() * musicStyles.length)];
+            
+            // Generate title from prompt (first few words + creative suffix)
+            const generateTitle = (prompt) => {
+                const words = prompt.split(' ').slice(0, 4).join(' ');
+                const suffixes = ['Song', 'Melody', 'Tune', 'Beat', 'Rhythm', 'Vibe', 'Sound'];
+                const randomSuffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+                return `${words} ${randomSuffix}`.substring(0, 80);
+            };
+            
+            // Basic instrumental mode - compatible with existing API, enhanced with V5
             const musicOptions = {
                 prompt: cleanPrompt,
                 customMode: false, // Let Suno be creative  
                 instrumental: true, // No lyrics
-                model: options.model || 'V4_5',
+                model: options.model || 'V5', // Use V5 for latest and best quality
                 callBackUrl: getApiUrl('/api/music/callback')
             };
+            
+            // Only add advanced parameters if they are explicitly provided
+            if (options.style) musicOptions.style = options.style;
+            if (options.title) musicOptions.title = options.title;
+            if (options.tags && Array.isArray(options.tags)) musicOptions.tags = options.tags;
+            if (options.duration) musicOptions.duration = options.duration;
 
             console.log(`🎹 Using automatic instrumental mode with prompt: "${cleanPrompt}"`);
             console.log(`🎹 Instrumental music options:`, JSON.stringify(musicOptions, null, 2));
@@ -347,6 +376,69 @@ class MusicService {
         }
 
         return { error: `${type} music generation timed out after 20 minutes` };
+    }
+
+    async generateAdvancedMusic(prompt, options = {}) {
+        try {
+            console.log(`🎵 Starting Suno V5 advanced music generation`);
+            
+            const cleanPrompt = sanitizeText(prompt);
+            
+            // Enhanced music styles for V5
+            const musicStyles = [
+                'Pop', 'Rock', 'Jazz', 'Classical', 'Electronic', 'Hip-Hop',
+                'Country', 'Folk', 'R&B', 'Reggae', 'Blues', 'Indie',
+                'Alternative', 'Soul', 'Funk', 'Dance', 'Acoustic', 'Lo-fi',
+                'Ambient', 'Cinematic', 'World', 'Experimental', 'Synthwave', 'Chill'
+            ];
+            
+            const randomStyle = musicStyles[Math.floor(Math.random() * musicStyles.length)];
+            
+            // Generate title from prompt
+            const generateTitle = (prompt) => {
+                const words = prompt.split(' ').slice(0, 4).join(' ');
+                const suffixes = ['Song', 'Melody', 'Tune', 'Beat', 'Rhythm', 'Vibe', 'Sound'];
+                const randomSuffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+                return `${words} ${randomSuffix}`.substring(0, 80);
+            };
+            
+            // Advanced V5 configuration with full control
+            const musicOptions = {
+                prompt: cleanPrompt,
+                customMode: options.customMode || true, // Use custom mode for advanced control
+                instrumental: options.instrumental || false,
+                model: options.model || 'V5', // Always use V5 for advanced features
+                callBackUrl: getApiUrl('/api/music/callback'),
+                // V5 advanced parameters
+                style: options.style || randomStyle,
+                title: options.title || generateTitle(cleanPrompt),
+                tags: options.tags || [randomStyle.toLowerCase()],
+                duration: options.duration || 60, // V5 supports longer tracks
+                genre: options.genre || randomStyle.toLowerCase(),
+                mood: options.mood || 'upbeat',
+                tempo: options.tempo || 'medium',
+                // Advanced V5 features
+                instruments: options.instruments || [],
+                vocalStyle: options.vocalStyle || 'natural',
+                language: options.language || 'english',
+                key: options.key || 'C major',
+                timeSignature: options.timeSignature || '4/4',
+                // Quality settings for V5
+                quality: options.quality || 'high',
+                stereo: options.stereo !== false, // Default to stereo
+                sampleRate: options.sampleRate || 44100
+            };
+            
+            console.log(`🎼 Using advanced V5 mode with prompt: "${cleanPrompt}"`);
+            console.log(`🎼 Advanced music options:`, JSON.stringify(musicOptions, null, 2));
+
+            // Use the same generation logic but with advanced options
+            return await this._generateMusic(musicOptions, 'advanced');
+
+        } catch (err) {
+            console.error(`❌ Suno V5 advanced music generation error:`, err);
+            return { error: err.message || 'Unknown error' };
+        }
     }
 
     async generateSongFromSpeech(audioBuffer, options = {}) {
@@ -686,5 +778,6 @@ const musicService = new MusicService();
 module.exports = {
     generateMusicWithLyrics: musicService.generateMusicWithLyrics.bind(musicService),
     generateInstrumentalMusic: musicService.generateInstrumentalMusic.bind(musicService),
+    generateAdvancedMusic: musicService.generateAdvancedMusic.bind(musicService),
     generateSongFromSpeech: musicService.generateSongFromSpeech.bind(musicService)
 };

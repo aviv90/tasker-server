@@ -69,15 +69,31 @@ router.post('/start-task', async (req, res) => {
             // No need to specify provider - it's automatic
             const options = {};
             
-            // Only allow model selection - everything else is automatic
+            // Allow model selection and advanced options
             if (req.body.model) options.model = req.body.model;
+            if (req.body.style) options.style = req.body.style;
+            if (req.body.duration) options.duration = req.body.duration;
+            if (req.body.genre) options.genre = req.body.genre;
+            if (req.body.mood) options.mood = req.body.mood;
+            if (req.body.tempo) options.tempo = req.body.tempo;
+            if (req.body.instruments) options.instruments = req.body.instruments;
+            if (req.body.vocalStyle) options.vocalStyle = req.body.vocalStyle;
+            if (req.body.language) options.language = req.body.language;
+            if (req.body.key) options.key = req.body.key;
+            if (req.body.timeSignature) options.timeSignature = req.body.timeSignature;
+            if (req.body.quality) options.quality = req.body.quality;
+            if (req.body.customMode !== undefined) options.customMode = req.body.customMode;
             
             // Check if user specifically wants instrumental (optional)
             const isInstrumental = req.body.instrumental === true;
+            const isAdvanced = req.body.advanced === true;
             
-            console.log(`🎵 Generating ${isInstrumental ? 'instrumental' : 'vocal'} music for prompt: "${sanitizedPrompt}"`);
+            console.log(`🎵 Generating ${isInstrumental ? 'instrumental' : 'vocal'} music ${isAdvanced ? 'with advanced V5 features' : ''} for prompt: "${sanitizedPrompt}"`);
             
-            if (isInstrumental) {
+            if (isAdvanced) {
+                // Use advanced V5 mode with full control
+                result = await musicService.generateAdvancedMusic(sanitizedPrompt, options);
+            } else if (isInstrumental) {
                 result = await musicService.generateInstrumentalMusic(sanitizedPrompt, options);
             } else {
                 // Default: music with lyrics using automatic mode
