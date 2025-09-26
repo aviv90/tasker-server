@@ -269,13 +269,13 @@ class CreativeAudioService {
 
                 console.log(`🎵 Mixing voice with background music...`);
 
-                // FFmpeg command for mixing
+                // FFmpeg command for mixing (with volume control)
                 const ffmpegCommand = [
                     'ffmpeg',
                     '-i', voicePath,
                     '-i', backgroundPath,
                     '-filter_complex',
-                    '[1:a]volume=0.3[bg];[0:a][bg]amix=inputs=2:duration=first:weights=1 0.3',
+                    '[1:a]volume=0.3[bg];[0:a][bg]amix=inputs=2:duration=first',
                     '-c:a', 'libmp3lame',
                     '-b:a', '128k',
                     '-y',
