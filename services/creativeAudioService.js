@@ -254,8 +254,7 @@ class CreativeAudioService {
             console.log(`🎵 Generating Suno instrumental: ${style.name}`);
             
             // Generate music with Suno
-            const musicResult = await musicService.generateInstrumentalMusic({
-                prompt: style.prompt,
+            const musicResult = await musicService.generateInstrumentalMusic(style.prompt, {
                 duration: Math.min(duration, 30), // Suno max duration
                 style: style.style,
                 mood: style.mood,
@@ -263,8 +262,8 @@ class CreativeAudioService {
                 model: 'V5'
             });
 
-            if (!musicResult.success || !musicResult.audioBuffer) {
-                throw new Error('Suno music generation failed');
+            if (musicResult.error || !musicResult.audioBuffer) {
+                throw new Error(`Suno music generation failed: ${musicResult.error || 'No audio buffer'}`);
             }
 
             // Save to temporary file
@@ -499,8 +498,18 @@ class CreativeAudioService {
                     // Suno instrumental music (50%)
                     const instrumentalStyle = this.getRandomInstrumentalStyle();
                     console.log(`🎲 Selected Suno instrumental: ${instrumentalStyle.name}`);
-                    backgroundPath = await this.generateSunoInstrumental(duration, instrumentalStyle);
-                    backgroundName = instrumentalStyle.name;
+                    
+                    try {
+                        backgroundPath = await this.generateSunoInstrumental(duration, instrumentalStyle);
+                        backgroundName = instrumentalStyle.name;
+                    } catch (sunoError) {
+                        console.warn(`⚠️ Suno instrumental failed, falling back to synthetic: ${sunoError.message}`);
+                        // Fallback to synthetic background music
+                        const background = this.getRandomBackground();
+                        console.log(`🎲 Fallback to synthetic background: ${background.name}`);
+                        backgroundPath = await this.generateBackgroundMusic(duration, background.key);
+                        backgroundName = `${background.name} (fallback)`;
+                    }
                 } else {
                     // No background music (30%)
                     console.log(`🎲 No background music selected`);
