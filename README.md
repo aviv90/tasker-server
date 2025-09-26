@@ -19,7 +19,7 @@ A powerful Node.js server providing unified access to multiple AI providers for 
 - **Audio Transcription**: Convert speech to text with ElevenLabs API
 - **ElevenLabs Speech-to-Text**: High-quality multilingual speech recognition with advanced options
 - **Text-to-Speech**: Convert text to speech with intelligent language detection and voice selection
-- **Voice Notes**: Audio files sent as WhatsApp voice notes (not regular audio files)
+- **Voice Notes**: Audio files automatically converted to Opus format and sent as WhatsApp voice notes (not regular audio files)
 
 ### 🎵 Music Generation
 - **Text-to-Music**: Generate music with lyrics from text prompts
@@ -156,7 +156,7 @@ Content-Type: application/json
 
 **Note**: Automatically detects language and selects appropriate voice (Hebrew text → Hebrew voice, English text → English voice)
 
-**Technical**: Audio files are sent with `.opus` extension to ensure WhatsApp displays them as voice notes
+**Technical**: Audio files are automatically converted to Opus format using FFmpeg before sending to ensure WhatsApp displays them as voice notes
 
 ### AI Chat - Gemini
 ```bash
@@ -337,3 +337,23 @@ For issues and questions:
 - **Noise Removal**: Remove background noise (default: true)
 - **Filler Removal**: Remove "um", "uh", filler words (default: true)
 - **Optimize Latency**: 0-4 (0=highest quality, 4=lowest latency)
+
+## 🔧 Technical Requirements
+
+### FFmpeg Installation
+For audio conversion to Opus format, FFmpeg must be available on the server:
+
+**Heroku**: FFmpeg is pre-installed on Heroku dynos
+**Local Development**: Install FFmpeg using your package manager:
+- macOS: `brew install ffmpeg`
+- Ubuntu/Debian: `sudo apt install ffmpeg`
+- Windows: Download from https://ffmpeg.org/
+
+### Audio Conversion
+All voice notes (music, TTS, voice-to-voice) are automatically converted to Opus format using FFmpeg with the following settings:
+- Codec: libopus
+- Bitrate: 32k
+- Channels: Mono
+- Sample Rate: 16kHz
+- Application: VoIP optimized
+- Variable Bitrate: Enabled

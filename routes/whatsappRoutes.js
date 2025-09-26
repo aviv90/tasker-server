@@ -9,6 +9,7 @@ const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage, generate
 const { generateMusicWithLyrics } = require('../services/musicService');
 const speechService = require('../services/speechService');
 const { voiceService } = require('../services/voiceService');
+const { audioConverterService } = require('../services/audioConverterService');
 const conversationManager = require('../services/conversationManager');
 const authStore = require('../store/authStore');
 const fs = require('fs');
@@ -1097,12 +1098,23 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 
     console.log(`✅ Step 4 complete: Audio generated at ${ttsResult.audioUrl}`);
 
-    // Step 5: Send voice response back to user as voice note
-    const fullAudioUrl = ttsResult.audioUrl.startsWith('http') 
-      ? ttsResult.audioUrl 
-      : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
+    // Step 5: Convert and send voice response back to user as voice note
+    console.log(`🔄 Converting voice-to-voice to Opus format for voice note...`);
+    const conversionResult = await audioConverterService.convertUrlToOpus(ttsResult.audioUrl, 'mp3');
     
-    await sendFileByUrl(chatId, fullAudioUrl, `voice_${Date.now()}.mp3`, '');
+    if (!conversionResult.success) {
+      console.error('❌ Audio conversion failed:', conversionResult.error);
+      // Fallback: send as regular MP3 file
+      const fullAudioUrl = ttsResult.audioUrl.startsWith('http') 
+        ? ttsResult.audioUrl 
+        : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
+      await sendFileByUrl(chatId, fullAudioUrl, `voice_${Date.now()}.mp3`, '');
+    } else {
+      // Send as voice note with Opus format
+      const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
+      await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '');
+      console.log(`✅ Voice-to-voice sent as voice note: ${conversionResult.fileName}`);
+    }
     
     console.log(`✅ Voice-to-voice processing complete for ${senderName}`);
 
@@ -1514,16 +1526,24 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
             console.log(`❌ Music generation failed for ${senderName}: ${errorMsg}`);
           } else if (musicResult.audioBuffer && musicResult.result) {
-            // Send the generated music file as voice note
-            const fileName = `suno_music_${Date.now()}.mp3`; // Use .mp3 for voice notes
+            // Convert MP3 to Opus for voice note
+            console.log(`🔄 Converting music to Opus format for voice note...`);
+            const conversionResult = await audioConverterService.convertAndSaveAsOpus(musicResult.audioBuffer, 'mp3');
             
-            // Convert relative path to full URL for Green API
-            const fullAudioUrl = musicResult.result.startsWith('http') 
-              ? musicResult.result 
-              : getStaticFileUrl(musicResult.result.replace('/static/', ''));
-            
-            // Send as voice message (no caption for voice notes)
-            await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
+            if (!conversionResult.success) {
+              console.error('❌ Audio conversion failed:', conversionResult.error);
+              // Fallback: send as regular MP3 file
+              const fileName = `suno_music_${Date.now()}.mp3`;
+              const fullAudioUrl = musicResult.result.startsWith('http') 
+                ? musicResult.result 
+                : getStaticFileUrl(musicResult.result.replace('/static/', ''));
+              await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
+            } else {
+              // Send as voice note with Opus format
+              const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
+              await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '');
+              console.log(`✅ Music sent as voice note: ${conversionResult.fileName}`);
+            }
             
             // Send song information and lyrics as separate text message
             let songInfo = '';
@@ -1580,16 +1600,24 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
             console.log(`❌ TTS failed for ${senderName}: ${errorMsg}`);
           } else if (ttsResult.audioUrl) {
-            // Send the generated speech as voice note
-            const fileName = `tts_${Date.now()}.mp3`; // Use .mp3 for voice notes
+            // Convert TTS audio to Opus for voice note
+            console.log(`🔄 Converting TTS to Opus format for voice note...`);
+            const conversionResult = await audioConverterService.convertUrlToOpus(ttsResult.audioUrl, 'mp3');
             
-            // Convert relative URL to full URL for Green API
-            const fullAudioUrl = ttsResult.audioUrl.startsWith('http') 
-              ? ttsResult.audioUrl 
-              : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
-            
-            // Send as voice message (no caption for voice notes)
-            await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
+            if (!conversionResult.success) {
+              console.error('❌ Audio conversion failed:', conversionResult.error);
+              // Fallback: send as regular MP3 file
+              const fileName = `tts_${Date.now()}.mp3`;
+              const fullAudioUrl = ttsResult.audioUrl.startsWith('http') 
+                ? ttsResult.audioUrl 
+                : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
+              await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
+            } else {
+              // Send as voice note with Opus format
+              const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
+              await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '');
+              console.log(`✅ TTS sent as voice note: ${conversionResult.fileName}`);
+            }
             
             // Note: Text-to-speech results do NOT add to conversation history
             
