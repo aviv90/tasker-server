@@ -165,7 +165,15 @@ class AudioConverterService {
                 // Read from local file system
                 const fs = require('fs');
                 const path = require('path');
-                const filePath = path.join(__dirname, '..', 'public', audioUrl.replace('/static/', ''));
+                
+                // Handle both /static/ and /static/tmp/ paths
+                let relativePath = audioUrl.replace('/static/', '');
+                let filePath = path.join(__dirname, '..', 'public', relativePath);
+                
+                // If file not found in public/, try public/tmp/
+                if (!fs.existsSync(filePath)) {
+                    filePath = path.join(__dirname, '..', 'public', 'tmp', relativePath);
+                }
                 
                 if (!fs.existsSync(filePath)) {
                     throw new Error(`File not found: ${filePath}`);
