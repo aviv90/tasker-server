@@ -483,19 +483,19 @@ class CreativeAudioService {
                 // Get audio duration (approximate)
                 const duration = Math.max(3, Math.min(15, audioBuffer.length / 10000)); // Rough estimate
                 
-                // Choose background music type: 20% synthetic, 50% Suno, 30% none
+                // Choose background music type: 10% synthetic, 70% Suno, 20% none
                 const backgroundType = Math.random();
                 let backgroundPath;
                 let backgroundName;
                 
-                if (backgroundType < 0.2) {
-                    // Synthetic background music (20%)
+                if (backgroundType < 0.1) {
+                    // Synthetic background music (10%)
                     const background = this.getRandomBackground();
                     console.log(`🎲 Selected synthetic background: ${background.name}`);
                     backgroundPath = await this.generateBackgroundMusic(duration, background.key);
                     backgroundName = background.name;
-                } else if (backgroundType < 0.7) {
-                    // Suno instrumental music (50%)
+                } else if (backgroundType < 0.8) {
+                    // Suno instrumental music (70%)
                     const instrumentalStyle = this.getRandomInstrumentalStyle();
                     console.log(`🎲 Selected Suno instrumental: ${instrumentalStyle.name}`);
                     
@@ -511,7 +511,7 @@ class CreativeAudioService {
                         backgroundName = `${background.name} (fallback)`;
                     }
                 } else {
-                    // No background music (30%)
+                    // No background music (20%)
                     console.log(`🎲 No background music selected`);
                     return {
                         success: true,

@@ -138,6 +138,9 @@ async function sendAck(chatId, command) {
     case 'grok_image':
       ackMessage = '🎨 קיבלתי. מיד יוצר תמונה עם Grok...';
       break;
+    case 'creative_voice_processing':
+      ackMessage = '🎨 קיבלתי את ההקלטה. מתחיל עיבוד יצירתי עם אפקטים ומוזיקה...';
+      break;
     default:
       return; // No ACK needed for this command
   }
