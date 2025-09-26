@@ -260,8 +260,10 @@ class CreativeAudioService {
         return new Promise(async (resolve, reject) => {
             try {
                 const voiceFileName = `voice_${uuidv4()}.${voiceFormat}`;
+                const backgroundLowFileName = `bg_low_${uuidv4()}.mp3`;
                 const outputFileName = `mixed_${uuidv4()}.mp3`;
                 const voicePath = path.join(this.tempDir, voiceFileName);
+                const backgroundLowPath = path.join(this.tempDir, backgroundLowFileName);
                 const outputPath = path.join(this.tempDir, outputFileName);
 
                 // Write voice buffer to temporary file
@@ -269,29 +271,43 @@ class CreativeAudioService {
 
                 console.log(`🎵 Mixing voice with background music...`);
 
-                // FFmpeg command for mixing (with volume control)
-                const ffmpegCommand = [
+                // Step 1: Lower background music volume
+                const volumeCommand = [
                     'ffmpeg',
-                    '-i', voicePath,
                     '-i', backgroundPath,
-                    '-filter_complex',
-                    '[1:a]volume=0.3[bg];[0:a][bg]amix=inputs=2:duration=first',
+                    '-filter:a', 'volume=0.3',
                     '-c:a', 'libmp3lame',
                     '-b:a', '128k',
                     '-y',
-                    outputPath
+                    backgroundLowPath
                 ].join(' ');
 
-                console.log(`🎵 Mixing command: ${ffmpegCommand}`);
+                console.log(`🔊 Lowering background volume: ${volumeCommand}`);
 
                 try {
-                    const { stdout, stderr } = await execAsync(ffmpegCommand);
+                    await execAsync(volumeCommand);
                     
-                    if (stderr && stderr.includes('error')) {
-                        throw new Error(`FFmpeg mixing error: ${stderr}`);
+                    if (!fs.existsSync(backgroundLowPath)) {
+                        throw new Error('Background volume adjustment failed');
                     }
 
-                    // Read the mixed audio file
+                    // Step 2: Mix voice with lowered background
+                    const mixCommand = [
+                        'ffmpeg',
+                        '-i', voicePath,
+                        '-i', backgroundLowPath,
+                        '-filter_complex',
+                        '[0:a][1:a]amix=inputs=2:duration=first',
+                        '-c:a', 'libmp3lame',
+                        '-b:a', '128k',
+                        '-y',
+                        outputPath
+                    ].join(' ');
+
+                    console.log(`🎵 Mixing command: ${mixCommand}`);
+
+                    await execAsync(mixCommand);
+                    
                     if (!fs.existsSync(outputPath)) {
                         throw new Error('Mixed file was not created');
                     }
@@ -300,6 +316,7 @@ class CreativeAudioService {
                     
                     // Clean up temporary files
                     this.cleanupFile(voicePath);
+                    this.cleanupFile(backgroundLowPath);
                     this.cleanupFile(outputPath);
 
                     console.log(`✅ Voice mixed with background: ${mixedBuffer.length} bytes`);
@@ -315,6 +332,7 @@ class CreativeAudioService {
                     
                     // Clean up temporary files
                     this.cleanupFile(voicePath);
+                    this.cleanupFile(backgroundLowPath);
                     this.cleanupFile(outputPath);
                     
                     reject(new Error(`Audio mixing failed: ${ffmpegError.message}`));
