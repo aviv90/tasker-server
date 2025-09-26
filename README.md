@@ -16,7 +16,8 @@ A powerful Node.js server providing unified access to multiple AI providers for 
 - **HD Video Support**: 1080p high-definition videos
 
 ### 🎤 Audio Processing
-- **Audio Transcription**: Convert speech to text with ElevenLabs API
+- **Creative Voice Processing**: Apply creative effects and remixes to voice messages with FFmpeg
+- **Audio Transcription**: Convert speech to text with ElevenLabs API (temporarily disabled)
 - **ElevenLabs Speech-to-Text**: High-quality multilingual speech recognition with advanced options
 - **Text-to-Speech**: Convert text to speech with intelligent language detection and voice selection
 - **Voice Notes**: Audio files automatically converted to Opus format and sent as WhatsApp voice notes (not regular audio files)
@@ -349,11 +350,35 @@ For audio conversion to Opus format, FFmpeg must be available on the server:
 - Ubuntu/Debian: `sudo apt install ffmpeg`
 - Windows: Download from https://ffmpeg.org/
 
-### Audio Conversion
-All voice notes (music, TTS, voice-to-voice) are automatically converted to Opus format using FFmpeg with the following settings:
+### Audio Conversion & Creative Processing
+All voice notes (music, TTS, creative voice processing) are automatically converted to Opus format using FFmpeg with the following settings:
 - Codec: libopus
 - Bitrate: 32k
 - Channels: Mono
 - Sample Rate: 16kHz
 - Application: VoIP optimized
 - Variable Bitrate: Enabled
+
+### Creative Voice Effects
+Creative voice processing applies random effects using FFmpeg:
+
+#### Voice Effects:
+- 🤖 Robot Voice
+- 🐿️ Chipmunk Voice 
+- 🎭 Deep Voice
+- 📻 Radio Effect
+- 📞 Telephone Effect
+- 🔊 Echo Effect
+- 🏛️ Reverb Effect
+- 🎸 Distortion
+- 🎵 Chorus Effect
+- 🌊 Flanger Effect
+
+#### Background Music (70% chance):
+- 🎉 Upbeat Pop
+- 🌊 Chill Vibes
+- 🎭 Dramatic
+- ⚡ Electronic
+- 🎷 Jazz
+
+**Usage**: Send a voice message to trigger creative processing (requires authorization)

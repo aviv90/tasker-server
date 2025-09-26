@@ -10,6 +10,7 @@ const { generateMusicWithLyrics } = require('../services/musicService');
 const speechService = require('../services/speechService');
 const { voiceService } = require('../services/voiceService');
 const { audioConverterService } = require('../services/audioConverterService');
+const { creativeAudioService } = require('../services/creativeAudioService');
 const conversationManager = require('../services/conversationManager');
 const authStore = require('../store/authStore');
 const fs = require('fs');
@@ -371,7 +372,7 @@ async function handleIncomingMessage(webhookData) {
         console.log(`ℹ️ Video received but no command (use "## " for RunwayML Gen4 video-to-video)`);
       }
     }
-    // Handle voice messages for voice-to-voice processing
+    // Handle voice messages for creative audio processing
     else if (messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage') {
       const audioData = messageData.fileMessageData || messageData.audioMessageData;
       
@@ -408,19 +409,20 @@ async function handleIncomingMessage(webhookData) {
         // Check if sender is in allow list (new logic: must be in allow list to process, like media creation)
         const isInAllowList = await conversationManager.isInVoiceAllowList(contactName);
         if (!isInAllowList) {
-          console.log(`🚫 Voice transcription not allowed for ${contactName} (not in allow list) - skipping voice processing`);
-          return;
+        console.log(`🚫 Creative voice processing not allowed for ${contactName} (not in allow list)`);
+        await sendTextMessage(chatId, `❌ סליחה, אתה לא מורשה לעיבוד קול יצירתי. פנה למנהל לקבלת הרשאה.`);
+        return;
         }
         
-        console.log(`✅ Voice transcription allowed for ${contactName} - proceeding with processing`);
+        console.log(`✅ Creative voice processing allowed for ${contactName} - proceeding with processing`);
       } catch (dbError) {
         console.error('❌ Error checking voice transcription settings:', dbError);
-        console.log(`🔇 Skipping voice processing due to database error`);
+        console.log(`🔇 Skipping creative voice processing due to database error`);
         return;
       }
       
-      // Process voice-to-voice asynchronously
-      processVoiceMessageAsync({
+      // Process creative voice asynchronously
+      processCreativeVoiceAsync({
         chatId,
         senderId,
         senderName,
@@ -764,14 +766,26 @@ function processImageToVideoAsync(imageData) {
 }
 
 /**
- * Process voice message asynchronously (no await from webhook)
+ * Process creative voice message asynchronously (no await from webhook)
  */
+function processCreativeVoiceAsync(voiceData) {
+  // Run in background without blocking webhook response
+  handleCreativeVoiceMessage(voiceData).catch(error => {
+    console.error('❌ Error in async creative voice processing:', error.message || error);
+  });
+}
+
+/**
+ * Process voice message asynchronously (no await from webhook) - COMMENTED OUT FOR CREATIVE PROCESSING
+ */
+/*
 function processVoiceMessageAsync(voiceData) {
   // Run in background without blocking webhook response
   handleVoiceMessage(voiceData).catch(error => {
     console.error('❌ Error in async voice processing:', error.message || error);
   });
 }
+*/
 
 /**
  * Process video-to-video message asynchronously (no await from webhook)
@@ -936,9 +950,68 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
 }
 
 /**
- * Handle voice message with full voice-to-voice processing
+ * Handle creative voice message processing
+ * Flow: Download → Creative Effects → Convert to Opus → Send
+ */
+async function handleCreativeVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
+  console.log(`🎨 Processing creative voice request from ${senderName}`);
+  
+  try {
+    // Send immediate ACK
+    await sendAck(chatId, { type: 'creative_voice_processing' });
+    
+    // Step 1: Download audio file
+    console.log(`📥 Step 1: Downloading audio file...`);
+    const audioBuffer = await downloadFile(audioUrl);
+    console.log(`✅ Step 1 complete: Downloaded ${audioBuffer.length} bytes`);
+    
+    // Step 2: Apply creative effects
+    console.log(`🎨 Step 2: Applying creative effects...`);
+    const creativeResult = await creativeAudioService.processVoiceCreatively(audioBuffer, 'mp3');
+    
+    if (!creativeResult.success) {
+      console.error('❌ Creative processing failed:', creativeResult.error);
+      await sendTextMessage(chatId, `❌ סליחה, לא הצלחתי לעבד את ההקלטה: ${creativeResult.error}`);
+      return;
+    }
+    
+    console.log(`✅ Step 2 complete: Applied ${creativeResult.description}`);
+    
+    // Step 3: Convert to Opus and save
+    console.log(`🔄 Step 3: Converting to Opus format...`);
+    const conversionResult = await audioConverterService.convertAndSaveAsOpus(creativeResult.audioBuffer, 'mp3');
+    
+    if (!conversionResult.success) {
+      console.error('❌ Opus conversion failed:', conversionResult.error);
+      // Fallback: send as regular MP3
+      const fileName = `creative_${Date.now()}.mp3`;
+      const tempPath = path.join(__dirname, '..', 'public', 'tmp', fileName);
+      fs.writeFileSync(tempPath, creativeResult.audioBuffer);
+      const fullAudioUrl = getStaticFileUrl(fileName);
+      await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
+    } else {
+      // Send as voice note with Opus format
+      const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
+      await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '');
+      console.log(`✅ Creative voice sent as voice note: ${conversionResult.fileName}`);
+    }
+    
+    // Send effect description
+    await sendTextMessage(chatId, `🎨 עיבוד יצירתי הושלם!\n\n${creativeResult.description}`);
+    
+    console.log(`✅ Creative voice processing complete for ${senderName}`);
+
+  } catch (error) {
+    console.error('❌ Error in creative voice processing:', error.message || error);
+    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד היצירתי של ההקלטה.');
+  }
+}
+
+/**
+ * Handle voice message with full voice-to-voice processing - COMMENTED OUT FOR CREATIVE PROCESSING
  * Flow: Speech-to-Text → Voice Clone → Gemini Response → Text-to-Speech
  */
+/*
 async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
   console.log(`🎤 Processing voice-to-voice request from ${senderName}`);
   
