@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { promisify } = require('util');
+const musicService = require('./musicService');
 
 const execAsync = promisify(exec);
 
@@ -57,6 +58,66 @@ class CreativeAudioService {
             flanger: {
                 name: '🌊 Flanger Effect',
                 command: '-filter:a "flanger=delay=10:depth=2:regen=0:width=71:speed=0.5"'
+            }
+        };
+
+        // Suno instrumental music styles
+        this.instrumentalStyles = {
+            chill_lofi: {
+                name: '🌙 Chill Lofi',
+                prompt: 'chill lofi hip hop instrumental, soft piano, gentle drums, relaxing atmosphere',
+                style: 'lofi',
+                mood: 'chill',
+                tempo: 'slow'
+            },
+            ambient_electronic: {
+                name: '🌌 Ambient Electronic',
+                prompt: 'ambient electronic instrumental, atmospheric pads, subtle synthesizers, dreamy soundscape',
+                style: 'ambient',
+                mood: 'dreamy',
+                tempo: 'slow'
+            },
+            acoustic_guitar: {
+                name: '🎸 Acoustic Guitar',
+                prompt: 'acoustic guitar instrumental, fingerpicking, warm and organic, peaceful melody',
+                style: 'acoustic',
+                mood: 'peaceful',
+                tempo: 'medium'
+            },
+            jazz_instrumental: {
+                name: '🎷 Jazz Instrumental',
+                prompt: 'smooth jazz instrumental, saxophone, piano, sophisticated and melodic',
+                style: 'jazz',
+                mood: 'sophisticated',
+                tempo: 'medium'
+            },
+            classical_piano: {
+                name: '🎹 Classical Piano',
+                prompt: 'classical piano instrumental, elegant melody, soft dynamics, contemplative',
+                style: 'classical',
+                mood: 'elegant',
+                tempo: 'slow'
+            },
+            electronic_dance: {
+                name: '🎧 Electronic Dance',
+                prompt: 'electronic dance instrumental, upbeat synthesizers, driving rhythm, energetic',
+                style: 'electronic',
+                mood: 'energetic',
+                tempo: 'fast'
+            },
+            cinematic_epic: {
+                name: '🎬 Cinematic Epic',
+                prompt: 'cinematic orchestral instrumental, epic strings, powerful brass, dramatic',
+                style: 'cinematic',
+                mood: 'dramatic',
+                tempo: 'medium'
+            },
+            blues_instrumental: {
+                name: '🎵 Blues Instrumental',
+                prompt: 'blues guitar instrumental, soulful melody, warm tone, emotional',
+                style: 'blues',
+                mood: 'soulful',
+                tempo: 'medium'
             }
         };
 
@@ -169,6 +230,54 @@ class CreativeAudioService {
         } catch (err) {
             console.error('❌ Error generating background music:', err);
             throw new Error(`Background music generation failed: ${err.message}`);
+        }
+    }
+
+    /**
+     * Get random instrumental style
+     * @returns {Object} Random instrumental style configuration
+     */
+    getRandomInstrumentalStyle() {
+        const styleKeys = Object.keys(this.instrumentalStyles);
+        const randomKey = styleKeys[Math.floor(Math.random() * styleKeys.length)];
+        return this.instrumentalStyles[randomKey];
+    }
+
+    /**
+     * Generate Suno instrumental music
+     * @param {number} duration - Duration in seconds
+     * @param {Object} style - Instrumental style configuration
+     * @returns {Promise<string>} Path to generated music file
+     */
+    async generateSunoInstrumental(duration, style) {
+        try {
+            console.log(`🎵 Generating Suno instrumental: ${style.name}`);
+            
+            // Generate music with Suno
+            const musicResult = await musicService.generateInstrumentalMusic({
+                prompt: style.prompt,
+                duration: Math.min(duration, 30), // Suno max duration
+                style: style.style,
+                mood: style.mood,
+                tempo: style.tempo,
+                model: 'V5'
+            });
+
+            if (!musicResult.success || !musicResult.audioBuffer) {
+                throw new Error('Suno music generation failed');
+            }
+
+            // Save to temporary file
+            const fileName = `suno_instrumental_${uuidv4()}.mp3`;
+            const filePath = path.join(this.tempDir, fileName);
+            fs.writeFileSync(filePath, musicResult.audioBuffer);
+
+            console.log(`✅ Suno instrumental generated: ${fileName}`);
+            return filePath;
+
+        } catch (err) {
+            console.error('❌ Error generating Suno instrumental:', err);
+            throw new Error(`Suno instrumental generation failed: ${err.message}`);
         }
     }
 
@@ -375,12 +484,34 @@ class CreativeAudioService {
                 // Get audio duration (approximate)
                 const duration = Math.max(3, Math.min(15, audioBuffer.length / 10000)); // Rough estimate
                 
-                // Get random background style
-                const background = this.getRandomBackground();
-                console.log(`🎲 Selected background: ${background.name}`);
-
-                // Generate background music
-                const backgroundPath = await this.generateBackgroundMusic(duration, background.key);
+                // Choose background music type: 20% synthetic, 50% Suno, 30% none
+                const backgroundType = Math.random();
+                let backgroundPath;
+                let backgroundName;
+                
+                if (backgroundType < 0.2) {
+                    // Synthetic background music (20%)
+                    const background = this.getRandomBackground();
+                    console.log(`🎲 Selected synthetic background: ${background.name}`);
+                    backgroundPath = await this.generateBackgroundMusic(duration, background.key);
+                    backgroundName = background.name;
+                } else if (backgroundType < 0.7) {
+                    // Suno instrumental music (50%)
+                    const instrumentalStyle = this.getRandomInstrumentalStyle();
+                    console.log(`🎲 Selected Suno instrumental: ${instrumentalStyle.name}`);
+                    backgroundPath = await this.generateSunoInstrumental(duration, instrumentalStyle);
+                    backgroundName = instrumentalStyle.name;
+                } else {
+                    // No background music (30%)
+                    console.log(`🎲 No background music selected`);
+                    return {
+                        success: true,
+                        audioBuffer: effectResult.audioBuffer,
+                        size: effectResult.size,
+                        effect: effect.name,
+                        description: `Applied ${effect.name}`
+                    };
+                }
 
                 // Mix voice with background
                 const mixResult = await this.mixWithBackground(effectResult.audioBuffer, 'mp3', backgroundPath);
@@ -394,8 +525,8 @@ class CreativeAudioService {
                         audioBuffer: mixResult.audioBuffer,
                         size: mixResult.size,
                         effect: effect.name,
-                        background: background.name,
-                        description: `Applied ${effect.name} + ${background.name}`
+                        background: backgroundName,
+                        description: `Applied ${effect.name} + ${backgroundName}`
                     };
                 }
             }
