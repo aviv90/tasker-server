@@ -148,8 +148,8 @@ class AudioConverterService {
     }
 
     /**
-     * Convert audio file from URL to Opus
-     * @param {string} audioUrl - URL of the audio file
+     * Convert audio file from URL or local path to Opus
+     * @param {string} audioUrl - URL or local path of the audio file
      * @param {string} inputFormat - Input format (mp3, wav, etc.)
      * @param {Object} options - Conversion options
      * @returns {Promise<Object>} - Result with opus buffer and file info
@@ -158,9 +158,26 @@ class AudioConverterService {
         try {
             console.log(`🔄 Converting audio from URL to Opus: ${audioUrl}`);
 
-            // Download the audio file first
-            const { downloadFile } = require('./greenApiService');
-            const audioBuffer = await downloadFile(audioUrl);
+            let audioBuffer;
+
+            // Check if it's a relative path (starts with /static/)
+            if (audioUrl.startsWith('/static/')) {
+                // Read from local file system
+                const fs = require('fs');
+                const path = require('path');
+                const filePath = path.join(__dirname, '..', 'public', audioUrl.replace('/static/', ''));
+                
+                if (!fs.existsSync(filePath)) {
+                    throw new Error(`File not found: ${filePath}`);
+                }
+                
+                audioBuffer = fs.readFileSync(filePath);
+                console.log(`📁 Read local file: ${filePath} (${audioBuffer.length} bytes)`);
+            } else {
+                // Download from URL
+                const { downloadFile } = require('./greenApiService');
+                audioBuffer = await downloadFile(audioUrl);
+            }
 
             // Convert to Opus
             const conversionResult = await this.convertAndSaveAsOpus(audioBuffer, inputFormat, options);
