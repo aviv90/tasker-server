@@ -43,7 +43,7 @@ class MusicService {
                 customMode: false, // Let Suno be creative
                 instrumental: false, // We want lyrics
                 model: options.model || 'V5', // Use V5 for latest and best quality
-                callBackUrl: getApiUrl('/music/callback')
+                callBackUrl: getApiUrl('/api/music/callback')
             };
             
             // Only add advanced parameters if they are explicitly provided
@@ -131,7 +131,7 @@ class MusicService {
                 customMode: false, // Let Suno be creative  
                 instrumental: true, // No lyrics
                 model: options.model || 'V5', // Use V5 for latest and best quality
-                callBackUrl: getApiUrl('/music/callback')
+                callBackUrl: getApiUrl('/api/music/callback')
             };
             
             // Only add advanced parameters if they are explicitly provided
@@ -318,7 +318,7 @@ class MusicService {
                 customMode: options.customMode || true, // Use custom mode for advanced control
                 instrumental: options.instrumental || false,
                 model: options.model || 'V5', // Always use V5 for advanced features
-                callBackUrl: getApiUrl('/music/callback'),
+                callBackUrl: getApiUrl('/api/music/callback'),
                 // V5 advanced parameters
                 style: options.style || randomStyle,
                 title: options.title || generateTitle(cleanPrompt),
@@ -570,7 +570,7 @@ class MusicService {
     }
 
     _getCallbackUrl() {
-        return getApiUrl('/music/callback');
+        return getApiUrl('/api/music/callback');
     }
 }
 
