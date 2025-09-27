@@ -43,7 +43,7 @@ class MusicService {
                 customMode: false, // Let Suno be creative
                 instrumental: false, // We want lyrics
                 model: options.model || 'V5', // Use V5 for latest and best quality
-                callBackUrl: getApiUrl('/api/music/callback')
+                callBackUrl: getApiUrl('/music/callback')
             };
             
             // Only add advanced parameters if they are explicitly provided
@@ -73,146 +73,28 @@ class MusicService {
             const taskId = generateData.data.taskId;
             console.log(`✅ Suno music generation task submitted successfully. Task ID: ${taskId}`);
 
-            // Step 2: Poll for completion
-            console.log('⏳ Polling for music generation completion...');
-            const maxWaitTime = 20 * 60 * 1000; // 20 minutes (music takes longer)
-            const startTime = Date.now();
-            let pollAttempts = 0;
+            console.log(`📞 Waiting for callback notification instead of polling...`);
 
-            while (Date.now() - startTime < maxWaitTime) {
-                pollAttempts++;
-                console.log(`🔄 Polling attempt ${pollAttempts} for Suno music task ${taskId}`);
+            // Store task info for callback handling
+            const taskInfo = {
+                taskId: taskId,
+                type: 'with-lyrics',
+                musicOptions: musicOptions,
+                timestamp: Date.now()
+            };
 
-                const statusResponse = await fetch(`${this.baseUrl}/api/v1/generate/record-info?taskId=${taskId}`, {
-                    method: 'GET',
-                    headers: { 'Authorization': `Bearer ${this.apiKey}` }
-                });
-
-                const statusData = await statusResponse.json();
-
-                if (!statusResponse.ok || statusData.code !== 200) {
-                    console.error(`❌ Suno music status check failed:`, statusData.msg);
-                    return { error: statusData.msg || 'Music status check failed' };
-                }
-
-                const status = statusData.data;
-                console.log(`📊 Suno music status check - status: ${status.status}`);
-
-                if (status.status === 'SUCCESS') {
-                    // Success - music is ready
-                    if (!status.response || !status.response.sunoData || status.response.sunoData.length === 0) {
-                        console.error(`❌ Suno music generation completed but no tracks returned`);
-                        return { error: 'Music generation completed but no tracks returned' };
-                    }
-
-                    const tracks = status.response.sunoData;
-                    console.log(`✅ Suno music generation completed! Found ${tracks.length} tracks. Downloading first track...`);
-
-                    // Take the first track (Suno usually generates 2 variations)
-                    const firstTrack = tracks[0];
-                    const audioUrl = firstTrack.audioUrl;
-
-                    if (!audioUrl) {
-                        console.error(`❌ No audio URL found in Suno response`);
-                        return { error: 'No audio URL found in generated tracks' };
-                    }
-
-                    // Step 3: Download the audio file
-                    const tempFileName = `temp_music_${uuidv4()}.mp3`;
-                    const tempFilePath = path.join(__dirname, '..', 'public', 'tmp', tempFileName);
-                    const tmpDir = path.dirname(tempFilePath);
-
-                    if (!fs.existsSync(tmpDir)) {
-                        fs.mkdirSync(tmpDir, { recursive: true });
-                    }
-
-                    try {
-                        const audioResponse = await fetch(audioUrl);
-                        if (!audioResponse.ok) {
-                            throw new Error(`Failed to download audio: HTTP ${audioResponse.status}`);
-                        }
-
-                        const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
-                        fs.writeFileSync(tempFilePath, audioBuffer);
-
-                        // Verify file was written correctly
-                        let retries = 0;
-                        let fileReady = false;
-
-                        while (!fileReady && retries < 15) {
-                            await new Promise(resolve => setTimeout(resolve, 200));
-                            
-                            if (fs.existsSync(tempFilePath)) {
-                                try {
-                                    const stats = fs.statSync(tempFilePath);
-                                    
-                                    if (stats.size > 0) {
-                                        await new Promise(resolve => setTimeout(resolve, 500));
-                                        const newStats = fs.statSync(tempFilePath);
-                                        
-                                        if (newStats.size === stats.size && stats.size > 10000) { // At least 10KB
-                                            fileReady = true;
-                                            break;
-                                        }
-                                    }
-                                } catch (statError) {
-                                    // Continue retrying
-                                }
-                            }
-                            retries++;
-                        }
-
-                        if (!fileReady) {
-                            console.error('❌ Audio file was not properly downloaded');
-                            return { error: 'Audio file was not downloaded successfully' };
-                        }
-
-                        console.log(`✅ Suno music generated successfully. Duration: ${firstTrack.duration}s`);
-                        
-                        const finalAudioBuffer2 = fs.readFileSync(tempFilePath);
-                        const filename = path.basename(tempFilePath);
-                        const publicPath = `/static/${filename}`;
-                        
-                        // Return comprehensive music data
-                        return {
-                            text: cleanPrompt,
-                            audioBuffer: finalAudioBuffer2,
-                            result: publicPath, // This will be processed to create full URL
-                            metadata: {
-                                title: firstTrack.title || options.title || 'Generated Music',
-                                duration: firstTrack.duration,
-                                tags: firstTrack.tags,
-                                model: firstTrack.modelName,
-                                prompt: firstTrack.prompt || cleanPrompt,
-                                totalTracks: tracks.length,
-                                imageUrl: firstTrack.imageUrl, // Cover art if available
-                                lyrics: firstTrack.lyrics || firstTrack.lyric, // Song lyrics if available
-                                gptDescriptionPrompt: firstTrack.gptDescriptionPrompt // AI description if available
-                            }
-                        };
-
-                    } catch (downloadError) {
-                        console.error(`❌ Suno music download failed:`, downloadError);
-                        return { error: `Music download failed: ${downloadError.message}` };
-                    }
-
-                } else if (status.status === 'CREATE_TASK_FAILED' || 
-                          status.status === 'GENERATE_AUDIO_FAILED' || 
-                          status.status === 'SENSITIVE_WORD_ERROR') {
-                    // Failed
-                    console.error(`❌ Suno music generation failed with status: ${status.status}`);
-                    const errorMsg = status.errorMessage || `Music generation failed: ${status.status}`;
-                    return { error: errorMsg };
-                }
-
-                // Still processing (PENDING, TEXT_SUCCESS, FIRST_SUCCESS), wait and retry
-                console.log(`🎼 Music generation in progress: ${status.status}`);
-                await new Promise(resolve => setTimeout(resolve, 30000)); // Wait 30 seconds
+            // Store in a simple in-memory map (in production, use Redis or database)
+            if (!this.pendingTasks) {
+                this.pendingTasks = new Map();
             }
+            this.pendingTasks.set(taskId, taskInfo);
 
-            // Timeout
-            console.error(`❌ Suno music generation timed out after 20 minutes`);
-            return { error: 'Music generation timed out after 20 minutes' };
+            // Return immediately - callback will handle completion
+            return {
+                taskId: taskId,
+                status: 'pending',
+                message: 'Music generation with lyrics started. Waiting for completion...'
+            };
 
         } catch (err) {
             console.error(`❌ Suno music generation error:`, err);
@@ -249,7 +131,7 @@ class MusicService {
                 customMode: false, // Let Suno be creative  
                 instrumental: true, // No lyrics
                 model: options.model || 'V5', // Use V5 for latest and best quality
-                callBackUrl: getApiUrl('/api/music/callback')
+                callBackUrl: getApiUrl('/music/callback')
             };
             
             // Only add advanced parameters if they are explicitly provided
@@ -289,93 +171,109 @@ class MusicService {
         const taskId = generateData.data.taskId;
         console.log(`✅ Suno ${type} music task submitted successfully. Task ID: ${taskId}`);
 
-        // Poll for completion
-        const maxWaitTime = 20 * 60 * 1000; // 20 minutes
-        const startTime = Date.now();
-        let pollAttempts = 0;
+        console.log(`📞 Waiting for callback notification instead of polling...`);
 
-        while (Date.now() - startTime < maxWaitTime) {
-            pollAttempts++;
-            console.log(`🔄 Polling attempt ${pollAttempts} for Suno ${type} music task ${taskId}`);
+        // Store task info for callback handling
+        const taskInfo = {
+            taskId: taskId,
+            type: type,
+            musicOptions: musicOptions,
+            timestamp: Date.now()
+        };
 
-            const statusResponse = await fetch(`${this.baseUrl}/api/v1/generate/record-info?taskId=${taskId}`, {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${this.apiKey}` }
-            });
-
-            const statusData = await statusResponse.json();
-
-            if (!statusResponse.ok || statusData.code !== 200) {
-                console.error(`❌ Suno ${type} music status check failed:`, statusData.msg);
-                return { error: statusData.msg || `${type} music status check failed` };
-            }
-
-            const status = statusData.data;
-            console.log(`📊 Suno ${type} music status: ${status.status}`);
-
-            if (status.status === 'SUCCESS') {
-                // Success - process and download
-                if (!status.response?.sunoData?.length) {
-                    return { error: `${type} music generation completed but no tracks returned` };
-                }
-
-                const firstTrack = status.response.sunoData[0];
-                if (!firstTrack.audioUrl) {
-                    return { error: 'No audio URL found in generated tracks' };
-                }
-
-                // Download audio
-                const tempFileName = `temp_music_${uuidv4()}.mp3`;
-                const tempFilePath = path.join(__dirname, '..', 'public', 'tmp', tempFileName);
-                const tmpDir = path.dirname(tempFilePath);
-
-                if (!fs.existsSync(tmpDir)) {
-                    fs.mkdirSync(tmpDir, { recursive: true });
-                }
-
-                const audioResponse = await fetch(firstTrack.audioUrl);
-                if (!audioResponse.ok) {
-                    throw new Error(`Failed to download audio: HTTP ${audioResponse.status}`);
-                }
-
-                const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
-                fs.writeFileSync(tempFilePath, audioBuffer);
-
-                // Verify file
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                if (!fs.existsSync(tempFilePath) || fs.statSync(tempFilePath).size < 10000) {
-                    return { error: 'Audio file was not downloaded successfully' };
-                }
-
-                console.log(`✅ Suno ${type} music generated successfully`);
-                
-                const finalAudioBuffer = fs.readFileSync(tempFilePath);
-                const filename = path.basename(tempFilePath);
-                const publicPath = `/static/${filename}`;
-                
-                return {
-                    text: musicOptions.prompt || musicOptions.title || `Generated ${type} music`,
-                    audioBuffer: finalAudioBuffer,
-                    result: publicPath, // This will be processed to create full URL
-                    metadata: {
-                        title: firstTrack.title,
-                        duration: firstTrack.duration,
-                        tags: firstTrack.tags,
-                        model: firstTrack.modelName,
-                        type: type,
-                        totalTracks: status.response.sunoData.length
-                    }
-                };
-
-            } else if (['CREATE_TASK_FAILED', 'GENERATE_AUDIO_FAILED', 'SENSITIVE_WORD_ERROR'].includes(status.status)) {
-                return { error: status.errorMessage || `Music generation failed: ${status.status}` };
-            }
-
-            // Still processing
-            await new Promise(resolve => setTimeout(resolve, 30000));
+        // Store in a simple in-memory map (in production, use Redis or database)
+        if (!this.pendingTasks) {
+            this.pendingTasks = new Map();
         }
+        this.pendingTasks.set(taskId, taskInfo);
 
-        return { error: `${type} music generation timed out after 20 minutes` };
+        // Return immediately - callback will handle completion
+        return {
+            taskId: taskId,
+            status: 'pending',
+            message: `${type} music generation started. Waiting for completion...`
+        };
+    }
+
+    // Method to handle callback completion
+    async handleCallbackCompletion(taskId, callbackData) {
+        try {
+            const taskInfo = this.pendingTasks?.get(taskId);
+            if (!taskInfo) {
+                console.warn(`⚠️ No task info found for callback: ${taskId}`);
+                return;
+            }
+
+            console.log(`🎵 Processing callback for ${taskInfo.type} music task: ${taskId}`);
+
+            if (callbackData.code === 200 && callbackData.data?.callbackType === 'complete') {
+                const songs = callbackData.data.data || [];
+                
+                if (songs.length > 0) {
+                    const firstSong = songs[0];
+                    const songUrl = firstSong.audioUrl || firstSong.audio_url || firstSong.url;
+                    
+                    if (songUrl) {
+                        // Download and process the audio
+                        const audioResponse = await fetch(songUrl);
+                        if (!audioResponse.ok) {
+                            throw new Error(`Failed to download audio: HTTP ${audioResponse.status}`);
+                        }
+
+                        const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+                        
+                        // Save to temp file
+                        const tempFileName = `temp_music_${uuidv4()}.mp3`;
+                        const tempFilePath = path.join(__dirname, '..', 'public', 'tmp', tempFileName);
+                        const tmpDir = path.dirname(tempFilePath);
+
+                        if (!fs.existsSync(tmpDir)) {
+                            fs.mkdirSync(tmpDir, { recursive: true });
+                        }
+
+                        fs.writeFileSync(tempFilePath, audioBuffer);
+
+                        // Verify file
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        if (!fs.existsSync(tempFilePath) || fs.statSync(tempFilePath).size < 10000) {
+                            throw new Error('Audio file was not downloaded successfully');
+                        }
+
+                        console.log(`✅ Suno ${taskInfo.type} music generated successfully via callback`);
+                        
+                        const finalAudioBuffer = fs.readFileSync(tempFilePath);
+                        const filename = path.basename(tempFilePath);
+                        const publicPath = `/static/${filename}`;
+                        
+                        // Clean up task info
+                        this.pendingTasks.delete(taskId);
+                        
+                        return {
+                            text: taskInfo.musicOptions.prompt || taskInfo.musicOptions.title || `Generated ${taskInfo.type} music`,
+                            audioBuffer: finalAudioBuffer,
+                            result: publicPath,
+                            metadata: {
+                                title: firstSong.title,
+                                duration: firstSong.duration,
+                                tags: firstSong.tags,
+                                model: firstSong.modelName,
+                                type: taskInfo.type,
+                                totalTracks: songs.length
+                            }
+                        };
+                    }
+                }
+            }
+
+            // Clean up task info
+            this.pendingTasks.delete(taskId);
+            return { error: 'Callback processing failed' };
+
+        } catch (error) {
+            console.error(`❌ Error processing callback for task ${taskId}:`, error);
+            this.pendingTasks?.delete(taskId);
+            return { error: error.message || 'Callback processing failed' };
+        }
     }
 
     async generateAdvancedMusic(prompt, options = {}) {
@@ -408,7 +306,7 @@ class MusicService {
                 customMode: options.customMode || true, // Use custom mode for advanced control
                 instrumental: options.instrumental || false,
                 model: options.model || 'V5', // Always use V5 for advanced features
-                callBackUrl: getApiUrl('/api/music/callback'),
+                callBackUrl: getApiUrl('/music/callback'),
                 // V5 advanced parameters
                 style: options.style || randomStyle,
                 title: options.title || generateTitle(cleanPrompt),
@@ -503,64 +401,28 @@ class MusicService {
             const taskId = generateData.data.taskId;
             console.log(`✅ Upload-Extend task submitted: ${taskId}`);
 
-            // Poll for completion
-            const maxWaitTime = 20 * 60 * 1000; // 20 minutes
-            const startTime = Date.now();
-            let pollAttempts = 0;
+            console.log(`📞 Waiting for callback notification instead of polling...`);
 
-            while (Date.now() - startTime < maxWaitTime) {
-                pollAttempts++;
-                console.log(`🔄 Polling attempt ${pollAttempts} for task ${taskId}`);
+            // Store task info for callback handling
+            const taskInfo = {
+                taskId: taskId,
+                type: 'upload-extend',
+                extendOptions: extendOptions,
+                timestamp: Date.now()
+            };
 
-                const statusResponse = await fetch(`${this.baseUrl}/api/v1/generate/record-info?taskId=${taskId}`, {
-                    method: 'GET',
-                    headers: { 'Authorization': `Bearer ${this.apiKey}` }
-                });
-
-                const statusData = await statusResponse.json();
-
-                if (!statusResponse.ok || statusData.code !== 200) {
-                    console.error('❌ Status check error:', statusData);
-                    return { error: `Status check failed: ${statusData.message || 'Unknown error'}` };
-                }
-
-                const status = statusData.data;
-                console.log(`📊 Upload-Extend status: ${status.status}`);
-                
-                if (status.status === 'SUCCESS') {
-                    console.log(`🎉 Upload-Extend completed successfully!`);
-                    
-                    // Extract songs from the response
-                    let songs = [];
-                    if (status.response && status.response.sunoData) {
-                        songs = status.response.sunoData.map(result => ({
-                            id: result.id,
-                            title: result.title,
-                            audioUrl: result.audioUrl,
-                            sourceAudioUrl: result.sourceAudioUrl,
-                            imageUrl: result.imageUrl,
-                            tags: result.tags,
-                            duration: result.duration,
-                            createdAt: result.createTime
-                        }));
-                    }
-                    
-                    return {
-                        taskId: taskId,
-                        status: 'done',
-                        songs: songs
-                    };
-
-                } else if (['CREATE_TASK_FAILED', 'GENERATE_AUDIO_FAILED', 'SENSITIVE_WORD_ERROR'].includes(status.status)) {
-                    console.error(`❌ Upload-Extend failed: ${status.status}`);
-                    return { error: status.errorMessage || `Upload-Extend generation failed: ${status.status}` };
-                }
-
-                // Still processing
-                await new Promise(resolve => setTimeout(resolve, 30000));
+            // Store in a simple in-memory map (in production, use Redis or database)
+            if (!this.pendingTasks) {
+                this.pendingTasks = new Map();
             }
+            this.pendingTasks.set(taskId, taskInfo);
 
-            return { error: `Upload-Extend generation timed out after 20 minutes` };
+            // Return immediately - callback will handle completion
+            return {
+                taskId: taskId,
+                status: 'pending',
+                message: 'Upload-Extend generation started. Waiting for completion...'
+            };
         } catch (err) {
             console.error('❌ Upload-Extend generation error:', err);
             return { error: err.message || 'Unknown error' };
@@ -588,64 +450,28 @@ class MusicService {
             const taskId = generateData.data.taskId;
             console.log(`✅ Upload-Cover task submitted: ${taskId}`);
 
-            // Poll for completion
-            const maxWaitTime = 20 * 60 * 1000; // 20 minutes
-            const startTime = Date.now();
-            let pollAttempts = 0;
+            console.log(`📞 Waiting for callback notification instead of polling...`);
 
-            while (Date.now() - startTime < maxWaitTime) {
-                pollAttempts++;
-                console.log(`🔄 Polling attempt ${pollAttempts} for task ${taskId}`);
+            // Store task info for callback handling
+            const taskInfo = {
+                taskId: taskId,
+                type: 'upload-cover',
+                coverOptions: coverOptions,
+                timestamp: Date.now()
+            };
 
-                const statusResponse = await fetch(`${this.baseUrl}/api/v1/generate/record-info?taskId=${taskId}`, {
-                    method: 'GET',
-                    headers: { 'Authorization': `Bearer ${this.apiKey}` }
-                });
-
-                const statusData = await statusResponse.json();
-
-                if (!statusResponse.ok || statusData.code !== 200) {
-                    console.error('❌ Status check error:', statusData);
-                    return { error: `Status check failed: ${statusData.message || 'Unknown error'}` };
-                }
-
-                const status = statusData.data;
-                console.log(`📊 Upload-Cover status: ${status.status}`);
-                
-                if (status.status === 'SUCCESS') {
-                    console.log(`🎉 Upload-Cover completed successfully!`);
-                    
-                    // Extract songs from the response
-                    let songs = [];
-                    if (status.response && status.response.sunoData) {
-                        songs = status.response.sunoData.map(result => ({
-                            id: result.id,
-                            title: result.title,
-                            audioUrl: result.audioUrl,
-                            sourceAudioUrl: result.sourceAudioUrl,
-                            imageUrl: result.imageUrl,
-                            tags: result.tags,
-                            duration: result.duration,
-                            createdAt: result.createTime
-                        }));
-                    }
-                    
-                    return {
-                        taskId: taskId,
-                        status: 'done',
-                        songs: songs
-                    };
-
-                } else if (['CREATE_TASK_FAILED', 'GENERATE_AUDIO_FAILED', 'SENSITIVE_WORD_ERROR'].includes(status.status)) {
-                    console.error(`❌ Upload-Cover failed: ${status.status}`);
-                    return { error: status.errorMessage || `Upload-Cover generation failed: ${status.status}` };
-                }
-
-                // Still processing
-                await new Promise(resolve => setTimeout(resolve, 30000));
+            // Store in a simple in-memory map (in production, use Redis or database)
+            if (!this.pendingTasks) {
+                this.pendingTasks = new Map();
             }
+            this.pendingTasks.set(taskId, taskInfo);
 
-            return { error: `Upload-Cover generation timed out after 20 minutes` };
+            // Return immediately - callback will handle completion
+            return {
+                taskId: taskId,
+                status: 'pending',
+                message: 'Upload-Cover generation started. Waiting for completion...'
+            };
         } catch (err) {
             console.error('❌ Upload-Cover generation error:', err);
             return { error: err.message || 'Unknown error' };
@@ -703,64 +529,28 @@ class MusicService {
             const taskId = generateData.data.taskId;
             console.log(`✅ Add Instrumental task submitted: ${taskId}`);
 
-            // Poll for completion
-            const maxWaitTime = 20 * 60 * 1000; // 20 minutes
-            const startTime = Date.now();
-            let pollAttempts = 0;
+            console.log(`📞 Waiting for callback notification instead of polling...`);
 
-            while (Date.now() - startTime < maxWaitTime) {
-                pollAttempts++;
-                console.log(`🔄 Polling attempt ${pollAttempts} for task ${taskId}`);
+            // Store task info for callback handling
+            const taskInfo = {
+                taskId: taskId,
+                type: 'add-instrumental',
+                instrumentalOptions: instrumentalOptions,
+                timestamp: Date.now()
+            };
 
-                const statusResponse = await fetch(`${this.baseUrl}/api/v1/generate/record-info?taskId=${taskId}`, {
-                    method: 'GET',
-                    headers: { 'Authorization': `Bearer ${this.apiKey}` }
-                });
-
-                const statusData = await statusResponse.json();
-
-                if (!statusResponse.ok || statusData.code !== 200) {
-                    console.error('❌ Status check error:', statusData);
-                    return { error: `Status check failed: ${statusData.message || 'Unknown error'}` };
-                }
-
-                const status = statusData.data;
-                console.log(`📊 Add Instrumental status: ${status.status}`);
-                
-                if (status.status === 'SUCCESS') {
-                    console.log(`🎉 Add Instrumental completed successfully!`);
-                    
-                    // Extract songs from the response
-                    let songs = [];
-                    if (status.response && status.response.sunoData) {
-                        songs = status.response.sunoData.map(result => ({
-                            id: result.id,
-                            title: result.title,
-                            audioUrl: result.audioUrl,
-                            sourceAudioUrl: result.sourceAudioUrl,
-                            imageUrl: result.imageUrl,
-                            tags: result.tags,
-                            duration: result.duration,
-                            createdAt: result.createTime
-                        }));
-                    }
-                    
-                    return {
-                        taskId: taskId,
-                        status: 'done',
-                        songs: songs
-                    };
-
-                } else if (['CREATE_TASK_FAILED', 'GENERATE_AUDIO_FAILED', 'SENSITIVE_WORD_ERROR'].includes(status.status)) {
-                    console.error(`❌ Add Instrumental failed: ${status.status}`);
-                    return { error: status.errorMessage || `Add Instrumental generation failed: ${status.status}` };
-                }
-
-                // Still processing
-                await new Promise(resolve => setTimeout(resolve, 30000));
+            // Store in a simple in-memory map (in production, use Redis or database)
+            if (!this.pendingTasks) {
+                this.pendingTasks = new Map();
             }
+            this.pendingTasks.set(taskId, taskInfo);
 
-            return { error: `Add Instrumental generation timed out after 20 minutes` };
+            // Return immediately - callback will handle completion
+            return {
+                taskId: taskId,
+                status: 'pending',
+                message: 'Add Instrumental generation started. Waiting for completion...'
+            };
         } catch (err) {
             console.error('❌ Add Instrumental generation error:', err);
             return { error: err.message || 'Unknown error' };
@@ -768,7 +558,7 @@ class MusicService {
     }
 
     _getCallbackUrl() {
-        return getApiUrl('/api/music/callback');
+        return getApiUrl('/music/callback');
     }
 }
 

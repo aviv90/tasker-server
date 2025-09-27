@@ -521,47 +521,44 @@ function finalizeVoiceProcessing(taskId, result, req = null) {
 }
 
 // Callback route for Kie.ai music generation notifications
-router.post('/music/callback', (req, res) => {
+router.post('/music/callback', async (req, res) => {
   try {
     console.log('🎵 Music callback received');
     
     const callbackData = req.body;
     
-    // Find our task ID based on the Kie.ai task ID
+    // Handle Suno music generation callbacks
     if (callbackData.data && callbackData.data.task_id) {
       const kieTaskId = callbackData.data.task_id;
-      const ourTaskId = kieTaskMapping.get(kieTaskId);
       
-      if (ourTaskId && callbackData.data.callbackType === 'complete' && callbackData.code === 200) {
-        console.log(`🎵 Completing task ${ourTaskId}`);
+      // Try to handle via musicService callback handler
+      const musicService = require('../services/musicService');
+      const result = await musicService.handleCallbackCompletion(kieTaskId, callbackData);
+      
+      if (result && !result.error) {
+        console.log(`✅ Suno music callback processed successfully for task ${kieTaskId}`);
         
-        // Extract songs from callback data
-        const songs = callbackData.data.data || [];
+        // Find our task ID based on the Kie.ai task ID
+        const ourTaskId = kieTaskMapping.get(kieTaskId);
         
-        if (songs.length > 0) {
-          // Get the first song - try multiple possible field names
-          const firstSong = songs[0];
-          const songUrl = firstSong.audioUrl || firstSong.audio_url || firstSong.url;
+        if (ourTaskId) {
+          // Update our task store with the processed result
+          taskStore.set(ourTaskId, { 
+            status: 'done', 
+            result: result.result,
+            audioBuffer: result.audioBuffer,
+            metadata: result.metadata,
+            type: 'music-generation',
+            timestamp: new Date().toISOString()
+          });
           
-          if (songUrl) {
-            // Update our task store with the direct URL
-            taskStore.set(ourTaskId, { 
-              status: 'done', 
-              result: songUrl,
-              type: 'speech-to-song',
-              timestamp: new Date().toISOString()
-            });
-            
-            console.log(`✅ Task ${ourTaskId} completed successfully`);
-            
-            // Clean up the mapping
-            kieTaskMapping.delete(kieTaskId);
-          } else {
-            console.log(`⚠️ No audio URL found for task ${ourTaskId}`);
-          }
-        } else {
-          console.log(`⚠️ No songs found for task ${ourTaskId}`);
+          console.log(`✅ Task ${ourTaskId} completed successfully`);
+          
+          // Clean up the mapping
+          kieTaskMapping.delete(kieTaskId);
         }
+      } else {
+        console.log(`⚠️ Music callback processing failed: ${result?.error || 'Unknown error'}`);
       }
     }
     

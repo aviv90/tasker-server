@@ -24,11 +24,7 @@ app.use('/api', taskRoutes);
 app.use('/api', uploadEditRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 
-// Add music callback endpoint
-app.post('/api/music/callback', (req, res) => {
-    console.log('🎵 Music generation callback received:', req.body);
-    res.json({ status: 'received' });
-});
+// Music callback is handled in uploadEditRoutes.js
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
