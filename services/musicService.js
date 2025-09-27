@@ -581,5 +581,6 @@ module.exports = {
     generateMusicWithLyrics: musicService.generateMusicWithLyrics.bind(musicService),
     generateInstrumentalMusic: musicService.generateInstrumentalMusic.bind(musicService),
     generateAdvancedMusic: musicService.generateAdvancedMusic.bind(musicService),
-    generateSongFromSpeech: musicService.generateSongFromSpeech.bind(musicService)
+    generateSongFromSpeech: musicService.generateSongFromSpeech.bind(musicService),
+    handleCallbackCompletion: musicService.handleCallbackCompletion.bind(musicService)
 };
