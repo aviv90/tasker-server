@@ -125,9 +125,22 @@ class AudioConverterService {
             const opusFileName = `voice_${uuidv4()}.opus`;
             const opusFilePath = path.join(this.tempDir, opusFileName);
             
+            // Ensure directory exists
+            if (!fs.existsSync(this.tempDir)) {
+                fs.mkdirSync(this.tempDir, { recursive: true });
+                console.log(`📁 Created temp directory: ${this.tempDir}`);
+            }
+            
             fs.writeFileSync(opusFilePath, conversionResult.opusBuffer);
 
-            console.log(`✅ Opus file saved: ${opusFileName} (${conversionResult.opusBuffer.length} bytes)`);
+            // Verify file was written correctly
+            if (!fs.existsSync(opusFilePath)) {
+                throw new Error(`Opus file was not created: ${opusFilePath}`);
+            }
+            
+            const fileStats = fs.statSync(opusFilePath);
+            console.log(`✅ Opus file saved: ${opusFileName} (${fileStats.size} bytes)`);
+            console.log(`📁 Full path: ${opusFilePath}`);
 
             return {
                 success: true,

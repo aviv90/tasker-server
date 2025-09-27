@@ -995,6 +995,18 @@ async function handleCreativeVoiceMessage({ chatId, senderId, senderName, audioU
     } else {
       // Send as voice note with Opus format
       const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
+      
+      // Verify file exists before sending
+      const filePath = path.join(__dirname, '..', 'public', 'tmp', conversionResult.fileName);
+      if (!fs.existsSync(filePath)) {
+        console.error(`❌ Opus file not found: ${filePath}`);
+        await sendTextMessage(chatId, `❌ סליחה, קובץ האודיו לא נמצא. נסה שוב.`);
+        return;
+      }
+      
+      console.log(`📁 Opus file verified: ${filePath} (${fs.statSync(filePath).size} bytes)`);
+      console.log(`🔗 Full URL: ${fullAudioUrl}`);
+      
       await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '');
       console.log(`✅ Creative voice sent as voice note: ${conversionResult.fileName}`);
     }
