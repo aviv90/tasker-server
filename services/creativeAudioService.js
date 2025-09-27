@@ -556,73 +556,59 @@ class CreativeAudioService {
                 throw new Error('Creative effect failed');
             }
 
-            // Decide whether to add background music (70% chance)
-            const addBackground = Math.random() < 0.7;
+            // Always add background music
+            console.log(`🎵 Adding background music...`);
             
-            if (addBackground) {
-                console.log(`🎵 Adding background music...`);
+            // Get audio duration (approximate)
+            const duration = Math.max(3, Math.min(15, audioBuffer.length / 10000)); // Rough estimate
+            
+            // Choose background music type: 50% synthetic, 50% Suno
+            const backgroundType = Math.random();
+            let backgroundPath;
+            let backgroundName;
+            
+            if (backgroundType < 0.5) {
+                // Synthetic background music (50%)
+                const background = this.getRandomBackground();
+                console.log(`🎲 Selected synthetic background: ${background.name}`);
+                backgroundPath = await this.generateBackgroundMusic(duration, background.key);
+                backgroundName = background.name;
+            } else {
+                // Suno instrumental music (50%)
+                const instrumentalStyle = this.getRandomInstrumentalStyle();
+                console.log(`🎲 Selected Suno instrumental: ${instrumentalStyle.name}`);
                 
-                // Get audio duration (approximate)
-                const duration = Math.max(3, Math.min(15, audioBuffer.length / 10000)); // Rough estimate
-                
-                // Choose background music type: 10% synthetic, 70% Suno, 20% none
-                const backgroundType = Math.random();
-                let backgroundPath;
-                let backgroundName;
-                
-                if (backgroundType < 0.1) {
-                    // Synthetic background music (10%)
+                try {
+                    backgroundPath = await this.generateSunoInstrumental(duration, instrumentalStyle);
+                    backgroundName = instrumentalStyle.name;
+                } catch (sunoError) {
+                    console.warn(`⚠️ Suno instrumental failed, falling back to synthetic: ${sunoError.message}`);
+                    // Fallback to synthetic background music
                     const background = this.getRandomBackground();
-                    console.log(`🎲 Selected synthetic background: ${background.name}`);
+                    console.log(`🎲 Fallback to synthetic background: ${background.name}`);
                     backgroundPath = await this.generateBackgroundMusic(duration, background.key);
-                    backgroundName = background.name;
-                } else if (backgroundType < 0.8) {
-                    // Suno instrumental music (70%)
-                    const instrumentalStyle = this.getRandomInstrumentalStyle();
-                    console.log(`🎲 Selected Suno instrumental: ${instrumentalStyle.name}`);
-                    
-                    try {
-                        backgroundPath = await this.generateSunoInstrumental(duration, instrumentalStyle);
-                        backgroundName = instrumentalStyle.name;
-                    } catch (sunoError) {
-                        console.warn(`⚠️ Suno instrumental failed, falling back to synthetic: ${sunoError.message}`);
-                        // Fallback to synthetic background music
-                        const background = this.getRandomBackground();
-                        console.log(`🎲 Fallback to synthetic background: ${background.name}`);
-                        backgroundPath = await this.generateBackgroundMusic(duration, background.key);
-                        backgroundName = `${background.name} (fallback)`;
-                    }
-                } else {
-                    // No background music (20%)
-                    console.log(`🎲 No background music selected`);
-                    return {
-                        success: true,
-                        audioBuffer: effectResult.audioBuffer,
-                        size: effectResult.size,
-                        effect: effect.name,
-                        description: `Applied ${effect.name}`
-                    };
-                }
-
-                // Mix voice with background
-                const mixResult = await this.mixWithBackground(effectResult.audioBuffer, 'mp3', backgroundPath);
-
-                // Clean up background music file
-                this.cleanupFile(backgroundPath);
-
-                if (mixResult.success) {
-                    return {
-                        success: true,
-                        audioBuffer: mixResult.audioBuffer,
-                        size: mixResult.size,
-                        effect: effect.name,
-                        background: backgroundName,
-                        description: `Applied ${effect.name} + ${backgroundName}`
-                    };
+                    backgroundName = `${background.name} (fallback)`;
                 }
             }
 
-            // Return just the effect result if no background or mixing failed
+            // Mix voice with background
+            const mixResult = await this.mixWithBackground(effectResult.audioBuffer, 'mp3', backgroundPath);
+
+            // Clean up background music file
+            this.cleanupFile(backgroundPath);
+
+            if (mixResult.success) {
+                return {
+                    success: true,
+                    audioBuffer: mixResult.audioBuffer,
+                    size: mixResult.size,
+                    effect: effect.name,
+                    background: backgroundName,
+                    description: `Applied ${effect.name} + ${backgroundName}`
+                };
+            }
+
+            // Return just the effect result if mixing failed
             return {
                 success: true,
                 audioBuffer: effectResult.audioBuffer,
