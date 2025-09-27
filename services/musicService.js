@@ -205,13 +205,17 @@ class MusicService {
             }
 
             console.log(`🎵 Processing callback for ${taskInfo.type} music task: ${taskId}`);
+            console.log(`📋 Callback data:`, JSON.stringify(callbackData, null, 2));
 
             if (callbackData.code === 200 && callbackData.data?.callbackType === 'complete') {
                 const songs = callbackData.data.data || [];
+                console.log(`🎵 Found ${songs.length} songs in callback`);
                 
                 if (songs.length > 0) {
                     const firstSong = songs[0];
+                    console.log(`🎵 First song data:`, JSON.stringify(firstSong, null, 2));
                     const songUrl = firstSong.audioUrl || firstSong.audio_url || firstSong.url;
+                    console.log(`🎵 Song URL: ${songUrl}`);
                     
                     if (songUrl) {
                         // Download and process the audio
@@ -275,6 +279,9 @@ class MusicService {
                         };
                     }
                 }
+            } else {
+                console.log(`⚠️ No songs found in callback or callback type not 'complete'`);
+                console.log(`📋 Callback code: ${callbackData.code}, type: ${callbackData.data?.callbackType}`);
             }
 
             // Clean up task info
