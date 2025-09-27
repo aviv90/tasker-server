@@ -344,17 +344,56 @@ class CreativeAudioService {
                 model: 'V5'
             });
 
-            if (musicResult.error || !musicResult.audioBuffer) {
-                throw new Error(`Suno music generation failed: ${musicResult.error || 'No audio buffer'}`);
+            if (musicResult.error) {
+                throw new Error(`Suno music generation failed: ${musicResult.error}`);
             }
 
-            // Save to temporary file
-            const fileName = `suno_instrumental_${uuidv4()}.mp3`;
-            const filePath = path.join(this.tempDir, fileName);
-            fs.writeFileSync(filePath, musicResult.audioBuffer);
+            // If we have audioBuffer, save it immediately
+            if (musicResult.audioBuffer) {
+                const fileName = `suno_instrumental_${uuidv4()}.mp3`;
+                const filePath = path.join(this.tempDir, fileName);
+                fs.writeFileSync(filePath, musicResult.audioBuffer);
+                console.log(`✅ Suno instrumental generated: ${fileName}`);
+                return filePath;
+            }
 
-            console.log(`✅ Suno instrumental generated: ${fileName}`);
-            return filePath;
+            // If status is pending, we need to wait for callback
+            if (musicResult.status === 'pending' && musicResult.taskId) {
+                console.log(`⏳ Suno instrumental task submitted, waiting for callback: ${musicResult.taskId}`);
+                
+                // Wait for callback completion using Promise-based approach
+                return new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('Suno instrumental generation timeout - callback not received within 60 seconds'));
+                    }, 60000);
+                    
+                    // Store the resolve/reject functions for the callback to use
+                    if (!this.pendingCallbacks) {
+                        this.pendingCallbacks = new Map();
+                    }
+                    
+                    this.pendingCallbacks.set(musicResult.taskId, {
+                        resolve: (audioBuffer) => {
+                            clearTimeout(timeout);
+                            try {
+                                const fileName = `suno_instrumental_${uuidv4()}.mp3`;
+                                const filePath = path.join(this.tempDir, fileName);
+                                fs.writeFileSync(filePath, audioBuffer);
+                                console.log(`✅ Suno instrumental generated via callback: ${fileName}`);
+                                resolve(filePath);
+                            } catch (err) {
+                                reject(new Error(`Failed to save Suno instrumental: ${err.message}`));
+                            }
+                        },
+                        reject: (error) => {
+                            clearTimeout(timeout);
+                            reject(new Error(`Suno instrumental callback failed: ${error}`));
+                        }
+                    });
+                });
+            }
+
+            throw new Error(`Suno music generation failed: Unexpected result format`);
 
         } catch (err) {
             console.error('❌ Error generating Suno instrumental:', err);

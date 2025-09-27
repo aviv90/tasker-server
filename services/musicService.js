@@ -248,6 +248,18 @@ class MusicService {
                         // Clean up task info
                         this.pendingTasks.delete(taskId);
                         
+                        // Notify creativeAudioService if it's waiting for this callback
+                        try {
+                            const creativeAudioService = require('./creativeAudioService');
+                            if (creativeAudioService.pendingCallbacks && creativeAudioService.pendingCallbacks.has(taskId)) {
+                                const callback = creativeAudioService.pendingCallbacks.get(taskId);
+                                creativeAudioService.pendingCallbacks.delete(taskId);
+                                callback.resolve(finalAudioBuffer);
+                            }
+                        } catch (err) {
+                            console.warn(`⚠️ Could not notify creativeAudioService: ${err.message}`);
+                        }
+                        
                         return {
                             text: taskInfo.musicOptions.prompt || taskInfo.musicOptions.title || `Generated ${taskInfo.type} music`,
                             audioBuffer: finalAudioBuffer,
