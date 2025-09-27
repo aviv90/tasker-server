@@ -58,6 +58,88 @@ class CreativeAudioService {
             flanger: {
                 name: '🌊 Flanger Effect',
                 command: '-filter:a "flanger=delay=10:depth=2:regen=0:width=71:speed=0.5"'
+            },
+            // Auto-tune and pitch effects
+            autotune_up: {
+                name: '🎤 Auto-tune Up',
+                command: '-filter:a "asetrate=44100*2^(2/12),atempo=1/2^(2/12),aresample=44100"'
+            },
+            autotune_down: {
+                name: '🎤 Auto-tune Down',
+                command: '-filter:a "asetrate=44100*2^(-2/12),atempo=1/2^(-2/12),aresample=44100"'
+            },
+            vibrato: {
+                name: '🎵 Vibrato',
+                command: '-filter:a "vibrato=f=5.0:d=0.5"'
+            },
+            tremolo: {
+                name: '🎵 Tremolo',
+                command: '-filter:a "tremolo=f=5.0:d=0.5"'
+            },
+            phaser: {
+                name: '🌀 Phaser',
+                command: '-filter:a "aphaser=in_gain=0.4:out_gain=0.74:delay=3.0:decay=0.4:speed=0.5"'
+            },
+            pitch_up: {
+                name: '🎼 Pitch Up',
+                command: '-filter:a "asetrate=44100*2^(4/12),atempo=1/2^(4/12),aresample=44100"'
+            },
+            pitch_down: {
+                name: '🎼 Pitch Down',
+                command: '-filter:a "asetrate=44100*2^(-4/12),atempo=1/2^(-4/12),aresample=44100"'
+            },
+            compressor: {
+                name: '🎚️ Compressor',
+                command: '-filter:a "acompressor=threshold=0.089:ratio=9:attack=200:release=1000"'
+            },
+            stereo_wide: {
+                name: '🎧 Stereo Wide',
+                command: '-filter:a "stereowiden"'
+            },
+            // Additional creative effects
+            reverse: {
+                name: '⏪ Reverse',
+                command: '-filter:a "areverse"'
+            },
+            fade_in: {
+                name: '🌅 Fade In',
+                command: '-filter:a "afade=t=in:st=0:d=2.0"'
+            },
+            fade_out: {
+                name: '🌇 Fade Out',
+                command: '-filter:a "afade=t=out:st=0:d=2.0"'
+            },
+            bass_boost: {
+                name: '🔊 Bass Boost',
+                command: '-filter:a "bass=g=5:f=100"'
+            },
+            treble_boost: {
+                name: '🔊 Treble Boost',
+                command: '-filter:a "treble=g=5:f=3000"'
+            },
+            noise_reduction: {
+                name: '🔇 Noise Reduction',
+                command: '-filter:a "afftdn=nf=-25"'
+            },
+            equalizer: {
+                name: '🎛️ Equalizer',
+                command: '-filter:a "aequalizer=f=1000:width_type=h:width=200:g=-5"'
+            },
+            slow_motion: {
+                name: '🐌 Slow Motion',
+                command: '-filter:a "atempo=0.5"'
+            },
+            fast_forward: {
+                name: '⚡ Fast Forward',
+                command: '-filter:a "atempo=2.0"'
+            },
+            underwater: {
+                name: '🌊 Underwater',
+                command: '-filter:a "highpass=f=200,lowpass=f=2000,volume=0.8"'
+            },
+            space_echo: {
+                name: '🚀 Space Echo',
+                command: '-filter:a "aecho=0.8:0.9:2000:0.5"'
             }
         };
 
