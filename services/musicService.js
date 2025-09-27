@@ -207,7 +207,7 @@ class MusicService {
             console.log(`🎵 Processing callback for ${taskInfo.type} music task: ${taskId}`);
             console.log(`📋 Callback data:`, JSON.stringify(callbackData, null, 2));
 
-            if (callbackData.code === 200 && (callbackData.data?.callbackType === 'complete' || callbackData.data?.callbackType === 'text')) {
+            if (callbackData.code === 200 && callbackData.data?.callbackType === 'complete') {
                 const songs = callbackData.data.data || [];
                 console.log(`🎵 Found ${songs.length} songs in callback`);
                 
@@ -279,6 +279,14 @@ class MusicService {
                         };
                     }
                 }
+            } else if (callbackData.data?.callbackType === 'text') {
+                console.log(`📝 Text generation completed for task ${taskId}, waiting for complete callback...`);
+                // Don't process yet, wait for 'complete' callback
+                return { status: 'text_complete', message: 'Text generation completed, waiting for audio' };
+            } else if (callbackData.data?.callbackType === 'first') {
+                console.log(`🎵 First track completed for task ${taskId}, waiting for complete callback...`);
+                // Don't process yet, wait for 'complete' callback
+                return { status: 'first_complete', message: 'First track completed, waiting for all tracks' };
             } else {
                 console.log(`⚠️ No songs found in callback or callback type not supported`);
                 console.log(`📋 Callback code: ${callbackData.code}, type: ${callbackData.data?.callbackType}`);
