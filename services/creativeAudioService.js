@@ -68,6 +68,18 @@ class CreativeAudioService {
                 name: '🎤 Auto-tune Down',
                 command: '-filter:a "asetrate=44100*2^(-2/12),atempo=1/2^(-2/12),aresample=44100"'
             },
+            songify_autotune: {
+                name: '🎵 Songify Auto-tune',
+                command: '-filter:a "asetrate=44100*2^(1/12),atempo=1/2^(1/12),aresample=44100,acompressor=threshold=0.1:ratio=9:attack=200:release=1000,vibrato=f=3.0:d=0.3"'
+            },
+            pitch_correction: {
+                name: '🎼 Pitch Correction',
+                command: '-filter:a "asetrate=44100*2^(0.5/12),atempo=1/2^(0.5/12),aresample=44100,acompressor=threshold=0.2:ratio=6:attack=100:release=500"'
+            },
+            melodic_voice: {
+                name: '🎶 Melodic Voice',
+                command: '-filter:a "asetrate=44100*2^(1.5/12),atempo=1/2^(1.5/12),aresample=44100,chorus=0.3:0.6:30:0.2:0.15:1.5"'
+            },
             vibrato: {
                 name: '🎵 Vibrato',
                 command: '-filter:a "vibrato=f=5.0:d=0.5"'
@@ -502,11 +514,11 @@ class CreativeAudioService {
 
                 console.log(`🎵 Mixing voice with background music...`);
 
-                // Step 1: Lower background music volume (increased from 0.3 to 0.6)
+                // Step 1: Lower background music volume to make it subtle background
                 const volumeCommand = [
                     'ffmpeg',
                     '-i', backgroundPath,
-                    '-filter:a', 'volume=0.6',
+                    '-filter:a', 'volume=0.3',
                     '-c:a', 'libmp3lame',
                     '-b:a', '128k',
                     '-y',
@@ -522,13 +534,13 @@ class CreativeAudioService {
                         throw new Error('Background volume adjustment failed');
                     }
 
-                    // Step 2: Mix voice with lowered background
-                    const mixCommand = [
-                        'ffmpeg',
-                        '-i', voicePath,
-                        '-i', backgroundLowPath,
-                        '-filter_complex',
-                        '[0:a][1:a]amix=inputs=2:duration=first',
+                // Step 2: Mix voice with lowered background (voice louder, music quieter)
+                const mixCommand = [
+                    'ffmpeg',
+                    '-i', voicePath,
+                    '-i', backgroundLowPath,
+                    '-filter_complex',
+                    '[0:a]volume=1.2[voice];[1:a]volume=0.3[bg];[voice][bg]amix=inputs=2:duration=first:weights=1 0.3',
                         '-c:a', 'libmp3lame',
                         '-b:a', '128k',
                         '-y',
@@ -603,21 +615,21 @@ class CreativeAudioService {
             // Get audio duration (approximate)
             const duration = Math.max(3, Math.min(15, audioBuffer.length / 10000)); // Rough estimate
             
-            // Choose background music type: 30% synthetic, 70% Suno
+            // Choose background music type: 50% synthetic, 50% Suno
             const backgroundType = Math.random();
             let backgroundPath;
             let backgroundName;
             
-            console.log(`🎲 Background: ${backgroundType < 0.3 ? 'Synthetic' : 'Suno'}`);
+            console.log(`🎲 Background: ${backgroundType < 0.5 ? 'Synthetic' : 'Suno'}`);
             
-            if (backgroundType < 0.3) {
-                // Synthetic background music (30%)
+            if (backgroundType < 0.5) {
+                // Synthetic background music (50%)
                 const background = this.getRandomBackground();
                 console.log(`🎲 Selected synthetic background: ${background.name}`);
                 backgroundPath = await this.generateBackgroundMusic(duration, background.key);
                 backgroundName = background.name;
             } else {
-                // Suno instrumental music (70%)
+                // Suno instrumental music (50%)
                 const instrumentalStyle = this.getRandomInstrumentalStyle();
                 console.log(`🎲 Selected Suno instrumental: ${instrumentalStyle.name}`);
                 
