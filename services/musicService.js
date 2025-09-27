@@ -207,14 +207,14 @@ class MusicService {
             console.log(`🎵 Processing callback for ${taskInfo.type} music task: ${taskId}`);
             console.log(`📋 Callback data:`, JSON.stringify(callbackData, null, 2));
 
-            if (callbackData.code === 200 && callbackData.data?.callbackType === 'complete') {
+            if (callbackData.code === 200 && (callbackData.data?.callbackType === 'complete' || callbackData.data?.callbackType === 'text')) {
                 const songs = callbackData.data.data || [];
                 console.log(`🎵 Found ${songs.length} songs in callback`);
                 
                 if (songs.length > 0) {
                     const firstSong = songs[0];
                     console.log(`🎵 First song data:`, JSON.stringify(firstSong, null, 2));
-                    const songUrl = firstSong.audioUrl || firstSong.audio_url || firstSong.url;
+                    const songUrl = firstSong.audioUrl || firstSong.audio_url || firstSong.url || firstSong.stream_audio_url || firstSong.source_stream_audio_url;
                     console.log(`🎵 Song URL: ${songUrl}`);
                     
                     if (songUrl) {
@@ -280,7 +280,7 @@ class MusicService {
                     }
                 }
             } else {
-                console.log(`⚠️ No songs found in callback or callback type not 'complete'`);
+                console.log(`⚠️ No songs found in callback or callback type not supported`);
                 console.log(`📋 Callback code: ${callbackData.code}, type: ${callbackData.data?.callbackType}`);
             }
 
