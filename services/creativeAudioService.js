@@ -123,7 +123,7 @@ class CreativeAudioService {
             },
             equalizer: {
                 name: '🎛️ Equalizer',
-                command: '-filter:a "aequalizer=f=1000:width_type=h:width=200:g=-5"'
+                command: '-filter:a "highpass=f=200,lowpass=f=3000"'
             },
             slow_motion: {
                 name: '🐌 Slow Motion',
