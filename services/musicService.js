@@ -254,8 +254,7 @@ class MusicService {
                         
                         // Notify creativeAudioService if it's waiting for this callback
                         try {
-                            const CreativeAudioService = require('./creativeAudioService');
-                            const creativeAudioService = new CreativeAudioService();
+                            const { creativeAudioService } = require('./creativeAudioService');
                             if (creativeAudioService.pendingCallbacks && creativeAudioService.pendingCallbacks.has(taskId)) {
                                 const callback = creativeAudioService.pendingCallbacks.get(taskId);
                                 creativeAudioService.pendingCallbacks.delete(taskId);
