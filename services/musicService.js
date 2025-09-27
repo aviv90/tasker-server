@@ -54,7 +54,7 @@ class MusicService {
             
             console.log(`🎼 Using automatic mode with prompt: "${cleanPrompt}"`);
 
-            console.log(`🎼 Music options:`, JSON.stringify(musicOptions, null, 2));
+            console.log(`🎼 Music options: ${musicOptions.prompt?.substring(0, 50)}...`);
 
             // Step 1: Submit music generation task
             const generateResponse = await fetch(`${this.baseUrl}/api/v1/generate`, {
@@ -141,7 +141,7 @@ class MusicService {
             if (options.duration) musicOptions.duration = options.duration;
 
             console.log(`🎹 Using automatic instrumental mode with prompt: "${cleanPrompt}"`);
-            console.log(`🎹 Instrumental music options:`, JSON.stringify(musicOptions, null, 2));
+            console.log(`🎹 Instrumental music options: ${musicOptions.prompt?.substring(0, 50)}...`);
 
             // Use the same logic as generateMusicWithLyrics but with instrumental settings
             return await this._generateMusic(musicOptions, 'instrumental');
@@ -205,7 +205,7 @@ class MusicService {
             }
 
             console.log(`🎵 Processing callback for ${taskInfo.type} music task: ${taskId}`);
-            console.log(`📋 Callback data:`, JSON.stringify(callbackData, null, 2));
+            console.log(`📋 Callback received: ${callbackData.data?.callbackType} for task ${taskId}`);
 
             if (callbackData.code === 200 && callbackData.data?.callbackType === 'complete') {
                 const songs = callbackData.data.data || [];
@@ -213,7 +213,7 @@ class MusicService {
                 
                 if (songs.length > 0) {
                     const firstSong = songs[0];
-                    console.log(`🎵 First song data:`, JSON.stringify(firstSong, null, 2));
+                    console.log(`🎵 First song: ${firstSong.title} (${firstSong.duration}s)`);
                     const songUrl = firstSong.audioUrl || firstSong.audio_url || firstSong.url || firstSong.stream_audio_url || firstSong.source_stream_audio_url;
                     console.log(`🎵 Song URL: ${songUrl}`);
                     
@@ -254,7 +254,8 @@ class MusicService {
                         
                         // Notify creativeAudioService if it's waiting for this callback
                         try {
-                            const creativeAudioService = require('./creativeAudioService');
+                            const CreativeAudioService = require('./creativeAudioService');
+                            const creativeAudioService = new CreativeAudioService();
                             if (creativeAudioService.pendingCallbacks && creativeAudioService.pendingCallbacks.has(taskId)) {
                                 const callback = creativeAudioService.pendingCallbacks.get(taskId);
                                 creativeAudioService.pendingCallbacks.delete(taskId);
@@ -355,7 +356,7 @@ class MusicService {
             };
             
             console.log(`🎼 Using advanced V5 mode with prompt: "${cleanPrompt}"`);
-            console.log(`🎼 Advanced music options:`, JSON.stringify(musicOptions, null, 2));
+            console.log(`🎼 Advanced music options: ${musicOptions.prompt?.substring(0, 50)}...`);
 
             // Use the same generation logic but with advanced options
             return await this._generateMusic(musicOptions, 'advanced');

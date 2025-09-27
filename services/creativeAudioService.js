@@ -606,7 +606,7 @@ class CreativeAudioService {
             let backgroundPath;
             let backgroundName;
             
-            console.log(`🎲 Background type random: ${backgroundType.toFixed(3)} (${backgroundType < 0.3 ? 'Synthetic' : 'Suno'})`);
+            console.log(`🎲 Background: ${backgroundType < 0.3 ? 'Synthetic' : 'Suno'}`);
             
             if (backgroundType < 0.3) {
                 // Synthetic background music (30%)

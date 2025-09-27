@@ -95,12 +95,12 @@ async function convertAudioToMp3(inputBuffer, inputMimetype) {
 
     // Wait for conversion to complete
     job = await cloudconvert.jobs.wait(job.id);    // Log all tasks to see what failed
-    console.log(`🔍 All job tasks:`, JSON.stringify(job.tasks, null, 2));
+    console.log(`🔍 Job has ${job.tasks?.length || 0} tasks`);
 
     // Download the converted file
     const exportTask = job.tasks.find(task => task.name === 'export');
     
-    console.log(`📥 Export task:`, JSON.stringify(exportTask, null, 2));
+    console.log(`📥 Export task: ${exportTask?.status}`);
     
     if (!exportTask || !exportTask.result || !exportTask.result.files || !exportTask.result.files[0]) {
       throw new Error('No export file found in CloudConvert response');

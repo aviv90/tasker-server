@@ -65,7 +65,7 @@ class KieService {
 
                 const status = statusData.data;
                 console.log(`📊 Kie.ai ${model} status check - successFlag: ${status.successFlag}`);
-                console.log(`📊 Full status data:`, JSON.stringify(status, null, 2));
+                console.log(`📊 Status: ${status.status} (${status.progress}%)`);
 
                 if (status.successFlag === 1) {
                     // Success - video is ready
@@ -259,7 +259,7 @@ class KieService {
 
                 const status = statusData.data;
                 console.log(`📊 Kie.ai ${model} image-to-video status check - successFlag: ${status.successFlag}`);
-                console.log(`📊 Full image-to-video status data:`, JSON.stringify(status, null, 2));
+                console.log(`📊 Image-to-video status: ${status.status} (${status.progress}%)`);
 
                 if (status.successFlag === 1) {
                     // Success - video is ready
