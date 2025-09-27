@@ -90,7 +90,7 @@ class MusicService {
             this.pendingTasks.set(taskId, taskInfo);
 
             // Return immediately - callback will handle completion
-            return {
+                        return {
                 taskId: taskId,
                 status: 'pending',
                 message: 'Music generation with lyrics started. Waiting for completion...'
@@ -227,27 +227,27 @@ class MusicService {
                         const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
                         
                         // Save to temp file
-                        const tempFileName = `temp_music_${uuidv4()}.mp3`;
-                        const tempFilePath = path.join(__dirname, '..', 'public', 'tmp', tempFileName);
-                        const tmpDir = path.dirname(tempFilePath);
+                const tempFileName = `temp_music_${uuidv4()}.mp3`;
+                const tempFilePath = path.join(__dirname, '..', 'public', 'tmp', tempFileName);
+                const tmpDir = path.dirname(tempFilePath);
 
-                        if (!fs.existsSync(tmpDir)) {
-                            fs.mkdirSync(tmpDir, { recursive: true });
-                        }
+                if (!fs.existsSync(tmpDir)) {
+                    fs.mkdirSync(tmpDir, { recursive: true });
+                }
 
-                        fs.writeFileSync(tempFilePath, audioBuffer);
+                fs.writeFileSync(tempFilePath, audioBuffer);
 
-                        // Verify file
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                        if (!fs.existsSync(tempFilePath) || fs.statSync(tempFilePath).size < 10000) {
+                // Verify file
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                if (!fs.existsSync(tempFilePath) || fs.statSync(tempFilePath).size < 10000) {
                             throw new Error('Audio file was not downloaded successfully');
-                        }
+                }
 
                         console.log(`✅ Suno ${taskInfo.type} music generated successfully via callback`);
-                        
-                        const finalAudioBuffer = fs.readFileSync(tempFilePath);
-                        const filename = path.basename(tempFilePath);
-                        const publicPath = `/static/${filename}`;
+                
+                const finalAudioBuffer = fs.readFileSync(tempFilePath);
+                const filename = path.basename(tempFilePath);
+                const publicPath = `/static/${filename}`;
                         
                         // Clean up task info
                         this.pendingTasks.delete(taskId);
@@ -263,12 +263,12 @@ class MusicService {
                         } catch (err) {
                             console.warn(`⚠️ Could not notify creativeAudioService: ${err.message}`);
                         }
-                        
-                        return {
+                
+                return {
                             text: taskInfo.musicOptions.prompt || taskInfo.musicOptions.title || `Generated ${taskInfo.type} music`,
-                            audioBuffer: finalAudioBuffer,
+                    audioBuffer: finalAudioBuffer,
                             result: publicPath,
-                            metadata: {
+                    metadata: {
                                 title: firstSong.title,
                                 duration: firstSong.duration,
                                 tags: firstSong.tags,
@@ -445,8 +445,8 @@ class MusicService {
             this.pendingTasks.set(taskId, taskInfo);
 
             // Return immediately - callback will handle completion
-            return {
-                taskId: taskId,
+                    return {
+                        taskId: taskId,
                 status: 'pending',
                 message: 'Upload-Extend generation started. Waiting for completion...'
             };
@@ -494,8 +494,8 @@ class MusicService {
             this.pendingTasks.set(taskId, taskInfo);
 
             // Return immediately - callback will handle completion
-            return {
-                taskId: taskId,
+                    return {
+                        taskId: taskId,
                 status: 'pending',
                 message: 'Upload-Cover generation started. Waiting for completion...'
             };
@@ -573,8 +573,8 @@ class MusicService {
             this.pendingTasks.set(taskId, taskInfo);
 
             // Return immediately - callback will handle completion
-            return {
-                taskId: taskId,
+                    return {
+                        taskId: taskId,
                 status: 'pending',
                 message: 'Add Instrumental generation started. Waiting for completion...'
             };

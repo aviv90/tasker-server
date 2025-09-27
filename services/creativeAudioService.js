@@ -363,10 +363,6 @@ class CreativeAudioService {
                 
                 // Wait for callback completion using Promise-based approach
                 return new Promise((resolve, reject) => {
-                    const timeout = setTimeout(() => {
-                        reject(new Error('Suno instrumental generation timeout - callback not received within 60 seconds'));
-                    }, 60000);
-                    
                     // Store the resolve/reject functions for the callback to use
                     if (!this.pendingCallbacks) {
                         this.pendingCallbacks = new Map();
@@ -374,7 +370,6 @@ class CreativeAudioService {
                     
                     this.pendingCallbacks.set(musicResult.taskId, {
                         resolve: (audioBuffer) => {
-                            clearTimeout(timeout);
                             try {
                                 const fileName = `suno_instrumental_${uuidv4()}.mp3`;
                                 const filePath = path.join(this.tempDir, fileName);
@@ -386,7 +381,6 @@ class CreativeAudioService {
                             }
                         },
                         reject: (error) => {
-                            clearTimeout(timeout);
                             reject(new Error(`Suno instrumental callback failed: ${error}`));
                         }
                     });
