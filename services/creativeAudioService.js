@@ -461,11 +461,11 @@ class CreativeAudioService {
 
                 console.log(`🎵 Mixing voice with background music...`);
 
-                // Step 1: Lower background music volume
+                // Step 1: Lower background music volume (increased from 0.3 to 0.6)
                 const volumeCommand = [
                     'ffmpeg',
                     '-i', backgroundPath,
-                    '-filter:a', 'volume=0.3',
+                    '-filter:a', 'volume=0.6',
                     '-c:a', 'libmp3lame',
                     '-b:a', '128k',
                     '-y',
@@ -567,6 +567,8 @@ class CreativeAudioService {
             let backgroundPath;
             let backgroundName;
             
+            console.log(`🎲 Background type random: ${backgroundType.toFixed(3)} (${backgroundType < 0.5 ? 'Synthetic' : 'Suno'})`);
+            
             if (backgroundType < 0.5) {
                 // Synthetic background music (50%)
                 const background = this.getRandomBackground();
@@ -581,6 +583,7 @@ class CreativeAudioService {
                 try {
                     backgroundPath = await this.generateSunoInstrumental(duration, instrumentalStyle);
                     backgroundName = instrumentalStyle.name;
+                    console.log(`✅ Suno instrumental path: ${backgroundPath}`);
                 } catch (sunoError) {
                     console.warn(`⚠️ Suno instrumental failed, falling back to synthetic: ${sunoError.message}`);
                     // Fallback to synthetic background music

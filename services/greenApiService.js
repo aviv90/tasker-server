@@ -50,16 +50,29 @@ async function sendFileByUrl(chatId, fileUrl, fileName, caption = '') {
       caption: caption
     };
 
+    console.log(`📤 Sending file via Green API:`, {
+      chatId,
+      fileName,
+      fileUrl: fileUrl?.substring(0, 100) + (fileUrl?.length > 100 ? '...' : ''),
+      caption: caption || '(no caption)'
+    });
+
     const response = await axios.post(url, data, {
       headers: {
         'Content-Type': 'application/json'
       }
     });
 
-    console.log(`📤 File sent to ${chatId}: ${fileName}${caption ? ' with caption: ' + caption : ''}`);
+    console.log(`✅ File sent to ${chatId}: ${fileName}${caption ? ' with caption: ' + caption : ''}`);
     return response.data;
   } catch (error) {
     console.error('❌ Error sending file:', error.message);
+    console.error('❌ Request data that failed:', {
+      chatId,
+      fileName,
+      fileUrl: fileUrl?.substring(0, 100) + (fileUrl?.length > 100 ? '...' : ''),
+      caption
+    });
     
     // Log the response details if available for debugging
     if (error.response) {

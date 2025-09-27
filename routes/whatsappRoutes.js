@@ -1219,6 +1219,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד ההקלטה הקולית.');
   }
 }
+*/
 
 /**
  * Handle text message with AI chat functionality
