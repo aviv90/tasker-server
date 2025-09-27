@@ -541,11 +541,11 @@ class CreativeAudioService {
                     '-i', backgroundLowPath,
                     '-filter_complex',
                     '[0:a]volume=1.2[voice];[1:a]volume=0.3[bg];[voice][bg]amix=inputs=2:duration=first:weights=1 0.3',
-                        '-c:a', 'libmp3lame',
-                        '-b:a', '128k',
-                        '-y',
-                        outputPath
-                    ].join(' ');
+                    '-c:a', 'libmp3lame',
+                    '-b:a', '128k',
+                    '-y',
+                    outputPath
+                ].join(' ');
 
                     console.log(`🎵 Mixing command: ${mixCommand}`);
 
