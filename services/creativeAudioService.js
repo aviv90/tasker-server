@@ -535,7 +535,7 @@ class CreativeAudioService {
                     }
 
                 // Step 2: Mix voice with lowered background (voice louder, music quieter)
-                const mixCommand = `ffmpeg -i "${voicePath}" -i "${backgroundLowPath}" -filter_complex "[0:a]volume=1.2[voice];[1:a]volume=0.3[bg];[voice][bg]amix=inputs=2:duration=first:weights=1,0.3" -c:a libmp3lame -b:a 128k -y "${outputPath}"`;
+                const mixCommand = `ffmpeg -i "${voicePath}" -i "${backgroundLowPath}" -filter_complex "[0:a]volume=1.2[voice];[1:a]volume=0.3[bg];[voice][bg]amix=inputs=2:duration=first:weights=1 0.3" -c:a libmp3lame -b:a 128k -y "${outputPath}"`;
 
                     console.log(`🎵 Mixing command: ${mixCommand}`);
 
@@ -605,21 +605,21 @@ class CreativeAudioService {
             // Get audio duration (approximate)
             const duration = Math.max(3, Math.min(15, audioBuffer.length / 10000)); // Rough estimate
             
-            // Choose background music type: 50% synthetic, 50% Suno
+            // Choose background music type: 95% synthetic, 5% Suno
             const backgroundType = Math.random();
             let backgroundPath;
             let backgroundName;
             
-            console.log(`🎲 Background: ${backgroundType < 0.5 ? 'Synthetic' : 'Suno'}`);
+            console.log(`🎲 Background: ${backgroundType < 0.95 ? 'Synthetic' : 'Suno'}`);
             
-            if (backgroundType < 0.5) {
-                // Synthetic background music (50%)
+            if (backgroundType < 0.95) {
+                // Synthetic background music (95%)
                 const background = this.getRandomBackground();
                 console.log(`🎲 Selected synthetic background: ${background.name}`);
                 backgroundPath = await this.generateBackgroundMusic(duration, background.key);
                 backgroundName = background.name;
             } else {
-                // Suno instrumental music (50%)
+                // Suno instrumental music (5%)
                 const instrumentalStyle = this.getRandomInstrumentalStyle();
                 console.log(`🎲 Selected Suno instrumental: ${instrumentalStyle.name}`);
                 
