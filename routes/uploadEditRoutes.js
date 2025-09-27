@@ -531,35 +531,39 @@ router.post('/music/callback', async (req, res) => {
     if (callbackData.data && callbackData.data.task_id) {
       const kieTaskId = callbackData.data.task_id;
       
-      // Try to handle via musicService callback handler
+      // Handle callback asynchronously to avoid Heroku timeout
       const musicService = require('../services/musicService');
-      const result = await musicService.handleCallbackCompletion(kieTaskId, callbackData);
       
-      if (result && !result.error) {
-        console.log(`✅ Suno music callback processed successfully for task ${kieTaskId}`);
-        
-        // Find our task ID based on the Kie.ai task ID
-        const ourTaskId = kieTaskMapping.get(kieTaskId);
-        
-        if (ourTaskId) {
-          // Update our task store with the processed result
-          taskStore.set(ourTaskId, { 
-            status: 'done', 
-            result: result.result,
-            audioBuffer: result.audioBuffer,
-            metadata: result.metadata,
-            type: 'music-generation',
-            timestamp: new Date().toISOString()
-          });
+      // Process callback in background without blocking response
+      musicService.handleCallbackCompletion(kieTaskId, callbackData).then(result => {
+        if (result && !result.error) {
+          console.log(`✅ Suno music callback processed successfully for task ${kieTaskId}`);
           
-          console.log(`✅ Task ${ourTaskId} completed successfully`);
+          // Find our task ID based on the Kie.ai task ID
+          const ourTaskId = kieTaskMapping.get(kieTaskId);
           
-          // Clean up the mapping
-          kieTaskMapping.delete(kieTaskId);
+          if (ourTaskId) {
+            // Update our task store with the processed result
+            taskStore.set(ourTaskId, { 
+              status: 'done', 
+              result: result.result,
+              audioBuffer: result.audioBuffer,
+              metadata: result.metadata,
+              type: 'music-generation',
+              timestamp: new Date().toISOString()
+            });
+            
+            console.log(`✅ Task ${ourTaskId} completed successfully`);
+            
+            // Clean up the mapping
+            kieTaskMapping.delete(kieTaskId);
+          }
+        } else {
+          console.log(`⚠️ Music callback processing failed: ${result?.error || 'Unknown error'}`);
         }
-      } else {
-        console.log(`⚠️ Music callback processing failed: ${result?.error || 'Unknown error'}`);
-      }
+      }).catch(error => {
+        console.error(`❌ Error processing music callback:`, error);
+      });
     }
     
     // Acknowledge the callback
