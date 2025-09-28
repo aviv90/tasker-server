@@ -59,26 +59,14 @@ class CreativeAudioService {
                 name: '🌊 Flanger Effect',
                 command: '-filter:a "flanger=delay=10:depth=2:regen=0:width=71:speed=0.5"'
             },
-            // Auto-tune and pitch effects
-            autotune_up: {
-                name: '🎤 Auto-tune Up',
-                command: '-filter:a "asetrate=44100*2^(2/12),atempo=1/2^(2/12),aresample=44100"'
+            // Pitch effects (standard FFmpeg)
+            pitch_up: {
+                name: '🎼 Pitch Up',
+                command: '-filter:a "asetrate=44100*2^(4/12),atempo=1/2^(4/12),aresample=44100"'
             },
-            autotune_down: {
-                name: '🎤 Auto-tune Down',
-                command: '-filter:a "asetrate=44100*2^(-2/12),atempo=1/2^(-2/12),aresample=44100"'
-            },
-            songify_autotune: {
-                name: '🎵 Songify Auto-tune',
-                command: '-filter:a "asetrate=44100*2^(1/12),atempo=1/2^(1/12),aresample=44100,acompressor=threshold=0.1:ratio=9:attack=200:release=1000,vibrato=f=3.0:d=0.3"'
-            },
-            pitch_correction: {
-                name: '🎼 Pitch Correction',
-                command: '-filter:a "asetrate=44100*2^(0.5/12),atempo=1/2^(0.5/12),aresample=44100,acompressor=threshold=0.2:ratio=6:attack=100:release=500"'
-            },
-            melodic_voice: {
-                name: '🎶 Melodic Voice',
-                command: '-filter:a "asetrate=44100*2^(1.5/12),atempo=1/2^(1.5/12),aresample=44100,chorus=0.3:0.6:30:0.2:0.15:1.5"'
+            pitch_down: {
+                name: '🎼 Pitch Down',
+                command: '-filter:a "asetrate=44100*2^(-4/12),atempo=1/2^(-4/12),aresample=44100"'
             },
             vibrato: {
                 name: '🎵 Vibrato',
@@ -91,14 +79,6 @@ class CreativeAudioService {
             phaser: {
                 name: '🌀 Phaser',
                 command: '-filter:a "aphaser=in_gain=0.4:out_gain=0.74:delay=3.0:decay=0.4:speed=0.5"'
-            },
-            pitch_up: {
-                name: '🎼 Pitch Up',
-                command: '-filter:a "asetrate=44100*2^(4/12),atempo=1/2^(4/12),aresample=44100"'
-            },
-            pitch_down: {
-                name: '🎼 Pitch Down',
-                command: '-filter:a "asetrate=44100*2^(-4/12),atempo=1/2^(-4/12),aresample=44100"'
             },
             compressor: {
                 name: '🎚️ Compressor',
@@ -290,26 +270,32 @@ class CreativeAudioService {
 
             console.log(`🎵 Generating ${style} background music (${duration}s)...`);
 
-            // Generate synthetic music using FFmpeg
+            // Generate melodic synthetic music using FFmpeg with chord progressions
             let musicCommand;
             switch (style) {
                 case 'upbeat':
-                    musicCommand = `ffmpeg -f lavfi -i "sine=frequency=440:duration=${duration}" -f lavfi -i "sine=frequency=554:duration=${duration}" -f lavfi -i "sine=frequency=659:duration=${duration}" -filter_complex "[0:a][1:a][2:a]amix=inputs=3:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
+                    // C major chord progression: C-E-G with rhythm
+                    musicCommand = `ffmpeg -f lavfi -i "sine=frequency=261.63:duration=${duration}" -f lavfi -i "sine=frequency=329.63:duration=${duration}" -f lavfi -i "sine=frequency=392.00:duration=${duration}" -f lavfi -i "sine=frequency=523.25:duration=${duration}" -filter_complex "[0:a]volume=0.8[bass];[1:a]volume=0.6[mid];[2:a]volume=0.7[high];[3:a]volume=0.5[melody];[bass][mid][high][melody]amix=inputs=4:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
                     break;
                 case 'chill':
-                    musicCommand = `ffmpeg -f lavfi -i "sine=frequency=220:duration=${duration}" -f lavfi -i "sine=frequency=330:duration=${duration}" -filter_complex "[0:a][1:a]amix=inputs=2:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
+                    // Am chord progression: A-C-E with soft tones
+                    musicCommand = `ffmpeg -f lavfi -i "sine=frequency=220.00:duration=${duration}" -f lavfi -i "sine=frequency=261.63:duration=${duration}" -f lavfi -i "sine=frequency=329.63:duration=${duration}" -f lavfi -i "sine=frequency=440.00:duration=${duration}" -filter_complex "[0:a]volume=0.7[bass];[1:a]volume=0.5[mid1];[2:a]volume=0.6[mid2];[3:a]volume=0.4[high];[bass][mid1][mid2][high]amix=inputs=4:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
                     break;
                 case 'dramatic':
-                    musicCommand = `ffmpeg -f lavfi -i "sine=frequency=110:duration=${duration}" -f lavfi -i "sine=frequency=220:duration=${duration}" -filter_complex "[0:a][1:a]amix=inputs=2:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
+                    // Dm chord progression: D-F-A with deep tones
+                    musicCommand = `ffmpeg -f lavfi -i "sine=frequency=146.83:duration=${duration}" -f lavfi -i "sine=frequency=174.61:duration=${duration}" -f lavfi -i "sine=frequency=220.00:duration=${duration}" -f lavfi -i "sine=frequency=293.66:duration=${duration}" -filter_complex "[0:a]volume=0.9[bass];[1:a]volume=0.6[mid1];[2:a]volume=0.7[mid2];[3:a]volume=0.5[high];[bass][mid1][mid2][high]amix=inputs=4:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
                     break;
                 case 'electronic':
-                    musicCommand = `ffmpeg -f lavfi -i "sine=frequency=880:duration=${duration}" -f lavfi -i "sine=frequency=1108:duration=${duration}" -filter_complex "[0:a][1:a]amix=inputs=2:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
+                    // F#m chord progression: F#-A-C# with electronic feel
+                    musicCommand = `ffmpeg -f lavfi -i "sine=frequency=185.00:duration=${duration}" -f lavfi -i "sine=frequency=220.00:duration=${duration}" -f lavfi -i "sine=frequency=277.18:duration=${duration}" -f lavfi -i "sine=frequency=369.99:duration=${duration}" -filter_complex "[0:a]volume=0.8[bass];[1:a]volume=0.6[mid1];[2:a]volume=0.7[mid2];[3:a]volume=0.5[high];[bass][mid1][mid2][high]amix=inputs=4:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
                     break;
                 case 'jazz':
-                    musicCommand = `ffmpeg -f lavfi -i "sine=frequency=330:duration=${duration}" -f lavfi -i "sine=frequency=440:duration=${duration}" -filter_complex "[0:a][1:a]amix=inputs=2:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
+                    // G7 chord progression: G-B-D-F with jazz harmony
+                    musicCommand = `ffmpeg -f lavfi -i "sine=frequency=196.00:duration=${duration}" -f lavfi -i "sine=frequency=246.94:duration=${duration}" -f lavfi -i "sine=frequency=293.66:duration=${duration}" -f lavfi -i "sine=frequency=349.23:duration=${duration}" -filter_complex "[0:a]volume=0.7[bass];[1:a]volume=0.5[mid1];[2:a]volume=0.6[mid2];[3:a]volume=0.4[high];[bass][mid1][mid2][high]amix=inputs=4:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
                     break;
                 default:
-                    musicCommand = `ffmpeg -f lavfi -i "sine=frequency=440:duration=${duration}" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
+                    // Default: C major chord
+                    musicCommand = `ffmpeg -f lavfi -i "sine=frequency=261.63:duration=${duration}" -f lavfi -i "sine=frequency=329.63:duration=${duration}" -f lavfi -i "sine=frequency=392.00:duration=${duration}" -filter_complex "[0:a]volume=0.8[bass];[1:a]volume=0.6[mid];[2:a]volume=0.7[high];[bass][mid][high]amix=inputs=3:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
             }
 
             await execAsync(musicCommand);
@@ -605,21 +591,21 @@ class CreativeAudioService {
             // Get audio duration (approximate)
             const duration = Math.max(3, Math.min(15, audioBuffer.length / 10000)); // Rough estimate
             
-            // Choose background music type: 95% synthetic, 5% Suno
+            // Choose background music type: 50% synthetic, 50% Suno
             const backgroundType = Math.random();
             let backgroundPath;
             let backgroundName;
             
-            console.log(`🎲 Background: ${backgroundType < 0.95 ? 'Synthetic' : 'Suno'}`);
+            console.log(`🎲 Background: ${backgroundType < 0.5 ? 'Synthetic' : 'Suno'}`);
             
-            if (backgroundType < 0.95) {
-                // Synthetic background music (95%)
+            if (backgroundType < 0.5) {
+                // Synthetic background music (50%)
                 const background = this.getRandomBackground();
                 console.log(`🎲 Selected synthetic background: ${background.name}`);
                 backgroundPath = await this.generateBackgroundMusic(duration, background.key);
                 backgroundName = background.name;
             } else {
-                // Suno instrumental music (5%)
+                // Suno instrumental music (50%)
                 const instrumentalStyle = this.getRandomInstrumentalStyle();
                 console.log(`🎲 Selected Suno instrumental: ${instrumentalStyle.name}`);
                 
