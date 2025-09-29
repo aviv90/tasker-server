@@ -12,6 +12,7 @@ const { voiceService } = require('../services/voiceService');
 const { audioConverterService } = require('../services/audioConverterService');
 const { creativeAudioService } = require('../services/creativeAudioService');
 const conversationManager = require('../services/conversationManager');
+const { routeIntent } = require('../services/intentRouter');
 const authStore = require('../store/authStore');
 const fs = require('fs');
 const path = require('path');
@@ -251,12 +252,169 @@ async function handleIncomingMessage(webhookData) {
       messageText = messageData.extendedTextMessageData?.text;
     }
     
+    // Unified intent router for commands that start with "# "
+    if (messageText && /^#\s+/.test(messageText.trim())) {
+      try {
+        const normalized = {
+          userText: messageText.trim(),
+          hasImage: messageData.typeMessage === 'imageMessage',
+          hasVideo: messageData.typeMessage === 'videoMessage',
+          hasAudio: messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage',
+          chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
+          language: 'he',
+          authorizations: {
+            media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
+            voice_allowed: await conversationManager.isInVoiceAllowList((() => {
+              const isGroupChat = chatId && chatId.endsWith('@g.us');
+              const isPrivateChat = chatId && chatId.endsWith('@c.us');
+              if (isGroupChat) return chatName || senderName;
+              if (isPrivateChat) return (senderContactName && senderContactName.trim()) ? senderContactName : (chatName && chatName.trim()) ? chatName : senderName;
+              return senderContactName || chatName || senderName;
+            })())
+          }
+        };
+
+        const decision = await routeIntent(normalized);
+
+        // Map router output to existing flow for backward compatibility
+        const prompt = normalized.userText.replace(/^#\s+/, '').trim();
+        switch (decision.tool) {
+          case 'ask_clarification':
+            await sendTextMessage(chatId, 'ℹ️ לא ברור מה לבצע. תוכל לחדד בבקשה?');
+            return;
+          case 'deny_unauthorized':
+            // שמירה על התנהגות דיסקרטית: במדיה נחזיר הודעת הרשאה; בקול כבר שינינו לשקט
+            if (decision.args?.feature && decision.args.feature !== 'voice') {
+              await sendUnauthorizedMessage(chatId, decision.args.feature);
+            }
+            return;
+          case 'gemini_chat':
+          case 'openai_chat':
+          case 'grok_chat':
+            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: prompt });
+            return;
+          case 'gemini_image':
+          case 'openai_image':
+          case 'grok_image': {
+            // שימוש בפקודות טקסט קיימות, המיפוי יקרה בתוך handleTextMessage
+            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'gemini_image' ? '** ' : decision.tool === 'openai_image' ? '## ' : '++ ') + prompt });
+            return;
+          }
+          case 'veo3_video':
+          case 'kling_text_to_video': {
+            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'veo3_video' ? '#### ' : '### ') + prompt });
+            return;
+          }
+          case 'image_edit': {
+            // כדי להישאר תאימים לאחור, נשתמש בקידומות העריכה על תמונה מצורפת
+            if (messageData.typeMessage === 'imageMessage') {
+              const prefix = decision.args?.service === 'gemini' ? '* ' : '# ';
+              const imageData = messageData.fileMessageData || messageData.imageMessageData;
+              // מיחזור הלוגיקה הקיימת: הוספת כיתוב מלאכותי והמשך בנתיב הרגיל
+              imageData.caption = prefix + decision.args.prompt;
+              messageData.imageMessageData = imageData;
+              // נפל דרך לבלוק הקיים של תמונות בעיבוד בהמשך
+            }
+            break; // נמשיך לעיבוד התמונות הקיים בהמשך הפונקציה
+          }
+          case 'video_to_video': {
+            if (messageData.typeMessage === 'videoMessage') {
+              const videoData = messageData.fileMessageData || messageData.videoMessageData;
+              videoData.caption = '## ' + decision.args.prompt;
+              messageData.videoMessageData = videoData;
+            }
+            break; // נמשיך לעיבוד הווידאו הקיים
+          }
+          case 'text_to_speech':
+            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: '*** ' + (decision.args?.text || prompt) });
+            return;
+          case 'chat_summary':
+            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: 'סכם שיחה' });
+            return;
+          case 'creative_voice_processing':
+            // אם זו הודעה קולית, הבלוק של הקול בהמשך כבר יטפל
+            break;
+          default:
+            // לא מזוהה – נשמור על מסלול ישן
+            break;
+        }
+      } catch (routerError) {
+        console.error('❌ Intent router error:', routerError.message || routerError);
+        // בשגיאה, נמשיך לנתיב הישן
+      }
+    }
+
     // Handle image messages for image-to-image editing
     if (messageData.typeMessage === 'imageMessage') {
       const imageData = messageData.fileMessageData || messageData.imageMessageData;
       const caption = imageData?.caption || '';
       
       console.log(`🖼️ Image message received with caption: "${caption}"`);
+
+      // Intent router for image captions starting with "# "
+      if (/^#\s+/.test(caption.trim())) {
+        try {
+          const normalized = {
+            userText: caption.trim(),
+            hasImage: true,
+            hasVideo: false,
+            hasAudio: false,
+            chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
+            language: 'he',
+            authorizations: {
+              media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
+              voice_allowed: false
+            }
+          };
+
+          const decision = await routeIntent(normalized);
+          const routedPrompt = normalized.userText.replace(/^#\s+/, '').trim();
+
+          switch (decision.tool) {
+            case 'deny_unauthorized':
+              await sendUnauthorizedMessage(chatId, decision.args?.feature || 'media');
+              return;
+            case 'gemini_image':
+            case 'openai_image':
+            case 'grok_image':
+              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'gemini_image' ? '** ' : decision.tool === 'openai_image' ? '## ' : '++ ') + routedPrompt });
+              return;
+            case 'veo3_video':
+            case 'kling_text_to_video':
+              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'veo3_video' ? '#### ' : '### ') + routedPrompt });
+              return;
+            case 'image_edit': {
+              const prefix = decision.args?.service === 'gemini' ? '* ' : '# ';
+              imageData.caption = prefix + decision.args.prompt;
+              messageData.imageMessageData = imageData;
+              // Fall through to legacy handlers below
+              break;
+            }
+            case 'video_to_video':
+              // For image message this doesn't apply; ask clarification
+              await sendTextMessage(chatId, 'ℹ️ נשלחה תמונה, לא וידאו. תרצה לערוך את התמונה או ליצור תמונה/וידאו חדש?');
+              return;
+            case 'text_to_speech':
+              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: '*** ' + (decision.args?.text || routedPrompt) });
+              return;
+            case 'chat_summary':
+              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: 'סכם שיחה' });
+              return;
+            case 'gemini_chat':
+            case 'openai_chat':
+            case 'grok_chat':
+              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: routedPrompt });
+              return;
+            case 'ask_clarification':
+            default:
+              await sendTextMessage(chatId, 'ℹ️ לא ברור מה לבצע עם התמונה. תוכל לחדד בבקשה?');
+              return;
+          }
+        } catch (routerError) {
+          console.error('❌ Intent router (image caption) error:', routerError.message || routerError);
+          // Continue to legacy handling below
+        }
+      }
       
       // Check if caption starts with "### " for Veo 3 image-to-video
       if (caption.startsWith('### ')) {
@@ -351,6 +509,68 @@ async function handleIncomingMessage(webhookData) {
       const caption = videoData?.caption || '';
       
       console.log(`🎬 Video message received with caption: "${caption}"`);
+
+      // Intent router for video captions starting with "# "
+      if (/^#\s+/.test(caption.trim())) {
+        try {
+          const normalized = {
+            userText: caption.trim(),
+            hasImage: false,
+            hasVideo: true,
+            hasAudio: false,
+            chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
+            language: 'he',
+            authorizations: {
+              media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
+              voice_allowed: false
+            }
+          };
+
+          const decision = await routeIntent(normalized);
+          const routedPrompt = normalized.userText.replace(/^#\s+/, '').trim();
+
+          switch (decision.tool) {
+            case 'deny_unauthorized':
+              await sendUnauthorizedMessage(chatId, decision.args?.feature || 'media');
+              return;
+            case 'video_to_video':
+              // Rewrite caption to legacy prefix and fall through to legacy handlers
+              videoData.caption = '## ' + routedPrompt;
+              messageData.videoMessageData = videoData;
+              break;
+            case 'veo3_video':
+            case 'kling_text_to_video':
+              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'veo3_video' ? '#### ' : '### ') + routedPrompt });
+              return;
+            case 'image_edit':
+              await sendTextMessage(chatId, 'ℹ️ נשלח וידאו, לא תמונה. תרצה לבצע עיבוד וידאו?');
+              return;
+            case 'gemini_image':
+            case 'openai_image':
+            case 'grok_image':
+              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'gemini_image' ? '** ' : decision.tool === 'openai_image' ? '## ' : '++ ') + routedPrompt });
+              return;
+            case 'text_to_speech':
+              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: '*** ' + (decision.args?.text || routedPrompt) });
+              return;
+            case 'chat_summary':
+              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: 'סכם שיחה' });
+              return;
+            case 'gemini_chat':
+            case 'openai_chat':
+            case 'grok_chat':
+              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: routedPrompt });
+              return;
+            case 'ask_clarification':
+            default:
+              await sendTextMessage(chatId, 'ℹ️ לא ברור מה לבצע עם הווידאו. תוכל לחדד בבקשה?');
+              return;
+          }
+        } catch (routerError) {
+          console.error('❌ Intent router (video caption) error:', routerError.message || routerError);
+          // Continue to legacy handling below
+        }
+      }
       
       // Check if caption starts with "## " for RunwayML Gen4 video-to-video
       if (caption.startsWith('## ')) {
@@ -413,7 +633,7 @@ async function handleIncomingMessage(webhookData) {
         const isInAllowList = await conversationManager.isInVoiceAllowList(contactName);
         if (!isInAllowList) {
         console.log(`🚫 Creative voice processing not allowed for ${contactName} (not in allow list)`);
-        await sendTextMessage(chatId, `❌ סליחה, אתה לא מורשה לעיבוד קול יצירתי. פנה למנהל לקבלת הרשאה.`);
+        // Silently ignore unauthorized voice messages (no reply)
         return;
         }
         
