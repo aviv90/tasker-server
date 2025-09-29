@@ -383,8 +383,11 @@ async function handleIncomingMessage(webhookData) {
               return;
             case 'veo3_video':
             case 'kling_text_to_video':
-              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'veo3_video' ? '#### ' : '### ') + routedPrompt });
-              return;
+              // אם מצורפת תמונה ורוצים וידאו – נשמור תאימות: נפנה לזרימת image->video הקיימת
+              // הזרימה הקיימת מופעלת ע"י קידומות בתמונת caption (### Veo3, ## Kling)
+              imageData.caption = (decision.tool === 'veo3_video' ? '### ' : '## ') + routedPrompt;
+              messageData.imageMessageData = imageData;
+              break; // נמשיך למסלולי התמונות ההיסטוריים למטה
             case 'image_edit': {
               const prefix = decision.args?.service === 'gemini' ? '* ' : '# ';
               imageData.caption = prefix + decision.args.prompt;

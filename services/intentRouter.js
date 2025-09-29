@@ -51,10 +51,16 @@ async function routeIntent(input) {
     return { tool: 'creative_voice_processing', args: {}, reason: 'Audio message - creative flow' };
   }
 
-  // If there is an attached image with text prompt → image edit
+  // If there is an attached image with text prompt → decide between image edit vs image→video
   if (input.hasImage && prompt) {
     if (!input.authorizations?.media_creation) {
       return { tool: 'deny_unauthorized', args: { feature: 'image_edit' }, reason: 'No media creation authorization' };
+    }
+    const lower = prompt.toLowerCase();
+    const isVideoLike = /video|וידאו|סרט|אנימציה|animate|הנפש|להנפיש|תזיז|motion|קליפ/.test(lower);
+    if (isVideoLike) {
+      const toVideoTool = pickRandom(['veo3_video', 'kling_text_to_video']);
+      return { tool: toVideoTool, args: { prompt }, reason: 'Image attached, video-like request' };
     }
     const service = pickRandom(['gemini', 'openai']);
     return { tool: 'image_edit', args: { service, prompt }, reason: 'Image attached with prompt' };
