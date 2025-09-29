@@ -9,6 +9,7 @@
  */
 
 const crypto = require('crypto');
+const { generateTextResponse: geminiText } = require('./geminiService');
 
 // Helper: pick a random element from array
 function pickRandom(options) {
@@ -39,6 +40,19 @@ function pickRandom(options) {
  * The tool names are mapped 1:1 to existing command handlers in whatsappRoutes.
  */
 async function routeIntent(input) {
+  // Optional LLM routing (config-gated). Falls back to heuristic on any failure.
+  const useLLM = String(process.env.INTENT_ROUTER_USE_LLM || '').toLowerCase() === 'on';
+  if (useLLM) {
+    try {
+      const llmDecision = await decideWithLLM(input);
+      const validated = validateDecision(llmDecision);
+      if (validated) {
+        return validated;
+      }
+    } catch (err) {
+      // Fall back to heuristic silently
+    }
+  }
   const text = (input.userText || '').trim();
   const prompt = text.replace(/^#\s+/, '').trim();
 
@@ -122,5 +136,69 @@ async function routeIntent(input) {
 module.exports = {
   routeIntent
 };
+
+// ---------- Internal helpers ----------
+
+function validateDecision(obj) {
+  if (!obj || typeof obj !== 'object') return null;
+  const tool = obj.tool;
+  const args = obj.args || {};
+  const reason = typeof obj.reason === 'string' ? obj.reason : '';
+  const allowedTools = new Set([
+    'gemini_image', 'openai_image', 'grok_image',
+    'veo3_video', 'kling_text_to_video', 'video_to_video',
+    'image_edit', 'text_to_speech', 'gemini_chat', 'openai_chat', 'grok_chat',
+    'chat_summary', 'creative_voice_processing', 'deny_unauthorized', 'ask_clarification'
+  ]);
+  if (!allowedTools.has(tool)) return null;
+  return { tool, args, reason };
+}
+
+async function decideWithLLM(input) {
+  const prompt = buildRouterPrompt(input);
+  const res = await geminiText(prompt, [], { model: 'gemini-2.5-pro' });
+  const raw = (res && res.text) ? res.text.trim() : '';
+  // Try to extract JSON
+  let jsonText = raw;
+  // If wrapped in code fences, strip them
+  const fenceMatch = raw.match(/```[a-zA-Z]*\n([\s\S]*?)\n```/);
+  if (fenceMatch && fenceMatch[1]) jsonText = fenceMatch[1].trim();
+  let parsed;
+  try { parsed = JSON.parse(jsonText); } catch (_) { parsed = null; }
+  if (!parsed) throw new Error('LLM did not return valid JSON');
+  return parsed;
+}
+
+function buildRouterPrompt(input) {
+  const safe = (v) => (v === null || v === undefined) ? null : v;
+  const schema = {
+    tool: 'string // one of: gemini_image, openai_image, grok_image, veo3_video, kling_text_to_video, video_to_video, image_edit, text_to_speech, gemini_chat, openai_chat, grok_chat, chat_summary, creative_voice_processing, deny_unauthorized, ask_clarification',
+    args: 'object // tool-specific args. For image_edit include { service: "gemini"|"openai", prompt: string }',
+    reason: 'string'
+  };
+  const toolsGuidance = `
+Rules:
+- If hasAudio=true: choose creative_voice_processing only if authorizations.voice_allowed=true; else deny_unauthorized {feature:"voice"}.
+- If hasImage=true and prompt implies video ("video", "וידאו", "אנימציה", "animate", "הנפש", "motion", "clip"): choose veo3_video or kling_text_to_video.
+- If hasImage=true and not video-like: choose image_edit with service gemini/openai.
+- If hasVideo=true: choose video_to_video.
+- If only text: detect image/video/TTS/summary intents; otherwise default to chat (gemini_chat/openai_chat/grok_chat, random is OK).
+- If missing authorization for media actions: choose deny_unauthorized with appropriate feature.
+- Output strictly a single JSON object matching the schema, with only ASCII quotes.`;
+  const payload = {
+    userText: safe(input.userText),
+    hasImage: !!input.hasImage,
+    hasVideo: !!input.hasVideo,
+    hasAudio: !!input.hasAudio,
+    chatType: input.chatType || 'unknown',
+    language: input.language || null,
+    authorizations: {
+      media_creation: !!(input.authorizations && input.authorizations.media_creation),
+      voice_allowed: !!(input.authorizations && input.authorizations.voice_allowed)
+    }
+  };
+  return `You are an intent router. Choose the best tool for the user's request based on context.
+Return STRICT JSON only, matching this schema (no commentary):\n${JSON.stringify(schema)}\n\nGuidance:\n${toolsGuidance}\n\nContext JSON:\n${JSON.stringify(payload, null, 2)}`;
+}
 
 
