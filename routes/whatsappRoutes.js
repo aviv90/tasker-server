@@ -290,9 +290,11 @@ async function handleIncomingMessage(webhookData) {
             return;
           case 'gemini_chat':
           case 'openai_chat':
-          case 'grok_chat':
-            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: prompt });
+          case 'grok_chat': {
+            const chatPrefix = decision.tool === 'gemini_chat' ? '* ' : decision.tool === 'openai_chat' ? '# ' : '+ ';
+            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: chatPrefix + prompt });
             return;
+          }
           case 'gemini_image':
           case 'openai_image':
           case 'grok_image': {
@@ -402,9 +404,11 @@ async function handleIncomingMessage(webhookData) {
               return;
             case 'gemini_chat':
             case 'openai_chat':
-            case 'grok_chat':
-              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: routedPrompt });
+            case 'grok_chat': {
+              const chatPrefix = decision.tool === 'gemini_chat' ? '* ' : decision.tool === 'openai_chat' ? '# ' : '+ ';
+              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: chatPrefix + routedPrompt });
               return;
+            }
             case 'ask_clarification':
             default:
               await sendTextMessage(chatId, 'ℹ️ לא ברור מה לבצע עם התמונה. תוכל לחדד בבקשה?');
@@ -558,9 +562,11 @@ async function handleIncomingMessage(webhookData) {
               return;
             case 'gemini_chat':
             case 'openai_chat':
-            case 'grok_chat':
-              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: routedPrompt });
+            case 'grok_chat': {
+              const chatPrefix = decision.tool === 'gemini_chat' ? '* ' : decision.tool === 'openai_chat' ? '# ' : '+ ';
+              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: chatPrefix + routedPrompt });
               return;
+            }
             case 'ask_clarification':
             default:
               await sendTextMessage(chatId, 'ℹ️ לא ברור מה לבצע עם הווידאו. תוכל לחדד בבקשה?');
