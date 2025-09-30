@@ -2016,6 +2016,10 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             // Note: Music generation results do NOT add to conversation history
             
             console.log(`✅ Music sent to ${senderName}: ${musicResult.metadata?.title || 'Generated Music'}`);
+          } else if (musicResult.status === 'pending' && musicResult.taskId) {
+            // Asynchronous flow: task submitted, will complete via callback
+            await sendTextMessage(chatId, '🎵 ההפקה הוגשה. אשלח את השיר לכשיהיה מוכן.');
+            console.log(`ℹ️ Music generation pending (task ${musicResult.taskId}) - awaiting callback`);
           } else {
             await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת השיר.');
             console.log(`❌ Music generation failed for ${senderName}: No audio buffer or result path`);
