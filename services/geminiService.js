@@ -930,7 +930,7 @@ async function generateVideoFromImageForWhatsApp(prompt, imageBuffer, req = null
  */
 async function generateTextResponse(prompt, conversationHistory = [], options = {}) {
     try {
-        console.log('💬 Starting Gemini text generation');
+        console.log('💬 Gemini text generation');
         
         // Sanitize prompt
         const cleanPrompt = sanitizeText(prompt);
@@ -974,7 +974,7 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
             parts: [{ text: cleanPrompt }]
         });
 
-        console.log(`🔮 Sending to Gemini: "${cleanPrompt}" (with ${conversationHistory.length} context messages)`);
+        console.log(`🔮 Gemini processing (${conversationHistory.length} context messages)`);
 
         // Generate response with history
         const result = await model.generateContent({ contents });

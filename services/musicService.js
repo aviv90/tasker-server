@@ -52,9 +52,7 @@ class MusicService {
             if (options.tags && Array.isArray(options.tags)) musicOptions.tags = options.tags;
             if (options.duration) musicOptions.duration = options.duration;
             
-            console.log(`🎼 Using automatic mode with prompt: "${cleanPrompt}"`);
-
-            console.log(`🎼 Music options: ${musicOptions.prompt?.substring(0, 50)}...`);
+            console.log(`🎼 Using automatic mode`);
 
             // Step 1: Submit music generation task
             const generateResponse = await fetch(`${this.baseUrl}/api/v1/generate`, {
@@ -140,8 +138,7 @@ class MusicService {
             if (options.tags && Array.isArray(options.tags)) musicOptions.tags = options.tags;
             if (options.duration) musicOptions.duration = options.duration;
 
-            console.log(`🎹 Using automatic instrumental mode with prompt: "${cleanPrompt}"`);
-            console.log(`🎹 Instrumental music options: ${musicOptions.prompt?.substring(0, 50)}...`);
+            console.log(`🎹 Using automatic instrumental mode`);
 
             // Use the same logic as generateMusicWithLyrics but with instrumental settings
             return await this._generateMusic(musicOptions, 'instrumental');
@@ -354,8 +351,7 @@ class MusicService {
                 sampleRate: options.sampleRate || 44100
             };
             
-            console.log(`🎼 Using advanced V5 mode with prompt: "${cleanPrompt}"`);
-            console.log(`🎼 Advanced music options: ${musicOptions.prompt?.substring(0, 50)}...`);
+            console.log(`🎼 Using advanced V5 mode`);
 
             // Use the same generation logic but with advanced options
             return await this._generateMusic(musicOptions, 'advanced');

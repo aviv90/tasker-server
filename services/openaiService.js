@@ -143,7 +143,7 @@ async function generateTextResponse(prompt, conversationHistory = []) {
       content: prompt
     });
 
-    console.log(`🤖 Sending to OpenAI Chat: "${prompt}" (with ${conversationHistory.length} context messages)`);
+    console.log(`🤖 OpenAI processing (${conversationHistory.length} context messages)`);
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini', // Cost-effective and good model

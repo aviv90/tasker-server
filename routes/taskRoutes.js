@@ -88,7 +88,7 @@ router.post('/start-task', async (req, res) => {
             const isInstrumental = req.body.instrumental === true;
             const isAdvanced = req.body.advanced === true;
             
-            console.log(`🎵 Generating ${isInstrumental ? 'instrumental' : 'vocal'} music ${isAdvanced ? 'with advanced V5 features' : ''} for prompt: "${sanitizedPrompt}"`);
+            console.log(`🎵 Generating ${isInstrumental ? 'instrumental' : 'vocal'} music ${isAdvanced ? 'with advanced V5 features' : ''}`);
             
             if (isAdvanced) {
                 // Use advanced V5 mode with full control
@@ -107,7 +107,7 @@ router.post('/start-task', async (req, res) => {
             // Gemini text chat with conversation history
             const conversationHistory = req.body.conversationHistory || [];
             
-            console.log(`🔮 Generating Gemini chat response for: "${sanitizedPrompt}"`);
+            console.log(`🔮 Gemini chat processing`);
             result = await geminiService.generateTextResponse(sanitizedPrompt, conversationHistory);
             
             await finalizeTextResponse(taskId, result, sanitizedPrompt, req);
@@ -117,7 +117,7 @@ router.post('/start-task', async (req, res) => {
             // OpenAI text chat with conversation history
             const conversationHistory = req.body.conversationHistory || [];
             
-            console.log(`🤖 Generating OpenAI chat response for: "${sanitizedPrompt}"`);
+            console.log(`🤖 Generating OpenAI chat response`);
             result = await openaiService.generateTextResponse(sanitizedPrompt, conversationHistory);
             
             await finalizeTextResponse(taskId, result, sanitizedPrompt, req);

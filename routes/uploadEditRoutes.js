@@ -317,8 +317,7 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
       console.log('📝 Using original transcribed text for TTS');
     } else {
       textForTTS = geminiResult.text;
-      console.log(`✅ Step 3 complete: Gemini generated ${textForTTS.length} characters`);
-      console.log(`💬 Gemini response: "${textForTTS.substring(0, 100)}..."`);
+      console.log(`✅ Step 3 complete: Gemini response generated`);
     }
 
     // Step 4: Text-to-Speech with cloned voice

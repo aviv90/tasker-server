@@ -426,7 +426,7 @@ async function handleIncomingMessage(webhookData) {
       // Check if caption starts with "### " for Veo 3 image-to-video
       if (caption.startsWith('### ')) {
         const prompt = caption.substring(4).trim(); // Remove "### "
-        console.log(`🎬 Veo 3 image-to-video request with prompt: "${prompt}"`);
+        console.log(`🎬 Veo 3 image-to-video request`);
         
         // Check authorization for media creation
         if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
@@ -447,7 +447,7 @@ async function handleIncomingMessage(webhookData) {
       // Check if caption starts with "## " for Kling image-to-video
       else if (caption.startsWith('## ')) {
         const prompt = caption.substring(3).trim(); // Remove "## "
-        console.log(`🎬 Kling 2.1 image-to-video request with prompt: "${prompt}"`);
+        console.log(`🎬 Kling 2.1 image-to-video request`);
         
         // Check authorization for media creation
         if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
@@ -468,7 +468,7 @@ async function handleIncomingMessage(webhookData) {
       // Check if caption starts with "*" for Gemini image editing
       else if (caption.startsWith('* ')) {
         const prompt = caption.substring(2).trim(); // Remove "* "
-        console.log(`🎨 Gemini image edit request with prompt: "${prompt}"`);
+        console.log(`🎨 Gemini image edit request`);
         
         // Check authorization for media creation
         if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
@@ -489,7 +489,7 @@ async function handleIncomingMessage(webhookData) {
       // Check if caption starts with "#" for OpenAI image editing
       else if (caption.startsWith('# ')) {
         const prompt = caption.substring(2).trim(); // Remove "# "
-        console.log(`🖼️ OpenAI image edit request with prompt: "${prompt}"`);
+        console.log(`🖼️ OpenAI image edit request`);
         
         // Check authorization for media creation
         if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
@@ -584,7 +584,7 @@ async function handleIncomingMessage(webhookData) {
       // Check if caption starts with "## " for RunwayML Gen4 video-to-video
       if (caption.startsWith('## ')) {
         const prompt = caption.substring(3).trim(); // Remove "## "
-        console.log(`🎬 RunwayML Gen4 video-to-video request with prompt: "${prompt}"`);
+        console.log(`🎬 RunwayML Gen4 video-to-video request`);
         
         // Check authorization for media creation
         if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
@@ -847,7 +847,7 @@ async function handleOutgoingMessage(webhookData) {
       // Check if caption starts with "### " for Veo 3 image-to-video
       if (caption.startsWith('### ')) {
         const prompt = caption.substring(4).trim(); // Remove "### "
-        console.log(`🎬 Outgoing Veo 3 image-to-video request with prompt: "${prompt}" (bypassing authorization)`);
+        console.log(`🎬 Outgoing Veo 3 image-to-video request (bypassing authorization)`);
         
         // Process Veo 3 image-to-video asynchronously (no authorization check for outgoing messages)
         processImageToVideoAsync({
@@ -862,7 +862,7 @@ async function handleOutgoingMessage(webhookData) {
       // Check if caption starts with "## " for Kling image-to-video
       else if (caption.startsWith('## ')) {
         const prompt = caption.substring(3).trim(); // Remove "## "
-        console.log(`🎬 Outgoing Kling 2.1 image-to-video request with prompt: "${prompt}" (bypassing authorization)`);
+        console.log(`🎬 Outgoing Kling 2.1 image-to-video request (bypassing authorization)`);
         
         // Process Kling image-to-video asynchronously (no authorization check for outgoing messages)
         processImageToVideoAsync({
@@ -877,7 +877,7 @@ async function handleOutgoingMessage(webhookData) {
       // Check if caption starts with "*" for Gemini image editing
       else if (caption.startsWith('* ')) {
         const prompt = caption.substring(2).trim(); // Remove "* "
-        console.log(`🎨 Outgoing Gemini image edit request with prompt: "${prompt}" (bypassing authorization)`);
+        console.log(`🎨 Outgoing Gemini image edit request (bypassing authorization)`);
         
         // Process Gemini image editing asynchronously (no authorization check for outgoing messages)
         processImageEditAsync({
@@ -892,7 +892,7 @@ async function handleOutgoingMessage(webhookData) {
       // Check if caption starts with "#" for OpenAI image editing
       else if (caption.startsWith('# ')) {
         const prompt = caption.substring(2).trim(); // Remove "# "
-        console.log(`🖼️ Outgoing OpenAI image edit request with prompt: "${prompt}" (bypassing authorization)`);
+        console.log(`🖼️ Outgoing OpenAI image edit request (bypassing authorization)`);
         
         // Process OpenAI image editing asynchronously (no authorization check for outgoing messages)
         processImageEditAsync({
@@ -917,7 +917,7 @@ async function handleOutgoingMessage(webhookData) {
       // Check if caption starts with "## " for RunwayML Gen4 video-to-video
       if (caption.startsWith('## ')) {
         const prompt = caption.substring(3).trim(); // Remove "## "
-        console.log(`🎬 Outgoing RunwayML Gen4 video-to-video request with prompt: "${prompt}" (bypassing authorization)`);
+        console.log(`🎬 Outgoing RunwayML Gen4 video-to-video request (bypassing authorization)`);
         
         // Process RunwayML video-to-video asynchronously (no authorization check for outgoing messages)
         processVideoToVideoAsync({
@@ -1155,7 +1155,7 @@ function processVideoToVideoAsync(videoData) {
  * Handle image edit with AI (Gemini or OpenAI)
  */
 async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt, service }) {
-  console.log(`🎨 Processing ${service} image edit request from ${senderName}: "${prompt}"`);
+  console.log(`🎨 Processing ${service} image edit request from ${senderName}`);
   
   try {
     // Send immediate ACK
@@ -1222,7 +1222,7 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
  */
 async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prompt, service = 'veo3' }) {
   const serviceName = service === 'veo3' ? 'Veo 3' : 'Kling 2.1 Master';
-  console.log(`🎬 Processing ${serviceName} image-to-video request from ${senderName}: "${prompt}"`);
+  console.log(`🎬 Processing ${serviceName} image-to-video request from ${senderName}`);
   
   try {
     // Send immediate ACK
@@ -1269,7 +1269,7 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
  * Handle video-to-video with RunwayML Gen4
  */
 async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prompt }) {
-  console.log(`🎬 Processing RunwayML Gen4 video-to-video request from ${senderName}: "${prompt}"`);
+  console.log(`🎬 Processing RunwayML Gen4 video-to-video request from ${senderName}`);
   
   try {
     // Send immediate ACK
@@ -1410,7 +1410,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 
     const transcribedText = transcriptionResult.text;
     console.log(`✅ Step 1 complete: Transcribed ${transcribedText.length} characters`);
-    console.log(`📝 Transcribed: "${transcribedText}"`);
+    console.log(`📝 Transcription complete`);
 
     // Use our own language detection on the transcribed text for consistency
     const originalLanguage = voiceService.detectLanguage(transcribedText);
@@ -1494,8 +1494,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     }
 
     const geminiResponse = geminiResult.text;
-    console.log(`✅ Step 3 complete: Gemini generated ${geminiResponse.length} characters`);
-    console.log(`💬 Gemini response: "${geminiResponse.substring(0, 100)}..."`);
+    console.log(`✅ Step 3 complete: Gemini response generated`);
     
     // Add AI response to conversation history
     await conversationManager.addMessage(chatId, 'assistant', geminiResponse);
@@ -1629,7 +1628,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             // Add AI response to conversation
             await conversationManager.addMessage(chatId, 'assistant', geminiResponse.text);
             await sendTextMessage(chatId, geminiResponse.text);
-            console.log(`✅ Gemini chat completed for ${senderName} with history context (${history.length} messages)`);
+            console.log(`✅ Gemini chat completed for ${senderName}`);
           }
         } catch (geminiError) {
           console.error('❌ Error in Gemini chat:', geminiError.message || geminiError);
@@ -1657,7 +1656,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             // Add AI response to conversation
             await conversationManager.addMessage(chatId, 'assistant', openaiResponse.text);
             await sendTextMessage(chatId, openaiResponse.text);
-            console.log(`✅ OpenAI chat completed for ${senderName} with history context (${openaiHistory.length} messages)`);
+            console.log(`✅ OpenAI chat completed for ${senderName}`);
           }
         } catch (openaiError) {
           console.error('❌ Error in OpenAI chat:', openaiError.message || openaiError);
@@ -1685,7 +1684,7 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             // Add AI response to conversation
             await conversationManager.addMessage(chatId, 'assistant', grokResponse.text);
             await sendTextMessage(chatId, grokResponse.text);
-            console.log(`✅ Grok chat completed for ${senderName} with history context (${grokHistory.length} messages)`);
+            console.log(`✅ Grok chat completed for ${senderName}`);
           }
         } catch (grokError) {
           console.error('❌ Error in Grok chat:', grokError.message || grokError);
