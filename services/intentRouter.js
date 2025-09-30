@@ -73,10 +73,17 @@ async function routeIntent(input) {
     const lower = prompt.toLowerCase();
     const isVideoLike = /video|וידאו|סרט|אנימציה|animate|הנפש|להנפיש|תזיז|motion|קליפ/.test(lower);
     if (isVideoLike) {
-      const toVideoTool = pickRandom(['veo3_video', 'kling_text_to_video']);
-      return { tool: toVideoTool, args: { prompt }, reason: 'Image attached, video-like request' };
+      // Check if user explicitly requested Veo3
+      const wantsVeo3 = /veo|veo3/.test(lower);
+      if (wantsVeo3) {
+        return { tool: 'veo3_image_to_video', args: { prompt }, reason: 'Image attached, user requested Veo3' };
+      }
+      // Default to Kling for image-to-video
+      return { tool: 'kling_image_to_video', args: { prompt }, reason: 'Image attached, video-like request' };
     }
-    const service = pickRandom(['gemini', 'openai']);
+    // Default to Gemini for image editing, unless user explicitly requests OpenAI
+    const wantsOpenAI = /openai|gpt|dall-e|dalle/.test(lower);
+    const service = wantsOpenAI ? 'openai' : 'gemini';
     return { tool: 'image_edit', args: { service, prompt }, reason: 'Image attached with prompt' };
   }
 
@@ -120,21 +127,43 @@ async function routeIntent(input) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'image_generation' }, reason: 'No media creation authorization' };
       }
-      const model = pickRandom(['gemini', 'openai', 'grok']);
-      return { tool: `${model}_image`, args: { prompt }, reason: 'Image-like request' };
+      // Check for explicit provider requests
+      const wantsOpenAI = /openai|gpt|dall-e|dalle/.test(lower);
+      const wantsGrok = /grok|xai/.test(lower);
+      if (wantsOpenAI) {
+        return { tool: 'openai_image', args: { prompt }, reason: 'Image-like request, user requested OpenAI' };
+      }
+      if (wantsGrok) {
+        return { tool: 'grok_image', args: { prompt }, reason: 'Image-like request, user requested Grok' };
+      }
+      // Default to Gemini
+      return { tool: 'gemini_image', args: { prompt }, reason: 'Image-like request' };
     }
 
     if (isVideoLike) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'video_generation' }, reason: 'No media creation authorization' };
       }
-      const tool = pickRandom(['veo3_video', 'kling_text_to_video']);
-      return { tool, args: { prompt }, reason: 'Video-like request' };
+      // Check if user explicitly requested Veo3
+      const wantsVeo3 = /veo|veo3/.test(lower);
+      if (wantsVeo3) {
+        return { tool: 'veo3_video', args: { prompt }, reason: 'Video-like request, user requested Veo3' };
+      }
+      // Default to Kling for text-to-video
+      return { tool: 'kling_text_to_video', args: { prompt }, reason: 'Video-like request' };
     }
 
-    // Default: chat. Pick random among supported chat models
-    const chatTool = pickRandom(['gemini_chat', 'openai_chat', 'grok_chat']);
-    return { tool: chatTool, args: { prompt }, reason: 'Default to chat' };
+    // Default: chat. Check for explicit provider requests
+    const wantsOpenAI = /openai|gpt|chatgpt/.test(lower);
+    const wantsGrok = /grok|xai/.test(lower);
+    if (wantsOpenAI) {
+      return { tool: 'openai_chat', args: { prompt }, reason: 'Chat request, user requested OpenAI' };
+    }
+    if (wantsGrok) {
+      return { tool: 'grok_chat', args: { prompt }, reason: 'Chat request, user requested Grok' };
+    }
+    // Default to Gemini
+    return { tool: 'gemini_chat', args: { prompt }, reason: 'Default to chat' };
   }
 
   // No recognized pattern → ask clarification
@@ -154,9 +183,9 @@ function validateDecision(obj) {
   const reason = typeof obj.reason === 'string' ? obj.reason : '';
   const allowedTools = new Set([
     'gemini_image', 'openai_image', 'grok_image',
-    'veo3_video', 'kling_text_to_video', 'video_to_video',
+    'veo3_video', 'kling_text_to_video', 'veo3_image_to_video', 'kling_image_to_video', 'video_to_video',
     'image_edit', 'text_to_speech', 'gemini_chat', 'openai_chat', 'grok_chat',
-    'chat_summary', 'creative_voice_processing', 'deny_unauthorized', 'ask_clarification'
+    'chat_summary', 'music_generation', 'creative_voice_processing', 'deny_unauthorized', 'ask_clarification'
   ]);
   if (!allowedTools.has(tool)) return null;
   return { tool, args, reason };
@@ -184,17 +213,31 @@ async function decideWithLLM(input) {
 function buildRouterPrompt(input) {
   const safe = (v) => (v === null || v === undefined) ? null : v;
   const schema = {
-    tool: 'string // one of: gemini_image, openai_image, grok_image, veo3_video, kling_text_to_video, video_to_video, image_edit, text_to_speech, gemini_chat, openai_chat, grok_chat, chat_summary, creative_voice_processing, deny_unauthorized, ask_clarification',
+    tool: 'string // one of: gemini_image, openai_image, grok_image, veo3_video, kling_text_to_video, veo3_image_to_video, kling_image_to_video, video_to_video, image_edit, text_to_speech, gemini_chat, openai_chat, grok_chat, chat_summary, music_generation, creative_voice_processing, deny_unauthorized, ask_clarification',
     args: 'object // tool-specific args. For image_edit include { service: "gemini"|"openai", prompt: string }',
     reason: 'string'
   };
   const toolsGuidance = `
 Rules:
 - If hasAudio=true: choose creative_voice_processing only if authorizations.voice_allowed=true; else deny_unauthorized {feature:"voice"}.
-- If hasImage=true and prompt implies video ("video", "וידאו", "אנימציה", "animate", "הנפש", "motion", "clip"): choose veo3_video or kling_text_to_video.
-- If hasImage=true and not video-like: choose image_edit with service gemini/openai.
+- If hasImage=true and prompt implies video ("video", "וידאו", "אנימציה", "animate", "הנפש", "motion", "clip"): 
+  * If user explicitly mentions "veo" or "veo3": choose veo3_image_to_video
+  * Otherwise: choose kling_image_to_video (default)
+- If hasImage=true and not video-like: choose image_edit with service:
+  * If user mentions "openai", "gpt", "dall-e": service="openai"
+  * Otherwise: service="gemini" (default)
 - If hasVideo=true: choose video_to_video.
-- If only text: detect image/video/TTS/summary intents; otherwise default to chat (gemini_chat/openai_chat/grok_chat, random is OK).
+- If only text: detect image/video/TTS/summary intents; otherwise default to chat:
+  * If user mentions "openai", "gpt", "chatgpt": choose openai_chat
+  * If user mentions "grok", "xai": choose grok_chat  
+  * Otherwise: choose gemini_chat (default)
+- For text-to-video generation:
+  * If user mentions "veo" or "veo3": choose veo3_video
+  * Otherwise: choose kling_text_to_video (default)
+- For image generation:
+  * If user mentions "openai", "gpt", "dall-e": choose openai_image
+  * If user mentions "grok", "xai": choose grok_image
+  * Otherwise: choose gemini_image (default)
 - If missing authorization for media actions: choose deny_unauthorized with appropriate feature.
 - Output strictly a single JSON object matching the schema, with only ASCII quotes.`;
   const payload = {
