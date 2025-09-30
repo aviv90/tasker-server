@@ -715,6 +715,86 @@ async function handleOutgoingMessage(webhookData) {
       messageText = messageData.extendedTextMessageData?.text;
     }
     
+    // Unified intent router for outgoing when text starts with "# "
+    if (messageText && /^#\s+/.test(messageText.trim())) {
+      try {
+        const chatId = senderData.chatId;
+        const senderId = senderData.sender;
+        const senderName = senderData.senderName || senderId;
+        const senderContactName = senderData.senderContactName || "";
+        const chatName = senderData.chatName || "";
+
+        const normalized = {
+          userText: messageText.trim(),
+          hasImage: messageData.typeMessage === 'imageMessage',
+          hasVideo: messageData.typeMessage === 'videoMessage',
+          hasAudio: messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage',
+          chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
+          language: 'he',
+          authorizations: {
+            // Outgoing bypasses authorization in existing logic, but router still expects booleans
+            media_creation: true,
+            voice_allowed: true
+          }
+        };
+
+        const decision = await routeIntent(normalized);
+        const prompt = normalized.userText.replace(/^#\s+/, '').trim();
+
+        switch (decision.tool) {
+          case 'gemini_chat':
+          case 'openai_chat':
+          case 'grok_chat': {
+            const chatPrefix = decision.tool === 'gemini_chat' ? '* ' : decision.tool === 'openai_chat' ? '# ' : '+ ';
+            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: chatPrefix + prompt }, true);
+            return;
+          }
+          case 'gemini_image':
+          case 'openai_image':
+          case 'grok_image': {
+            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'gemini_image' ? '** ' : decision.tool === 'openai_image' ? '## ' : '++ ') + prompt }, true);
+            return;
+          }
+          case 'veo3_video':
+          case 'kling_text_to_video': {
+            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'veo3_video' ? '#### ' : '### ') + prompt }, true);
+            return;
+          }
+          case 'image_edit': {
+            if (messageData.typeMessage === 'imageMessage') {
+              const prefix = decision.args?.service === 'gemini' ? '* ' : '# ';
+              const imageData = messageData.fileMessageData || messageData.imageMessageData;
+              imageData.caption = prefix + decision.args.prompt;
+              messageData.imageMessageData = imageData;
+            }
+            break;
+          }
+          case 'video_to_video': {
+            if (messageData.typeMessage === 'videoMessage') {
+              const videoData = messageData.fileMessageData || messageData.videoMessageData;
+              videoData.caption = '## ' + (decision.args?.prompt || prompt);
+              messageData.videoMessageData = videoData;
+            }
+            break;
+          }
+          case 'text_to_speech':
+            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: '*** ' + (decision.args?.text || prompt) }, true);
+            return;
+          case 'chat_summary':
+            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: 'סכם שיחה' }, true);
+            return;
+          case 'music_generation':
+            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: '**** ' + prompt }, true);
+            return;
+          default:
+            // fall back to legacy
+            break;
+        }
+      } catch (e) {
+        console.error('❌ Intent router (outgoing text) error:', e.message || e);
+      }
+    }
+
     // Handle image messages for image-to-image editing
     if (messageData.typeMessage === 'imageMessage') {
       const imageData = messageData.fileMessageData || messageData.imageMessageData;
@@ -722,6 +802,48 @@ async function handleOutgoingMessage(webhookData) {
       
       console.log(`🖼️ Outgoing image message received with caption: "${caption}"`);
       
+      // Router for outgoing image caption starting with "# "
+      if (/^#\s+/.test(caption.trim())) {
+        try {
+          const normalized = {
+            userText: caption.trim(),
+            hasImage: true,
+            hasVideo: false,
+            hasAudio: false,
+            chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
+            language: 'he',
+            authorizations: { media_creation: true, voice_allowed: true }
+          };
+          const decision = await routeIntent(normalized);
+          const routedPrompt = normalized.userText.replace(/^#\s+/, '').trim();
+          switch (decision.tool) {
+            case 'image_edit': {
+              const prefix = decision.args?.service === 'gemini' ? '* ' : '# ';
+              imageData.caption = prefix + decision.args.prompt;
+              messageData.imageMessageData = imageData;
+              break; // fall through to legacy
+            }
+            case 'veo3_video':
+            case 'kling_text_to_video':
+              imageData.caption = (decision.tool === 'veo3_video' ? '### ' : '## ') + routedPrompt;
+              messageData.imageMessageData = imageData;
+              break; // fall through to legacy
+            case 'gemini_image':
+            case 'openai_image':
+            case 'grok_image':
+              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'gemini_image' ? '** ' : decision.tool === 'openai_image' ? '## ' : '++ ') + routedPrompt }, true);
+              return;
+            case 'music_generation':
+              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: '**** ' + routedPrompt }, true);
+              return;
+            default:
+              break; // continue legacy
+          }
+        } catch (e) {
+          console.error('❌ Intent router (outgoing image caption) error:', e.message || e);
+        }
+      }
+
       // Check if caption starts with "### " for Veo 3 image-to-video
       if (caption.startsWith('### ')) {
         const prompt = caption.substring(4).trim(); // Remove "### "

@@ -96,6 +96,7 @@ async function routeIntent(input) {
     const isVideoLike = /video|וידאו|סרט|אנימציה|קליפ|clip|animate|motion/.test(lower);
     const isTtsLike = /קרא|הקרא|הקריא|הקראת|דיבור|speech|להשמיע/.test(lower);
     const isSummary = /סכם|סיכום|summary|לסכם/.test(lower);
+    const isMusic = /שיר|מוזיקה|שירון|suno|music|song/.test(lower);
 
     if (isSummary) {
       return { tool: 'chat_summary', args: {}, reason: 'User requested summary' };
@@ -106,6 +107,13 @@ async function routeIntent(input) {
         return { tool: 'deny_unauthorized', args: { feature: 'text_to_speech' }, reason: 'No media creation authorization' };
       }
       return { tool: 'text_to_speech', args: { text: prompt }, reason: 'TTS-like request' };
+    }
+
+    if (isMusic) {
+      if (!input.authorizations?.media_creation) {
+        return { tool: 'deny_unauthorized', args: { feature: 'music_generation' }, reason: 'No media creation authorization' };
+      }
+      return { tool: 'music_generation', args: { prompt }, reason: 'Music-like request' };
     }
 
     if (isImageLike) {
@@ -156,7 +164,11 @@ function validateDecision(obj) {
 
 async function decideWithLLM(input) {
   const prompt = buildRouterPrompt(input);
-  const res = await geminiText(prompt, [], { model: 'gemini-2.5-pro' });
+  // Use a faster model and a timeout fallback to heuristic
+  const llmPromise = geminiText(prompt, [], { model: 'gemini-2.5-flash' });
+  const timeoutMs = Number(process.env.INTENT_ROUTER_LLM_TIMEOUT_MS || 2500);
+  const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('LLM timeout')), timeoutMs));
+  const res = await Promise.race([llmPromise, timeoutPromise]);
   const raw = (res && res.text) ? res.text.trim() : '';
   // Try to extract JSON
   let jsonText = raw;
