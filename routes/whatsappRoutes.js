@@ -1952,8 +1952,14 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
         try {
           // Note: Music generation commands do NOT add to conversation history
           
-          // Generate music with Suno (WhatsApp format)
-          const musicResult = await generateMusicWithLyrics(command.prompt);
+          // Generate music with Suno (WhatsApp format) - pass WhatsApp context for callback
+          const musicResult = await generateMusicWithLyrics(command.prompt, {
+            whatsappContext: {
+              chatId: chatId,
+              senderId: senderId,
+              senderName: senderName
+            }
+          });
           
           // Debug: Log full metadata structure
           if (musicResult.metadata) {
@@ -1965,59 +1971,12 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
             await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
             console.log(`❌ Music generation failed for ${senderName}: ${errorMsg}`);
           } else if (musicResult.audioBuffer && musicResult.result) {
-            // Convert MP3 to Opus for voice note
-            console.log(`🔄 Converting music to Opus format for voice note...`);
-            const conversionResult = await audioConverterService.convertAndSaveAsOpus(musicResult.audioBuffer, 'mp3');
-            
-            if (!conversionResult.success) {
-              console.error('❌ Audio conversion failed:', conversionResult.error);
-              // Fallback: send as regular MP3 file
-              const fileName = `suno_music_${Date.now()}.mp3`;
-              const fullAudioUrl = musicResult.result.startsWith('http') 
-                ? musicResult.result 
-                : getStaticFileUrl(musicResult.result.replace('/static/', ''));
-              await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
-            } else {
-              // Send as voice note with Opus format
-              const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
-              await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '');
-              console.log(`✅ Music sent as voice note: ${conversionResult.fileName}`);
-            }
-            
-            // Send song information and lyrics as separate text message
-            let songInfo = '';
-            if (musicResult.metadata) {
-              const meta = musicResult.metadata;
-              
-              songInfo = `🎵 **${meta.title || 'שיר חדש'}**\n`;
-              if (meta.duration) songInfo += `⏱️ משך: ${Math.round(meta.duration)}s\n`;
-              if (meta.model) songInfo += `🤖 מודל: ${meta.model}\n`;
-              
-              // Add lyrics if available - with better fallback logic
-              if (meta.lyrics && meta.lyrics.trim()) {
-                songInfo += `\n📝 **מילות השיר:**\n${meta.lyrics}`;
-              } else if (meta.lyric && meta.lyric.trim()) {
-                songInfo += `\n📝 **מילות השיר:**\n${meta.lyric}`;
-              } else if (meta.prompt && meta.prompt.trim()) {
-                songInfo += `\n📝 **מילות השיר:**\n${meta.prompt}`;
-              } else if (meta.gptDescriptionPrompt && meta.gptDescriptionPrompt.trim()) {
-                songInfo += `\n📝 **תיאור השיר:**\n${meta.gptDescriptionPrompt}`;
-              } else {
-                songInfo += `\n📝 **מילות השיר:** לא זמינות`;
-              }
-            } else {
-              songInfo = `🎵 השיר מוכן!`;
-              console.log('⚠️ No metadata available for song');
-            }
-            
-            await sendTextMessage(chatId, songInfo);
-            
-            // Note: Music generation results do NOT add to conversation history
-            
-            console.log(`✅ Music sent to ${senderName}: ${musicResult.metadata?.title || 'Generated Music'}`);
+            // Immediate result (shouldn't happen with callback mode, but handle anyway)
+            await sendMusicResult(chatId, senderName, musicResult);
           } else if (musicResult.status === 'pending' && musicResult.taskId) {
             // Asynchronous flow: task submitted, will complete via callback
             console.log(`ℹ️ Music generation pending (task ${musicResult.taskId}) - awaiting callback`);
+            // Callback will send the result directly to WhatsApp
           } else {
             await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת השיר.');
             console.log(`❌ Music generation failed for ${senderName}: No audio buffer or result path`);
@@ -2403,4 +2362,91 @@ function parseTextCommand(text) {
   return null;
 }
 
+/**
+ * Send music result to WhatsApp client
+ * Helper function to handle music sending with conversion and metadata
+ */
+async function sendMusicResult(chatId, senderName, musicResult) {
+  try {
+    // Convert MP3 to Opus for voice note
+    console.log(`🔄 Converting music to Opus format for voice note...`);
+    const conversionResult = await audioConverterService.convertAndSaveAsOpus(musicResult.audioBuffer, 'mp3');
+    
+    if (!conversionResult.success) {
+      console.error('❌ Audio conversion failed:', conversionResult.error);
+      // Fallback: send as regular MP3 file
+      const fileName = `suno_music_${Date.now()}.mp3`;
+      const fullAudioUrl = musicResult.result.startsWith('http') 
+        ? musicResult.result 
+        : getStaticFileUrl(musicResult.result.replace('/static/', ''));
+      await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
+    } else {
+      // Send as voice note with Opus format
+      const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
+      await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '');
+      console.log(`✅ Music sent as voice note: ${conversionResult.fileName}`);
+    }
+    
+    // Send song information and lyrics as separate text message
+    let songInfo = '';
+    if (musicResult.metadata) {
+      const meta = musicResult.metadata;
+      
+      songInfo = `🎵 **${meta.title || 'שיר חדש'}**\n`;
+      if (meta.duration) songInfo += `⏱️ משך: ${Math.round(meta.duration)}s\n`;
+      if (meta.model) songInfo += `🤖 מודל: ${meta.model}\n`;
+      
+      // Add lyrics if available - with better fallback logic
+      if (meta.lyrics && meta.lyrics.trim()) {
+        songInfo += `\n📝 **מילות השיר:**\n${meta.lyrics}`;
+      } else if (meta.lyric && meta.lyric.trim()) {
+        songInfo += `\n📝 **מילות השיר:**\n${meta.lyric}`;
+      } else if (meta.prompt && meta.prompt.trim()) {
+        songInfo += `\n📝 **מילות השיר:**\n${meta.prompt}`;
+      } else if (meta.gptDescriptionPrompt && meta.gptDescriptionPrompt.trim()) {
+        songInfo += `\n📝 **תיאור השיר:**\n${meta.gptDescriptionPrompt}`;
+      } else {
+        songInfo += `\n📝 **מילות השיר:** לא זמינות`;
+      }
+    } else {
+      songInfo = `🎵 השיר מוכן!`;
+      console.log('⚠️ No metadata available for song');
+    }
+    
+    await sendTextMessage(chatId, songInfo);
+    
+    // Note: Music generation results do NOT add to conversation history
+    
+    console.log(`✅ Music sent to ${senderName}: ${musicResult.metadata?.title || 'Generated Music'}`);
+  } catch (error) {
+    console.error('❌ Error sending music result:', error);
+    throw error;
+  }
+}
+
+/**
+ * Send music to WhatsApp from callback
+ * Called by musicService when callback completes
+ */
+async function sendMusicToWhatsApp(whatsappContext, musicResult) {
+  try {
+    const { chatId, senderName } = whatsappContext;
+    console.log(`📱 Sending music to WhatsApp: ${chatId}`);
+    
+    await sendMusicResult(chatId, senderName, musicResult);
+    
+    console.log(`✅ Music delivered to WhatsApp successfully`);
+  } catch (error) {
+    console.error('❌ Error in sendMusicToWhatsApp:', error);
+    // Send error message to user
+    try {
+      await sendTextMessage(whatsappContext.chatId, '❌ סליחה, הייתה שגיאה בשליחת השיר. אנא נסה שוב.');
+    } catch (sendError) {
+      console.error('❌ Failed to send error message:', sendError);
+    }
+    throw error;
+  }
+}
+
 module.exports = router;
+module.exports.sendMusicToWhatsApp = sendMusicToWhatsApp;

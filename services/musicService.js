@@ -78,7 +78,9 @@ class MusicService {
                 taskId: taskId,
                 type: 'with-lyrics',
                 musicOptions: musicOptions,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                // Store WhatsApp context for callback delivery
+                whatsappContext: options.whatsappContext || null
             };
 
             // Store in a simple in-memory map (in production, use Redis or database)
@@ -246,6 +248,35 @@ class MusicService {
                 const filename = path.basename(tempFilePath);
                 const publicPath = `/static/${filename}`;
                         
+                        const result = {
+                            text: taskInfo.musicOptions.prompt || taskInfo.musicOptions.title || `Generated ${taskInfo.type} music`,
+                    audioBuffer: finalAudioBuffer,
+                            result: publicPath,
+                    metadata: {
+                                title: firstSong.title,
+                                duration: firstSong.duration,
+                                tags: firstSong.tags,
+                                model: firstSong.modelName,
+                                type: taskInfo.type,
+                                totalTracks: songs.length,
+                                lyrics: firstSong.lyric || firstSong.lyrics || firstSong.prompt || firstSong.gptDescriptionPrompt || ''
+                            }
+                        };
+                        
+                        // If WhatsApp context exists, send result directly to WhatsApp client
+                        if (taskInfo.whatsappContext) {
+                            console.log(`📱 Sending music to WhatsApp client: ${taskInfo.whatsappContext.chatId}`);
+                            
+                            // Import WhatsApp send functions (avoid circular dependency by requiring here)
+                            try {
+                                const { sendMusicToWhatsApp } = require('../routes/whatsappRoutes');
+                                await sendMusicToWhatsApp(taskInfo.whatsappContext, result);
+                                console.log(`✅ Music sent to WhatsApp successfully`);
+                            } catch (whatsappError) {
+                                console.error(`❌ Failed to send music to WhatsApp:`, whatsappError);
+                            }
+                        }
+                        
                         // Clean up task info
                         this.pendingTasks.delete(taskId);
                         
@@ -261,19 +292,7 @@ class MusicService {
                             console.warn(`⚠️ Could not notify creativeAudioService: ${err.message}`);
                         }
                 
-                return {
-                            text: taskInfo.musicOptions.prompt || taskInfo.musicOptions.title || `Generated ${taskInfo.type} music`,
-                    audioBuffer: finalAudioBuffer,
-                            result: publicPath,
-                    metadata: {
-                                title: firstSong.title,
-                                duration: firstSong.duration,
-                                tags: firstSong.tags,
-                                model: firstSong.modelName,
-                                type: taskInfo.type,
-                                totalTracks: songs.length
-                            }
-                        };
+                return result;
                     }
                 }
             } else if (callbackData.data?.callbackType === 'text') {
