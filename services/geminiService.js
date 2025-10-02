@@ -43,7 +43,10 @@ async function generateImageWithText(prompt) {
         
         const result = await model.generateContent({
             contents: [{ role: "user", parts: [{ text: cleanPrompt }] }],
-            generationConfig: { responseModalities: ["IMAGE"] }
+            generationConfig: { 
+                responseModalities: ["IMAGE", "TEXT"], // Allow both - Gemini can add description/caption
+                temperature: 0.7
+            }
         });
         
         const response = result.response;
@@ -103,7 +106,7 @@ async function generateImageForWhatsApp(prompt, req = null) {
         const result = await model.generateContent({
             contents: [{ role: "user", parts: [{ text: imagePrompt }] }],
             generationConfig: { 
-                responseModalities: ["IMAGE"], // Force image-only response
+                responseModalities: ["IMAGE", "TEXT"], // Allow text captions/descriptions alongside image
                 temperature: 0.7
             }
         });
@@ -357,6 +360,77 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
         return { 
             success: false, 
             error: err.message || 'Unknown error occurred during image editing' 
+        };
+    }
+}
+
+async function analyzeImageWithText(prompt, base64Image) {
+    try {
+        console.log('🔍 Starting Gemini image analysis (text-only response)');
+        
+        // Sanitize prompt as an extra safety measure
+        const cleanPrompt = sanitizeText(prompt);
+        
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.5-flash" // Use regular model for text analysis
+        });
+        
+        const result = await model.generateContent({
+            contents: [
+                { 
+                    role: "user", 
+                    parts: [
+                        { inlineData: { mimeType: "image/jpeg", data: base64Image } }, 
+                        { text: cleanPrompt }
+                    ] 
+                }
+            ],
+            generationConfig: { 
+                responseModalities: ["TEXT"], // Text-only response
+                temperature: 0.7
+            }
+        });
+        
+        const response = result.response;
+        if (!response.candidates || response.candidates.length === 0) {
+            console.log('❌ Gemini image analysis: No candidates returned');
+            return { 
+                success: false, 
+                error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' 
+            };
+        }
+        
+        const cand = response.candidates[0];
+        let text = '';
+        
+        // Extract text from response
+        if (cand.content && cand.content.parts) {
+            for (const part of cand.content.parts) {
+                if (part.text) {
+                    text += part.text;
+                }
+            }
+        }
+        
+        if (!text || text.trim().length === 0) {
+            console.log('❌ Gemini image analysis: No text found in response');
+            return { 
+                success: false, 
+                error: 'No text response from Gemini' 
+            };
+        }
+        
+        console.log('✅ Gemini image analysis completed');
+        return { 
+            success: true,
+            text: text.trim(),
+            description: text.trim()
+        };
+    } catch (err) {
+        console.error('❌ Gemini image analysis error:', err);
+        return { 
+            success: false, 
+            error: err.message || 'Unknown error occurred during image analysis' 
         };
     }
 }
@@ -1123,4 +1197,16 @@ ${formattedMessages}
     }
 }
 
-module.exports = { generateImageWithText, generateImageForWhatsApp, editImageWithText, editImageForWhatsApp, generateVideoWithText, generateVideoWithImage, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateTextResponse, generateChatSummary };
+module.exports = { 
+    generateImageWithText, 
+    generateImageForWhatsApp, 
+    editImageWithText, 
+    editImageForWhatsApp, 
+    analyzeImageWithText,
+    generateVideoWithText, 
+    generateVideoWithImage, 
+    generateVideoForWhatsApp, 
+    generateVideoFromImageForWhatsApp, 
+    generateTextResponse, 
+    generateChatSummary 
+};
