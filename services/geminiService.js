@@ -43,7 +43,7 @@ async function generateImageWithText(prompt) {
         
         const result = await model.generateContent({
             contents: [{ role: "user", parts: [{ text: cleanPrompt }] }],
-            generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
+            generationConfig: { responseModalities: ["IMAGE"] }
         });
         
         const response = result.response;
@@ -103,7 +103,7 @@ async function generateImageForWhatsApp(prompt, req = null) {
         const result = await model.generateContent({
             contents: [{ role: "user", parts: [{ text: imagePrompt }] }],
             generationConfig: { 
-                responseModalities: ["TEXT", "IMAGE"], // Allow both text and image
+                responseModalities: ["IMAGE"], // Force image-only response
                 temperature: 0.7
             }
         });
