@@ -1,10 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const CloudConvert = require('cloudconvert');
-const FormData = require('form-data');
-const { Readable } = require('stream');
-const axios = require('axios');
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -25,104 +21,9 @@ const speechService = require('../services/speechService');
 const { voiceService } = require('../services/voiceService');
 const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
 const { isErrorResult, getTaskError } = require('../utils/errorHandler');
+const { finalizeVideo } = require('../utils/videoUtils');
 const fs = require('fs');
 const path = require('path');
-
-// Initialize CloudConvert for audio conversion
-const cloudconvert = new CloudConvert(process.env.CLOUDCONVERT_API_KEY || 'demo-key');
-
-/**
- * Convert audio to MP3 using CloudConvert API
- * @param {Buffer} inputBuffer - The input audio buffer  
- * @param {string} inputMimetype - The input file mimetype
- * @returns {Promise<Buffer>} - The converted MP3 buffer
- */
-async function convertAudioToMp3(inputBuffer, inputMimetype) {
-  console.log(`🔄 Starting CloudConvert conversion from ${inputMimetype} to MP3...`);
-  
-  // Validate buffer is not empty
-  if (!inputBuffer || inputBuffer.length === 0) {
-    throw new Error('Input buffer is empty');
-  }
-  
-  // Check API key
-  if (!process.env.CLOUDCONVERT_API_KEY || process.env.CLOUDCONVERT_API_KEY === 'demo-key' || process.env.CLOUDCONVERT_API_KEY === 'your_cloudconvert_api_key_here') {
-    throw new Error('CloudConvert API key not configured properly');
-  }
-  
-  try {
-    // Determine input format from mimetype
-    const formatMap = {
-      'audio/ogg': 'ogg',
-      'audio/opus': 'opus', 
-      'audio/webm': 'webm',
-      'audio/m4a': 'm4a',
-      'audio/aac': 'aac',
-      'audio/mp4': 'mp4'
-    };
-    
-    const inputFormat = formatMap[inputMimetype] || inputMimetype.split('/')[1];
-
-    // Create CloudConvert job
-    let job = await cloudconvert.jobs.create({
-      tasks: {
-        'import': {
-          operation: 'import/upload'
-        },
-        'convert': {
-          operation: 'convert',
-          input: 'import',
-          input_format: inputFormat,
-          output_format: 'mp3',
-          options: {
-            audio_codec: 'mp3',
-            audio_bitrate: 128,
-            audio_frequency: 44100
-          }
-        },
-        'export': {
-          operation: 'export/url',
-          input: 'convert'
-        }
-      }
-    });
-
-    console.log(`🚀 CloudConvert job created: ${job.id}`);
-
-    // Upload file using direct buffer (this method works!)
-    const uploadTask = job.tasks.find(task => task.name === 'import');
-    await cloudconvert.tasks.upload(uploadTask, inputBuffer, `audio.${inputFormat}`);
-
-    // Wait for conversion to complete
-    job = await cloudconvert.jobs.wait(job.id);    // Log all tasks to see what failed
-    console.log(`🔍 Job has ${job.tasks?.length || 0} tasks`);
-
-    // Download the converted file
-    const exportTask = job.tasks.find(task => task.name === 'export');
-    
-    console.log(`📥 Export task: ${exportTask?.status}`);
-    
-    if (!exportTask || !exportTask.result || !exportTask.result.files || !exportTask.result.files[0]) {
-      throw new Error('No export file found in CloudConvert response');
-    }
-    
-    const file = exportTask.result.files[0];
-    
-    const downloadResponse = await fetch(file.url);
-    if (!downloadResponse.ok) {
-      throw new Error(`Download failed: ${downloadResponse.statusText}`);
-    }
-
-    const convertedBuffer = Buffer.from(await downloadResponse.arrayBuffer());
-    console.log(`✅ CloudConvert conversion completed successfully. Output size: ${Math.round(convertedBuffer.length / 1024)}KB`);
-    
-    return convertedBuffer;
-
-  } catch (error) {
-    console.error(`❌ CloudConvert conversion failed:`, error);
-    throw new Error(`Audio conversion failed: ${error.message}`);
-  }
-}
 
 router.post('/upload-edit', upload.single('file'), async (req, res) => {  
   const { prompt, provider } = req.body;
@@ -387,31 +288,6 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     taskStore.set(taskId, getTaskError(error));
   }
 });
-
-function finalizeVideo(taskId, result, prompt, req = null) {
-  try {
-    if (isErrorResult(result)) {
-      taskStore.set(taskId, getTaskError(result));
-      return;
-    }
-    
-    let videoURL = result.result;
-    if (req && videoURL && videoURL.startsWith('/static/')) {
-      const host = `${req.protocol}://${req.get('host')}`;
-      videoURL = `${host}${videoURL}`;
-    }
-    
-    taskStore.set(taskId, {
-      status:'done',
-      result: videoURL,
-      text: result.text || prompt,
-      cost: result.cost
-    });
-  } catch (error) {
-    console.error(`❌ Error in finalizeVideo:`, error);
-    taskStore.set(taskId, getTaskError(error, 'Failed to finalize video'));
-  }
-}
 
 function finalize(taskId, result, req) {
   try {
