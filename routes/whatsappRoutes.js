@@ -329,12 +329,29 @@ async function handleIncomingMessage(webhookData) {
             break; // If not image message, continue
           }
           case 'video_to_video': {
+            // Process video-to-video directly - don't fall through to legacy
             if (messageData.typeMessage === 'videoMessage') {
               const videoData = messageData.fileMessageData || messageData.videoMessageData;
-              videoData.caption = '## ' + decision.args.prompt;
-              messageData.videoMessageData = videoData;
+              
+              console.log(`🎬 RunwayML Gen4 video-to-video request (via router)`);
+              
+              // Check authorization for media creation
+              if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
+                await sendUnauthorizedMessage(chatId, 'video editing');
+                return;
+              }
+              
+              // Process video-to-video asynchronously
+              processVideoToVideoAsync({
+                chatId,
+                senderId,
+                senderName,
+                videoUrl: videoData.downloadUrl,
+                prompt: decision.args.prompt
+              });
+              return; // Stop processing - we handled it
             }
-            break; // נמשיך לעיבוד הווידאו הקיים
+            break; // If not video message, continue
           }
           case 'text_to_speech':
             processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: '*** ' + (decision.args?.text || prompt) });
@@ -580,11 +597,26 @@ async function handleIncomingMessage(webhookData) {
             case 'deny_unauthorized':
               await sendUnauthorizedMessage(chatId, decision.args?.feature || 'media');
               return;
-            case 'video_to_video':
-              // Rewrite caption to legacy prefix and fall through to legacy handlers
-              videoData.caption = '## ' + routedPrompt;
-              messageData.videoMessageData = videoData;
-              break;
+            case 'video_to_video': {
+              // Process video-to-video directly - don't fall through to legacy
+              console.log(`🎬 RunwayML Gen4 video-to-video request (via router, video block)`);
+              
+              // Check authorization for media creation
+              if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
+                await sendUnauthorizedMessage(chatId, 'video editing');
+                return;
+              }
+              
+              // Process video-to-video asynchronously
+              processVideoToVideoAsync({
+                chatId,
+                senderId,
+                senderName,
+                videoUrl: videoData.downloadUrl,
+                prompt: decision.args?.prompt || routedPrompt
+              });
+              return; // Stop processing - we handled it
+            }
             case 'veo3_video':
             case 'kling_text_to_video':
               processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'veo3_video' ? '#### ' : '### ') + routedPrompt });
@@ -822,12 +854,25 @@ async function handleOutgoingMessage(webhookData) {
             break; // If not image message, continue
           }
           case 'video_to_video': {
+            // Process video-to-video directly - don't fall through to legacy
             if (messageData.typeMessage === 'videoMessage') {
               const videoData = messageData.fileMessageData || messageData.videoMessageData;
-              videoData.caption = '## ' + (decision.args?.prompt || prompt);
-              messageData.videoMessageData = videoData;
+              
+              console.log(`🎬 RunwayML Gen4 video-to-video request (outgoing, via router)`);
+              
+              // No authorization check for outgoing messages
+              
+              // Process video-to-video asynchronously
+              processVideoToVideoAsync({
+                chatId,
+                senderId,
+                senderName,
+                videoUrl: videoData.downloadUrl,
+                prompt: decision.args?.prompt || prompt
+              });
+              return; // Stop processing - we handled it
             }
-            break;
+            break; // If not video message, continue
           }
           case 'text_to_speech':
             processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: '*** ' + (decision.args?.text || prompt) }, true);
