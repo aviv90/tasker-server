@@ -101,7 +101,7 @@ async function routeIntent(input) {
     const lower = prompt.toLowerCase();
     const isImageLike = /image|תמונה|ציור|תצלום|לוגו|poster|איור|illustration|render|צייר|ציירי/.test(lower);
     const isVideoLike = /video|וידאו|סרט|אנימציה|קליפ|clip|animate|motion/.test(lower);
-    const isTtsLike = /קרא|הקרא|הקריא|הקראת|דיבור|speech|להשמיע/.test(lower);
+    const isTtsLike = /קרא|הקרא|הקריא|הקראת|דיבור|speech|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text.*to.*speech|tts/.test(lower);
     const isSummary = /סכם|סיכום|summary|לסכם/.test(lower);
     const isMusic = /שיר|מוזיקה|שירון|suno|music|song/.test(lower);
 
@@ -113,7 +113,26 @@ async function routeIntent(input) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'text_to_speech' }, reason: 'No media creation authorization' };
       }
-      return { tool: 'text_to_speech', args: { text: prompt }, reason: 'TTS-like request' };
+      
+      // Extract the actual text to convert to speech (after colon or after TTS keywords)
+      let textToSpeak = prompt;
+      
+      // Try to extract text after colon (e.g., "הפוך לדיבור: היי שם")
+      const colonMatch = prompt.match(/[:：]\s*(.+)/);
+      if (colonMatch) {
+        textToSpeak = colonMatch[1].trim();
+      } else {
+        // Try to remove common TTS instruction patterns
+        textToSpeak = prompt
+          .replace(/^(הפוך|המר|תמיר|תהפוך)\s+(את\s+)?(ה)?טקסט\s+(הזה\s+)?לדיבור\s*/i, '')
+          .replace(/^(קרא|הקרא|הקריא)\s+(את\s+)?(ה)?טקסט\s+(הזה\s+)?[:\s]*/i, '')
+          .replace(/^(read|speak|say)\s+(this|the\s+text)?\s*[:\s]*/i, '')
+          .replace(/^text\s+to\s+speech\s*[:\s]*/i, '')
+          .replace(/^tts\s*[:\s]*/i, '')
+          .trim();
+      }
+      
+      return { tool: 'text_to_speech', args: { text: textToSpeak }, reason: 'TTS-like request' };
     }
 
     if (isMusic) {
