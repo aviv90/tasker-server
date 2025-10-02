@@ -308,16 +308,25 @@ async function handleIncomingMessage(webhookData) {
             return;
           }
           case 'image_edit': {
-            // כדי להישאר תאימים לאחור, נשתמש בקידומות העריכה על תמונה מצורפת
+            // Process image edit directly - don't fall through to legacy
             if (messageData.typeMessage === 'imageMessage') {
-              const prefix = decision.args?.service === 'gemini' ? '* ' : '# ';
               const imageData = messageData.fileMessageData || messageData.imageMessageData;
-              // מיחזור הלוגיקה הקיימת: הוספת כיתוב מלאכותי והמשך בנתיב הרגיל
-              imageData.caption = prefix + decision.args.prompt;
-              messageData.imageMessageData = imageData;
-              // נפל דרך לבלוק הקיים של תמונות בעיבוד בהמשך
+              const service = decision.args?.service || 'gemini';
+              
+              console.log(`🎨 ${service} image edit request (via router)`);
+              
+              // Process image editing asynchronously
+              processImageEditAsync({
+                chatId,
+                senderId,
+                senderName,
+                imageUrl: imageData.downloadUrl,
+                prompt: decision.args.prompt,
+                service: service
+              });
+              return; // Stop processing - we handled it
             }
-            break; // נמשיך לעיבוד התמונות הקיים בהמשך הפונקציה
+            break; // If not image message, continue
           }
           case 'video_to_video': {
             if (messageData.typeMessage === 'videoMessage') {
@@ -382,18 +391,49 @@ async function handleIncomingMessage(webhookData) {
               processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'gemini_image' ? '** ' : decision.tool === 'openai_image' ? '## ' : '++ ') + routedPrompt });
               return;
             case 'veo3_video':
-            case 'kling_text_to_video':
-              // אם מצורפת תמונה ורוצים וידאו – נשמור תאימות: נפנה לזרימת image->video הקיימת
-              // הזרימה הקיימת מופעלת ע"י קידומות בתמונת caption (### Veo3, ## Kling)
-              imageData.caption = (decision.tool === 'veo3_video' ? '### ' : '## ') + routedPrompt;
-              messageData.imageMessageData = imageData;
-              break; // נמשיך למסלולי התמונות ההיסטוריים למטה
+            case 'kling_text_to_video': {
+              // Process image-to-video directly - don't fall through to legacy
+              const service = decision.tool === 'veo3_video' ? 'veo3' : 'kling';
+              console.log(`🎬 ${service} image-to-video request (via router)`);
+              
+              // Check authorization
+              if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
+                await sendUnauthorizedMessage(chatId, 'video creation');
+                return;
+              }
+              
+              // Process image-to-video asynchronously
+              processImageToVideoAsync({
+                chatId,
+                senderId,
+                senderName,
+                imageUrl: imageData.downloadUrl,
+                prompt: decision.args?.prompt || routedPrompt,
+                service: service
+              });
+              return; // Stop processing - we handled it
+            }
             case 'image_edit': {
-              const prefix = decision.args?.service === 'gemini' ? '* ' : '# ';
-              imageData.caption = prefix + decision.args.prompt;
-              messageData.imageMessageData = imageData;
-              // Fall through to legacy handlers below
-              break;
+              // Process image edit directly - don't fall through to legacy
+              const service = decision.args?.service || 'gemini';
+              console.log(`🎨 ${service} image edit request (via router, image block)`);
+              
+              // Check authorization
+              if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
+                await sendUnauthorizedMessage(chatId, 'image editing');
+                return;
+              }
+              
+              // Process image editing asynchronously
+              processImageEditAsync({
+                chatId,
+                senderId,
+                senderName,
+                imageUrl: imageData.downloadUrl,
+                prompt: decision.args.prompt,
+                service: service
+              });
+              return; // Stop processing - we handled it
             }
             case 'video_to_video':
               // For image message this doesn't apply; ask clarification
@@ -761,13 +801,25 @@ async function handleOutgoingMessage(webhookData) {
             return;
           }
           case 'image_edit': {
+            // Process image edit directly - don't fall through to legacy
             if (messageData.typeMessage === 'imageMessage') {
-              const prefix = decision.args?.service === 'gemini' ? '* ' : '# ';
               const imageData = messageData.fileMessageData || messageData.imageMessageData;
-              imageData.caption = prefix + decision.args.prompt;
-              messageData.imageMessageData = imageData;
+              const service = decision.args?.service || 'gemini';
+              
+              console.log(`🎨 ${service} image edit request (outgoing, via router)`);
+              
+              // Process image editing asynchronously
+              processImageEditAsync({
+                chatId,
+                senderId,
+                senderName,
+                imageUrl: imageData.downloadUrl,
+                prompt: decision.args.prompt,
+                service: service
+              });
+              return; // Stop processing - we handled it
             }
-            break;
+            break; // If not image message, continue
           }
           case 'video_to_video': {
             if (messageData.typeMessage === 'videoMessage') {
@@ -818,16 +870,38 @@ async function handleOutgoingMessage(webhookData) {
           const routedPrompt = normalized.userText.replace(/^#\s+/, '').trim();
           switch (decision.tool) {
             case 'image_edit': {
-              const prefix = decision.args?.service === 'gemini' ? '* ' : '# ';
-              imageData.caption = prefix + decision.args.prompt;
-              messageData.imageMessageData = imageData;
-              break; // fall through to legacy
+              // Process image edit directly - don't fall through to legacy
+              const service = decision.args?.service || 'gemini';
+              console.log(`🎨 ${service} image edit request (outgoing, image block, via router)`);
+              
+              // Process image editing asynchronously
+              processImageEditAsync({
+                chatId,
+                senderId,
+                senderName,
+                imageUrl: imageData.downloadUrl,
+                prompt: decision.args.prompt,
+                service: service
+              });
+              return; // Stop processing - we handled it
             }
             case 'veo3_video':
-            case 'kling_text_to_video':
-              imageData.caption = (decision.tool === 'veo3_video' ? '### ' : '## ') + routedPrompt;
-              messageData.imageMessageData = imageData;
-              break; // fall through to legacy
+            case 'kling_text_to_video': {
+              // Process image-to-video directly - don't fall through to legacy
+              const service = decision.tool === 'veo3_video' ? 'veo3' : 'kling';
+              console.log(`🎬 ${service} image-to-video request (outgoing, via router)`);
+              
+              // Process image-to-video asynchronously
+              processImageToVideoAsync({
+                chatId,
+                senderId,
+                senderName,
+                imageUrl: imageData.downloadUrl,
+                prompt: decision.args?.prompt || routedPrompt,
+                service: service
+              });
+              return; // Stop processing - we handled it
+            }
             case 'gemini_image':
             case 'openai_image':
             case 'grok_image':
