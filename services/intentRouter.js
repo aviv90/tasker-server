@@ -95,8 +95,15 @@ async function routeIntent(input) {
     return { tool: 'video_to_video', args: { prompt }, reason: 'Video attached with prompt' };
   }
 
+  // If there is an attached image WITHOUT prompt (or prompt is very generic) → image-to-text / analyze image
+  if (input.hasImage && (!prompt || prompt.length < 3)) {
+    // User sent image without meaningful caption - treat as "what's in this image?"
+    return { tool: 'gemini_chat', args: { prompt: 'מה מופיע בתמונה הזו?' }, reason: 'Image attached without prompt - analyze image' };
+  }
+
   // If text prompt only (no attachments) → decide among chat / image / video generation
-  if (prompt) {
+  // CRITICAL: This block should NEVER run if hasImage or hasVideo is true
+  if (prompt && !input.hasImage && !input.hasVideo) {
     // Simple keyword-based heuristic to infer intent; replace later with LLM
     const lower = prompt.toLowerCase();
     const isImageLike = /image|תמונה|ציור|תצלום|לוגו|poster|איור|illustration|render|צייר|ציירי/.test(lower);
@@ -275,26 +282,33 @@ Available Tools and Services:
 
 Routing Rules:
 ━━━━━━━━━━━
-1. MUSIC: For any song/music requests (like "write a song", "create music", "שיר", "מוזיקה", "suno"):
-   → Choose music_generation (requires media_creation authorization)
+⚠️ CRITICAL PRIORITY RULES (check these FIRST):
 
-2. AUDIO INPUT: If hasAudio=true (voice message):
-   → Choose creative_voice_processing only if authorizations.voice_allowed=true
-   → Otherwise: deny_unauthorized {feature:"voice"}
-
-3. IMAGE WITH PROMPT: If hasImage=true and userText exists:
-   a) Video-like keywords ("video", "וידאו", "אנימציה", "animate", "הנפש", "motion", "clip"):
-      → If mentions "veo" or "veo3": choose veo3_image_to_video
+1. IMAGE ATTACHED (hasImage=true):
+   → ALWAYS handle the image first, NEVER route to TTS/music/text-only actions
+   a) If userText has video keywords ("video", "וידאו", "אנימציה", "animate", "motion"):
+      → If mentions "veo"/"veo3": choose veo3_image_to_video
       → Otherwise: choose kling_image_to_video (default)
-   b) Not video-like:
+   b) If userText exists and is NOT video-related:
       → Choose image_edit with service:
          * "openai" if mentions "openai", "gpt", "dall-e"
          * "gemini" otherwise (default)
+   c) If NO userText or very short caption (< 3 chars):
+      → Choose gemini_chat with prompt "מה מופיע בתמונה?" (analyze image)
 
-4. VIDEO WITH PROMPT: If hasVideo=true:
-   → Choose video_to_video
+2. VIDEO ATTACHED (hasVideo=true):
+   → ALWAYS handle the video first, NEVER route to TTS/music/text-only actions
+   → Choose video_to_video (requires media_creation authorization)
 
-5. TEXT ONLY: Detect intent from userText:
+3. AUDIO INPUT (hasAudio=true, no text):
+   → Choose creative_voice_processing only if authorizations.voice_allowed=true
+   → Otherwise: deny_unauthorized {feature:"voice"}
+
+4. MUSIC REQUEST (text only, no attachments):
+   → For song/music keywords ("write a song", "שיר", "מוזיקה", "suno")
+   → Choose music_generation (requires media_creation authorization)
+
+5. TEXT ONLY (no attachments - hasImage=false AND hasVideo=false): Detect intent from userText:
    a) Music/song keywords ("שיר", "מוזיקה", "song", "music", "suno", "compose", "כתוב שיר", "צור שיר"):
       → Choose music_generation (requires media_creation)
    
