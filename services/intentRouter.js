@@ -257,13 +257,15 @@ Available Tools and Services:
 - veo3_video: Create videos from text using Google Veo 3 (when user mentions "veo" or "veo3")
 - kling_image_to_video: Create videos from image using Kling AI (default for image-to-video)
 - veo3_image_to_video: Create videos from image using Veo 3 (when user mentions "veo" or "veo3")
-- video_to_video: Transform existing video using Kling AI
+- video_to_video: Transform existing video using RunwayML Gen4
 
 🖼️ IMAGE EDITING:
 - image_edit: Edit images (specify service: "gemini" default, or "openai" if requested)
 
 🗣️ VOICE & SPEECH:
-- text_to_speech: Convert text to speech (TTS). Use for "read this", "הקרא", "speech", etc.
+- text_to_speech: Convert text to speech (TTS). Use for "read this", "הקרא", "הפוך לדיבור", "המר לדיבור", "text to speech", "TTS", etc.
+  * IMPORTANT: Extract only the actual text to speak (after colon if present)
+  * Example: "הפוך לדיבור: היי שם" → args.text should be "היי שם"
 - creative_voice_processing: Process audio messages with voice effects (requires voice_allowed authorization)
 
 📝 UTILITIES:
@@ -293,30 +295,31 @@ Routing Rules:
    → Choose video_to_video
 
 5. TEXT ONLY: Detect intent from userText:
-   a) Music/song keywords ("שיר", "מוזיקה", "song", "music", "suno", "compose", "כתוב שיר"):
+   a) Music/song keywords ("שיר", "מוזיקה", "song", "music", "suno", "compose", "כתוב שיר", "צור שיר"):
       → Choose music_generation (requires media_creation)
    
-   b) Summary keywords ("סכם", "סיכום", "summary"):
+   b) Summary keywords ("סכם", "סיכום", "summary", "לסכם"):
       → Choose chat_summary
    
-   c) TTS keywords ("קרא", "הקרא", "speech", "read this"):
+   c) TTS keywords ("קרא", "הקרא", "הקריא", "הפוך לדיבור", "המר לדיבור", "speech", "text to speech", "TTS", "read this", "להשמיע", "דיבור"):
       → Choose text_to_speech (requires media_creation)
+      → MUST extract clean text from args.text (remove instruction prefixes, extract text after colon)
    
-   d) Image keywords ("תמונה", "ציור", "image", "picture", "draw", "צייר"):
+   d) Image keywords ("תמונה", "ציור", "תצלום", "image", "picture", "draw", "צייר", "ציירי", "איור", "illustration", "render", "לוגו", "poster"):
       → If mentions "openai", "gpt", "dall-e": choose openai_image
       → If mentions "grok", "xai": choose grok_image
       → Otherwise: choose gemini_image (default)
       → Requires media_creation authorization
    
-   e) Video keywords ("וידאו", "video", "סרט", "אנימציה", "clip"):
+   e) Video keywords ("וידאו", "video", "סרט", "אנימציה", "clip", "קליפ", "motion", "animate", "הנפש"):
       → If mentions "veo" or "veo3": choose veo3_video
       → Otherwise: choose kling_text_to_video (default)
       → Requires media_creation authorization
    
-   f) Default to chat:
+   f) Default to chat (when no other intent matches):
       → If mentions "openai", "gpt", "chatgpt": choose openai_chat
       → If mentions "grok", "xai": choose grok_chat
-      → Otherwise: choose gemini_chat (default)
+      → Otherwise: choose gemini_chat (default - most common case)
 
 6. AUTHORIZATION: If media action required but missing authorization:
    → Choose deny_unauthorized with appropriate feature name
@@ -324,7 +327,16 @@ Routing Rules:
 Output Format:
 ━━━━━━━━━━━
 Return ONLY a single JSON object (no markdown, no explanation):
-{ "tool": "tool_name", "args": {...}, "reason": "why this tool" }`;
+{ "tool": "tool_name", "args": {...}, "reason": "why this tool" }
+
+Examples:
+• Text chat: {"tool": "gemini_chat", "args": {}, "reason": "General conversation"}
+• Image: {"tool": "gemini_image", "args": {"prompt": "a cat"}, "reason": "User requested image"}
+• Video: {"tool": "kling_text_to_video", "args": {"prompt": "sunset"}, "reason": "User requested video"}
+• TTS: {"tool": "text_to_speech", "args": {"text": "hello world"}, "reason": "User requested speech"}
+• Music: {"tool": "music_generation", "args": {"prompt": "happy song"}, "reason": "User requested song"}
+• Image edit: {"tool": "image_edit", "args": {"service": "gemini", "prompt": "make it red"}, "reason": "User attached image with edit request"}
+• No auth: {"tool": "deny_unauthorized", "args": {"feature": "image_generation"}, "reason": "No media_creation permission"}`;
   const payload = {
     userText: safe(input.userText),
     hasImage: !!input.hasImage,
