@@ -242,6 +242,7 @@ class VoiceService {
     async textToSpeech(voiceId, text, options = {}) {
         try {
             console.log(`🗣️ Converting text to speech with voice: ${voiceId}`);
+            console.log(`📝 Text sample: "${text.substring(0, 100)}..."`);
             
             if (!voiceId || !text) {
                 return { error: 'Voice ID and text are required' };
@@ -249,8 +250,18 @@ class VoiceService {
 
             const client = this.initializeClient();
             
-            // Determine language code - default to Hebrew if not provided
-            let languageCode = options.languageCode || 'he';
+            // Determine language code - use English as default only if text is clearly English
+            let languageCode = options.languageCode;
+            
+            // If no language code provided, try to detect from text
+            if (!languageCode) {
+                // Simple detection: if text contains Hebrew characters, use Hebrew
+                if (text.match(/[\u0590-\u05FF]|[א-ת]/)) {
+                    languageCode = 'he';
+                } else {
+                    languageCode = 'en'; // Default to English for non-Hebrew
+                }
+            }
             
             // Map some common language codes to ISO 639-1 format
             const languageMap = {
@@ -304,6 +315,7 @@ class VoiceService {
             // It provides the highest quality audio generation and supports all our required features
             
             console.log(`🌐 Language code: ${languageCode || 'auto-detect'}, Model: ${modelId}`);
+            console.log(`🔧 Language detection result: ${languageCode} for Hebrew content`);
             
             // TTS request options - build conditionally based on model capabilities
             const ttsRequest = {
@@ -472,8 +484,8 @@ class VoiceService {
             
             // Language-specific voice preferences
             const languageVoicePreferences = {
-                'he': ['Rachel', 'Sarah', 'Nicole', 'Bella', 'Antoni'], // Hebrew-friendly voices
-                'en': ['Rachel', 'Drew', 'Clyde', 'Paul', 'Domi'], // English voices
+                'he': ['Bella', 'Antoni', 'Elli', 'Josh', 'Arnold', 'Adam', 'Callum', 'Charlie', 'Daniel'], // Hebrew-friendly voices (multilingual voices with broader accent support)
+                'en': ['Rachel', 'Drew', 'Clyde', 'Paul', 'Domi'], // English voices  
                 'es': ['Bella', 'Antoni', 'Elli', 'Josh', 'Arnold'], // Spanish voices
                 'fr': ['Bella', 'Antoni', 'Elli', 'Josh', 'Arnold'], // French voices
                 'de': ['Bella', 'Antoni', 'Elli', 'Josh', 'Arnold'], // German voices
@@ -551,10 +563,18 @@ class VoiceService {
             return 'en'; // Default to English
         }
         
-        // Hebrew detection - check for Hebrew characters
-        const hebrewRegex = /[\u0590-\u05FF]/;
+        // Hebrew detection - check for Hebrew characters (includes Hebrew letters, vowels, punctuation)
+        const hebrewRegex = /[\u0590-\u05FF]|[א-ת]/;
         if (hebrewRegex.test(text)) {
-            return 'he';
+            // Count Hebrew characters to ensure majority is Hebrew
+            const hebrewChars = (text.match(/[\u0590-\u05FF]|[א-ת]/g) || []).length;
+            const totalChars = text.replace(/[\s\n\r\t]/g, '').length; // Remove whitespace
+            const hebrewRatio = hebrewChars / Math.max(totalChars, 1);
+            
+            // If Hebrew characters make up at least 30% of the text, classify as Hebrew
+            if (hebrewRatio >= 0.3) {
+                return 'he';
+            }
         }
         
         // Arabic detection - check for Arabic characters  
@@ -612,7 +632,8 @@ class VoiceService {
             }
             
             const { voiceId, voiceName, voiceCategory } = voiceResult;
-            console.log(`🎤 Using voice: ${voiceName} for language: ${detectedLanguage}`);
+            console.log(`🎤 Using voice: ${voiceName} (category: ${voiceCategory}) for language: ${detectedLanguage}`);
+            console.log(`🔤 Text contains Hebrew: ${text.match(/[\u0590-\u05FF]|[א-ת]/) ? 'YES' : 'NO'}`);
             
             if (!voiceId) {
                 return { error: 'No voice ID received from voice selection' };
