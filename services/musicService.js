@@ -93,7 +93,7 @@ class MusicService {
                         return {
                 taskId: taskId,
                 status: 'pending',
-                message: 'Music generation with lyrics started. Waiting for completion...'
+                message: '🎵 יצירת השיר החלה! ממתין להשלמה...'
             };
 
         } catch (err) {
@@ -190,7 +190,7 @@ class MusicService {
         return {
             taskId: taskId,
             status: 'pending',
-            message: `${type} music generation started. Waiting for completion...`
+                message: `🎵 יצירת ${type} החלה! ממתין להשלמה...`
         };
     }
 
@@ -296,11 +296,11 @@ class MusicService {
             } else if (callbackData.data?.callbackType === 'text') {
                 console.log(`📝 Text generation completed for task ${taskId}, waiting for complete callback...`);
                 // Don't process yet, wait for 'complete' callback
-                return { status: 'text_complete', message: 'Text generation completed, waiting for audio' };
+                return { status: 'text_complete', message: '📝 יצירת הטקסט הושלמה, ממתין לאודיו...' };
             } else if (callbackData.data?.callbackType === 'first') {
                 console.log(`🎵 First track completed for task ${taskId}, waiting for complete callback...`);
                 // Don't process yet, wait for 'complete' callback
-                return { status: 'first_complete', message: 'First track completed, waiting for all tracks' };
+                return { status: 'first_complete', message: '🎵 המסלול הראשון הושלם, ממתין לכל המסלולים...' };
             } else {
                 console.log(`⚠️ No songs found in callback or callback type not supported`);
                 console.log(`📋 Callback code: ${callbackData.code}, type: ${callbackData.data?.callbackType}`);
@@ -461,7 +461,7 @@ class MusicService {
                     return {
                         taskId: taskId,
                 status: 'pending',
-                message: 'Upload-Extend generation started. Waiting for completion...'
+                message: '🎵 יצירת Upload-Extend החלה! ממתין להשלמה...'
             };
         } catch (err) {
             console.error('❌ Upload-Extend generation error:', err);
@@ -510,7 +510,7 @@ class MusicService {
                     return {
                         taskId: taskId,
                 status: 'pending',
-                message: 'Upload-Cover generation started. Waiting for completion...'
+                message: '🎵 יצירת Upload-Cover החלה! ממתין להשלמה...'
             };
         } catch (err) {
             console.error('❌ Upload-Cover generation error:', err);
@@ -589,7 +589,7 @@ class MusicService {
                     return {
                         taskId: taskId,
                 status: 'pending',
-                message: 'Add Instrumental generation started. Waiting for completion...'
+                message: '🎵 יצירת Add Instrumental החלה! ממתין להשלמה...'
             };
         } catch (err) {
             console.error('❌ Add Instrumental generation error:', err);
