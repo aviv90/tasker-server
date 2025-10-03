@@ -108,7 +108,7 @@ async function routeIntent(input) {
     const lower = prompt.toLowerCase();
     const isImageLike = /image|תמונה|ציור|תצלום|לוגו|poster|איור|illustration|render|צייר|ציירי/.test(lower);
     const isVideoLike = /video|וידאו|סרט|אנימציה|קליפ|clip|animate|motion/.test(lower);
-    const isTtsLike = /קרא|הקרא|הקריא|הקראת|דיבור|speech|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text.*to.*speech|tts/.test(lower);
+    const isTtsLike = /קרא|הקרא|הקריא|הקראת|דיבור|speech|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text.*to.*speech|tts|אמור/.test(lower);
     const isSummary = /סכם|סיכום|summary|לסכם/.test(lower);
     const isMusic = /שיר|מוזיקה|שירון|suno|music|song/.test(lower);
 
@@ -285,7 +285,7 @@ ${JSON.stringify(payload, null, 2)}
    🎬 Video: "וידאו", "video", "סרט", "אנימציה", "clip"
       → "kling_text_to_video" (default) or "veo3_video" if mentions Veo
    
-   🗣️ TTS: "הקרא", "קרא", "דיבור", "speech", "TTS", "read this"
+   🗣️ TTS: "הקרא", "קרא", "דיבור", "speech", "TTS", "read this", "אמור"
       → "text_to_speech" + extract text after colon
    
    📝 Summary: "סכם", "summary"

@@ -8,7 +8,7 @@ const { generateTextResponse: generateGrokResponse } = require('../services/grok
 const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage, generateVideoFromVideoForWhatsApp: generateRunwayVideoFromVideo, generateVideoWithTextForWhatsApp: generateKlingVideoFromText } = require('../services/replicateService');
 const { generateMusicWithLyrics } = require('../services/musicService');
 const speechService = require('../services/speechService');
-const { voiceService, detectLanguage, getVoiceForLanguage } = require('../services/voiceService');
+const { voiceService } = require('../services/voiceService');
 const { audioConverterService } = require('../services/audioConverterService');
 const { creativeAudioService } = require('../services/creativeAudioService');
 const conversationManager = require('../services/conversationManager');
@@ -498,8 +498,8 @@ async function handleIncomingMessage(webhookData) {
             case 'text_to_speech': {
               await sendAck(chatId, { type: 'text_to_speech' });
               const text = decision.args?.text || prompt;
-              const languageCode = detectLanguage(text);
-              const voiceId = getVoiceForLanguage(languageCode);
+              const languageCode = voiceService.detectLanguage(text);
+              const voiceId = voiceService.getVoiceForLanguage(languageCode);
               const ttsResult = await voiceService.textToSpeech(voiceId, text, {
                 modelId: 'eleven_v3',
                 outputFormat: 'mp3_44100_128',
@@ -927,8 +927,8 @@ async function handleOutgoingMessage(webhookData) {
             // ═══════════════════ TEXT-TO-SPEECH ═══════════════════
             case 'text_to_speech': {
               const text = decision.args?.text || prompt;
-              const languageCode = detectLanguage(text);
-              const voiceId = getVoiceForLanguage(languageCode);
+              const languageCode = voiceService.detectLanguage(text);
+              const voiceId = voiceService.getVoiceForLanguage(languageCode);
               const ttsResult = await voiceService.textToSpeech(voiceId, text, {
                 modelId: 'eleven_v3',
                 outputFormat: 'mp3_44100_128',
