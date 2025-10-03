@@ -480,92 +480,7 @@ async function handleIncomingMessage(webhookData) {
         }
       }
       
-      // Check if caption starts with "### " for Veo 3 image-to-video
-      if (caption.startsWith('### ')) {
-        const prompt = caption.substring(4).trim(); // Remove "### "
-        console.log(`🎬 Veo 3 image-to-video request`);
-        
-        // Check authorization for media creation
-        if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
-          await sendUnauthorizedMessage(chatId, 'video creation');
-          return;
-        }
-        
-        // Process Veo 3 image-to-video asynchronously
-        processImageToVideoAsync({
-          chatId,
-          senderId,
-          senderName,
-          imageUrl: imageData.downloadUrl,
-          prompt: prompt,
-          service: 'veo3'
-        });
-      }
-      // Check if caption starts with "## " for Kling image-to-video
-      else if (caption.startsWith('## ')) {
-        const prompt = caption.substring(3).trim(); // Remove "## "
-        console.log(`🎬 Kling 2.1 image-to-video request`);
-        
-        // Check authorization for media creation
-        if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
-          await sendUnauthorizedMessage(chatId, 'video creation');
-          return;
-        }
-        
-        // Process Kling image-to-video asynchronously
-        processImageToVideoAsync({
-          chatId,
-          senderId,
-          senderName,
-          imageUrl: imageData.downloadUrl,
-          prompt: prompt,
-          service: 'kling'
-        });
-      }
-      // Check if caption starts with "*" for Gemini image editing
-      else if (caption.startsWith('* ')) {
-        const prompt = caption.substring(2).trim(); // Remove "* "
-        console.log(`🎨 Gemini image edit request`);
-        
-        // Check authorization for media creation
-        if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
-          await sendUnauthorizedMessage(chatId, 'image editing');
-          return;
-        }
-        
-        // Process Gemini image editing asynchronously
-        processImageEditAsync({
-          chatId,
-          senderId,
-          senderName,
-          imageUrl: imageData.downloadUrl,
-          prompt: prompt,
-          service: 'gemini'
-        });
-      } 
-      // Check if caption starts with "#" for OpenAI image editing
-      else if (caption.startsWith('# ')) {
-        const prompt = caption.substring(2).trim(); // Remove "# "
-        console.log(`🖼️ OpenAI image edit request`);
-        
-        // Check authorization for media creation
-        if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
-          await sendUnauthorizedMessage(chatId, 'image editing');
-          return;
-        }
-        
-        // Process OpenAI image editing asynchronously
-        processImageEditAsync({
-          chatId,
-          senderId,
-          senderName,
-          imageUrl: imageData.downloadUrl,
-          prompt: prompt,
-          service: 'openai'
-        });
-      } else {
-        console.log(`ℹ️ Image received but no command (use "### " for Veo 3 video, "## " for Kling video, "* " for Gemini edit, or "# " for OpenAI edit)`);
-      }
+      // Legacy prefixes removed - all image operations now go through router with "# " prefix
     }
     // Handle video messages for video-to-video processing
     else if (messageData.typeMessage === 'videoMessage') {
@@ -653,28 +568,7 @@ async function handleIncomingMessage(webhookData) {
         }
       }
       
-      // Check if caption starts with "## " for RunwayML Gen4 video-to-video
-      if (caption.startsWith('## ')) {
-        const prompt = caption.substring(3).trim(); // Remove "## "
-        console.log(`🎬 RunwayML Gen4 video-to-video request`);
-        
-        // Check authorization for media creation
-        if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
-          await sendUnauthorizedMessage(chatId, 'video editing');
-          return;
-        }
-        
-        // Process RunwayML video-to-video asynchronously
-        processVideoToVideoAsync({
-          chatId,
-          senderId,
-          senderName,
-          videoUrl: videoData.downloadUrl,
-          prompt: prompt
-        });
-      } else {
-        console.log(`ℹ️ Video received but no command (use "## " for RunwayML Gen4 video-to-video)`);
-      }
+      // Legacy prefixes removed - all video operations now go through router with "# " prefix
     }
     // Handle voice messages for creative audio processing
     else if (messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage') {
@@ -963,68 +857,7 @@ async function handleOutgoingMessage(webhookData) {
         }
       }
 
-      // Check if caption starts with "### " for Veo 3 image-to-video
-      if (caption.startsWith('### ')) {
-        const prompt = caption.substring(4).trim(); // Remove "### "
-        console.log(`🎬 Outgoing Veo 3 image-to-video request (bypassing authorization)`);
-        
-        // Process Veo 3 image-to-video asynchronously (no authorization check for outgoing messages)
-        processImageToVideoAsync({
-          chatId,
-          senderId,
-          senderName,
-          imageUrl: imageData.downloadUrl,
-          prompt: prompt,
-          service: 'veo3'
-        });
-      }
-      // Check if caption starts with "## " for Kling image-to-video
-      else if (caption.startsWith('## ')) {
-        const prompt = caption.substring(3).trim(); // Remove "## "
-        console.log(`🎬 Outgoing Kling 2.1 image-to-video request (bypassing authorization)`);
-        
-        // Process Kling image-to-video asynchronously (no authorization check for outgoing messages)
-        processImageToVideoAsync({
-          chatId,
-          senderId,
-          senderName,
-          imageUrl: imageData.downloadUrl,
-          prompt: prompt,
-          service: 'kling'
-        });
-      }
-      // Check if caption starts with "*" for Gemini image editing
-      else if (caption.startsWith('* ')) {
-        const prompt = caption.substring(2).trim(); // Remove "* "
-        console.log(`🎨 Outgoing Gemini image edit request (bypassing authorization)`);
-        
-        // Process Gemini image editing asynchronously (no authorization check for outgoing messages)
-        processImageEditAsync({
-          chatId,
-          senderId,
-          senderName,
-          imageUrl: imageData.downloadUrl,
-          prompt: prompt,
-          service: 'gemini'
-        });
-      } 
-      // Check if caption starts with "#" for OpenAI image editing
-      else if (caption.startsWith('# ')) {
-        const prompt = caption.substring(2).trim(); // Remove "# "
-        console.log(`🖼️ Outgoing OpenAI image edit request (bypassing authorization)`);
-        
-        // Process OpenAI image editing asynchronously (no authorization check for outgoing messages)
-        processImageEditAsync({
-          chatId,
-          senderId,
-          senderName,
-          imageUrl: imageData.downloadUrl,
-          prompt: prompt,
-          service: 'openai'
-        });
-      } else {
-        console.log(`ℹ️ Outgoing image received but no command (use "### " for Veo 3 video, "## " for Kling video, "* " for Gemini edit, or "# " for OpenAI edit)`);
-      }
+      // Legacy prefixes removed - all image operations now go through router with "# " prefix
     }
     // Handle video messages for video-to-video processing
     else if (messageData.typeMessage === 'videoMessage') {
@@ -1033,22 +866,7 @@ async function handleOutgoingMessage(webhookData) {
       
       console.log(`🎬 Outgoing video message received with caption: "${caption}"`);
       
-      // Check if caption starts with "## " for RunwayML Gen4 video-to-video
-      if (caption.startsWith('## ')) {
-        const prompt = caption.substring(3).trim(); // Remove "## "
-        console.log(`🎬 Outgoing RunwayML Gen4 video-to-video request (bypassing authorization)`);
-        
-        // Process RunwayML video-to-video asynchronously (no authorization check for outgoing messages)
-        processVideoToVideoAsync({
-          chatId,
-          senderId,
-          senderName,
-          videoUrl: videoData.downloadUrl,
-          prompt: prompt
-        });
-      } else {
-        console.log(`ℹ️ Outgoing video received but no command (use "## " for RunwayML Gen4 video-to-video)`);
-      }
+      // Legacy prefixes removed - all video operations now go through router with "# " prefix
     }
     // Handle voice messages - but skip processing for outgoing messages
     else if (messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage') {
@@ -1709,6 +1527,21 @@ async function handleTextMessage({ chatId, senderId, senderName, senderContactNa
     console.log(`🚫 Admin command ${command.type} blocked - only works from outgoing messages`);
     // Silently ignore admin commands from incoming messages (no error message to user)
     return;
+  }
+  
+  // SECURITY: Legacy prefixes (*, **, ##, ###, etc.) blocked for non-outgoing messages
+  // These prefixes are only used internally by the router (which adds them after processing "# " commands)
+  // This prevents users from bypassing the router by using legacy prefixes directly
+  const legacyPrefixes = ['* ', '** ', '## ', '### ', '#### ', '*** ', '**** ', '+ ', '++ '];
+  if (!isOutgoing) {
+    const trimmed = messageText.trim();
+    for (const prefix of legacyPrefixes) {
+      if (trimmed.startsWith(prefix)) {
+        console.log(`🚫 Legacy prefix "${prefix}" blocked - use "# " prefix instead`);
+        // Silently ignore legacy prefix commands (they should use "# " prefix)
+        return;
+      }
+    }
   }
 
   // Check authorization for media commands BEFORE sending ACK (skip for outgoing messages)
