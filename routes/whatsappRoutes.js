@@ -566,7 +566,7 @@ async function handleIncomingMessage(webhookData) {
           }
         } catch (toolError) {
           console.error(`❌ Error executing tool ${decision.tool}:`, toolError);
-          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד הבקשה');
+          await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${toolError.message || toolError}`);
         }
       } catch (routerError) {
         console.error('❌ Intent router error:', routerError.message || routerError);

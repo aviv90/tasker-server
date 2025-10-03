@@ -81,9 +81,12 @@ async function routeIntent(input) {
       // Default to Kling for image-to-video
       return { tool: 'kling_image_to_video', args: { prompt }, reason: 'Image attached, video-like request' };
     }
-    // Default to Gemini for image editing, unless user explicitly requests OpenAI
+    // Default to Gemini for image editing, unless user explicitly requests OpenAI or Grok
     const wantsOpenAI = /openai|gpt|dall-e|dalle/.test(lower);
-    const service = wantsOpenAI ? 'openai' : 'gemini';
+    const wantsGrok = /grok|xai/.test(lower);
+    let service = 'gemini';
+    if (wantsOpenAI) service = 'openai';
+    else if (wantsGrok) service = 'grok';
     return { tool: 'image_edit', args: { service, prompt }, reason: 'Image attached with prompt' };
   }
 
@@ -92,7 +95,11 @@ async function routeIntent(input) {
     if (!input.authorizations?.media_creation) {
       return { tool: 'deny_unauthorized', args: { feature: 'video_to_video' }, reason: 'No media creation authorization' };
     }
-    return { tool: 'video_to_video', args: { prompt }, reason: 'Video attached with prompt' };
+    // Check if user explicitly requested Veo3 for video editing
+    const lower = prompt.toLowerCase();
+    const wantsVeo3 = /veo|veo3/.test(lower);
+    const service = wantsVeo3 ? 'veo3' : 'runway';
+    return { tool: 'video_to_video', args: { service, prompt }, reason: 'Video attached with prompt' };
   }
 
   // If there is an attached image WITHOUT prompt (or prompt is very generic) → image-to-text / analyze image
@@ -308,8 +315,14 @@ Output: {"tool": "gemini_chat", "args": {}, "reason": "Greeting/conversation"}
 Input: {"userText": "# הוסף כובע", "hasImage": true, "hasVideo": false}
 Output: {"tool": "image_edit", "args": {"service": "gemini", "prompt": "הוסף כובע"}, "reason": "Edit image"}
 
+Input: {"userText": "# הוסף כובע עם OpenAI", "hasImage": true, "hasVideo": false}
+Output: {"tool": "image_edit", "args": {"service": "openai", "prompt": "הוסף כובע"}, "reason": "Edit image with OpenAI"}
+
 Input: {"userText": "# צור שיר על אהבה", "hasImage": false, "hasVideo": false}
 Output: {"tool": "music_generation", "args": {"prompt": "שיר על אהבה"}, "reason": "Song request"}
+
+Input: {"userText": "# ערוך וידאו עם Veo3", "hasImage": false, "hasVideo": true}
+Output: {"tool": "video_to_video", "args": {"service": "veo3", "prompt": "ערוך וידאו"}, "reason": "Video edit with Veo3"}
 
 ⚠️ **RULES:**
 - ALWAYS check hasImage/hasVideo FIRST

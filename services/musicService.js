@@ -668,7 +668,7 @@ async function sendMusicToWhatsApp(whatsappContext, musicResult) {
         // Try to send error message to user
         try {
             const { sendTextMessage } = require('../services/greenApiService');
-            await sendTextMessage(whatsappContext.chatId, '❌ סליחה, הייתה שגיאה בשליחת השיר. אנא נסה שוב.');
+            await sendTextMessage(whatsappContext.chatId, `❌ שגיאה בשליחת השיר: ${error.message || error}`);
         } catch (sendError) {
             console.error('❌ Failed to send error message:', sendError);
         }
