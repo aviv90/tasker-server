@@ -499,7 +499,12 @@ async function handleIncomingMessage(webhookData) {
               await sendAck(chatId, { type: 'text_to_speech' });
               const text = decision.args?.text || prompt;
               const languageCode = voiceService.detectLanguage(text);
-              const voiceId = await voiceService.getVoiceForLanguage(languageCode);
+              const voiceResult = await voiceService.getVoiceForLanguage(languageCode);
+              if (voiceResult.error) {
+                await sendTextMessage(chatId, `❌ שגיאה בבחירת קול: ${voiceResult.error}`);
+                return;
+              }
+              const voiceId = voiceResult.voiceId;
               const ttsResult = await voiceService.textToSpeech(voiceId, text, {
                 modelId: 'eleven_v3',
                 outputFormat: 'mp3_44100_128',
@@ -928,7 +933,12 @@ async function handleOutgoingMessage(webhookData) {
             case 'text_to_speech': {
               const text = decision.args?.text || prompt;
               const languageCode = voiceService.detectLanguage(text);
-              const voiceId = await voiceService.getVoiceForLanguage(languageCode);
+              const voiceResult = await voiceService.getVoiceForLanguage(languageCode);
+              if (voiceResult.error) {
+                await sendTextMessage(chatId, `❌ שגיאה בבחירת קול: ${voiceResult.error}`);
+                return;
+              }
+              const voiceId = voiceResult.voiceId;
               const ttsResult = await voiceService.textToSpeech(voiceId, text, {
                 modelId: 'eleven_v3',
                 outputFormat: 'mp3_44100_128',
