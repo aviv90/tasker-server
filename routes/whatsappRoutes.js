@@ -357,42 +357,76 @@ async function handleIncomingMessage(webhookData) {
             
             // ═══════════════════ IMAGE GENERATION ═══════════════════
             case 'gemini_image': {
-              await sendAck(chatId, { type: 'gemini_image' });
-              const imageResult = await generateImageForWhatsApp(prompt);
-              if (imageResult.success && imageResult.imageUrl) {
-                const fileName = `gemini_image_${Date.now()}.png`;
-                const caption = imageResult.description || '';
-                await sendFileByUrl(chatId, imageResult.imageUrl, fileName, caption);
-              } else if (imageResult.textResponse) {
-                await sendTextMessage(chatId, imageResult.textResponse);
-              } else {
-                await sendTextMessage(chatId, `❌ ${imageResult.error || 'לא הצלחתי ליצור תמונה'}`);
+              try {
+                await sendAck(chatId, { type: 'gemini_image' });
+                console.log('🎨 ACK sent for gemini_image, starting generation...');
+                
+                const imageResult = await generateImageForWhatsApp(prompt);
+                console.log('🎨 Gemini image generation result:', imageResult.success ? 'SUCCESS' : 'FAILED');
+                
+                if (imageResult.success && imageResult.imageUrl) {
+                  const fileName = `gemini_image_${Date.now()}.png`;
+                  const caption = imageResult.description || '';
+                  await sendFileByUrl(chatId, imageResult.imageUrl, fileName, caption);
+                  console.log('🎨 Image sent successfully to WhatsApp');
+                } else if (imageResult.textResponse) {
+                  await sendTextMessage(chatId, imageResult.textResponse);
+                  console.log('🎨 Text response sent instead of image');
+                } else {
+                  await sendTextMessage(chatId, `❌ ${imageResult.error || 'לא הצלחתי ליצור תמונה'}`);
+                  console.log('🎨 Error message sent:', imageResult.error);
+                }
+              } catch (imageError) {
+                console.error('❌ Error in gemini_image case:', imageError);
+                await sendTextMessage(chatId, `❌ שגיאה ביצירת התמונה: ${imageError.message}`);
               }
               return;
             }
             
             case 'openai_image': {
-              await sendAck(chatId, { type: 'openai_image' });
-              const imageResult = await generateOpenAIImage(prompt);
-              if (imageResult.success && imageResult.imageUrl) {
-                const fileName = `openai_image_${Date.now()}.png`;
-                const caption = imageResult.description || '';
-                await sendFileByUrl(chatId, imageResult.imageUrl, fileName, caption);
-              } else {
-                await sendTextMessage(chatId, `❌ ${imageResult.error || 'לא הצלחתי ליצור תמונה'}`);
+              try {
+                await sendAck(chatId, { type: 'openai_image' });
+                console.log('🎨 ACK sent for openai_image, starting generation...');
+                
+                const imageResult = await generateOpenAIImage(prompt);
+                console.log('🎨 OpenAI image generation result:', imageResult.success ? 'SUCCESS' : 'FAILED');
+                
+                if (imageResult.success && imageResult.imageUrl) {
+                  const fileName = `openai_image_${Date.now()}.png`;
+                  const caption = imageResult.description || '';
+                  await sendFileByUrl(chatId, imageResult.imageUrl, fileName, caption);
+                  console.log('🎨 OpenAI image sent successfully to WhatsApp');
+                } else {
+                  await sendTextMessage(chatId, `❌ ${imageResult.error || 'לא הצלחתי ליצור תמונה'}`);
+                  console.log('🎨 OpenAI error message sent:', imageResult.error);
+                }
+              } catch (imageError) {
+                console.error('❌ Error in openai_image case:', imageError);
+                await sendTextMessage(chatId, `❌ שגיאה ביצירת התמונה: ${imageError.message}`);
               }
               return;
             }
             
             case 'grok_image': {
-              // Grok doesn't have image generation - fallback to Gemini
-              await sendAck(chatId, { type: 'gemini_image' });
-              const imageResult = await generateImageForWhatsApp(prompt);
-              if (imageResult.success && imageResult.imageUrl) {
-                const fileName = `gemini_image_${Date.now()}.png`;
-                await sendFileByUrl(chatId, imageResult.imageUrl, fileName, imageResult.description || '');
-              } else {
-                await sendTextMessage(chatId, `❌ ${imageResult.error || 'לא הצלחתי ליצור תמונה'}`);
+              try {
+                // Grok doesn't have image generation - fallback to Gemini
+                await sendAck(chatId, { type: 'gemini_image' });
+                console.log('🎨 ACK sent for grok_image (fallback to Gemini), starting generation...');
+                
+                const imageResult = await generateImageForWhatsApp(prompt);
+                console.log('🎨 Grok->Gemini image generation result:', imageResult.success ? 'SUCCESS' : 'FAILED');
+                
+                if (imageResult.success && imageResult.imageUrl) {
+                  const fileName = `gemini_image_${Date.now()}.png`;
+                  await sendFileByUrl(chatId, imageResult.imageUrl, fileName, imageResult.description || '');
+                  console.log('🎨 Grok->Gemini image sent successfully to WhatsApp');
+                } else {
+                  await sendTextMessage(chatId, `❌ ${imageResult.error || 'לא הצלחתי ליצור תמונה'}`);
+                  console.log('🎨 Grok->Gemini error message sent:', imageResult.error);
+                }
+              } catch (imageError) {
+                console.error('❌ Error in grok_image case:', imageError);
+                await sendTextMessage(chatId, `❌ שגיאה ביצירת התמונה: ${imageError.message}`);
               }
               return;
             }
