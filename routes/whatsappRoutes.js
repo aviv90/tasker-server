@@ -515,12 +515,127 @@ async function handleIncomingMessage(webhookData) {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // REMOVED: Duplicate image handling block (now handled in lines 279-510)
+    // Handle IMAGE messages with caption starting with "# "
     // ═══════════════════════════════════════════════════════════════
+    if (messageData.typeMessage === 'imageMessage') {
+      const imageData = messageData.fileMessageData || messageData.imageMessageData;
+      const caption = imageData?.caption || '';
+      
+      if (/^#\s+/.test(caption.trim())) {
+        try {
+          const normalized = {
+            userText: caption.trim(),
+            hasImage: true,
+            hasVideo: false,
+            hasAudio: false,
+            chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
+            language: 'he',
+            authorizations: {
+              media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
+              voice_allowed: false
+            }
+          };
+
+          const decision = await routeIntent(normalized);
+          const prompt = normalized.userText.replace(/^#\s+/, '').trim();
+
+          // Handle router decision for images
+          switch (decision.tool) {
+            case 'deny_unauthorized':
+              await sendUnauthorizedMessage(chatId, decision.args?.feature || 'media');
+              return;
+              
+            case 'image_edit': {
+              const service = decision.args?.service || 'gemini';
+              console.log(`🎨 ${service} image edit request (via router)`);
+              processImageEditAsync({
+                chatId, senderId, senderName,
+                imageUrl: imageData.downloadUrl,
+                prompt: decision.args?.prompt || prompt,
+                service: service
+              });
+              return;
+            }
+            
+            case 'veo3_video':
+            case 'kling_text_to_video': {
+              const service = decision.tool === 'veo3_video' ? 'veo3' : 'kling';
+              console.log(`🎬 ${service} image-to-video request (via router)`);
+              processImageToVideoAsync({
+                chatId, senderId, senderName,
+                imageUrl: imageData.downloadUrl,
+                prompt: decision.args?.prompt || prompt,
+                service: service
+              });
+              return;
+            }
+            
+            default:
+              console.log(`⚠️ Unexpected tool for image: ${decision.tool}`);
+              await sendTextMessage(chatId, 'ℹ️ לא הבנתי מה לעשות עם התמונה. תוכל לנסח שוב?');
+              return;
+          }
+        } catch (error) {
+          console.error('❌ Error routing image message:', error);
+        }
+      }
+    }
+    
     // ═══════════════════════════════════════════════════════════════
-    // REMOVED: Duplicate video handling block (now handled in lines 279-510)
+    // Handle VIDEO messages with caption starting with "# "
+    // ═══════════════════════════════════════════════════════════════
+    else if (messageData.typeMessage === 'videoMessage') {
+      const videoData = messageData.fileMessageData || messageData.videoMessageData;
+      const caption = videoData?.caption || '';
+      
+      if (/^#\s+/.test(caption.trim())) {
+        try {
+          const normalized = {
+            userText: caption.trim(),
+            hasImage: false,
+            hasVideo: true,
+            hasAudio: false,
+            chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
+            language: 'he',
+            authorizations: {
+              media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
+              voice_allowed: false
+            }
+          };
+
+          const decision = await routeIntent(normalized);
+          const prompt = normalized.userText.replace(/^#\s+/, '').trim();
+
+          // Handle router decision for videos
+          switch (decision.tool) {
+            case 'deny_unauthorized':
+              await sendUnauthorizedMessage(chatId, decision.args?.feature || 'media');
+              return;
+              
+            case 'video_to_video': {
+              console.log(`🎬 RunwayML Gen4 video-to-video request (via router)`);
+              processVideoToVideoAsync({
+                chatId, senderId, senderName,
+                videoUrl: videoData.downloadUrl,
+                prompt: decision.args?.prompt || prompt
+              });
+              return;
+            }
+            
+            default:
+              console.log(`⚠️ Unexpected tool for video: ${decision.tool}`);
+              await sendTextMessage(chatId, 'ℹ️ לא הבנתי מה לעשות עם הווידאו. תוכל לנסח שוב?');
+              return;
+          }
+        } catch (error) {
+          console.error('❌ Error routing video message:', error);
+        }
+      }
+    }
+    
     // ═══════════════════════════════════════════════════════════════
     // Handle voice messages for creative audio processing
+    // ═══════════════════════════════════════════════════════════════
     else if (messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage') {
       const audioData = messageData.fileMessageData || messageData.audioMessageData;
       
@@ -815,9 +930,109 @@ async function handleOutgoingMessage(webhookData) {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // REMOVED: Duplicate outgoing image/video blocks (now handled in lines 652-808)
+    // Handle IMAGE messages with caption starting with "# " (OUTGOING)
+    // ═══════════════════════════════════════════════════════════════
+    if (messageData.typeMessage === 'imageMessage') {
+      const imageData = messageData.fileMessageData || messageData.imageMessageData;
+      const caption = imageData?.caption || '';
+      
+      if (/^#\s+/.test(caption.trim())) {
+        try {
+          const normalized = {
+            userText: caption.trim(),
+            hasImage: true,
+            hasVideo: false,
+            hasAudio: false,
+            chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
+            language: 'he',
+            authorizations: { media_creation: true, voice_allowed: true } // Outgoing = admin
+          };
+
+          const decision = await routeIntent(normalized);
+          const prompt = normalized.userText.replace(/^#\s+/, '').trim();
+
+          switch (decision.tool) {
+            case 'image_edit': {
+              const service = decision.args?.service || 'gemini';
+              console.log(`🎨 ${service} image edit request (outgoing, via router)`);
+              processImageEditAsync({
+                chatId, senderId, senderName,
+                imageUrl: imageData.downloadUrl,
+                prompt: decision.args?.prompt || prompt,
+                service: service
+              });
+              return;
+            }
+            
+            case 'veo3_video':
+            case 'kling_text_to_video': {
+              const service = decision.tool === 'veo3_video' ? 'veo3' : 'kling';
+              console.log(`🎬 ${service} image-to-video request (outgoing, via router)`);
+              processImageToVideoAsync({
+                chatId, senderId, senderName,
+                imageUrl: imageData.downloadUrl,
+                prompt: decision.args?.prompt || prompt,
+                service: service
+              });
+              return;
+            }
+            
+            default:
+              console.log(`⚠️ Unexpected tool for image (outgoing): ${decision.tool}`);
+              return;
+          }
+        } catch (error) {
+          console.error('❌ Error routing outgoing image message:', error);
+        }
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // Handle VIDEO messages with caption starting with "# " (OUTGOING)
+    // ═══════════════════════════════════════════════════════════════
+    else if (messageData.typeMessage === 'videoMessage') {
+      const videoData = messageData.fileMessageData || messageData.videoMessageData;
+      const caption = videoData?.caption || '';
+      
+      if (/^#\s+/.test(caption.trim())) {
+        try {
+          const normalized = {
+            userText: caption.trim(),
+            hasImage: false,
+            hasVideo: true,
+            hasAudio: false,
+            chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
+            language: 'he',
+            authorizations: { media_creation: true, voice_allowed: true } // Outgoing = admin
+          };
+
+          const decision = await routeIntent(normalized);
+          const prompt = normalized.userText.replace(/^#\s+/, '').trim();
+
+          switch (decision.tool) {
+            case 'video_to_video': {
+              console.log(`🎬 RunwayML Gen4 video-to-video request (outgoing, via router)`);
+              processVideoToVideoAsync({
+                chatId, senderId, senderName,
+                videoUrl: videoData.downloadUrl,
+                prompt: decision.args?.prompt || prompt
+              });
+              return;
+            }
+            
+            default:
+              console.log(`⚠️ Unexpected tool for video (outgoing): ${decision.tool}`);
+              return;
+          }
+        } catch (error) {
+          console.error('❌ Error routing outgoing video message:', error);
+        }
+      }
+    }
+    
     // ═══════════════════════════════════════════════════════════════
     // Handle voice messages - but skip processing for outgoing messages
+    // ═══════════════════════════════════════════════════════════════
     else if (messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage') {
       const audioData = messageData.fileMessageData || messageData.audioMessageData;
       

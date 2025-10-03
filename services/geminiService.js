@@ -100,8 +100,8 @@ async function generateImageForWhatsApp(prompt, req = null) {
             model: "gemini-2.5-flash-image-preview" 
         });
         
-        // Send the prompt as-is without additional instructions
-        const imagePrompt = cleanPrompt;
+        // Add explicit instruction to generate an image (not just describe it)
+        const imagePrompt = `Generate an image: ${cleanPrompt}`;
         
         const result = await model.generateContent({
             contents: [{ role: "user", parts: [{ text: imagePrompt }] }],
