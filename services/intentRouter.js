@@ -81,6 +81,12 @@ async function routeIntent(input) {
       // Default to Kling for image-to-video
       return { tool: 'kling_image_to_video', args: { prompt }, reason: 'Image attached, video-like request' };
     }
+    // Check if user wants image analysis instead of editing
+    const isAnalysisRequest = /מה|מה זה|מה מופיע|תאר|describe|what|analyze|ניתוח|תיאור|איך|how|למה|why|מתי|when|איפה|where|מי|who/.test(lower);
+    if (isAnalysisRequest) {
+      return { tool: 'gemini_chat', args: { prompt }, reason: 'Image analysis request' };
+    }
+    
     // Default to Gemini for image editing, unless user explicitly requests OpenAI
     const wantsOpenAI = /openai|gpt|dall-e|dalle/.test(lower);
     const service = wantsOpenAI ? 'openai' : 'gemini';
@@ -97,10 +103,9 @@ async function routeIntent(input) {
     return { tool: 'video_to_video', args: { service, prompt }, reason: 'Video attached with prompt' };
   }
 
-  // If there is an attached image WITHOUT prompt (or prompt is very generic) → image-to-text / analyze image
+  // If there is an attached image WITHOUT prompt → ignore (no automatic analysis)
   if (input.hasImage && (!prompt || prompt.length < 3)) {
-    // User sent image without meaningful caption - treat as "what's in this image?"
-    return { tool: 'gemini_chat', args: { prompt: 'מה מופיע בתמונה הזו?' }, reason: 'Image attached without prompt - analyze image' };
+    return { tool: 'ask_clarification', args: {}, reason: 'Image attached without clear instruction' };
   }
 
   // If text prompt only (no attachments) → decide among chat / image / video generation
@@ -263,8 +268,9 @@ ${JSON.stringify(payload, null, 2)}
 
 1️⃣ **IF hasImage=true** (user sent an image):
    - Image + video keywords → "kling_image_to_video"
+   - Image + analysis keywords → "gemini_chat" (analyze image)
    - Image + edit request → "image_edit" 
-   - Image alone (no text) → "gemini_chat" (analyze)
+   - Image alone (no text) → "ask_clarification"
    ⚠️ NEVER choose music/TTS when hasImage=true
 
 2️⃣ **IF hasVideo=true** (user sent a video):
@@ -312,6 +318,9 @@ Output: {"tool": "image_edit", "args": {"service": "gemini", "prompt": "הוסף
 
 Input: {"userText": "# הוסף כובע עם OpenAI", "hasImage": true, "hasVideo": false}
 Output: {"tool": "image_edit", "args": {"service": "openai", "prompt": "הוסף כובע"}, "reason": "Edit image with OpenAI"}
+
+Input: {"userText": "# מה זה?", "hasImage": true, "hasVideo": false}
+Output: {"tool": "gemini_chat", "args": {"prompt": "מה זה?"}, "reason": "Image analysis request"}
 
 Input: {"userText": "# צור שיר על אהבה", "hasImage": false, "hasVideo": false}
 Output: {"tool": "music_generation", "args": {"prompt": "שיר על אהבה"}, "reason": "Song request"}
