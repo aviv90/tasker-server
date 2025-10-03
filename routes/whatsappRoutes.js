@@ -589,6 +589,7 @@ async function handleIncomingMessage(webhookData) {
               
             default:
               console.log(`⚠️ Unknown tool from router: ${decision.tool}`);
+              await sendTextMessage(chatId, `⚠️ Unknown tool from router: ${decision.tool}`);
               break;
           }
         } catch (toolError) {
@@ -657,9 +658,29 @@ async function handleIncomingMessage(webhookData) {
               return;
             }
             
+            case 'gemini_chat': {
+              // Image analysis - use analyzeImageWithText
+              const { analyzeImageWithText } = require('../services/geminiService');
+              try {
+                // Download and convert image to base64
+                const imageBuffer = await downloadFile(imageData.downloadUrl);
+                const base64Image = imageBuffer.toString('base64');
+                
+                const result = await analyzeImageWithText(prompt, base64Image);
+                if (result.success) {
+                  await sendTextMessage(chatId, result.text);
+                } else {
+                  await sendTextMessage(chatId, `❌ ${result.error}`);
+                }
+              } catch (error) {
+                await sendTextMessage(chatId, `❌ שגיאה בניתוח התמונה: ${error.message}`);
+              }
+              return;
+            }
+            
             default:
               console.log(`⚠️ Unexpected tool for image: ${decision.tool}`);
-              await sendTextMessage(chatId, 'ℹ️ לא הבנתי מה לעשות עם התמונה. תוכל לנסח שוב?');
+              await sendTextMessage(chatId, `⚠️ Unexpected tool for image: ${decision.tool}`);
               return;
           }
         } catch (error) {
@@ -711,7 +732,7 @@ async function handleIncomingMessage(webhookData) {
             
             default:
               console.log(`⚠️ Unexpected tool for video: ${decision.tool}`);
-              await sendTextMessage(chatId, 'ℹ️ לא הבנתי מה לעשות עם הווידאו. תוכל לנסח שוב?');
+              await sendTextMessage(chatId, `⚠️ Unexpected tool for video: ${decision.tool}`);
               return;
           }
         } catch (error) {
@@ -1039,6 +1060,7 @@ async function handleOutgoingMessage(webhookData) {
             
             default:
               console.log(`⚠️ Unknown tool from router (outgoing): ${decision.tool}`);
+              await sendTextMessage(chatId, `⚠️ Unknown tool from router (outgoing): ${decision.tool}`);
               break;
           }
         } catch (toolError) {
@@ -1097,8 +1119,29 @@ async function handleOutgoingMessage(webhookData) {
               return;
             }
             
+            case 'gemini_chat': {
+              // Image analysis - use analyzeImageWithText
+              const { analyzeImageWithText } = require('../services/geminiService');
+              try {
+                // Download and convert image to base64
+                const imageBuffer = await downloadFile(imageData.downloadUrl);
+                const base64Image = imageBuffer.toString('base64');
+                
+                const result = await analyzeImageWithText(prompt, base64Image);
+                if (result.success) {
+                  await sendTextMessage(chatId, result.text);
+                } else {
+                  await sendTextMessage(chatId, `❌ ${result.error}`);
+                }
+              } catch (error) {
+                await sendTextMessage(chatId, `❌ שגיאה בניתוח התמונה: ${error.message}`);
+              }
+              return;
+            }
+            
             default:
               console.log(`⚠️ Unexpected tool for image (outgoing): ${decision.tool}`);
+              await sendTextMessage(chatId, `⚠️ Unexpected tool for image (outgoing): ${decision.tool}`);
               return;
           }
         } catch (error) {
@@ -1142,6 +1185,7 @@ async function handleOutgoingMessage(webhookData) {
             
             default:
               console.log(`⚠️ Unexpected tool for video (outgoing): ${decision.tool}`);
+              await sendTextMessage(chatId, `⚠️ Unexpected tool for video (outgoing): ${decision.tool}`);
               return;
           }
         } catch (error) {
@@ -2036,6 +2080,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
 
       default:
         console.log(`⚠️ Unknown management command type: ${command.type}`);
+        await sendTextMessage(chatId, `⚠️ Unknown management command type: ${command.type}`);
     }
   } catch (error) {
     console.error(`❌ Error handling management command ${command.type}:`, error);
