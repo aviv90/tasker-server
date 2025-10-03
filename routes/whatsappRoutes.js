@@ -1169,16 +1169,6 @@ async function handleOutgoingMessage(webhookData) {
 }
 
 /**
- * Process text message asynchronously (no await from webhook)
- */
-function processTextMessageAsync(messageData, isOutgoing = false) {
-  // Run in background without blocking webhook response
-  handleTextMessage(messageData, isOutgoing).catch(error => {
-    console.error('❌ Error in async message processing:', error.message || error);
-  });
-}
-
-/**
  * Process image edit message asynchronously (no await from webhook)
  */
 function processImageEditAsync(imageData) {
@@ -1650,10 +1640,17 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 }
 */
 
+// ════════════════════════════════════════════════════════════════
+// LEGACY FUNCTION handleTextMessage - REMOVED
+// All functionality moved to router-based direct execution (lines 279-510)
+// Management commands handled in handleOutgoingMessage (lines 1022+)
+// ════════════════════════════════════════════════════════════════
+
 /**
- * Handle text message with AI chat functionality
+ * Parse text message to extract MANAGEMENT COMMANDS ONLY
+ * (All AI commands now go through router with "# " prefix)
  */
-async function handleTextMessage({ chatId, senderId, senderName, senderContactName, chatName, messageText }, isOutgoing = false) {
+function parseManagementCommand(text) {
   console.log(`💬 ${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''} ${isOutgoing ? '(outgoing)' : ''}`);
   
   const command = parseTextCommand(messageText);
