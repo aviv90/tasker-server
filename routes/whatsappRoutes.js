@@ -499,7 +499,7 @@ async function handleIncomingMessage(webhookData) {
               await sendAck(chatId, { type: 'text_to_speech' });
               const text = decision.args?.text || prompt;
               const languageCode = voiceService.detectLanguage(text);
-              const voiceId = voiceService.getVoiceForLanguage(languageCode);
+              const voiceId = await voiceService.getVoiceForLanguage(languageCode);
               const ttsResult = await voiceService.textToSpeech(voiceId, text, {
                 modelId: 'eleven_v3',
                 outputFormat: 'mp3_44100_128',
@@ -928,7 +928,7 @@ async function handleOutgoingMessage(webhookData) {
             case 'text_to_speech': {
               const text = decision.args?.text || prompt;
               const languageCode = voiceService.detectLanguage(text);
-              const voiceId = voiceService.getVoiceForLanguage(languageCode);
+              const voiceId = await voiceService.getVoiceForLanguage(languageCode);
               const ttsResult = await voiceService.textToSpeech(voiceId, text, {
                 modelId: 'eleven_v3',
                 outputFormat: 'mp3_44100_128',
