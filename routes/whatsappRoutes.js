@@ -276,110 +276,237 @@ async function handleIncomingMessage(webhookData) {
 
         const decision = await routeIntent(normalized);
 
-        // Router-based direct execution - no legacy prefixes
+        // Router-based direct execution - call services directly
         const prompt = decision.args?.prompt || normalized.userText.replace(/^#\s+/, '').trim();
         
-        switch (decision.tool) {
-          case 'ask_clarification':
-            await sendTextMessage(chatId, 'ℹ️ לא ברור מה לבצע. תוכל לחדד בבקשה?');
-            return;
-            
-          case 'deny_unauthorized':
-            if (decision.args?.feature && decision.args.feature !== 'voice') {
-              await sendUnauthorizedMessage(chatId, decision.args.feature);
+        try {
+          switch (decision.tool) {
+            case 'ask_clarification':
+              await sendTextMessage(chatId, 'ℹ️ לא ברור מה לבצע. תוכל לחדד בבקשה?');
+              return;
+              
+            case 'deny_unauthorized':
+              if (decision.args?.feature && decision.args.feature !== 'voice') {
+                await sendUnauthorizedMessage(chatId, decision.args.feature);
+              }
+              return;
+              
+            // ═══════════════════ CHAT (Text Generation) ═══════════════════
+            case 'gemini_chat': {
+              await sendAck(chatId, { type: 'gemini_chat' });
+              const contextMessages = await conversationManager.getRecentMessages(chatId, 10);
+              await conversationManager.addMessage(chatId, 'user', prompt);
+              const result = await generateGeminiResponse(prompt, { contextMessages });
+              if (!result.error) {
+                await conversationManager.addMessage(chatId, 'assistant', result.text);
+                await sendTextMessage(chatId, result.text);
+              } else {
+                await sendTextMessage(chatId, `❌ ${result.error}`);
+              }
+              return;
             }
-            return;
             
-          case 'gemini_chat':
-            await handleGeminiChat({ chatId, senderId, senderName, senderContactName, chatName, prompt });
-            return;
+            case 'openai_chat': {
+              await sendAck(chatId, { type: 'openai_chat' });
+              const contextMessages = await conversationManager.getRecentMessages(chatId, 10);
+              await conversationManager.addMessage(chatId, 'user', prompt);
+              const result = await generateOpenAIResponse(prompt, { contextMessages });
+              if (!result.error) {
+                await conversationManager.addMessage(chatId, 'assistant', result.text);
+                await sendTextMessage(chatId, result.text);
+              } else {
+                await sendTextMessage(chatId, `❌ ${result.error}`);
+              }
+              return;
+            }
             
-          case 'openai_chat':
-            await handleOpenAIChat({ chatId, senderId, senderName, senderContactName, chatName, prompt });
-            return;
+            case 'grok_chat': {
+              await sendAck(chatId, { type: 'grok_chat' });
+              const contextMessages = await conversationManager.getRecentMessages(chatId, 10);
+              await conversationManager.addMessage(chatId, 'user', prompt);
+              const result = await generateGrokResponse(prompt, { contextMessages });
+              if (!result.error) {
+                await conversationManager.addMessage(chatId, 'assistant', result.text);
+                await sendTextMessage(chatId, result.text);
+              } else {
+                await sendTextMessage(chatId, `❌ ${result.error}`);
+              }
+              return;
+            }
             
-          case 'grok_chat':
-            await handleGrokChat({ chatId, senderId, senderName, senderContactName, chatName, prompt });
-            return;
+            // ═══════════════════ IMAGE GENERATION ═══════════════════
+            case 'gemini_image': {
+              await sendAck(chatId, { type: 'gemini_image' });
+              const imageResult = await generateImageForWhatsApp(prompt);
+              if (imageResult.success && imageResult.imageUrl) {
+                const fileName = `gemini_image_${Date.now()}.png`;
+                const caption = imageResult.description || '';
+                await sendFileByUrl(chatId, imageResult.imageUrl, fileName, caption);
+              } else if (imageResult.textResponse) {
+                await sendTextMessage(chatId, imageResult.textResponse);
+              } else {
+                await sendTextMessage(chatId, `❌ ${imageResult.error || 'לא הצלחתי ליצור תמונה'}`);
+              }
+              return;
+            }
             
-          case 'gemini_image':
-            await handleGeminiImageGeneration({ chatId, senderId, senderName, prompt });
-            return;
+            case 'openai_image': {
+              await sendAck(chatId, { type: 'openai_image' });
+              const imageResult = await generateOpenAIImage(prompt);
+              if (imageResult.success && imageResult.imageUrl) {
+                const fileName = `openai_image_${Date.now()}.png`;
+                const caption = imageResult.description || '';
+                await sendFileByUrl(chatId, imageResult.imageUrl, fileName, caption);
+              } else {
+                await sendTextMessage(chatId, `❌ ${imageResult.error || 'לא הצלחתי ליצור תמונה'}`);
+              }
+              return;
+            }
             
-          case 'openai_image':
-            await handleOpenAIImageGeneration({ chatId, senderId, senderName, prompt });
-            return;
+            case 'grok_image': {
+              // Grok doesn't have image generation - fallback to Gemini
+              await sendAck(chatId, { type: 'gemini_image' });
+              const imageResult = await generateImageForWhatsApp(prompt);
+              if (imageResult.success && imageResult.imageUrl) {
+                const fileName = `gemini_image_${Date.now()}.png`;
+                await sendFileByUrl(chatId, imageResult.imageUrl, fileName, imageResult.description || '');
+              } else {
+                await sendTextMessage(chatId, `❌ ${imageResult.error || 'לא הצלחתי ליצור תמונה'}`);
+              }
+              return;
+            }
             
-          case 'grok_image':
-            // Grok doesn't have image generation yet - fallback to Gemini
-            await handleGeminiImageGeneration({ chatId, senderId, senderName, prompt });
-            return;
+            // ═══════════════════ VIDEO GENERATION ═══════════════════
+            case 'veo3_video': {
+              await sendAck(chatId, { type: 'veo3_video' });
+              const videoResult = await generateVideoForWhatsApp(prompt);
+              if (videoResult.success && videoResult.videoUrl) {
+                await sendFileByUrl(chatId, videoResult.videoUrl, `veo3_video_${Date.now()}.mp4`, '');
+              } else {
+                await sendTextMessage(chatId, `❌ ${videoResult.error || 'לא הצלחתי ליצור וידאו'}`);
+              }
+              return;
+            }
             
-          case 'veo3_video':
-            await handleVeo3VideoGeneration({ chatId, senderId, senderName, prompt });
-            return;
+            case 'kling_text_to_video': {
+              await sendAck(chatId, { type: 'kling_text_to_video' });
+              const videoResult = await generateKlingVideoFromText(prompt);
+              if (videoResult.success && videoResult.videoUrl) {
+                const fileName = videoResult.fileName || `kling_video_${Date.now()}.mp4`;
+                await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
+              } else {
+                await sendTextMessage(chatId, `❌ ${videoResult.error || 'לא הצלחתי ליצור וידאו'}`);
+              }
+              return;
+            }
             
-          case 'kling_text_to_video':
-            await handleKlingTextToVideo({ chatId, senderId, senderName, prompt });
-            return;
+            // ═══════════════════ IMAGE/VIDEO EDITING ═══════════════════
+            case 'veo3_image_to_video':
+            case 'kling_image_to_video':
+              if (messageData.typeMessage === 'imageMessage') {
+                const imageData = messageData.fileMessageData || messageData.imageMessageData;
+                const service = decision.tool === 'veo3_image_to_video' ? 'veo3' : 'kling';
+                processImageToVideoAsync({
+                  chatId, senderId, senderName,
+                  imageUrl: imageData.downloadUrl,
+                  prompt: prompt,
+                  service: service
+                });
+              }
+              return;
+              
+            case 'image_edit':
+              if (messageData.typeMessage === 'imageMessage') {
+                const imageData = messageData.fileMessageData || messageData.imageMessageData;
+                const service = decision.args?.service || 'gemini';
+                processImageEditAsync({
+                  chatId, senderId, senderName,
+                  imageUrl: imageData.downloadUrl,
+                  prompt: decision.args.prompt || prompt,
+                  service: service
+                });
+              }
+              return;
+              
+            case 'video_to_video':
+              if (messageData.typeMessage === 'videoMessage') {
+                const videoData = messageData.fileMessageData || messageData.videoMessageData;
+                processVideoToVideoAsync({
+                  chatId, senderId, senderName,
+                  videoUrl: videoData.downloadUrl,
+                  prompt: decision.args?.prompt || prompt
+                });
+              }
+              return;
             
-          case 'veo3_image_to_video':
-          case 'kling_image_to_video':
-            if (messageData.typeMessage === 'imageMessage') {
-              const imageData = messageData.fileMessageData || messageData.imageMessageData;
-              const service = decision.tool === 'veo3_image_to_video' ? 'veo3' : 'kling';
-              processImageToVideoAsync({
-                chatId, senderId, senderName,
-                imageUrl: imageData.downloadUrl,
-                prompt: prompt,
-                service: service
+            // ═══════════════════ TEXT-TO-SPEECH ═══════════════════
+            case 'text_to_speech': {
+              await sendAck(chatId, { type: 'text_to_speech' });
+              const text = decision.args?.text || prompt;
+              const languageCode = detectLanguage(text);
+              const voiceId = getVoiceForLanguage(languageCode);
+              const ttsResult = await voiceService.textToSpeech(voiceId, text, {
+                modelId: 'eleven_v3',
+                outputFormat: 'mp3_44100_128',
+                languageCode: languageCode
               });
+              
+              if (!ttsResult.error) {
+                const conversionResult = await audioConverterService.convertUrlToOpus(ttsResult.audioUrl, 'mp3');
+                if (conversionResult.success) {
+                  await sendFileByUrl(chatId, getStaticFileUrl(conversionResult.fileName), conversionResult.fileName, '');
+                } else {
+                  const fallbackUrl = ttsResult.audioUrl.startsWith('http') ? ttsResult.audioUrl : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
+                  await sendFileByUrl(chatId, fallbackUrl, `tts_${Date.now()}.mp3`, '');
+                }
+              } else {
+                await sendTextMessage(chatId, '❌ לא הצלחתי ליצור קול');
+              }
+              return;
             }
-            return;
             
-          case 'image_edit':
-            if (messageData.typeMessage === 'imageMessage') {
-              const imageData = messageData.fileMessageData || messageData.imageMessageData;
-              const service = decision.args?.service || 'gemini';
-              processImageEditAsync({
-                chatId, senderId, senderName,
-                imageUrl: imageData.downloadUrl,
-                prompt: decision.args.prompt || prompt,
-                service: service
+            // ═══════════════════ MUSIC GENERATION ═══════════════════
+            case 'music_generation': {
+              await sendAck(chatId, { type: 'music_generation' });
+              const musicResult = await generateMusicWithLyrics(prompt, {
+                callbackUrl: null,
+                whatsappContext: { chatId, senderId, senderName }
               });
+              if (musicResult.error) {
+                await sendTextMessage(chatId, `❌ ${musicResult.error}`);
+              } else if (musicResult.message) {
+                await sendTextMessage(chatId, musicResult.message);
+              }
+              return;
             }
-            return;
             
-          case 'video_to_video':
-            if (messageData.typeMessage === 'videoMessage') {
-              const videoData = messageData.fileMessageData || messageData.videoMessageData;
-              processVideoToVideoAsync({
-                chatId, senderId, senderName,
-                videoUrl: videoData.downloadUrl,
-                prompt: decision.args?.prompt || prompt
-              });
+            // ═══════════════════ CHAT SUMMARY ═══════════════════
+            case 'chat_summary': {
+              const chatHistory = await getChatHistory(chatId, 30);
+              if (!chatHistory || chatHistory.length === 0) {
+                await sendTextMessage(chatId, '📝 אין מספיק הודעות בשיחה');
+                return;
+              }
+              const summaryResult = await generateChatSummary(chatHistory);
+              if (!summaryResult.error) {
+                await sendTextMessage(chatId, `📝 **סיכום השיחה:**\n\n${summaryResult.text}`);
+              } else {
+                await sendTextMessage(chatId, `❌ ${summaryResult.error}`);
+              }
+              return;
             }
-            return;
             
-          case 'text_to_speech':
-            await handleTextToSpeech({ chatId, senderId, senderName, text: decision.args?.text || prompt });
-            return;
-            
-          case 'music_generation':
-            await handleMusicGeneration({ chatId, senderId, senderName, senderContactName, chatName, prompt });
-            return;
-            
-          case 'chat_summary':
-            await handleChatSummary({ chatId, senderId, senderName });
-            return;
-            
-          case 'creative_voice_processing':
-            // Voice messages are handled by separate block below
-            break;
-            
-          default:
-            console.log(`⚠️ Unknown tool from router: ${decision.tool}`);
-            break;
+            case 'creative_voice_processing':
+              // Voice messages are handled by separate block below
+              break;
+              
+            default:
+              console.log(`⚠️ Unknown tool from router: ${decision.tool}`);
+              break;
+          }
+        } catch (toolError) {
+          console.error(`❌ Error executing tool ${decision.tool}:`, toolError);
+          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד הבקשה');
         }
       } catch (routerError) {
         console.error('❌ Intent router error:', routerError.message || routerError);
@@ -2328,350 +2455,6 @@ function parseTextCommand(text) {
   }
 
   return null;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// NEW DIRECT HANDLERS - Called by Router (No Legacy Prefixes)
-// ═══════════════════════════════════════════════════════════════════
-
-/**
- * Handle Gemini chat request
- */
-async function handleGeminiChat({ chatId, senderId, senderName, senderContactName, chatName, prompt }) {
-  try {
-    console.log(`💬 Gemini chat request from ${senderName}`);
-    
-    // Send ACK
-    await sendAck(chatId, { type: 'gemini_chat' });
-    
-    // Get conversation history
-    const contextMessages = await conversationManager.getRecentMessages(chatId, 10);
-    
-    // Add user message to history
-    await conversationManager.addMessage(chatId, 'user', prompt);
-    
-    // Generate response
-    const result = await generateGeminiResponse(prompt, { contextMessages });
-    
-    if (result.error) {
-      await sendTextMessage(chatId, `❌ סליחה, ${result.error}`);
-      return;
-    }
-    
-    // Add assistant response to history
-    await conversationManager.addMessage(chatId, 'assistant', result.text);
-    
-    // Send response
-    await sendTextMessage(chatId, result.text);
-    console.log(`✅ Gemini response sent to ${senderName}`);
-  } catch (error) {
-    console.error('❌ Error in Gemini chat:', error);
-    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד הבקשה.');
-  }
-}
-
-/**
- * Handle OpenAI chat request
- */
-async function handleOpenAIChat({ chatId, senderId, senderName, senderContactName, chatName, prompt }) {
-  try {
-    console.log(`💬 OpenAI chat request from ${senderName}`);
-    
-    // Send ACK
-    await sendAck(chatId, { type: 'openai_chat' });
-    
-    // Get conversation history
-    const contextMessages = await conversationManager.getRecentMessages(chatId, 10);
-    
-    // Add user message to history
-    await conversationManager.addMessage(chatId, 'user', prompt);
-    
-    // Generate response
-    const result = await generateOpenAIResponse(prompt, { contextMessages });
-    
-    if (result.error) {
-      await sendTextMessage(chatId, `❌ סליחה, ${result.error}`);
-      return;
-    }
-    
-    // Add assistant response to history
-    await conversationManager.addMessage(chatId, 'assistant', result.text);
-    
-    // Send response
-    await sendTextMessage(chatId, result.text);
-    console.log(`✅ OpenAI response sent to ${senderName}`);
-  } catch (error) {
-    console.error('❌ Error in OpenAI chat:', error);
-    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד הבקשה.');
-  }
-}
-
-/**
- * Handle Grok chat request
- */
-async function handleGrokChat({ chatId, senderId, senderName, senderContactName, chatName, prompt }) {
-  try {
-    console.log(`💬 Grok chat request from ${senderName}`);
-    
-    // Send ACK
-    await sendAck(chatId, { type: 'grok_chat' });
-    
-    // Get conversation history
-    const contextMessages = await conversationManager.getRecentMessages(chatId, 10);
-    
-    // Add user message to history
-    await conversationManager.addMessage(chatId, 'user', prompt);
-    
-    // Generate response
-    const result = await generateGrokResponse(prompt, { contextMessages });
-    
-    if (result.error) {
-      await sendTextMessage(chatId, `❌ סליחה, ${result.error}`);
-      return;
-    }
-    
-    // Add assistant response to history
-    await conversationManager.addMessage(chatId, 'assistant', result.text);
-    
-    // Send response
-    await sendTextMessage(chatId, result.text);
-    console.log(`✅ Grok response sent to ${senderName}`);
-  } catch (error) {
-    console.error('❌ Error in Grok chat:', error);
-    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד הבקשה.');
-  }
-}
-
-/**
- * Handle Gemini image generation
- */
-async function handleGeminiImageGeneration({ chatId, senderId, senderName, prompt }) {
-  try {
-    console.log(`🎨 Gemini image generation request from ${senderName}`);
-    
-    // Send ACK
-    await sendAck(chatId, { type: 'gemini_image' });
-    
-    // Generate image
-    const imageResult = await generateImageForWhatsApp(prompt);
-    
-    if (imageResult.success && imageResult.imageUrl) {
-      const fileName = `gemini_image_${Date.now()}.png`;
-      const caption = imageResult.description || '';
-      await sendFileByUrl(chatId, imageResult.imageUrl, fileName, caption);
-      console.log(`✅ Gemini image sent to ${senderName}`);
-    } else if (imageResult.textResponse) {
-      await sendTextMessage(chatId, imageResult.textResponse);
-    } else {
-      const errorMsg = imageResult.error || 'לא הצלחתי ליצור תמונה. נסה שוב מאוחר יותר.';
-      await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
-    }
-  } catch (error) {
-    console.error('❌ Error in Gemini image generation:', error);
-    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת התמונה.');
-  }
-}
-
-/**
- * Handle OpenAI image generation
- */
-async function handleOpenAIImageGeneration({ chatId, senderId, senderName, prompt }) {
-  try {
-    console.log(`🎨 OpenAI image generation request from ${senderName}`);
-    
-    // Send ACK
-    await sendAck(chatId, { type: 'openai_image' });
-    
-    // Generate image
-    const imageResult = await generateOpenAIImage(prompt);
-    
-    if (imageResult.success && imageResult.imageUrl) {
-      const fileName = `openai_image_${Date.now()}.png`;
-      const caption = imageResult.description || '';
-      await sendFileByUrl(chatId, imageResult.imageUrl, fileName, caption);
-      console.log(`✅ OpenAI image sent to ${senderName}`);
-    } else {
-      const errorMsg = imageResult.error || 'לא הצלחתי ליצור תמונה. נסה שוב מאוחר יותר.';
-      await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
-    }
-  } catch (error) {
-    console.error('❌ Error in OpenAI image generation:', error);
-    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת התמונה.');
-  }
-}
-
-/**
- * Handle Veo 3 video generation
- */
-async function handleVeo3VideoGeneration({ chatId, senderId, senderName, prompt }) {
-  try {
-    console.log(`🎬 Veo 3 video generation request from ${senderName}`);
-    
-    // Send ACK
-    await sendAck(chatId, { type: 'veo3_video' });
-    
-    // Generate video
-    const videoResult = await generateVideoForWhatsApp(prompt);
-    
-    if (videoResult.success && videoResult.videoUrl) {
-      const fileName = `veo3_video_${Date.now()}.mp4`;
-      await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
-      console.log(`✅ Veo 3 video sent to ${senderName}`);
-    } else {
-      const errorMsg = videoResult.error || 'לא הצלחתי ליצור וידאו. נסה שוב מאוחר יותר.';
-      await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
-    }
-  } catch (error) {
-    console.error('❌ Error in Veo 3 video generation:', error);
-    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת הוידאו.');
-  }
-}
-
-/**
- * Handle Kling text-to-video generation
- */
-async function handleKlingTextToVideo({ chatId, senderId, senderName, prompt }) {
-  try {
-    console.log(`🎬 Kling text-to-video generation request from ${senderName}`);
-    
-    // Send ACK
-    await sendAck(chatId, { type: 'kling_text_to_video' });
-    
-    // Generate video
-    const videoResult = await generateKlingVideoFromText(prompt);
-    
-    if (videoResult.success && videoResult.videoUrl) {
-      const fileName = videoResult.fileName || `kling_video_${Date.now()}.mp4`;
-      await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
-      console.log(`✅ Kling video sent to ${senderName}`);
-    } else {
-      const errorMsg = videoResult.error || 'לא הצלחתי ליצור את הווידאו. נסה שוב מאוחר יותר.';
-      await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
-    }
-  } catch (error) {
-    console.error('❌ Error in Kling video generation:', error);
-    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת הוידאו עם Kling.');
-  }
-}
-
-/**
- * Handle text-to-speech
- */
-async function handleTextToSpeech({ chatId, senderId, senderName, text }) {
-  try {
-    console.log(`🔊 Text-to-speech request from ${senderName}`);
-    
-    // Send ACK
-    await sendAck(chatId, { type: 'text_to_speech' });
-    
-    // Import voiceService
-    const { voiceService } = require('../services/voiceService');
-    const audioConverterService = require('../services/audioConverterService');
-    
-    // Detect language
-    const languageCode = detectLanguage(text);
-    console.log(`🌐 Detected language: ${languageCode}`);
-    
-    // Get appropriate voice
-    const voiceId = getVoiceForLanguage(languageCode);
-    
-    // Generate speech
-    const ttsOptions = {
-      modelId: 'eleven_v3',
-      outputFormat: 'mp3_44100_128',
-      languageCode: languageCode
-    };
-    
-    const ttsResult = await voiceService.textToSpeech(voiceId, text, ttsOptions);
-    
-    if (ttsResult.error) {
-      console.error('❌ TTS failed:', ttsResult.error);
-      await sendTextMessage(chatId, '❌ סליחה, לא הצלחתי ליצור קול. נסה שוב.');
-      return;
-    }
-    
-    // Convert to Opus and send
-    const conversionResult = await audioConverterService.convertUrlToOpus(ttsResult.audioUrl, 'mp3');
-    
-    if (!conversionResult.success) {
-      // Fallback: send as MP3
-      const fullAudioUrl = ttsResult.audioUrl.startsWith('http') 
-        ? ttsResult.audioUrl 
-        : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
-      await sendFileByUrl(chatId, fullAudioUrl, `tts_${Date.now()}.mp3`, '');
-    } else {
-      const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
-      await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '');
-    }
-    
-    console.log(`✅ TTS audio sent to ${senderName}`);
-  } catch (error) {
-    console.error('❌ Error in TTS:', error);
-    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת הקול.');
-  }
-}
-
-/**
- * Handle music generation
- */
-async function handleMusicGeneration({ chatId, senderId, senderName, senderContactName, chatName, prompt }) {
-  try {
-    console.log(`🎵 Music generation request from ${senderName}`);
-    
-    // Send ACK
-    await sendAck(chatId, { type: 'music_generation' });
-    
-    // Generate music with callback mode
-    const musicResult = await generateMusicWithLyrics(prompt, {
-      callbackUrl: null,
-      whatsappContext: { chatId, senderId, senderName }
-    });
-    
-    if (musicResult.error) {
-      await sendTextMessage(chatId, `❌ סליחה, ${musicResult.error}`);
-      return;
-    }
-    
-    if (musicResult.message) {
-      await sendTextMessage(chatId, musicResult.message);
-    }
-    
-    console.log(`✅ Music generation started for ${senderName}`);
-  } catch (error) {
-    console.error('❌ Error in music generation:', error);
-    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת המוזיקה.');
-  }
-}
-
-/**
- * Handle chat summary
- */
-async function handleChatSummary({ chatId, senderId, senderName }) {
-  try {
-    console.log(`📝 Chat summary request from ${senderName}`);
-    
-    // Get chat history
-    const chatHistory = await getChatHistory(chatId, 30);
-    
-    if (!chatHistory || chatHistory.length === 0) {
-      await sendTextMessage(chatId, '📝 אין מספיק הודעות בשיחה כדי ליצור סיכום.');
-      return;
-    }
-    
-    // Generate summary
-    const summaryResult = await generateChatSummary(chatHistory);
-    
-    if (summaryResult.error) {
-      await sendTextMessage(chatId, `❌ סליחה, ${summaryResult.error}`);
-      return;
-    }
-    
-    await sendTextMessage(chatId, `📝 **סיכום השיחה:**\n\n${summaryResult.text}`);
-    console.log(`✅ Chat summary sent to ${senderName}`);
-  } catch (error) {
-    console.error('❌ Error in chat summary:', error);
-    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת הסיכום.');
-  }
 }
 
 module.exports = router;
