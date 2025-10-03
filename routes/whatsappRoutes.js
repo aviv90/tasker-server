@@ -315,14 +315,41 @@ async function handleIncomingMessage(webhookData) {
             // ═══════════════════ CHAT (Text Generation) ═══════════════════
             case 'gemini_chat': {
               await sendAck(chatId, { type: 'gemini_chat' });
-              const contextMessages = await conversationManager.getConversationHistory(chatId);
-              await conversationManager.addMessage(chatId, 'user', prompt);
-              const result = await generateGeminiResponse(prompt, { contextMessages });
-              if (!result.error) {
-                await conversationManager.addMessage(chatId, 'assistant', result.text);
-                await sendTextMessage(chatId, result.text);
+              
+              // Check if this is image analysis (hasImage = true)
+              if (normalized.hasImage) {
+                // This is image analysis - use analyzeImageWithText
+                const { analyzeImageWithText } = require('../services/geminiService');
+                const imageUrl = messageData.fileMessageData?.downloadUrl || messageData.imageMessageData?.downloadUrl;
+                if (imageUrl) {
+                  try {
+                    // Download and convert image to base64
+                    const imageBuffer = await downloadFile(imageUrl);
+                    const base64Image = imageBuffer.toString('base64');
+                    
+                    const result = await analyzeImageWithText(prompt, base64Image);
+                    if (result.success) {
+                      await sendTextMessage(chatId, result.text);
+                    } else {
+                      await sendTextMessage(chatId, `❌ ${result.error}`);
+                    }
+                  } catch (error) {
+                    await sendTextMessage(chatId, `❌ שגיאה בניתוח התמונה: ${error.message}`);
+                  }
+                } else {
+                  await sendTextMessage(chatId, '❌ לא הצלחתי לקבל את התמונה לניתוח');
+                }
               } else {
-                await sendTextMessage(chatId, `❌ ${result.error}`);
+                // Regular text chat
+                const contextMessages = await conversationManager.getConversationHistory(chatId);
+                await conversationManager.addMessage(chatId, 'user', prompt);
+                const result = await generateGeminiResponse(prompt, { contextMessages });
+                if (!result.error) {
+                  await conversationManager.addMessage(chatId, 'assistant', result.text);
+                  await sendTextMessage(chatId, result.text);
+                } else {
+                  await sendTextMessage(chatId, `❌ ${result.error}`);
+                }
               }
               return;
             }
@@ -835,12 +862,40 @@ async function handleOutgoingMessage(webhookData) {
           switch (decision.tool) {
             // ═══════════════════ CHAT ═══════════════════
             case 'gemini_chat': {
-              const contextMessages = await conversationManager.getConversationHistory(chatId);
-              await conversationManager.addMessage(chatId, 'user', prompt);
-              const result = await generateGeminiResponse(prompt, { contextMessages });
-              if (!result.error) {
-                await conversationManager.addMessage(chatId, 'assistant', result.text);
-                await sendTextMessage(chatId, result.text);
+              // Check if this is image analysis (hasImage = true)
+              if (normalized.hasImage) {
+                // This is image analysis - use analyzeImageWithText
+                const { analyzeImageWithText } = require('../services/geminiService');
+                const imageUrl = messageData.fileMessageData?.downloadUrl || messageData.imageMessageData?.downloadUrl;
+                if (imageUrl) {
+                  try {
+                    // Download and convert image to base64
+                    const imageBuffer = await downloadFile(imageUrl);
+                    const base64Image = imageBuffer.toString('base64');
+                    
+                    const result = await analyzeImageWithText(prompt, base64Image);
+                    if (result.success) {
+                      await sendTextMessage(chatId, result.text);
+                    } else {
+                      await sendTextMessage(chatId, `❌ ${result.error}`);
+                    }
+                  } catch (error) {
+                    await sendTextMessage(chatId, `❌ שגיאה בניתוח התמונה: ${error.message}`);
+                  }
+                } else {
+                  await sendTextMessage(chatId, '❌ לא הצלחתי לקבל את התמונה לניתוח');
+                }
+              } else {
+                // Regular text chat
+                const contextMessages = await conversationManager.getConversationHistory(chatId);
+                await conversationManager.addMessage(chatId, 'user', prompt);
+                const result = await generateGeminiResponse(prompt, { contextMessages });
+                if (!result.error) {
+                  await conversationManager.addMessage(chatId, 'assistant', result.text);
+                  await sendTextMessage(chatId, result.text);
+                } else {
+                  await sendTextMessage(chatId, `❌ ${result.error}`);
+                }
               }
               return;
             }
