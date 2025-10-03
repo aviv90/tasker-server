@@ -849,82 +849,162 @@ async function handleOutgoingMessage(webhookData) {
         const decision = await routeIntent(normalized);
         const prompt = normalized.userText.replace(/^#\s+/, '').trim();
 
-        switch (decision.tool) {
-          case 'gemini_chat':
-          case 'openai_chat':
-          case 'grok_chat': {
-            const chatPrefix = decision.tool === 'gemini_chat' ? '* ' : decision.tool === 'openai_chat' ? '# ' : '+ ';
-            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: chatPrefix + prompt }, true);
-            return;
-          }
-          case 'gemini_image':
-          case 'openai_image':
-          case 'grok_image': {
-            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'gemini_image' ? '** ' : decision.tool === 'openai_image' ? '## ' : '++ ') + prompt }, true);
-            return;
-          }
-          case 'veo3_video':
-          case 'kling_text_to_video': {
-            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'veo3_video' ? '#### ' : '### ') + prompt }, true);
-            return;
-          }
-          case 'image_edit': {
-            // Process image edit directly - don't fall through to legacy
-            if (messageData.typeMessage === 'imageMessage') {
-              const imageData = messageData.fileMessageData || messageData.imageMessageData;
-              const service = decision.args?.service || 'gemini';
-              
-              console.log(`🎨 ${service} image edit request (outgoing, via router)`);
-              
-              // Process image editing asynchronously
-              processImageEditAsync({
-                chatId,
-                senderId,
-                senderName,
-                imageUrl: imageData.downloadUrl,
-                prompt: decision.args.prompt,
-                service: service
-              });
-              return; // Stop processing - we handled it
+        // Router-based direct execution for outgoing messages (same as incoming)
+        try {
+          switch (decision.tool) {
+            // ═══════════════════ CHAT ═══════════════════
+            case 'gemini_chat': {
+              const contextMessages = await conversationManager.getRecentMessages(chatId, 10);
+              await conversationManager.addMessage(chatId, 'user', prompt);
+              const result = await generateGeminiResponse(prompt, { contextMessages });
+              if (!result.error) {
+                await conversationManager.addMessage(chatId, 'assistant', result.text);
+                await sendTextMessage(chatId, result.text);
+              }
+              return;
             }
-            break; // If not image message, continue
-          }
-          case 'video_to_video': {
-            // Process video-to-video directly - don't fall through to legacy
-            if (messageData.typeMessage === 'videoMessage') {
-              const videoData = messageData.fileMessageData || messageData.videoMessageData;
-              
-              console.log(`🎬 RunwayML Gen4 video-to-video request (outgoing, via router)`);
-              
-              // No authorization check for outgoing messages
-              
-              // Process video-to-video asynchronously
-              processVideoToVideoAsync({
-                chatId,
-                senderId,
-                senderName,
-                videoUrl: videoData.downloadUrl,
-                prompt: decision.args?.prompt || prompt
-              });
-              return; // Stop processing - we handled it
+            case 'openai_chat': {
+              const contextMessages = await conversationManager.getRecentMessages(chatId, 10);
+              await conversationManager.addMessage(chatId, 'user', prompt);
+              const result = await generateOpenAIResponse(prompt, { contextMessages });
+              if (!result.error) {
+                await conversationManager.addMessage(chatId, 'assistant', result.text);
+                await sendTextMessage(chatId, result.text);
+              }
+              return;
             }
-            break; // If not video message, continue
+            case 'grok_chat': {
+              const contextMessages = await conversationManager.getRecentMessages(chatId, 10);
+              await conversationManager.addMessage(chatId, 'user', prompt);
+              const result = await generateGrokResponse(prompt, { contextMessages });
+              if (!result.error) {
+                await conversationManager.addMessage(chatId, 'assistant', result.text);
+                await sendTextMessage(chatId, result.text);
+              }
+              return;
+            }
+            
+            // ═══════════════════ IMAGE GENERATION ═══════════════════
+            case 'gemini_image': {
+              const imageResult = await generateImageForWhatsApp(prompt);
+              if (imageResult.success && imageResult.imageUrl) {
+                await sendFileByUrl(chatId, imageResult.imageUrl, `gemini_image_${Date.now()}.png`, imageResult.description || '');
+              }
+              return;
+            }
+            case 'openai_image': {
+              const imageResult = await generateOpenAIImage(prompt);
+              if (imageResult.success && imageResult.imageUrl) {
+                await sendFileByUrl(chatId, imageResult.imageUrl, `openai_image_${Date.now()}.png`, imageResult.description || '');
+              }
+              return;
+            }
+            case 'grok_image': {
+              const imageResult = await generateImageForWhatsApp(prompt);
+              if (imageResult.success && imageResult.imageUrl) {
+                await sendFileByUrl(chatId, imageResult.imageUrl, `gemini_image_${Date.now()}.png`, imageResult.description || '');
+              }
+              return;
+            }
+            
+            // ═══════════════════ VIDEO GENERATION ═══════════════════
+            case 'veo3_video': {
+              const videoResult = await generateVideoForWhatsApp(prompt);
+              if (videoResult.success && videoResult.videoUrl) {
+                await sendFileByUrl(chatId, videoResult.videoUrl, `veo3_video_${Date.now()}.mp4`, '');
+              }
+              return;
+            }
+            case 'kling_text_to_video': {
+              const videoResult = await generateKlingVideoFromText(prompt);
+              if (videoResult.success && videoResult.videoUrl) {
+                await sendFileByUrl(chatId, videoResult.videoUrl, videoResult.fileName || `kling_video_${Date.now()}.mp4`, '');
+              }
+              return;
+            }
+            
+            // ═══════════════════ IMAGE/VIDEO EDITING ═══════════════════
+            case 'image_edit':
+              if (messageData.typeMessage === 'imageMessage') {
+                const imageData = messageData.fileMessageData || messageData.imageMessageData;
+                const service = decision.args?.service || 'gemini';
+                processImageEditAsync({
+                  chatId, senderId, senderName,
+                  imageUrl: imageData.downloadUrl,
+                  prompt: decision.args.prompt || prompt,
+                  service: service
+                });
+              }
+              return;
+              
+            case 'video_to_video':
+              if (messageData.typeMessage === 'videoMessage') {
+                const videoData = messageData.fileMessageData || messageData.videoMessageData;
+                processVideoToVideoAsync({
+                  chatId, senderId, senderName,
+                  videoUrl: videoData.downloadUrl,
+                  prompt: decision.args?.prompt || prompt
+                });
+              }
+              return;
+            
+            // ═══════════════════ TEXT-TO-SPEECH ═══════════════════
+            case 'text_to_speech': {
+              const text = decision.args?.text || prompt;
+              const languageCode = detectLanguage(text);
+              const voiceId = getVoiceForLanguage(languageCode);
+              const ttsResult = await voiceService.textToSpeech(voiceId, text, {
+                modelId: 'eleven_v3',
+                outputFormat: 'mp3_44100_128',
+                languageCode: languageCode
+              });
+              if (!ttsResult.error) {
+                const conversionResult = await audioConverterService.convertUrlToOpus(ttsResult.audioUrl, 'mp3');
+                if (conversionResult.success) {
+                  await sendFileByUrl(chatId, getStaticFileUrl(conversionResult.fileName), conversionResult.fileName, '');
+                } else {
+                  const fallbackUrl = ttsResult.audioUrl.startsWith('http') ? ttsResult.audioUrl : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
+                  await sendFileByUrl(chatId, fallbackUrl, `tts_${Date.now()}.mp3`, '');
+                }
+              }
+              return;
+            }
+            
+            // ═══════════════════ MUSIC GENERATION ═══════════════════
+            case 'music_generation': {
+              const musicResult = await generateMusicWithLyrics(prompt, {
+                callbackUrl: null,
+                whatsappContext: { chatId, senderId, senderName }
+              });
+              if (musicResult.error) {
+                await sendTextMessage(chatId, `❌ ${musicResult.error}`);
+              } else if (musicResult.message) {
+                await sendTextMessage(chatId, musicResult.message);
+              }
+              return;
+            }
+            
+            // ═══════════════════ CHAT SUMMARY ═══════════════════
+            case 'chat_summary': {
+              const chatHistory = await getChatHistory(chatId, 30);
+              if (chatHistory && chatHistory.length > 0) {
+                const summaryResult = await generateChatSummary(chatHistory);
+                if (!summaryResult.error) {
+                  await sendTextMessage(chatId, `📝 **סיכום השיחה:**\n\n${summaryResult.text}`);
+                }
+              }
+              return;
+            }
+            
+            default:
+              console.log(`⚠️ Unknown tool from router (outgoing): ${decision.tool}`);
+              break;
           }
-          case 'text_to_speech':
-            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: '*** ' + (decision.args?.text || prompt) }, true);
-            return;
-          case 'chat_summary':
-            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: 'סכם שיחה' }, true);
-            return;
-          case 'music_generation':
-            processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: '**** ' + prompt }, true);
-            return;
-          default:
-            // fall back to legacy
-            break;
+        } catch (toolError) {
+          console.error(`❌ Error executing tool ${decision.tool} (outgoing):`, toolError);
         }
-      } catch (e) {
-        console.error('❌ Intent router (outgoing text) error:', e.message || e);
+      } catch (routerError) {
+        console.error('❌ Intent router (outgoing text) error:', routerError.message || routerError);
       }
     }
 
@@ -1648,620 +1728,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 
 /**
  * Parse text message to extract MANAGEMENT COMMANDS ONLY
- * (All AI commands now go through router with "# " prefix)
- */
-function parseManagementCommand(text) {
-  console.log(`💬 ${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''} ${isOutgoing ? '(outgoing)' : ''}`);
-  
-  const command = parseTextCommand(messageText);
-  
-  if (!command) {
-    return;
-  }
-
-  console.log(`🤖 ${command.type} ${isOutgoing ? '(outgoing)' : ''}`);
-
-  // SECURITY: Admin commands can only be executed from outgoing messages (sent by you)
-  if (isAdminCommand(command.type) && !isOutgoing) {
-    console.log(`🚫 Admin command ${command.type} blocked - only works from outgoing messages`);
-    // Silently ignore admin commands from incoming messages (no error message to user)
-    return;
-  }
-  
-  // SECURITY: Legacy prefixes (*, **, ##, ###, etc.) blocked for non-outgoing messages
-  // These prefixes are only used internally by the router (which adds them after processing "# " commands)
-  // This prevents users from bypassing the router by using legacy prefixes directly
-  const legacyPrefixes = ['* ', '** ', '## ', '### ', '#### ', '*** ', '**** ', '+ ', '++ '];
-  if (!isOutgoing) {
-    const trimmed = messageText.trim();
-    for (const prefix of legacyPrefixes) {
-      if (trimmed.startsWith(prefix)) {
-        console.log(`🚫 Legacy prefix "${prefix}" blocked - use "# " prefix instead`);
-        // Silently ignore legacy prefix commands (they should use "# " prefix)
-        return;
-      }
-    }
-  }
-
-  // Check authorization for media commands BEFORE sending ACK (skip for outgoing messages)
-  // Management commands (transcription, media creation status, etc.) should work from outgoing messages
-  if (!isOutgoing && requiresMediaAuthorization(command.type)) {
-    if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, sender: senderId, chatId }))) {
-      await sendUnauthorizedMessage(chatId, command.type);
-      return;
-    }
-  }
-
-  // Send immediate ACK for long-running commands (skip chat commands)
-  if (command.type !== 'gemini_chat' && command.type !== 'openai_chat') {
-    await sendAck(chatId, command);
-  }
-
-  try {
-    switch (command.type) {
-      case 'gemini_chat':
-        console.log(`🤖 Processing Gemini chat request from ${senderName}`);
-        
-        try {
-          // Add user message to conversation
-          await conversationManager.addMessage(chatId, 'user', command.prompt);
-          
-          // Get conversation history for context
-          const history = await conversationManager.getConversationHistory(chatId);
-          
-          // Generate Gemini response with history
-          const geminiResponse = await generateGeminiResponse(command.prompt, history);
-          
-          if (geminiResponse.error) {
-            await sendTextMessage(chatId, geminiResponse.error);
-            console.log(`❌ Gemini error for ${senderName}: ${geminiResponse.error}`);
-          } else {
-            // Add AI response to conversation
-            await conversationManager.addMessage(chatId, 'assistant', geminiResponse.text);
-            await sendTextMessage(chatId, geminiResponse.text);
-            console.log(`✅ Gemini chat completed for ${senderName}`);
-          }
-        } catch (geminiError) {
-          console.error('❌ Error in Gemini chat:', geminiError.message || geminiError);
-          await sendTextMessage(chatId, `❌ ${geminiError.message || geminiError}`);
-        }
-        break;
-
-      case 'openai_chat':
-        console.log(`🤖 Processing OpenAI chat request from ${senderName}`);
-        
-        try {
-          // Add user message to conversation
-          await conversationManager.addMessage(chatId, 'user', command.prompt);
-          
-          // Get conversation history for context
-          const openaiHistory = await conversationManager.getConversationHistory(chatId);
-          
-          // Generate OpenAI response with history
-          const openaiResponse = await generateOpenAIResponse(command.prompt, openaiHistory);
-          
-          if (openaiResponse.error) {
-            await sendTextMessage(chatId, openaiResponse.error);
-            console.log(`❌ OpenAI error for ${senderName}: ${openaiResponse.error}`);
-          } else {
-            // Add AI response to conversation
-            await conversationManager.addMessage(chatId, 'assistant', openaiResponse.text);
-            await sendTextMessage(chatId, openaiResponse.text);
-            console.log(`✅ OpenAI chat completed for ${senderName}`);
-          }
-        } catch (openaiError) {
-          console.error('❌ Error in OpenAI chat:', openaiError.message || openaiError);
-          await sendTextMessage(chatId, `❌ ${openaiError.message || openaiError}`);
-        }
-        break;
-
-      case 'grok_chat':
-        console.log(`🤖 Processing Grok chat request from ${senderName}`);
-        
-        try {
-          // Add user message to conversation
-          await conversationManager.addMessage(chatId, 'user', command.prompt);
-          
-          // Get conversation history for context
-          const grokHistory = await conversationManager.getConversationHistory(chatId);
-          
-          // Generate Grok response with history
-          const grokResponse = await generateGrokResponse(command.prompt, grokHistory);
-          
-          if (grokResponse.error) {
-            await sendTextMessage(chatId, grokResponse.error);
-            console.log(`❌ Grok error for ${senderName}: ${grokResponse.error}`);
-          } else {
-            // Add AI response to conversation
-            await conversationManager.addMessage(chatId, 'assistant', grokResponse.text);
-            await sendTextMessage(chatId, grokResponse.text);
-            console.log(`✅ Grok chat completed for ${senderName}`);
-          }
-        } catch (grokError) {
-          console.error('❌ Error in Grok chat:', grokError.message || grokError);
-          await sendTextMessage(chatId, `❌ ${grokError.message || grokError}`);
-        }
-        break;
-
-      case 'grok_image':
-        console.log(`🖼️ Processing Grok image generation request from ${senderName}`);
-        
-        try {
-          // Note: Image generation commands do NOT add to conversation history
-          
-          const { generateImageForWhatsApp: generateGrokImage } = require('../services/grokService');
-          const grokImageResult = await generateGrokImage(command.prompt);
-          
-          if (!grokImageResult.success) {
-            await sendTextMessage(chatId, grokImageResult.error || 'שגיאה ביצירת התמונה עם Grok');
-          } else {
-            // Send both image and text if available
-            if (grokImageResult.imageUrl && grokImageResult.description) {
-              await sendFileByUrl(chatId, grokImageResult.imageUrl, 'grok_image.png', '');
-              await sendTextMessage(chatId, grokImageResult.description);
-            } else if (grokImageResult.imageUrl) {
-              await sendFileByUrl(chatId, grokImageResult.imageUrl, 'grok_image.png', '');
-            } else if (grokImageResult.description) {
-              await sendTextMessage(chatId, grokImageResult.description);
-            } else {
-              await sendTextMessage(chatId, '✅ התמונה נוצרה בהצלחה עם Grok');
-            }
-            
-            console.log(`✅ Grok image sent to ${senderName}`);
-          }
-        } catch (grokImageError) {
-          console.error('❌ Error in Grok image generation:', grokImageError.message || grokImageError);
-          await sendTextMessage(chatId, `❌ שגיאה ביצירת תמונה עם Grok: ${grokImageError.message || grokImageError}`);
-        }
-        break;
-
-      case 'openai_image':
-        console.log(`🖼️ Processing OpenAI image generation request from ${senderName}`);
-        
-        try {
-          // Note: Image generation commands do NOT add to conversation history
-          
-          // Generate image with OpenAI (WhatsApp format)
-          const openaiImageResult = await generateOpenAIImage(command.prompt);
-          
-          if (openaiImageResult.success && openaiImageResult.imageUrl) {
-            // Send the generated image with text as caption (if exists)
-            const fileName = `openai_image_${Date.now()}.png`;
-            const caption = openaiImageResult.description && openaiImageResult.description.length > 0 
-              ? openaiImageResult.description 
-              : '';
-            
-              await sendFileByUrl(chatId, openaiImageResult.imageUrl, fileName, caption);
-              
-              // Note: Image generation results do NOT add to conversation history
-            
-            console.log(`✅ OpenAI image sent to ${senderName}${caption ? ' with caption: ' + caption : ''}`);
-          } else {
-            const errorMsg = openaiImageResult.error || 'לא הצלחתי ליצור תמונה. נסה שוב מאוחר יותר.';
-            await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
-            console.log(`❌ OpenAI image generation failed for ${senderName}: ${errorMsg}`);
-          }
-        } catch (openaiImageError) {
-          console.error('❌ Error in OpenAI image generation:', openaiImageError.message || openaiImageError);
-          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת התמונה.');
-        }
-        break;
-
-      case 'gemini_image':
-        console.log(`🎨 Processing Gemini image generation request from ${senderName}`);
-        
-        try {
-          // Note: Image generation commands do NOT add to conversation history
-          
-          // Generate image with Gemini (WhatsApp format)
-          const imageResult = await generateImageForWhatsApp(command.prompt);
-          
-          if (imageResult.success && imageResult.imageUrl) {
-            // Send the generated image with text as caption
-            const fileName = `gemini_image_${Date.now()}.png`;
-            const caption = imageResult.description && imageResult.description.length > 0 
-              ? imageResult.description 
-              : '';
-            
-              await sendFileByUrl(chatId, imageResult.imageUrl, fileName, caption);
-              
-              // Note: Image generation results do NOT add to conversation history
-            
-            console.log(`✅ Gemini image sent to ${senderName}${caption ? ' with caption: ' + caption : ''}`);
-          } else {
-            // Check if Gemini returned text instead of image
-            if (imageResult.textResponse) {
-              console.log('📝 Gemini returned text instead of image, sending text response');
-                await sendTextMessage(chatId, imageResult.textResponse);
-                
-                // Note: Image generation text responses do NOT add to conversation history
-            } else {
-              const errorMsg = imageResult.error || 'לא הצלחתי ליצור תמונה. נסה שוב מאוחר יותר.';
-              await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
-              console.log(`❌ Gemini image generation failed for ${senderName}: ${errorMsg}`);
-            }
-          }
-        } catch (imageError) {
-          console.error('❌ Error in Gemini image generation:', imageError.message || imageError);
-          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת התמונה.');
-        }
-        break;
-
-      case 'veo3_video':
-        console.log(`🎬 Processing Veo 3 video generation request from ${senderName}`);
-        
-        try {
-          // Note: Video generation commands do NOT add to conversation history
-          
-          // Generate video with Veo 3 (WhatsApp format)
-          const videoResult = await generateVideoForWhatsApp(command.prompt);
-          
-          if (videoResult.success && videoResult.videoUrl) {
-            // Send the generated video without caption
-            const fileName = `veo3_video_${Date.now()}.mp4`;
-            
-            await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
-            
-            // Note: Video generation results do NOT add to conversation history
-            
-            console.log(`✅ Veo 3 video sent to ${senderName}`);
-          } else {
-            const errorMsg = videoResult.error || 'לא הצלחתי ליצור וידאו. נסה שוב מאוחר יותר.';
-            await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
-            console.log(`❌ Veo 3 video generation failed for ${senderName}: ${errorMsg}`);
-          }
-        } catch (videoError) {
-          console.error('❌ Error in Veo 3 video generation:', videoError.message || videoError);
-          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת הוידאו.');
-        }
-        break;
-
-      case 'kling_text_to_video':
-        console.log(`🎬 Processing Kling text-to-video generation request from ${senderName}`);
-        
-        try {
-          // Note: Video generation commands do NOT add to conversation history
-          
-          // Generate video with Kling 2.1 Master (WhatsApp format)
-          const videoResult = await generateKlingVideoFromText(command.prompt);
-          
-          if (videoResult.success && videoResult.videoUrl) {
-            // Send the generated video without caption
-            const fileName = videoResult.fileName || `kling_video_${Date.now()}.mp4`;
-            
-            await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
-            
-            // Note: Video generation results do NOT add to conversation history
-            
-            console.log(`✅ Kling text-to-video sent to ${senderName}`);
-          } else {
-            const errorMsg = videoResult.error || 'לא הצלחתי ליצור את הווידאו. נסה שוב מאוחר יותר.';
-            await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
-            console.log(`❌ Kling text-to-video failed for ${senderName}: ${errorMsg}`);
-          }
-        } catch (videoError) {
-          console.error('❌ Error in Kling text-to-video generation:', videoError.message || videoError);
-          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת הווידאו עם Kling.');
-        }
-        break;
-
-      case 'chat_summary':
-        console.log(`📝 Processing chat summary request from ${senderName}`);
-        
-        try {
-          // Get last 10 messages from Green API
-          const chatHistory = await getChatHistory(chatId, 30);
-          
-          if (!chatHistory || chatHistory.length === 0) {
-            await sendTextMessage(chatId, '📝 אין מספיק הודעות בשיחה כדי ליצור סיכום.');
-            break;
-          }
-          
-          // Generate summary with Gemini
-          const summaryResult = await generateChatSummary(chatHistory);
-          
-          if (summaryResult.success && summaryResult.summary) {
-            // Send the summary back to the chat
-            await sendTextMessage(chatId, `📝 **סיכום השיחה:**\n\n${summaryResult.summary}`);
-            
-            // Add to conversation history
-            await conversationManager.addMessage(chatId, 'user', 'בקשה לסיכום שיחה');
-            await conversationManager.addMessage(chatId, 'assistant', `סיכום השיחה: ${summaryResult.summary}`);
-            
-            console.log(`✅ Chat summary sent to ${senderName}`);
-          } else {
-            const errorMsg = summaryResult.error || 'לא הצלחתי ליצור סיכום של השיחה.';
-            await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
-            console.log(`❌ Chat summary failed for ${senderName}: ${errorMsg}`);
-          }
-        } catch (summaryError) {
-          console.error('❌ Error in chat summary:', summaryError.message || summaryError);
-          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת סיכום השיחה.');
-        }
-        break;
-
-      case 'command_list':
-        console.log(`📜 Processing command list request from ${senderName}`);
-        
-        try {
-          // Define path to the command list file
-          const COMMAND_LIST_FILE = path.join(__dirname, '..', 'store', 'commandList.txt');
-          
-          // Check if file exists
-          if (fs.existsSync(COMMAND_LIST_FILE)) {
-            // Read the command list file
-            const commandListContent = fs.readFileSync(COMMAND_LIST_FILE, 'utf8');
-            
-            // Send the command list to the user
-            await sendTextMessage(chatId, commandListContent);
-            console.log(`✅ Command list sent to ${senderName}`);
-          } else {
-            await sendTextMessage(chatId, '❌ רשימת הפקודות לא נמצאה. פנה למנהל המערכת.');
-            console.log(`❌ Command list file not found: ${COMMAND_LIST_FILE}`);
-          }
-        } catch (commandListError) {
-          console.error('❌ Error reading command list:', commandListError.message || commandListError);
-          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בטעינת רשימת הפקודות.');
-        }
-        break;
-
-      case 'clear_all_conversations':
-        console.log(`🗑️ Processing clear all conversations request from ${senderName}`);
-        
-        try {
-          const deletedCount = await conversationManager.clearAllConversations();
-          if (deletedCount > 0) {
-            await sendTextMessage(chatId, `🗑️ כל היסטוריית השיחות נמחקה בהצלחה (${deletedCount} הודעות נמחקו)`);
-            console.log(`✅ All conversations cleared by ${senderName}: ${deletedCount} messages deleted`);
-          } else {
-            await sendTextMessage(chatId, 'ℹ️ לא נמצאה היסטוריית שיחות למחיקה');
-            console.log(`ℹ️ No conversations to clear (requested by ${senderName})`);
-          }
-        } catch (error) {
-          console.error('❌ Error clearing all conversations:', error);
-          await sendTextMessage(chatId, '❌ שגיאה במחיקת כל היסטוריית השיחות');
-        }
-        break;
-
-      case 'show_history':
-        const history = await conversationManager.getConversationHistory(chatId);
-        if (history.length === 0) {
-          await sendTextMessage(chatId, 'ℹ️ אין היסטוריית שיחה');
-        } else {
-          let historyText = '📋 היסטוריית השיחה:\n\n';
-          history.forEach((msg, index) => {
-            const role = msg.role === 'user' ? '👤 אתה' : '🤖 AI';
-            historyText += `${index + 1}. ${role}: ${msg.content.substring(0, 100)}${msg.content.length > 100 ? '...' : ''}\n\n`;
-          });
-          await sendTextMessage(chatId, historyText);
-        }
-        break;
-
-      case 'music_generation':
-        console.log(`🎵 Processing music generation request from ${senderName}`);
-        
-        try {
-          // Note: Music generation commands do NOT add to conversation history
-          
-          // Generate music with Suno (WhatsApp format) - pass WhatsApp context for callback
-          const musicResult = await generateMusicWithLyrics(command.prompt, {
-            whatsappContext: {
-              chatId: chatId,
-              senderId: senderId,
-              senderName: senderName
-            }
-          });
-          
-          // Debug: Log full metadata structure
-          if (musicResult.metadata) {
-            console.log('🎵 Suno metadata available:', musicResult.metadata ? 'yes' : 'no');
-          }
-          
-          if (musicResult.error) {
-            const errorMsg = musicResult.error || 'לא הצלחתי ליצור שיר. נסה שוב מאוחר יותר.';
-            await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
-            console.log(`❌ Music generation failed for ${senderName}: ${errorMsg}`);
-          } else if (musicResult.audioBuffer && musicResult.result) {
-            // Immediate result (shouldn't happen with callback mode, but handle anyway)
-            const { sendMusicToWhatsApp } = require('../services/musicService');
-            await sendMusicToWhatsApp({ chatId, senderId, senderName }, musicResult);
-          } else if (musicResult.status === 'pending' && musicResult.taskId) {
-            // Asynchronous flow: task submitted, will complete via callback
-            console.log(`ℹ️ Music generation pending (task ${musicResult.taskId}) - awaiting callback`);
-            // Callback will send the result directly to WhatsApp
-          } else {
-            await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת השיר.');
-            console.log(`❌ Music generation failed for ${senderName}: No audio buffer or result path`);
-          }
-        } catch (musicError) {
-          console.error('❌ Error in music generation:', musicError.message || musicError);
-          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת השיר.');
-        }
-        break;
-
-      case 'text_to_speech':
-        console.log(`🗣️ Processing text-to-speech request from ${senderName}`);
-        
-        try {
-          // Note: Text-to-speech commands do NOT add to conversation history
-          
-          // Generate speech with random voice
-          const ttsResult = await voiceService.textToSpeechWithRandomVoice(command.prompt);
-          
-          if (ttsResult.error) {
-            const errorMsg = ttsResult.error || 'לא הצלחתי ליצור דיבור. נסה שוב מאוחר יותר.';
-            await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
-            console.log(`❌ TTS failed for ${senderName}: ${errorMsg}`);
-          } else if (ttsResult.audioUrl) {
-            // Convert TTS audio to Opus for voice note
-            console.log(`🔄 Converting TTS to Opus format for voice note...`);
-            const conversionResult = await audioConverterService.convertUrlToOpus(ttsResult.audioUrl, 'mp3');
-            
-            if (!conversionResult.success) {
-              console.error('❌ Audio conversion failed:', conversionResult.error);
-              // Fallback: send as regular MP3 file
-              const fileName = `tts_${Date.now()}.mp3`;
-              const fullAudioUrl = ttsResult.audioUrl.startsWith('http') 
-                ? ttsResult.audioUrl 
-                : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
-              await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
-            } else {
-              // Send as voice note with Opus format
-              const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
-              await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '');
-              console.log(`✅ TTS sent as voice note: ${conversionResult.fileName}`);
-            }
-            
-            // Note: Text-to-speech results do NOT add to conversation history
-            
-            console.log(`✅ TTS sent to ${senderName}: ${ttsResult.voiceInfo?.voiceName || 'Unknown voice'}`);
-          } else {
-            await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת הדיבור.');
-            console.log(`❌ TTS failed for ${senderName}: No audio URL in result`);
-          }
-        } catch (ttsError) {
-          console.error('❌ Error in text-to-speech:', ttsError.message || ttsError);
-          await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה ביצירת הדיבור.');
-        }
-        break;
-
-      case 'help':
-        const helpMessage = '🤖 Green API Bot Commands:\n\n✨ **הפקודות עובדות גם כשאתה שולח אותן!**\n💬 כל פקודה שתשלח תעבד וההתשובה תחזור לאותה שיחה\n\n💬 AI Chat:\n🔮 * [שאלה] - Gemini Chat\n🤖 # [שאלה] - OpenAI Chat\n🚀 + [שאלה] - Grok Chat\n\n🎨 יצירת תמונות:\n🖼️ ** [תיאור] - יצירת תמונה עם Gemini\n🖼️ ## [תיאור] - יצירת תמונה עם OpenAI\n\n🎬 יצירת וידאו:\n🎥 #### [תיאור] - יצירת וידאו עם Veo 3 (9:16, איכות מקסימלית)\n🎥 ### [תיאור] - יצירת וידאו עם Kling 2.1 Master (9:16)\n🎬 שלח תמונה עם כותרת: ### [תיאור] - וידאו מתמונה עם Veo 3\n🎬 שלח תמונה עם כותרת: ## [תיאור] - וידאו מתמונה עם Kling 2.1\n🎬 שלח וידאו עם כותרת: ## [תיאור] - עיבוד וידאו עם RunwayML Gen4\n\n🎵 יצירת מוזיקה:\n🎶 **** [תיאור] - יצירת שיר עם Suno (עד 20 דקות)\n📝 דוגמה: **** שיר עצוב על גשם בחורף\n🎵 השיר נשלח כ-voice note + מילות השיר בהודעת טקסט\n\n🗣️ יצירת דיבור:\n🎙️ *** [טקסט] - Text-to-Speech עם ElevenLabs (קול אקראי)\n📝 דוגמה: *** שלום, איך שלומך היום?\n🎤 הדיבור נשלח כ-voice note\n\n🎤 עיבוד קולי:\n🗣️ שלח הקלטה קולית - תמלול + תגובת AI + שיבוט קול\n📝 Flow: קול → תמלול → Gemini → קול חדש בקולך\n🎤 התגובה הקולית נשלחת כ-voice note\n⚠️ הודעות קוליות שלך לא מתעבדות (רק נכנסות)\n\n✨ עריכת תמונות:\n🎨 שלח תמונה עם כותרת: * [הוראות עריכה] - Gemini\n🖼️ שלח תמונה עם כותרת: # [הוראות עריכה] - OpenAI\n\n⚙️ ניהול שיחה:\n📝 סכם שיחה - סיכום 10 ההודעות האחרונות\n🗑️ /clear - מחיקת היסטוריה\n📝 /history - הצגת היסטוריה\n❓ /help - הצגת עזרה זו\n\n🔊 בקרת תמלול:\nℹ️ סטטוס תמלול - בדיקת מצב התמלול + רשימת מורשים\n✅ הוסף לתמלול <שם> - הוספת איש קשר לרשימת המורשים\n🚫 הסר מתמלול <שם> - הסרת איש קשר מרשימת המורשים\n\n💡 דוגמאות:\n* מה ההבדל בין AI לבין ML?\n# כתוב לי שיר על חתול\n+ מה אתה חושב על העתיד של AI?\n** חתול כתום שיושב על עץ\n#### שפן אומר Hi\n### חתול רוקד בגשם\n**** שיר רוק על אהבה\n*** שלום, איך שלומך היום?\n🎨 תמונה + כותרת: * הוסף כובע אדום\n🖼️ תמונה + כותרת: # הפוך רקע לכחול\n🎬 תמונה + כותרת: ### הנפש את התמונה עם Veo 3\n🎬 תמונה + כותרת: ## הנפש את התמונה עם Kling\n🎬 וידאו + כותרת: ## שפר את הווידאו ותוסיף אפקטים\n🎤 שלח הקלטה קולית לעיבוד מלא\n📝 סכם שיחה\n🚫 הסר מתמלול קרלוס\n✅ הוסף לתמלול דנה';
-
-        await sendTextMessage(chatId, helpMessage);
-        break;
-
-      case 'media_creation_status':
-        try {
-          const status = await authStore.getStatus();
-          const allowList = status.authorizedUsers;
-          
-          const statusIcon = status.closedByDefault ? '🔐' : '🔐';
-          const statusText = status.closedByDefault ? 'סגור לכולם (ברירת מחדל)' : 'מוגבל למורשים';
-          let statusMessage = `${statusIcon} סטטוס יצירת תוכן מולטימדיה: ${statusText}`;
-          
-          if (allowList.length > 0) {
-            const allowedList = allowList.join('\n• ');
-            statusMessage += `\n\n✅ אנשי קשר מורשים (${allowList.length}):\n• ${allowedList}`;
-          } else {
-            statusMessage += '\n\nℹ️ אין אנשי קשר מורשים (יצירה סגורה לכולם)';
-          }
-          
-          statusMessage += '\n\n📋 פקודות ניהול:\n' +
-            '• הוסף ליצירה [שם] - הוספת הרשאה\n' +
-            '• הסר מיצירה [שם] - הסרת הרשאה\n' +
-            '• סטטוס יצירה - הצגת מצב נוכחי';
-          
-          await sendTextMessage(chatId, statusMessage);
-        } catch (error) {
-          console.error('❌ Error getting media creation status:', error);
-          await sendTextMessage(chatId, '❌ שגיאה בבדיקת סטטוס יצירת תוכן');
-        }
-        break;
-
-      case 'voice_transcription_status':
-        try {
-          const allowList = await conversationManager.getVoiceAllowList();
-          
-          const statusIcon = '🔐';
-          const statusText = allowList.length > 0 ? 'מוגבל למורשים' : 'סגור לכולם (ברירת מחדל)';
-          let statusMessage = `${statusIcon} סטטוס תמלול הודעות קוליות: ${statusText}`;
-          
-          if (allowList.length > 0) {
-            const allowedList = allowList.join('\n• ');
-            statusMessage += `\n\n✅ אנשי קשר מורשים (${allowList.length}):\n• ${allowedList}`;
-          } else {
-            statusMessage += '\n\nℹ️ אין אנשי קשר מורשים (תמלול סגור לכולם)';
-          }
-          
-          statusMessage += '\n\n📋 פקודות ניהול:\n' +
-            '• הוסף לתמלול [שם] - הוספת הרשאה\n' +
-            '• הסר מתמלול [שם] - הסרת הרשאה\n' +
-            '• סטטוס תמלול - הצגת מצב נוכחי';
-          
-          await sendTextMessage(chatId, statusMessage);
-          console.log(`ℹ️ Voice transcription status checked by ${senderName}: ${statusText}, allowed: ${allowList.length}`);
-        } catch (error) {
-          console.error('❌ Error getting voice transcription status:', error);
-          await sendTextMessage(chatId, '❌ שגיאה בקבלת סטטוס התמלול');
-        }
-        break;
-
-      case 'exclude_from_transcription':
-        // Note: "הסר מתמלול" now means "remove from allow list" (opposite logic)
-        try {
-          const wasRemoved = await conversationManager.removeFromVoiceAllowList(command.contactName);
-          if (wasRemoved) {
-            await sendTextMessage(chatId, `🚫 ${command.contactName} הוסר מרשימת המורשים - הודעות קוליות שלו לא יתומללו`);
-            console.log(`🚫 Contact ${command.contactName} removed from voice allow list by ${senderName}`);
-          } else {
-            await sendTextMessage(chatId, `ℹ️ ${command.contactName} כבר לא היה ברשימת המורשים`);
-            console.log(`ℹ️ Contact ${command.contactName} was not in allow list (requested by ${senderName})`);
-          }
-        } catch (error) {
-          console.error('❌ Error removing from voice allow list:', error);
-          await sendTextMessage(chatId, '❌ שגיאה בהסרה מרשימת המורשים');
-        }
-        break;
-
-      case 'include_in_transcription':
-        // Note: "הוסף לתמלול" now means "add to allow list"
-        try {
-          const wasAdded = await conversationManager.addToVoiceAllowList(command.contactName);
-          if (wasAdded) {
-            await sendTextMessage(chatId, `✅ ${command.contactName} נוסף לרשימת המורשים - הודעות קוליות שלו יתומללו`);
-            console.log(`✅ Contact ${command.contactName} added to voice allow list by ${senderName}`);
-          } else {
-            await sendTextMessage(chatId, `ℹ️ ${command.contactName} כבר היה ברשימת המורשים`);
-            console.log(`ℹ️ Contact ${command.contactName} was already in allow list (requested by ${senderName})`);
-          }
-        } catch (error) {
-          console.error('❌ Error adding to voice allow list:', error);
-          await sendTextMessage(chatId, '❌ שגיאה בהוספה לרשימת המורשים');
-        }
-        break;
-
-      case 'add_media_authorization':
-        try {
-          const wasAdded = await authStore.addAuthorizedUser(command.contactName);
-          if (wasAdded) {
-            await sendTextMessage(chatId, `✅ ${command.contactName} נוסף לרשימת המורשים ליצירת תוכן מולטימדיה`);
-            console.log(`✅ Added ${command.contactName} to media creation authorization by ${senderName}`);
-          } else {
-            await sendTextMessage(chatId, `ℹ️ ${command.contactName} כבר נמצא ברשימת המורשים ליצירת תוכן מולטימדיה`);
-          }
-        } catch (error) {
-          console.error('❌ Error adding media authorization:', error);
-          await sendTextMessage(chatId, '❌ שגיאה בהוספה לרשימת המורשים ליצירת תוכן');
-        }
-        break;
-
-      case 'remove_media_authorization':
-        try {
-          const wasRemoved = await authStore.removeAuthorizedUser(command.contactName);
-          if (wasRemoved) {
-            await sendTextMessage(chatId, `✅ ${command.contactName} הוסר מרשימת המורשים ליצירת תוכן מולטימדיה`);
-            console.log(`✅ Removed ${command.contactName} from media creation authorization by ${senderName}`);
-          } else {
-            await sendTextMessage(chatId, `ℹ️ ${command.contactName} לא נמצא ברשימת המורשים ליצירת תוכן מולטימדיה`);
-          }
-        } catch (error) {
-          console.error('❌ Error removing media authorization:', error);
-          await sendTextMessage(chatId, '❌ שגיאה בהסרה מרשימת המורשים ליצירת תוכן');
-        }
-        break;
-
-      default:
-        console.log(`❓ Unknown command type: ${command.type}`);
-    }
-  } catch (error) {
-    console.error('❌ Error executing command:', error.message || error);
-    await sendTextMessage(chatId, `❌ ${error.message || error}`);
-  }
-}
-
-/**
- * Parse text message to extract command
+ * All AI commands (chat, image, video, music, TTS) now go through router with "# " prefix
  */
 function parseTextCommand(text) {
   if (!text || typeof text !== 'string') {
@@ -2270,106 +1737,9 @@ function parseTextCommand(text) {
 
   text = text.trim();
 
-  // Music Generation command: **** + space + text
-  if (text.startsWith('**** ')) {
-    const prompt = text.substring(5).trim(); // Remove "**** "
-    return {
-      type: 'music_generation',
-      prompt: prompt,
-      originalMessage: text
-    };
-  }
-
-  // Text-to-Speech command: *** + space + text
-  if (text.startsWith('*** ')) {
-    const prompt = text.substring(4).trim(); // Remove "*** "
-    return {
-      type: 'text_to_speech',
-      prompt: prompt,
-      originalMessage: text
-    };
-  }
-
-  // Veo 3 Video Generation command: #### + space + text
-  if (text.startsWith('#### ')) {
-    const prompt = text.substring(5).trim(); // Remove "#### "
-    return {
-      type: 'veo3_video',
-      prompt: prompt,
-      originalMessage: text
-    };
-  }
-
-  // Kling Text-to-Video Generation command: ### + space + text
-  if (text.startsWith('### ')) {
-    const prompt = text.substring(4).trim(); // Remove "### "
-    return {
-      type: 'kling_text_to_video',
-      prompt: prompt,
-      originalMessage: text
-    };
-  }
-
-  // OpenAI Image Generation command: ## + space + text
-  if (text.startsWith('## ')) {
-    const prompt = text.substring(3).trim(); // Remove "## "
-    return {
-      type: 'openai_image',
-      prompt: prompt,
-      originalMessage: text
-    };
-  }
-
-  // Gemini Image Generation command: ** + space + text
-  if (text.startsWith('** ')) {
-    const prompt = text.substring(3).trim(); // Remove "** "
-    return {
-      type: 'gemini_image',
-      prompt: prompt,
-      originalMessage: text
-    };
-  }
-
-  // Gemini Chat command: * + space + text
-  if (text.startsWith('* ')) {
-    const prompt = text.substring(2).trim(); // Remove "* "
-    return {
-      type: 'gemini_chat',
-      prompt: prompt,
-      originalMessage: text
-    };
-  }
-
-  // OpenAI Chat command: # + space + text
-  if (text.startsWith('# ')) {
-    const prompt = text.substring(2).trim(); // Remove "# "
-    return {
-      type: 'openai_chat',
-      prompt: prompt,
-      originalMessage: text
-    };
-  }
-
-  // Grok Image Generation command: ++ + space + text
-  if (text.startsWith('++ ')) {
-    const prompt = text.substring(3).trim(); // Remove "++ "
-    return {
-      type: 'grok_image',
-      prompt: prompt,
-      originalMessage: text
-    };
-  }
-
-  // Grok Chat command: + + space + text
-  if (text.startsWith('+ ')) {
-    const prompt = text.substring(2).trim(); // Remove "+ "
-    return {
-      type: 'grok_chat',
-      prompt: prompt,
-      originalMessage: text
-    };
-  }
-
+  // ═══════════════════ MANAGEMENT COMMANDS ONLY ═══════════════════
+  // All AI commands (chat, image, video, music, TTS) now go through router with "# " prefix
+  
   // Chat summary
   if (text === 'סכם שיחה') {
     return { type: 'chat_summary' };
