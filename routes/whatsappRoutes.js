@@ -1367,7 +1367,7 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
     }
   } catch (error) {
     console.error(`❌ Error in ${service} image editing:`, error.message || error);
-    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעריכת התמונה.');
+    await sendTextMessage(chatId, `❌ שגיאה בעריכת התמונה: ${error.message || error}`);
   }
 }
 
@@ -1415,7 +1415,7 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
     }
   } catch (error) {
     console.error(`❌ Error in ${serviceName} image-to-video:`, error.message || error);
-    await sendTextMessage(chatId, `❌ סליחה, הייתה שגיאה ביצירת הוידאו מהתמונה עם ${serviceName}.`);
+    await sendTextMessage(chatId, `❌ שגיאה ביצירת הוידאו מהתמונה: ${error.message || error}`);
   }
 }
 
@@ -1453,7 +1453,7 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
     }
   } catch (error) {
     console.error('❌ Error in RunwayML Gen4 video-to-video:', error.message || error);
-    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד הווידאו.');
+    await sendTextMessage(chatId, `❌ שגיאה בעיבוד הווידאו: ${error.message || error}`);
   }
 }
 
@@ -1523,7 +1523,7 @@ async function handleCreativeVoiceMessage({ chatId, senderId, senderName, audioU
 
   } catch (error) {
     console.error('❌ Error in creative voice processing:', error.message || error);
-    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד היצירתי של ההקלטה.');
+    await sendTextMessage(chatId, `❌ שגיאה בעיבוד היצירתי של ההקלטה: ${error.message || error}`);
   }
 }
 
@@ -1720,7 +1720,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 
   } catch (error) {
     console.error('❌ Error in voice-to-voice processing:', error.message || error);
-    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד ההקלטה הקולית.');
+    await sendTextMessage(chatId, `❌ שגיאה בעיבוד ההקלטה הקולית: ${error.message || error}`);
   }
 }
 */
@@ -1984,7 +1984,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
     }
   } catch (error) {
     console.error(`❌ Error handling management command ${command.type}:`, error);
-    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד הפקודה');
+    await sendTextMessage(chatId, `❌ שגיאה בעיבוד הפקודה: ${error.message || error}`);
   }
 }
 

@@ -280,7 +280,7 @@ ${JSON.stringify(payload, null, 2)}
       → "music_generation"
    
    🖼️ Image: "תמונה", "ציור", "צייר", "draw", "picture", "image"
-      → "gemini_image" (default) or "openai_image" if mentions OpenAI
+      → "gemini_image" (default) or "openai_image" if mentions OpenAI or "grok_image" if mentions Grok
       
    🎬 Video: "וידאו", "video", "סרט", "אנימציה", "clip"
       → "kling_text_to_video" (default) or "veo3_video" if mentions Veo
@@ -296,8 +296,11 @@ ${JSON.stringify(payload, null, 2)}
 
 🎯 **CRITICAL EXAMPLES:**
 
-Input: {"userText": "# צייר פיל", "hasImage": false, "hasVideo": false}
-Output: {"tool": "gemini_image", "args": {"prompt": "פיל"}, "reason": "Draw request"}
+   Input: {"userText": "# צייר פיל", "hasImage": false, "hasVideo": false}
+   Output: {"tool": "gemini_image", "args": {"prompt": "פיל"}, "reason": "Draw request"}
+   
+   Input: {"userText": "# צור תמונה של פיל עם Grok", "hasImage": false, "hasVideo": false}
+   Output: {"tool": "grok_image", "args": {"prompt": "תמונה של פיל"}, "reason": "Image request with Grok"}
 
 Input: {"userText": "# היי", "hasImage": false, "hasVideo": false}
 Output: {"tool": "gemini_chat", "args": {}, "reason": "Greeting/conversation"}
