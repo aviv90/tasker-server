@@ -100,48 +100,69 @@ async function sendAck(chatId, command) {
   let ackMessage = '';
   
   switch (command.type) {
+    // ═══════════════════ CHAT ═══════════════════
+    case 'gemini_chat':
+      ackMessage = '💬 קיבלתי. מעבד עם Gemini...';
+      break;
+    case 'openai_chat':
+      ackMessage = '💬 קיבלתי. מעבד עם OpenAI...';
+      break;
+    case 'grok_chat':
+      ackMessage = '💬 קיבלתי. מעבד עם Grok...';
+      break;
+      
+    // ═══════════════════ IMAGE GENERATION ═══════════════════
     case 'gemini_image':
-      ackMessage = '🎨 קיבלתי. מיד מעבד עם Gemini...';
+      ackMessage = '🎨 קיבלתי! מייצר תמונה עם Gemini...';
       break;
     case 'openai_image':
-      ackMessage = '🖼️ קיבלתי. מיד מעבד עם OpenAI...';
-      break;
-    case 'veo3_video':
-      ackMessage = '🎬 קיבלתי. מיד יוצר וידאו עם Veo 3...';
-      break;
-    case 'veo3_image_to_video':
-      ackMessage = '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Veo 3...';
-      break;
-    case 'kling_image_to_video':
-      ackMessage = '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Kling 2.1...';
-      break;
-    case 'voice_processing':
-      ackMessage = '🎤 קיבלתי את ההקלטה. מתחיל עיבוד קולי עם ElevenLabs + Gemini...';
-      break;
-    case 'runway_video_to_video':
-      ackMessage = '🎬 קיבלתי את הווידאו. מיד עובד עליו עם RunwayML Gen4...';
-      break;
-    case 'kling_text_to_video':
-      ackMessage = '🎬 מתחיל יצירת וידאו עם Kling 2.1 Master...';
-      break;
-    case 'chat_summary':
-      ackMessage = '📝 מכין סיכום של השיחה עם Gemini...';
-      break;
-    case 'voice_generation':
-      ackMessage = '🎤 קיבלתי. מיד יוצר קול עם ElevenLabs...';
-      break;
-    case 'music_generation':
-      ackMessage = '🎵 קיבלתי. מתחיל יצירת שיר עם Suno...';
-      break;
-    case 'text_to_speech':
-      ackMessage = '🗣️ קיבלתי. מיד יוצר דיבור עם ElevenLabs...';
+      ackMessage = '🎨 קיבלתי! מייצר תמונה עם DALL-E...';
       break;
     case 'grok_image':
-      ackMessage = '🎨 קיבלתי. מיד יוצר תמונה עם Grok...';
+      ackMessage = '🎨 קיבלתי! מייצר תמונה עם Grok...';
+      break;
+      
+    // ═══════════════════ VIDEO GENERATION ═══════════════════
+    case 'veo3_video':
+      ackMessage = '🎬 קיבלתי! יוצר וידאו עם Veo 3...';
+      break;
+    case 'kling_text_to_video':
+      ackMessage = '🎬 קיבלתי! יוצר וידאו עם Kling AI...';
+      break;
+    case 'veo3_image_to_video':
+      ackMessage = '🎬 קיבלתי את התמונה! יוצר וידאו עם Veo 3...';
+      break;
+    case 'kling_image_to_video':
+      ackMessage = '🎬 קיבלתי את התמונה! יוצר וידאו עם Kling AI...';
+      break;
+    case 'runway_video_to_video':
+      ackMessage = '🎬 קיבלתי את הווידאו! עובד עליו עם RunwayML Gen4...';
+      break;
+      
+    // ═══════════════════ AUDIO & VOICE ═══════════════════
+    case 'text_to_speech':
+      ackMessage = '🗣️ קיבלתי! מייצר דיבור עם ElevenLabs...';
+      break;
+    case 'voice_processing':
+      ackMessage = '🎤 קיבלתי את ההקלטה! מעבד עם ElevenLabs...';
+      break;
+    case 'voice_generation':
+      ackMessage = '🎤 קיבלתי! מייצר קול עם ElevenLabs...';
       break;
     case 'creative_voice_processing':
-      ackMessage = '🎨 קיבלתי את ההקלטה. מתחיל עיבוד יצירתי עם אפקטים ומוזיקה...';
+      ackMessage = '🎨 קיבלתי את ההקלטה! מתחיל עיבוד יצירתי עם אפקטים ומוזיקה...';
       break;
+      
+    // ═══════════════════ MUSIC ═══════════════════
+    case 'music_generation':
+      ackMessage = '🎵 קיבלתי! מתחיל יצירת שיר עם Suno AI... 🎶';
+      break;
+      
+    // ═══════════════════ UTILITIES ═══════════════════
+    case 'chat_summary':
+      ackMessage = '📝 קיבלתי! מכין סיכום השיחה עם Gemini...';
+      break;
+      
     default:
       return; // No ACK needed for this command
   }
