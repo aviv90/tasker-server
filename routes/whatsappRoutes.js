@@ -8,7 +8,7 @@ const { generateTextResponse: generateGrokResponse } = require('../services/grok
 const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage, generateVideoFromVideoForWhatsApp: generateRunwayVideoFromVideo, generateVideoWithTextForWhatsApp: generateKlingVideoFromText } = require('../services/replicateService');
 const { generateMusicWithLyrics } = require('../services/musicService');
 const speechService = require('../services/speechService');
-const { voiceService } = require('../services/voiceService');
+const { voiceService, detectLanguage, getVoiceForLanguage } = require('../services/voiceService');
 const { audioConverterService } = require('../services/audioConverterService');
 const { creativeAudioService } = require('../services/creativeAudioService');
 const conversationManager = require('../services/conversationManager');
@@ -1547,6 +1547,165 @@ function parseTextCommand(text) {
   }
 
   return null;
+}
+
+/**
+ * Handle management commands (non-AI commands that don't go through router)
+ */
+async function handleManagementCommand(command, chatId, senderId, senderName, senderContactName, chatName) {
+  try {
+    switch (command.type) {
+      case 'chat_summary': {
+        const chatHistory = await getChatHistory(chatId, 30);
+        if (chatHistory && chatHistory.length > 0) {
+          const summaryResult = await generateChatSummary(chatHistory);
+          if (!summaryResult.error) {
+            await sendTextMessage(chatId, `📝 **סיכום השיחה:**\n\n${summaryResult.text}`);
+          } else {
+            await sendTextMessage(chatId, `❌ ${summaryResult.error}`);
+          }
+        } else {
+          await sendTextMessage(chatId, 'ℹ️ אין מספיק היסטוריה לסכום');
+        }
+        break;
+      }
+
+      case 'command_list': {
+        const commandListPath = path.join(__dirname, '../store/commandList.txt');
+        if (fs.existsSync(commandListPath)) {
+          const commandList = fs.readFileSync(commandListPath, 'utf-8');
+          await sendTextMessage(chatId, commandList);
+        } else {
+          await sendTextMessage(chatId, 'ℹ️ רשימת פקודות לא זמינה');
+        }
+        break;
+      }
+
+      case 'clear_all_conversations': {
+        await conversationManager.clearAllConversations();
+        await sendTextMessage(chatId, '✅ כל ההיסטוריות נוקו בהצלחה');
+        console.log(`🗑️ All conversation histories cleared by ${senderName}`);
+        break;
+      }
+
+      case 'show_history': {
+        const history = await conversationManager.getConversationHistory(chatId);
+        if (history && history.length > 0) {
+          let historyText = '📜 **היסטוריית שיחה:**\n\n';
+          history.forEach((msg, i) => {
+            const role = msg.role === 'user' ? '👤' : '🤖';
+            historyText += `${role} ${msg.content}\n\n`;
+          });
+          await sendTextMessage(chatId, historyText);
+        } else {
+          await sendTextMessage(chatId, 'ℹ️ אין היסטוריית שיחה');
+        }
+        break;
+      }
+
+      case 'help': {
+        const helpText = `
+🤖 **מערכת AI מתקדמת**
+
+**פקודות AI (מתחילות ב-"# "):**
+• # היי - שיחה עם Gemini
+• # צור תמונה של... - יצירת תמונה
+• # צור וידאו של... - יצירת וידאו
+• # צור שיר על... - יצירת מוזיקה
+• # המר לדיבור: טקסט - Text-to-Speech
+• תמונה + # ערוך... - עריכת תמונה
+• וידאו + # ערוך... - עריכת וידאו
+
+**פקודות ניהול:**
+• סכם שיחה - סיכום השיחה
+• רשימת פקודות - רשימה מלאה
+• סטטוס יצירה - סטטוס הרשאות
+• הוסף ליצירה [שם] - הוסף הרשאה
+• הסר מיצירה [שם] - הסר הרשאה
+        `;
+        await sendTextMessage(chatId, helpText.trim());
+        break;
+      }
+
+      case 'media_creation_status': {
+        const authorizedUsers = await authStore.getAuthorizedUsers();
+        if (authorizedUsers && authorizedUsers.length > 0) {
+          let statusText = '✅ **משתמשים מורשים ליצירת מדיה:**\n\n';
+          authorizedUsers.forEach(user => {
+            statusText += `• ${user.contact_name}\n`;
+          });
+          await sendTextMessage(chatId, statusText);
+        } else {
+          await sendTextMessage(chatId, 'ℹ️ אין משתמשים מורשים ליצירת מדיה');
+        }
+        break;
+      }
+
+      case 'voice_transcription_status': {
+        const allowList = await conversationManager.getVoiceAllowList();
+        if (allowList && allowList.length > 0) {
+          let statusText = '✅ **משתמשים מורשים לתמלול:**\n\n';
+          allowList.forEach(user => {
+            statusText += `• ${user.contact_name}\n`;
+          });
+          await sendTextMessage(chatId, statusText);
+        } else {
+          await sendTextMessage(chatId, 'ℹ️ אין משתמשים מורשים לתמלול');
+        }
+        break;
+      }
+
+      case 'add_media_authorization': {
+        const wasAdded = await authStore.addAuthorizedUser(command.contactName);
+        if (wasAdded) {
+          await sendTextMessage(chatId, `✅ ${command.contactName} נוסף לרשימת המורשים ליצירת מדיה`);
+          console.log(`✅ Added ${command.contactName} to media creation authorization by ${senderName}`);
+        } else {
+          await sendTextMessage(chatId, `ℹ️ ${command.contactName} כבר נמצא ברשימת המורשים ליצירת מדיה`);
+        }
+        break;
+      }
+
+      case 'remove_media_authorization': {
+        const wasRemoved = await authStore.removeAuthorizedUser(command.contactName);
+        if (wasRemoved) {
+          await sendTextMessage(chatId, `🚫 ${command.contactName} הוסר מרשימת המורשים ליצירת מדיה`);
+          console.log(`✅ Removed ${command.contactName} from media creation authorization by ${senderName}`);
+        } else {
+          await sendTextMessage(chatId, `ℹ️ ${command.contactName} לא נמצא ברשימת המורשים ליצירת מדיה`);
+        }
+        break;
+      }
+
+      case 'include_in_transcription': {
+        const wasAdded = await conversationManager.addToVoiceAllowList(command.contactName);
+        if (wasAdded) {
+          await sendTextMessage(chatId, `✅ ${command.contactName} נוסף לרשימת המורשים לתמלול`);
+          console.log(`✅ Added ${command.contactName} to voice allow list by ${senderName}`);
+        } else {
+          await sendTextMessage(chatId, `ℹ️ ${command.contactName} כבר נמצא ברשימת המורשים לתמלול`);
+        }
+        break;
+      }
+
+      case 'exclude_from_transcription': {
+        const wasRemoved = await conversationManager.removeFromVoiceAllowList(command.contactName);
+        if (wasRemoved) {
+          await sendTextMessage(chatId, `🚫 ${command.contactName} הוסר מרשימת המורשים לתמלול`);
+          console.log(`✅ Removed ${command.contactName} from voice allow list by ${senderName}`);
+        } else {
+          await sendTextMessage(chatId, `ℹ️ ${command.contactName} לא נמצא ברשימת המורשים לתמלול`);
+        }
+        break;
+      }
+
+      default:
+        console.log(`⚠️ Unknown management command type: ${command.type}`);
+    }
+  } catch (error) {
+    console.error(`❌ Error handling management command ${command.type}:`, error);
+    await sendTextMessage(chatId, '❌ סליחה, הייתה שגיאה בעיבוד הפקודה');
+  }
 }
 
 module.exports = router;
