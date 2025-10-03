@@ -294,7 +294,7 @@ async function handleIncomingMessage(webhookData) {
             // ═══════════════════ CHAT (Text Generation) ═══════════════════
             case 'gemini_chat': {
               await sendAck(chatId, { type: 'gemini_chat' });
-              const contextMessages = await conversationManager.getRecentMessages(chatId, 10);
+              const contextMessages = await conversationManager.getConversationHistory(chatId);
               await conversationManager.addMessage(chatId, 'user', prompt);
               const result = await generateGeminiResponse(prompt, { contextMessages });
               if (!result.error) {
@@ -308,7 +308,7 @@ async function handleIncomingMessage(webhookData) {
             
             case 'openai_chat': {
               await sendAck(chatId, { type: 'openai_chat' });
-              const contextMessages = await conversationManager.getRecentMessages(chatId, 10);
+              const contextMessages = await conversationManager.getConversationHistory(chatId);
               await conversationManager.addMessage(chatId, 'user', prompt);
               const result = await generateOpenAIResponse(prompt, { contextMessages });
               if (!result.error) {
@@ -322,7 +322,7 @@ async function handleIncomingMessage(webhookData) {
             
             case 'grok_chat': {
               await sendAck(chatId, { type: 'grok_chat' });
-              const contextMessages = await conversationManager.getRecentMessages(chatId, 10);
+              const contextMessages = await conversationManager.getConversationHistory(chatId);
               await conversationManager.addMessage(chatId, 'user', prompt);
               const result = await generateGrokResponse(prompt, { contextMessages });
               if (!result.error) {
@@ -514,204 +514,12 @@ async function handleIncomingMessage(webhookData) {
       }
     }
 
-    // Handle image messages for image-to-image editing
-    if (messageData.typeMessage === 'imageMessage') {
-      const imageData = messageData.fileMessageData || messageData.imageMessageData;
-      const caption = imageData?.caption || '';
-      
-      console.log(`🖼️ Image message received with caption: "${caption}"`);
-
-      // Intent router for image captions starting with "# "
-      if (/^#\s+/.test(caption.trim())) {
-        try {
-          const normalized = {
-            userText: caption.trim(),
-            hasImage: true,
-            hasVideo: false,
-            hasAudio: false,
-            chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
-            language: 'he',
-            authorizations: {
-              media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
-              voice_allowed: false
-            }
-          };
-
-          const decision = await routeIntent(normalized);
-          const routedPrompt = normalized.userText.replace(/^#\s+/, '').trim();
-
-          switch (decision.tool) {
-            case 'deny_unauthorized':
-              await sendUnauthorizedMessage(chatId, decision.args?.feature || 'media');
-              return;
-            case 'gemini_image':
-            case 'openai_image':
-            case 'grok_image':
-              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'gemini_image' ? '** ' : decision.tool === 'openai_image' ? '## ' : '++ ') + routedPrompt });
-              return;
-            case 'veo3_video':
-            case 'kling_text_to_video': {
-              // Process image-to-video directly - don't fall through to legacy
-              const service = decision.tool === 'veo3_video' ? 'veo3' : 'kling';
-              console.log(`🎬 ${service} image-to-video request (via router)`);
-              
-              // Check authorization
-              if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
-                await sendUnauthorizedMessage(chatId, 'video creation');
-                return;
-              }
-              
-              // Process image-to-video asynchronously
-              processImageToVideoAsync({
-                chatId,
-                senderId,
-                senderName,
-                imageUrl: imageData.downloadUrl,
-                prompt: decision.args?.prompt || routedPrompt,
-                service: service
-              });
-              return; // Stop processing - we handled it
-            }
-            case 'image_edit': {
-              // Process image edit directly - don't fall through to legacy
-              const service = decision.args?.service || 'gemini';
-              console.log(`🎨 ${service} image edit request (via router, image block)`);
-              
-              // Check authorization
-              if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
-                await sendUnauthorizedMessage(chatId, 'image editing');
-                return;
-              }
-              
-              // Process image editing asynchronously
-              processImageEditAsync({
-                chatId,
-                senderId,
-                senderName,
-                imageUrl: imageData.downloadUrl,
-                prompt: decision.args.prompt,
-                service: service
-              });
-              return; // Stop processing - we handled it
-            }
-            case 'video_to_video':
-              // For image message this doesn't apply; ask clarification
-              await sendTextMessage(chatId, 'ℹ️ נשלחה תמונה, לא וידאו. תרצה לערוך את התמונה או ליצור תמונה/וידאו חדש?');
-              return;
-            case 'text_to_speech':
-              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: '*** ' + (decision.args?.text || routedPrompt) });
-              return;
-            case 'chat_summary':
-              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: 'סכם שיחה' });
-              return;
-            case 'gemini_chat':
-            case 'openai_chat':
-            case 'grok_chat': {
-              const chatPrefix = decision.tool === 'gemini_chat' ? '* ' : decision.tool === 'openai_chat' ? '# ' : '+ ';
-              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: chatPrefix + routedPrompt });
-              return;
-            }
-            case 'ask_clarification':
-            default:
-              await sendTextMessage(chatId, 'ℹ️ לא ברור מה לבצע עם התמונה. תוכל לחדד בבקשה?');
-              return;
-          }
-        } catch (routerError) {
-          console.error('❌ Intent router (image caption) error:', routerError.message || routerError);
-          // Continue to legacy handling below
-        }
-      }
-      
-      // Legacy prefixes removed - all image operations now go through router with "# " prefix
-    }
-    // Handle video messages for video-to-video processing
-    else if (messageData.typeMessage === 'videoMessage') {
-      const videoData = messageData.fileMessageData || messageData.videoMessageData;
-      const caption = videoData?.caption || '';
-      
-      console.log(`🎬 Video message received with caption: "${caption}"`);
-
-      // Intent router for video captions starting with "# "
-      if (/^#\s+/.test(caption.trim())) {
-        try {
-          const normalized = {
-            userText: caption.trim(),
-            hasImage: false,
-            hasVideo: true,
-            hasAudio: false,
-            chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
-            language: 'he',
-            authorizations: {
-              media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
-              voice_allowed: false
-            }
-          };
-
-          const decision = await routeIntent(normalized);
-          const routedPrompt = normalized.userText.replace(/^#\s+/, '').trim();
-
-          switch (decision.tool) {
-            case 'deny_unauthorized':
-              await sendUnauthorizedMessage(chatId, decision.args?.feature || 'media');
-              return;
-            case 'video_to_video': {
-              // Process video-to-video directly - don't fall through to legacy
-              console.log(`🎬 RunwayML Gen4 video-to-video request (via router, video block)`);
-              
-              // Check authorization for media creation
-              if (!(await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }))) {
-                await sendUnauthorizedMessage(chatId, 'video editing');
-                return;
-              }
-              
-              // Process video-to-video asynchronously
-              processVideoToVideoAsync({
-                chatId,
-                senderId,
-                senderName,
-                videoUrl: videoData.downloadUrl,
-                prompt: decision.args?.prompt || routedPrompt
-              });
-              return; // Stop processing - we handled it
-            }
-            case 'veo3_video':
-            case 'kling_text_to_video':
-              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'veo3_video' ? '#### ' : '### ') + routedPrompt });
-              return;
-            case 'image_edit':
-              await sendTextMessage(chatId, 'ℹ️ נשלח וידאו, לא תמונה. תרצה לבצע עיבוד וידאו?');
-              return;
-            case 'gemini_image':
-            case 'openai_image':
-            case 'grok_image':
-              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'gemini_image' ? '** ' : decision.tool === 'openai_image' ? '## ' : '++ ') + routedPrompt });
-              return;
-            case 'text_to_speech':
-              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: '*** ' + (decision.args?.text || routedPrompt) });
-              return;
-            case 'chat_summary':
-              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: 'סכם שיחה' });
-              return;
-            case 'gemini_chat':
-            case 'openai_chat':
-            case 'grok_chat': {
-              const chatPrefix = decision.tool === 'gemini_chat' ? '* ' : decision.tool === 'openai_chat' ? '# ' : '+ ';
-              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: chatPrefix + routedPrompt });
-              return;
-            }
-            case 'ask_clarification':
-            default:
-              await sendTextMessage(chatId, 'ℹ️ לא ברור מה לבצע עם הווידאו. תוכל לחדד בבקשה?');
-              return;
-          }
-        } catch (routerError) {
-          console.error('❌ Intent router (video caption) error:', routerError.message || routerError);
-          // Continue to legacy handling below
-        }
-      }
-      
-      // Legacy prefixes removed - all video operations now go through router with "# " prefix
-    }
+    // ═══════════════════════════════════════════════════════════════
+    // REMOVED: Duplicate image handling block (now handled in lines 279-510)
+    // ═══════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════
+    // REMOVED: Duplicate video handling block (now handled in lines 279-510)
+    // ═══════════════════════════════════════════════════════════════
     // Handle voice messages for creative audio processing
     else if (messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage') {
       const audioData = messageData.fileMessageData || messageData.audioMessageData;
@@ -768,16 +576,14 @@ async function handleIncomingMessage(webhookData) {
         senderName,
         audioUrl: audioData.downloadUrl
       });
-    } else if (messageText) {
-      // Process text message asynchronously - don't await
-      processTextMessageAsync({
-        chatId,
-        senderId,
-        senderName,
-        senderContactName,
-        chatName,
-        messageText: messageText.trim()
-      });
+    } else if (messageText && !messageText.startsWith('#')) {
+      // Non-"#" text messages - handle management commands only
+      const command = parseTextCommand(messageText);
+      if (command) {
+        await handleManagementCommand(command, chatId, senderId, senderName, senderContactName, chatName);
+      } else {
+        console.log(`ℹ️ Text message without '# ' prefix - ignored (not a management command)`);
+      }
     } else {
       console.log(`ℹ️ Unsupported message type: ${messageData.typeMessage}`);
     }
@@ -854,7 +660,7 @@ async function handleOutgoingMessage(webhookData) {
           switch (decision.tool) {
             // ═══════════════════ CHAT ═══════════════════
             case 'gemini_chat': {
-              const contextMessages = await conversationManager.getRecentMessages(chatId, 10);
+              const contextMessages = await conversationManager.getConversationHistory(chatId);
               await conversationManager.addMessage(chatId, 'user', prompt);
               const result = await generateGeminiResponse(prompt, { contextMessages });
               if (!result.error) {
@@ -864,7 +670,7 @@ async function handleOutgoingMessage(webhookData) {
               return;
             }
             case 'openai_chat': {
-              const contextMessages = await conversationManager.getRecentMessages(chatId, 10);
+              const contextMessages = await conversationManager.getConversationHistory(chatId);
               await conversationManager.addMessage(chatId, 'user', prompt);
               const result = await generateOpenAIResponse(prompt, { contextMessages });
               if (!result.error) {
@@ -874,7 +680,7 @@ async function handleOutgoingMessage(webhookData) {
               return;
             }
             case 'grok_chat': {
-              const contextMessages = await conversationManager.getRecentMessages(chatId, 10);
+              const contextMessages = await conversationManager.getConversationHistory(chatId);
               await conversationManager.addMessage(chatId, 'user', prompt);
               const result = await generateGrokResponse(prompt, { contextMessages });
               if (!result.error) {
@@ -1008,88 +814,9 @@ async function handleOutgoingMessage(webhookData) {
       }
     }
 
-    // Handle image messages for image-to-image editing
-    if (messageData.typeMessage === 'imageMessage') {
-      const imageData = messageData.fileMessageData || messageData.imageMessageData;
-      const caption = imageData?.caption || '';
-      
-      console.log(`🖼️ Outgoing image message received with caption: "${caption}"`);
-      
-      // Router for outgoing image caption starting with "# "
-      if (/^#\s+/.test(caption.trim())) {
-        try {
-          const normalized = {
-            userText: caption.trim(),
-            hasImage: true,
-            hasVideo: false,
-            hasAudio: false,
-            chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
-            language: 'he',
-            authorizations: { media_creation: true, voice_allowed: true }
-          };
-          const decision = await routeIntent(normalized);
-          const routedPrompt = normalized.userText.replace(/^#\s+/, '').trim();
-          switch (decision.tool) {
-            case 'image_edit': {
-              // Process image edit directly - don't fall through to legacy
-              const service = decision.args?.service || 'gemini';
-              console.log(`🎨 ${service} image edit request (outgoing, image block, via router)`);
-              
-              // Process image editing asynchronously
-              processImageEditAsync({
-                chatId,
-                senderId,
-                senderName,
-                imageUrl: imageData.downloadUrl,
-                prompt: decision.args.prompt,
-                service: service
-              });
-              return; // Stop processing - we handled it
-            }
-            case 'veo3_video':
-            case 'kling_text_to_video': {
-              // Process image-to-video directly - don't fall through to legacy
-              const service = decision.tool === 'veo3_video' ? 'veo3' : 'kling';
-              console.log(`🎬 ${service} image-to-video request (outgoing, via router)`);
-              
-              // Process image-to-video asynchronously
-              processImageToVideoAsync({
-                chatId,
-                senderId,
-                senderName,
-                imageUrl: imageData.downloadUrl,
-                prompt: decision.args?.prompt || routedPrompt,
-                service: service
-              });
-              return; // Stop processing - we handled it
-            }
-            case 'gemini_image':
-            case 'openai_image':
-            case 'grok_image':
-              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: (decision.tool === 'gemini_image' ? '** ' : decision.tool === 'openai_image' ? '## ' : '++ ') + routedPrompt }, true);
-              return;
-            case 'music_generation':
-              processTextMessageAsync({ chatId, senderId, senderName, senderContactName, chatName, messageText: '**** ' + routedPrompt }, true);
-              return;
-            default:
-              break; // continue legacy
-          }
-        } catch (e) {
-          console.error('❌ Intent router (outgoing image caption) error:', e.message || e);
-        }
-      }
-
-      // Legacy prefixes removed - all image operations now go through router with "# " prefix
-    }
-    // Handle video messages for video-to-video processing
-    else if (messageData.typeMessage === 'videoMessage') {
-      const videoData = messageData.fileMessageData || messageData.videoMessageData;
-      const caption = videoData?.caption || '';
-      
-      console.log(`🎬 Outgoing video message received with caption: "${caption}"`);
-      
-      // Legacy prefixes removed - all video operations now go through router with "# " prefix
-    }
+    // ═══════════════════════════════════════════════════════════════
+    // REMOVED: Duplicate outgoing image/video blocks (now handled in lines 652-808)
+    // ═══════════════════════════════════════════════════════════════
     // Handle voice messages - but skip processing for outgoing messages
     else if (messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage') {
       const audioData = messageData.fileMessageData || messageData.audioMessageData;
@@ -1231,15 +958,13 @@ async function handleOutgoingMessage(webhookData) {
         return; // Stop further processing for this message
       }
 
-      // Process text message asynchronously - don't await
-      processTextMessageAsync({
-        chatId,
-        senderId,
-        senderName,
-        senderContactName,
-        chatName,
-        messageText: messageText.trim()
-      }, true); // isOutgoing = true
+      // Non-"#" text messages - handle management commands only
+      const command = parseTextCommand(messageText);
+      if (command) {
+        await handleManagementCommand(command, chatId, senderId, senderName, senderContactName, chatName);
+      } else {
+        console.log(`ℹ️ Outgoing text message without '# ' prefix - ignored (not a management command)`);
+      }
     } else {
       console.log(`ℹ️ Unsupported outgoing message type: ${messageData.typeMessage}`);
     }
