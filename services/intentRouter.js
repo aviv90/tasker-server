@@ -81,12 +81,9 @@ async function routeIntent(input) {
       // Default to Kling for image-to-video
       return { tool: 'kling_image_to_video', args: { prompt }, reason: 'Image attached, video-like request' };
     }
-    // Default to Gemini for image editing, unless user explicitly requests OpenAI or Grok
+    // Default to Gemini for image editing, unless user explicitly requests OpenAI
     const wantsOpenAI = /openai|gpt|dall-e|dalle/.test(lower);
-    const wantsGrok = /grok|xai/.test(lower);
-    let service = 'gemini';
-    if (wantsOpenAI) service = 'openai';
-    else if (wantsGrok) service = 'grok';
+    const service = wantsOpenAI ? 'openai' : 'gemini';
     return { tool: 'image_edit', args: { service, prompt }, reason: 'Image attached with prompt' };
   }
 
@@ -95,10 +92,8 @@ async function routeIntent(input) {
     if (!input.authorizations?.media_creation) {
       return { tool: 'deny_unauthorized', args: { feature: 'video_to_video' }, reason: 'No media creation authorization' };
     }
-    // Check if user explicitly requested Veo3 for video editing
-    const lower = prompt.toLowerCase();
-    const wantsVeo3 = /veo|veo3/.test(lower);
-    const service = wantsVeo3 ? 'veo3' : 'runway';
+    // Only Runway for video editing
+    const service = 'runway';
     return { tool: 'video_to_video', args: { service, prompt }, reason: 'Video attached with prompt' };
   }
 
@@ -321,8 +316,8 @@ Output: {"tool": "image_edit", "args": {"service": "openai", "prompt": "הוסף
 Input: {"userText": "# צור שיר על אהבה", "hasImage": false, "hasVideo": false}
 Output: {"tool": "music_generation", "args": {"prompt": "שיר על אהבה"}, "reason": "Song request"}
 
-Input: {"userText": "# ערוך וידאו עם Veo3", "hasImage": false, "hasVideo": true}
-Output: {"tool": "video_to_video", "args": {"service": "veo3", "prompt": "ערוך וידאו"}, "reason": "Video edit with Veo3"}
+Input: {"userText": "# ערוך וידאו", "hasImage": false, "hasVideo": true}
+Output: {"tool": "video_to_video", "args": {"service": "runway", "prompt": "ערוך וידאו"}, "reason": "Video edit with Runway"}
 
 ⚠️ **RULES:**
 - ALWAYS check hasImage/hasVideo FIRST
