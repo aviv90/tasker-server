@@ -612,7 +612,7 @@ async function sendMusicToWhatsApp(whatsappContext, musicResult) {
         console.log(`📱 Sending music to WhatsApp: ${chatId}`);
         
         // Import WhatsApp functions dynamically to avoid circular dependency
-        const audioConverterService = require('./audioConverterService');
+        const { audioConverterService } = require('./audioConverterService');
         const { sendFileByUrl, sendTextMessage } = require('../services/greenApiService');
         
         // Convert MP3 to Opus for voice note
