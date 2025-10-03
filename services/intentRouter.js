@@ -238,119 +238,7 @@ async function decideWithLLM(input) {
 
 function buildRouterPrompt(input) {
   const safe = (v) => (v === null || v === undefined) ? null : v;
-  const schema = {
-    tool: 'string // one of: gemini_image, openai_image, grok_image, veo3_video, kling_text_to_video, veo3_image_to_video, kling_image_to_video, video_to_video, image_edit, text_to_speech, gemini_chat, openai_chat, grok_chat, chat_summary, music_generation, creative_voice_processing, deny_unauthorized, ask_clarification',
-    args: 'object // tool-specific args. For image_edit include { service: "gemini"|"openai", prompt: string }',
-    reason: 'string'
-  };
-  const toolsGuidance = `
-Available Tools and Services:
-━━━━━━━━━━━━━━━━━━━━━━
-🎵 MUSIC GENERATION:
-- music_generation: Creates songs using Suno AI. Use for requests like "write a song", "create music", "compose", "שיר", "מוזיקה", etc.
-
-💬 TEXT CHAT:
-- gemini_chat: Conversation using Google Gemini (default for text chat)
-- openai_chat: Conversation using OpenAI GPT (when user mentions "openai", "gpt", "chatgpt")
-- grok_chat: Conversation using Grok/xAI (when user mentions "grok", "xai")
-
-🖼️ IMAGE GENERATION:
-- gemini_image: Generate images using Google Gemini (default for image creation)
-- openai_image: Generate images using DALL-E (when user mentions "openai", "gpt", "dall-e")
-- grok_image: Generate images using Grok (when user mentions "grok", "xai")
-
-🎬 VIDEO GENERATION:
-- kling_text_to_video: Create videos from text using Kling AI (default for video creation)
-- veo3_video: Create videos from text using Google Veo 3 (when user mentions "veo" or "veo3")
-- kling_image_to_video: Create videos from image using Kling AI (default for image-to-video)
-- veo3_image_to_video: Create videos from image using Veo 3 (when user mentions "veo" or "veo3")
-- video_to_video: Transform existing video using RunwayML Gen4
-
-🖼️ IMAGE EDITING:
-- image_edit: Edit images (specify service: "gemini" default, or "openai" if requested)
-
-🗣️ VOICE & SPEECH:
-- text_to_speech: Convert text to speech (TTS). Use for "read this", "הקרא", "הפוך לדיבור", "המר לדיבור", "text to speech", "TTS", etc.
-  * IMPORTANT: Extract only the actual text to speak (after colon if present)
-  * Example: "הפוך לדיבור: היי שם" → args.text should be "היי שם"
-- creative_voice_processing: Process audio messages with voice effects (requires voice_allowed authorization)
-
-📝 UTILITIES:
-- chat_summary: Summarize conversation history. Use for "summarize", "סכם", "סיכום"
-- ask_clarification: When user request is unclear or ambiguous
-- deny_unauthorized: When user lacks required permissions for a feature
-
-Routing Rules:
-━━━━━━━━━━━
-⚠️ CRITICAL PRIORITY RULES (check these FIRST):
-
-1. IMAGE ATTACHED (hasImage=true):
-   → ALWAYS handle the image first, NEVER route to TTS/music/text-only actions
-   a) If userText has video keywords ("video", "וידאו", "אנימציה", "animate", "motion"):
-      → If mentions "veo"/"veo3": choose veo3_image_to_video
-      → Otherwise: choose kling_image_to_video (default)
-   b) If userText exists and is NOT video-related:
-      → Choose image_edit with service:
-         * "openai" if mentions "openai", "gpt", "dall-e"
-         * "gemini" otherwise (default)
-   c) If NO userText or very short caption (< 3 chars):
-      → Choose gemini_chat with prompt "מה מופיע בתמונה?" (analyze image)
-
-2. VIDEO ATTACHED (hasVideo=true):
-   → ALWAYS handle the video first, NEVER route to TTS/music/text-only actions
-   → Choose video_to_video (requires media_creation authorization)
-
-3. AUDIO INPUT (hasAudio=true, no text):
-   → Choose creative_voice_processing only if authorizations.voice_allowed=true
-   → Otherwise: deny_unauthorized {feature:"voice"}
-
-4. MUSIC REQUEST (text only, no attachments):
-   → For song/music keywords ("write a song", "שיר", "מוזיקה", "suno")
-   → Choose music_generation (requires media_creation authorization)
-
-5. TEXT ONLY (no attachments - hasImage=false AND hasVideo=false): Detect intent from userText:
-   a) Music/song keywords ("שיר", "מוזיקה", "song", "music", "suno", "compose", "כתוב שיר", "צור שיר"):
-      → Choose music_generation (requires media_creation)
-   
-   b) Summary keywords ("סכם", "סיכום", "summary", "לסכם"):
-      → Choose chat_summary
-   
-   c) TTS keywords ("קרא", "הקרא", "הקריא", "הפוך לדיבור", "המר לדיבור", "speech", "text to speech", "TTS", "read this", "להשמיע", "דיבור"):
-      → Choose text_to_speech (requires media_creation)
-      → MUST extract clean text from args.text (remove instruction prefixes, extract text after colon)
-   
-   d) Image keywords ("תמונה", "ציור", "תצלום", "image", "picture", "draw", "צייר", "ציירי", "איור", "illustration", "render", "לוגו", "poster"):
-      → If mentions "openai", "gpt", "dall-e": choose openai_image
-      → If mentions "grok", "xai": choose grok_image
-      → Otherwise: choose gemini_image (default)
-      → Requires media_creation authorization
-   
-   e) Video keywords ("וידאו", "video", "סרט", "אנימציה", "clip", "קליפ", "motion", "animate", "הנפש"):
-      → If mentions "veo" or "veo3": choose veo3_video
-      → Otherwise: choose kling_text_to_video (default)
-      → Requires media_creation authorization
-   
-   f) Default to chat (when no other intent matches):
-      → If mentions "openai", "gpt", "chatgpt": choose openai_chat
-      → If mentions "grok", "xai": choose grok_chat
-      → Otherwise: choose gemini_chat (default - most common case)
-
-6. AUTHORIZATION: If media action required but missing authorization:
-   → Choose deny_unauthorized with appropriate feature name
-
-Output Format:
-━━━━━━━━━━━
-Return ONLY a single JSON object (no markdown, no explanation):
-{ "tool": "tool_name", "args": {...}, "reason": "why this tool" }
-
-Examples:
-• Text chat: {"tool": "gemini_chat", "args": {}, "reason": "General conversation"}
-• Image: {"tool": "gemini_image", "args": {"prompt": "a cat"}, "reason": "User requested image"}
-• Video: {"tool": "kling_text_to_video", "args": {"prompt": "sunset"}, "reason": "User requested video"}
-• TTS: {"tool": "text_to_speech", "args": {"text": "hello world"}, "reason": "User requested speech"}
-• Music: {"tool": "music_generation", "args": {"prompt": "happy song"}, "reason": "User requested song"}
-• Image edit: {"tool": "image_edit", "args": {"service": "gemini", "prompt": "make it red"}, "reason": "User attached image with edit request"}
-• No auth: {"tool": "deny_unauthorized", "args": {"feature": "image_generation"}, "reason": "No media_creation permission"}`;
+  
   const payload = {
     userText: safe(input.userText),
     hasImage: !!input.hasImage,
@@ -363,8 +251,73 @@ Examples:
       voice_allowed: !!(input.authorizations && input.authorizations.voice_allowed)
     }
   };
-  return `You are an intent router. Choose the best tool for the user's request based on context.
-Return STRICT JSON only, matching this schema (no commentary):\n${JSON.stringify(schema)}\n\nGuidance:\n${toolsGuidance}\n\nContext JSON:\n${JSON.stringify(payload, null, 2)}`;
+  
+  return `You are a smart intent router for a WhatsApp AI bot. Analyze the user's request and return ONLY a JSON object.
+
+🔍 INPUT CONTEXT:
+${JSON.stringify(payload, null, 2)}
+
+📋 DECISION LOGIC (follow this order):
+
+1️⃣ **IF hasImage=true** (user sent an image):
+   - Image + video keywords → "kling_image_to_video"
+   - Image + edit request → "image_edit" 
+   - Image alone (no text) → "gemini_chat" (analyze)
+   ⚠️ NEVER choose music/TTS when hasImage=true
+
+2️⃣ **IF hasVideo=true** (user sent a video):
+   - Always → "video_to_video"
+   ⚠️ NEVER choose music/TTS when hasVideo=true
+
+3️⃣ **IF hasAudio=true** (voice message):
+   - If voice_allowed → "creative_voice_processing"
+   - Else → "deny_unauthorized"
+
+4️⃣ **IF text only** (no media attached):
+   Check userText for keywords:
+   
+   🎵 Music: "שיר", "מוזיקה", "song", "music", "suno"
+      → "music_generation"
+   
+   🖼️ Image: "תמונה", "ציור", "צייר", "draw", "picture", "image"
+      → "gemini_image" (default) or "openai_image" if mentions OpenAI
+      
+   🎬 Video: "וידאו", "video", "סרט", "אנימציה", "clip"
+      → "kling_text_to_video" (default) or "veo3_video" if mentions Veo
+   
+   🗣️ TTS: "הקרא", "קרא", "דיבור", "speech", "TTS", "read this"
+      → "text_to_speech" + extract text after colon
+   
+   📝 Summary: "סכם", "summary"
+      → "chat_summary"
+   
+   💬 **DEFAULT** (greeting, question, conversation):
+      → "gemini_chat"
+
+🎯 **CRITICAL EXAMPLES:**
+
+Input: {"userText": "# צייר פיל", "hasImage": false, "hasVideo": false}
+Output: {"tool": "gemini_image", "args": {"prompt": "פיל"}, "reason": "Draw request"}
+
+Input: {"userText": "# היי", "hasImage": false, "hasVideo": false}
+Output: {"tool": "gemini_chat", "args": {}, "reason": "Greeting/conversation"}
+
+Input: {"userText": "# הוסף כובע", "hasImage": true, "hasVideo": false}
+Output: {"tool": "image_edit", "args": {"service": "gemini", "prompt": "הוסף כובע"}, "reason": "Edit image"}
+
+Input: {"userText": "# צור שיר על אהבה", "hasImage": false, "hasVideo": false}
+Output: {"tool": "music_generation", "args": {"prompt": "שיר על אהבה"}, "reason": "Song request"}
+
+⚠️ **RULES:**
+- ALWAYS check hasImage/hasVideo FIRST
+- If media attached, ONLY route to media-related tools
+- For generic text/greetings → gemini_chat (most common)
+- Return ONLY valid JSON, no markdown, no extra text
+
+📤 OUTPUT SCHEMA:
+{"tool": "tool_name", "args": {}, "reason": "brief explanation"}
+
+Available tools: gemini_chat, openai_chat, grok_chat, gemini_image, openai_image, grok_image, kling_text_to_video, veo3_video, kling_image_to_video, veo3_image_to_video, video_to_video, image_edit, text_to_speech, music_generation, chat_summary, creative_voice_processing, deny_unauthorized, ask_clarification`;
 }
 
 
