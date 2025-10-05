@@ -313,13 +313,31 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
         if (!imageBuffer) {
             console.log('❌ Gemini edit: No image data found in response');
             
-            // Return the text response if we got text but no image
+            // If we got text but no image, try to generate a new image based on the text
             if (text && text.trim().length > 0) {
-                console.log('📝 Gemini edit returned text instead of image, sending text response');
+                console.log('📝 Gemini edit returned text instead of image, attempting to generate new image');
+                
+                try {
+                    // Try to generate a new image based on the text response
+                    const generateResult = await generateImageForWhatsApp(text.trim(), req);
+                    if (generateResult.success && generateResult.imageUrl) {
+                        console.log('✅ Successfully generated new image from text response');
+                        return {
+                            success: true,
+                            imageUrl: generateResult.imageUrl,
+                            description: text.trim(),
+                            fileName: generateResult.fileName,
+                            generatedFromText: true // Flag to indicate this was generated from text
+                        };
+                    }
+                } catch (generateError) {
+                    console.error('❌ Failed to generate image from text:', generateError);
+                }
+                
+                // If image generation failed, return error instead of text-only
                 return { 
-                    success: true,  // Changed to true since we have content
-                    textOnly: true, // Flag to indicate this is text-only response
-                    description: text.trim() // Send exactly what Gemini wrote
+                    success: false, 
+                    error: 'לא הצלחתי ליצור תמונה מערוכה. נסה שוב.' 
                 };
             }
             

@@ -1446,7 +1446,7 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
       
       // Send image if available (even if we already sent text)
       if (editResult.imageUrl) {
-        const fileName = `${service}_edit_${Date.now()}.png`;
+        const fileName = editResult.fileName || `${service}_edit_${Date.now()}.png`;
         
         await sendFileByUrl(chatId, editResult.imageUrl, fileName, '');
         
