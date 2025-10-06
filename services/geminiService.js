@@ -100,11 +100,8 @@ async function generateImageForWhatsApp(prompt, req = null) {
             model: "gemini-2.5-flash-image-preview" 
         });
         
-        // Add explicit instruction to generate an image (not just describe it)
-        const imagePrompt = `Generate an image: ${cleanPrompt}`;
-        
         const result = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: imagePrompt }] }],
+            contents: [{ role: "user", parts: [{ text: cleanPrompt }] }],
             generationConfig: { 
                 responseModalities: ["IMAGE", "TEXT"], // Allow text captions/descriptions alongside image
                 temperature: 0.7
@@ -1220,6 +1217,127 @@ ${formattedMessages}
     }
 }
 
+/**
+ * Parse text-to-speech request to detect if translation is needed
+ * @param {string} prompt - User's TTS request
+ * @returns {Object} - { needsTranslation: boolean, text: string, targetLanguage?: string, languageCode?: string }
+ */
+async function parseTextToSpeechRequest(prompt) {
+    try {
+        console.log('🔍 Parsing TTS request for translation needs');
+        
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.5-flash" 
+        });
+        
+        const analysisPrompt = `Analyze this text-to-speech request and determine if the user wants the output in a specific language.
+
+User request: "${prompt}"
+
+Return ONLY a JSON object (no markdown, no extra text) with this exact structure:
+{
+  "needsTranslation": true/false,
+  "text": "the text to speak",
+  "targetLanguage": "language name in English (e.g., Japanese, French, Spanish)",
+  "languageCode": "ISO 639-1 code (e.g., ja, fr, es, he, en, ar)"
+}
+
+Rules:
+1. If user explicitly requests a language (e.g., "say X in Japanese", "אמור X ביפנית", "read X in French"), set needsTranslation=true
+2. Extract the actual text to speak (without the language instruction)
+3. Map the target language to its ISO code
+4. If no specific language is requested, set needsTranslation=false, use the original text, and omit targetLanguage/languageCode
+
+Examples:
+Input: "אמור היי מה נשמע ביפנית"
+Output: {"needsTranslation":true,"text":"היי מה נשמע","targetLanguage":"Japanese","languageCode":"ja"}
+
+Input: "say hello world in French"
+Output: {"needsTranslation":true,"text":"hello world","targetLanguage":"French","languageCode":"fr"}
+
+Input: "קרא את הטקסט הזה בערבית: שלום עולם"
+Output: {"needsTranslation":true,"text":"שלום עולם","targetLanguage":"Arabic","languageCode":"ar"}
+
+Input: "אמור שלום"
+Output: {"needsTranslation":false,"text":"אמור שלום"}
+
+Input: "read this text"
+Output: {"needsTranslation":false,"text":"read this text"}`;
+
+        const result = await model.generateContent(analysisPrompt);
+        const response = result.response;
+        
+        if (!response.candidates || response.candidates.length === 0) {
+            console.log('❌ Gemini TTS parsing: No candidates returned');
+            return { needsTranslation: false, text: prompt };
+        }
+        
+        let rawText = response.text().trim();
+        
+        // Remove markdown code fences if present
+        rawText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+        
+        const parsed = JSON.parse(rawText);
+        
+        console.log('✅ TTS request parsed:', parsed);
+        return parsed;
+        
+    } catch (err) {
+        console.error('❌ Error parsing TTS request:', err);
+        // Fallback: no translation
+        return { needsTranslation: false, text: prompt };
+    }
+}
+
+/**
+ * Translate text to target language using Gemini
+ * @param {string} text - Text to translate
+ * @param {string} targetLanguage - Target language name
+ * @returns {Object} - { success: boolean, translatedText?: string, error?: string }
+ */
+async function translateText(text, targetLanguage) {
+    try {
+        console.log(`🌐 Translating "${text}" to ${targetLanguage}`);
+        
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.5-flash" 
+        });
+        
+        const translationPrompt = `Translate the following text to ${targetLanguage}. Return ONLY the translated text, nothing else.
+
+Text to translate: "${text}"
+
+Important: Return only the translation, no explanations, no quotes, no extra text.`;
+
+        const result = await model.generateContent(translationPrompt);
+        const response = result.response;
+        
+        if (!response.candidates || response.candidates.length === 0) {
+            console.log('❌ Gemini translation: No candidates returned');
+            return { 
+                success: false, 
+                error: 'Translation failed: No response from Gemini' 
+            };
+        }
+        
+        const translatedText = response.text().trim();
+        
+        console.log(`✅ Translation complete: "${translatedText}"`);
+        
+        return {
+            success: true,
+            translatedText: translatedText
+        };
+        
+    } catch (err) {
+        console.error('❌ Translation error:', err);
+        return { 
+            success: false, 
+            error: err.message || 'Translation failed' 
+        };
+    }
+}
+
 module.exports = { 
     generateImageWithText, 
     generateImageForWhatsApp, 
@@ -1231,5 +1349,7 @@ module.exports = {
     generateVideoForWhatsApp, 
     generateVideoFromImageForWhatsApp, 
     generateTextResponse, 
-    generateChatSummary 
+    generateChatSummary,
+    parseTextToSpeechRequest,
+    translateText
 };

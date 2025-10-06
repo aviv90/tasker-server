@@ -3,7 +3,7 @@ const router = express.Router();
 const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory } = require('../services/greenApiService');
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
-const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary } = require('../services/geminiService');
+const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary, parseTextToSpeechRequest, translateText } = require('../services/geminiService');
 const { generateTextResponse: generateGrokResponse } = require('../services/grokService');
 const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage, generateVideoFromVideoForWhatsApp: generateRunwayVideoFromVideo, generateVideoWithTextForWhatsApp: generateKlingVideoFromText } = require('../services/replicateService');
 const { generateMusicWithLyrics } = require('../services/musicService');
@@ -524,18 +524,43 @@ async function handleIncomingMessage(webhookData) {
             // ═══════════════════ TEXT-TO-SPEECH ═══════════════════
             case 'text_to_speech': {
               await sendAck(chatId, { type: 'text_to_speech' });
-              const text = decision.args?.text || prompt;
-              const languageCode = voiceService.detectLanguage(text);
-              const voiceResult = await voiceService.getVoiceForLanguage(languageCode);
+              
+              // Parse the TTS request to check if translation is needed
+              const originalText = decision.args?.text || prompt;
+              const parseResult = await parseTextToSpeechRequest(originalText);
+              
+              let textToSpeak = parseResult.text;
+              let targetLanguageCode = parseResult.languageCode;
+              
+              // If translation is needed, translate the text first
+              if (parseResult.needsTranslation && parseResult.targetLanguage) {
+                console.log(`🌐 Translation requested to ${parseResult.targetLanguage}`);
+                const translationResult = await translateText(parseResult.text, parseResult.targetLanguage);
+                
+                if (translationResult.success) {
+                  textToSpeak = translationResult.translatedText;
+                  console.log(`✅ Using translated text: "${textToSpeak}"`);
+                } else {
+                  await sendTextMessage(chatId, `❌ ${translationResult.error}`);
+                  return;
+                }
+              } else {
+                // No translation needed - detect language from original text
+                targetLanguageCode = voiceService.detectLanguage(textToSpeak);
+              }
+              
+              // Get appropriate voice for the target language
+              const voiceResult = await voiceService.getVoiceForLanguage(targetLanguageCode);
               if (voiceResult.error) {
                 await sendTextMessage(chatId, `❌ שגיאה בבחירת קול: ${voiceResult.error}`);
                 return;
               }
+              
               const voiceId = voiceResult.voiceId;
-              const ttsResult = await voiceService.textToSpeech(voiceId, text, {
+              const ttsResult = await voiceService.textToSpeech(voiceId, textToSpeak, {
                 modelId: 'eleven_v3',
                 outputFormat: 'mp3_44100_128',
-                languageCode: languageCode
+                languageCode: targetLanguageCode
               });
               
               if (!ttsResult.error) {
@@ -547,7 +572,7 @@ async function handleIncomingMessage(webhookData) {
                   await sendFileByUrl(chatId, fallbackUrl, `tts_${Date.now()}.mp3`, '');
                 }
               } else {
-                await sendTextMessage(chatId, '❌ לא הצלחתי ליצור קול');
+                await sendTextMessage(chatId, `❌ ${ttsResult.error}`);
               }
               return;
             }
@@ -1019,19 +1044,44 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ TEXT-TO-SPEECH ═══════════════════
             case 'text_to_speech': {
-              const text = decision.args?.text || prompt;
-              const languageCode = voiceService.detectLanguage(text);
-              const voiceResult = await voiceService.getVoiceForLanguage(languageCode);
+              // Parse the TTS request to check if translation is needed
+              const originalText = decision.args?.text || prompt;
+              const parseResult = await parseTextToSpeechRequest(originalText);
+              
+              let textToSpeak = parseResult.text;
+              let targetLanguageCode = parseResult.languageCode;
+              
+              // If translation is needed, translate the text first
+              if (parseResult.needsTranslation && parseResult.targetLanguage) {
+                console.log(`🌐 Translation requested to ${parseResult.targetLanguage}`);
+                const translationResult = await translateText(parseResult.text, parseResult.targetLanguage);
+                
+                if (translationResult.success) {
+                  textToSpeak = translationResult.translatedText;
+                  console.log(`✅ Using translated text: "${textToSpeak}"`);
+                } else {
+                  await sendTextMessage(chatId, `❌ ${translationResult.error}`);
+                  return;
+                }
+              } else {
+                // No translation needed - detect language from original text
+                targetLanguageCode = voiceService.detectLanguage(textToSpeak);
+              }
+              
+              // Get appropriate voice for the target language
+              const voiceResult = await voiceService.getVoiceForLanguage(targetLanguageCode);
               if (voiceResult.error) {
                 await sendTextMessage(chatId, `❌ שגיאה בבחירת קול: ${voiceResult.error}`);
                 return;
               }
+              
               const voiceId = voiceResult.voiceId;
-              const ttsResult = await voiceService.textToSpeech(voiceId, text, {
+              const ttsResult = await voiceService.textToSpeech(voiceId, textToSpeak, {
                 modelId: 'eleven_v3',
                 outputFormat: 'mp3_44100_128',
-                languageCode: languageCode
+                languageCode: targetLanguageCode
               });
+              
               if (!ttsResult.error) {
                 const conversionResult = await audioConverterService.convertUrlToOpus(ttsResult.audioUrl, 'mp3');
                 if (conversionResult.success) {
@@ -1040,6 +1090,8 @@ async function handleOutgoingMessage(webhookData) {
                   const fallbackUrl = ttsResult.audioUrl.startsWith('http') ? ttsResult.audioUrl : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
                   await sendFileByUrl(chatId, fallbackUrl, `tts_${Date.now()}.mp3`, '');
                 }
+              } else {
+                await sendTextMessage(chatId, `❌ ${ttsResult.error}`);
               }
               return;
             }
