@@ -1044,6 +1044,8 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ TEXT-TO-SPEECH ═══════════════════
             case 'text_to_speech': {
+              await sendAck(chatId, { type: 'text_to_speech' });
+              
               // Parse the TTS request to check if translation is needed
               const originalText = decision.args?.text || prompt;
               const parseResult = await parseTextToSpeechRequest(originalText);
