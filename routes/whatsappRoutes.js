@@ -4,7 +4,7 @@ const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory } = require
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary, parseTextToSpeechRequest, translateText } = require('../services/geminiService');
-const { generateTextResponse: generateGrokResponse } = require('../services/grokService');
+const { generateTextResponse: generateGrokResponse, generateImageForWhatsApp: generateGrokImage } = require('../services/grokService');
 const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage, generateVideoFromVideoForWhatsApp: generateRunwayVideoFromVideo, generateVideoWithTextForWhatsApp: generateKlingVideoFromText } = require('../services/replicateService');
 const { generateMusicWithLyrics } = require('../services/musicService');
 const speechService = require('../services/speechService');
@@ -370,9 +370,9 @@ async function handleIncomingMessage(webhookData) {
             
             case 'grok_chat': {
               await sendAck(chatId, { type: 'grok_chat' });
-              const contextMessages = await conversationManager.getConversationHistory(chatId);
+              // Note: Grok doesn't use conversation history (causes issues)
               await conversationManager.addMessage(chatId, 'user', prompt);
-              const result = await generateGrokResponse(prompt, contextMessages);
+              const result = await generateGrokResponse(prompt, []);
               if (!result.error) {
                 await conversationManager.addMessage(chatId, 'assistant', result.text);
                 await sendTextMessage(chatId, result.text);
@@ -958,9 +958,9 @@ async function handleOutgoingMessage(webhookData) {
               return;
             }
             case 'grok_chat': {
-              const contextMessages = await conversationManager.getConversationHistory(chatId);
+              // Note: Grok doesn't use conversation history (causes issues)
               await conversationManager.addMessage(chatId, 'user', prompt);
-              const result = await generateGrokResponse(prompt, contextMessages);
+              const result = await generateGrokResponse(prompt, []);
               if (!result.error) {
                 await conversationManager.addMessage(chatId, 'assistant', result.text);
                 await sendTextMessage(chatId, result.text);
@@ -970,6 +970,7 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ IMAGE GENERATION ═══════════════════
             case 'gemini_image': {
+              await sendAck(chatId, { type: 'gemini_image' });
               const imageResult = await generateImageForWhatsApp(prompt);
               if (imageResult.success && imageResult.imageUrl) {
                 await sendFileByUrl(chatId, imageResult.imageUrl, `gemini_image_${Date.now()}.png`, imageResult.description || '');
@@ -979,6 +980,7 @@ async function handleOutgoingMessage(webhookData) {
               return;
             }
             case 'openai_image': {
+              await sendAck(chatId, { type: 'openai_image' });
               const imageResult = await generateOpenAIImage(prompt);
               if (imageResult.success && imageResult.imageUrl) {
                 await sendFileByUrl(chatId, imageResult.imageUrl, `openai_image_${Date.now()}.png`, imageResult.description || '');
@@ -988,9 +990,10 @@ async function handleOutgoingMessage(webhookData) {
               return;
             }
             case 'grok_image': {
-              const imageResult = await generateImageForWhatsApp(prompt);
+              await sendAck(chatId, { type: 'grok_image' });
+              const imageResult = await generateGrokImage(prompt);
               if (imageResult.success && imageResult.imageUrl) {
-                await sendFileByUrl(chatId, imageResult.imageUrl, `gemini_image_${Date.now()}.png`, imageResult.description || '');
+                await sendFileByUrl(chatId, imageResult.imageUrl, `grok_image_${Date.now()}.png`, imageResult.description || '');
               } else {
                 await sendTextMessage(chatId, `❌ ${imageResult.error || 'לא הצלחתי ליצור תמונה'}`);
               }
@@ -999,6 +1002,7 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ VIDEO GENERATION ═══════════════════
             case 'veo3_video': {
+              await sendAck(chatId, { type: 'veo3_video' });
               const videoResult = await generateVideoForWhatsApp(prompt);
               if (videoResult.success && videoResult.videoUrl) {
                 await sendFileByUrl(chatId, videoResult.videoUrl, `veo3_video_${Date.now()}.mp4`, '');
@@ -1008,6 +1012,7 @@ async function handleOutgoingMessage(webhookData) {
               return;
             }
             case 'kling_text_to_video': {
+              await sendAck(chatId, { type: 'kling_text_to_video' });
               const videoResult = await generateKlingVideoFromText(prompt);
               if (videoResult.success && videoResult.videoUrl) {
                 await sendFileByUrl(chatId, videoResult.videoUrl, videoResult.fileName || `kling_video_${Date.now()}.mp4`, '');
@@ -1100,6 +1105,7 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ MUSIC GENERATION ═══════════════════
             case 'music_generation': {
+              await sendAck(chatId, { type: 'music_generation' });
               const musicResult = await generateMusicWithLyrics(prompt, {
                 callbackUrl: null,
                 whatsappContext: { chatId, senderId, senderName }
@@ -1114,6 +1120,7 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ CHAT SUMMARY ═══════════════════
             case 'chat_summary': {
+              await sendAck(chatId, { type: 'chat_summary' });
               const chatHistory = await getChatHistory(chatId, 30);
               if (chatHistory && chatHistory.length > 0) {
                 const summaryResult = await generateChatSummary(chatHistory);
