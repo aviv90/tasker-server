@@ -343,7 +343,7 @@ async function handleIncomingMessage(webhookData) {
                 // Regular text chat
                 const contextMessages = await conversationManager.getConversationHistory(chatId);
                 await conversationManager.addMessage(chatId, 'user', prompt);
-                const result = await generateGeminiResponse(prompt, { contextMessages });
+                const result = await generateGeminiResponse(prompt, contextMessages);
                 if (!result.error) {
                   await conversationManager.addMessage(chatId, 'assistant', result.text);
                   await sendTextMessage(chatId, result.text);
@@ -358,7 +358,7 @@ async function handleIncomingMessage(webhookData) {
               await sendAck(chatId, { type: 'openai_chat' });
               const contextMessages = await conversationManager.getConversationHistory(chatId);
               await conversationManager.addMessage(chatId, 'user', prompt);
-              const result = await generateOpenAIResponse(prompt, { contextMessages });
+              const result = await generateOpenAIResponse(prompt, contextMessages);
               if (!result.error) {
                 await conversationManager.addMessage(chatId, 'assistant', result.text);
                 await sendTextMessage(chatId, result.text);
@@ -372,7 +372,7 @@ async function handleIncomingMessage(webhookData) {
               await sendAck(chatId, { type: 'grok_chat' });
               const contextMessages = await conversationManager.getConversationHistory(chatId);
               await conversationManager.addMessage(chatId, 'user', prompt);
-              const result = await generateGrokResponse(prompt, { contextMessages });
+              const result = await generateGrokResponse(prompt, contextMessages);
               if (!result.error) {
                 await conversationManager.addMessage(chatId, 'assistant', result.text);
                 await sendTextMessage(chatId, result.text);
@@ -598,7 +598,7 @@ async function handleIncomingMessage(webhookData) {
         }
       } catch (routerError) {
         console.error('❌ Intent router error:', routerError.message || routerError);
-        // בשגיאה, נמשיך לנתיב הישן
+        await sendTextMessage(chatId, `❌ שגיאה בניתוב הבקשה: ${routerError.message || routerError}`);
       }
     }
 
@@ -685,6 +685,7 @@ async function handleIncomingMessage(webhookData) {
           }
         } catch (error) {
           console.error('❌ Error routing image message:', error);
+          await sendTextMessage(chatId, `❌ שגיאה בעיבוד התמונה: ${error.message || error}`);
         }
       }
     }
@@ -737,6 +738,7 @@ async function handleIncomingMessage(webhookData) {
           }
         } catch (error) {
           console.error('❌ Error routing video message:', error);
+          await sendTextMessage(chatId, `❌ שגיאה בעיבוד הווידאו: ${error.message || error}`);
         }
       }
     }
@@ -910,7 +912,7 @@ async function handleOutgoingMessage(webhookData) {
                 // Regular text chat
                 const contextMessages = await conversationManager.getConversationHistory(chatId);
                 await conversationManager.addMessage(chatId, 'user', prompt);
-                const result = await generateGeminiResponse(prompt, { contextMessages });
+                const result = await generateGeminiResponse(prompt, contextMessages);
                 if (!result.error) {
                   await conversationManager.addMessage(chatId, 'assistant', result.text);
                   await sendTextMessage(chatId, result.text);
@@ -923,7 +925,7 @@ async function handleOutgoingMessage(webhookData) {
             case 'openai_chat': {
               const contextMessages = await conversationManager.getConversationHistory(chatId);
               await conversationManager.addMessage(chatId, 'user', prompt);
-              const result = await generateOpenAIResponse(prompt, { contextMessages });
+              const result = await generateOpenAIResponse(prompt, contextMessages);
               if (!result.error) {
                 await conversationManager.addMessage(chatId, 'assistant', result.text);
                 await sendTextMessage(chatId, result.text);
@@ -933,7 +935,7 @@ async function handleOutgoingMessage(webhookData) {
             case 'grok_chat': {
               const contextMessages = await conversationManager.getConversationHistory(chatId);
               await conversationManager.addMessage(chatId, 'user', prompt);
-              const result = await generateGrokResponse(prompt, { contextMessages });
+              const result = await generateGrokResponse(prompt, contextMessages);
               if (!result.error) {
                 await conversationManager.addMessage(chatId, 'assistant', result.text);
                 await sendTextMessage(chatId, result.text);
@@ -946,6 +948,8 @@ async function handleOutgoingMessage(webhookData) {
               const imageResult = await generateImageForWhatsApp(prompt);
               if (imageResult.success && imageResult.imageUrl) {
                 await sendFileByUrl(chatId, imageResult.imageUrl, `gemini_image_${Date.now()}.png`, imageResult.description || '');
+              } else {
+                await sendTextMessage(chatId, `❌ ${imageResult.error || 'לא הצלחתי ליצור תמונה'}`);
               }
               return;
             }
@@ -953,6 +957,8 @@ async function handleOutgoingMessage(webhookData) {
               const imageResult = await generateOpenAIImage(prompt);
               if (imageResult.success && imageResult.imageUrl) {
                 await sendFileByUrl(chatId, imageResult.imageUrl, `openai_image_${Date.now()}.png`, imageResult.description || '');
+              } else {
+                await sendTextMessage(chatId, `❌ ${imageResult.error || 'לא הצלחתי ליצור תמונה'}`);
               }
               return;
             }
@@ -960,6 +966,8 @@ async function handleOutgoingMessage(webhookData) {
               const imageResult = await generateImageForWhatsApp(prompt);
               if (imageResult.success && imageResult.imageUrl) {
                 await sendFileByUrl(chatId, imageResult.imageUrl, `gemini_image_${Date.now()}.png`, imageResult.description || '');
+              } else {
+                await sendTextMessage(chatId, `❌ ${imageResult.error || 'לא הצלחתי ליצור תמונה'}`);
               }
               return;
             }
@@ -969,6 +977,8 @@ async function handleOutgoingMessage(webhookData) {
               const videoResult = await generateVideoForWhatsApp(prompt);
               if (videoResult.success && videoResult.videoUrl) {
                 await sendFileByUrl(chatId, videoResult.videoUrl, `veo3_video_${Date.now()}.mp4`, '');
+              } else {
+                await sendTextMessage(chatId, `❌ ${videoResult.error || 'לא הצלחתי ליצור וידאו'}`);
               }
               return;
             }
@@ -976,6 +986,8 @@ async function handleOutgoingMessage(webhookData) {
               const videoResult = await generateKlingVideoFromText(prompt);
               if (videoResult.success && videoResult.videoUrl) {
                 await sendFileByUrl(chatId, videoResult.videoUrl, videoResult.fileName || `kling_video_${Date.now()}.mp4`, '');
+              } else {
+                await sendTextMessage(chatId, `❌ ${videoResult.error || 'לא הצלחתי ליצור וידאו'}`);
               }
               return;
             }
@@ -1065,9 +1077,11 @@ async function handleOutgoingMessage(webhookData) {
           }
         } catch (toolError) {
           console.error(`❌ Error executing tool ${decision.tool} (outgoing):`, toolError);
+          await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${toolError.message || toolError}`);
         }
       } catch (routerError) {
         console.error('❌ Intent router (outgoing text) error:', routerError.message || routerError);
+        await sendTextMessage(chatId, `❌ שגיאה בניתוב הבקשה: ${routerError.message || routerError}`);
       }
     }
 
@@ -1146,6 +1160,7 @@ async function handleOutgoingMessage(webhookData) {
           }
         } catch (error) {
           console.error('❌ Error routing outgoing image message:', error);
+          await sendTextMessage(chatId, `❌ שגיאה בעיבוד התמונה: ${error.message || error}`);
         }
       }
     }
@@ -1190,6 +1205,7 @@ async function handleOutgoingMessage(webhookData) {
           }
         } catch (error) {
           console.error('❌ Error routing outgoing video message:', error);
+          await sendTextMessage(chatId, `❌ שגיאה בעיבוד הווידאו: ${error.message || error}`);
         }
       }
     }
@@ -1357,8 +1373,13 @@ async function handleOutgoingMessage(webhookData) {
  */
 function processImageEditAsync(imageData) {
   // Run in background without blocking webhook response
-  handleImageEdit(imageData).catch(error => {
+  handleImageEdit(imageData).catch(async error => {
     console.error('❌ Error in async image edit processing:', error.message || error);
+    try {
+      await sendTextMessage(imageData.chatId, `❌ שגיאה בעריכת התמונה: ${error.message || error}`);
+    } catch (sendError) {
+      console.error('❌ Failed to send error message to user:', sendError);
+    }
   });
 }
 
@@ -1367,8 +1388,13 @@ function processImageEditAsync(imageData) {
  */
 function processImageToVideoAsync(imageData) {
   // Run in background without blocking webhook response
-  handleImageToVideo(imageData).catch(error => {
+  handleImageToVideo(imageData).catch(async error => {
     console.error('❌ Error in async image-to-video processing:', error.message || error);
+    try {
+      await sendTextMessage(imageData.chatId, `❌ שגיאה ביצירת וידאו מהתמונה: ${error.message || error}`);
+    } catch (sendError) {
+      console.error('❌ Failed to send error message to user:', sendError);
+    }
   });
 }
 
@@ -1377,8 +1403,13 @@ function processImageToVideoAsync(imageData) {
  */
 function processCreativeVoiceAsync(voiceData) {
   // Run in background without blocking webhook response
-  handleCreativeVoiceMessage(voiceData).catch(error => {
+  handleCreativeVoiceMessage(voiceData).catch(async error => {
     console.error('❌ Error in async creative voice processing:', error.message || error);
+    try {
+      await sendTextMessage(voiceData.chatId, `❌ שגיאה בעיבוד ההקלטה: ${error.message || error}`);
+    } catch (sendError) {
+      console.error('❌ Failed to send error message to user:', sendError);
+    }
   });
 }
 
@@ -1399,8 +1430,13 @@ function processVoiceMessageAsync(voiceData) {
  */
 function processVideoToVideoAsync(videoData) {
   // Run in background without blocking webhook response
-  handleVideoToVideo(videoData).catch(error => {
+  handleVideoToVideo(videoData).catch(async error => {
     console.error('❌ Error in async video-to-video processing:', error.message || error);
+    try {
+      await sendTextMessage(videoData.chatId, `❌ שגיאה בעיבוד הווידאו: ${error.message || error}`);
+    } catch (sendError) {
+      console.error('❌ Failed to send error message to user:', sendError);
+    }
   });
 }
 

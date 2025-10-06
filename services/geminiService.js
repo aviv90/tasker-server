@@ -1046,8 +1046,13 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
             parts: [{ text: 'שלום! איך אני יכול לעזור לך היום?' }]
         });
 
+        // Normalize conversation history to an array to avoid undefined lengths
+        if (!Array.isArray(conversationHistory)) {
+            conversationHistory = [];
+        }
+
         // Add conversation history if exists
-        if (conversationHistory && conversationHistory.length > 0) {
+        if (conversationHistory.length > 0) {
             console.log(`🧠 Using conversation history: ${conversationHistory.length} previous messages`);
             
             for (const msg of conversationHistory) {
@@ -1066,7 +1071,7 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
             parts: [{ text: cleanPrompt }]
         });
 
-        console.log(`🔮 Gemini processing (${conversationHistory.length} context messages)`);
+        console.log(`🔮 Gemini processing (${Array.isArray(conversationHistory) ? conversationHistory.length : 0} context messages)`);
 
         // Generate response with history
         const result = await model.generateContent({ contents });

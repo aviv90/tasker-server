@@ -19,9 +19,9 @@ class GrokService {
   }
 
   /**
-   * Generate text response using Grok without conversation history
+   * Generate text response using Grok with conversation history support
    * @param {string} prompt - User's input text
-   * @param {Array} conversationHistory - Previous messages in conversation (ignored for Grok)
+   * @param {Array} conversationHistory - Previous messages in conversation
    * @returns {Promise<{text: string, usage: object}>}
    */
   async generateTextResponse(prompt, conversationHistory = []) {
@@ -33,19 +33,27 @@ class GrokService {
       // Sanitize prompt
       const cleanPrompt = sanitizeText(prompt);
 
-      // Build messages array with system prompt + current message only (no history for Grok)
+      // Build messages array with system prompt + conversation history + current message
       const messages = [
         {
           role: 'system',
           content: 'אתה Grok - עוזר AI ידידותי, אדיב ונעים של x.ai. תן תשובות טבעיות ונעימות באופן שיחתי. היה חם, מקשיב ומעט הומוריסטי כמו שמתאים לאופי של Grok.'
-        },
-        {
-          role: 'user',
-          content: cleanPrompt
         }
       ];
 
-      console.log(`🤖 Sending to Grok: "${cleanPrompt}" (no conversation history)`);
+      // Add conversation history if exists
+      if (conversationHistory && conversationHistory.length > 0) {
+        messages.push(...conversationHistory);
+        console.log(`🧠 Using conversation history: ${conversationHistory.length} previous messages`);
+      }
+
+      // Add current user message
+      messages.push({
+        role: 'user',
+        content: cleanPrompt
+      });
+
+      console.log(`🤖 Grok processing (${conversationHistory.length} context messages)`);
 
       // Make API request to Grok
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
