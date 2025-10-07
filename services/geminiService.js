@@ -1205,7 +1205,7 @@ ${formattedMessages}
         
         return {
             success: true,
-            summary: summaryText
+            text: summaryText
         };
         
     } catch (err) {

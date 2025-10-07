@@ -1943,11 +1943,6 @@ function parseTextCommand(text) {
     return { type: 'chat_summary' };
   }
 
-  // Command list
-  if (text === 'רשימת פקודות') {
-    return { type: 'command_list' };
-  }
-
   // Clear conversation history (admin command)
   if (text === 'נקה היסטוריה') {
     return { type: 'clear_all_conversations' };
@@ -2043,17 +2038,6 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
         break;
       }
 
-      case 'command_list': {
-        const commandListPath = path.join(__dirname, '../store/commandList.txt');
-        if (fs.existsSync(commandListPath)) {
-          const commandList = fs.readFileSync(commandListPath, 'utf-8');
-          await sendTextMessage(chatId, commandList);
-        } else {
-          await sendTextMessage(chatId, 'ℹ️ רשימת פקודות לא זמינה');
-        }
-        break;
-      }
-
       case 'clear_all_conversations': {
         await conversationManager.clearAllConversations();
         await sendTextMessage(chatId, '✅ כל ההיסטוריות נוקו בהצלחה');
@@ -2091,7 +2075,6 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
 
 **פקודות ניהול:**
 • סכם שיחה - סיכום השיחה
-• רשימת פקודות - רשימה מלאה
 • סטטוס יצירה - סטטוס הרשאות
 • הוסף ליצירה [שם] - הוסף הרשאה
 • הסר מיצירה [שם] - הסר הרשאה
