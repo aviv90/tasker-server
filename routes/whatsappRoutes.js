@@ -1734,8 +1734,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
   console.log(`🎤 Processing voice-to-voice request from ${senderName}`);
   
   try {
-    // Send immediate ACK
-    await sendAck(chatId, { type: 'voice_processing' });
+    // No ACK - user should only receive the final voice response
     
     // Step 1: Download audio file
     const audioBuffer = await downloadFile(audioUrl);
@@ -1768,10 +1767,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     const originalLanguage = voiceService.detectLanguage(transcribedText);
     console.log(`🌐 STT detected: ${transcriptionResult.detectedLanguage}, Our detection: ${originalLanguage}`);
 
-    // Send transcription to user first - always in Hebrew for consistency
-    const transcriptionMessage = `📝 תמלול ההודעה של ${senderName}: "${transcribedText}"`;
-    
-    await sendTextMessage(chatId, transcriptionMessage);
+    // Don't send transcription to user - they should only receive the final voice response
 
     // Step 2: Create Instant Voice Clone
     console.log(`🔄 Step 2: Creating voice clone...`);
@@ -2108,8 +2104,8 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
         const authorizedUsers = await authStore.getAuthorizedUsers();
         if (authorizedUsers && authorizedUsers.length > 0) {
           let statusText = '✅ **משתמשים מורשים ליצירת מדיה:**\n\n';
-          authorizedUsers.forEach(user => {
-            statusText += `• ${user.contact_name}\n`;
+          authorizedUsers.forEach(contactName => {
+            statusText += `• ${contactName}\n`;
           });
           await sendTextMessage(chatId, statusText);
         } else {
@@ -2122,8 +2118,8 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
         const allowList = await conversationManager.getVoiceAllowList();
         if (allowList && allowList.length > 0) {
           let statusText = '✅ **משתמשים מורשים לתמלול:**\n\n';
-          allowList.forEach(user => {
-            statusText += `• ${user.contact_name}\n`;
+          allowList.forEach(contactName => {
+            statusText += `• ${contactName}\n`;
           });
           await sendTextMessage(chatId, statusText);
         } else {
