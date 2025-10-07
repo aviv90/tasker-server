@@ -608,6 +608,32 @@ async function handleIncomingMessage(webhookData) {
               return;
             }
             
+            // ═══════════════════ HELP / COMMAND LIST ═══════════════════
+            case 'show_help': {
+              const helpText = `
+🤖 **מערכת AI מתקדמת**
+
+**פקודות AI (מתחילות ב-"# "):**
+• # היי - שיחה עם Gemini
+• # צור תמונה של... - יצירת תמונה
+• # צור וידאו של... - יצירת וידאו
+• # צור שיר על... - יצירת מוזיקה
+• # המר לדיבור: טקסט - Text-to-Speech
+• # סכם שיחה - סיכום השיחה
+• תמונה + # ערוך... - עריכת תמונה
+• וידאו + # ערוך... - עריכת וידאו
+• הודעה קולית - תמלול ותשובה קולית
+
+**פקודות ניהול:**
+• הצג היסטוריה - הצגת היסטוריית השיחה
+• סטטוס יצירה - סטטוס הרשאות
+• הוסף ליצירה [שם] - הוסף הרשאה
+• הסר מיצירה [שם] - הסר הרשאה
+              `;
+              await sendTextMessage(chatId, helpText.trim());
+              return;
+            }
+            
             case 'voice_processing':
             case 'creative_voice_processing':
               // Voice messages are handled by separate block below
@@ -1129,6 +1155,32 @@ async function handleOutgoingMessage(webhookData) {
                   await sendTextMessage(chatId, `📝 **סיכום השיחה:**\n\n${summaryResult.text}`);
                 }
               }
+              return;
+            }
+            
+            // ═══════════════════ HELP / COMMAND LIST ═══════════════════
+            case 'show_help': {
+              const helpText = `
+🤖 **מערכת AI מתקדמת**
+
+**פקודות AI (מתחילות ב-"# "):**
+• # היי - שיחה עם Gemini
+• # צור תמונה של... - יצירת תמונה
+• # צור וידאו של... - יצירת וידאו
+• # צור שיר על... - יצירת מוזיקה
+• # המר לדיבור: טקסט - Text-to-Speech
+• # סכם שיחה - סיכום השיחה
+• תמונה + # ערוך... - עריכת תמונה
+• וידאו + # ערוך... - עריכת וידאו
+• הודעה קולית - תמלול ותשובה קולית
+
+**פקודות ניהול:**
+• הצג היסטוריה - הצגת היסטוריית השיחה
+• סטטוס יצירה - סטטוס הרשאות
+• הוסף ליצירה [שם] - הוסף הרשאה
+• הסר מיצירה [שם] - הסר הרשאה
+              `;
+              await sendTextMessage(chatId, helpText.trim());
               return;
             }
             
@@ -1938,24 +1990,14 @@ function parseTextCommand(text) {
   // ═══════════════════ MANAGEMENT COMMANDS ONLY ═══════════════════
   // All AI commands (chat, image, video, music, TTS) now go through router with "# " prefix
   
-  // Chat summary
-  if (text === 'סכם שיחה') {
-    return { type: 'chat_summary' };
-  }
-
   // Clear conversation history (admin command)
   if (text === 'נקה היסטוריה') {
     return { type: 'clear_all_conversations' };
   }
 
   // Show history
-  if (text.toLowerCase() === '/history') {
+  if (text === 'הצג היסטוריה') {
     return { type: 'show_history' };
-  }
-
-  // Help
-  if (text.toLowerCase() === '/help') {
-    return { type: 'help' };
   }
 
   // Media creation status
@@ -2023,21 +2065,6 @@ function parseTextCommand(text) {
 async function handleManagementCommand(command, chatId, senderId, senderName, senderContactName, chatName) {
   try {
     switch (command.type) {
-      case 'chat_summary': {
-        const chatHistory = await getChatHistory(chatId, 30);
-        if (chatHistory && chatHistory.length > 0) {
-          const summaryResult = await generateChatSummary(chatHistory);
-          if (!summaryResult.error) {
-            await sendTextMessage(chatId, `📝 **סיכום השיחה:**\n\n${summaryResult.text}`);
-          } else {
-            await sendTextMessage(chatId, `❌ ${summaryResult.error}`);
-          }
-        } else {
-          await sendTextMessage(chatId, 'ℹ️ אין מספיק היסטוריה לסכום');
-        }
-        break;
-      }
-
       case 'clear_all_conversations': {
         await conversationManager.clearAllConversations();
         await sendTextMessage(chatId, '✅ כל ההיסטוריות נוקו בהצלחה');
@@ -2057,29 +2084,6 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
         } else {
           await sendTextMessage(chatId, 'ℹ️ אין היסטוריית שיחה');
         }
-        break;
-      }
-
-      case 'help': {
-        const helpText = `
-🤖 **מערכת AI מתקדמת**
-
-**פקודות AI (מתחילות ב-"# "):**
-• # היי - שיחה עם Gemini
-• # צור תמונה של... - יצירת תמונה
-• # צור וידאו של... - יצירת וידאו
-• # צור שיר על... - יצירת מוזיקה
-• # המר לדיבור: טקסט - Text-to-Speech
-• תמונה + # ערוך... - עריכת תמונה
-• וידאו + # ערוך... - עריכת וידאו
-
-**פקודות ניהול:**
-• סכם שיחה - סיכום השיחה
-• סטטוס יצירה - סטטוס הרשאות
-• הוסף ליצירה [שם] - הוסף הרשאה
-• הסר מיצירה [שם] - הסר הרשאה
-        `;
-        await sendTextMessage(chatId, helpText.trim());
         break;
       }
 

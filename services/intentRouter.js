@@ -118,9 +118,14 @@ async function routeIntent(input) {
     const isTtsLike = /קרא|הקרא|הקריא|הקראת|דיבור|speech|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text.*to.*speech|tts|אמור/.test(lower);
     const isSummary = /סכם|סיכום|summary|לסכם/.test(lower);
     const isMusic = /שיר|מוזיקה|שירון|suno|music|song/.test(lower);
+    const isHelp = /פקודות|רשימת|רשימה|commands|list|help|עזרה|אילו|מה אפשר|what can|capabilities/.test(lower);
 
     if (isSummary) {
       return { tool: 'chat_summary', args: {}, reason: 'User requested summary' };
+    }
+
+    if (isHelp) {
+      return { tool: 'show_help', args: {}, reason: 'User requested command list' };
     }
 
     if (isTtsLike) {
@@ -218,7 +223,7 @@ function validateDecision(obj) {
     'gemini_image', 'openai_image', 'grok_image',
     'veo3_video', 'kling_text_to_video', 'veo3_image_to_video', 'kling_image_to_video', 'video_to_video',
     'image_edit', 'text_to_speech', 'gemini_chat', 'openai_chat', 'grok_chat',
-    'chat_summary', 'music_generation', 'creative_voice_processing', 'deny_unauthorized', 'ask_clarification'
+    'chat_summary', 'music_generation', 'creative_voice_processing', 'show_help', 'deny_unauthorized', 'ask_clarification'
   ]);
   if (!allowedTools.has(tool)) return null;
   return { tool, args, reason };
