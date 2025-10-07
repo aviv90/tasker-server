@@ -144,7 +144,7 @@ async function sendAck(chatId, command) {
       ackMessage = '🗣️ קיבלתי! מייצר דיבור עם ElevenLabs...';
       break;
     case 'voice_processing':
-      ackMessage = '🎤 קיבלתי את ההקלטה! מעבד עם ElevenLabs...';
+      ackMessage = '🎤 קיבלתי את ההקלטה! מעבד תמלול, שיבוט קול ותשובה...';
       break;
     case 'voice_generation':
       ackMessage = '🎤 קיבלתי! מייצר קול עם ElevenLabs...';
@@ -608,6 +608,7 @@ async function handleIncomingMessage(webhookData) {
               return;
             }
             
+            case 'voice_processing':
             case 'creative_voice_processing':
               // Voice messages are handled by separate block below
               break;
@@ -769,7 +770,7 @@ async function handleIncomingMessage(webhookData) {
     }
     
     // ═══════════════════════════════════════════════════════════════
-    // Handle voice messages for creative audio processing
+    // Handle voice messages for voice-to-voice processing
     // ═══════════════════════════════════════════════════════════════
     else if (messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage') {
       const audioData = messageData.fileMessageData || messageData.audioMessageData;
@@ -804,23 +805,23 @@ async function handleIncomingMessage(webhookData) {
       console.log(`🔍 Checking voice transcription for: "${contactName}" (chatType: ${chatType}, chatId: "${chatId}", senderContactName: "${senderContactName}", chatName: "${chatName}", senderName: "${senderName}")`);
       
       try {
-        // Check if sender is in allow list (new logic: must be in allow list to process, like media creation)
+        // Check if sender is in allow list (must be in allow list to process)
         const isInAllowList = await conversationManager.isInVoiceAllowList(contactName);
         if (!isInAllowList) {
-        console.log(`🚫 Creative voice processing not allowed for ${contactName} (not in allow list)`);
+        console.log(`🚫 Voice processing not allowed for ${contactName} (not in allow list)`);
         // Silently ignore unauthorized voice messages (no reply)
         return;
         }
         
-        console.log(`✅ Creative voice processing allowed for ${contactName} - proceeding with processing`);
+        console.log(`✅ Voice processing allowed for ${contactName} - proceeding with voice-to-voice flow`);
       } catch (dbError) {
         console.error('❌ Error checking voice transcription settings:', dbError);
-        console.log(`🔇 Skipping creative voice processing due to database error`);
+        console.log(`🔇 Skipping voice processing due to database error`);
         return;
       }
       
-      // Process creative voice asynchronously
-      processCreativeVoiceAsync({
+      // Process voice-to-voice asynchronously
+      processVoiceMessageAsync({
         chatId,
         senderId,
         senderName,
@@ -1460,8 +1461,9 @@ function processImageToVideoAsync(imageData) {
 }
 
 /**
- * Process creative voice message asynchronously (no await from webhook)
+ * Process creative voice message asynchronously (no await from webhook) - COMMENTED OUT FOR VOICE-TO-VOICE PROCESSING
  */
+/*
 function processCreativeVoiceAsync(voiceData) {
   // Run in background without blocking webhook response
   handleCreativeVoiceMessage(voiceData).catch(async error => {
@@ -1473,18 +1475,17 @@ function processCreativeVoiceAsync(voiceData) {
     }
   });
 }
+*/
 
 /**
- * Process voice message asynchronously (no await from webhook) - COMMENTED OUT FOR CREATIVE PROCESSING
+ * Process voice message asynchronously (no await from webhook)
  */
-/*
 function processVoiceMessageAsync(voiceData) {
   // Run in background without blocking webhook response
   handleVoiceMessage(voiceData).catch(error => {
     console.error('❌ Error in async voice processing:', error.message || error);
   });
 }
-*/
 
 /**
  * Process video-to-video message asynchronously (no await from webhook)
@@ -1654,9 +1655,10 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
 }
 
 /**
- * Handle creative voice message processing
+ * Handle creative voice message processing - COMMENTED OUT FOR VOICE-TO-VOICE PROCESSING
  * Flow: Download → Creative Effects → Convert to Opus → Send
  */
+/*
 async function handleCreativeVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
   console.log(`🎨 Processing creative voice request from ${senderName}`);
   
@@ -1722,12 +1724,12 @@ async function handleCreativeVoiceMessage({ chatId, senderId, senderName, audioU
     await sendTextMessage(chatId, `❌ שגיאה בעיבוד היצירתי של ההקלטה: ${error.message || error}`);
   }
 }
+*/
 
 /**
- * Handle voice message with full voice-to-voice processing - COMMENTED OUT FOR CREATIVE PROCESSING
+ * Handle voice message with full voice-to-voice processing
  * Flow: Speech-to-Text → Voice Clone → Gemini Response → Text-to-Speech
  */
-/*
 async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
   console.log(`🎤 Processing voice-to-voice request from ${senderName}`);
   
@@ -1919,7 +1921,6 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     await sendTextMessage(chatId, `❌ שגיאה בעיבוד ההקלטה הקולית: ${error.message || error}`);
   }
 }
-*/
 
 // ════════════════════════════════════════════════════════════════
 // LEGACY FUNCTION handleTextMessage - REMOVED
