@@ -99,6 +99,21 @@ class ConversationManager {
         )
       `);
 
+      // Create contacts table for WhatsApp contacts and groups
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS contacts (
+          id SERIAL PRIMARY KEY,
+          contact_id VARCHAR(255) NOT NULL UNIQUE,
+          name VARCHAR(500),
+          contact_name VARCHAR(500),
+          type VARCHAR(50),
+          chat_id VARCHAR(255),
+          raw_data JSONB,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
       // Create indexes for better performance
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_conversations_chat_id 
@@ -108,6 +123,16 @@ class ConversationManager {
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_conversations_timestamp 
         ON conversations(timestamp DESC)
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_contacts_contact_id
+        ON contacts(contact_id)
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_contacts_type
+        ON contacts(type)
       `);
 
       console.log('✅ All database tables and indexes created successfully');
@@ -491,6 +516,107 @@ class ConversationManager {
       const result = await client.query('DELETE FROM conversations');
       console.log(`🗑️ Cleared ${result.rowCount} conversations from database`);
       return result.rowCount;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Sync contacts from Green API to database
+   * Updates or inserts contacts based on contact_id
+   */
+  async syncContacts(contactsArray) {
+    if (!this.isInitialized) {
+      throw new Error('Database not initialized');
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      let inserted = 0;
+      let updated = 0;
+
+      for (const contact of contactsArray) {
+        const contactId = contact.id || contact.chatId;
+        if (!contactId) continue;
+
+        const result = await client.query(`
+          INSERT INTO contacts (contact_id, name, contact_name, type, chat_id, raw_data, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+          ON CONFLICT (contact_id) 
+          DO UPDATE SET
+            name = EXCLUDED.name,
+            contact_name = EXCLUDED.contact_name,
+            type = EXCLUDED.type,
+            chat_id = EXCLUDED.chat_id,
+            raw_data = EXCLUDED.raw_data,
+            updated_at = CURRENT_TIMESTAMP
+          RETURNING (xmax = 0) AS inserted
+        `, [
+          contactId,
+          contact.name || null,
+          contact.contactName || null,
+          contact.type || null,
+          contact.id || null,
+          JSON.stringify(contact)
+        ]);
+
+        if (result.rows[0].inserted) {
+          inserted++;
+        } else {
+          updated++;
+        }
+      }
+
+      console.log(`📇 Contacts synced: ${inserted} inserted, ${updated} updated (total: ${contactsArray.length})`);
+      return { inserted, updated, total: contactsArray.length };
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get all contacts from database
+   */
+  async getAllContacts() {
+    if (!this.isInitialized) {
+      return [];
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      const result = await client.query(`
+        SELECT contact_id, name, contact_name, type, chat_id, raw_data, created_at, updated_at
+        FROM contacts
+        ORDER BY name ASC
+      `);
+      
+      return result.rows;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get contacts by type (user, group, etc.)
+   */
+  async getContactsByType(type) {
+    if (!this.isInitialized) {
+      return [];
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      const result = await client.query(`
+        SELECT contact_id, name, contact_name, type, chat_id, raw_data, created_at, updated_at
+        FROM contacts
+        WHERE type = $1
+        ORDER BY name ASC
+      `, [type]);
+      
+      return result.rows;
     } finally {
       client.release();
     }

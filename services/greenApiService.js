@@ -143,9 +143,33 @@ async function getChatHistory(chatId, count = 10) {
   }
 }
 
+/**
+ * Get all contacts and groups from Green API
+ */
+async function getContacts() {
+  try {
+    const url = `https://api.green-api.com/waInstance${GREEN_API_ID_INSTANCE}/getContacts/${GREEN_API_API_TOKEN_INSTANCE}`;
+    
+    console.log(`📇 Fetching contacts from Green API...`);
+    
+    const response = await axios.get(url);
+    
+    if (!response.data) {
+      throw new Error('No data received from getContacts');
+    }
+    
+    console.log(`✅ Retrieved ${response.data.length || 0} contacts`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error fetching contacts:', error.message);
+    throw error;
+  }
+}
+
 module.exports = {
   sendTextMessage,
   sendFileByUrl,
   downloadFile,
-  getChatHistory
+  getChatHistory,
+  getContacts
 };

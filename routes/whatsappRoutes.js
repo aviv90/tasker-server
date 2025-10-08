@@ -620,6 +620,7 @@ async function handleIncomingMessage(webhookData) {
 • # צור שיר על... - יצירת מוזיקה
 • # המר לדיבור: טקסט - Text-to-Speech
 • # סכם שיחה - סיכום השיחה
+• # צור קבוצה - עדכון אנשי קשר (שלב 1)
 • תמונה + # ערוך... - עריכת תמונה
 • וידאו + # ערוך... - עריכת וידאו
 • הודעה קולית - תמלול ותשובה קולית
@@ -631,6 +632,41 @@ async function handleIncomingMessage(webhookData) {
 • הסר מיצירה [שם] - הסר הרשאה
               `;
               await sendTextMessage(chatId, helpText.trim());
+              return;
+            }
+            
+            // ═══════════════════ CREATE GROUP ═══════════════════
+            case 'create_group': {
+              try {
+                await sendTextMessage(chatId, '📇 מעדכן רשימת אנשי קשר...');
+                
+                // Fetch contacts from Green API
+                const { getContacts } = require('../services/greenApiService');
+                const contacts = await getContacts();
+                
+                if (!contacts || contacts.length === 0) {
+                  await sendTextMessage(chatId, '⚠️ לא נמצאו אנשי קשר');
+                  return;
+                }
+                
+                // Sync to database
+                const syncResult = await conversationManager.syncContacts(contacts);
+                
+                const resultMessage = `✅ עדכון אנשי קשר הושלם!
+
+📊 סטטיסטיקה:
+• חדשים: ${syncResult.inserted}
+• עודכנו: ${syncResult.updated}  
+• סה"כ: ${syncResult.total}
+
+💾 כל אנשי הקשר נשמרו במסד הנתונים`;
+                
+                await sendTextMessage(chatId, resultMessage);
+                console.log(`✅ Contacts synced successfully for ${senderName}`);
+              } catch (error) {
+                console.error('❌ Error syncing contacts:', error);
+                await sendTextMessage(chatId, `❌ שגיאה בעדכון אנשי קשר: ${error.message}`);
+              }
               return;
             }
             
@@ -698,8 +734,10 @@ async function handleIncomingMessage(webhookData) {
             }
             
             case 'veo3_video':
-            case 'kling_text_to_video': {
-              const service = decision.tool === 'veo3_video' ? 'veo3' : 'kling';
+            case 'veo3_image_to_video':
+            case 'kling_text_to_video':
+            case 'kling_image_to_video': {
+              const service = (decision.tool === 'veo3_video' || decision.tool === 'veo3_image_to_video') ? 'veo3' : 'kling';
               console.log(`🎬 ${service} image-to-video request (via router)`);
               processImageToVideoAsync({
                 chatId, senderId, senderName,
@@ -1170,6 +1208,7 @@ async function handleOutgoingMessage(webhookData) {
 • # צור שיר על... - יצירת מוזיקה
 • # המר לדיבור: טקסט - Text-to-Speech
 • # סכם שיחה - סיכום השיחה
+• # צור קבוצה - עדכון אנשי קשר (שלב 1)
 • תמונה + # ערוך... - עריכת תמונה
 • וידאו + # ערוך... - עריכת וידאו
 • הודעה קולית - תמלול ותשובה קולית
@@ -1181,6 +1220,41 @@ async function handleOutgoingMessage(webhookData) {
 • הסר מיצירה [שם] - הסר הרשאה
               `;
               await sendTextMessage(chatId, helpText.trim());
+              return;
+            }
+            
+            // ═══════════════════ CREATE GROUP ═══════════════════
+            case 'create_group': {
+              try {
+                await sendTextMessage(chatId, '📇 מעדכן רשימת אנשי קשר...');
+                
+                // Fetch contacts from Green API
+                const { getContacts } = require('../services/greenApiService');
+                const contacts = await getContacts();
+                
+                if (!contacts || contacts.length === 0) {
+                  await sendTextMessage(chatId, '⚠️ לא נמצאו אנשי קשר');
+                  return;
+                }
+                
+                // Sync to database
+                const syncResult = await conversationManager.syncContacts(contacts);
+                
+                const resultMessage = `✅ עדכון אנשי קשר הושלם!
+
+📊 סטטיסטיקה:
+• חדשים: ${syncResult.inserted}
+• עודכנו: ${syncResult.updated}  
+• סה"כ: ${syncResult.total}
+
+💾 כל אנשי הקשר נשמרו במסד הנתונים`;
+                
+                await sendTextMessage(chatId, resultMessage);
+                console.log(`✅ Contacts synced successfully for ${senderName}`);
+              } catch (error) {
+                console.error('❌ Error syncing contacts:', error);
+                await sendTextMessage(chatId, `❌ שגיאה בעדכון אנשי קשר: ${error.message}`);
+              }
               return;
             }
             
@@ -1235,8 +1309,10 @@ async function handleOutgoingMessage(webhookData) {
             }
             
             case 'veo3_video':
-            case 'kling_text_to_video': {
-              const service = decision.tool === 'veo3_video' ? 'veo3' : 'kling';
+            case 'veo3_image_to_video':
+            case 'kling_text_to_video':
+            case 'kling_image_to_video': {
+              const service = (decision.tool === 'veo3_video' || decision.tool === 'veo3_image_to_video') ? 'veo3' : 'kling';
               console.log(`🎬 ${service} image-to-video request (outgoing, via router)`);
               processImageToVideoAsync({
                 chatId, senderId, senderName,

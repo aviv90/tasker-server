@@ -119,6 +119,7 @@ async function routeIntent(input) {
     const isSummary = /סכם|סיכום|summary|לסכם/.test(lower);
     const isMusic = /שיר|מוזיקה|שירון|suno|music|song/.test(lower);
     const isHelp = /פקודות|רשימת|רשימה|commands|list|help|עזרה|אילו|מה אפשר|what can|capabilities/.test(lower);
+    const isCreateGroup = /צור.*קבוצה|יצירת.*קבוצה|create.*group|new.*group|קבוצה.*חדשה/.test(lower);
 
     if (isSummary) {
       return { tool: 'chat_summary', args: {}, reason: 'User requested summary' };
@@ -126,6 +127,13 @@ async function routeIntent(input) {
 
     if (isHelp) {
       return { tool: 'show_help', args: {}, reason: 'User requested command list' };
+    }
+
+    if (isCreateGroup) {
+      if (!input.authorizations?.media_creation) {
+        return { tool: 'deny_unauthorized', args: { feature: 'create_group' }, reason: 'No authorization for group creation' };
+      }
+      return { tool: 'create_group', args: {}, reason: 'User requested group creation' };
     }
 
     if (isTtsLike) {
@@ -223,7 +231,7 @@ function validateDecision(obj) {
     'gemini_image', 'openai_image', 'grok_image',
     'veo3_video', 'kling_text_to_video', 'veo3_image_to_video', 'kling_image_to_video', 'video_to_video',
     'image_edit', 'text_to_speech', 'gemini_chat', 'openai_chat', 'grok_chat',
-    'chat_summary', 'music_generation', 'creative_voice_processing', 'show_help', 'deny_unauthorized', 'ask_clarification'
+    'chat_summary', 'music_generation', 'creative_voice_processing', 'show_help', 'create_group', 'deny_unauthorized', 'ask_clarification'
   ]);
   if (!allowedTools.has(tool)) return null;
   return { tool, args, reason };
