@@ -112,6 +112,7 @@ async function routeIntent(input) {
   // CRITICAL: This block should NEVER run if hasImage or hasVideo is true
   if (prompt && !input.hasImage && !input.hasVideo) {
     // Simple keyword-based heuristic to infer intent; replace later with LLM
+    // Note: prompt already has # prefix removed by line 57
     const lower = prompt.toLowerCase();
     const isImageLike = /image|תמונה|ציור|תצלום|לוגו|poster|איור|illustration|render|צייר|ציירי/.test(lower);
     const isVideoLike = /video|וידאו|סרט|אנימציה|קליפ|clip|animate|motion/.test(lower);

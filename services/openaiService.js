@@ -176,7 +176,7 @@ async function generateTextResponse(prompt, conversationHistory = []) {
 
 async function generateImageForWhatsApp(prompt, req) {
     try {
-        console.log('🎨 Starting OpenAI image generation (WhatsApp format)');
+        console.log('🎨 Starting OpenAI image generation');
         
         // Sanitize prompt as an extra safety measure
         const cleanPrompt = sanitizeText(prompt);
@@ -230,7 +230,7 @@ async function generateImageForWhatsApp(prompt, req) {
         // Create public URL using centralized URL utility
         const imageUrl = getStaticFileUrl(fileName, req);
         
-        console.log('✅ OpenAI image generated successfully (WhatsApp format)');
+        console.log('✅ OpenAI image generated successfully');
         console.log(`🖼️ Image saved to: ${filePath}`);
         console.log(`🔗 Public URL: ${imageUrl}`);
         
@@ -251,7 +251,7 @@ async function generateImageForWhatsApp(prompt, req) {
 
 async function editImageForWhatsApp(prompt, base64Image, req) {
     try {
-        console.log('🖼️ Starting OpenAI image editing (WhatsApp format)');
+        console.log('🖼️ Starting OpenAI image editing');
         
         // Sanitize prompt as an extra safety measure
         const cleanPrompt = sanitizeText(prompt);
@@ -323,7 +323,7 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
         // Create public URL using centralized URL utility
         const imageUrl = getStaticFileUrl(fileName, req);
         
-        console.log('✅ OpenAI image edited successfully (WhatsApp format)');
+        console.log('✅ OpenAI image edited successfully');
         console.log(`🖼️ Edited image saved to: ${filePath}`);
         console.log(`🔗 Public URL: ${imageUrl}`);
         

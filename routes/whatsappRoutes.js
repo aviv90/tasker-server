@@ -177,10 +177,6 @@ async function sendAck(chatId, command) {
 
 /**
  * WhatsApp Green API Integration Routes
- * 
- * 🚨 BACKWARD COMPATIBILITY RULE:
- * Any new WhatsApp functionality MUST maintain backward compatibility
- * with Tasker Android polling system (/api/start-task + /api/task-status).
  */
 
 /**

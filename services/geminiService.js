@@ -1,20 +1,5 @@
 /**
  * Gemini AI Service
- * 
- * 🚨 BACKWARD COMPATIBILITY RULE:
- * When adding new functions, create separate versions for WhatsApp vs Tasker:
- * 
- * TASKER FUNCTIONS (for /api/start-task polling):
- * - Return: { text: string, imageBuffer: Buffer } or { error: string }
- * - Save files using taskId in finalizeTask()
- * 
- * WHATSAPP FUNCTIONS (for /api/whatsapp/webhook):
- * - Return: { success: boolean, imageUrl: string, description: string }
- * - Save files with UUID and create public URLs
- * 
- * Examples:
- * - generateImageWithText() → Tasker format
- * - generateImageForWhatsApp() → WhatsApp format
  */
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -32,7 +17,7 @@ const veoClient = new genai.GoogleGenAI({
 
 async function generateImageWithText(prompt) {
     try {
-        console.log('🎨 Starting Gemini image generation (Tasker compatible)');
+        console.log('🎨 Starting Gemini image generation');
         
         // Sanitize prompt as an extra safety measure
         const cleanPrompt = sanitizeText(prompt);
@@ -80,7 +65,7 @@ async function generateImageWithText(prompt) {
             return { error: 'No image data found in response' };
         }
         
-        console.log('✅ Gemini image generated successfully (Tasker format)');
+        console.log('✅ Gemini image generated successfully');
         return { text: text || prompt, imageBuffer };
     } catch (err) {
         console.error('❌ Gemini image generation error:', err);
@@ -91,7 +76,7 @@ async function generateImageWithText(prompt) {
 
 async function generateImageForWhatsApp(prompt, req = null) {
     try {
-        console.log('🎨 Starting Gemini image generation (WhatsApp format)');
+        console.log('🎨 Starting Gemini image generation');
         
         // Sanitize prompt as an extra safety measure
         const cleanPrompt = sanitizeText(prompt);
@@ -182,7 +167,7 @@ async function generateImageForWhatsApp(prompt, req = null) {
         // Create public URL using centralized URL utility
         const imageUrl = getStaticFileUrl(fileName, req);
         
-        console.log('✅ Gemini image generated successfully (WhatsApp format)');
+        console.log('✅ Gemini image generated successfully');
         console.log(`🖼️ Image saved to: ${filePath}`);
         console.log(`🔗 Public URL: ${imageUrl}`);
         
@@ -260,7 +245,7 @@ async function editImageWithText(prompt, base64Image) {
 
 async function editImageForWhatsApp(prompt, base64Image, req) {
     try {
-        console.log('🖼️ Starting Gemini image editing (WhatsApp format)');
+        console.log('🖼️ Starting Gemini image editing');
         
         // Sanitize prompt as an extra safety measure
         const cleanPrompt = sanitizeText(prompt);
@@ -360,7 +345,7 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
         // Create public URL using centralized URL utility
         const imageUrl = getStaticFileUrl(fileName, req);
         
-        console.log('✅ Gemini image edited successfully (WhatsApp format)');
+        console.log('✅ Gemini image edited successfully');
         console.log(`🖼️ Edited image saved to: ${filePath}`);
         console.log(`🔗 Public URL: ${imageUrl}`);
         
@@ -452,7 +437,7 @@ async function analyzeImageWithText(prompt, base64Image) {
 
 async function generateVideoWithText(prompt) {
     try {
-        console.log('🎬 Starting Veo 3 text-to-video generation (Tasker format) - Stable version');
+        console.log('🎬 Starting Veo 3 text-to-video generation - Stable version');
         const cleanPrompt = sanitizeText(prompt);
         
         let operation = await veoClient.models.generateVideos({
@@ -689,7 +674,7 @@ async function generateVideoWithImage(prompt, imageBuffer) {
 
 async function generateVideoForWhatsApp(prompt, req = null) {
     try {
-        console.log('🎬 Starting Veo 3 text-to-video generation (WhatsApp format) - Stable version');
+        console.log('🎬 Starting Veo 3 text-to-video generation - Stable version');
         const cleanPrompt = sanitizeText(prompt);
         
         let operation = await veoClient.models.generateVideos({
@@ -826,7 +811,7 @@ async function generateVideoForWhatsApp(prompt, req = null) {
         // Create public URL using centralized URL utility
         const videoUrl = getStaticFileUrl(fileName, req);
         
-        console.log('✅ Veo 3 text-to-video generated successfully (WhatsApp format)');
+        console.log('✅ Veo 3 text-to-video generated successfully');
         console.log(`🎬 Video saved to: ${filePath}`);
         console.log(`🔗 Public URL: ${videoUrl}`);
         
@@ -847,7 +832,7 @@ async function generateVideoForWhatsApp(prompt, req = null) {
 
 async function generateVideoFromImageForWhatsApp(prompt, imageBuffer, req = null) {
     try {
-        console.log('🎬 Starting Veo 3 image-to-video generation (WhatsApp format) - Stable version');
+        console.log('🎬 Starting Veo 3 image-to-video generation - Stable version');
         const cleanPrompt = sanitizeText(prompt);
         
         // Convert image buffer to base64 string as expected by the API
@@ -991,7 +976,7 @@ async function generateVideoFromImageForWhatsApp(prompt, imageBuffer, req = null
         // Create public URL using centralized URL utility
         const videoUrl = getStaticFileUrl(fileName, req);
         
-        console.log('✅ Veo 3 image-to-video generated successfully (WhatsApp format)');
+        console.log('✅ Veo 3 image-to-video generated successfully');
         console.log(`🎬 Video saved to: ${filePath}`);
         console.log(`🔗 Public URL: ${videoUrl}`);
         

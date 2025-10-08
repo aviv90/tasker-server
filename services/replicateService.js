@@ -329,7 +329,7 @@ async function generateVideoFromVideo(inputVideoBuffer, prompt) {
 
 async function generateVideoFromImageForWhatsApp(imageBuffer, prompt, req = null) {
     try {
-        console.log('🎬 Starting Kling v2.1 Master image-to-video generation (WhatsApp format)');
+        console.log('🎬 Starting Kling v2.1 Master image-to-video generation');
         
         const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
         
@@ -397,7 +397,7 @@ async function generateVideoFromImageForWhatsApp(imageBuffer, prompt, req = null
                 // Create public URL using centralized URL utility
                 const videoUrl = getStaticFileUrl(fileName, req);
                 
-                console.log('✅ Kling v2.1 Master image-to-video generated successfully (WhatsApp format)');
+                console.log('✅ Kling v2.1 Master image-to-video generated successfully');
                 console.log(`🎬 Video saved to: ${filePath}`);
                 console.log(`🔗 Public URL: ${videoUrl}`);
                 
@@ -436,7 +436,7 @@ async function generateVideoFromImageForWhatsApp(imageBuffer, prompt, req = null
 
 async function generateVideoFromVideoForWhatsApp(videoBuffer, prompt, req = null) {
     try {
-        console.log('🎬 Starting RunwayML Gen4 video-to-video generation (WhatsApp format)');
+        console.log('🎬 Starting RunwayML Gen4 video-to-video generation');
         
         // Create temporary file for video processing
         const tempDir = path.join(__dirname, '..', 'public', 'tmp');
@@ -500,7 +500,7 @@ async function generateVideoFromVideoForWhatsApp(videoBuffer, prompt, req = null
                 const { getStaticFileUrl } = require('../utils/urlUtils');
                 videoURL = getStaticFileUrl(outputFilename, req);
                 
-                console.log('✅ RunwayML Gen4 video-to-video completed (WhatsApp format)');
+                console.log('✅ RunwayML Gen4 video-to-video completed');
                 
             } catch (streamError) {
                 return { 
@@ -520,7 +520,7 @@ async function generateVideoFromVideoForWhatsApp(videoBuffer, prompt, req = null
                 videoURL = output;
             }
             
-            console.log('✅ RunwayML Gen4 video-to-video completed (WhatsApp format)');
+            console.log('✅ RunwayML Gen4 video-to-video completed');
         }
         
         if (!videoURL) {
@@ -548,7 +548,7 @@ async function generateVideoFromVideoForWhatsApp(videoBuffer, prompt, req = null
 
 async function generateVideoWithTextForWhatsApp(prompt, req = null) {
     try {
-        console.log('🎬 Starting Kling v2.1 Master text-to-video generation (WhatsApp format)');
+        console.log('🎬 Starting Kling v2.1 Master text-to-video generation');
         
         // Use Kling v2.1 Master with mobile-optimized settings
         const inputParams = {
@@ -585,7 +585,7 @@ async function generateVideoWithTextForWhatsApp(prompt, req = null) {
                 const result = await replicate.predictions.get(prediction.id);
                 
                 if (result.status === 'succeeded' && result.output) {
-                    console.log('✅ Kling text-to-video completed (WhatsApp format)');
+                    console.log('✅ Kling text-to-video completed');
                     
                     let videoURL = result.output;
                     if (Array.isArray(result.output)) {
