@@ -250,8 +250,8 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
         hasImage: false,
         hasVideo: false,
         prompt: combinedPrompt,
-        imageBuffer: null,
-        videoBuffer: null
+        imageUrl: null,
+        videoUrl: null
       };
     }
     
@@ -284,15 +284,13 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       
       console.log(`✅ Found downloadUrl for quoted ${quotedType}`);
       
-      // Download the media
-      const mediaBuffer = await downloadFile(downloadUrl);
-      
+      // Return the URL directly - let the handler functions download when needed
       return {
         hasImage: quotedType === 'imageMessage',
         hasVideo: quotedType === 'videoMessage',
         prompt: currentPrompt, // Use current prompt as the instruction
-        imageBuffer: quotedType === 'imageMessage' ? mediaBuffer : null,
-        videoBuffer: quotedType === 'videoMessage' ? mediaBuffer : null
+        imageUrl: quotedType === 'imageMessage' ? downloadUrl : null,
+        videoUrl: quotedType === 'videoMessage' ? downloadUrl : null
       };
     }
     
@@ -302,8 +300,8 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       hasImage: false,
       hasVideo: false,
       prompt: currentPrompt,
-      imageBuffer: null,
-      videoBuffer: null
+      imageUrl: null,
+      videoUrl: null
     };
     
   } catch (error) {
@@ -313,8 +311,8 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       hasImage: false,
       hasVideo: false,
       prompt: currentPrompt,
-      imageBuffer: null,
-      videoBuffer: null
+      imageUrl: null,
+      videoUrl: null
     };
   }
 }
@@ -389,8 +387,8 @@ async function handleIncomingMessage(webhookData) {
         let finalPrompt = basePrompt;
         let hasImage = messageData.typeMessage === 'imageMessage';
         let hasVideo = messageData.typeMessage === 'videoMessage';
-        let imageBuffer = null;
-        let videoBuffer = null;
+        let imageUrl = null;
+        let videoUrl = null;
         
         if (quotedMessage && quotedMessage.stanzaId) {
           console.log(`🔗 Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
@@ -400,8 +398,8 @@ async function handleIncomingMessage(webhookData) {
           finalPrompt = quotedResult.prompt;
           hasImage = quotedResult.hasImage;
           hasVideo = quotedResult.hasVideo;
-          imageBuffer = quotedResult.imageBuffer;
-          videoBuffer = quotedResult.videoBuffer;
+          imageUrl = quotedResult.imageUrl;
+          videoUrl = quotedResult.videoUrl;
         }
         
         const normalized = {
@@ -448,24 +446,27 @@ async function handleIncomingMessage(webhookData) {
               if (normalized.hasImage) {
                 // This is image analysis - use analyzeImageWithText
                 const { analyzeImageWithText } = require('../services/geminiService');
-                const imageUrl = messageData.fileMessageData?.downloadUrl || messageData.imageMessageData?.downloadUrl;
-                if (imageUrl) {
-                  try {
-                    // Download and convert image to base64
-                    const imageBuffer = await downloadFile(imageUrl);
-                    const base64Image = imageBuffer.toString('base64');
-                    
-                    const result = await analyzeImageWithText(prompt, base64Image);
-                    if (result.success) {
-                      await sendTextMessage(chatId, result.text);
-                    } else {
-                      await sendTextMessage(chatId, `❌ ${result.error}`);
-                    }
-                  } catch (error) {
-                    await sendTextMessage(chatId, `❌ שגיאה בניתוח התמונה: ${error.message}`);
+                
+                try {
+                  // Get image URL (either from quoted message or current message)
+                  const finalImageUrl = imageUrl || messageData.fileMessageData?.downloadUrl || messageData.imageMessageData?.downloadUrl;
+                  if (!finalImageUrl) {
+                    await sendTextMessage(chatId, '❌ לא הצלחתי לקבל את התמונה לניתוח');
+                    return;
                   }
-                } else {
-                  await sendTextMessage(chatId, '❌ לא הצלחתי לקבל את התמונה לניתוח');
+                  
+                  // Download and convert to base64
+                  const downloadedBuffer = await downloadFile(finalImageUrl);
+                  const base64Image = downloadedBuffer.toString('base64');
+                  
+                  const result = await analyzeImageWithText(prompt, base64Image);
+                  if (result.success) {
+                    await sendTextMessage(chatId, result.text);
+                  } else {
+                    await sendTextMessage(chatId, `❌ ${result.error}`);
+                  }
+                } catch (error) {
+                  await sendTextMessage(chatId, `❌ שגיאה בניתוח התמונה: ${error.message}`);
                 }
               } else {
                 // Regular text chat
@@ -613,74 +614,42 @@ async function handleIncomingMessage(webhookData) {
             // ═══════════════════ IMAGE/VIDEO EDITING ═══════════════════
             case 'veo3_image_to_video':
             case 'kling_image_to_video':
-              // Use imageBuffer from quoted message if available, otherwise download from current message
+              // Use imageUrl (from quoted message or current message)
               if (hasImage) {
                 const service = decision.tool === 'veo3_image_to_video' ? 'veo3' : 'kling';
-                if (imageBuffer) {
-                  // From quoted message
-                  processImageToVideoAsync({
-                    chatId, senderId, senderName,
-                    imageBuffer: imageBuffer,
-                    prompt: prompt,
-                    service: service
-                  });
-                } else {
-                  // From current message
-                  const imageData = messageData.fileMessageData || messageData.imageMessageData;
-                  processImageToVideoAsync({
-                    chatId, senderId, senderName,
-                    imageUrl: imageData.downloadUrl,
-                    prompt: prompt,
-                    service: service
-                  });
-                }
+                const finalImageUrl = imageUrl || (messageData.fileMessageData || messageData.imageMessageData)?.downloadUrl;
+                processImageToVideoAsync({
+                  chatId, senderId, senderName,
+                  imageUrl: finalImageUrl,
+                  prompt: prompt,
+                  service: service
+                });
               }
               return;
               
             case 'image_edit':
-              // Use imageBuffer from quoted message if available
+              // Use imageUrl (from quoted message or current message)
               if (hasImage) {
                 const service = decision.args?.service || 'gemini';
-                if (imageBuffer) {
-                  // From quoted message
-                  processImageEditAsync({
-                    chatId, senderId, senderName,
-                    imageBuffer: imageBuffer,
-                    prompt: decision.args.prompt || prompt,
-                    service: service
-                  });
-                } else {
-                  // From current message
-                  const imageData = messageData.fileMessageData || messageData.imageMessageData;
-                  processImageEditAsync({
-                    chatId, senderId, senderName,
-                    imageUrl: imageData.downloadUrl,
-                    prompt: decision.args.prompt || prompt,
-                    service: service
-                  });
-                }
+                const finalImageUrl = imageUrl || (messageData.fileMessageData || messageData.imageMessageData)?.downloadUrl;
+                processImageEditAsync({
+                  chatId, senderId, senderName,
+                  imageUrl: finalImageUrl,
+                  prompt: decision.args.prompt || prompt,
+                  service: service
+                });
               }
               return;
               
             case 'video_to_video':
-              // Use videoBuffer from quoted message if available
+              // Use videoUrl (from quoted message or current message)
               if (hasVideo) {
-                if (videoBuffer) {
-                  // From quoted message
-                  processVideoToVideoAsync({
-                    chatId, senderId, senderName,
-                    videoBuffer: videoBuffer,
-                    prompt: decision.args?.prompt || prompt
-                  });
-                } else {
-                  // From current message
-                  const videoData = messageData.fileMessageData || messageData.videoMessageData;
-                  processVideoToVideoAsync({
-                    chatId, senderId, senderName,
-                    videoUrl: videoData.downloadUrl,
-                    prompt: decision.args?.prompt || prompt
-                  });
-                }
+                const finalVideoUrl = videoUrl || (messageData.fileMessageData || messageData.videoMessageData)?.downloadUrl;
+                processVideoToVideoAsync({
+                  chatId, senderId, senderName,
+                  videoUrl: finalVideoUrl,
+                  prompt: decision.args?.prompt || prompt
+                });
               }
               return;
             
@@ -1146,8 +1115,8 @@ async function handleOutgoingMessage(webhookData) {
         let finalPrompt = basePrompt;
         let hasImage = messageData.typeMessage === 'imageMessage';
         let hasVideo = messageData.typeMessage === 'videoMessage';
-        let imageBuffer = null;
-        let videoBuffer = null;
+        let imageUrl = null;
+        let videoUrl = null;
         
         if (quotedMessage && quotedMessage.stanzaId) {
           console.log(`🔗 Outgoing: Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
@@ -1157,8 +1126,8 @@ async function handleOutgoingMessage(webhookData) {
           finalPrompt = quotedResult.prompt;
           hasImage = quotedResult.hasImage;
           hasVideo = quotedResult.hasVideo;
-          imageBuffer = quotedResult.imageBuffer;
-          videoBuffer = quotedResult.videoBuffer;
+          imageUrl = quotedResult.imageUrl;
+          videoUrl = quotedResult.videoUrl;
         }
 
         const normalized = {
@@ -1187,24 +1156,27 @@ async function handleOutgoingMessage(webhookData) {
               if (normalized.hasImage) {
                 // This is image analysis - use analyzeImageWithText
                 const { analyzeImageWithText } = require('../services/geminiService');
-                const imageUrl = messageData.fileMessageData?.downloadUrl || messageData.imageMessageData?.downloadUrl;
-                if (imageUrl) {
-                  try {
-                    // Download and convert image to base64
-                    const imageBuffer = await downloadFile(imageUrl);
-                    const base64Image = imageBuffer.toString('base64');
-                    
-                    const result = await analyzeImageWithText(prompt, base64Image);
-                    if (result.success) {
-                      await sendTextMessage(chatId, result.text);
-                    } else {
-                      await sendTextMessage(chatId, `❌ ${result.error}`);
-                    }
-                  } catch (error) {
-                    await sendTextMessage(chatId, `❌ שגיאה בניתוח התמונה: ${error.message}`);
+                
+                try {
+                  // Get image URL (either from quoted message or current message)
+                  const finalImageUrl = imageUrl || messageData.fileMessageData?.downloadUrl || messageData.imageMessageData?.downloadUrl;
+                  if (!finalImageUrl) {
+                    await sendTextMessage(chatId, '❌ לא הצלחתי לקבל את התמונה לניתוח');
+                    return;
                   }
-                } else {
-                  await sendTextMessage(chatId, '❌ לא הצלחתי לקבל את התמונה לניתוח');
+                  
+                  // Download and convert to base64
+                  const downloadedBuffer = await downloadFile(finalImageUrl);
+                  const base64Image = downloadedBuffer.toString('base64');
+                  
+                  const result = await analyzeImageWithText(prompt, base64Image);
+                  if (result.success) {
+                    await sendTextMessage(chatId, result.text);
+                  } else {
+                    await sendTextMessage(chatId, `❌ ${result.error}`);
+                  }
+                } catch (error) {
+                  await sendTextMessage(chatId, `❌ שגיאה בניתוח התמונה: ${error.message}`);
                 }
               } else {
                 // Regular text chat
@@ -1297,12 +1269,12 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ IMAGE/VIDEO EDITING ═══════════════════
             case 'image_edit':
-              if (messageData.typeMessage === 'imageMessage') {
-                const imageData = messageData.fileMessageData || messageData.imageMessageData;
+              if (hasImage) {
                 const service = decision.args?.service || 'gemini';
+                const finalImageUrl = imageUrl || (messageData.fileMessageData || messageData.imageMessageData)?.downloadUrl;
                 processImageEditAsync({
                   chatId, senderId, senderName,
-                  imageUrl: imageData.downloadUrl,
+                  imageUrl: finalImageUrl,
                   prompt: decision.args.prompt || prompt,
                   service: service
                 });
@@ -1310,11 +1282,11 @@ async function handleOutgoingMessage(webhookData) {
               return;
               
             case 'video_to_video':
-              if (messageData.typeMessage === 'videoMessage') {
-                const videoData = messageData.fileMessageData || messageData.videoMessageData;
+              if (hasVideo) {
+                const finalVideoUrl = videoUrl || (messageData.fileMessageData || messageData.videoMessageData)?.downloadUrl;
                 processVideoToVideoAsync({
                   chatId, senderId, senderName,
-                  videoUrl: videoData.downloadUrl,
+                  videoUrl: finalVideoUrl,
                   prompt: decision.args?.prompt || prompt
                 });
               }
@@ -1498,8 +1470,8 @@ async function handleOutgoingMessage(webhookData) {
           let finalPrompt = basePrompt;
           let hasImage = true; // Current message is image
           let hasVideo = false;
-          let imageBuffer = null;
-          let videoBuffer = null;
+          let imageUrl = imageData.downloadUrl; // Start with current image
+          let videoUrl = null;
           
           if (quotedMessage && quotedMessage.stanzaId) {
             console.log(`🔗 Outgoing Image: Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
@@ -1512,8 +1484,8 @@ async function handleOutgoingMessage(webhookData) {
               // Quoted message has media - use that instead
               hasImage = quotedResult.hasImage;
               hasVideo = quotedResult.hasVideo;
-              imageBuffer = quotedResult.imageBuffer;
-              videoBuffer = quotedResult.videoBuffer;
+              imageUrl = quotedResult.imageUrl;
+              videoUrl = quotedResult.videoUrl;
             }
           }
           
@@ -1534,23 +1506,12 @@ async function handleOutgoingMessage(webhookData) {
             case 'image_edit': {
               const service = decision.args?.service || 'gemini';
               console.log(`🎨 ${service} image edit request (outgoing, via router)`);
-              if (imageBuffer) {
-                // From quoted message
-                processImageEditAsync({
-                  chatId, senderId, senderName,
-                  imageBuffer: imageBuffer,
-                  prompt: decision.args?.prompt || prompt,
-                  service: service
-                });
-              } else {
-                // From current message
-                processImageEditAsync({
-                  chatId, senderId, senderName,
-                  imageUrl: imageData.downloadUrl,
-                  prompt: decision.args?.prompt || prompt,
-                  service: service
-                });
-              }
+              processImageEditAsync({
+                chatId, senderId, senderName,
+                imageUrl: imageUrl, // Use the URL (either from current message or quoted)
+                prompt: decision.args?.prompt || prompt,
+                service: service
+              });
               return;
             }
             
@@ -1560,23 +1521,12 @@ async function handleOutgoingMessage(webhookData) {
             case 'kling_image_to_video': {
               const service = (decision.tool === 'veo3_video' || decision.tool === 'veo3_image_to_video') ? 'veo3' : 'kling';
               console.log(`🎬 ${service} image-to-video request (outgoing, via router)`);
-              if (imageBuffer) {
-                // From quoted message
-                processImageToVideoAsync({
-                  chatId, senderId, senderName,
-                  imageBuffer: imageBuffer,
-                  prompt: decision.args?.prompt || prompt,
-                  service: service
-                });
-              } else {
-                // From current message
-                processImageToVideoAsync({
-                  chatId, senderId, senderName,
-                  imageUrl: imageData.downloadUrl,
-                  prompt: decision.args?.prompt || prompt,
-                  service: service
-                });
-              }
+              processImageToVideoAsync({
+                chatId, senderId, senderName,
+                imageUrl: imageUrl, // Use the URL (either from current message or quoted)
+                prompt: decision.args?.prompt || prompt,
+                service: service
+              });
               return;
             }
             
@@ -1584,12 +1534,9 @@ async function handleOutgoingMessage(webhookData) {
               // Image analysis - use analyzeImageWithText
               const { analyzeImageWithText } = require('../services/geminiService');
               try {
-                // Use imageBuffer if available (from quoted), otherwise download
-                let finalImageBuffer = imageBuffer;
-                if (!finalImageBuffer) {
-                  finalImageBuffer = await downloadFile(imageData.downloadUrl);
-                }
-                const base64Image = finalImageBuffer.toString('base64');
+                // Download the image from URL
+                const imageBuffer = await downloadFile(imageUrl);
+                const base64Image = imageBuffer.toString('base64');
                 
                 const result = await analyzeImageWithText(prompt, base64Image);
                 if (result.success) {
@@ -1632,8 +1579,8 @@ async function handleOutgoingMessage(webhookData) {
           let finalPrompt = basePrompt;
           let hasImage = false;
           let hasVideo = true; // Current message is video
-          let imageBuffer = null;
-          let videoBuffer = null;
+          let imageUrl = null;
+          let videoUrl = videoData.downloadUrl; // Start with current video
           
           if (quotedMessage && quotedMessage.stanzaId) {
             console.log(`🔗 Outgoing Video: Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
@@ -1646,8 +1593,8 @@ async function handleOutgoingMessage(webhookData) {
               // Quoted message has media - use that instead
               hasImage = quotedResult.hasImage;
               hasVideo = quotedResult.hasVideo;
-              imageBuffer = quotedResult.imageBuffer;
-              videoBuffer = quotedResult.videoBuffer;
+              imageUrl = quotedResult.imageUrl;
+              videoUrl = quotedResult.videoUrl;
             }
           }
           
@@ -1667,21 +1614,11 @@ async function handleOutgoingMessage(webhookData) {
           switch (decision.tool) {
             case 'video_to_video': {
               console.log(`🎬 RunwayML Gen4 video-to-video request (outgoing, via router)`);
-              if (videoBuffer) {
-                // From quoted message
-                processVideoToVideoAsync({
-                  chatId, senderId, senderName,
-                  videoBuffer: videoBuffer,
-                  prompt: decision.args?.prompt || prompt
-                });
-              } else {
-                // From current message
-                processVideoToVideoAsync({
-                  chatId, senderId, senderName,
-                  videoUrl: videoData.downloadUrl,
-                  prompt: decision.args?.prompt || prompt
-                });
-              }
+              processVideoToVideoAsync({
+                chatId, senderId, senderName,
+                videoUrl: videoUrl, // Use the URL (either from current message or quoted)
+                prompt: decision.args?.prompt || prompt
+              });
               return;
             }
             
@@ -1930,7 +1867,7 @@ function processVideoToVideoAsync(videoData) {
 /**
  * Handle image edit with AI (Gemini or OpenAI)
  */
-async function handleImageEdit({ chatId, senderId, senderName, imageUrl, imageBuffer, prompt, service }) {
+async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt, service }) {
   console.log(`🎨 Processing ${service} image edit request from ${senderName}`);
   
   try {
@@ -1942,14 +1879,12 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, imageBu
     
     // Note: Image editing commands do NOT add to conversation history
     
-    // Download the image if not provided as buffer (from quoted message)
-    if (!imageBuffer && imageUrl) {
-      imageBuffer = await downloadFile(imageUrl);
+    if (!imageUrl) {
+      throw new Error('No image URL provided');
     }
     
-    if (!imageBuffer) {
-      throw new Error('No image buffer or URL provided');
-    }
+    // Download the image
+    const imageBuffer = await downloadFile(imageUrl);
     
     const base64Image = imageBuffer.toString('base64');
     
@@ -2003,7 +1938,7 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, imageBu
 /**
  * Handle image-to-video with Veo 3 or Kling
  */
-async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, imageBuffer, prompt, service = 'veo3' }) {
+async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prompt, service = 'veo3' }) {
   const serviceName = service === 'veo3' ? 'Veo 3' : 'Kling 2.1 Master';
   console.log(`🎬 Processing ${serviceName} image-to-video request from ${senderName}`);
   
@@ -2016,14 +1951,12 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, imag
     
     // Note: Image-to-video commands do NOT add to conversation history
     
-    // Download the image if not provided as buffer (from quoted message)
-    if (!imageBuffer && imageUrl) {
-      imageBuffer = await downloadFile(imageUrl);
+    if (!imageUrl) {
+      throw new Error('No image URL provided');
     }
     
-    if (!imageBuffer) {
-      throw new Error('No image buffer or URL provided');
-    }
+    // Download the image
+    const imageBuffer = await downloadFile(imageUrl);
     
     // Generate video with selected service
     let videoResult;
@@ -2057,7 +1990,7 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, imag
 /**
  * Handle video-to-video with RunwayML Gen4
  */
-async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, videoBuffer, prompt }) {
+async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prompt }) {
   console.log(`🎬 Processing RunwayML Gen4 video-to-video request from ${senderName}`);
   
   try {
@@ -2066,14 +1999,12 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, vide
     
     // Note: Video-to-video commands do NOT add to conversation history
     
-    // Download the video if not provided as buffer (from quoted message)
-    if (!videoBuffer && videoUrl) {
-      videoBuffer = await downloadFile(videoUrl);
+    if (!videoUrl) {
+      throw new Error('No video URL provided');
     }
     
-    if (!videoBuffer) {
-      throw new Error('No video buffer or URL provided');
-    }
+    // Download the video
+    const videoBuffer = await downloadFile(videoUrl);
     
     // Generate video with RunwayML Gen4
     const videoResult = await generateRunwayVideoFromVideo(videoBuffer, prompt);
