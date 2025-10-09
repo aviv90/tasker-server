@@ -70,11 +70,11 @@ async function routeIntent(input) {
     if (!input.authorizations?.media_creation) {
       return { tool: 'deny_unauthorized', args: { feature: 'image_edit' }, reason: 'No media creation authorization' };
     }
-    const lower = prompt.toLowerCase();
-    const isVideoLike = /video|וידאו|סרט|אנימציה|animate|הנפש|להנפיש|תזיז|motion|קליפ/.test(lower);
+    // All checks are case-insensitive using /i flag
+    const isVideoLike = /video|וידאו|סרט|אנימציה|animate|הנפש|להנפיש|תזיז|motion|קליפ/i.test(prompt);
     if (isVideoLike) {
-      // Check if user explicitly requested Veo3
-      const wantsVeo3 = /veo|veo3/.test(lower);
+      // Check if user explicitly requested Veo3 (case-insensitive, with or without space)
+      const wantsVeo3 = /veo\s*3?/i.test(prompt);
       if (wantsVeo3) {
         return { tool: 'veo3_image_to_video', args: { prompt }, reason: 'Image attached, user requested Veo3' };
       }
@@ -82,13 +82,13 @@ async function routeIntent(input) {
       return { tool: 'kling_image_to_video', args: { prompt }, reason: 'Image attached, video-like request' };
     }
     // Check if user wants image analysis instead of editing
-    const isAnalysisRequest = /מה|מה זה|מה מופיע|תאר|describe|what|analyze|ניתוח|תיאור|איך|how|למה|why|מתי|when|איפה|where|מי|who/.test(lower);
+    const isAnalysisRequest = /מה|מה\s+זה|מה\s+מופיע|תאר|describe|what|analyze|ניתוח|תיאור|איך|how|למה|why|מתי|when|איפה|where|מי|who/i.test(prompt);
     if (isAnalysisRequest) {
       return { tool: 'gemini_chat', args: { prompt }, reason: 'Image analysis request' };
     }
     
     // Default to Gemini for image editing, unless user explicitly requests OpenAI
-    const wantsOpenAI = /openai|gpt|dall-e|dalle/.test(lower);
+    const wantsOpenAI = /open\s*ai|gpt|dall[\s-]*e/i.test(prompt);
     const service = wantsOpenAI ? 'openai' : 'gemini';
     return { tool: 'image_edit', args: { service, prompt }, reason: 'Image attached with prompt' };
   }
@@ -113,14 +113,14 @@ async function routeIntent(input) {
   if (prompt && !input.hasImage && !input.hasVideo) {
     // Simple keyword-based heuristic to infer intent; replace later with LLM
     // Note: prompt already has # prefix removed by line 57
-    const lower = prompt.toLowerCase();
-    const isImageLike = /image|תמונה|ציור|תצלום|לוגו|poster|איור|illustration|render|צייר|ציירי/.test(lower);
-    const isVideoLike = /video|וידאו|סרט|אנימציה|קליפ|clip|animate|motion/.test(lower);
-    const isTtsLike = /קרא|הקרא|הקריא|הקראת|דיבור|speech|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text.*to.*speech|tts|אמור/.test(lower);
-    const isSummary = /סכם|סיכום|summary|לסכם/.test(lower);
-    const isMusic = /שיר|מוזיקה|שירון|suno|music|song/.test(lower);
-    const isHelp = /פקודות|רשימת|רשימה|commands|list|help|עזרה|אילו|מה אפשר|what can|capabilities/.test(lower);
-    const isCreateGroup = /צור.*קבוצה|יצירת.*קבוצה|create.*group|new.*group|קבוצה.*חדשה/.test(lower);
+    // All checks are case-insensitive using /i flag
+    const isImageLike = /image|תמונה|ציור|תצלום|לוגו|poster|איור|illustration|render|צייר|ציירי/i.test(prompt);
+    const isVideoLike = /video|וידאו|סרט|אנימציה|קליפ|clip|animate|motion/i.test(prompt);
+    const isTtsLike = /קרא|הקרא|הקריא|הקראת|דיבור|speech|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text.*to.*speech|tts|אמור/i.test(prompt);
+    const isSummary = /סכם|סיכום|summary|לסכם/i.test(prompt);
+    const isMusic = /שיר|מוזיקה|שירון|suno|music|song/i.test(prompt);
+    const isHelp = /פקודות|רשימת|רשימה|commands|list|help|עזרה|אילו|מה\s+אפשר|what\s+can|capabilities/i.test(prompt);
+    const isCreateGroup = /צור.*קבוצה|יצירת.*קבוצה|create\s*group|new\s*group|קבוצה\s*חדשה/i.test(prompt);
 
     if (isSummary) {
       return { tool: 'chat_summary', args: {}, reason: 'User requested summary' };
@@ -174,9 +174,9 @@ async function routeIntent(input) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'image_generation' }, reason: 'No media creation authorization' };
       }
-      // Check for explicit provider requests
-      const wantsOpenAI = /openai|gpt|dall-e|dalle/.test(lower);
-      const wantsGrok = /grok|xai/.test(lower);
+      // Check for explicit provider requests (case-insensitive, space-flexible)
+      const wantsOpenAI = /open\s*ai|gpt|dall[\s-]*e/i.test(prompt);
+      const wantsGrok = /grok|x\s*ai/i.test(prompt);
       if (wantsOpenAI) {
         return { tool: 'openai_image', args: { prompt }, reason: 'Image-like request, user requested OpenAI' };
       }
@@ -191,8 +191,8 @@ async function routeIntent(input) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'video_generation' }, reason: 'No media creation authorization' };
       }
-      // Check if user explicitly requested Veo3
-      const wantsVeo3 = /veo|veo3/.test(lower);
+      // Check if user explicitly requested Veo3 (case-insensitive, with or without space)
+      const wantsVeo3 = /veo\s*3?/i.test(prompt);
       if (wantsVeo3) {
         return { tool: 'veo3_video', args: { prompt }, reason: 'Video-like request, user requested Veo3' };
       }
@@ -200,9 +200,9 @@ async function routeIntent(input) {
       return { tool: 'kling_text_to_video', args: { prompt }, reason: 'Video-like request' };
     }
 
-    // Default: chat. Check for explicit provider requests
-    const wantsOpenAI = /openai|gpt|chatgpt/.test(lower);
-    const wantsGrok = /grok|xai/.test(lower);
+    // Default: chat. Check for explicit provider requests (case-insensitive, space-flexible)
+    const wantsOpenAI = /open\s*ai|gpt|chat\s*gpt/i.test(prompt);
+    const wantsGrok = /grok|x\s*ai/i.test(prompt);
     if (wantsOpenAI) {
       return { tool: 'openai_chat', args: { prompt }, reason: 'Chat request, user requested OpenAI' };
     }
@@ -281,7 +281,8 @@ ${JSON.stringify(payload, null, 2)}
 📋 DECISION LOGIC (follow this order):
 
 1️⃣ **IF hasImage=true** (user sent an image):
-   - Image + video keywords → "kling_image_to_video"
+   - Image + video keywords + Veo mention (Veo/Veo 3/veo3) → "veo3_image_to_video"
+   - Image + video keywords (without Veo) → "kling_image_to_video"
    - Image + analysis keywords → "gemini_chat" (analyze image)
    - Image + edit request → "image_edit" 
    - Image alone (no text) → "ask_clarification"
@@ -305,7 +306,7 @@ ${JSON.stringify(payload, null, 2)}
       → "gemini_image" (default) or "openai_image" if mentions OpenAI or "grok_image" if mentions Grok
       
    🎬 Video: "וידאו", "video", "סרט", "אנימציה", "clip"
-      → "kling_text_to_video" (default) or "veo3_video" if mentions Veo
+      → "kling_text_to_video" (default) or "veo3_video" if mentions Veo/Veo 3/veo3
    
    🗣️ TTS: "הקרא", "קרא", "דיבור", "speech", "TTS", "read this", "אמור"
       → "text_to_speech" + extract text after colon
