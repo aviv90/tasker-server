@@ -345,12 +345,15 @@ async function handleIncomingMessage(webhookData) {
     const senderContactName = senderData.senderContactName || "";
     const chatName = senderData.chatName || "";
     
-    // Handle text messages (both regular and extended)
+    // Handle text messages (regular, extended, and quoted)
     let messageText = null;
     
     if (messageData.typeMessage === 'textMessage') {
       messageText = messageData.textMessageData?.textMessage;
     } else if (messageData.typeMessage === 'extendedTextMessage') {
+      messageText = messageData.extendedTextMessageData?.text;
+    } else if (messageData.typeMessage === 'quotedMessage') {
+      // When replying to a message, the text is in extendedTextMessageData
       messageText = messageData.extendedTextMessageData?.text;
     }
     
@@ -367,6 +370,12 @@ async function handleIncomingMessage(webhookData) {
     if (messageData.typeMessage === 'videoMessage') {
       const caption = messageData.fileMessageData?.caption || messageData.videoMessageData?.caption;
       console.log(`   Video Caption: ${caption || 'N/A'}`);
+    }
+    if (messageData.typeMessage === 'quotedMessage' && messageData.quotedMessage) {
+      console.log(`   Quoted Message Type: ${messageData.quotedMessage.typeMessage}`);
+      if (messageData.quotedMessage.textMessage) {
+        console.log(`   Quoted Text: ${messageData.quotedMessage.textMessage.substring(0, 50)}...`);
+      }
     }
     
     // Unified intent router for commands that start with "# "
@@ -1087,12 +1096,15 @@ async function handleOutgoingMessage(webhookData) {
     const senderContactName = senderData.senderContactName || "";
     const chatName = senderData.chatName || "";
     
-    // Handle text messages (both regular and extended)
+    // Handle text messages (regular, extended, and quoted)
     let messageText = null;
     
     if (messageData.typeMessage === 'textMessage') {
       messageText = messageData.textMessageData?.textMessage;
     } else if (messageData.typeMessage === 'extendedTextMessage') {
+      messageText = messageData.extendedTextMessageData?.text;
+    } else if (messageData.typeMessage === 'quotedMessage') {
+      // When replying to a message, the text is in extendedTextMessageData
       messageText = messageData.extendedTextMessageData?.text;
     }
     
@@ -1109,6 +1121,12 @@ async function handleOutgoingMessage(webhookData) {
     if (messageData.typeMessage === 'videoMessage') {
       const caption = messageData.fileMessageData?.caption || messageData.videoMessageData?.caption;
       console.log(`   Video Caption: ${caption || 'N/A'}`);
+    }
+    if (messageData.typeMessage === 'quotedMessage' && messageData.quotedMessage) {
+      console.log(`   Quoted Message Type: ${messageData.quotedMessage.typeMessage}`);
+      if (messageData.quotedMessage.textMessage) {
+        console.log(`   Quoted Text: ${messageData.quotedMessage.textMessage.substring(0, 50)}...`);
+      }
     }
     
     // Unified intent router for outgoing when text starts with "# "
