@@ -23,6 +23,36 @@ const processedMessages = new Set();
 // Voice transcription and media authorization are managed through PostgreSQL database
 
 /**
+ * Clean sensitive/large data from objects for logging
+ * Removes base64 thumbnails and truncates long strings
+ */
+function cleanForLogging(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  
+  // Create a deep copy to avoid modifying the original
+  const cleaned = JSON.parse(JSON.stringify(obj));
+  
+  function cleanObject(o) {
+    for (const key in o) {
+      if (o[key] && typeof o[key] === 'object') {
+        cleanObject(o[key]);
+      } else if (key === 'jpegThumbnail' || key === 'thumbnail') {
+        // Replace base64 thumbnails with a short indicator
+        if (typeof o[key] === 'string' && o[key].length > 100) {
+          o[key] = `[base64 thumbnail: ${o[key].length} chars]`;
+        }
+      } else if (key === 'data' && typeof o[key] === 'string' && o[key].length > 200) {
+        // Truncate long base64 data fields
+        o[key] = `[base64 data: ${o[key].length} chars, starts with: ${o[key].substring(0, 50)}...]`;
+      }
+    }
+  }
+  
+  cleanObject(cleaned);
+  return cleaned;
+}
+
+/**
  * Check if user is authorized for media creation (images, videos, music)
  * @param {Object} senderData - WhatsApp sender data from Green API
  * @returns {Promise<boolean>} - True if user is authorized
@@ -207,7 +237,7 @@ router.post('/webhook', async (req, res) => {
     console.log('📱 Green API webhook received:');
     console.log(`   Type: ${webhookData.typeWebhook || 'unknown'}`);
     console.log(`   Message Type: ${webhookData.messageData?.typeMessage || 'N/A'}`);
-    console.log(`   Full Payload:`, JSON.stringify(webhookData, null, 2));
+    console.log(`   Full Payload:`, JSON.stringify(cleanForLogging(webhookData), null, 2));
 
     // Handle different webhook types asynchronously
     if (webhookData.typeWebhook === 'incomingMessageReceived') {
@@ -286,7 +316,7 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       
       if (!downloadUrl) {
         console.log('⚠️ No downloadUrl found in originalMessage structure:');
-        console.log(JSON.stringify(originalMessage, null, 2).substring(0, 500));
+        console.log(JSON.stringify(cleanForLogging(originalMessage), null, 2));
         throw new Error(`No downloadUrl found for quoted ${quotedType}. Cannot process media from bot's own messages yet.`);
       }
       
