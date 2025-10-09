@@ -267,19 +267,27 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       }
       
       // Extract download URL from the original message
+      // Try multiple possible locations in the response structure
       let downloadUrl = null;
+      
       if (quotedType === 'imageMessage') {
         downloadUrl = originalMessage.downloadUrl || 
                      originalMessage.fileMessageData?.downloadUrl || 
-                     originalMessage.imageMessageData?.downloadUrl;
+                     originalMessage.imageMessageData?.downloadUrl ||
+                     originalMessage.messageData?.fileMessageData?.downloadUrl ||
+                     originalMessage.messageData?.imageMessageData?.downloadUrl;
       } else if (quotedType === 'videoMessage') {
         downloadUrl = originalMessage.downloadUrl || 
                      originalMessage.fileMessageData?.downloadUrl || 
-                     originalMessage.videoMessageData?.downloadUrl;
+                     originalMessage.videoMessageData?.downloadUrl ||
+                     originalMessage.messageData?.fileMessageData?.downloadUrl ||
+                     originalMessage.messageData?.videoMessageData?.downloadUrl;
       }
       
       if (!downloadUrl) {
-        throw new Error(`No downloadUrl found for quoted ${quotedType}`);
+        console.log('⚠️ No downloadUrl found in originalMessage structure:');
+        console.log(JSON.stringify(originalMessage, null, 2).substring(0, 500));
+        throw new Error(`No downloadUrl found for quoted ${quotedType}. Cannot process media from bot's own messages yet.`);
       }
       
       console.log(`✅ Found downloadUrl for quoted ${quotedType}`);
@@ -306,7 +314,20 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
     
   } catch (error) {
     console.error('❌ Error handling quoted message:', error.message);
-    // Fallback: use current prompt only
+    
+    // If it's a downloadUrl error for bot's own messages, return a clear error
+    if (error.message.includes('Cannot process media from bot')) {
+      return {
+        hasImage: false,
+        hasVideo: false,
+        prompt: currentPrompt,
+        imageUrl: null,
+        videoUrl: null,
+        error: '⚠️ לא יכול לעבד תמונות/וידאו שהבוט שלח. שלח את המדיה מחדש או צטט הודעה ממשתמש אחר.'
+      };
+    }
+    
+    // For other errors, fallback to current prompt only
     return {
       hasImage: false,
       hasVideo: false,
@@ -395,6 +416,13 @@ async function handleIncomingMessage(webhookData) {
           
           // Handle quoted message - merge content
           const quotedResult = await handleQuotedMessage(quotedMessage, basePrompt, chatId);
+          
+          // Check if there was an error processing the quoted message
+          if (quotedResult.error) {
+            await sendTextMessage(chatId, quotedResult.error);
+            return;
+          }
+          
           finalPrompt = quotedResult.prompt;
           hasImage = quotedResult.hasImage;
           hasVideo = quotedResult.hasVideo;
@@ -1123,6 +1151,13 @@ async function handleOutgoingMessage(webhookData) {
           
           // Handle quoted message - merge content
           const quotedResult = await handleQuotedMessage(quotedMessage, basePrompt, chatId);
+          
+          // Check if there was an error processing the quoted message
+          if (quotedResult.error) {
+            await sendTextMessage(chatId, quotedResult.error);
+            return;
+          }
+          
           finalPrompt = quotedResult.prompt;
           hasImage = quotedResult.hasImage;
           hasVideo = quotedResult.hasVideo;
@@ -1478,6 +1513,13 @@ async function handleOutgoingMessage(webhookData) {
             
             // Handle quoted message - merge content
             const quotedResult = await handleQuotedMessage(quotedMessage, basePrompt, chatId);
+            
+            // Check if there was an error processing the quoted message
+            if (quotedResult.error) {
+              await sendTextMessage(chatId, quotedResult.error);
+              return;
+            }
+            
             finalPrompt = quotedResult.prompt;
             // Note: hasImage stays true for current message, but we might override with quoted
             if (quotedResult.hasImage || quotedResult.hasVideo) {
@@ -1587,6 +1629,13 @@ async function handleOutgoingMessage(webhookData) {
             
             // Handle quoted message - merge content
             const quotedResult = await handleQuotedMessage(quotedMessage, basePrompt, chatId);
+            
+            // Check if there was an error processing the quoted message
+            if (quotedResult.error) {
+              await sendTextMessage(chatId, quotedResult.error);
+              return;
+            }
+            
             finalPrompt = quotedResult.prompt;
             // Note: hasVideo stays true for current message, but we might override with quoted
             if (quotedResult.hasImage || quotedResult.hasVideo) {
