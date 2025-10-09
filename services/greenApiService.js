@@ -166,10 +166,44 @@ async function getContacts() {
   }
 }
 
+/**
+ * Get a specific message by ID
+ * Useful for fetching quoted messages with media downloadUrl
+ */
+async function getMessage(chatId, idMessage) {
+  try {
+    const url = `https://api.green-api.com/waInstance${GREEN_API_ID_INSTANCE}/getMessage/${GREEN_API_API_TOKEN_INSTANCE}`;
+    
+    const data = {
+      chatId: chatId,
+      idMessage: idMessage
+    };
+
+    console.log(`📨 Fetching message ${idMessage} from chat ${chatId}`);
+    
+    const response = await axios.post(url, data, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.data) {
+      throw new Error('No data received from getMessage');
+    }
+    
+    console.log(`✅ Message retrieved: ${response.data.type || 'unknown type'}`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error fetching message:', error.message);
+    throw error;
+  }
+}
+
 module.exports = {
   sendTextMessage,
   sendFileByUrl,
   downloadFile,
   getChatHistory,
-  getContacts
+  getContacts,
+  getMessage
 };

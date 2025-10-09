@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory } = require('../services/greenApiService');
+const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory, getMessage } = require('../services/greenApiService');
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary, parseTextToSpeechRequest, translateText } = require('../services/geminiService');
@@ -231,6 +231,95 @@ router.post('/webhook', async (req, res) => {
 });
 
 /**
+ * Handle quoted (replied) messages
+ * Merges quoted message content with current message prompt
+ */
+async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
+  try {
+    console.log(`🔗 Processing quoted message: ${quotedMessage.stanzaId}`);
+    
+    // Extract quoted message type and content
+    const quotedType = quotedMessage.typeMessage;
+    
+    // For text messages, combine both texts
+    if (quotedType === 'textMessage' || quotedType === 'extendedTextMessage') {
+      const quotedText = quotedMessage.textMessage || '';
+      const combinedPrompt = `${quotedText}\n\n${currentPrompt}`;
+      console.log(`📝 Combined text prompt: ${combinedPrompt.substring(0, 100)}...`);
+      return {
+        hasImage: false,
+        hasVideo: false,
+        prompt: combinedPrompt,
+        imageBuffer: null,
+        videoBuffer: null
+      };
+    }
+    
+    // For media messages (image/video), fetch the original message to get downloadUrl
+    if (quotedType === 'imageMessage' || quotedType === 'videoMessage') {
+      console.log(`📸 Quoted ${quotedType}, fetching original message...`);
+      
+      // getMessage returns the full message with proper downloadUrl
+      const originalMessage = await getMessage(chatId, quotedMessage.stanzaId);
+      
+      if (!originalMessage) {
+        throw new Error('Failed to fetch quoted message');
+      }
+      
+      // Extract download URL from the original message
+      let downloadUrl = null;
+      if (quotedType === 'imageMessage') {
+        downloadUrl = originalMessage.downloadUrl || 
+                     originalMessage.fileMessageData?.downloadUrl || 
+                     originalMessage.imageMessageData?.downloadUrl;
+      } else if (quotedType === 'videoMessage') {
+        downloadUrl = originalMessage.downloadUrl || 
+                     originalMessage.fileMessageData?.downloadUrl || 
+                     originalMessage.videoMessageData?.downloadUrl;
+      }
+      
+      if (!downloadUrl) {
+        throw new Error(`No downloadUrl found for quoted ${quotedType}`);
+      }
+      
+      console.log(`✅ Found downloadUrl for quoted ${quotedType}`);
+      
+      // Download the media
+      const mediaBuffer = await downloadFile(downloadUrl);
+      
+      return {
+        hasImage: quotedType === 'imageMessage',
+        hasVideo: quotedType === 'videoMessage',
+        prompt: currentPrompt, // Use current prompt as the instruction
+        imageBuffer: quotedType === 'imageMessage' ? mediaBuffer : null,
+        videoBuffer: quotedType === 'videoMessage' ? mediaBuffer : null
+      };
+    }
+    
+    // For other types, just use current prompt
+    console.log(`⚠️ Unsupported quoted message type: ${quotedType}, using current prompt only`);
+    return {
+      hasImage: false,
+      hasVideo: false,
+      prompt: currentPrompt,
+      imageBuffer: null,
+      videoBuffer: null
+    };
+    
+  } catch (error) {
+    console.error('❌ Error handling quoted message:', error.message);
+    // Fallback: use current prompt only
+    return {
+      hasImage: false,
+      hasVideo: false,
+      prompt: currentPrompt,
+      imageBuffer: null,
+      videoBuffer: null
+    };
+  }
+}
+
+/**
  * Handle incoming WhatsApp message
  */
 async function handleIncomingMessage(webhookData) {
@@ -283,10 +372,33 @@ async function handleIncomingMessage(webhookData) {
     // Unified intent router for commands that start with "# "
     if (messageText && /^#\s+/.test(messageText.trim())) {
       try {
+        // Extract the prompt (remove "# " prefix)
+        const basePrompt = messageText.trim().replace(/^#\s+/, '').trim();
+        
+        // Check if this is a quoted/replied message
+        const quotedMessage = messageData.quotedMessage;
+        let finalPrompt = basePrompt;
+        let hasImage = messageData.typeMessage === 'imageMessage';
+        let hasVideo = messageData.typeMessage === 'videoMessage';
+        let imageBuffer = null;
+        let videoBuffer = null;
+        
+        if (quotedMessage && quotedMessage.stanzaId) {
+          console.log(`🔗 Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
+          
+          // Handle quoted message - merge content
+          const quotedResult = await handleQuotedMessage(quotedMessage, basePrompt, chatId);
+          finalPrompt = quotedResult.prompt;
+          hasImage = quotedResult.hasImage;
+          hasVideo = quotedResult.hasVideo;
+          imageBuffer = quotedResult.imageBuffer;
+          videoBuffer = quotedResult.videoBuffer;
+        }
+        
         const normalized = {
-          userText: messageText.trim(),
-          hasImage: messageData.typeMessage === 'imageMessage',
-          hasVideo: messageData.typeMessage === 'videoMessage',
+          userText: `# ${finalPrompt}`, // Add back the # prefix for router
+          hasImage: hasImage,
+          hasVideo: hasVideo,
           hasAudio: messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage',
           chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
           language: 'he',
@@ -305,7 +417,7 @@ async function handleIncomingMessage(webhookData) {
         const decision = await routeIntent(normalized);
 
         // Router-based direct execution - call services directly
-        const prompt = decision.args?.prompt || normalized.userText.replace(/^#\s+/, '').trim();
+        const prompt = decision.args?.prompt || finalPrompt;
         
         try {
           switch (decision.tool) {
@@ -492,39 +604,74 @@ async function handleIncomingMessage(webhookData) {
             // ═══════════════════ IMAGE/VIDEO EDITING ═══════════════════
             case 'veo3_image_to_video':
             case 'kling_image_to_video':
-              if (messageData.typeMessage === 'imageMessage') {
-                const imageData = messageData.fileMessageData || messageData.imageMessageData;
+              // Use imageBuffer from quoted message if available, otherwise download from current message
+              if (hasImage) {
                 const service = decision.tool === 'veo3_image_to_video' ? 'veo3' : 'kling';
-                processImageToVideoAsync({
-                  chatId, senderId, senderName,
-                  imageUrl: imageData.downloadUrl,
-                  prompt: prompt,
-                  service: service
-                });
+                if (imageBuffer) {
+                  // From quoted message
+                  processImageToVideoAsync({
+                    chatId, senderId, senderName,
+                    imageBuffer: imageBuffer,
+                    prompt: prompt,
+                    service: service
+                  });
+                } else {
+                  // From current message
+                  const imageData = messageData.fileMessageData || messageData.imageMessageData;
+                  processImageToVideoAsync({
+                    chatId, senderId, senderName,
+                    imageUrl: imageData.downloadUrl,
+                    prompt: prompt,
+                    service: service
+                  });
+                }
               }
               return;
               
             case 'image_edit':
-              if (messageData.typeMessage === 'imageMessage') {
-                const imageData = messageData.fileMessageData || messageData.imageMessageData;
+              // Use imageBuffer from quoted message if available
+              if (hasImage) {
                 const service = decision.args?.service || 'gemini';
-                processImageEditAsync({
-                  chatId, senderId, senderName,
-                  imageUrl: imageData.downloadUrl,
-                  prompt: decision.args.prompt || prompt,
-                  service: service
-                });
+                if (imageBuffer) {
+                  // From quoted message
+                  processImageEditAsync({
+                    chatId, senderId, senderName,
+                    imageBuffer: imageBuffer,
+                    prompt: decision.args.prompt || prompt,
+                    service: service
+                  });
+                } else {
+                  // From current message
+                  const imageData = messageData.fileMessageData || messageData.imageMessageData;
+                  processImageEditAsync({
+                    chatId, senderId, senderName,
+                    imageUrl: imageData.downloadUrl,
+                    prompt: decision.args.prompt || prompt,
+                    service: service
+                  });
+                }
               }
               return;
               
             case 'video_to_video':
-              if (messageData.typeMessage === 'videoMessage') {
-                const videoData = messageData.fileMessageData || messageData.videoMessageData;
-                processVideoToVideoAsync({
-                  chatId, senderId, senderName,
-                  videoUrl: videoData.downloadUrl,
-                  prompt: decision.args?.prompt || prompt
-                });
+              // Use videoBuffer from quoted message if available
+              if (hasVideo) {
+                if (videoBuffer) {
+                  // From quoted message
+                  processVideoToVideoAsync({
+                    chatId, senderId, senderName,
+                    videoBuffer: videoBuffer,
+                    prompt: decision.args?.prompt || prompt
+                  });
+                } else {
+                  // From current message
+                  const videoData = messageData.fileMessageData || messageData.videoMessageData;
+                  processVideoToVideoAsync({
+                    chatId, senderId, senderName,
+                    videoUrl: videoData.downloadUrl,
+                    prompt: decision.args?.prompt || prompt
+                  });
+                }
               }
               return;
             
@@ -1653,7 +1800,7 @@ function processVideoToVideoAsync(videoData) {
 /**
  * Handle image edit with AI (Gemini or OpenAI)
  */
-async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt, service }) {
+async function handleImageEdit({ chatId, senderId, senderName, imageUrl, imageBuffer, prompt, service }) {
   console.log(`🎨 Processing ${service} image edit request from ${senderName}`);
   
   try {
@@ -1665,8 +1812,15 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
     
     // Note: Image editing commands do NOT add to conversation history
     
-    // Download the image first
-    const imageBuffer = await downloadFile(imageUrl);
+    // Download the image if not provided as buffer (from quoted message)
+    if (!imageBuffer && imageUrl) {
+      imageBuffer = await downloadFile(imageUrl);
+    }
+    
+    if (!imageBuffer) {
+      throw new Error('No image buffer or URL provided');
+    }
+    
     const base64Image = imageBuffer.toString('base64');
     
     // Edit image with selected AI service
@@ -1719,7 +1873,7 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
 /**
  * Handle image-to-video with Veo 3 or Kling
  */
-async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prompt, service = 'veo3' }) {
+async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, imageBuffer, prompt, service = 'veo3' }) {
   const serviceName = service === 'veo3' ? 'Veo 3' : 'Kling 2.1 Master';
   console.log(`🎬 Processing ${serviceName} image-to-video request from ${senderName}`);
   
@@ -1732,8 +1886,14 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
     
     // Note: Image-to-video commands do NOT add to conversation history
     
-    // Download the image first
-    const imageBuffer = await downloadFile(imageUrl);
+    // Download the image if not provided as buffer (from quoted message)
+    if (!imageBuffer && imageUrl) {
+      imageBuffer = await downloadFile(imageUrl);
+    }
+    
+    if (!imageBuffer) {
+      throw new Error('No image buffer or URL provided');
+    }
     
     // Generate video with selected service
     let videoResult;
@@ -1767,7 +1927,7 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
 /**
  * Handle video-to-video with RunwayML Gen4
  */
-async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prompt }) {
+async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, videoBuffer, prompt }) {
   console.log(`🎬 Processing RunwayML Gen4 video-to-video request from ${senderName}`);
   
   try {
@@ -1776,8 +1936,14 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
     
     // Note: Video-to-video commands do NOT add to conversation history
     
-    // Download the video first
-    const videoBuffer = await downloadFile(videoUrl);
+    // Download the video if not provided as buffer (from quoted message)
+    if (!videoBuffer && videoUrl) {
+      videoBuffer = await downloadFile(videoUrl);
+    }
+    
+    if (!videoBuffer) {
+      throw new Error('No video buffer or URL provided');
+    }
     
     // Generate video with RunwayML Gen4
     const videoResult = await generateRunwayVideoFromVideo(videoBuffer, prompt);
