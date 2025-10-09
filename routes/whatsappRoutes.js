@@ -1120,10 +1120,33 @@ async function handleOutgoingMessage(webhookData) {
         const senderContactName = senderData.senderContactName || "";
         const chatName = senderData.chatName || "";
 
+        // Extract the prompt (remove "# " prefix)
+        const basePrompt = messageText.trim().replace(/^#\s+/, '').trim();
+        
+        // Check if this is a quoted/replied message
+        const quotedMessage = messageData.quotedMessage;
+        let finalPrompt = basePrompt;
+        let hasImage = messageData.typeMessage === 'imageMessage';
+        let hasVideo = messageData.typeMessage === 'videoMessage';
+        let imageBuffer = null;
+        let videoBuffer = null;
+        
+        if (quotedMessage && quotedMessage.stanzaId) {
+          console.log(`🔗 Outgoing: Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
+          
+          // Handle quoted message - merge content
+          const quotedResult = await handleQuotedMessage(quotedMessage, basePrompt, chatId);
+          finalPrompt = quotedResult.prompt;
+          hasImage = quotedResult.hasImage;
+          hasVideo = quotedResult.hasVideo;
+          imageBuffer = quotedResult.imageBuffer;
+          videoBuffer = quotedResult.videoBuffer;
+        }
+
         const normalized = {
-          userText: messageText.trim(),
-          hasImage: messageData.typeMessage === 'imageMessage',
-          hasVideo: messageData.typeMessage === 'videoMessage',
+          userText: `# ${finalPrompt}`, // Add back the # prefix for router
+          hasImage: hasImage,
+          hasVideo: hasVideo,
           hasAudio: messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage',
           chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
           language: 'he',
@@ -1135,7 +1158,7 @@ async function handleOutgoingMessage(webhookData) {
         };
 
         const decision = await routeIntent(normalized);
-        const prompt = normalized.userText.replace(/^#\s+/, '').trim();
+        const prompt = decision.args?.prompt || finalPrompt;
 
         // Router-based direct execution for outgoing messages (same as incoming)
         try {
@@ -1449,10 +1472,37 @@ async function handleOutgoingMessage(webhookData) {
       
       if (/^#\s+/.test(caption.trim())) {
         try {
+          // Extract the prompt (remove "# " prefix)
+          const basePrompt = caption.trim().replace(/^#\s+/, '').trim();
+          
+          // Check if this is a quoted/replied message
+          const quotedMessage = messageData.quotedMessage;
+          let finalPrompt = basePrompt;
+          let hasImage = true; // Current message is image
+          let hasVideo = false;
+          let imageBuffer = null;
+          let videoBuffer = null;
+          
+          if (quotedMessage && quotedMessage.stanzaId) {
+            console.log(`🔗 Outgoing Image: Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
+            
+            // Handle quoted message - merge content
+            const quotedResult = await handleQuotedMessage(quotedMessage, basePrompt, chatId);
+            finalPrompt = quotedResult.prompt;
+            // Note: hasImage stays true for current message, but we might override with quoted
+            if (quotedResult.hasImage || quotedResult.hasVideo) {
+              // Quoted message has media - use that instead
+              hasImage = quotedResult.hasImage;
+              hasVideo = quotedResult.hasVideo;
+              imageBuffer = quotedResult.imageBuffer;
+              videoBuffer = quotedResult.videoBuffer;
+            }
+          }
+          
           const normalized = {
-            userText: caption.trim(),
-            hasImage: true,
-            hasVideo: false,
+            userText: `# ${finalPrompt}`,
+            hasImage: hasImage,
+            hasVideo: hasVideo,
             hasAudio: false,
             chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
             language: 'he',
@@ -1466,12 +1516,23 @@ async function handleOutgoingMessage(webhookData) {
             case 'image_edit': {
               const service = decision.args?.service || 'gemini';
               console.log(`🎨 ${service} image edit request (outgoing, via router)`);
-              processImageEditAsync({
-                chatId, senderId, senderName,
-                imageUrl: imageData.downloadUrl,
-                prompt: decision.args?.prompt || prompt,
-                service: service
-              });
+              if (imageBuffer) {
+                // From quoted message
+                processImageEditAsync({
+                  chatId, senderId, senderName,
+                  imageBuffer: imageBuffer,
+                  prompt: decision.args?.prompt || prompt,
+                  service: service
+                });
+              } else {
+                // From current message
+                processImageEditAsync({
+                  chatId, senderId, senderName,
+                  imageUrl: imageData.downloadUrl,
+                  prompt: decision.args?.prompt || prompt,
+                  service: service
+                });
+              }
               return;
             }
             
@@ -1481,12 +1542,23 @@ async function handleOutgoingMessage(webhookData) {
             case 'kling_image_to_video': {
               const service = (decision.tool === 'veo3_video' || decision.tool === 'veo3_image_to_video') ? 'veo3' : 'kling';
               console.log(`🎬 ${service} image-to-video request (outgoing, via router)`);
-              processImageToVideoAsync({
-                chatId, senderId, senderName,
-                imageUrl: imageData.downloadUrl,
-                prompt: decision.args?.prompt || prompt,
-                service: service
-              });
+              if (imageBuffer) {
+                // From quoted message
+                processImageToVideoAsync({
+                  chatId, senderId, senderName,
+                  imageBuffer: imageBuffer,
+                  prompt: decision.args?.prompt || prompt,
+                  service: service
+                });
+              } else {
+                // From current message
+                processImageToVideoAsync({
+                  chatId, senderId, senderName,
+                  imageUrl: imageData.downloadUrl,
+                  prompt: decision.args?.prompt || prompt,
+                  service: service
+                });
+              }
               return;
             }
             
@@ -1494,9 +1566,12 @@ async function handleOutgoingMessage(webhookData) {
               // Image analysis - use analyzeImageWithText
               const { analyzeImageWithText } = require('../services/geminiService');
               try {
-                // Download and convert image to base64
-                const imageBuffer = await downloadFile(imageData.downloadUrl);
-                const base64Image = imageBuffer.toString('base64');
+                // Use imageBuffer if available (from quoted), otherwise download
+                let finalImageBuffer = imageBuffer;
+                if (!finalImageBuffer) {
+                  finalImageBuffer = await downloadFile(imageData.downloadUrl);
+                }
+                const base64Image = finalImageBuffer.toString('base64');
                 
                 const result = await analyzeImageWithText(prompt, base64Image);
                 if (result.success) {
@@ -1531,10 +1606,37 @@ async function handleOutgoingMessage(webhookData) {
       
       if (/^#\s+/.test(caption.trim())) {
         try {
+          // Extract the prompt (remove "# " prefix)
+          const basePrompt = caption.trim().replace(/^#\s+/, '').trim();
+          
+          // Check if this is a quoted/replied message
+          const quotedMessage = messageData.quotedMessage;
+          let finalPrompt = basePrompt;
+          let hasImage = false;
+          let hasVideo = true; // Current message is video
+          let imageBuffer = null;
+          let videoBuffer = null;
+          
+          if (quotedMessage && quotedMessage.stanzaId) {
+            console.log(`🔗 Outgoing Video: Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
+            
+            // Handle quoted message - merge content
+            const quotedResult = await handleQuotedMessage(quotedMessage, basePrompt, chatId);
+            finalPrompt = quotedResult.prompt;
+            // Note: hasVideo stays true for current message, but we might override with quoted
+            if (quotedResult.hasImage || quotedResult.hasVideo) {
+              // Quoted message has media - use that instead
+              hasImage = quotedResult.hasImage;
+              hasVideo = quotedResult.hasVideo;
+              imageBuffer = quotedResult.imageBuffer;
+              videoBuffer = quotedResult.videoBuffer;
+            }
+          }
+          
           const normalized = {
-            userText: caption.trim(),
-            hasImage: false,
-            hasVideo: true,
+            userText: `# ${finalPrompt}`,
+            hasImage: hasImage,
+            hasVideo: hasVideo,
             hasAudio: false,
             chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
             language: 'he',
@@ -1542,16 +1644,26 @@ async function handleOutgoingMessage(webhookData) {
           };
 
           const decision = await routeIntent(normalized);
-          const prompt = normalized.userText.replace(/^#\s+/, '').trim();
+          const prompt = decision.args?.prompt || finalPrompt;
 
           switch (decision.tool) {
             case 'video_to_video': {
               console.log(`🎬 RunwayML Gen4 video-to-video request (outgoing, via router)`);
-              processVideoToVideoAsync({
-                chatId, senderId, senderName,
-                videoUrl: videoData.downloadUrl,
-                prompt: decision.args?.prompt || prompt
-              });
+              if (videoBuffer) {
+                // From quoted message
+                processVideoToVideoAsync({
+                  chatId, senderId, senderName,
+                  videoBuffer: videoBuffer,
+                  prompt: decision.args?.prompt || prompt
+                });
+              } else {
+                // From current message
+                processVideoToVideoAsync({
+                  chatId, senderId, senderName,
+                  videoUrl: videoData.downloadUrl,
+                  prompt: decision.args?.prompt || prompt
+                });
+              }
               return;
             }
             
