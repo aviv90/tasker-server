@@ -264,6 +264,7 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
         const response = result.response;
         if (!response.candidates || response.candidates.length === 0) {
             console.log('❌ Gemini edit: No candidates returned');
+            console.log('   Prompt feedback:', JSON.stringify(response.promptFeedback));
             return { 
                 success: false, 
                 error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' 
@@ -274,9 +275,25 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
         let text = '';
         let imageBuffer = null;
         
+        // Log detailed diagnostic info
+        console.log(`   Finish reason: ${cand.finishReason}`);
+        if (cand.safetyRatings) {
+            console.log(`   Safety ratings:`, JSON.stringify(cand.safetyRatings));
+        }
+        
         // Check if content and parts exist
         if (!cand.content || !cand.content.parts) {
             console.log('❌ Gemini edit: No content or parts found in candidate');
+            console.log('   Full candidate:', JSON.stringify(cand));
+            
+            // Check for safety blocks
+            if (cand.finishReason === 'SAFETY' || cand.finishReason === 'RECITATION' || cand.finishReason === 'PROHIBITED_CONTENT') {
+                return { 
+                    success: false, 
+                    error: `Gemini blocked the request due to: ${cand.finishReason}. Try a different image or prompt.` 
+                };
+            }
+            
             return { 
                 success: false, 
                 error: 'Invalid response structure from Gemini' 
@@ -294,10 +311,12 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
         
         if (!imageBuffer) {
             console.log('❌ Gemini edit: No image data found in response');
+            console.log(`   Got text response (${text.length} chars): ${text.substring(0, 200)}...`);
             
             // If we got text but no image, try to generate a new image based on the text
             if (text && text.trim().length > 0) {
                 console.log('📝 Gemini edit returned text instead of image, attempting to generate new image');
+                console.log(`   Will try to generate image from: "${text.trim().substring(0, 100)}..."`);
                 
                 try {
                     // Try to generate a new image based on the text response
@@ -311,9 +330,11 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
                             fileName: generateResult.fileName,
                             generatedFromText: true // Flag to indicate this was generated from text
                         };
+                    } else {
+                        console.log(`❌ Image generation failed: ${generateResult.error}`);
                     }
                 } catch (generateError) {
-                    console.error('❌ Failed to generate image from text:', generateError);
+                    console.error('❌ Failed to generate image from text:', generateError.message);
                 }
                 
                 // If image generation failed, return error instead of text-only
