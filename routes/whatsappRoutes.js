@@ -202,14 +202,12 @@ router.post('/webhook', async (req, res) => {
     }
 
     const webhookData = req.body;
-    // Log full webhook payload (all fields)
-    try {
-      console.log('📱 Green API webhook received (full payload):');
-      console.log(`📱 Webhook received: ${webhookData.typeMessage || 'unknown'}`);
-    } catch (e) {
-      console.log('📱 Green API webhook received (payload logging failed), raw object follows:');
-      console.log(webhookData);
-    }
+    
+    // Log full webhook payload for debugging
+    console.log('📱 Green API webhook received:');
+    console.log(`   Type: ${webhookData.typeWebhook || 'unknown'}`);
+    console.log(`   Message Type: ${webhookData.messageData?.typeMessage || 'N/A'}`);
+    console.log(`   Full Payload:`, JSON.stringify(webhookData, null, 2));
 
     // Handle different webhook types asynchronously
     if (webhookData.typeWebhook === 'incomingMessageReceived') {
@@ -258,8 +256,6 @@ async function handleIncomingMessage(webhookData) {
     const senderContactName = senderData.senderContactName || "";
     const chatName = senderData.chatName || "";
     
-    console.log(`📱 ${senderName}: ${messageData.typeMessage}`);
-    
     // Handle text messages (both regular and extended)
     let messageText = null;
     
@@ -267,6 +263,21 @@ async function handleIncomingMessage(webhookData) {
       messageText = messageData.textMessageData?.textMessage;
     } else if (messageData.typeMessage === 'extendedTextMessage') {
       messageText = messageData.extendedTextMessageData?.text;
+    }
+    
+    // Enhanced logging for incoming messages
+    console.log(`📱 Incoming from ${senderName}:`);
+    console.log(`   Message Type: ${messageData.typeMessage}`);
+    if (messageText) {
+      console.log(`   Text: ${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}`);
+    }
+    if (messageData.typeMessage === 'imageMessage') {
+      const caption = messageData.fileMessageData?.caption || messageData.imageMessageData?.caption;
+      console.log(`   Image Caption: ${caption || 'N/A'}`);
+    }
+    if (messageData.typeMessage === 'videoMessage') {
+      const caption = messageData.fileMessageData?.caption || messageData.videoMessageData?.caption;
+      console.log(`   Video Caption: ${caption || 'N/A'}`);
     }
     
     // Unified intent router for commands that start with "# "
@@ -929,8 +940,6 @@ async function handleOutgoingMessage(webhookData) {
     const senderContactName = senderData.senderContactName || "";
     const chatName = senderData.chatName || "";
     
-    console.log(`📤 ${senderName}: ${messageData.typeMessage}`);
-    
     // Handle text messages (both regular and extended)
     let messageText = null;
     
@@ -938,6 +947,21 @@ async function handleOutgoingMessage(webhookData) {
       messageText = messageData.textMessageData?.textMessage;
     } else if (messageData.typeMessage === 'extendedTextMessage') {
       messageText = messageData.extendedTextMessageData?.text;
+    }
+    
+    // Enhanced logging for outgoing messages
+    console.log(`📤 Outgoing from ${senderName}:`);
+    console.log(`   Message Type: ${messageData.typeMessage}`);
+    if (messageText) {
+      console.log(`   Text: ${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}`);
+    }
+    if (messageData.typeMessage === 'imageMessage') {
+      const caption = messageData.fileMessageData?.caption || messageData.imageMessageData?.caption;
+      console.log(`   Image Caption: ${caption || 'N/A'}`);
+    }
+    if (messageData.typeMessage === 'videoMessage') {
+      const caption = messageData.fileMessageData?.caption || messageData.videoMessageData?.caption;
+      console.log(`   Video Caption: ${caption || 'N/A'}`);
     }
     
     // Unified intent router for outgoing when text starts with "# "
