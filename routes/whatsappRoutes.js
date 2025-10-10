@@ -378,7 +378,13 @@ async function handleIncomingMessage(webhookData) {
     const senderData = webhookData.senderData;
     
     // Extract message ID for deduplication
-    const messageId = webhookData.idMessage;
+    let messageId = webhookData.idMessage;
+    
+    // For edited messages, append suffix to ensure they're processed even if original was processed
+    if (messageData.typeMessage === 'editedMessage') {
+      messageId = `${messageId}_edited_${Date.now()}`;
+      console.log(`✏️ Edited message - using unique ID for reprocessing: ${messageId}`);
+    }
     
     // Check if we already processed this message
     if (processedMessages.has(messageId)) {
@@ -395,7 +401,7 @@ async function handleIncomingMessage(webhookData) {
     const senderContactName = senderData.senderContactName || "";
     const chatName = senderData.chatName || "";
     
-    // Handle text messages (regular, extended, and quoted)
+    // Handle text messages (regular, extended, quoted, and edited)
     let messageText = null;
     
     if (messageData.typeMessage === 'textMessage') {
@@ -405,11 +411,17 @@ async function handleIncomingMessage(webhookData) {
     } else if (messageData.typeMessage === 'quotedMessage') {
       // When replying to a message, the text is in extendedTextMessageData
       messageText = messageData.extendedTextMessageData?.text;
+    } else if (messageData.typeMessage === 'editedMessage') {
+      // Handle edited messages - treat them as regular messages
+      messageText = messageData.extendedTextMessageData?.text || 
+                   messageData.editedMessage?.editedMessageData?.text ||
+                   messageData.textMessageData?.textMessage;
+      console.log(`✏️ Edited message detected, treating as regular message`);
     }
     
     // Enhanced logging for incoming messages
     console.log(`📱 Incoming from ${senderName}:`);
-    console.log(`   Message Type: ${messageData.typeMessage}`);
+    console.log(`   Message Type: ${messageData.typeMessage}${messageData.typeMessage === 'editedMessage' ? ' ✏️' : ''}`);
     if (messageText) {
       console.log(`   Text: ${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}`);
     }
@@ -1191,7 +1203,13 @@ async function handleOutgoingMessage(webhookData) {
     const senderData = webhookData.senderData;
     
     // Extract message ID for deduplication
-    const messageId = webhookData.idMessage;
+    let messageId = webhookData.idMessage;
+    
+    // For edited messages, append suffix to ensure they're processed even if original was processed
+    if (messageData.typeMessage === 'editedMessage') {
+      messageId = `${messageId}_edited_${Date.now()}`;
+      console.log(`✏️ Edited message (outgoing) - using unique ID for reprocessing: ${messageId}`);
+    }
     
     // Check if we already processed this message
     if (processedMessages.has(messageId)) {
@@ -1208,7 +1226,7 @@ async function handleOutgoingMessage(webhookData) {
     const senderContactName = senderData.senderContactName || "";
     const chatName = senderData.chatName || "";
     
-    // Handle text messages (regular, extended, and quoted)
+    // Handle text messages (regular, extended, quoted, and edited)
     let messageText = null;
     
     if (messageData.typeMessage === 'textMessage') {
@@ -1218,11 +1236,17 @@ async function handleOutgoingMessage(webhookData) {
     } else if (messageData.typeMessage === 'quotedMessage') {
       // When replying to a message, the text is in extendedTextMessageData
       messageText = messageData.extendedTextMessageData?.text;
+    } else if (messageData.typeMessage === 'editedMessage') {
+      // Handle edited messages - treat them as regular messages
+      messageText = messageData.extendedTextMessageData?.text || 
+                   messageData.editedMessage?.editedMessageData?.text ||
+                   messageData.textMessageData?.textMessage;
+      console.log(`✏️ Edited message detected (outgoing), treating as regular message`);
     }
     
     // Enhanced logging for outgoing messages
     console.log(`📤 Outgoing from ${senderName}:`);
-    console.log(`   Message Type: ${messageData.typeMessage}`);
+    console.log(`   Message Type: ${messageData.typeMessage}${messageData.typeMessage === 'editedMessage' ? ' ✏️' : ''}`);
     if (messageText) {
       console.log(`   Text: ${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}`);
     }
