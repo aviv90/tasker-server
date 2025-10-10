@@ -34,15 +34,16 @@ Return ONLY a JSON object (no markdown, no extra text) with this exact structure
 }
 
 Rules:
-1. Extract the group name from phrases like "בשם", "קוראים", "שם", "called", "named", or from quotes
-2. Extract participant names from lists after "עם", "with", "והם", "including", etc.
-3. Parse comma-separated names or names with "ו" (and) / "and"
-4. Return names as they appear (don't translate or modify)
-5. If group name is in quotes, extract it without quotes
-6. If no clear group name, use a reasonable default based on context
-7. Extract picture description from phrases like "עם תמונה של", "with picture of", "with image of", etc.
-8. If no picture mentioned, set groupPicture to null
-9. Picture description should be detailed and in English for best image generation results
+1. Recognize group creation keywords: "צור קבוצה", "פתח קבוצה", "הקם קבוצה", "יצירת קבוצה", "create group", "open group", "start group", "new group"
+2. Extract the group name from phrases like "בשם", "קוראים", "שם", "called", "named", or from quotes
+3. Extract participant names from lists after "עם", "with", "והם", "including", etc.
+4. Parse comma-separated names or names with "ו" (and) / "and"
+5. Return names as they appear (don't translate or modify)
+6. If group name is in quotes, extract it without quotes
+7. If no clear group name, use a reasonable default based on context
+8. Extract picture description from phrases like "עם תמונה של", "with picture of", "with image of", etc.
+9. If no picture mentioned, set groupPicture to null
+10. Picture description should be detailed and in English for best image generation results
 
 Examples:
 
@@ -55,11 +56,17 @@ Output: {"groupName":"Project Team","participants":["John","Sarah","Mike"],"grou
 Input: "צור קבוצה עם קרלוס בשם 'כדורגל בשכונה' עם תמונה של ברבור"
 Output: {"groupName":"כדורגל בשכונה","participants":["קרלוס"],"groupPicture":"a beautiful swan"}
 
-Input: "צור קבוצה עם אבי ורועי בשם 'פרויקט X' עם תמונה של רובוט עתידני"
+Input: "פתח קבוצה עם אבי ורועי בשם 'פרויקט X' עם תמונה של רובוט עתידני"
 Output: {"groupName":"פרויקט X","participants":["אבי","רועי"],"groupPicture":"a futuristic robot"}
 
+Input: "הקם קבוצה משפחתית עם אמא ואבא"
+Output: {"groupName":"משפחתית","participants":["אמא","אבא"],"groupPicture":null}
+
 Input: "create group Work Team with Mike, Sarah with picture of a mountain sunset"
-Output: {"groupName":"Work Team","participants":["Mike","Sarah"],"groupPicture":"a mountain sunset"}`;
+Output: {"groupName":"Work Team","participants":["Mike","Sarah"],"groupPicture":"a mountain sunset"}
+
+Input: "open group Friends with John, Lisa, Tom"
+Output: {"groupName":"Friends","participants":["John","Lisa","Tom"],"groupPicture":null}`;
 
     const result = await geminiText(parsingPrompt, [], { model: 'gemini-2.5-flash' });
     

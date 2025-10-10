@@ -122,7 +122,7 @@ async function routeIntent(input) {
     const isSummary = /\b(summary)\b|סכם|סיכום|לסכם/i.test(prompt);
     const isMusic = /\b(suno|music|song)\b|שיר|מוזיקה|שירון/i.test(prompt);
     const isHelp = /\b(commands|list|help|capabilities)\b|פקודות|רשימת|רשימה|עזרה|אילו|מה\s+אפשר|what\s+can/i.test(prompt);
-    const isCreateGroup = /צור.*קבוצה|יצירת.*קבוצה|create.*group|new.*group|קבוצה.*חדשה/i.test(prompt);
+    const isCreateGroup = /צור.*קבוצה|יצירת.*קבוצה|פתח.*קבוצה|פתיחת.*קבוצה|הקם.*קבוצה|הקמת.*קבוצה|create.*group|new.*group|open.*group|start.*group|קבוצה.*חדשה/i.test(prompt);
     
     if (isSummary) {
       return { tool: 'chat_summary', args: {}, reason: 'User requested summary' };
@@ -339,6 +339,12 @@ ${JSON.stringify(payload, null, 2)}
       Keywords: "סכם", "סיכום", "summary", "לסכם", "summarize"
       → "chat_summary"
    
+   👥 **Group Creation:**
+      Keywords: "צור קבוצה", "יצירת קבוצה", "פתח קבוצה", "פתיחת קבוצה", "הקם קבוצה", "הקמת קבוצה", "create group", "new group", "open group", "start group", "קבוצה חדשה"
+      → "create_group"
+      ⚠️ Requires media_creation authorization
+      💡 Can include: group name, participants, and optional picture description
+   
    ℹ️ **Help/Commands:**
       Keywords: "פקודות", "רשימת פקודות", "רשימה", "commands", "list", "help", "עזרה", "capabilities"
       → "show_help"
@@ -415,6 +421,16 @@ ${JSON.stringify(payload, null, 2)}
    
    Input: {"userText": "# summarize", "hasImage": false, "hasVideo": false}
    Output: {"tool": "chat_summary", "args": {"prompt": "summarize"}, "reason": "Summary request"}
+
+   ✅ GROUP CREATION:
+   Input: {"userText": "# צור קבוצה בשם 'כדורגל' עם אבי, רועי", "hasImage": false, "hasVideo": false}
+   Output: {"tool": "create_group", "args": {"prompt": "צור קבוצה בשם 'כדורגל' עם אבי, רועי"}, "reason": "Group creation"}
+   
+   Input: {"userText": "# פתח קבוצה עבודה עם שרה ומיכאל", "hasImage": false, "hasVideo": false}
+   Output: {"tool": "create_group", "args": {"prompt": "פתח קבוצה עבודה עם שרה ומיכאל"}, "reason": "Group creation"}
+   
+   Input: {"userText": "# create group Project Team with John, Mike", "hasImage": false, "hasVideo": false}
+   Output: {"tool": "create_group", "args": {"prompt": "create group Project Team with John, Mike"}, "reason": "Group creation"}
 
    ✅ PROVIDER VARIATIONS (case-insensitive, space-flexible):
    Input: {"userText": "# Draw a cat with OPENAI", "hasImage": false, "hasVideo": false}
