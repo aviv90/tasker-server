@@ -122,21 +122,12 @@ async function routeIntent(input) {
     const isSummary = /\b(summary)\b|סכם|סיכום|לסכם/i.test(prompt);
     const isMusic = /\b(suno|music|song)\b|שיר|מוזיקה|שירון/i.test(prompt);
     const isHelp = /\b(commands|list|help|capabilities)\b|פקודות|רשימת|רשימה|עזרה|אילו|מה\s+אפשר|what\s+can/i.test(prompt);
-    const isCreateGroup = /צור.*קבוצה|יצירת.*קבוצה|create\s*group|new\s*group|קבוצה\s*חדשה/i.test(prompt);
-
     if (isSummary) {
       return { tool: 'chat_summary', args: {}, reason: 'User requested summary' };
     }
 
     if (isHelp) {
       return { tool: 'show_help', args: {}, reason: 'User requested command list' };
-    }
-
-    if (isCreateGroup) {
-      if (!input.authorizations?.media_creation) {
-        return { tool: 'deny_unauthorized', args: { feature: 'create_group' }, reason: 'No authorization for group creation' };
-      }
-      return { tool: 'create_group', args: {}, reason: 'User requested group creation' };
     }
 
     if (isTtsLike) {
@@ -234,7 +225,7 @@ function validateDecision(obj) {
     'gemini_image', 'openai_image', 'grok_image',
     'veo3_video', 'kling_text_to_video', 'veo3_image_to_video', 'kling_image_to_video', 'video_to_video',
     'image_edit', 'text_to_speech', 'gemini_chat', 'openai_chat', 'grok_chat',
-    'chat_summary', 'music_generation', 'creative_voice_processing', 'show_help', 'create_group', 'deny_unauthorized', 'ask_clarification'
+    'chat_summary', 'music_generation', 'creative_voice_processing', 'show_help', 'deny_unauthorized', 'ask_clarification'
   ]);
   if (!allowedTools.has(tool)) return null;
   return { tool, args, reason };
@@ -338,11 +329,6 @@ ${JSON.stringify(payload, null, 2)}
    📝 **Chat Summary:**
       Keywords: "סכם", "סיכום", "summary", "לסכם", "summarize"
       → "chat_summary"
-   
-   👥 **Create Group:**
-      Keywords: "צור קבוצה", "יצירת קבוצה", "create group", "new group", "קבוצה חדשה"
-      → "create_group"
-      ⚠️ Requires media_creation authorization
    
    ℹ️ **Help/Commands:**
       Keywords: "פקודות", "רשימת פקודות", "רשימה", "commands", "list", "help", "עזרה", "capabilities"
@@ -497,7 +483,7 @@ ${JSON.stringify(payload, null, 2)}
 }
 
 ⚙️ AVAILABLE TOOLS:
-gemini_chat, openai_chat, grok_chat, gemini_image, openai_image, grok_image, kling_text_to_video, veo3_video, kling_image_to_video, veo3_image_to_video, video_to_video, image_edit, text_to_speech, music_generation, chat_summary, creative_voice_processing, deny_unauthorized, ask_clarification, show_help, create_group`;
+gemini_chat, openai_chat, grok_chat, gemini_image, openai_image, grok_image, kling_text_to_video, veo3_video, kling_image_to_video, veo3_image_to_video, video_to_video, image_edit, text_to_speech, music_generation, chat_summary, creative_voice_processing, deny_unauthorized, ask_clarification, show_help`;
 }
 
 

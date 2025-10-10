@@ -97,6 +97,7 @@ function isAdminCommand(commandType) {
     'remove_media_authorization',
     'voice_transcription_status',
     'clear_all_conversations',
+    'sync_contacts',
     // New admin shortcuts without explicit name
     'add_media_authorization_current',
     'include_in_transcription_current'
@@ -825,41 +826,6 @@ async function handleIncomingMessage(webhookData) {
               return;
             }
             
-            // ═══════════════════ CREATE GROUP ═══════════════════
-            case 'create_group': {
-              try {
-                await sendTextMessage(chatId, '📇 מעדכן רשימת אנשי קשר...');
-                
-                // Fetch contacts from Green API
-                const { getContacts } = require('../services/greenApiService');
-                const contacts = await getContacts();
-                
-                if (!contacts || contacts.length === 0) {
-                  await sendTextMessage(chatId, '⚠️ לא נמצאו אנשי קשר');
-                  return;
-                }
-                
-                // Sync to database
-                const syncResult = await conversationManager.syncContacts(contacts);
-                
-                const resultMessage = `✅ עדכון אנשי קשר הושלם!
-
-📊 סטטיסטיקה:
-• חדשים: ${syncResult.inserted}
-• עודכנו: ${syncResult.updated}  
-• סה"כ: ${syncResult.total}
-
-💾 כל אנשי הקשר נשמרו במסד הנתונים`;
-                
-                await sendTextMessage(chatId, resultMessage);
-                console.log(`✅ Contacts synced successfully for ${senderName}`);
-              } catch (error) {
-                console.error('❌ Error syncing contacts:', error);
-                await sendTextMessage(chatId, `❌ שגיאה בעדכון אנשי קשר: ${error.message}`);
-              }
-              return;
-            }
-            
             case 'voice_processing':
             case 'creative_voice_processing':
               // Voice messages are handled by separate block below
@@ -1465,41 +1431,6 @@ async function handleOutgoingMessage(webhookData) {
 • הסר מיצירה [שם] - הסר הרשאה
               `;
               await sendTextMessage(chatId, helpText.trim());
-              return;
-            }
-            
-            // ═══════════════════ CREATE GROUP ═══════════════════
-            case 'create_group': {
-              try {
-                await sendTextMessage(chatId, '📇 מעדכן רשימת אנשי קשר...');
-                
-                // Fetch contacts from Green API
-                const { getContacts } = require('../services/greenApiService');
-                const contacts = await getContacts();
-                
-                if (!contacts || contacts.length === 0) {
-                  await sendTextMessage(chatId, '⚠️ לא נמצאו אנשי קשר');
-                  return;
-                }
-                
-                // Sync to database
-                const syncResult = await conversationManager.syncContacts(contacts);
-                
-                const resultMessage = `✅ עדכון אנשי קשר הושלם!
-
-📊 סטטיסטיקה:
-• חדשים: ${syncResult.inserted}
-• עודכנו: ${syncResult.updated}  
-• סה"כ: ${syncResult.total}
-
-💾 כל אנשי הקשר נשמרו במסד הנתונים`;
-                
-                await sendTextMessage(chatId, resultMessage);
-                console.log(`✅ Contacts synced successfully for ${senderName}`);
-              } catch (error) {
-                console.error('❌ Error syncing contacts:', error);
-                await sendTextMessage(chatId, `❌ שגיאה בעדכון אנשי קשר: ${error.message}`);
-              }
               return;
             }
             
@@ -2412,6 +2343,11 @@ function parseTextCommand(text) {
     return { type: 'voice_transcription_status' };
   }
 
+  // Sync contacts from Green API
+  if (text === 'עדכן אנשי קשר') {
+    return { type: 'sync_contacts' };
+  }
+
   // Media creation authorization commands
   if (text.startsWith('הוסף ליצירה ')) {
     const contactName = text.substring('הוסף ליצירה '.length).trim();
@@ -2513,6 +2449,40 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           await sendTextMessage(chatId, statusText);
         } else {
           await sendTextMessage(chatId, 'ℹ️ אין משתמשים מורשים לתמלול');
+        }
+        break;
+      }
+
+      case 'sync_contacts': {
+        try {
+          await sendTextMessage(chatId, '📇 מעדכן רשימת אנשי קשר...');
+          
+          // Fetch contacts from Green API
+          const { getContacts } = require('../services/greenApiService');
+          const contacts = await getContacts();
+          
+          if (!contacts || contacts.length === 0) {
+            await sendTextMessage(chatId, '⚠️ לא נמצאו אנשי קשר');
+            return;
+          }
+          
+          // Sync to database
+          const syncResult = await conversationManager.syncContacts(contacts);
+          
+          const resultMessage = `✅ עדכון אנשי קשר הושלם!
+
+📊 סטטיסטיקה:
+• חדשים: ${syncResult.inserted}
+• עודכנו: ${syncResult.updated}  
+• סה"כ: ${syncResult.total}
+
+💾 כל אנשי הקשר נשמרו במסד הנתונים`;
+          
+          await sendTextMessage(chatId, resultMessage);
+          console.log(`✅ Contacts synced successfully by ${senderName}`);
+        } catch (error) {
+          console.error('❌ Error syncing contacts:', error);
+          await sendTextMessage(chatId, `❌ שגיאה בעדכון אנשי קשר: ${error.message}`);
         }
         break;
       }
