@@ -65,15 +65,14 @@ async function routeIntent(input) {
     return { tool: 'creative_voice_processing', args: {}, reason: 'Audio message - creative flow' };
   }
 
-  // If there is an attached image with text prompt → decide between image edit vs image→video
+  // If there is an attached image with text prompt → decide between image edit vs image→video vs analysis
   if (input.hasImage && prompt) {
-    if (!input.authorizations?.media_creation) {
-      return { tool: 'deny_unauthorized', args: { feature: 'image_edit' }, reason: 'No media creation authorization' };
-    }
-    // All checks are case-insensitive using /i flag
-    // Using \b for word boundaries to match whole words only (for English words)
+    // First priority: Check if it's a video generation request
     const isVideoLike = /\b(video|animate|motion|clip)\b|וידאו|סרט|אנימציה|הנפש|להנפיש|תזיז|קליפ/i.test(prompt);
     if (isVideoLike) {
+      if (!input.authorizations?.media_creation) {
+        return { tool: 'deny_unauthorized', args: { feature: 'image_to_video' }, reason: 'No media creation authorization' };
+      }
       // Check if user explicitly requested Veo3 (case-insensitive, with or without space)
       const wantsVeo3 = /\bveo\s*3?\b/i.test(prompt);
       if (wantsVeo3) {
@@ -82,16 +81,30 @@ async function routeIntent(input) {
       // Default to Kling for image-to-video
       return { tool: 'kling_image_to_video', args: { prompt }, reason: 'Image attached, video-like request' };
     }
-    // Check if user wants image analysis instead of editing
-    const isAnalysisRequest = /\b(describe|what|analyze|how|why|when|where|who)\b|מה|מה\s+זה|מה\s+מופיע|תאר|ניתוח|תיאור|איך|למה|מתי|איפה|מי/i.test(prompt);
+    
+    // Second priority: Check if user wants image analysis/questions (text-only response)
+    // Expanded to include more question patterns and info requests
+    const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous|מסוכן|בטוח)\b/i.test(prompt);
     if (isAnalysisRequest) {
-      return { tool: 'gemini_chat', args: { prompt }, reason: 'Image analysis request' };
+      return { tool: 'gemini_chat', args: { prompt }, reason: 'Image analysis/question' };
     }
     
-    // Default to Gemini for image editing, unless user explicitly requests OpenAI
-    const wantsOpenAI = /\b(open\s*ai|gpt|dall[\s-]*e)\b/i.test(prompt);
-    const service = wantsOpenAI ? 'openai' : 'gemini';
-    return { tool: 'image_edit', args: { service, prompt }, reason: 'Image attached with prompt' };
+    // Third priority: Check if it's an edit command (requires authorization)
+    // Edit keywords: add, remove, change, make, create, replace, etc.
+    const isEditRequest = /\b(add|remove|delete|change|replace|modify|edit|make|create|draw|paint|color|set|put|insert|erase|fix|adjust|enhance|improve|transform|convert)\b|הוסף|הסר|מחק|שנה|החלף|ערוך|צור|צייר|צבע|הכנס|תקן|שפר|המר|הפוך(?!.*וידאו)|עשה|תן/i.test(prompt);
+    if (isEditRequest) {
+      if (!input.authorizations?.media_creation) {
+        return { tool: 'deny_unauthorized', args: { feature: 'image_edit' }, reason: 'No media creation authorization' };
+      }
+      // Check for explicit provider requests
+      const wantsOpenAI = /\b(open\s*ai|gpt|dall[\s-]*e)\b/i.test(prompt);
+      const service = wantsOpenAI ? 'openai' : 'gemini';
+      return { tool: 'image_edit', args: { service, prompt }, reason: 'Image edit request' };
+    }
+    
+    // Default: If no clear pattern detected, treat as analysis/question
+    // This is safer than defaulting to edit
+    return { tool: 'gemini_chat', args: { prompt }, reason: 'Image-related request (default to analysis)' };
   }
 
   // If there is an attached video with text prompt → video-to-video
@@ -290,12 +303,35 @@ ${JSON.stringify(payload, null, 2)}
 📋 DECISION LOGIC (follow this EXACT order):
 
 1️⃣ **IF hasImage=true** (user sent an image):
-   - Image + video keywords + Veo mention → "veo3_image_to_video"
-     ✓ Veo mentions: "veo", "Veo", "VEO", "veo 3", "Veo 3", "VEO 3", "veo3", etc.
-   - Image + video keywords (NO Veo) → "kling_image_to_video"
-   - Image + analysis keywords (what/describe/מה/תאר) → "gemini_chat"
-   - Image + edit request → "image_edit" 
-   - Image alone (no text) → "ask_clarification"
+   PRIORITY ORDER (check in this exact sequence):
+   
+   A. **Video Generation** (highest priority for video keywords):
+      - Image + video keywords + Veo mention → "veo3_image_to_video"
+        ✓ Veo mentions: "veo", "Veo", "VEO", "veo 3", "Veo 3", "VEO 3", "veo3", etc.
+        ✓ Video keywords: "וידאו", "video", "סרט", "אנימציה", "הנפש", "להנפיש", "animate", "motion", "clip"
+      - Image + video keywords (NO Veo) → "kling_image_to_video"
+   
+   B. **Analysis/Questions** (second priority - text-only response):
+      ✓ Question words: "מה", "איך", "למה", "האם", "מי", "איפה", "מתי", "כמה", "what", "how", "why", "is", "are", "does", "can", "should", "could", "would", "who", "where", "when", "which"
+      ✓ Info requests: "תאר", "ספר", "הסבר", "זהה", "בדוק", "describe", "explain", "tell", "identify", "analyze", "detect", "recognize"
+      ✓ Safety/assessment: "בטוח", "מסוכן", "safe", "dangerous", "good", "bad"
+      ✓ Pattern examples:
+        - "מה זה?" → "gemini_chat"
+        - "האם הכלב מסוכן?" → "gemini_chat"
+        - "תאר את התמונה" → "gemini_chat"
+        - "is this safe?" → "gemini_chat"
+        - "can I eat this?" → "gemini_chat"
+      → "gemini_chat" (text-only analysis)
+   
+   C. **Image Editing** (third priority - requires authorization):
+      ✓ Edit keywords: "הוסף", "הסר", "מחק", "שנה", "החלף", "ערוך", "צבע", "add", "remove", "delete", "change", "replace", "edit", "make", "create", "draw", "paint", "color"
+      ✓ Requires media_creation authorization
+      ✓ Check provider preference (OpenAI/Gemini)
+      → "image_edit"
+   
+   D. **Default** (no clear pattern):
+      - If unclear → "gemini_chat" (safer to analyze than edit)
+   
    ⚠️ NEVER choose music/TTS/help when hasImage=true
 
 2️⃣ **IF hasVideo=true** (user sent a video):
@@ -397,9 +433,24 @@ ${JSON.stringify(payload, null, 2)}
    Input: {"userText": "# הוסף כובע עם OpenAI", "hasImage": true, "hasVideo": false}
    Output: {"tool": "image_edit", "args": {"service": "openai", "prompt": "הוסף כובע עם OpenAI"}, "reason": "Edit image with OpenAI"}
 
-   ✅ IMAGE ANALYSIS:
+   ✅ IMAGE ANALYSIS (Text-only response):
    Input: {"userText": "# מה זה?", "hasImage": true, "hasVideo": false}
    Output: {"tool": "gemini_chat", "args": {"prompt": "מה זה?"}, "reason": "Image analysis"}
+   
+   Input: {"userText": "# תאר את התמונה", "hasImage": true, "hasVideo": false}
+   Output: {"tool": "gemini_chat", "args": {"prompt": "תאר את התמונה"}, "reason": "Image analysis"}
+   
+   Input: {"userText": "# האם הכלב מסוכן?", "hasImage": true, "hasVideo": false}
+   Output: {"tool": "gemini_chat", "args": {"prompt": "האם הכלב מסוכן?"}, "reason": "Image analysis"}
+   
+   Input: {"userText": "# is this safe to eat?", "hasImage": true, "hasVideo": false}
+   Output: {"tool": "gemini_chat", "args": {"prompt": "is this safe to eat?"}, "reason": "Image analysis"}
+   
+   Input: {"userText": "# can you tell me what breed is this dog?", "hasImage": true, "hasVideo": false}
+   Output: {"tool": "gemini_chat", "args": {"prompt": "can you tell me what breed is this dog?"}, "reason": "Image analysis"}
+   
+   Input: {"userText": "# זהה את הצמח בתמונה", "hasImage": true, "hasVideo": false}
+   Output: {"tool": "gemini_chat", "args": {"prompt": "זהה את הצמח בתמונה"}, "reason": "Image analysis"}
 
    ✅ MUSIC GENERATION:
    Input: {"userText": "# צור שיר על אהבה", "hasImage": false, "hasVideo": false}
@@ -466,36 +517,49 @@ ${JSON.stringify(payload, null, 2)}
 
 1️⃣ **PRIORITY ORDER:**
    Step 1: Check hasImage/hasVideo/hasAudio flags FIRST
-   Step 2: Look for PRIMARY INTENT keywords (music/image/video/etc.)
-   Step 3: Check provider/model preferences (OpenAI/Grok/Veo)
-   Step 4: Default to gemini_chat if nothing matches
+   Step 2: For images - distinguish between VIDEO > ANALYSIS/QUESTIONS > EDIT > DEFAULT_ANALYSIS
+   Step 3: Look for PRIMARY INTENT keywords (music/image/video/etc.)
+   Step 4: Check provider/model preferences (OpenAI/Grok/Veo)
+   Step 5: Default to gemini_chat if nothing matches
 
-2️⃣ **KEYWORD MATCHING:**
+2️⃣ **IMAGE WITH TEXT - DECISION PRIORITY:**
+   When hasImage=true:
+   A. **FIRST** check for video keywords → image_to_video
+   B. **SECOND** check for question/analysis patterns → gemini_chat (text response)
+      ✓ Questions: "מה", "איך", "למה", "האם", "what", "how", "why", "is", "are", "can", "should"
+      ✓ Examples: "מה זה?", "האם מסוכן?", "is this safe?", "can I eat this?"
+   C. **THIRD** check for edit keywords → image_edit
+      ✓ Edit: "הוסף", "הסר", "שנה", "add", "remove", "change", "make"
+   D. **DEFAULT** → gemini_chat (safer than edit)
+
+3️⃣ **KEYWORD MATCHING:**
    - ✅ WHOLE WORDS ONLY: Match complete words, ignore substrings
    - ✅ CASE-INSENSITIVE: VEO = veo = Veo = vEo
    - ✅ SPACE-FLEXIBLE: OpenAI = Open AI, veo3 = veo 3, ChatGPT = Chat GPT
    - ❌ NO SUBSTRINGS: realistic≠list, musician≠music, clipboard≠clip, playlist≠list
 
-3️⃣ **PROVIDER DETECTION (case-insensitive, space-flexible):**
+4️⃣ **PROVIDER DETECTION (case-insensitive, space-flexible):**
    OpenAI triggers: "OpenAI", "Open AI", "GPT", "ChatGPT", "Chat GPT", "DALL-E", "DALL E", "dalle"
    Grok triggers: "Grok", "grok", "xAI", "x AI", "XAI"
    Veo triggers: "veo", "Veo", "VEO", "veo 3", "Veo 3", "VEO 3", "veo3"
    
-4️⃣ **LANGUAGE SUPPORT:**
+5️⃣ **LANGUAGE SUPPORT:**
    - Treat Hebrew and English equally
    - Hebrew keywords: וידאו, תמונה, ציור, שיר, מוזיקה, etc.
    - English keywords: video, image, draw, song, music, etc.
 
-5️⃣ **WHEN IN DOUBT:**
+6️⃣ **WHEN IN DOUBT:**
    - If unsure → choose "gemini_chat" (safest default)
    - Long descriptive prompts without explicit keywords → "gemini_chat"
    - Stories, conversations, questions → "gemini_chat"
+   - Image with ambiguous text → "gemini_chat" (analysis is safer than edit)
 
-6️⃣ **AUTHORIZATION CHECKS:**
+7️⃣ **AUTHORIZATION CHECKS:**
    - If media_creation=false and user requests image/video/music/group → "deny_unauthorized"
    - If voice_allowed=false and hasAudio=true → "deny_unauthorized"
+   - Image analysis/questions do NOT require authorization (text-only response)
 
-7️⃣ **OUTPUT FORMAT:**
+8️⃣ **OUTPUT FORMAT:**
    - Return ONLY valid JSON
    - NO markdown, NO code fences, NO extra text
    - Always include "tool", "args" with "prompt", and "reason"
