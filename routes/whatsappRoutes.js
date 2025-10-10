@@ -640,7 +640,7 @@ async function handleIncomingMessage(webhookData) {
             case 'grok_image': {
               try {
                 // Grok doesn't have image generation - fallback to Gemini
-                await sendAck(chatId, { type: 'gemini_image' });
+                await sendAck(chatId, { type: 'grok_image' });
                 console.log('🎨 ACK sent for grok_image (fallback to Gemini), starting generation...');
                 
                 const imageResult = await generateImageForWhatsApp(prompt);
@@ -800,6 +800,7 @@ async function handleIncomingMessage(webhookData) {
             
             // ═══════════════════ CHAT SUMMARY ═══════════════════
             case 'chat_summary': {
+              await sendAck(chatId, { type: 'chat_summary' });
               const chatHistory = await getChatHistory(chatId, 30);
               if (!chatHistory || chatHistory.length === 0) {
                 await sendTextMessage(chatId, '📝 אין מספיק הודעות בשיחה');
@@ -1039,6 +1040,7 @@ async function handleIncomingMessage(webhookData) {
             }
             
             case 'gemini_chat': {
+              await sendAck(chatId, { type: 'gemini_chat' });
               // Image analysis - use analyzeImageWithText
               const { analyzeImageWithText } = require('../services/geminiService');
               try {
@@ -1331,6 +1333,8 @@ async function handleOutgoingMessage(webhookData) {
           switch (decision.tool) {
             // ═══════════════════ CHAT ═══════════════════
             case 'gemini_chat': {
+              await sendAck(chatId, { type: 'gemini_chat' });
+              
               // Check if this is image analysis (hasImage = true)
               if (normalized.hasImage) {
                 // This is image analysis - use analyzeImageWithText
@@ -1372,6 +1376,7 @@ async function handleOutgoingMessage(webhookData) {
               return;
             }
             case 'openai_chat': {
+              await sendAck(chatId, { type: 'openai_chat' });
               const contextMessages = await conversationManager.getConversationHistory(chatId);
               await conversationManager.addMessage(chatId, 'user', prompt);
               const result = await generateOpenAIResponse(prompt, contextMessages);
@@ -1382,6 +1387,7 @@ async function handleOutgoingMessage(webhookData) {
               return;
             }
             case 'grok_chat': {
+              await sendAck(chatId, { type: 'grok_chat' });
               // Note: Grok doesn't use conversation history (causes issues)
               await conversationManager.addMessage(chatId, 'user', prompt);
               const result = await generateGrokResponse(prompt, []);
@@ -1801,6 +1807,7 @@ async function handleOutgoingMessage(webhookData) {
             }
             
             case 'gemini_chat': {
+              await sendAck(chatId, { type: 'gemini_chat' });
               // Image analysis - use analyzeImageWithText
               const { analyzeImageWithText } = require('../services/geminiService');
               try {
