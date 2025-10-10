@@ -73,10 +73,17 @@ async function routeIntent(input) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'image_to_video' }, reason: 'No media creation authorization' };
       }
-      // Check if user explicitly requested Veo3 (case-insensitive, with or without space, including Hebrew)
-      const wantsVeo3 = /\b(veo\s*3?|ויאו\s*3?|וו[יא]ו\s*3?)\b/i.test(prompt);
+      // Check for explicit model requests (case-insensitive, with or without space, including Hebrew)
+      // Supports model name anywhere in the prompt, not just at the end
+      // Note: Using \b only for English words; for Hebrew, check without word boundaries
+      const wantsVeo3 = /\bveo\s*3?\b|ויאו\s*3?|וו[יא]ו\s*3?/i.test(prompt);
+      const wantsKling = /\bkling\b|קלינג/i.test(prompt);
+      
       if (wantsVeo3) {
         return { tool: 'veo3_image_to_video', args: { prompt }, reason: 'Image attached, user requested Veo3' };
+      }
+      if (wantsKling) {
+        return { tool: 'kling_image_to_video', args: { prompt }, reason: 'Image attached, user requested Kling' };
       }
       // Default to Kling for image-to-video
       return { tool: 'kling_image_to_video', args: { prompt }, reason: 'Image attached, video-like request' };
@@ -97,7 +104,8 @@ async function routeIntent(input) {
         return { tool: 'deny_unauthorized', args: { feature: 'image_edit' }, reason: 'No media creation authorization' };
       }
       // Check for explicit provider requests (including Hebrew)
-      const wantsOpenAI = /\b(open\s*ai|gpt|dall[\s-]*e|דאל[\s-]*אי)\b/i.test(prompt);
+      // Note: Using \b only for English words; for Hebrew, check without word boundaries
+      const wantsOpenAI = /\b(open\s*ai|gpt|dall[\s-]*e)\b|דאל[\s-]*אי/i.test(prompt);
       const service = wantsOpenAI ? 'openai' : 'gemini';
       return { tool: 'image_edit', args: { service, prompt }, reason: 'Image edit request' };
     }
@@ -190,13 +198,20 @@ async function routeIntent(input) {
         return { tool: 'deny_unauthorized', args: { feature: 'image_generation' }, reason: 'No media creation authorization' };
       }
       // Check for explicit provider requests (case-insensitive, space-flexible, including Hebrew)
-      const wantsOpenAI = /\b(open\s*ai|gpt|dall[\s-]*e|דאל[\s-]*אי)\b/i.test(prompt);
-      const wantsGrok = /\b(grok|x\s*ai|גרוק)\b/i.test(prompt);
+      // Supports provider name anywhere in the prompt, not just at the end
+      // Note: Using \b only for English words; for Hebrew, check without word boundaries
+      const wantsOpenAI = /\b(open\s*ai|gpt|chat\s*gpt|dall[\s-]*e)\b|דאל[\s-]*אי|צ'אט\s*ג'יפיטי|צ׳אט\s*ג׳יפיטי/i.test(prompt);
+      const wantsGrok = /\bgrok\b|\bx\s*ai\b|גרוק/i.test(prompt);
+      const wantsGemini = /\bgemini\b|ג'מיני|ג׳מיני|ג׳ימיני|ג'ימיני/i.test(prompt);
+      
       if (wantsOpenAI) {
         return { tool: 'openai_image', args: { prompt }, reason: 'Image-like request, user requested OpenAI' };
       }
       if (wantsGrok) {
         return { tool: 'grok_image', args: { prompt }, reason: 'Image-like request, user requested Grok' };
+      }
+      if (wantsGemini) {
+        return { tool: 'gemini_image', args: { prompt }, reason: 'Image-like request, user requested Gemini' };
       }
       // Default to Gemini
       return { tool: 'gemini_image', args: { prompt }, reason: 'Image-like request' };
@@ -206,23 +221,37 @@ async function routeIntent(input) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'video_generation' }, reason: 'No media creation authorization' };
       }
-      // Check if user explicitly requested Veo3 (case-insensitive, with or without space, including Hebrew)
-      const wantsVeo3 = /\b(veo\s*3?|ויאו\s*3?|וו[יא]ו\s*3?)\b/i.test(prompt);
+      // Check for explicit model requests (case-insensitive, with or without space, including Hebrew)
+      // Supports model name anywhere in the prompt, not just at the end
+      // Note: Using \b only for English words; for Hebrew, check without word boundaries
+      const wantsVeo3 = /\bveo\s*3?\b|ויאו\s*3?|וו[יא]ו\s*3?/i.test(prompt);
+      const wantsKling = /\bkling\b|קלינג/i.test(prompt);
+      
       if (wantsVeo3) {
         return { tool: 'veo3_video', args: { prompt }, reason: 'Video-like request, user requested Veo3' };
+      }
+      if (wantsKling) {
+        return { tool: 'kling_text_to_video', args: { prompt }, reason: 'Video-like request, user requested Kling' };
       }
       // Default to Kling for text-to-video
       return { tool: 'kling_text_to_video', args: { prompt }, reason: 'Video-like request' };
     }
 
     // Default: chat. Check for explicit provider requests (case-insensitive, space-flexible, including Hebrew)
-    const wantsOpenAI = /\b(open\s*ai|gpt|chat\s*gpt|צ'אט\s*ג'יפיטי|צ׳אט\s*ג׳יפיטי)\b/i.test(prompt);
-    const wantsGrok = /\b(grok|x\s*ai|גרוק)\b/i.test(prompt);
+    // Supports provider name anywhere in the prompt, not just at the end
+    // Note: Using \b only for English words; for Hebrew, check without word boundaries
+    const wantsOpenAI = /\b(open\s*ai|gpt|chat\s*gpt)\b|צ'אט\s*ג'יפיטי|צ׳אט\s*ג׳יפיטי/i.test(prompt);
+    const wantsGrok = /\bgrok\b|\bx\s*ai\b|גרוק/i.test(prompt);
+    const wantsGemini = /\bgemini\b|ג'מיני|ג׳מיני|ג׳ימיני|ג'ימיני/i.test(prompt);
+    
     if (wantsOpenAI) {
       return { tool: 'openai_chat', args: { prompt }, reason: 'Chat request, user requested OpenAI' };
     }
     if (wantsGrok) {
       return { tool: 'grok_chat', args: { prompt }, reason: 'Chat request, user requested Grok' };
+    }
+    if (wantsGemini) {
+      return { tool: 'gemini_chat', args: { prompt }, reason: 'Chat request, user requested Gemini' };
     }
     // Default to Gemini
     return { tool: 'gemini_chat', args: { prompt }, reason: 'Default to chat' };
@@ -388,10 +417,12 @@ ${JSON.stringify(payload, null, 2)}
    
    💬 **DEFAULT** (anything else):
       If NO keywords matched → Check for chat provider preference:
-        - Mentions "OpenAI"/"Open AI"/"GPT"/"ChatGPT"/"Chat GPT" → "openai_chat"
-        - Mentions "Grok"/"xAI"/"x AI" → "grok_chat"
+        - Mentions "OpenAI"/"Open AI"/"GPT"/"ChatGPT"/"Chat GPT"/"צ'אט ג'יפיטי"/"צ׳אט ג׳יפיטי" → "openai_chat"
+        - Mentions "Grok"/"grok"/"xAI"/"x AI"/"גרוק" → "grok_chat"
+        - Mentions "Gemini"/"gemini"/"ג'מיני"/"ג׳מיני" → "gemini_chat" (explicit)
         - Otherwise → "gemini_chat" (default, most common)
       ✓ Includes: greetings, questions, stories, complex descriptions without keywords
+      ⚠️ CRITICAL: Hebrew names like "גרוק", "ג'מיני" are FULL WORDS, match them!
 
 🎯 **CRITICAL EXAMPLES:**
 
@@ -510,6 +541,24 @@ ${JSON.stringify(payload, null, 2)}
    
    Input: {"userText": "# שיחה עם ג'מיני על מזג האוויר", "hasImage": false, "hasVideo": false}
    Output: {"tool": "gemini_chat", "args": {"prompt": "שיחה עם ג'מיני על מזג האוויר"}, "reason": "Chat with Gemini (Hebrew)"}
+   
+   Input: {"userText": "# שאל את גרוק מה נשמע", "hasImage": false, "hasVideo": false}
+   Output: {"tool": "grok_chat", "args": {"prompt": "שאל את גרוק מה נשמע"}, "reason": "Chat with Grok (Hebrew)"}
+   
+   Input: {"userText": "# היי גרוק", "hasImage": false, "hasVideo": false}
+   Output: {"tool": "grok_chat", "args": {"prompt": "היי גרוק"}, "reason": "Chat with Grok (Hebrew)"}
+   
+   Input: {"userText": "# גרוק ספר לי בדיחה", "hasImage": false, "hasVideo": false}
+   Output: {"tool": "grok_chat", "args": {"prompt": "גרוק ספר לי בדיחה"}, "reason": "Chat with Grok (Hebrew, provider at start)"}
+   
+   Input: {"userText": "# בעזרת ג'מיני תסביר לי על AI", "hasImage": false, "hasVideo": false}
+   Output: {"tool": "gemini_chat", "args": {"prompt": "בעזרת ג'מיני תסביר לי על AI"}, "reason": "Chat with Gemini (Hebrew, provider at start)"}
+   
+   Input: {"userText": "# צור תמונה גרוק של חתול", "hasImage": false, "hasVideo": false}
+   Output: {"tool": "grok_image", "args": {"prompt": "צור תמונה גרוק של חתול"}, "reason": "Image with Grok (Hebrew, provider in middle)"}
+   
+   Input: {"userText": "# ויאו 3 צור וידאו של אריה", "hasImage": false, "hasVideo": false}
+   Output: {"tool": "veo3_video", "args": {"prompt": "ויאו 3 צור וידאו של אריה"}, "reason": "Video with Veo3 (Hebrew, provider at start)"}
 
    ✅ EDGE CASES (should NOT trigger):
    Input: {"userText": "# This is a realistic story about a musician", "hasImage": false, "hasVideo": false}
@@ -560,8 +609,10 @@ ${JSON.stringify(payload, null, 2)}
    - Treat Hebrew and English equally
    - Hebrew keywords: וידאו, תמונה, ציור, שיר, מוזיקה, etc.
    - English keywords: video, image, draw, song, music, etc.
-   - Hebrew provider names: גרוק, ג'מיני, דאל-אי, ויאו, צ'אט ג'יפיטי
-   - Connection words in Hebrew: עם, ב, באמצעות, דרך, בעזרת
+   - Hebrew provider names: גרוק, ג'מיני, דאל-אי, ויאו, קלינג, סונו, צ'אט ג'יפיטי
+   - Connection words in Hebrew: עם, ב, באמצעות, דרך, בעזרת, ל, את
+   - Connection words in English: with, using, via, by, to
+   - Provider can appear ANYWHERE in prompt: start, middle, or end
 
 6️⃣ **WHEN IN DOUBT:**
    - If unsure → choose "gemini_chat" (safest default)
