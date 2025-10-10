@@ -811,7 +811,7 @@ async function handleIncomingMessage(webhookData) {
 • # צור שיר על... - יצירת מוזיקה
 • # המר לדיבור: טקסט - Text-to-Speech
 • # סכם שיחה - סיכום השיחה
-• # צור קבוצה - עדכון אנשי קשר (שלב 1)
+• # צור קבוצה בשם "שם" עם שם1, שם2... - יצירת קבוצה
 • תמונה + # ערוך... - עריכת תמונה
 • וידאו + # ערוך... - עריכת וידאו
 • הודעה קולית - תמלול ותשובה קולית
@@ -821,8 +821,70 @@ async function handleIncomingMessage(webhookData) {
 • סטטוס יצירה - סטטוס הרשאות
 • הוסף ליצירה [שם] - הוסף הרשאה
 • הסר מיצירה [שם] - הסר הרשאה
+• עדכן אנשי קשר - סנכרון אנשי קשר
               `;
               await sendTextMessage(chatId, helpText.trim());
+              return;
+            }
+            
+            // ═══════════════════ CREATE GROUP ═══════════════════
+            case 'create_group': {
+              try {
+                await sendTextMessage(chatId, '👥 מתחיל יצירת קבוצה...');
+                
+                const { parseGroupCreationPrompt, resolveParticipants } = require('../services/groupService');
+                const { createGroup } = require('../services/greenApiService');
+                
+                // Step 1: Parse the prompt to extract group name and participants
+                await sendTextMessage(chatId, '🔍 מנתח את הבקשה...');
+                const parsed = await parseGroupCreationPrompt(prompt);
+                
+                await sendTextMessage(chatId, `📋 שם הקבוצה: "${parsed.groupName}"\n👥 מחפש ${parsed.participants.length} משתתפים...`);
+                
+                // Step 2: Resolve participant names to WhatsApp IDs
+                const resolution = await resolveParticipants(parsed.participants);
+                
+                // Check if we found all participants
+                if (resolution.notFound.length > 0) {
+                  let errorMsg = `⚠️ לא מצאתי את המשתתפים הבאים:\n`;
+                  resolution.notFound.forEach(name => {
+                    errorMsg += `• ${name}\n`;
+                  });
+                  errorMsg += `\n💡 טיפ: וודא שהשמות נכונים או הרץ "עדכן אנשי קשר" לסנכרון אנשי קשר`;
+                  
+                  if (resolution.resolved.length === 0) {
+                    await sendTextMessage(chatId, errorMsg + '\n\n❌ לא נמצאו משתתפים - ביטול יצירת קבוצה');
+                    return;
+                  }
+                  
+                  await sendTextMessage(chatId, errorMsg);
+                }
+                
+                // Step 3: Show found participants
+                if (resolution.resolved.length > 0) {
+                  let foundMsg = `✅ נמצאו ${resolution.resolved.length} משתתפים:\n`;
+                  resolution.resolved.forEach(p => {
+                    foundMsg += `• ${p.searchName} → ${p.contactName}\n`;
+                  });
+                  await sendTextMessage(chatId, foundMsg);
+                }
+                
+                // Step 4: Create the group
+                await sendTextMessage(chatId, '🔨 יוצר את הקבוצה...');
+                
+                const participantIds = resolution.resolved.map(p => p.contactId);
+                const groupResult = await createGroup(parsed.groupName, participantIds);
+                
+                // Step 5: Success!
+                const successMsg = `✅ הקבוצה "${parsed.groupName}" נוצרה בהצלחה! 🎉\n\n👥 ${resolution.resolved.length} משתתפים הצטרפו לקבוצה`;
+                await sendTextMessage(chatId, successMsg);
+                
+                console.log(`✅ Group created successfully by ${senderName}: "${parsed.groupName}" with ${participantIds.length} participants`);
+                
+              } catch (error) {
+                console.error('❌ Error creating group:', error);
+                await sendTextMessage(chatId, `❌ שגיאה ביצירת הקבוצה: ${error.message}\n\n💡 וודא שהפורמט נכון, לדוגמה:\n# צור קבוצה בשם "שם הקבוצה" עם שם1, שם2, שם3`);
+              }
               return;
             }
             
@@ -1419,7 +1481,7 @@ async function handleOutgoingMessage(webhookData) {
 • # צור שיר על... - יצירת מוזיקה
 • # המר לדיבור: טקסט - Text-to-Speech
 • # סכם שיחה - סיכום השיחה
-• # צור קבוצה - עדכון אנשי קשר (שלב 1)
+• # צור קבוצה בשם "שם" עם שם1, שם2... - יצירת קבוצה
 • תמונה + # ערוך... - עריכת תמונה
 • וידאו + # ערוך... - עריכת וידאו
 • הודעה קולית - תמלול ותשובה קולית
@@ -1429,8 +1491,70 @@ async function handleOutgoingMessage(webhookData) {
 • סטטוס יצירה - סטטוס הרשאות
 • הוסף ליצירה [שם] - הוסף הרשאה
 • הסר מיצירה [שם] - הסר הרשאה
+• עדכן אנשי קשר - סנכרון אנשי קשר
               `;
               await sendTextMessage(chatId, helpText.trim());
+              return;
+            }
+            
+            // ═══════════════════ CREATE GROUP (OUTGOING) ═══════════════════
+            case 'create_group': {
+              try {
+                await sendTextMessage(chatId, '👥 מתחיל יצירת קבוצה...');
+                
+                const { parseGroupCreationPrompt, resolveParticipants } = require('../services/groupService');
+                const { createGroup } = require('../services/greenApiService');
+                
+                // Step 1: Parse the prompt to extract group name and participants
+                await sendTextMessage(chatId, '🔍 מנתח את הבקשה...');
+                const parsed = await parseGroupCreationPrompt(prompt);
+                
+                await sendTextMessage(chatId, `📋 שם הקבוצה: "${parsed.groupName}"\n👥 מחפש ${parsed.participants.length} משתתפים...`);
+                
+                // Step 2: Resolve participant names to WhatsApp IDs
+                const resolution = await resolveParticipants(parsed.participants);
+                
+                // Check if we found all participants
+                if (resolution.notFound.length > 0) {
+                  let errorMsg = `⚠️ לא מצאתי את המשתתפים הבאים:\n`;
+                  resolution.notFound.forEach(name => {
+                    errorMsg += `• ${name}\n`;
+                  });
+                  errorMsg += `\n💡 טיפ: וודא שהשמות נכונים או הרץ "עדכן אנשי קשר" לסנכרון אנשי קשר`;
+                  
+                  if (resolution.resolved.length === 0) {
+                    await sendTextMessage(chatId, errorMsg + '\n\n❌ לא נמצאו משתתפים - ביטול יצירת קבוצה');
+                    return;
+                  }
+                  
+                  await sendTextMessage(chatId, errorMsg);
+                }
+                
+                // Step 3: Show found participants
+                if (resolution.resolved.length > 0) {
+                  let foundMsg = `✅ נמצאו ${resolution.resolved.length} משתתפים:\n`;
+                  resolution.resolved.forEach(p => {
+                    foundMsg += `• ${p.searchName} → ${p.contactName}\n`;
+                  });
+                  await sendTextMessage(chatId, foundMsg);
+                }
+                
+                // Step 4: Create the group
+                await sendTextMessage(chatId, '🔨 יוצר את הקבוצה...');
+                
+                const participantIds = resolution.resolved.map(p => p.contactId);
+                const groupResult = await createGroup(parsed.groupName, participantIds);
+                
+                // Step 5: Success!
+                const successMsg = `✅ הקבוצה "${parsed.groupName}" נוצרה בהצלחה! 🎉\n\n👥 ${resolution.resolved.length} משתתפים הצטרפו לקבוצה`;
+                await sendTextMessage(chatId, successMsg);
+                
+                console.log(`✅ Group created successfully by ${senderName}: "${parsed.groupName}" with ${participantIds.length} participants`);
+                
+              } catch (error) {
+                console.error('❌ Error creating group (outgoing):', error);
+                await sendTextMessage(chatId, `❌ שגיאה ביצירת הקבוצה: ${error.message}\n\n💡 וודא שהפורמט נכון, לדוגמה:\n# צור קבוצה בשם "שם הקבוצה" עם שם1, שם2, שם3`);
+              }
               return;
             }
             
@@ -2488,45 +2612,125 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
       }
 
       case 'add_media_authorization': {
-        const wasAdded = await authStore.addAuthorizedUser(command.contactName);
-        if (wasAdded) {
-          await sendTextMessage(chatId, `✅ ${command.contactName} נוסף לרשימת המורשים ליצירת מדיה`);
-          console.log(`✅ Added ${command.contactName} to media creation authorization by ${senderName}`);
-        } else {
-          await sendTextMessage(chatId, `ℹ️ ${command.contactName} כבר נמצא ברשימת המורשים ליצירת מדיה`);
+        try {
+          const { findContactByName } = require('../services/groupService');
+          
+          // Use fuzzy search to find exact contact name
+          await sendTextMessage(chatId, `🔍 מחפש איש קשר: "${command.contactName}"...`);
+          const foundContact = await findContactByName(command.contactName);
+          
+          if (!foundContact) {
+            await sendTextMessage(chatId, `❌ לא נמצא איש קשר תואם ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`);
+            break;
+          }
+          
+          // Use the exact contact name found in DB
+          const exactName = foundContact.contactName;
+          await sendTextMessage(chatId, `✅ נמצא: "${command.contactName}" → "${exactName}"`);
+          
+          const wasAdded = await authStore.addAuthorizedUser(exactName);
+          if (wasAdded) {
+            await sendTextMessage(chatId, `✅ ${exactName} נוסף לרשימת המורשים ליצירת מדיה`);
+            console.log(`✅ Added ${exactName} (searched: ${command.contactName}) to media creation authorization by ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, `ℹ️ ${exactName} כבר נמצא ברשימת המורשים ליצירת מדיה`);
+          }
+        } catch (error) {
+          console.error('❌ Error in add_media_authorization:', error);
+          await sendTextMessage(chatId, `❌ שגיאה בהוספת הרשאה: ${error.message}`);
         }
         break;
       }
 
       case 'remove_media_authorization': {
-        const wasRemoved = await authStore.removeAuthorizedUser(command.contactName);
-        if (wasRemoved) {
-          await sendTextMessage(chatId, `🚫 ${command.contactName} הוסר מרשימת המורשים ליצירת מדיה`);
-          console.log(`✅ Removed ${command.contactName} from media creation authorization by ${senderName}`);
-        } else {
-          await sendTextMessage(chatId, `ℹ️ ${command.contactName} לא נמצא ברשימת המורשים ליצירת מדיה`);
+        try {
+          const { findContactByName } = require('../services/groupService');
+          
+          // Use fuzzy search to find exact contact name
+          await sendTextMessage(chatId, `🔍 מחפש איש קשר: "${command.contactName}"...`);
+          const foundContact = await findContactByName(command.contactName);
+          
+          if (!foundContact) {
+            await sendTextMessage(chatId, `❌ לא נמצא איש קשר תואם ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`);
+            break;
+          }
+          
+          // Use the exact contact name found in DB
+          const exactName = foundContact.contactName;
+          await sendTextMessage(chatId, `✅ נמצא: "${command.contactName}" → "${exactName}"`);
+          
+          const wasRemoved = await authStore.removeAuthorizedUser(exactName);
+          if (wasRemoved) {
+            await sendTextMessage(chatId, `🚫 ${exactName} הוסר מרשימת המורשים ליצירת מדיה`);
+            console.log(`✅ Removed ${exactName} (searched: ${command.contactName}) from media creation authorization by ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, `ℹ️ ${exactName} לא נמצא ברשימת המורשים ליצירת מדיה`);
+          }
+        } catch (error) {
+          console.error('❌ Error in remove_media_authorization:', error);
+          await sendTextMessage(chatId, `❌ שגיאה בהסרת הרשאה: ${error.message}`);
         }
         break;
       }
 
       case 'include_in_transcription': {
-        const wasAdded = await conversationManager.addToVoiceAllowList(command.contactName);
-        if (wasAdded) {
-          await sendTextMessage(chatId, `✅ ${command.contactName} נוסף לרשימת המורשים לתמלול`);
-          console.log(`✅ Added ${command.contactName} to voice allow list by ${senderName}`);
-        } else {
-          await sendTextMessage(chatId, `ℹ️ ${command.contactName} כבר נמצא ברשימת המורשים לתמלול`);
+        try {
+          const { findContactByName } = require('../services/groupService');
+          
+          // Use fuzzy search to find exact contact name
+          await sendTextMessage(chatId, `🔍 מחפש איש קשר: "${command.contactName}"...`);
+          const foundContact = await findContactByName(command.contactName);
+          
+          if (!foundContact) {
+            await sendTextMessage(chatId, `❌ לא נמצא איש קשר תואם ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`);
+            break;
+          }
+          
+          // Use the exact contact name found in DB
+          const exactName = foundContact.contactName;
+          await sendTextMessage(chatId, `✅ נמצא: "${command.contactName}" → "${exactName}"`);
+          
+          const wasAdded = await conversationManager.addToVoiceAllowList(exactName);
+          if (wasAdded) {
+            await sendTextMessage(chatId, `✅ ${exactName} נוסף לרשימת המורשים לתמלול`);
+            console.log(`✅ Added ${exactName} (searched: ${command.contactName}) to voice allow list by ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, `ℹ️ ${exactName} כבר נמצא ברשימת המורשים לתמלול`);
+          }
+        } catch (error) {
+          console.error('❌ Error in include_in_transcription:', error);
+          await sendTextMessage(chatId, `❌ שגיאה בהוספת הרשאת תמלול: ${error.message}`);
         }
         break;
       }
 
       case 'exclude_from_transcription': {
-        const wasRemoved = await conversationManager.removeFromVoiceAllowList(command.contactName);
-        if (wasRemoved) {
-          await sendTextMessage(chatId, `🚫 ${command.contactName} הוסר מרשימת המורשים לתמלול`);
-          console.log(`✅ Removed ${command.contactName} from voice allow list by ${senderName}`);
-        } else {
-          await sendTextMessage(chatId, `ℹ️ ${command.contactName} לא נמצא ברשימת המורשים לתמלול`);
+        try {
+          const { findContactByName } = require('../services/groupService');
+          
+          // Use fuzzy search to find exact contact name
+          await sendTextMessage(chatId, `🔍 מחפש איש קשר: "${command.contactName}"...`);
+          const foundContact = await findContactByName(command.contactName);
+          
+          if (!foundContact) {
+            await sendTextMessage(chatId, `❌ לא נמצא איש קשר תואם ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`);
+            break;
+          }
+          
+          // Use the exact contact name found in DB
+          const exactName = foundContact.contactName;
+          await sendTextMessage(chatId, `✅ נמצא: "${command.contactName}" → "${exactName}"`);
+          
+          const wasRemoved = await conversationManager.removeFromVoiceAllowList(exactName);
+          if (wasRemoved) {
+            await sendTextMessage(chatId, `🚫 ${exactName} הוסר מרשימת המורשים לתמלול`);
+            console.log(`✅ Removed ${exactName} (searched: ${command.contactName}) from voice allow list by ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, `ℹ️ ${exactName} לא נמצא ברשימת המורשים לתמלול`);
+          }
+        } catch (error) {
+          console.error('❌ Error in exclude_from_transcription:', error);
+          await sendTextMessage(chatId, `❌ שגיאה בהסרת הרשאת תמלול: ${error.message}`);
         }
         break;
       }

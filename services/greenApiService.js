@@ -199,11 +199,55 @@ async function getMessage(chatId, idMessage) {
   }
 }
 
+/**
+ * Create a new WhatsApp group
+ * @param {string} groupName - Name of the group
+ * @param {Array<string>} participantIds - Array of WhatsApp IDs (e.g., ["972501234567@c.us", "972509876543@c.us"])
+ * @returns {Promise<Object>} - Response with group details including groupId
+ */
+async function createGroup(groupName, participantIds) {
+  try {
+    const url = `https://api.green-api.com/waInstance${GREEN_API_ID_INSTANCE}/createGroup/${GREEN_API_API_TOKEN_INSTANCE}`;
+    
+    const data = {
+      groupName: groupName,
+      chatIds: participantIds
+    };
+
+    console.log(`👥 Creating group: "${groupName}" with ${participantIds.length} participants`);
+    console.log(`   Participants: ${participantIds.join(', ')}`);
+    
+    const response = await axios.post(url, data, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.data) {
+      throw new Error('No data received from createGroup');
+    }
+    
+    console.log(`✅ Group created successfully: ${response.data.chatId || 'unknown ID'}`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error creating group:', error.message);
+    
+    // Log the response details if available for debugging
+    if (error.response) {
+      console.error(`❌ Green API Error: ${error.response.status} - ${error.response.statusText}`);
+      console.error('❌ Response data:', error.response.data);
+    }
+    
+    throw error;
+  }
+}
+
 module.exports = {
   sendTextMessage,
   sendFileByUrl,
   downloadFile,
   getChatHistory,
   getContacts,
-  getMessage
+  getMessage,
+  createGroup
 };

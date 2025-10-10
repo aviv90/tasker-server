@@ -339,8 +339,8 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
                 
                 // If image generation failed, return error instead of text-only
                 return { 
-                    success: false, 
-                    error: 'לא הצלחתי ליצור תמונה מערוכה. נסה שוב.' 
+                  success: false, 
+                  error: 'לא הצלחתי ליצור תמונה ערוכה. נסה שוב.' 
                 };
             }
             
