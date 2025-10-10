@@ -413,15 +413,14 @@ async function handleIncomingMessage(webhookData) {
       messageText = messageData.extendedTextMessageData?.text;
     } else if (messageData.typeMessage === 'editedMessage') {
       // Handle edited messages - treat them as regular messages
-      messageText = messageData.extendedTextMessageData?.text || 
-                   messageData.editedMessage?.editedMessageData?.text ||
-                   messageData.textMessageData?.textMessage;
-      console.log(`✏️ Edited message detected, treating as regular message`);
+      messageText = messageData.editedMessageData?.textMessage;
+      console.log(`✏️ Edited message detected: "${messageText}"`);
     }
     
     // Enhanced logging for incoming messages
     console.log(`📱 Incoming from ${senderName}:`);
     console.log(`   Message Type: ${messageData.typeMessage}${messageData.typeMessage === 'editedMessage' ? ' ✏️' : ''}`);
+    console.log(`   messageText extracted: ${messageText ? `"${messageText.substring(0, 100)}"` : 'NULL/UNDEFINED'}`);
     if (messageText) {
       console.log(`   Text: ${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}`);
     }
@@ -443,7 +442,8 @@ async function handleIncomingMessage(webhookData) {
     // Unified intent router for commands that start with "# "
     if (messageText && /^#\s+/.test(messageText.trim())) {
       try {
-        // Extract the prompt (remove "# " prefix)
+        // Extract the prompt (remove "# " prefix if exists)
+        // For edited messages, # might be removed by WhatsApp/Green API
         const basePrompt = messageText.trim().replace(/^#\s+/, '').trim();
         
         // Check if this is a quoted/replied message
@@ -1238,15 +1238,14 @@ async function handleOutgoingMessage(webhookData) {
       messageText = messageData.extendedTextMessageData?.text;
     } else if (messageData.typeMessage === 'editedMessage') {
       // Handle edited messages - treat them as regular messages
-      messageText = messageData.extendedTextMessageData?.text || 
-                   messageData.editedMessage?.editedMessageData?.text ||
-                   messageData.textMessageData?.textMessage;
-      console.log(`✏️ Edited message detected (outgoing), treating as regular message`);
+      messageText = messageData.editedMessageData?.textMessage;
+      console.log(`✏️ Edited message detected (outgoing): "${messageText}"`);
     }
     
     // Enhanced logging for outgoing messages
     console.log(`📤 Outgoing from ${senderName}:`);
     console.log(`   Message Type: ${messageData.typeMessage}${messageData.typeMessage === 'editedMessage' ? ' ✏️' : ''}`);
+    console.log(`   messageText extracted: ${messageText ? `"${messageText.substring(0, 100)}"` : 'NULL/UNDEFINED'}`);
     if (messageText) {
       console.log(`   Text: ${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}`);
     }
@@ -1274,7 +1273,8 @@ async function handleOutgoingMessage(webhookData) {
         const senderContactName = senderData.senderContactName || "";
         const chatName = senderData.chatName || "";
 
-        // Extract the prompt (remove "# " prefix)
+        // Extract the prompt (remove "# " prefix if exists)
+        // For edited messages, # might be removed by WhatsApp/Green API
         const basePrompt = messageText.trim().replace(/^#\s+/, '').trim();
         
         // Check if this is a quoted/replied message
