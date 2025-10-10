@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory, getMessage } = require('../services/greenApiService');
 const { getStaticFileUrl } = require('../utils/urlUtils');
+const { cleanPromptFromProviders } = require('../utils/promptCleaner');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary, parseTextToSpeechRequest, translateText } = require('../services/geminiService');
 const { generateTextResponse: generateGrokResponse, generateImageForWhatsApp: generateGrokImage } = require('../services/grokService');
@@ -495,7 +496,9 @@ async function handleIncomingMessage(webhookData) {
         const decision = await routeIntent(normalized);
 
         // Router-based direct execution - call services directly
-        const prompt = decision.args?.prompt || finalPrompt;
+        const rawPrompt = decision.args?.prompt || finalPrompt;
+        // Clean prompt from provider mentions before sending to services
+        const prompt = cleanPromptFromProviders(rawPrompt);
         
         try {
           switch (decision.tool) {
@@ -1319,7 +1322,9 @@ async function handleOutgoingMessage(webhookData) {
         };
 
         const decision = await routeIntent(normalized);
-        const prompt = decision.args?.prompt || finalPrompt;
+        const rawPrompt = decision.args?.prompt || finalPrompt;
+        // Clean prompt from provider mentions before sending to services
+        const prompt = cleanPromptFromProviders(rawPrompt);
 
         // Router-based direct execution for outgoing messages (same as incoming)
         try {
