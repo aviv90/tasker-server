@@ -8,27 +8,29 @@ const conversationManager = require('./conversationManager');
 
 /**
  * Parse group creation prompt using Gemini
- * Extracts group name and participant names from natural language
+ * Extracts group name, participant names, and optional group picture description from natural language
  * 
  * @param {string} prompt - User's group creation request
- * @returns {Promise<Object>} - { groupName: string, participants: Array<string> }
+ * @returns {Promise<Object>} - { groupName: string, participants: Array<string>, groupPicture?: string }
  * 
  * Examples:
  * - "צור קבוצה בשם 'כדורגל בשכונה' עם קוקו, מכנה ומסיק"
  * - "create group called 'Project Team' with John, Sarah and Mike"
+ * - "צור קבוצה עם קרלוס בשם 'כדורגל בשכונה' עם תמונה של ברבור"
  */
 async function parseGroupCreationPrompt(prompt) {
   try {
     console.log('🔍 Parsing group creation prompt with Gemini...');
     
-    const parsingPrompt = `Analyze this group creation request and extract the group name and participant names.
+    const parsingPrompt = `Analyze this group creation request and extract the group name, participant names, and optional group picture description.
 
 User request: "${prompt}"
 
 Return ONLY a JSON object (no markdown, no extra text) with this exact structure:
 {
   "groupName": "the group name",
-  "participants": ["name1", "name2", "name3"]
+  "participants": ["name1", "name2", "name3"],
+  "groupPicture": "description of picture or null"
 }
 
 Rules:
@@ -38,20 +40,26 @@ Rules:
 4. Return names as they appear (don't translate or modify)
 5. If group name is in quotes, extract it without quotes
 6. If no clear group name, use a reasonable default based on context
+7. Extract picture description from phrases like "עם תמונה של", "with picture of", "with image of", etc.
+8. If no picture mentioned, set groupPicture to null
+9. Picture description should be detailed and in English for best image generation results
 
 Examples:
 
 Input: "צור קבוצה בשם 'כדורגל בשכונה' עם קוקו, מכנה ומסיק"
-Output: {"groupName":"כדורגל בשכונה","participants":["קוקו","מכנה","מסיק"]}
+Output: {"groupName":"כדורגל בשכונה","participants":["קוקו","מכנה","מסיק"],"groupPicture":null}
 
 Input: "create group called Project Team with John, Sarah and Mike"
-Output: {"groupName":"Project Team","participants":["John","Sarah","Mike"]}
+Output: {"groupName":"Project Team","participants":["John","Sarah","Mike"],"groupPicture":null}
 
-Input: "צור קבוצה לעבודה עם אבי, רועי ודני"
-Output: {"groupName":"עבודה","participants":["אבי","רועי","דני"]}
+Input: "צור קבוצה עם קרלוס בשם 'כדורגל בשכונה' עם תמונה של ברבור"
+Output: {"groupName":"כדורגל בשכונה","participants":["קרלוס"],"groupPicture":"a beautiful swan"}
 
-Input: "יצירת קבוצה משפחתית - אמא אבא ואחות"
-Output: {"groupName":"משפחתית","participants":["אמא","אבא","אחות"]}`;
+Input: "צור קבוצה עם אבי ורועי בשם 'פרויקט X' עם תמונה של רובוט עתידני"
+Output: {"groupName":"פרויקט X","participants":["אבי","רועי"],"groupPicture":"a futuristic robot"}
+
+Input: "create group Work Team with Mike, Sarah with picture of a mountain sunset"
+Output: {"groupName":"Work Team","participants":["Mike","Sarah"],"groupPicture":"a mountain sunset"}`;
 
     const result = await geminiText(parsingPrompt, [], { model: 'gemini-2.5-flash' });
     

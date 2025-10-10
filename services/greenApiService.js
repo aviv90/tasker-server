@@ -242,6 +242,56 @@ async function createGroup(groupName, participantIds) {
   }
 }
 
+/**
+ * Set group picture
+ * @param {string} groupId - Group chat ID (e.g., "120363043968066561@g.us")
+ * @param {Buffer} imageBuffer - Image file buffer (JPEG/PNG)
+ * @returns {Promise<Object>} - Response with urlAvatar
+ */
+async function setGroupPicture(groupId, imageBuffer) {
+  try {
+    const FormData = require('form-data');
+    const url = `https://api.green-api.com/waInstance${GREEN_API_ID_INSTANCE}/setGroupPicture/${GREEN_API_API_TOKEN_INSTANCE}`;
+    
+    const formData = new FormData();
+    formData.append('groupId', groupId);
+    formData.append('file', imageBuffer, {
+      filename: 'group_picture.jpg',
+      contentType: 'image/jpeg'
+    });
+
+    console.log(`🖼️ Setting group picture for: ${groupId}`);
+    
+    const response = await axios.post(url, formData, {
+      headers: {
+        ...formData.getHeaders()
+      }
+    });
+
+    if (!response.data) {
+      throw new Error('No data received from setGroupPicture');
+    }
+    
+    if (response.data.setGroupPicture) {
+      console.log(`✅ Group picture set successfully: ${response.data.urlAvatar || 'unknown URL'}`);
+    } else {
+      console.log(`⚠️ Failed to set group picture: ${response.data.reason || 'unknown reason'}`);
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error setting group picture:', error.message);
+    
+    // Log the response details if available for debugging
+    if (error.response) {
+      console.error(`❌ Green API Error: ${error.response.status} - ${error.response.statusText}`);
+      console.error('❌ Response data:', error.response.data);
+    }
+    
+    throw error;
+  }
+}
+
 module.exports = {
   sendTextMessage,
   sendFileByUrl,
@@ -249,5 +299,6 @@ module.exports = {
   getChatHistory,
   getContacts,
   getMessage,
-  createGroup
+  createGroup,
+  setGroupPicture
 };

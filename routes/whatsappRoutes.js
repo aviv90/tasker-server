@@ -812,6 +812,7 @@ async function handleIncomingMessage(webhookData) {
 • # המר לדיבור: טקסט - Text-to-Speech
 • # סכם שיחה - סיכום השיחה
 • # צור קבוצה בשם "שם" עם שם1, שם2... - יצירת קבוצה
+• (אופציה) + עם תמונה של... - הוספת תמונת פרופיל
 • תמונה + # ערוך... - עריכת תמונה
 • וידאו + # ערוך... - עריכת וידאו
 • הודעה קולית - תמלול ותשובה קולית
@@ -833,13 +834,18 @@ async function handleIncomingMessage(webhookData) {
                 await sendTextMessage(chatId, '👥 מתחיל יצירת קבוצה...');
                 
                 const { parseGroupCreationPrompt, resolveParticipants } = require('../services/groupService');
-                const { createGroup } = require('../services/greenApiService');
+                const { createGroup, setGroupPicture } = require('../services/greenApiService');
+                const { generateImageForWhatsApp } = require('../services/geminiService');
                 
-                // Step 1: Parse the prompt to extract group name and participants
+                // Step 1: Parse the prompt to extract group name, participants, and picture description
                 await sendTextMessage(chatId, '🔍 מנתח את הבקשה...');
                 const parsed = await parseGroupCreationPrompt(prompt);
                 
-                await sendTextMessage(chatId, `📋 שם הקבוצה: "${parsed.groupName}"\n👥 מחפש ${parsed.participants.length} משתתפים...`);
+                let statusMsg = `📋 שם הקבוצה: "${parsed.groupName}"\n👥 מחפש ${parsed.participants.length} משתתפים...`;
+                if (parsed.groupPicture) {
+                  statusMsg += `\n🎨 תמונה: ${parsed.groupPicture}`;
+                }
+                await sendTextMessage(chatId, statusMsg);
                 
                 // Step 2: Resolve participant names to WhatsApp IDs
                 const resolution = await resolveParticipants(parsed.participants);
@@ -875,15 +881,56 @@ async function handleIncomingMessage(webhookData) {
                 const participantIds = resolution.resolved.map(p => p.contactId);
                 const groupResult = await createGroup(parsed.groupName, participantIds);
                 
-                // Step 5: Success!
+                // Step 5: Generate and set group picture if requested
+                if (parsed.groupPicture && groupResult.chatId) {
+                  try {
+                    await sendTextMessage(chatId, `🎨 יוצר תמונת פרופיל לקבוצה...\n"${parsed.groupPicture}"`);
+                    
+                    // Generate image with Gemini
+                    const imageResult = await generateImageForWhatsApp(parsed.groupPicture);
+                    
+                    if (imageResult.success && imageResult.fileName) {
+                      // Read the generated image file
+                      const fs = require('fs');
+                      const path = require('path');
+                      const imagePath = path.join(__dirname, '..', 'public', 'tmp', imageResult.fileName);
+                      const imageBuffer = fs.readFileSync(imagePath);
+                      
+                      // Set as group picture
+                      await sendTextMessage(chatId, '🖼️ מעלה תמונה לקבוצה...');
+                      const pictureResult = await setGroupPicture(groupResult.chatId, imageBuffer);
+                      
+                      if (pictureResult.setGroupPicture) {
+                        await sendTextMessage(chatId, '✅ תמונת הקבוצה הועלתה בהצלחה!');
+                      } else {
+                        await sendTextMessage(chatId, `⚠️ לא הצלחתי להעלות תמונה: ${pictureResult.reason || 'סיבה לא ידועה'}`);
+                      }
+                      
+                      // Clean up the image file
+                      try {
+                        fs.unlinkSync(imagePath);
+                        console.log(`🧹 Cleaned up group picture file: ${imageResult.fileName}`);
+                      } catch (cleanupError) {
+                        console.warn('⚠️ Could not clean up group picture file:', cleanupError.message);
+                      }
+                    } else {
+                      await sendTextMessage(chatId, `⚠️ לא הצלחתי ליצור תמונה: ${imageResult.error || 'שגיאה לא ידועה'}`);
+                    }
+                  } catch (pictureError) {
+                    console.error('❌ Error setting group picture:', pictureError);
+                    await sendTextMessage(chatId, `⚠️ הקבוצה נוצרה אבל לא הצלחתי להוסיף תמונה: ${pictureError.message}`);
+                  }
+                }
+                
+                // Step 6: Success!
                 const successMsg = `✅ הקבוצה "${parsed.groupName}" נוצרה בהצלחה! 🎉\n\n👥 ${resolution.resolved.length} משתתפים הצטרפו לקבוצה`;
                 await sendTextMessage(chatId, successMsg);
                 
-                console.log(`✅ Group created successfully by ${senderName}: "${parsed.groupName}" with ${participantIds.length} participants`);
+                console.log(`✅ Group created successfully by ${senderName}: "${parsed.groupName}" with ${participantIds.length} participants${parsed.groupPicture ? ' (with picture)' : ''}`);
                 
               } catch (error) {
                 console.error('❌ Error creating group:', error);
-                await sendTextMessage(chatId, `❌ שגיאה ביצירת הקבוצה: ${error.message}\n\n💡 וודא שהפורמט נכון, לדוגמה:\n# צור קבוצה בשם "שם הקבוצה" עם שם1, שם2, שם3`);
+                await sendTextMessage(chatId, `❌ שגיאה ביצירת הקבוצה: ${error.message}\n\n💡 וודא שהפורמט נכון, לדוגמה:\n# צור קבוצה בשם "שם הקבוצה" עם שם1, שם2, שם3\n# צור קבוצה בשם "שם" עם שם1, שם2 עם תמונה של חתול`);
               }
               return;
             }
@@ -1482,6 +1529,7 @@ async function handleOutgoingMessage(webhookData) {
 • # המר לדיבור: טקסט - Text-to-Speech
 • # סכם שיחה - סיכום השיחה
 • # צור קבוצה בשם "שם" עם שם1, שם2... - יצירת קבוצה
+• (אופציה) + עם תמונה של... - הוספת תמונת פרופיל
 • תמונה + # ערוך... - עריכת תמונה
 • וידאו + # ערוך... - עריכת וידאו
 • הודעה קולית - תמלול ותשובה קולית
@@ -1503,13 +1551,18 @@ async function handleOutgoingMessage(webhookData) {
                 await sendTextMessage(chatId, '👥 מתחיל יצירת קבוצה...');
                 
                 const { parseGroupCreationPrompt, resolveParticipants } = require('../services/groupService');
-                const { createGroup } = require('../services/greenApiService');
+                const { createGroup, setGroupPicture } = require('../services/greenApiService');
+                const { generateImageForWhatsApp } = require('../services/geminiService');
                 
-                // Step 1: Parse the prompt to extract group name and participants
+                // Step 1: Parse the prompt to extract group name, participants, and picture description
                 await sendTextMessage(chatId, '🔍 מנתח את הבקשה...');
                 const parsed = await parseGroupCreationPrompt(prompt);
                 
-                await sendTextMessage(chatId, `📋 שם הקבוצה: "${parsed.groupName}"\n👥 מחפש ${parsed.participants.length} משתתפים...`);
+                let statusMsg = `📋 שם הקבוצה: "${parsed.groupName}"\n👥 מחפש ${parsed.participants.length} משתתפים...`;
+                if (parsed.groupPicture) {
+                  statusMsg += `\n🎨 תמונה: ${parsed.groupPicture}`;
+                }
+                await sendTextMessage(chatId, statusMsg);
                 
                 // Step 2: Resolve participant names to WhatsApp IDs
                 const resolution = await resolveParticipants(parsed.participants);
@@ -1545,15 +1598,56 @@ async function handleOutgoingMessage(webhookData) {
                 const participantIds = resolution.resolved.map(p => p.contactId);
                 const groupResult = await createGroup(parsed.groupName, participantIds);
                 
-                // Step 5: Success!
+                // Step 5: Generate and set group picture if requested
+                if (parsed.groupPicture && groupResult.chatId) {
+                  try {
+                    await sendTextMessage(chatId, `🎨 יוצר תמונת פרופיל לקבוצה...\n"${parsed.groupPicture}"`);
+                    
+                    // Generate image with Gemini
+                    const imageResult = await generateImageForWhatsApp(parsed.groupPicture);
+                    
+                    if (imageResult.success && imageResult.fileName) {
+                      // Read the generated image file
+                      const fs = require('fs');
+                      const path = require('path');
+                      const imagePath = path.join(__dirname, '..', 'public', 'tmp', imageResult.fileName);
+                      const imageBuffer = fs.readFileSync(imagePath);
+                      
+                      // Set as group picture
+                      await sendTextMessage(chatId, '🖼️ מעלה תמונה לקבוצה...');
+                      const pictureResult = await setGroupPicture(groupResult.chatId, imageBuffer);
+                      
+                      if (pictureResult.setGroupPicture) {
+                        await sendTextMessage(chatId, '✅ תמונת הקבוצה הועלתה בהצלחה!');
+                      } else {
+                        await sendTextMessage(chatId, `⚠️ לא הצלחתי להעלות תמונה: ${pictureResult.reason || 'סיבה לא ידועה'}`);
+                      }
+                      
+                      // Clean up the image file
+                      try {
+                        fs.unlinkSync(imagePath);
+                        console.log(`🧹 Cleaned up group picture file: ${imageResult.fileName}`);
+                      } catch (cleanupError) {
+                        console.warn('⚠️ Could not clean up group picture file:', cleanupError.message);
+                      }
+                    } else {
+                      await sendTextMessage(chatId, `⚠️ לא הצלחתי ליצור תמונה: ${imageResult.error || 'שגיאה לא ידועה'}`);
+                    }
+                  } catch (pictureError) {
+                    console.error('❌ Error setting group picture:', pictureError);
+                    await sendTextMessage(chatId, `⚠️ הקבוצה נוצרה אבל לא הצלחתי להוסיף תמונה: ${pictureError.message}`);
+                  }
+                }
+                
+                // Step 6: Success!
                 const successMsg = `✅ הקבוצה "${parsed.groupName}" נוצרה בהצלחה! 🎉\n\n👥 ${resolution.resolved.length} משתתפים הצטרפו לקבוצה`;
                 await sendTextMessage(chatId, successMsg);
                 
-                console.log(`✅ Group created successfully by ${senderName}: "${parsed.groupName}" with ${participantIds.length} participants`);
+                console.log(`✅ Group created successfully by ${senderName}: "${parsed.groupName}" with ${participantIds.length} participants${parsed.groupPicture ? ' (with picture)' : ''}`);
                 
               } catch (error) {
                 console.error('❌ Error creating group (outgoing):', error);
-                await sendTextMessage(chatId, `❌ שגיאה ביצירת הקבוצה: ${error.message}\n\n💡 וודא שהפורמט נכון, לדוגמה:\n# צור קבוצה בשם "שם הקבוצה" עם שם1, שם2, שם3`);
+                await sendTextMessage(chatId, `❌ שגיאה ביצירת הקבוצה: ${error.message}\n\n💡 וודא שהפורמט נכון, לדוגמה:\n# צור קבוצה בשם "שם הקבוצה" עם שם1, שם2, שם3\n# צור קבוצה בשם "שם" עם שם1, שם2 עם תמונה של חתול`);
               }
               return;
             }
