@@ -878,7 +878,17 @@ async function handleIncomingMessage(webhookData) {
                 // Step 4: Create the group
                 await sendTextMessage(chatId, '🔨 יוצר את הקבוצה...');
                 
-                const participantIds = resolution.resolved.map(p => p.contactId);
+                // Filter out the current user (group creator) - WhatsApp adds them automatically
+                const participantIds = resolution.resolved
+                  .map(p => p.contactId)
+                  .filter(id => id !== senderId); // Remove group creator from participants list
+                
+                if (participantIds.length === 0) {
+                  await sendTextMessage(chatId, '⚠️ לא נמצאו משתתפים נוספים (חוץ ממך). צריך לפחות משתתף אחד נוסף ליצירת קבוצה.');
+                  return;
+                }
+                
+                console.log(`👥 Final participants (excluding creator ${senderId}): ${participantIds.join(', ')}`);
                 const groupResult = await createGroup(parsed.groupName, participantIds);
                 
                 // Step 5: Generate and set group picture if requested
@@ -923,10 +933,10 @@ async function handleIncomingMessage(webhookData) {
                 }
                 
                 // Step 6: Success!
-                const successMsg = `✅ הקבוצה "${parsed.groupName}" נוצרה בהצלחה! 🎉\n\n👥 ${resolution.resolved.length} משתתפים הצטרפו לקבוצה`;
+                const successMsg = `✅ הקבוצה "${parsed.groupName}" נוצרה בהצלחה! 🎉\n\n👥 ${participantIds.length + 1} משתתפים בקבוצה (כולל אתה)`;
                 await sendTextMessage(chatId, successMsg);
                 
-                console.log(`✅ Group created successfully by ${senderName}: "${parsed.groupName}" with ${participantIds.length} participants${parsed.groupPicture ? ' (with picture)' : ''}`);
+                console.log(`✅ Group created successfully by ${senderName}: "${parsed.groupName}" with ${participantIds.length} other participants${parsed.groupPicture ? ' (with picture)' : ''}`);
                 
               } catch (error) {
                 console.error('❌ Error creating group:', error);
@@ -1595,7 +1605,17 @@ async function handleOutgoingMessage(webhookData) {
                 // Step 4: Create the group
                 await sendTextMessage(chatId, '🔨 יוצר את הקבוצה...');
                 
-                const participantIds = resolution.resolved.map(p => p.contactId);
+                // Filter out the current user (group creator) - WhatsApp adds them automatically
+                const participantIds = resolution.resolved
+                  .map(p => p.contactId)
+                  .filter(id => id !== senderId); // Remove group creator from participants list
+                
+                if (participantIds.length === 0) {
+                  await sendTextMessage(chatId, '⚠️ לא נמצאו משתתפים נוספים (חוץ ממך). צריך לפחות משתתף אחד נוסף ליצירת קבוצה.');
+                  return;
+                }
+                
+                console.log(`👥 Final participants (excluding creator ${senderId}): ${participantIds.join(', ')}`);
                 const groupResult = await createGroup(parsed.groupName, participantIds);
                 
                 // Step 5: Generate and set group picture if requested
@@ -1640,10 +1660,10 @@ async function handleOutgoingMessage(webhookData) {
                 }
                 
                 // Step 6: Success!
-                const successMsg = `✅ הקבוצה "${parsed.groupName}" נוצרה בהצלחה! 🎉\n\n👥 ${resolution.resolved.length} משתתפים הצטרפו לקבוצה`;
+                const successMsg = `✅ הקבוצה "${parsed.groupName}" נוצרה בהצלחה! 🎉\n\n👥 ${participantIds.length + 1} משתתפים בקבוצה (כולל אתה)`;
                 await sendTextMessage(chatId, successMsg);
                 
-                console.log(`✅ Group created successfully by ${senderName}: "${parsed.groupName}" with ${participantIds.length} participants${parsed.groupPicture ? ' (with picture)' : ''}`);
+                console.log(`✅ Group created successfully by ${senderName}: "${parsed.groupName}" with ${participantIds.length} other participants${parsed.groupPicture ? ' (with picture)' : ''}`);
                 
               } catch (error) {
                 console.error('❌ Error creating group (outgoing):', error);
