@@ -4,7 +4,7 @@ const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory, getMessage
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const { cleanPromptFromProviders } = require('../utils/promptCleaner');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
-const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary, parseTextToSpeechRequest, translateText } = require('../services/geminiService');
+const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, analyzeVideoWithText, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary, parseTextToSpeechRequest, translateText } = require('../services/geminiService');
 const { generateTextResponse: generateGrokResponse, generateImageForWhatsApp: generateGrokImage } = require('../services/grokService');
 const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage, generateVideoFromVideoForWhatsApp: generateRunwayVideoFromVideo, generateVideoWithTextForWhatsApp: generateKlingVideoFromText } = require('../services/replicateService');
 const { generateMusicWithLyrics } = require('../services/musicService');
@@ -541,6 +541,30 @@ async function handleIncomingMessage(webhookData) {
                   }
                 } catch (error) {
                   await sendTextMessage(chatId, `❌ שגיאה בניתוח התמונה: ${error.message}`);
+                }
+              } else if (normalized.hasVideo) {
+                // This is video analysis - use analyzeVideoWithText
+                const { analyzeVideoWithText } = require('../services/geminiService');
+                
+                try {
+                  // Get video URL (either from quoted message or current message)
+                  const finalVideoUrl = videoUrl || messageData.fileMessageData?.downloadUrl || messageData.videoMessageData?.downloadUrl;
+                  if (!finalVideoUrl) {
+                    await sendTextMessage(chatId, '❌ לא הצלחתי לקבל את הוידאו לניתוח');
+                    return;
+                  }
+                  
+                  // Download video buffer
+                  const videoBuffer = await downloadFile(finalVideoUrl);
+                  
+                  const result = await analyzeVideoWithText(prompt, videoBuffer);
+                  if (result.success) {
+                    await sendTextMessage(chatId, result.text);
+                  } else {
+                    await sendTextMessage(chatId, `❌ ${result.error}`);
+                  }
+                } catch (error) {
+                  await sendTextMessage(chatId, `❌ שגיאה בניתוח הוידאו: ${error.message}`);
                 }
               } else {
                 // Regular text chat
@@ -1103,6 +1127,26 @@ async function handleIncomingMessage(webhookData) {
               await sendUnauthorizedMessage(chatId, decision.args?.feature || 'media');
               return;
               
+            case 'gemini_chat': {
+              await sendAck(chatId, { type: 'gemini_chat' });
+              // Video analysis - use analyzeVideoWithText
+              const { analyzeVideoWithText } = require('../services/geminiService');
+              try {
+                // Download video buffer
+                const videoBuffer = await downloadFile(videoData.downloadUrl);
+                
+                const result = await analyzeVideoWithText(prompt, videoBuffer);
+                if (result.success) {
+                  await sendTextMessage(chatId, result.text);
+                } else {
+                  await sendTextMessage(chatId, `❌ ${result.error}`);
+                }
+              } catch (error) {
+                await sendTextMessage(chatId, `❌ שגיאה בניתוח הוידאו: ${error.message}`);
+              }
+              return;
+            }
+            
             case 'video_to_video': {
               console.log(`🎬 RunwayML Gen4 video-to-video request (via router)`);
               processVideoToVideoAsync({
@@ -1360,6 +1404,30 @@ async function handleOutgoingMessage(webhookData) {
                   }
                 } catch (error) {
                   await sendTextMessage(chatId, `❌ שגיאה בניתוח התמונה: ${error.message}`);
+                }
+              } else if (normalized.hasVideo) {
+                // This is video analysis - use analyzeVideoWithText
+                const { analyzeVideoWithText } = require('../services/geminiService');
+                
+                try {
+                  // Get video URL (either from quoted message or current message)
+                  const finalVideoUrl = videoUrl || messageData.fileMessageData?.downloadUrl || messageData.videoMessageData?.downloadUrl;
+                  if (!finalVideoUrl) {
+                    await sendTextMessage(chatId, '❌ לא הצלחתי לקבל את הוידאו לניתוח');
+                    return;
+                  }
+                  
+                  // Download video buffer
+                  const videoBuffer = await downloadFile(finalVideoUrl);
+                  
+                  const result = await analyzeVideoWithText(prompt, videoBuffer);
+                  if (result.success) {
+                    await sendTextMessage(chatId, result.text);
+                  } else {
+                    await sendTextMessage(chatId, `❌ ${result.error}`);
+                  }
+                } catch (error) {
+                  await sendTextMessage(chatId, `❌ שגיאה בניתוח הוידאו: ${error.message}`);
                 }
               } else {
                 // Regular text chat
@@ -1896,6 +1964,26 @@ async function handleOutgoingMessage(webhookData) {
           const prompt = decision.args?.prompt || finalPrompt;
 
           switch (decision.tool) {
+            case 'gemini_chat': {
+              await sendAck(chatId, { type: 'gemini_chat' });
+              // Video analysis - use analyzeVideoWithText
+              const { analyzeVideoWithText } = require('../services/geminiService');
+              try {
+                // Download the video from URL
+                const videoBuffer = await downloadFile(videoUrl);
+                
+                const result = await analyzeVideoWithText(prompt, videoBuffer);
+                if (result.success) {
+                  await sendTextMessage(chatId, result.text);
+                } else {
+                  await sendTextMessage(chatId, `❌ ${result.error}`);
+                }
+              } catch (error) {
+                await sendTextMessage(chatId, `❌ שגיאה בניתוח הוידאו: ${error.message}`);
+              }
+              return;
+            }
+            
             case 'video_to_video': {
               console.log(`🎬 RunwayML Gen4 video-to-video request (outgoing, via router)`);
               processVideoToVideoAsync({

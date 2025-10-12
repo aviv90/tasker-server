@@ -456,6 +456,80 @@ async function analyzeImageWithText(prompt, base64Image) {
     }
 }
 
+async function analyzeVideoWithText(prompt, videoBuffer) {
+    try {
+        console.log('🔍 Starting Gemini video analysis (text-only response)');
+        
+        // Sanitize prompt as an extra safety measure
+        const cleanPrompt = sanitizeText(prompt);
+        
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.5-flash" // Use regular model for text analysis
+        });
+        
+        // Convert video buffer to base64
+        const base64Video = videoBuffer.toString('base64');
+        
+        const result = await model.generateContent({
+            contents: [
+                { 
+                    role: "user", 
+                    parts: [
+                        { inlineData: { mimeType: "video/mp4", data: base64Video } }, 
+                        { text: cleanPrompt }
+                    ] 
+                }
+            ],
+            generationConfig: { 
+                responseModalities: ["TEXT"], // Text-only response
+                temperature: 0.7
+            }
+        });
+        
+        const response = result.response;
+        if (!response.candidates || response.candidates.length === 0) {
+            console.log('❌ Gemini video analysis: No candidates returned');
+            return { 
+                success: false, 
+                error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' 
+            };
+        }
+        
+        const cand = response.candidates[0];
+        let text = '';
+        
+        // Extract text from response
+        if (cand.content && cand.content.parts) {
+            for (const part of cand.content.parts) {
+                if (part.text) {
+                    text += part.text;
+                }
+            }
+        }
+        
+        if (!text || text.trim().length === 0) {
+            console.log('❌ Gemini video analysis: No text found in response');
+            return { 
+                success: false, 
+                error: 'No text response from Gemini' 
+            };
+        }
+        
+        console.log('✅ Gemini video analysis completed');
+        return { 
+            success: true,
+            text: text.trim(),
+            description: text.trim()
+        };
+    } catch (err) {
+        console.error('❌ Gemini video analysis error:', err);
+        return { 
+            success: false, 
+            error: err.message || 'Unknown error occurred during video analysis' 
+        };
+    }
+}
+
 async function generateVideoWithText(prompt) {
     try {
         console.log('🎬 Starting Veo 3 text-to-video generation - Stable version');
@@ -1350,6 +1424,7 @@ module.exports = {
     editImageWithText, 
     editImageForWhatsApp, 
     analyzeImageWithText,
+    analyzeVideoWithText,
     generateVideoWithText, 
     generateVideoWithImage, 
     generateVideoForWhatsApp, 

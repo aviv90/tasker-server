@@ -115,14 +115,29 @@ async function routeIntent(input) {
     return { tool: 'gemini_chat', args: { prompt }, reason: 'Image-related request (default to analysis)' };
   }
 
-  // If there is an attached video with text prompt → video-to-video
+  // If there is an attached video with text prompt → decide between video analysis vs video-to-video
   if (input.hasVideo && prompt) {
-    if (!input.authorizations?.media_creation) {
-      return { tool: 'deny_unauthorized', args: { feature: 'video_to_video' }, reason: 'No media creation authorization' };
+    // First priority: Check if user wants video analysis/questions (text-only response)
+    // Same pattern as image analysis
+    const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous|מסוכן|בטוח)\b/i.test(prompt);
+    if (isAnalysisRequest) {
+      return { tool: 'gemini_chat', args: { prompt }, reason: 'Video analysis/question' };
     }
-    // Only Runway for video editing
-    const service = 'runway';
-    return { tool: 'video_to_video', args: { service, prompt }, reason: 'Video attached with prompt' };
+    
+    // Second priority: Video-to-video editing (requires authorization)
+    const isEditRequest = /\b(add|remove|delete|change|replace|modify|edit|make|create|draw|paint|color|set|put|insert|erase|fix|adjust|enhance|improve|transform|convert)\b|הוסף|הסר|מחק|שנה|החלף|ערוך|צור|צייר|צבע|הכנס|תקן|שפר|המר|הפוך(?!.*וידאו)|עשה|תן/i.test(prompt);
+    if (isEditRequest) {
+      if (!input.authorizations?.media_creation) {
+        return { tool: 'deny_unauthorized', args: { feature: 'video_to_video' }, reason: 'No media creation authorization' };
+      }
+      // Only Runway for video editing
+      const service = 'runway';
+      return { tool: 'video_to_video', args: { service, prompt }, reason: 'Video edit request' };
+    }
+    
+    // Default: If no clear pattern detected, treat as analysis/question
+    // This is safer than defaulting to edit
+    return { tool: 'gemini_chat', args: { prompt }, reason: 'Video-related request (default to analysis)' };
   }
 
   // If there is an attached image WITHOUT prompt → ignore (no automatic analysis)
@@ -364,7 +379,26 @@ ${JSON.stringify(payload, null, 2)}
    ⚠️ NEVER choose music/TTS/help when hasImage=true
 
 2️⃣ **IF hasVideo=true** (user sent a video):
-   - Always → "video_to_video"
+   PRIORITY ORDER (check in this exact sequence):
+   
+   A. **Video Analysis/Questions** (highest priority - text-only response):
+      ✓ Question words: "מה", "איך", "למה", "האם", "מי", "איפה", "מתי", "כמה", "what", "how", "why", "is", "are", "does", "can", "should", "could", "would", "who", "where", "when", "which"
+      ✓ Info requests: "תאר", "ספר", "הסבר", "זהה", "בדוק", "describe", "explain", "tell", "identify", "analyze", "detect", "recognize"
+      ✓ Safety/assessment: "בטוח", "מסוכן", "safe", "dangerous", "good", "bad"
+      ✓ Pattern examples:
+        - "מה קורה בוידאו?" → "gemini_chat"
+        - "תאר את הוידאו" → "gemini_chat"
+        - "what is happening in this video?" → "gemini_chat"
+      → "gemini_chat" (text-only analysis)
+   
+   B. **Video Editing** (second priority - requires authorization):
+      ✓ Edit keywords: "הוסף", "הסר", "מחק", "שנה", "החלף", "ערוך", "add", "remove", "delete", "change", "replace", "edit", "make", "create"
+      ✓ Requires media_creation authorization
+      → "video_to_video"
+   
+   C. **Default** (no clear pattern):
+      - If unclear → "gemini_chat" (safer to analyze than edit)
+   
    ⚠️ NEVER choose music/TTS/help when hasVideo=true
 
 3️⃣ **IF hasAudio=true** (voice message):
@@ -570,9 +604,25 @@ ${JSON.stringify(payload, null, 2)}
    Input: {"userText": "# The clipboard has a video file", "hasImage": false, "hasVideo": false}
    Output: {"tool": "gemini_chat", "args": {"prompt": "The clipboard has a video file"}, "reason": "Chat - no PRIMARY intent (clipboard≠clip, 'video' as noun not verb)"}
 
+   ✅ VIDEO ANALYSIS (Text-only response):
+   Input: {"userText": "# מה קורה בוידאו?", "hasImage": false, "hasVideo": true}
+   Output: {"tool": "gemini_chat", "args": {"prompt": "מה קורה בוידאו?"}, "reason": "Video analysis"}
+   
+   Input: {"userText": "# תאר את הוידאו", "hasImage": false, "hasVideo": true}
+   Output: {"tool": "gemini_chat", "args": {"prompt": "תאר את הוידאו"}, "reason": "Video analysis"}
+   
+   Input: {"userText": "# what is happening in this video?", "hasImage": false, "hasVideo": true}
+   Output: {"tool": "gemini_chat", "args": {"prompt": "what is happening in this video?"}, "reason": "Video analysis"}
+   
+   Input: {"userText": "# זהה את האנשים בוידאו", "hasImage": false, "hasVideo": true}
+   Output: {"tool": "gemini_chat", "args": {"prompt": "זהה את האנשים בוידאו"}, "reason": "Video analysis"}
+
    ✅ VIDEO EDITING:
-   Input: {"userText": "# ערוך וידאו", "hasImage": false, "hasVideo": true}
-   Output: {"tool": "video_to_video", "args": {"service": "runway", "prompt": "ערוך וידאו"}, "reason": "Video edit"}
+   Input: {"userText": "# ערוך את הוידאו", "hasImage": false, "hasVideo": true}
+   Output: {"tool": "video_to_video", "args": {"service": "runway", "prompt": "ערוך את הוידאו"}, "reason": "Video edit"}
+   
+   Input: {"userText": "# הוסף מוזיקה לוידאו", "hasImage": false, "hasVideo": true}
+   Output: {"tool": "video_to_video", "args": {"service": "runway", "prompt": "הוסף מוזיקה לוידאו"}, "reason": "Video edit"}
 
 ⚠️ **CRITICAL RULES (MUST FOLLOW EXACTLY):**
 
