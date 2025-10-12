@@ -459,6 +459,7 @@ async function analyzeImageWithText(prompt, base64Image) {
 async function analyzeVideoWithText(prompt, videoBuffer) {
     try {
         console.log('🔍 Starting Gemini video analysis (text-only response)');
+        console.log(`📹 Video size: ${(videoBuffer.length / 1024 / 1024).toFixed(2)} MB`);
         
         // Sanitize prompt as an extra safety measure
         const cleanPrompt = sanitizeText(prompt);
@@ -467,15 +468,70 @@ async function analyzeVideoWithText(prompt, videoBuffer) {
             model: "gemini-2.5-flash" // Use regular model for text analysis
         });
         
-        // Convert video buffer to base64
-        const base64Video = videoBuffer.toString('base64');
+        let videoPart;
+        
+        // For videos larger than 2MB, use Files API; otherwise use inline data
+        if (videoBuffer.length > 2 * 1024 * 1024) {
+            console.log('📤 Video is large, uploading to Files API first...');
+            
+            // Save video to temporary file
+            const tempFileName = `temp_analysis_video_${uuidv4()}.mp4`;
+            const tempFilePath = path.join(__dirname, '..', 'public', 'tmp', tempFileName);
+            const tmpDir = path.dirname(tempFilePath);
+            
+            if (!fs.existsSync(tmpDir)) {
+                fs.mkdirSync(tmpDir, { recursive: true });
+            }
+            
+            fs.writeFileSync(tempFilePath, videoBuffer);
+            
+            try {
+                // Upload video file to Gemini Files API
+                const uploadResult = await veoClient.files.upload({
+                    file: {
+                        path: tempFilePath,
+                        mimeType: 'video/mp4'
+                    }
+                });
+                
+                console.log('✅ Video uploaded to Files API');
+                
+                // Use fileData reference instead of inline data
+                videoPart = { 
+                    fileData: {
+                        fileUri: uploadResult.file.uri,
+                        mimeType: uploadResult.file.mimeType
+                    }
+                };
+                
+                // Clean up temp file after upload
+                try {
+                    fs.unlinkSync(tempFilePath);
+                    console.log('🧹 Cleaned up temporary video file');
+                } catch (cleanupErr) {
+                    console.warn('⚠️ Could not delete temp file:', cleanupErr.message);
+                }
+                
+            } catch (uploadErr) {
+                console.error('❌ Failed to upload video to Files API:', uploadErr);
+                // Fallback to inline data if upload fails
+                console.log('🔄 Falling back to inline data...');
+                const base64Video = videoBuffer.toString('base64');
+                videoPart = { inlineData: { mimeType: "video/mp4", data: base64Video } };
+            }
+        } else {
+            console.log('📦 Video is small enough, using inline data');
+            // Convert video buffer to base64 for inline data
+            const base64Video = videoBuffer.toString('base64');
+            videoPart = { inlineData: { mimeType: "video/mp4", data: base64Video } };
+        }
         
         const result = await model.generateContent({
             contents: [
                 { 
                     role: "user", 
                     parts: [
-                        { inlineData: { mimeType: "video/mp4", data: base64Video } }, 
+                        videoPart,
                         { text: cleanPrompt }
                     ] 
                 }
