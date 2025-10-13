@@ -392,6 +392,12 @@ async function analyzeImageWithText(prompt, base64Image) {
         // Sanitize prompt as an extra safety measure
         const cleanPrompt = sanitizeText(prompt);
         
+        // Detect if prompt is in Hebrew
+        const hasHebrew = /[\u0590-\u05FF]/.test(cleanPrompt);
+        const languageInstruction = hasHebrew 
+            ? '\n\nחשוב: ענה בעברית בלבד.' 
+            : '';
+        
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.5-flash" // Use regular model for text analysis
         });
@@ -402,7 +408,7 @@ async function analyzeImageWithText(prompt, base64Image) {
                     role: "user", 
                     parts: [
                         { inlineData: { mimeType: "image/jpeg", data: base64Image } }, 
-                        { text: cleanPrompt }
+                        { text: cleanPrompt + languageInstruction }
                     ] 
                 }
             ],
@@ -463,6 +469,12 @@ async function analyzeVideoWithText(prompt, videoBuffer) {
         
         // Sanitize prompt as an extra safety measure
         const cleanPrompt = sanitizeText(prompt);
+        
+        // Detect if prompt is in Hebrew
+        const hasHebrew = /[\u0590-\u05FF]/.test(cleanPrompt);
+        const languageInstruction = hasHebrew 
+            ? '\n\nחשוב: ענה בעברית בלבד.' 
+            : '';
         
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.5-flash" // Use regular model for text analysis
@@ -532,7 +544,7 @@ async function analyzeVideoWithText(prompt, videoBuffer) {
                     role: "user", 
                     parts: [
                         videoPart,
-                        { text: cleanPrompt }
+                        { text: cleanPrompt + languageInstruction }
                     ] 
                 }
             ],
@@ -1170,13 +1182,13 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         // Add system prompt as first user message (Gemini format)
         contents.push({
             role: 'user',
-            parts: [{ text: 'אתה עוזר AI ידידותי, אדיב ונעים. תן תשובות טבעיות ונעימות. אל תחשוב בקול רם ואל תכתוב את תהליך החשיבה שלך - תן רק את התשובה הסופית.' }]
+            parts: [{ text: 'אתה עוזר AI ידידותי, אדיב ונעים. תן תשובות טבעיות ונעימות.\n\nחשוב מאוד:\n1. אל תכתב את תהליך החשיבה שלך. אל תכתב "THOUGHT", "This response:", "*Drafting*" או כל הערות מטא אחרות. תשיב ישירות עם התשובה הסופית בלבד.\n2. תמיד תשיב באותה שפה שבה המשתמש שואל - אם השאלה בעברית, התשובה תהיה בעברית. אם באנגלית, התשובה תהיה באנגלית.' }]
         });
         
         // Add system prompt response
         contents.push({
             role: 'model',
-            parts: [{ text: 'שלום! איך אני יכול לעזור לך היום?' }]
+            parts: [{ text: 'הבנתי. אשיב ישירות ללא כתיבת תהליך חשיבה, ותמיד באותה שפה שבה נשאלת השאלה.' }]
         });
 
         // Normalize conversation history to an array to avoid undefined lengths
@@ -1225,47 +1237,91 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         // Clean up verbose thinking patterns that sometimes appear
         text = text.trim();
         
-        // Remove "SPECIAL INSTRUCTION" blocks and thinking patterns
-        if (text.includes('SPECIAL INSTRUCTION:') || text.includes('Think step-by-step')) {
+        // Detect various thinking/reasoning patterns that should be removed
+        const hasThinkingPattern = 
+            text.includes('SPECIAL INSTRUCTION:') || 
+            text.includes('Think step-by-step') ||
+            text.startsWith('THOUGHT') ||
+            /^THOUGHT\s/m.test(text) || // THOUGHT at start of a line
+            text.includes('*Drafting the response:*') ||
+            text.includes('This response:');
+        
+        if (hasThinkingPattern) {
             console.log('🧹 Detected verbose thinking pattern, extracting final answer...');
             
-            // Try to extract the final answer after all the thinking
-            const lines = text.split('\n');
+            // Split by common delimiters that separate thinking from final answer
             let finalAnswer = '';
-            let foundFinalAnswer = false;
             
-            // Look for the actual answer (usually after all the verbose thinking)
-            for (let i = lines.length - 1; i >= 0; i--) {
+            // Try to find the actual answer after thinking patterns
+            // Often the final answer comes after patterns like:
+            // - "This response:" followed by bullet points, then the actual text
+            // - Just after markdown formatting like "*text*" or numbered lists
+            
+            const lines = text.split('\n');
+            let inThinkingSection = false;
+            let answerLines = [];
+            let foundAnswerStart = false;
+            
+            for (let i = 0; i < lines.length; i++) {
                 const line = lines[i].trim();
-                if (line && 
-                    !line.includes('SPECIAL INSTRUCTION') && 
-                    !line.includes('Think step-by-step') &&
-                    !line.includes('Let\'s consider') &&
-                    !line.includes('This is') &&
-                    !line.includes('My current instruction') &&
-                    !line.includes('The user is') &&
-                    !line.startsWith('*') &&
-                    !line.startsWith('1.') &&
-                    !line.startsWith('2.') &&
-                    !line.startsWith('3.') &&
-                    !line.startsWith('4.') &&
-                    !line.includes('proverb') &&
-                    line.length < 200) { // Reasonable answer length
-                    finalAnswer = line;
-                    foundFinalAnswer = true;
-                    break;
+                
+                // Skip empty lines at the start
+                if (!foundAnswerStart && !line) continue;
+                
+                // Detect thinking section markers
+                if (line.startsWith('THOUGHT') || 
+                    line.includes('SPECIAL INSTRUCTION') ||
+                    line.includes('Think step-by-step') ||
+                    line.includes('I need to:') ||
+                    line.includes('*Drafting the response:*') ||
+                    line.includes('This response:')) {
+                    inThinkingSection = true;
+                    continue;
+                }
+                
+                // Skip lines that look like internal reasoning
+                if (inThinkingSection && (
+                    line.startsWith('*') && line.endsWith('*') || // Markdown emphasis for meta-comments
+                    line.match(/^\d+\.\s+\*.*\*:/) || // Numbered list with emphasized headers
+                    line.includes('The user is') ||
+                    line.includes('My current instruction') ||
+                    line.includes('Let\'s consider') ||
+                    line.includes('I should'))) {
+                    continue;
+                }
+                
+                // If we find a line that looks like actual content (Hebrew/English text, reasonable length)
+                // and doesn't have meta-markers, consider it the start of the answer
+                if (line.length > 0 && 
+                    !line.startsWith('*') && 
+                    !line.match(/^\d+\.\s+\*/) &&
+                    !line.includes('THOUGHT')) {
+                    foundAnswerStart = true;
+                    inThinkingSection = false;
+                    answerLines.push(lines[i]); // Keep original formatting
+                } else if (foundAnswerStart && !inThinkingSection) {
+                    answerLines.push(lines[i]); // Keep building the answer
                 }
             }
             
-            if (foundFinalAnswer && finalAnswer) {
-                text = finalAnswer;
-                console.log(`🎯 Extracted final answer: ${text}`);
-            } else {
-                // Fallback: take the last non-empty line that looks like an answer
-                const lastLine = lines[lines.length - 1].trim();
-                if (lastLine && lastLine.length < 200) {
-                    text = lastLine;
-                    console.log(`🔄 Using last line as fallback: ${text}`);
+            if (answerLines.length > 0) {
+                finalAnswer = answerLines.join('\n').trim();
+                
+                // Additional cleanup: remove any remaining markdown meta-comments at the start
+                finalAnswer = finalAnswer.replace(/^\*.*?\*\s*\n/gm, '');
+                
+                // If the answer is still wrapped in quotes (from drafting), extract it
+                // e.g., "זו שאלה מעניינת..." -> זו שאלה מעניינת...
+                const quotedMatch = finalAnswer.match(/^"(.+)"$/s);
+                if (quotedMatch) {
+                    finalAnswer = quotedMatch[1].trim();
+                    console.log('🧹 Removed surrounding quotes from answer');
+                }
+                
+                if (finalAnswer && finalAnswer.length > 10) {
+                    text = finalAnswer;
+                    console.log(`🎯 Extracted final answer (${finalAnswer.length} chars)`);
+                    console.log(`   Preview: ${finalAnswer.substring(0, 100)}...`);
                 }
             }
         }
@@ -1322,7 +1378,9 @@ async function generateChatSummary(messages) {
             formattedMessages += `${index + 1}. ${timestamp} - ${sender}: ${messageText}\n`;
         });
         
-        const summaryPrompt = `אנא צור סיכום קצר וברור של השיחה הבאה. התמקד בנושאים העיקריים, החלטות שהתקבלו, ונקודות חשובות:
+        const summaryPrompt = `אנא צור סיכום קצר וברור של השיחה הבאה. התמקד בנושאים העיקריים, החלטות שהתקבלו, ונקודות חשובות.
+
+חשוב: הסיכום חייב להיות בעברית.
 
 הודעות השיחה:
 ${formattedMessages}
