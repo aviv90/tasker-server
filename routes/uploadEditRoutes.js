@@ -453,6 +453,47 @@ router.post('/music/callback', async (req, res) => {
   }
 });
 
+// Callback route for Kie.ai music VIDEO generation notifications
+// See: https://docs.kie.ai/suno-api/create-music-video-callbacks
+router.post('/video/callback', async (req, res) => {
+  try {
+    console.log('🎬 Music video callback received');
+    
+    const callbackData = req.body;
+    
+    // Handle Suno music video generation callbacks
+    if (callbackData.data && callbackData.data.task_id) {
+      const videoTaskId = callbackData.data.task_id;
+      
+      console.log(`🎬 Processing video callback for task: ${videoTaskId}`);
+      
+      // Handle callback asynchronously to avoid Heroku timeout
+      const musicService = require('../services/musicService');
+      
+      // Process callback in background without blocking response
+      musicService.handleVideoCallbackCompletion(videoTaskId, callbackData).then(result => {
+        if (result && !result.error) {
+          console.log(`✅ Music video callback processed successfully for task ${videoTaskId}`);
+        } else {
+          console.error(`❌ Music video callback processing failed for task ${videoTaskId}:`, result?.error);
+        }
+      }).catch(error => {
+        console.error(`❌ Error processing music video callback:`, error);
+      });
+    }
+    
+    // Acknowledge the callback
+    res.status(200).json({ 
+      status: 'received', 
+      message: 'Video callback processed successfully' 
+    });
+    
+  } catch (error) {
+    console.error('❌ Error processing music video callback:', error);
+    res.status(500).json({ error: 'Video callback processing failed' });
+  }
+});
+
 // Speech-to-Song endpoint
 router.post('/speech-to-song', upload.single('file'), async (req, res) => {
   console.log(`🎤 Starting Speech-to-Song generation for task ${req.body.taskId || 'new'}`);
