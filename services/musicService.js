@@ -17,6 +17,7 @@ class MusicService {
     async generateMusicWithLyrics(prompt, options = {}) {
         try {
             console.log(`🎵 Starting Suno music generation with lyrics`);
+            console.log(`📥 Options received:`, { makeVideo: options.makeVideo, model: options.model, hasWhatsappContext: !!options.whatsappContext });
             
             const cleanPrompt = sanitizeText(prompt);
             
@@ -55,7 +56,9 @@ class MusicService {
             // Add video generation if requested
             if (options.makeVideo === true) {
                 musicOptions.makeVideo = true;
-                console.log(`🎬 Video generation enabled`);
+                console.log(`🎬 Video generation enabled - will request video from Suno API`);
+            } else {
+                console.log(`🎵 Video generation NOT requested - audio only`);
             }
             
             console.log(`🎼 Using automatic mode`);
@@ -225,7 +228,16 @@ class MusicService {
                     // Check if video is available
                     const videoUrl = firstSong.videoUrl || firstSong.video_url || firstSong.stream_video_url || firstSong.source_stream_video_url;
                     if (videoUrl) {
-                        console.log(`🎬 Video URL found: ${videoUrl}`);
+                        console.log(`🎬 Video URL found in callback: ${videoUrl}`);
+                        console.log(`✅ Video generation was successful!`);
+                    } else {
+                        console.log(`ℹ️ No video URL in callback response - checking if it was requested...`);
+                        console.log(`📋 Callback data keys for video:`, {
+                            videoUrl: firstSong.videoUrl,
+                            video_url: firstSong.video_url,
+                            stream_video_url: firstSong.stream_video_url,
+                            source_stream_video_url: firstSong.source_stream_video_url
+                        });
                     }
                     
                     if (songUrl) {
@@ -667,15 +679,22 @@ async function sendMusicToWhatsApp(whatsappContext, musicResult) {
         
         // If video is available, send video first
         if (musicResult.videoBuffer && musicResult.videoResult) {
-            console.log(`🎬 Sending music video...`);
+            console.log(`🎬 Music video available! Sending video to WhatsApp...`);
+            console.log(`📹 Video buffer size: ${musicResult.videoBuffer.length} bytes`);
+            console.log(`🔗 Video path: ${musicResult.videoResult}`);
+            
             const fullVideoUrl = musicResult.videoResult.startsWith('http') 
                 ? musicResult.videoResult 
                 : getStaticFileUrl(musicResult.videoResult.replace('/static/', ''));
             
             const videoFileName = musicResult.videoResult.split('/').pop();
             await sendFileByUrl(chatId, fullVideoUrl, videoFileName, '');
-            console.log(`✅ Music video sent: ${videoFileName}`);
+            console.log(`✅ Music video sent successfully: ${videoFileName}`);
         } else {
+            console.log(`ℹ️ No video available (videoBuffer: ${!!musicResult.videoBuffer}, videoResult: ${!!musicResult.videoResult}) - sending audio only`);
+        }
+        
+        if (!musicResult.videoBuffer || !musicResult.videoResult) {
             // No video - send audio as voice note
             // Convert MP3 to Opus for voice note
             console.log(`🔄 Converting music to Opus format for voice note...`);

@@ -810,9 +810,12 @@ async function handleIncomingMessage(webhookData) {
             // ═══════════════════ MUSIC GENERATION ═══════════════════
             case 'music_generation': {
               // Parse music request to check if video is requested
+              console.log(`🎵 Processing music generation request: "${prompt}"`);
               const musicParsing = await parseMusicRequest(prompt);
               const cleanMusicPrompt = musicParsing.cleanPrompt || prompt;
               const wantsVideo = musicParsing.wantsVideo || false;
+              
+              console.log(`🎯 Music parsing complete: wantsVideo=${wantsVideo}, cleanPrompt="${cleanMusicPrompt}"`);
               
               // Send customized ACK based on whether video is requested
               const ackMsg = wantsVideo 
@@ -821,7 +824,9 @@ async function handleIncomingMessage(webhookData) {
               await sendTextMessage(chatId, ackMsg);
               
               if (wantsVideo) {
-                console.log('🎬 User requested music with video/clip');
+                console.log('🎬 User requested music with video/clip - passing makeVideo: true');
+              } else {
+                console.log('🎵 User requested music without video - passing makeVideo: false');
               }
               
               const musicResult = await generateMusicWithLyrics(cleanMusicPrompt, {
@@ -1619,9 +1624,12 @@ async function handleOutgoingMessage(webhookData) {
             // ═══════════════════ MUSIC GENERATION ═══════════════════
             case 'music_generation': {
               // Parse music request to check if video is requested
+              console.log(`🎵 Processing music generation request: "${prompt}"`);
               const musicParsing = await parseMusicRequest(prompt);
               const cleanMusicPrompt = musicParsing.cleanPrompt || prompt;
               const wantsVideo = musicParsing.wantsVideo || false;
+              
+              console.log(`🎯 Music parsing complete: wantsVideo=${wantsVideo}, cleanPrompt="${cleanMusicPrompt}"`);
               
               // Send customized ACK based on whether video is requested
               const ackMsg = wantsVideo 
@@ -1630,7 +1638,9 @@ async function handleOutgoingMessage(webhookData) {
               await sendTextMessage(chatId, ackMsg);
               
               if (wantsVideo) {
-                console.log('🎬 User requested music with video/clip');
+                console.log('🎬 User requested music with video/clip - passing makeVideo: true');
+              } else {
+                console.log('🎵 User requested music without video - passing makeVideo: false');
               }
               
               const musicResult = await generateMusicWithLyrics(cleanMusicPrompt, {

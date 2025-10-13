@@ -1419,6 +1419,38 @@ ${formattedMessages}
 async function parseMusicRequest(prompt) {
     try {
         console.log('🔍 Parsing music request for video option');
+        console.log(`📝 Original prompt: "${prompt}"`);
+        
+        // First, try simple regex detection for common patterns (fast and reliable)
+        // Hebrew patterns: כולל וידאו, עם וידאו, גם וידאו, כולל קליפ, עם קליפ, וידאו, קליפ
+        // English patterns: with video, and video, plus video, with clip, and clip, video, clip
+        const videoPatterns = /\b(with|and|plus|including|include)\s+(video|clip)\b|כולל\s+(וידאו|קליפ)|עם\s+(וידאו|קליפ)|גם\s+(וידאו|קליפ)|ועם\s+(וידאו|קליפ)|\bvideo\s*clip\b|\bmusic\s*video\b/i;
+        
+        const regexMatch = videoPatterns.test(prompt);
+        
+        if (regexMatch) {
+            console.log('✅ Regex detected video request!');
+            // Clean the prompt by removing video/clip mentions
+            const cleanPrompt = prompt
+                .replace(/\s*(with|and|plus|including|include)\s+(video|clip)\s*/gi, ' ')
+                .replace(/\s*כולל\s+(וידאו|קליפ)\s*/g, ' ')
+                .replace(/\s*עם\s+(וידאו|קליפ)\s*/g, ' ')
+                .replace(/\s*גם\s+(וידאו|קליפ)\s*/g, ' ')
+                .replace(/\s*ועם\s+(וידאו|קליפ)\s*/g, ' ')
+                .replace(/\s*video\s*clip\s*/gi, ' ')
+                .replace(/\s*music\s*video\s*/gi, ' ')
+                .trim()
+                .replace(/\s+/g, ' '); // normalize spaces
+            
+            const result = {
+                wantsVideo: true,
+                cleanPrompt: cleanPrompt || prompt
+            };
+            console.log(`✅ Regex result: wantsVideo=${result.wantsVideo}, cleanPrompt="${result.cleanPrompt}"`);
+            return result;
+        }
+        
+        console.log('⏭️ No regex match, using LLM for parsing...');
         
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.5-flash" 
@@ -1435,14 +1467,18 @@ Return ONLY a JSON object (no markdown, no extra text) with this exact structure
 }
 
 Rules:
-1. If user explicitly requests video or clip (e.g., "with video", "כולל וידאו", "עם וידאו", "גם וידאו", "plus video", "and video", "ועם וידאו", "קליפ", "כולל קליפ", "עם קליפ", "clip", "with clip", "video clip"), set wantsVideo=true
+1. If user explicitly requests video or clip (e.g., "with video", "כולל וידאו", "עם וידאו", "גם וידאו", "plus video", "and video", "ועם וידאו", "קליפ", "כולל קליפ", "עם קליפ", "clip", "with clip", "video clip", "music video"), set wantsVideo=true
 2. Extract the actual music description (without the video/clip instruction)
 3. Keep the cleanPrompt focused on music style, theme, mood, lyrics topic
 4. If no video/clip is mentioned, set wantsVideo=false and keep original prompt
+5. IMPORTANT: The presence of other words (like "Suno", "בעזרת", "באמצעות") should NOT affect video detection - focus ONLY on video/clip keywords
 
 Examples:
 Input: "צור שיר בסגנון רוק על אהבה כולל וידאו"
 Output: {"wantsVideo":true,"cleanPrompt":"צור שיר בסגנון רוק על אהבה"}
+
+Input: "צור שיר על הכלב דובי בעזרת Suno, כולל וידאו"
+Output: {"wantsVideo":true,"cleanPrompt":"צור שיר על הכלב דובי בעזרת Suno"}
 
 Input: "create a pop song about summer with video"
 Output: {"wantsVideo":true,"cleanPrompt":"create a pop song about summer"}
@@ -1455,6 +1491,9 @@ Output: {"wantsVideo":true,"cleanPrompt":"שיר רומנטי"}
 
 Input: "make a rock song with clip"
 Output: {"wantsVideo":true,"cleanPrompt":"make a rock song"}
+
+Input: "make a song with Suno and video"
+Output: {"wantsVideo":true,"cleanPrompt":"make a song with Suno"}
 
 Input: "צור שיר ג'אז"
 Output: {"wantsVideo":false,"cleanPrompt":"צור שיר ג'אז"}
@@ -1471,13 +1510,14 @@ Output: {"wantsVideo":false,"cleanPrompt":"make a happy song"}`;
         }
         
         let rawText = response.text().trim();
+        console.log(`📄 LLM raw response: "${rawText}"`);
         
         // Remove markdown code fences if present
         rawText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
         
         const parsed = JSON.parse(rawText);
         
-        console.log('✅ Music request parsed:', parsed);
+        console.log(`✅ LLM parsed result: wantsVideo=${parsed.wantsVideo}, cleanPrompt="${parsed.cleanPrompt}"`);
         return parsed;
         
     } catch (err) {
