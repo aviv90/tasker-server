@@ -4,7 +4,7 @@ const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory, getMessage
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const { cleanPromptFromProviders } = require('../utils/promptCleaner');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
-const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, analyzeVideoWithText, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary, parseTextToSpeechRequest, translateText } = require('../services/geminiService');
+const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, analyzeVideoWithText, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary, parseMusicRequest, parseTextToSpeechRequest, translateText } = require('../services/geminiService');
 const { generateTextResponse: generateGrokResponse, generateImageForWhatsApp: generateGrokImage } = require('../services/grokService');
 const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage, generateVideoFromVideoForWhatsApp: generateRunwayVideoFromVideo, generateVideoWithTextForWhatsApp: generateKlingVideoFromText } = require('../services/replicateService');
 const { generateMusicWithLyrics } = require('../services/musicService');
@@ -809,10 +809,25 @@ async function handleIncomingMessage(webhookData) {
             
             // ═══════════════════ MUSIC GENERATION ═══════════════════
             case 'music_generation': {
-              await sendAck(chatId, { type: 'music_generation' });
-              const musicResult = await generateMusicWithLyrics(prompt, {
+              // Parse music request to check if video is requested
+              const musicParsing = await parseMusicRequest(prompt);
+              const cleanMusicPrompt = musicParsing.cleanPrompt || prompt;
+              const wantsVideo = musicParsing.wantsVideo || false;
+              
+              // Send customized ACK based on whether video is requested
+              const ackMsg = wantsVideo 
+                ? '🎵🎬 קיבלתי! מתחיל יצירת שיר עם קליפ/וידאו באמצעות Suno AI... 🎶'
+                : '🎵 קיבלתי! מתחיל יצירת שיר עם Suno AI... 🎶';
+              await sendTextMessage(chatId, ackMsg);
+              
+              if (wantsVideo) {
+                console.log('🎬 User requested music with video/clip');
+              }
+              
+              const musicResult = await generateMusicWithLyrics(cleanMusicPrompt, {
                 callbackUrl: null,
-                whatsappContext: { chatId, senderId, senderName }
+                whatsappContext: { chatId, senderId, senderName },
+                makeVideo: wantsVideo
               });
               if (musicResult.error) {
                 await sendTextMessage(chatId, `❌ ${musicResult.error}`);
@@ -1603,10 +1618,25 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ MUSIC GENERATION ═══════════════════
             case 'music_generation': {
-              await sendAck(chatId, { type: 'music_generation' });
-              const musicResult = await generateMusicWithLyrics(prompt, {
+              // Parse music request to check if video is requested
+              const musicParsing = await parseMusicRequest(prompt);
+              const cleanMusicPrompt = musicParsing.cleanPrompt || prompt;
+              const wantsVideo = musicParsing.wantsVideo || false;
+              
+              // Send customized ACK based on whether video is requested
+              const ackMsg = wantsVideo 
+                ? '🎵🎬 קיבלתי! מתחיל יצירת שיר עם קליפ/וידאו באמצעות Suno AI... 🎶'
+                : '🎵 קיבלתי! מתחיל יצירת שיר עם Suno AI... 🎶';
+              await sendTextMessage(chatId, ackMsg);
+              
+              if (wantsVideo) {
+                console.log('🎬 User requested music with video/clip');
+              }
+              
+              const musicResult = await generateMusicWithLyrics(cleanMusicPrompt, {
                 callbackUrl: null,
-                whatsappContext: { chatId, senderId, senderName }
+                whatsappContext: { chatId, senderId, senderName },
+                makeVideo: wantsVideo
               });
               if (musicResult.error) {
                 await sendTextMessage(chatId, `❌ ${musicResult.error}`);

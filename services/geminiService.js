@@ -1412,6 +1412,82 @@ ${formattedMessages}
 }
 
 /**
+ * Parse music generation request to detect if video is requested
+ * @param {string} prompt - User's music request
+ * @returns {Object} - { wantsVideo: boolean, cleanPrompt: string }
+ */
+async function parseMusicRequest(prompt) {
+    try {
+        console.log('🔍 Parsing music request for video option');
+        
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.5-flash" 
+        });
+        
+        const analysisPrompt = `Analyze this music generation request and determine if the user wants a video along with the song.
+
+User request: "${prompt}"
+
+Return ONLY a JSON object (no markdown, no extra text) with this exact structure:
+{
+  "wantsVideo": true/false,
+  "cleanPrompt": "the music description without video request"
+}
+
+Rules:
+1. If user explicitly requests video or clip (e.g., "with video", "כולל וידאו", "עם וידאו", "גם וידאו", "plus video", "and video", "ועם וידאו", "קליפ", "כולל קליפ", "עם קליפ", "clip", "with clip", "video clip"), set wantsVideo=true
+2. Extract the actual music description (without the video/clip instruction)
+3. Keep the cleanPrompt focused on music style, theme, mood, lyrics topic
+4. If no video/clip is mentioned, set wantsVideo=false and keep original prompt
+
+Examples:
+Input: "צור שיר בסגנון רוק על אהבה כולל וידאו"
+Output: {"wantsVideo":true,"cleanPrompt":"צור שיר בסגנון רוק על אהבה"}
+
+Input: "create a pop song about summer with video"
+Output: {"wantsVideo":true,"cleanPrompt":"create a pop song about summer"}
+
+Input: "שיר עצוב על פרידה עם קליפ"
+Output: {"wantsVideo":true,"cleanPrompt":"שיר עצוב על פרידה"}
+
+Input: "שיר רומנטי כולל קליפ"
+Output: {"wantsVideo":true,"cleanPrompt":"שיר רומנטי"}
+
+Input: "make a rock song with clip"
+Output: {"wantsVideo":true,"cleanPrompt":"make a rock song"}
+
+Input: "צור שיר ג'אז"
+Output: {"wantsVideo":false,"cleanPrompt":"צור שיר ג'אז"}
+
+Input: "make a happy song"
+Output: {"wantsVideo":false,"cleanPrompt":"make a happy song"}`;
+
+        const result = await model.generateContent(analysisPrompt);
+        const response = result.response;
+        
+        if (!response.candidates || response.candidates.length === 0) {
+            console.log('❌ Gemini music parsing: No candidates returned');
+            return { wantsVideo: false, cleanPrompt: prompt };
+        }
+        
+        let rawText = response.text().trim();
+        
+        // Remove markdown code fences if present
+        rawText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+        
+        const parsed = JSON.parse(rawText);
+        
+        console.log('✅ Music request parsed:', parsed);
+        return parsed;
+        
+    } catch (err) {
+        console.error('❌ Error parsing music request:', err);
+        // Fallback: no video
+        return { wantsVideo: false, cleanPrompt: prompt };
+    }
+}
+
+/**
  * Parse text-to-speech request to detect if translation is needed
  * @param {string} prompt - User's TTS request
  * @returns {Object} - { needsTranslation: boolean, text: string, targetLanguage?: string, languageCode?: string }
@@ -1545,6 +1621,7 @@ module.exports = {
     generateVideoFromImageForWhatsApp, 
     generateTextResponse, 
     generateChatSummary,
+    parseMusicRequest,
     parseTextToSpeechRequest,
     translateText
 };

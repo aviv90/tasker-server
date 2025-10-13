@@ -52,6 +52,12 @@ class MusicService {
             if (options.tags && Array.isArray(options.tags)) musicOptions.tags = options.tags;
             if (options.duration) musicOptions.duration = options.duration;
             
+            // Add video generation if requested
+            if (options.makeVideo === true) {
+                musicOptions.makeVideo = true;
+                console.log(`🎬 Video generation enabled`);
+            }
+            
             console.log(`🎼 Using automatic mode`);
 
             // Step 1: Submit music generation task
@@ -216,6 +222,12 @@ class MusicService {
                     const songUrl = firstSong.audioUrl || firstSong.audio_url || firstSong.url || firstSong.stream_audio_url || firstSong.source_stream_audio_url;
                     console.log(`🎵 Song URL: ${songUrl}`);
                     
+                    // Check if video is available
+                    const videoUrl = firstSong.videoUrl || firstSong.video_url || firstSong.stream_video_url || firstSong.source_stream_video_url;
+                    if (videoUrl) {
+                        console.log(`🎬 Video URL found: ${videoUrl}`);
+                    }
+                    
                     if (songUrl) {
                         // Download and process the audio
                         const audioResponse = await fetch(songUrl);
@@ -248,10 +260,47 @@ class MusicService {
                 const filename = path.basename(tempFilePath);
                 const publicPath = `/static/${filename}`;
                         
+                        // Handle video if available
+                        let videoBuffer = null;
+                        let videoFilename = null;
+                        let videoPublicPath = null;
+                        
+                        if (videoUrl) {
+                            try {
+                                console.log(`📥 Downloading video from: ${videoUrl}`);
+                                const videoResponse = await fetch(videoUrl);
+                                if (videoResponse.ok) {
+                                    videoBuffer = Buffer.from(await videoResponse.arrayBuffer());
+                                    
+                                    // Save video to temp file
+                                    const tempVideoFileName = `temp_music_video_${uuidv4()}.mp4`;
+                                    const tempVideoFilePath = path.join(__dirname, '..', 'public', 'tmp', tempVideoFileName);
+                                    fs.writeFileSync(tempVideoFilePath, videoBuffer);
+                                    
+                                    // Verify video file
+                                    await new Promise(resolve => setTimeout(resolve, 1000));
+                                    if (fs.existsSync(tempVideoFilePath) && fs.statSync(tempVideoFilePath).size > 10000) {
+                                        videoFilename = tempVideoFileName;
+                                        videoPublicPath = `/static/${tempVideoFileName}`;
+                                        console.log(`✅ Video downloaded successfully: ${videoFilename}`);
+                                    } else {
+                                        console.warn('⚠️ Video file verification failed');
+                                    }
+                                } else {
+                                    console.warn(`⚠️ Failed to download video: HTTP ${videoResponse.status}`);
+                                }
+                            } catch (videoError) {
+                                console.error(`❌ Error downloading video:`, videoError);
+                                // Continue without video
+                            }
+                        }
+                        
                         const result = {
                             text: taskInfo.musicOptions.prompt || taskInfo.musicOptions.title || `Generated ${taskInfo.type} music`,
                     audioBuffer: finalAudioBuffer,
                             result: publicPath,
+                            videoBuffer: videoBuffer,
+                            videoResult: videoPublicPath,
                     metadata: {
                                 title: firstSong.title,
                                 duration: firstSong.duration,
@@ -259,7 +308,8 @@ class MusicService {
                                 model: firstSong.modelName,
                                 type: taskInfo.type,
                                 totalTracks: songs.length,
-                                lyrics: firstSong.lyric || firstSong.lyrics || firstSong.prompt || firstSong.gptDescriptionPrompt || ''
+                                lyrics: firstSong.lyric || firstSong.lyrics || firstSong.prompt || firstSong.gptDescriptionPrompt || '',
+                                hasVideo: !!videoBuffer
                             }
                         };
                         
@@ -615,23 +665,36 @@ async function sendMusicToWhatsApp(whatsappContext, musicResult) {
         const { audioConverterService } = require('./audioConverterService');
         const { sendFileByUrl, sendTextMessage } = require('../services/greenApiService');
         
-        // Convert MP3 to Opus for voice note
-        console.log(`🔄 Converting music to Opus format for voice note...`);
-        const conversionResult = await audioConverterService.convertAndSaveAsOpus(musicResult.audioBuffer, 'mp3');
-        
-        if (!conversionResult.success) {
-            console.error('❌ Audio conversion failed:', conversionResult.error);
-            // Fallback: send as regular MP3 file
-            const fileName = `suno_music_${Date.now()}.mp3`;
-            const fullAudioUrl = musicResult.result.startsWith('http') 
-                ? musicResult.result 
-                : getStaticFileUrl(musicResult.result.replace('/static/', ''));
-            await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
+        // If video is available, send video first
+        if (musicResult.videoBuffer && musicResult.videoResult) {
+            console.log(`🎬 Sending music video...`);
+            const fullVideoUrl = musicResult.videoResult.startsWith('http') 
+                ? musicResult.videoResult 
+                : getStaticFileUrl(musicResult.videoResult.replace('/static/', ''));
+            
+            const videoFileName = musicResult.videoResult.split('/').pop();
+            await sendFileByUrl(chatId, fullVideoUrl, videoFileName, '');
+            console.log(`✅ Music video sent: ${videoFileName}`);
         } else {
-            // Send as voice note with Opus format
-            const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
-            await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '');
-            console.log(`✅ Music sent as voice note: ${conversionResult.fileName}`);
+            // No video - send audio as voice note
+            // Convert MP3 to Opus for voice note
+            console.log(`🔄 Converting music to Opus format for voice note...`);
+            const conversionResult = await audioConverterService.convertAndSaveAsOpus(musicResult.audioBuffer, 'mp3');
+            
+            if (!conversionResult.success) {
+                console.error('❌ Audio conversion failed:', conversionResult.error);
+                // Fallback: send as regular MP3 file
+                const fileName = `suno_music_${Date.now()}.mp3`;
+                const fullAudioUrl = musicResult.result.startsWith('http') 
+                    ? musicResult.result 
+                    : getStaticFileUrl(musicResult.result.replace('/static/', ''));
+                await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
+            } else {
+                // Send as voice note with Opus format
+                const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
+                await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '');
+                console.log(`✅ Music sent as voice note: ${conversionResult.fileName}`);
+            }
         }
         
         // Send song information and lyrics as separate text message
@@ -642,6 +705,7 @@ async function sendMusicToWhatsApp(whatsappContext, musicResult) {
             songInfo = `🎵 **${meta.title || 'שיר חדש'}**\n`;
             if (meta.duration) songInfo += `⏱️ משך: ${Math.round(meta.duration)}s\n`;
             if (meta.model) songInfo += `🤖 מודל: ${meta.model}\n`;
+            if (meta.hasVideo) songInfo += `🎬 קליפ: כלול\n`;
             
             // Add lyrics if available - with better fallback logic
             if (meta.lyrics && meta.lyrics.trim()) {
@@ -662,7 +726,7 @@ async function sendMusicToWhatsApp(whatsappContext, musicResult) {
         
         await sendTextMessage(chatId, songInfo);
         
-        console.log(`✅ Music delivered to WhatsApp: ${musicResult.metadata?.title || 'Generated Music'}`);
+        console.log(`✅ Music${musicResult.metadata?.hasVideo ? ' with video' : ''} delivered to WhatsApp: ${musicResult.metadata?.title || 'Generated Music'}`);
     } catch (error) {
         console.error('❌ Error sending music to WhatsApp:', error);
         // Try to send error message to user
