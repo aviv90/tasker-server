@@ -1,0 +1,129 @@
+---
+description: Always send errors to the client as-is, wherever they occur during command execution
+globs:
+  - "routes/whatsappRoutes.js"
+  - "services/**"
+---
+
+# Error Handling: Send Errors to Client
+
+## Core Principle
+
+**Every error that occurs during command execution MUST be sent to the WhatsApp client as-is.**
+
+The user should know when something goes wrong, not be left wondering why nothing happened.
+
+## Implementation Pattern
+
+### ✅ Correct Pattern
+
+```javascript
+try {
+  const result = await someOperation();
+  if (result.error) {
+    await sendTextMessage(chatId, `❌ ${result.error}`);
+    return;
+  }
+  // Continue with success flow
+} catch (error) {
+  await sendTextMessage(chatId, `❌ שגיאה: ${error.message}`);
+  console.error('❌ Detailed error for logs:', error);
+  return;
+}
+```
+
+### ❌ Incorrect - Silent failure
+
+```javascript
+try {
+  const result = await someOperation();
+  if (result.error) {
+    console.error('Error occurred:', result.error);
+    return; // User doesn't know what happened!
+  }
+} catch (error) {
+  console.error('Error:', error);
+  // Silent failure - user sees nothing
+}
+```
+
+## Required in All Cases
+
+1. **Service errors**
+   ```javascript
+   if (musicResult.error) {
+     await sendTextMessage(chatId, `❌ ${musicResult.error}`);
+     return;
+   }
+   ```
+
+2. **API call failures**
+   ```javascript
+   if (!generateResponse.ok) {
+     await sendTextMessage(chatId, `❌ שגיאה בקריאה ל-API: ${generateData.msg}`);
+     return;
+   }
+   ```
+
+3. **Validation errors**
+   ```javascript
+   if (!prompt || prompt.trim().length === 0) {
+     await sendTextMessage(chatId, '❌ אנא ספק prompt לפקודה');
+     return;
+   }
+   ```
+
+4. **Unexpected exceptions**
+   ```javascript
+   } catch (error) {
+     await sendTextMessage(chatId, `❌ שגיאה בלתי צפויה: ${error.message}`);
+     console.error('Full error:', error);
+   }
+   ```
+
+## Error Message Guidelines
+
+1. **Hebrew for user-facing messages** (this is a Hebrew bot)
+   - `❌ שגיאה ביצירת השיר`
+   - `⚠️ הקובץ גדול מדי`
+   - `🔄 ניסיון נוסף...`
+
+2. **Include the actual error** when possible
+   - `❌ ${result.error}` - passes through API errors
+   - `❌ שגיאה: ${error.message}` - includes exception message
+
+3. **Be specific** about what failed
+   - ✅ `❌ שגיאה בהורדת הוידאו: HTTP 404`
+   - ❌ `❌ שגיאה` (too vague)
+
+## Examples from Codebase
+
+### Music Generation
+```javascript
+const musicResult = await generateMusicWithLyrics(prompt, options);
+if (musicResult.error) {
+  await sendTextMessage(chatId, `❌ ${musicResult.error}`);
+} else if (musicResult.message) {
+  await sendTextMessage(chatId, musicResult.message);
+}
+```
+
+### Video Generation
+```javascript
+if (videoResult.error) {
+  console.error(`❌ Failed to start video generation:`, videoResult.error);
+  if (taskInfo.whatsappContext) {
+    const { sendTextMessage } = require('../services/greenApiService');
+    await sendTextMessage(
+      taskInfo.whatsappContext.chatId, 
+      `⚠️ השיר נוצר אבל הייתה בעיה ביצירת הוידאו: ${videoResult.error}`
+    );
+  }
+}
+```
+
+## Remember
+
+- **Logging is not enough** - the user can't see console logs
+- **Don't swallow errors** - even if you handle them, tell the user
+- **Fail visibly** - better to show an error than to fail silently

@@ -1,0 +1,86 @@
+---
+description: Maintain clean, optimal, backward-compatible code that follows existing conventions
+globs:
+  - "**/*.js"
+  - "services/**"
+  - "routes/**"
+  - "utils/**"
+---
+
+# Clean, Optimal & Backward-Compatible Code
+
+## Core Principles
+
+1. **Always maintain backward compatibility**
+   - Never break existing functionality when adding new features
+   - Test that music generation without video still works when adding video support
+   - Keep existing API contracts intact
+
+2. **Follow existing code conventions**
+   - Match the coding style already present in the file
+   - Use the same naming patterns (camelCase for functions, UPPER_CASE for constants)
+   - Follow the established error handling patterns
+   - Maintain consistent logging format (emoji + message)
+
+3. **Write clean, readable code**
+   - Use descriptive variable and function names
+   - Keep functions focused on a single responsibility
+   - Add comments only when the code intent isn't obvious
+   - Prefer clarity over cleverness
+
+4. **Optimize for maintainability**
+   - Don't create temporary helper scripts - use standard tools
+   - Avoid unnecessary abstractions
+   - Keep related code together
+   - Extract reusable logic into utility functions
+
+## Examples
+
+### ✅ Good: Backward-compatible addition
+```javascript
+// Adding video support while keeping audio-only working
+const musicOptions = {
+  prompt: cleanPrompt,
+  customMode: false,
+  instrumental: false,
+  model: options.model || 'V5',
+  callBackUrl: getApiUrl('/api/music/callback')
+};
+
+// Video is optional - old code still works without it
+if (options.makeVideo === true) {
+  musicOptions.makeVideo = true;
+}
+```
+
+### ❌ Bad: Breaking change
+```javascript
+// This breaks existing callers who don't pass makeVideo
+const musicOptions = {
+  prompt: cleanPrompt,
+  makeVideo: options.makeVideo, // Required! Breaks old code
+  model: options.model || 'V5'
+};
+```
+
+### ✅ Good: Following existing conventions
+```javascript
+// Matches existing logging style
+console.log('🎬 Video requested with music');
+console.error('❌ Failed to generate video:', error);
+```
+
+### ❌ Bad: Inconsistent style
+```javascript
+// Different from project conventions
+logger.info('Video request detected');
+console.log('[ERROR]', 'Video generation failed');
+```
+
+## When Refactoring
+
+1. Read the existing code first
+2. Understand why it's written that way
+3. Make minimal changes to achieve your goal
+4. Test both old and new functionality
+5. Document any intentional breaking changes in commit message
