@@ -15,6 +15,7 @@ const { creativeAudioService } = require('../services/creativeAudioService');
 const conversationManager = require('../services/conversationManager');
 const { routeIntent } = require('../services/intentRouter');
 const authStore = require('../store/authStore');
+const groupAuthStore = require('../store/groupAuthStore');
 const fs = require('fs');
 const path = require('path');
 
@@ -63,6 +64,15 @@ async function isAuthorizedForMediaCreation(senderData) {
 }
 
 /**
+ * Check if user is authorized for group creation
+ * @param {Object} senderData - WhatsApp sender data from Green API
+ * @returns {Promise<boolean>} - True if user is authorized
+ */
+async function isAuthorizedForGroupCreation(senderData) {
+  return await groupAuthStore.isAuthorizedForGroupCreation(senderData);
+}
+
+/**
  * Check if command requires media creation authorization
  * @param {string} commandType - Command type
  * @returns {boolean} - True if command requires authorization
@@ -97,10 +107,15 @@ function isAdminCommand(commandType) {
     'add_media_authorization',
     'remove_media_authorization',
     'voice_transcription_status',
+    'media_creation_status',
+    'add_group_authorization',
+    'remove_group_authorization',
+    'group_creation_status',
     'clear_all_conversations',
     'sync_contacts',
     // New admin shortcuts without explicit name
     'add_media_authorization_current',
+    'add_group_authorization_current',
     'include_in_transcription_current'
   ];
   return adminCommands.includes(commandType);
@@ -483,6 +498,7 @@ async function handleIncomingMessage(webhookData) {
           language: 'he',
           authorizations: {
             media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
+            group_creation: await isAuthorizedForGroupCreation({ senderContactName, chatName, senderName, chatId }),
             voice_allowed: await conversationManager.isInVoiceAllowList((() => {
               const isGroupChat = chatId && chatId.endsWith('@g.us');
               const isPrivateChat = chatId && chatId.endsWith('@c.us');
@@ -870,9 +886,12 @@ async function handleIncomingMessage(webhookData) {
 
 **פקודות ניהול:**
 • הצג היסטוריה - הצגת היסטוריית השיחה
-• סטטוס יצירה - סטטוס הרשאות
-• הוסף ליצירה [שם] - הוסף הרשאה
-• הסר מיצירה [שם] - הסר הרשאה
+• סטטוס יצירה - הרשאות יצירת מדיה
+• הוסף ליצירה [שם] - הוסף הרשאת מדיה
+• הסר מיצירה [שם] - הסר הרשאת מדיה
+• סטטוס קבוצות - הרשאות יצירת קבוצות
+• הוסף לקבוצות [שם] - הוסף הרשאת קבוצות
+• הסר מקבוצות [שם] - הסר הרשאת קבוצות
 • עדכן אנשי קשר - סנכרון אנשי קשר
               `;
               await sendTextMessage(chatId, helpText.trim());
@@ -1034,6 +1053,7 @@ async function handleIncomingMessage(webhookData) {
             language: 'he',
             authorizations: {
               media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
+              group_creation: await isAuthorizedForGroupCreation({ senderContactName, chatName, senderName, chatId }),
               voice_allowed: false
             }
           };
@@ -1125,6 +1145,7 @@ async function handleIncomingMessage(webhookData) {
             language: 'he',
             authorizations: {
               media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
+              group_creation: await isAuthorizedForGroupCreation({ senderContactName, chatName, senderName, chatId }),
               voice_allowed: false
             }
           };
@@ -1374,6 +1395,7 @@ async function handleOutgoingMessage(webhookData) {
           authorizations: {
             // Outgoing bypasses authorization in existing logic, but router still expects booleans
             media_creation: true,
+            group_creation: true,
             voice_allowed: true
           }
         };
@@ -1671,9 +1693,12 @@ async function handleOutgoingMessage(webhookData) {
 
 **פקודות ניהול:**
 • הצג היסטוריה - הצגת היסטוריית השיחה
-• סטטוס יצירה - סטטוס הרשאות
-• הוסף ליצירה [שם] - הוסף הרשאה
-• הסר מיצירה [שם] - הסר הרשאה
+• סטטוס יצירה - הרשאות יצירת מדיה
+• הוסף ליצירה [שם] - הוסף הרשאת מדיה
+• הסר מיצירה [שם] - הסר הרשאת מדיה
+• סטטוס קבוצות - הרשאות יצירת קבוצות
+• הוסף לקבוצות [שם] - הוסף הרשאת קבוצות
+• הסר מקבוצות [שם] - הסר הרשאת קבוצות
 • עדכן אנשי קשר - סנכרון אנשי קשר
               `;
               await sendTextMessage(chatId, helpText.trim());
@@ -1862,7 +1887,7 @@ async function handleOutgoingMessage(webhookData) {
             hasAudio: false,
             chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
             language: 'he',
-            authorizations: { media_creation: true, voice_allowed: true } // Outgoing = admin
+            authorizations: { media_creation: true, group_creation: true, voice_allowed: true } // Outgoing = admin
           };
 
           const decision = await routeIntent(normalized);
@@ -1979,7 +2004,7 @@ async function handleOutgoingMessage(webhookData) {
             hasAudio: false,
             chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
             language: 'he',
-            authorizations: { media_creation: true, voice_allowed: true } // Outgoing = admin
+            authorizations: { media_creation: true, group_creation: true, voice_allowed: true } // Outgoing = admin
           };
 
           const decision = await routeIntent(normalized);
@@ -2727,6 +2752,11 @@ function parseTextCommand(text) {
     return { type: 'voice_transcription_status' };
   }
 
+  // Group creation status
+  if (text === 'סטטוס קבוצות') {
+    return { type: 'group_creation_status' };
+  }
+
   // Sync contacts from Green API
   if (text === 'עדכן אנשי קשר') {
     return { type: 'sync_contacts' };
@@ -2753,6 +2783,37 @@ function parseTextCommand(text) {
         originalMessage: text 
       };
     }
+  }
+
+  // Group creation authorization commands
+  if (text.startsWith('הוסף לקבוצות ')) {
+    const contactName = text.substring('הוסף לקבוצות '.length).trim();
+    if (contactName) {
+      return { 
+        type: 'add_group_authorization', 
+        contactName: contactName,
+        originalMessage: text 
+      };
+    }
+  }
+
+  if (text.startsWith('הסר מקבוצות ')) {
+    const contactName = text.substring('הסר מקבוצות '.length).trim();
+    if (contactName) {
+      return { 
+        type: 'remove_group_authorization', 
+        contactName: contactName,
+        originalMessage: text 
+      };
+    }
+  }
+
+  // Shortcut: "הוסף לקבוצות" without name - infer from current chat
+  if (text === 'הוסף לקבוצות') {
+    return { 
+      type: 'add_group_authorization_current',
+      originalMessage: text 
+    };
   }
 
   // Voice transcription exclude list management
@@ -2833,6 +2894,20 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           await sendTextMessage(chatId, statusText);
         } else {
           await sendTextMessage(chatId, 'ℹ️ אין משתמשים מורשים לתמלול');
+        }
+        break;
+      }
+
+      case 'group_creation_status': {
+        const authorizedUsers = await groupAuthStore.getAuthorizedUsers();
+        if (authorizedUsers && authorizedUsers.length > 0) {
+          let statusText = '✅ **משתמשים מורשים ליצירת קבוצות:**\n\n';
+          authorizedUsers.forEach(contactName => {
+            statusText += `• ${contactName}\n`;
+          });
+          await sendTextMessage(chatId, statusText);
+        } else {
+          await sendTextMessage(chatId, 'ℹ️ אין משתמשים מורשים ליצירת קבוצות');
         }
         break;
       }
@@ -2933,6 +3008,68 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
         break;
       }
 
+      case 'add_group_authorization': {
+        try {
+          const { findContactByName } = require('../services/groupService');
+          
+          // Use fuzzy search to find exact contact name
+          await sendTextMessage(chatId, `🔍 מחפש איש קשר: "${command.contactName}"...`);
+          const foundContact = await findContactByName(command.contactName);
+          
+          if (!foundContact) {
+            await sendTextMessage(chatId, `❌ לא נמצא איש קשר תואם ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`);
+            break;
+          }
+          
+          // Use the exact contact name found in DB
+          const exactName = foundContact.contactName;
+          await sendTextMessage(chatId, `✅ נמצא: "${command.contactName}" → "${exactName}"`);
+          
+          const wasAdded = await groupAuthStore.addAuthorizedUser(exactName);
+          if (wasAdded) {
+            await sendTextMessage(chatId, `✅ ${exactName} נוסף לרשימת המורשים ליצירת קבוצות`);
+            console.log(`✅ Added ${exactName} (searched: ${command.contactName}) to group creation authorization by ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, `ℹ️ ${exactName} כבר נמצא ברשימת המורשים ליצירת קבוצות`);
+          }
+        } catch (error) {
+          console.error('❌ Error in add_group_authorization:', error);
+          await sendTextMessage(chatId, `❌ שגיאה בהוספת הרשאה: ${error.message}`);
+        }
+        break;
+      }
+
+      case 'remove_group_authorization': {
+        try {
+          const { findContactByName } = require('../services/groupService');
+          
+          // Use fuzzy search to find exact contact name
+          await sendTextMessage(chatId, `🔍 מחפש איש קשר: "${command.contactName}"...`);
+          const foundContact = await findContactByName(command.contactName);
+          
+          if (!foundContact) {
+            await sendTextMessage(chatId, `❌ לא נמצא איש קשר תואם ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`);
+            break;
+          }
+          
+          // Use the exact contact name found in DB
+          const exactName = foundContact.contactName;
+          await sendTextMessage(chatId, `✅ נמצא: "${command.contactName}" → "${exactName}"`);
+          
+          const wasRemoved = await groupAuthStore.removeAuthorizedUser(exactName);
+          if (wasRemoved) {
+            await sendTextMessage(chatId, `🚫 ${exactName} הוסר מרשימת המורשים ליצירת קבוצות`);
+            console.log(`✅ Removed ${exactName} (searched: ${command.contactName}) from group creation authorization by ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, `ℹ️ ${exactName} לא נמצא ברשימת המורשים ליצירת קבוצות`);
+          }
+        } catch (error) {
+          console.error('❌ Error in remove_group_authorization:', error);
+          await sendTextMessage(chatId, `❌ שגיאה בהסרת הרשאה: ${error.message}`);
+        }
+        break;
+      }
+
       case 'include_in_transcription': {
         try {
           const { findContactByName } = require('../services/groupService');
@@ -2991,6 +3128,38 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
         } catch (error) {
           console.error('❌ Error in exclude_from_transcription:', error);
           await sendTextMessage(chatId, `❌ שגיאה בהסרת הרשאת תמלול: ${error.message}`);
+        }
+        break;
+      }
+
+      case 'add_group_authorization_current': {
+        try {
+          // Auto-detect contact/group name from current chat
+          const isGroupChat = chatId && chatId.endsWith('@g.us');
+          const isPrivateChat = chatId && chatId.endsWith('@c.us');
+          
+          let targetName = '';
+          if (isGroupChat) {
+            targetName = chatName || senderName;
+          } else if (isPrivateChat) {
+            targetName = senderContactName || chatName || senderName;
+          } else {
+            await sendTextMessage(chatId, '❌ לא ניתן לזהות את השיחה הנוכחית');
+            break;
+          }
+          
+          await sendTextMessage(chatId, `📝 מזהה אוטומטית: "${targetName}"`);
+          
+          const wasAdded = await groupAuthStore.addAuthorizedUser(targetName);
+          if (wasAdded) {
+            await sendTextMessage(chatId, `✅ ${targetName} נוסף לרשימת המורשים ליצירת קבוצות`);
+            console.log(`✅ Added ${targetName} (auto-detected from current chat) to group creation authorization by ${senderName}`);
+          } else {
+            await sendTextMessage(chatId, `ℹ️ ${targetName} כבר נמצא ברשימת המורשים ליצירת קבוצות`);
+          }
+        } catch (error) {
+          console.error('❌ Error in add_group_authorization_current:', error);
+          await sendTextMessage(chatId, `❌ שגיאה בהוספת הרשאה: ${error.message}`);
         }
         break;
       }

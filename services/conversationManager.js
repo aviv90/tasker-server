@@ -99,6 +99,15 @@ class ConversationManager {
         )
       `);
 
+      // Create group_creation_allow_list table
+      await client.query(`
+          CREATE TABLE IF NOT EXISTS group_creation_allow_list (
+          id SERIAL PRIMARY KEY,
+          contact_name VARCHAR(255) NOT NULL UNIQUE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
       // Create contacts table for WhatsApp contacts and groups
       await client.query(`
         CREATE TABLE IF NOT EXISTS contacts (
@@ -476,26 +485,134 @@ class ConversationManager {
   }
 
   /**
-   * Get database statistics
+   * Add contact to group creation allow list
    */
-  async getDatabaseStats() {
+  async addToGroupCreationAllowList(contactName) {
     if (!this.isInitialized) {
-      return { conversations: 0, voiceAllowList: 0, mediaAllowList: 0 };
+      throw new Error('Database not initialized');
     }
 
     const client = await this.pool.connect();
     
     try {
-      const [conversations, voiceAllowList, mediaAllowList] = await Promise.all([
+      const result = await client.query(`
+        INSERT INTO group_creation_allow_list (contact_name) 
+        VALUES ($1) 
+        ON CONFLICT (contact_name) DO NOTHING
+        RETURNING id
+      `, [contactName]);
+      
+      const wasAdded = result.rows.length > 0;
+      if (wasAdded) {
+        console.log(`✅ Added ${contactName} to group creation allow list`);
+      }
+      
+      return wasAdded;
+    } catch (error) {
+      console.error('❌ Error adding to group creation allow list:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Remove contact from group creation allow list
+   */
+  async removeFromGroupCreationAllowList(contactName) {
+    if (!this.isInitialized) {
+      throw new Error('Database not initialized');
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      const result = await client.query(`
+        DELETE FROM group_creation_allow_list 
+        WHERE contact_name = $1
+      `, [contactName]);
+      
+      const wasRemoved = result.rowCount > 0;
+      if (wasRemoved) {
+        console.log(`🚫 Removed ${contactName} from group creation allow list`);
+      }
+      
+      return wasRemoved;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get all contacts in group creation allow list
+   */
+  async getGroupCreationAllowList() {
+    if (!this.isInitialized) {
+      return [];
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      const result = await client.query(`
+        SELECT contact_name FROM group_creation_allow_list 
+        ORDER BY created_at ASC
+      `);
+      
+      return result.rows.map(row => row.contact_name);
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Check if contact is in group creation allow list
+   */
+  async isInGroupCreationAllowList(contactName) {
+    if (!this.isInitialized) {
+      return false;
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      const result = await client.query(`
+        SELECT 1 FROM group_creation_allow_list 
+        WHERE contact_name = $1
+      `, [contactName]);
+      
+      return result.rows.length > 0;
+    } catch (error) {
+      console.error('❌ Error checking group creation allow list:', error);
+      return false;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get database statistics
+   */
+  async getDatabaseStats() {
+    if (!this.isInitialized) {
+      return { conversations: 0, voiceAllowList: 0, mediaAllowList: 0, groupCreationAllowList: 0 };
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      const [conversations, voiceAllowList, mediaAllowList, groupCreationAllowList] = await Promise.all([
         client.query('SELECT COUNT(*) as count FROM conversations'),
         client.query('SELECT COUNT(*) as count FROM voice_allow_list'),
-        client.query('SELECT COUNT(*) as count FROM media_allow_list')
+        client.query('SELECT COUNT(*) as count FROM media_allow_list'),
+        client.query('SELECT COUNT(*) as count FROM group_creation_allow_list')
       ]);
 
       return {
         conversations: parseInt(conversations.rows[0].count),
         voiceAllowList: parseInt(voiceAllowList.rows[0].count),
-        mediaAllowList: parseInt(mediaAllowList.rows[0].count)
+        mediaAllowList: parseInt(mediaAllowList.rows[0].count),
+        groupCreationAllowList: parseInt(groupCreationAllowList.rows[0].count)
       };
     } finally {
       client.release();

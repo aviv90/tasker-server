@@ -169,7 +169,7 @@ async function routeIntent(input) {
     }
 
     if (isCreateGroup) {
-      if (!input.authorizations?.media_creation) {
+      if (!input.authorizations?.group_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'create_group' }, reason: 'No authorization for group creation' };
       }
       return { tool: 'create_group', args: { prompt }, reason: 'User requested group creation' };
@@ -328,6 +328,7 @@ function buildRouterPrompt(input) {
     language: input.language || null,
     authorizations: {
       media_creation: !!(input.authorizations && input.authorizations.media_creation),
+      group_creation: !!(input.authorizations && input.authorizations.group_creation),
       voice_allowed: !!(input.authorizations && input.authorizations.voice_allowed)
     }
   };
@@ -441,7 +442,7 @@ ${JSON.stringify(payload, null, 2)}
    👥 **Group Creation:**
       Keywords: "צור קבוצה", "יצירת קבוצה", "פתח קבוצה", "פתיחת קבוצה", "הקם קבוצה", "הקמת קבוצה", "create group", "new group", "open group", "start group", "קבוצה חדשה"
       → "create_group"
-      ⚠️ Requires media_creation authorization
+      ⚠️ Requires group_creation authorization
       💡 Can include: group name, participants, and optional picture description
    
    ℹ️ **Help/Commands:**
@@ -671,7 +672,8 @@ ${JSON.stringify(payload, null, 2)}
    - Image with ambiguous text → "gemini_chat" (analysis is safer than edit)
 
 7️⃣ **AUTHORIZATION CHECKS:**
-   - If media_creation=false and user requests image/video/music/group → "deny_unauthorized"
+   - If media_creation=false and user requests image/video/music → "deny_unauthorized"
+   - If group_creation=false and user requests group creation → "deny_unauthorized"
    - If voice_allowed=false and hasAudio=true → "deny_unauthorized"
    - Image analysis/questions do NOT require authorization (text-only response)
 
