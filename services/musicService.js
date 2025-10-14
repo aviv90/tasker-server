@@ -279,8 +279,7 @@ class MusicService {
                         
                         // If video was requested, generate it now (separate API call)
                         if (taskInfo.wantsVideo && firstSong.id) {
-                            console.log(`🎬 Video was requested - starting video generation...`);
-                            console.log(`📋 Music task ID: ${taskId}, Audio ID: ${firstSong.id}`);
+                            console.log(`🎬 Initiating video generation`);
                             
                             try {
                                 const videoResult = await this.generateMusicVideo(taskId, firstSong.id, {
@@ -307,8 +306,7 @@ class MusicService {
                                 console.error(`❌ Error initiating video generation:`, videoError);
                             }
                         } else if (taskInfo.wantsVideo && !firstSong.id) {
-                            console.warn(`⚠️ Video was requested but no audio ID available in response`);
-                            console.log(`📋 Available song fields:`, Object.keys(firstSong));
+                            console.warn(`⚠️ Video was requested but no audio ID available`);
                         }
                         
                         // Clean up task info
@@ -644,7 +642,7 @@ class MusicService {
      */
     async generateMusicVideo(musicTaskId, audioId, options = {}) {
         try {
-            console.log(`🎬 Starting music video generation for audio: ${audioId}`);
+            console.log(`🎬 Starting music video generation`);
             
             const videoOptions = {
                 taskId: musicTaskId,
@@ -655,8 +653,6 @@ class MusicService {
             // Optional branding parameters
             if (options.author) videoOptions.author = options.author;
             if (options.domainName) videoOptions.domainName = options.domainName;
-            
-            console.log(`📤 Video API request:`, videoOptions);
             
             // Submit video generation task
             const generateResponse = await fetch(`${this.baseUrl}/api/v1/mp4/generate`, {
@@ -714,7 +710,6 @@ class MusicService {
             }
             
             console.log(`🎬 Processing video callback for task: ${videoTaskId}`);
-            console.log(`📋 Video callback data:`, callbackData);
             
             if (callbackData.code === 200) {
                 const videoUrl = callbackData.data?.video_url;

@@ -820,10 +820,6 @@ async function handleIncomingMessage(webhookData) {
                 : '🎵 קיבלתי! מתחיל יצירת שיר עם Suno AI... 🎶';
               await sendTextMessage(chatId, ackMsg);
               
-              if (wantsVideo) {
-                console.log('🎬 User requested music with video/clip');
-              }
-              
               const musicResult = await generateMusicWithLyrics(cleanMusicPrompt, {
                 callbackUrl: null,
                 whatsappContext: { chatId, senderId, senderName },
@@ -1628,10 +1624,6 @@ async function handleOutgoingMessage(webhookData) {
                 ? '🎵🎬 קיבלתי! מתחיל יצירת שיר עם קליפ/וידאו באמצעות Suno AI... 🎶'
                 : '🎵 קיבלתי! מתחיל יצירת שיר עם Suno AI... 🎶';
               await sendTextMessage(chatId, ackMsg);
-              
-              if (wantsVideo) {
-                console.log('🎬 User requested music with video/clip');
-              }
               
               const musicResult = await generateMusicWithLyrics(cleanMusicPrompt, {
                 callbackUrl: null,

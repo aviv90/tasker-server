@@ -1418,9 +1418,6 @@ ${formattedMessages}
  */
 async function parseMusicRequest(prompt) {
     try {
-        console.log('🔍 Parsing music request for video option');
-        console.log(`📝 Original prompt: "${prompt}"`);
-        
         // First, try simple regex detection for common patterns (fast and reliable)
         // Hebrew patterns: כולל וידאו, עם וידאו, גם וידאו, כולל קליפ, עם קליפ, וידאו, קליפ
         // English patterns: with video, and video, plus video, with clip, and clip, video, clip
@@ -1429,7 +1426,7 @@ async function parseMusicRequest(prompt) {
         const regexMatch = videoPatterns.test(prompt);
         
         if (regexMatch) {
-            console.log('✅ Regex detected video request!');
+            console.log('🎬 Video requested with music');
             // Clean the prompt by removing video/clip mentions
             const cleanPrompt = prompt
                 .replace(/\s*(with|and|plus|including|include)\s+(video|clip)\s*/gi, ' ')
@@ -1442,15 +1439,11 @@ async function parseMusicRequest(prompt) {
                 .trim()
                 .replace(/\s+/g, ' '); // normalize spaces
             
-            const result = {
+            return {
                 wantsVideo: true,
                 cleanPrompt: cleanPrompt || prompt
             };
-            console.log(`✅ Regex result: wantsVideo=${result.wantsVideo}, cleanPrompt="${result.cleanPrompt}"`);
-            return result;
         }
-        
-        console.log('⏭️ No regex match, using LLM for parsing...');
         
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.5-flash" 
@@ -1510,14 +1503,15 @@ Output: {"wantsVideo":false,"cleanPrompt":"make a happy song"}`;
         }
         
         let rawText = response.text().trim();
-        console.log(`📄 LLM raw response: "${rawText}"`);
         
         // Remove markdown code fences if present
         rawText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
         
         const parsed = JSON.parse(rawText);
         
-        console.log(`✅ LLM parsed result: wantsVideo=${parsed.wantsVideo}, cleanPrompt="${parsed.cleanPrompt}"`);
+        if (parsed.wantsVideo) {
+            console.log('🎬 Video requested with music (LLM detected)');
+        }
         return parsed;
         
     } catch (err) {
