@@ -93,7 +93,9 @@ async function routeIntent(input) {
     // Expanded to include more question patterns and info requests
     const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous|מסוכן|בטוח)\b/i.test(prompt);
     if (isAnalysisRequest) {
-      return { tool: 'gemini_chat', args: { prompt }, reason: 'Image analysis/question' };
+      // Check if user wants to reference previous messages in the analysis
+      const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
+      return { tool: 'gemini_chat', args: { prompt, needsChatHistory }, reason: 'Image analysis/question' };
     }
     
     // Third priority: Check if it's an edit command (requires authorization)
@@ -112,7 +114,9 @@ async function routeIntent(input) {
     
     // Default: If no clear pattern detected, treat as analysis/question
     // This is safer than defaulting to edit
-    return { tool: 'gemini_chat', args: { prompt }, reason: 'Image-related request (default to analysis)' };
+    // Check if user wants to reference previous messages in the analysis
+    const needsChatHistoryDefault = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
+    return { tool: 'gemini_chat', args: { prompt, needsChatHistory: needsChatHistoryDefault }, reason: 'Image-related request (default to analysis)' };
   }
 
   // If there is an attached video with text prompt → decide between video analysis vs video-to-video
@@ -121,7 +125,9 @@ async function routeIntent(input) {
     // Same pattern as image analysis
     const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous|מסוכן|בטוח)\b/i.test(prompt);
     if (isAnalysisRequest) {
-      return { tool: 'gemini_chat', args: { prompt }, reason: 'Video analysis/question' };
+      // Check if user wants to reference previous messages in the analysis
+      const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
+      return { tool: 'gemini_chat', args: { prompt, needsChatHistory }, reason: 'Video analysis/question' };
     }
     
     // Second priority: Video-to-video editing (requires authorization)
@@ -137,7 +143,9 @@ async function routeIntent(input) {
     
     // Default: If no clear pattern detected, treat as analysis/question
     // This is safer than defaulting to edit
-    return { tool: 'gemini_chat', args: { prompt }, reason: 'Video-related request (default to analysis)' };
+    // Check if user wants to reference previous messages in the analysis
+    const needsChatHistoryVideoDefault = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
+    return { tool: 'gemini_chat', args: { prompt, needsChatHistory: needsChatHistoryVideoDefault }, reason: 'Video-related request (default to analysis)' };
   }
 
   // If there is an attached image WITHOUT prompt → ignore (no automatic analysis)
@@ -259,17 +267,22 @@ async function routeIntent(input) {
     const wantsGrok = /\bgrok\b|\bx\s*ai\b|גרוק/i.test(prompt);
     const wantsGemini = /\bgemini\b|ג'מיני|ג׳מיני|ג׳ימיני|ג'ימיני/i.test(prompt);
     
+    // Check if user wants to reference previous messages in the chat/group
+    // Hebrew patterns: לפי ההודעות, על סמך ההודעות, בהתייחס להודעות, על פי ההודעות, לפי השיחה, מההודעות האחרונות, etc.
+    // English patterns: based on messages, according to messages, referring to messages, based on chat, from recent messages, etc.
+    const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
+    
     if (wantsOpenAI) {
-      return { tool: 'openai_chat', args: { prompt }, reason: 'Chat request, user requested OpenAI' };
+      return { tool: 'openai_chat', args: { prompt, needsChatHistory }, reason: 'Chat request, user requested OpenAI' };
     }
     if (wantsGrok) {
-      return { tool: 'grok_chat', args: { prompt }, reason: 'Chat request, user requested Grok' };
+      return { tool: 'grok_chat', args: { prompt, needsChatHistory }, reason: 'Chat request, user requested Grok' };
     }
     if (wantsGemini) {
-      return { tool: 'gemini_chat', args: { prompt }, reason: 'Chat request, user requested Gemini' };
+      return { tool: 'gemini_chat', args: { prompt, needsChatHistory }, reason: 'Chat request, user requested Gemini' };
     }
     // Default to Gemini
-    return { tool: 'gemini_chat', args: { prompt }, reason: 'Default to chat' };
+    return { tool: 'gemini_chat', args: { prompt, needsChatHistory }, reason: 'Default to chat' };
   }
 
   // No recognized pattern → ask clarification
@@ -367,6 +380,8 @@ ${JSON.stringify(payload, null, 2)}
         - "is this safe?" → "gemini_chat"
         - "can I eat this?" → "gemini_chat"
       → "gemini_chat" (text-only analysis)
+      
+      💡 **CHAT HISTORY**: If request mentions previous messages (e.g., "לפי ההודעות האחרונות מה זה?"), set needsChatHistory=true
    
    C. **Image Editing** (third priority - requires authorization):
       ✓ Edit keywords: "הוסף", "הסר", "מחק", "שנה", "החלף", "ערוך", "צבע", "add", "remove", "delete", "change", "replace", "edit", "make", "create", "draw", "paint", "color"
@@ -391,6 +406,8 @@ ${JSON.stringify(payload, null, 2)}
         - "תאר את הוידאו" → "gemini_chat"
         - "what is happening in this video?" → "gemini_chat"
       → "gemini_chat" (text-only analysis)
+      
+      💡 **CHAT HISTORY**: If request mentions previous messages (e.g., "לפי ההודעות בקבוצה מה קורה בוידאו?"), set needsChatHistory=true
    
    B. **Video Editing** (second priority - requires authorization):
       ✓ Edit keywords: "הוסף", "הסר", "מחק", "שנה", "החלף", "ערוך", "add", "remove", "delete", "change", "replace", "edit", "make", "create"
@@ -458,6 +475,16 @@ ${JSON.stringify(payload, null, 2)}
         - Otherwise → "gemini_chat" (default, most common)
       ✓ Includes: greetings, questions, stories, complex descriptions without keywords
       ⚠️ CRITICAL: Hebrew names like "גרוק", "ג'מיני" are FULL WORDS, match them!
+      
+      🔍 **CHAT HISTORY CONTEXT** (applies to ALL chat tools):
+      If the user's request mentions previous messages in the chat/group, set needsChatHistory=true in args:
+      Hebrew patterns: "לפי ההודעות", "על סמך ההודעות", "בהתייחס להודעות", "על פי ההודעות", "לפי השיחה", "מההודעות האחרונות", "הודעות אחרונות", "הודעות קודמות"
+      English patterns: "based on messages", "according to messages", "referring to messages", "based on chat", "from recent messages", "recent messages", "previous messages"
+      
+      Examples with chat history:
+      - "# לפי ההודעות האחרונות, מה אני צריך לעשות?" → {"tool": "gemini_chat", "args": {"prompt": "...", "needsChatHistory": true}}
+      - "# על סמך השיחה, תן לי סיכום" → {"tool": "gemini_chat", "args": {"prompt": "...", "needsChatHistory": true}}
+      - "# based on the recent messages, what should I do?" → {"tool": "gemini_chat", "args": {"prompt": "...", "needsChatHistory": true}}
 
 🎯 **CRITICAL EXAMPLES:**
 

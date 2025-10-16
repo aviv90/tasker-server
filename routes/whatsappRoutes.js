@@ -22,6 +22,9 @@ const path = require('path');
 // Message deduplication cache - prevent processing duplicate messages
 const processedMessages = new Set();
 
+// Chat history limit for context retrieval
+const CHAT_HISTORY_LIMIT = 30;
+
 // Voice transcription and media authorization are managed through PostgreSQL database
 
 /**
@@ -52,6 +55,38 @@ function cleanForLogging(obj) {
   
   cleanObject(cleaned);
   return cleaned;
+}
+
+/**
+ * Format chat history messages for including as context in prompts
+ * @param {Array} messages - Array of messages from getChatHistory
+ * @returns {string} - Formatted messages string
+ */
+function formatChatHistoryForContext(messages) {
+  if (!messages || messages.length === 0) {
+    return '';
+  }
+  
+  let formattedMessages = '';
+  messages.forEach((msg, index) => {
+    const timestamp = new Date(msg.timestamp * 1000).toLocaleString('he-IL');
+    
+    // Use WhatsApp display name only (chatName), fallback to phone number
+    let sender = 'משתמש';
+    if (msg.chatName) {
+      sender = msg.chatName;
+    } else if (msg.sender) {
+      // Extract phone number from sender ID (e.g., "972543995202@c.us" -> "972543995202")
+      const phoneMatch = msg.sender.match(/^(\d+)@/);
+      sender = phoneMatch ? phoneMatch[1] : msg.sender;
+    }
+    
+    const messageText = msg.textMessage || msg.caption || '[מדיה]';
+    
+    formattedMessages += `${index + 1}. ${timestamp} - ${sender}: ${messageText}\n`;
+  });
+  
+  return formattedMessages;
 }
 
 /**
@@ -543,7 +578,24 @@ async function handleIncomingMessage(webhookData) {
                   const downloadedBuffer = await downloadFile(finalImageUrl);
                   const base64Image = downloadedBuffer.toString('base64');
                   
-                  const result = await analyzeImageWithText(prompt, base64Image);
+                  // Check if user wants to reference previous messages
+                  let finalPrompt = prompt;
+                  if (decision.args?.needsChatHistory) {
+                    try {
+                      console.log(`📜 User requested chat history context for image analysis, fetching last ${CHAT_HISTORY_LIMIT} messages...`);
+                      const chatHistory = await getChatHistory(chatId, CHAT_HISTORY_LIMIT);
+                      
+                      if (chatHistory && chatHistory.length > 0) {
+                        const formattedHistory = formatChatHistoryForContext(chatHistory);
+                        finalPrompt = `להלן ההודעות האחרונות בשיחה/קבוצה:\n\n${formattedHistory}\n\nבהתבסס על ההודעות לעיל, ${prompt}`;
+                        console.log(`✅ Added ${chatHistory.length} messages as context to image analysis`);
+                      }
+                    } catch (historyError) {
+                      console.error('❌ Error fetching chat history:', historyError);
+                    }
+                  }
+                  
+                  const result = await analyzeImageWithText(finalPrompt, base64Image);
                   if (result.success) {
                     await sendTextMessage(chatId, result.text);
                   } else {
@@ -567,7 +619,24 @@ async function handleIncomingMessage(webhookData) {
                   // Download video buffer
                   const videoBuffer = await downloadFile(finalVideoUrl);
                   
-                  const result = await analyzeVideoWithText(prompt, videoBuffer);
+                  // Check if user wants to reference previous messages
+                  let finalPromptVideo = prompt;
+                  if (decision.args?.needsChatHistory) {
+                    try {
+                      console.log(`📜 User requested chat history context for video analysis, fetching last ${CHAT_HISTORY_LIMIT} messages...`);
+                      const chatHistory = await getChatHistory(chatId, CHAT_HISTORY_LIMIT);
+                      
+                      if (chatHistory && chatHistory.length > 0) {
+                        const formattedHistory = formatChatHistoryForContext(chatHistory);
+                        finalPromptVideo = `להלן ההודעות האחרונות בשיחה/קבוצה:\n\n${formattedHistory}\n\nבהתבסס על ההודעות לעיל, ${prompt}`;
+                        console.log(`✅ Added ${chatHistory.length} messages as context to video analysis`);
+                      }
+                    } catch (historyError) {
+                      console.error('❌ Error fetching chat history:', historyError);
+                    }
+                  }
+                  
+                  const result = await analyzeVideoWithText(finalPromptVideo, videoBuffer);
                   if (result.success) {
                     await sendTextMessage(chatId, result.text);
                   } else {
@@ -578,9 +647,32 @@ async function handleIncomingMessage(webhookData) {
                 }
               } else {
                 // Regular text chat
+                let finalPrompt = prompt;
+                
+                // Check if user wants to reference previous messages in the chat/group
+                if (decision.args?.needsChatHistory) {
+                  try {
+                    console.log(`📜 User requested chat history context, fetching last ${CHAT_HISTORY_LIMIT} messages...`);
+                    const chatHistory = await getChatHistory(chatId, CHAT_HISTORY_LIMIT);
+                    
+                    if (chatHistory && chatHistory.length > 0) {
+                      const formattedHistory = formatChatHistoryForContext(chatHistory);
+                      
+                      // Prepend chat history to the prompt
+                      finalPrompt = `להלן ההודעות האחרונות בשיחה/קבוצה:\n\n${formattedHistory}\n\nבהתבסס על ההודעות לעיל, ${prompt}`;
+                      console.log(`✅ Added ${chatHistory.length} messages as context to prompt`);
+                    } else {
+                      console.log('⚠️ No chat history available, proceeding without context');
+                    }
+                  } catch (historyError) {
+                    console.error('❌ Error fetching chat history:', historyError);
+                    // Continue without history if fetch fails
+                  }
+                }
+                
                 const contextMessages = await conversationManager.getConversationHistory(chatId);
-                await conversationManager.addMessage(chatId, 'user', prompt);
-                const result = await generateGeminiResponse(prompt, contextMessages);
+                await conversationManager.addMessage(chatId, 'user', finalPrompt);
+                const result = await generateGeminiResponse(finalPrompt, contextMessages);
                 if (!result.error) {
                   await conversationManager.addMessage(chatId, 'assistant', result.text);
                   await sendTextMessage(chatId, result.text);
@@ -846,7 +938,7 @@ async function handleIncomingMessage(webhookData) {
             // ═══════════════════ CHAT SUMMARY ═══════════════════
             case 'chat_summary': {
               await sendAck(chatId, { type: 'chat_summary' });
-              const chatHistory = await getChatHistory(chatId, 30);
+              const chatHistory = await getChatHistory(chatId, CHAT_HISTORY_LIMIT);
               if (!chatHistory || chatHistory.length === 0) {
                 await sendTextMessage(chatId, '📝 אין מספיק הודעות בשיחה');
                 return;
@@ -1436,7 +1528,24 @@ async function handleOutgoingMessage(webhookData) {
                   const downloadedBuffer = await downloadFile(finalImageUrl);
                   const base64Image = downloadedBuffer.toString('base64');
                   
-                  const result = await analyzeImageWithText(prompt, base64Image);
+                  // Check if user wants to reference previous messages
+                  let finalPromptOutgoingImage = prompt;
+                  if (decision.args?.needsChatHistory) {
+                    try {
+                      console.log(`📜 User requested chat history context for image analysis (outgoing), fetching last ${CHAT_HISTORY_LIMIT} messages...`);
+                      const chatHistory = await getChatHistory(chatId, CHAT_HISTORY_LIMIT);
+                      
+                      if (chatHistory && chatHistory.length > 0) {
+                        const formattedHistory = formatChatHistoryForContext(chatHistory);
+                        finalPromptOutgoingImage = `להלן ההודעות האחרונות בשיחה/קבוצה:\n\n${formattedHistory}\n\nבהתבסס על ההודעות לעיל, ${prompt}`;
+                        console.log(`✅ Added ${chatHistory.length} messages as context to image analysis (outgoing)`);
+                      }
+                    } catch (historyError) {
+                      console.error('❌ Error fetching chat history:', historyError);
+                    }
+                  }
+                  
+                  const result = await analyzeImageWithText(finalPromptOutgoingImage, base64Image);
                   if (result.success) {
                     await sendTextMessage(chatId, result.text);
                   } else {
@@ -1460,7 +1569,24 @@ async function handleOutgoingMessage(webhookData) {
                   // Download video buffer
                   const videoBuffer = await downloadFile(finalVideoUrl);
                   
-                  const result = await analyzeVideoWithText(prompt, videoBuffer);
+                  // Check if user wants to reference previous messages
+                  let finalPromptOutgoingVideo = prompt;
+                  if (decision.args?.needsChatHistory) {
+                    try {
+                      console.log(`📜 User requested chat history context for video analysis (outgoing), fetching last ${CHAT_HISTORY_LIMIT} messages...`);
+                      const chatHistory = await getChatHistory(chatId, CHAT_HISTORY_LIMIT);
+                      
+                      if (chatHistory && chatHistory.length > 0) {
+                        const formattedHistory = formatChatHistoryForContext(chatHistory);
+                        finalPromptOutgoingVideo = `להלן ההודעות האחרונות בשיחה/קבוצה:\n\n${formattedHistory}\n\nבהתבסס על ההודעות לעיל, ${prompt}`;
+                        console.log(`✅ Added ${chatHistory.length} messages as context to video analysis (outgoing)`);
+                      }
+                    } catch (historyError) {
+                      console.error('❌ Error fetching chat history:', historyError);
+                    }
+                  }
+                  
+                  const result = await analyzeVideoWithText(finalPromptOutgoingVideo, videoBuffer);
                   if (result.success) {
                     await sendTextMessage(chatId, result.text);
                   } else {
@@ -1471,9 +1597,32 @@ async function handleOutgoingMessage(webhookData) {
                 }
               } else {
                 // Regular text chat
+                let finalPromptOutgoing = prompt;
+                
+                // Check if user wants to reference previous messages in the chat/group
+                if (decision.args?.needsChatHistory) {
+                  try {
+                    console.log(`📜 User requested chat history context (outgoing), fetching last ${CHAT_HISTORY_LIMIT} messages...`);
+                    const chatHistory = await getChatHistory(chatId, CHAT_HISTORY_LIMIT);
+                    
+                    if (chatHistory && chatHistory.length > 0) {
+                      const formattedHistory = formatChatHistoryForContext(chatHistory);
+                      
+                      // Prepend chat history to the prompt
+                      finalPromptOutgoing = `להלן ההודעות האחרונות בשיחה/קבוצה:\n\n${formattedHistory}\n\nבהתבסס על ההודעות לעיל, ${prompt}`;
+                      console.log(`✅ Added ${chatHistory.length} messages as context to prompt (outgoing)`);
+                    } else {
+                      console.log('⚠️ No chat history available, proceeding without context');
+                    }
+                  } catch (historyError) {
+                    console.error('❌ Error fetching chat history:', historyError);
+                    // Continue without history if fetch fails
+                  }
+                }
+                
                 const contextMessages = await conversationManager.getConversationHistory(chatId);
-                await conversationManager.addMessage(chatId, 'user', prompt);
-                const result = await generateGeminiResponse(prompt, contextMessages);
+                await conversationManager.addMessage(chatId, 'user', finalPromptOutgoing);
+                const result = await generateGeminiResponse(finalPromptOutgoing, contextMessages);
                 if (!result.error) {
                   await conversationManager.addMessage(chatId, 'assistant', result.text);
                   await sendTextMessage(chatId, result.text);
@@ -1670,7 +1819,7 @@ async function handleOutgoingMessage(webhookData) {
             // ═══════════════════ CHAT SUMMARY ═══════════════════
             case 'chat_summary': {
               await sendAck(chatId, { type: 'chat_summary' });
-              const chatHistory = await getChatHistory(chatId, 30);
+              const chatHistory = await getChatHistory(chatId, CHAT_HISTORY_LIMIT);
               if (chatHistory && chatHistory.length > 0) {
                 const summaryResult = await generateChatSummary(chatHistory);
                 if (!summaryResult.error) {
