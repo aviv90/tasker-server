@@ -499,13 +499,7 @@ async function handleIncomingMessage(webhookData) {
           authorizations: {
             media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
             group_creation: await isAuthorizedForGroupCreation({ senderContactName, chatName, senderName, chatId }),
-            voice_allowed: await conversationManager.isInVoiceAllowList((() => {
-              const isGroupChat = chatId && chatId.endsWith('@g.us');
-              const isPrivateChat = chatId && chatId.endsWith('@c.us');
-              if (isGroupChat) return chatName || senderName;
-              if (isPrivateChat) return (senderContactName && senderContactName.trim()) ? senderContactName : (chatName && chatName.trim()) ? chatName : senderName;
-              return senderContactName || chatName || senderName;
-            })())
+            voice_allowed: await conversationManager.isAuthorizedForVoiceTranscription({ senderContactName, chatName, senderName, chatId })
           }
         };
 
@@ -1247,45 +1241,20 @@ async function handleIncomingMessage(webhookData) {
       
       console.log(`🎤 Voice message received`);
       
-      // Priority logic based on chat type:
-      // Group chat (@g.us): only check chatName
-      // Private chat (@c.us): check senderContactName first, then chatName, then senderName as fallback
-      let contactName = "";
-      const isGroupChat = chatId && chatId.endsWith('@g.us');
-      const isPrivateChat = chatId && chatId.endsWith('@c.us');
-      
-      if (isGroupChat) {
-        // Group chat - only use chatName
-        contactName = chatName || senderName;
-      } else if (isPrivateChat) {
-        // Private chat - priority: senderContactName → chatName → senderName
-        if (senderContactName && senderContactName.trim()) {
-          contactName = senderContactName;
-        } else if (chatName && chatName.trim()) {
-          contactName = chatName;
-        } else {
-          contactName = senderName;
-        }
-      } else {
-        // Fallback for unknown chat types
-        contactName = senderContactName || chatName || senderName;
-      }
-      
-      const chatType = isGroupChat ? 'group' : isPrivateChat ? 'private' : 'unknown';
-      console.log(`🔍 Checking voice transcription for: "${contactName}" (chatType: ${chatType}, chatId: "${chatId}", senderContactName: "${senderContactName}", chatName: "${chatName}", senderName: "${senderName}")`);
-      
       try {
-        // Check if sender is in allow list (must be in allow list to process)
-        const isInAllowList = await conversationManager.isInVoiceAllowList(contactName);
-        if (!isInAllowList) {
-        console.log(`🚫 Voice processing not allowed for ${contactName} (not in allow list)`);
-        // Silently ignore unauthorized voice messages (no reply)
-        return;
+        // Check if sender is authorized for voice transcription
+        // Checks both group AND individual sender (if in group)
+        const isAuthorized = await conversationManager.isAuthorizedForVoiceTranscription({ senderContactName, chatName, senderName, chatId });
+        
+        if (!isAuthorized) {
+          console.log(`🚫 Voice processing not allowed - not authorized`);
+          // Silently ignore unauthorized voice messages (no reply)
+          return;
         }
         
-        console.log(`✅ Voice processing allowed for ${contactName} - proceeding with voice-to-voice flow`);
+        console.log(`✅ Voice processing authorized - proceeding with voice-to-voice flow`);
       } catch (dbError) {
-        console.error('❌ Error checking voice transcription settings:', dbError);
+        console.error('❌ Error checking voice transcription authorization:', dbError);
         console.log(`🔇 Skipping voice processing due to database error`);
         return;
       }

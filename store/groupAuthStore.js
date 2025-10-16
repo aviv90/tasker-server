@@ -31,17 +31,38 @@ class GroupAuthStore {
       }
 
       // Priority logic based on chat type:
-      // Group chat (@g.us): only check chatName
+      // Group chat (@g.us): check BOTH group name AND sender's contact name
       // Private chat (@c.us): check senderContactName first, then chatName, then senderName as fallback
-      let contactName = "";
       const isGroupChat = senderData.chatId && senderData.chatId.endsWith('@g.us');
       const isPrivateChat = senderData.chatId && senderData.chatId.endsWith('@c.us');
       
       if (isGroupChat) {
-        // Group chat - only use chatName
-        contactName = senderData.chatName || senderData.senderName;
+        // Group chat - check both the group AND the individual sender
+        const groupName = senderData.chatName || '';
+        const senderContact = senderData.senderContactName || senderData.senderName || '';
+        
+        console.log(`🔍 Checking group creation authorization in group "${groupName}" for sender "${senderContact}"`);
+        
+        // Allow if EITHER the group is authorized OR the individual sender is authorized
+        const groupAuthorized = groupName && allowList.includes(groupName);
+        const senderAuthorized = senderContact && allowList.includes(senderContact);
+        
+        if (groupAuthorized) {
+          console.log(`✅ Group creation allowed - group "${groupName}" is in allow list`);
+          return true;
+        }
+        
+        if (senderAuthorized) {
+          console.log(`✅ Group creation allowed - sender "${senderContact}" is in allow list (in group "${groupName}")`);
+          return true;
+        }
+        
+        console.log(`🚫 Group creation denied - neither group "${groupName}" nor sender "${senderContact}" are in allow list`);
+        return false;
+        
       } else if (isPrivateChat) {
         // Private chat - priority: senderContactName → chatName → senderName
+        let contactName = "";
         if (senderData.senderContactName && senderData.senderContactName.trim()) {
           contactName = senderData.senderContactName;
         } else if (senderData.chatName && senderData.chatName.trim()) {
@@ -49,24 +70,27 @@ class GroupAuthStore {
         } else {
           contactName = senderData.senderName;
         }
+        
+        console.log(`🔍 Checking group creation authorization for: "${contactName}" (private chat)`);
+        
+        if (contactName && allowList.includes(contactName)) {
+          console.log(`✅ Group creation authorized for: ${contactName}`);
+          return true;
+        } else {
+          console.log(`🚫 Group creation denied for: ${contactName} (not in allow list)`);
+          return false;
+        }
       } else {
         // Fallback for unknown chat types
-        contactName = senderData.senderContactName || senderData.chatName || senderData.senderName;
+        const contactName = senderData.senderContactName || senderData.chatName || senderData.senderName;
+        console.log(`🔍 Checking group creation authorization for: "${contactName}" (unknown chat type)`);
+        
+        if (contactName && allowList.includes(contactName)) {
+          console.log(`✅ Group creation authorized for: ${contactName}`);
+          return true;
+        }
+        return false;
       }
-      
-      const chatType = isGroupChat ? 'group' : isPrivateChat ? 'private' : 'unknown';
-      console.log(`🔍 Checking group creation authorization for: "${contactName}" (${chatType} chat)`);
-      
-      // Check if contact is in allow list
-      const isAuthorized = allowList.includes(contactName);
-      
-      if (isAuthorized) {
-        console.log(`✅ Group creation authorized for: ${contactName}`);
-      } else {
-        console.log(`🚫 Group creation denied for: ${contactName} (not in allow list)`);
-      }
-      
-      return isAuthorized;
     } catch (error) {
       console.error('❌ Error checking group creation authorization:', error);
       // Default to deny on error

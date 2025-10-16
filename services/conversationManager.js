@@ -382,7 +382,7 @@ class ConversationManager {
   }
 
   /**
-   * Check if contact is in voice allow list
+   * Check if contact is in voice allow list (simple name check)
    */
   async isInVoiceAllowList(contactName) {
     if (!this.isInitialized) {
@@ -403,6 +403,60 @@ class ConversationManager {
       return false;
     } finally {
       client.release();
+    }
+  }
+
+  /**
+   * Check if user is authorized for voice transcription
+   * Similar to media/group authorization - checks both group and individual sender
+   * @param {Object} senderData - WhatsApp sender data from Green API
+   * @returns {Promise<boolean>} - True if authorized
+   */
+  async isAuthorizedForVoiceTranscription(senderData) {
+    try {
+      const allowList = await this.getVoiceAllowList();
+      
+      if (allowList.length === 0) {
+        return false;
+      }
+
+      const isGroupChat = senderData.chatId && senderData.chatId.endsWith('@g.us');
+      const isPrivateChat = senderData.chatId && senderData.chatId.endsWith('@c.us');
+      
+      if (isGroupChat) {
+        // Group chat - check both the group AND the individual sender
+        const groupName = senderData.chatName || '';
+        const senderContact = senderData.senderContactName || senderData.senderName || '';
+        
+        // Allow if EITHER the group is authorized OR the individual sender is authorized
+        const groupAuthorized = groupName && allowList.includes(groupName);
+        const senderAuthorized = senderContact && allowList.includes(senderContact);
+        
+        if (groupAuthorized || senderAuthorized) {
+          return true;
+        }
+        return false;
+        
+      } else if (isPrivateChat) {
+        // Private chat - priority: senderContactName → chatName → senderName
+        let contactName = "";
+        if (senderData.senderContactName && senderData.senderContactName.trim()) {
+          contactName = senderData.senderContactName;
+        } else if (senderData.chatName && senderData.chatName.trim()) {
+          contactName = senderData.chatName;
+        } else {
+          contactName = senderData.senderName;
+        }
+        
+        return allowList.includes(contactName);
+      } else {
+        // Fallback
+        const contactName = senderData.senderContactName || senderData.chatName || senderData.senderName;
+        return allowList.includes(contactName);
+      }
+    } catch (error) {
+      console.error('❌ Error checking voice transcription authorization:', error);
+      return false;
     }
   }
 

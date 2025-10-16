@@ -30,17 +30,38 @@ class AuthStore {
       }
 
       // Priority logic based on chat type:
-      // Group chat (@g.us): only check chatName
+      // Group chat (@g.us): check BOTH group name AND sender's contact name
       // Private chat (@c.us): check senderContactName first, then chatName, then senderName as fallback
-      let contactName = "";
       const isGroupChat = senderData.chatId && senderData.chatId.endsWith('@g.us');
       const isPrivateChat = senderData.chatId && senderData.chatId.endsWith('@c.us');
       
       if (isGroupChat) {
-        // Group chat - only use chatName
-        contactName = senderData.chatName || senderData.senderName;
+        // Group chat - check both the group AND the individual sender
+        const groupName = senderData.chatName || '';
+        const senderContact = senderData.senderContactName || senderData.senderName || '';
+        
+        console.log(`🔍 Checking media creation authorization in group "${groupName}" for sender "${senderContact}"`);
+        
+        // Allow if EITHER the group is authorized OR the individual sender is authorized
+        const groupAuthorized = groupName && allowList.includes(groupName);
+        const senderAuthorized = senderContact && allowList.includes(senderContact);
+        
+        if (groupAuthorized) {
+          console.log(`✅ Media creation allowed - group "${groupName}" is in allow list`);
+          return true;
+        }
+        
+        if (senderAuthorized) {
+          console.log(`✅ Media creation allowed - sender "${senderContact}" is in allow list (in group "${groupName}")`);
+          return true;
+        }
+        
+        console.log(`🚫 Media creation denied - neither group "${groupName}" nor sender "${senderContact}" are in allow list`);
+        return false;
+        
       } else if (isPrivateChat) {
         // Private chat - priority: senderContactName → chatName → senderName
+        let contactName = "";
         if (senderData.senderContactName && senderData.senderContactName.trim()) {
           contactName = senderData.senderContactName;
         } else if (senderData.chatName && senderData.chatName.trim()) {
@@ -48,22 +69,27 @@ class AuthStore {
         } else {
           contactName = senderData.senderName;
         }
+        
+        console.log(`🔍 Checking media creation authorization for: "${contactName}" (private chat)`);
+        
+        if (contactName && allowList.includes(contactName)) {
+          console.log(`✅ Media creation allowed for ${contactName} - user is in allow list`);
+          return true;
+        } else {
+          console.log(`🚫 Media creation not allowed for ${contactName} (not in allow list)`);
+          return false;
+        }
       } else {
         // Fallback for unknown chat types
-        contactName = senderData.senderContactName || senderData.chatName || senderData.senderName;
+        const contactName = senderData.senderContactName || senderData.chatName || senderData.senderName;
+        console.log(`🔍 Checking media creation authorization for: "${contactName}" (unknown chat type)`);
+        
+        if (contactName && allowList.includes(contactName)) {
+          console.log(`✅ Media creation allowed for ${contactName}`);
+          return true;
+        }
+        return false;
       }
-      
-      const chatType = isGroupChat ? 'group' : isPrivateChat ? 'private' : 'unknown';
-      console.log(`🔍 Checking media creation authorization for: "${contactName}" (chatType: ${chatType}, chatId: "${senderData.chatId}", senderContactName: "${senderData.senderContactName}", chatName: "${senderData.chatName}", senderName: "${senderData.senderName}")`);
-      
-      if (contactName && allowList.includes(contactName)) {
-        console.log(`✅ Media creation allowed for ${contactName} - user is in allow list`);
-        return true;
-      } else {
-        console.log(`🚫 Media creation not allowed for ${contactName} (not in allow list)`);
-      }
-
-      return false;
     } catch (error) {
       console.error('❌ Error checking media authorization:', error);
       // On error, default to denying (fail-closed for security, like transcription)
