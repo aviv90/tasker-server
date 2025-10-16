@@ -898,6 +898,44 @@ async function handleIncomingMessage(webhookData) {
               return;
             }
             
+            // ═══════════════════ IMAGE/VIDEO GENERATION FROM TEXT ═══════════════════
+            case 'veo3_image_to_video':
+            case 'kling_image_to_video': {
+              // These require an image - check if one was provided via quoted message
+              if (hasImage && imageUrl) {
+                const service = decision.tool === 'veo3_image_to_video' ? 'veo3' : 'kling';
+                console.log(`🎬 ${service} image-to-video request from text command (incoming)`);
+                processImageToVideoAsync({
+                  chatId, senderId, senderName,
+                  imageUrl: imageUrl,
+                  prompt: prompt,
+                  service: service
+                });
+              } else {
+                await sendTextMessage(chatId, '❌ פקודה זו דורשת תמונה. אנא ענה על הודעה עם תמונה או שלח תמונה עם caption.');
+              }
+              return;
+            }
+            
+            case 'veo3_video':
+            case 'kling_text_to_video': {
+              const service = decision.tool === 'veo3_video' ? 'veo3' : 'kling';
+              console.log(`🎬 ${service} text-to-video request (incoming)`);
+              await sendAck(chatId, { type: decision.tool });
+              
+              // Text-to-video
+              const videoGenFunction = service === 'veo3' ? generateVideoForWhatsApp : generateKlingVideoFromText;
+              const result = await videoGenFunction(prompt);
+              
+              if (result.error) {
+                await sendTextMessage(chatId, `❌ ${result.error}`);
+              } else if (result.success && result.videoUrl) {
+                const fullUrl = result.videoUrl.startsWith('http') ? result.videoUrl : getStaticFileUrl(result.videoUrl.replace('/static/', ''));
+                await sendFileByUrl(chatId, fullUrl, result.fileName, result.description || prompt);
+              }
+              return;
+            }
+            
             // ═══════════════════ CREATE GROUP ═══════════════════
             case 'create_group': {
               try {
@@ -1702,6 +1740,44 @@ async function handleOutgoingMessage(webhookData) {
 • עדכן אנשי קשר - סנכרון אנשי קשר
               `;
               await sendTextMessage(chatId, helpText.trim());
+              return;
+            }
+            
+            // ═══════════════════ IMAGE/VIDEO GENERATION FROM TEXT ═══════════════════
+            case 'veo3_image_to_video':
+            case 'kling_image_to_video': {
+              // These require an image - check if one was provided via quoted message
+              if (hasImage && imageUrl) {
+                const service = decision.tool === 'veo3_image_to_video' ? 'veo3' : 'kling';
+                console.log(`🎬 ${service} image-to-video request from text command (outgoing)`);
+                processImageToVideoAsync({
+                  chatId, senderId, senderName,
+                  imageUrl: imageUrl,
+                  prompt: prompt,
+                  service: service
+                });
+              } else {
+                await sendTextMessage(chatId, '❌ פקודה זו דורשת תמונה. אנא ענה על הודעה עם תמונה או שלח תמונה עם caption.');
+              }
+              return;
+            }
+            
+            case 'veo3_video':
+            case 'kling_text_to_video': {
+              const service = decision.tool === 'veo3_video' ? 'veo3' : 'kling';
+              console.log(`🎬 ${service} text-to-video request (outgoing)`);
+              await sendAck(chatId, { type: decision.tool });
+              
+              // Text-to-video
+              const videoGenFunction = service === 'veo3' ? generateVideoForWhatsApp : generateKlingVideoFromText;
+              const result = await videoGenFunction(prompt);
+              
+              if (result.error) {
+                await sendTextMessage(chatId, `❌ ${result.error}`);
+              } else if (result.success && result.videoUrl) {
+                const fullUrl = result.videoUrl.startsWith('http') ? result.videoUrl : getStaticFileUrl(result.videoUrl.replace('/static/', ''));
+                await sendFileByUrl(chatId, fullUrl, result.fileName, result.description || prompt);
+              }
               return;
             }
             
