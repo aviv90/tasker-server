@@ -156,6 +156,7 @@ function similarityScore(str1, str2) {
 /**
  * Find best matching contact for a given name using fuzzy search
  * Searches in contact_name, name, and chatId fields
+ * Includes both private contacts (@c.us) and groups (@g.us)
  * 
  * @param {string} searchName - Name to search for
  * @param {Array<Object>} contacts - All contacts from database
@@ -167,8 +168,8 @@ function findBestContactMatch(searchName, contacts, threshold = 0.6) {
   let bestScore = 0;
   
   for (const contact of contacts) {
-    // Only match private chats (@c.us), not groups (@g.us)
-    if (!contact.contact_id || !contact.contact_id.endsWith('@c.us')) {
+    // Match both private chats (@c.us) AND groups (@g.us)
+    if (!contact.contact_id) {
       continue;
     }
     
@@ -269,35 +270,38 @@ async function resolveParticipants(participantNames) {
 }
 
 /**
- * Find a single contact by name using fuzzy matching
- * Used for management commands that need to resolve a contact name
+ * Find a single contact or group by name using fuzzy matching
+ * Used for management commands that need to resolve a contact/group name
  * 
  * @param {string} searchName - Name to search for
  * @param {number} threshold - Minimum similarity threshold (0-1, default 0.6)
- * @returns {Promise<Object|null>} - { contactId, contactName, matchScore } or null if not found
+ * @returns {Promise<Object|null>} - { contactId, contactName, matchScore, isGroup } or null if not found
  */
 async function findContactByName(searchName, threshold = 0.6) {
   try {
-    console.log(`🔍 Searching for contact: "${searchName}"`);
+    console.log(`🔍 Searching for contact/group: "${searchName}"`);
     
-    // Get all contacts from database
+    // Get all contacts from database (includes both private contacts and groups)
     const contacts = await conversationManager.getAllContacts();
     
     if (!contacts || contacts.length === 0) {
-      console.log('⚠️ No contacts found in database');
+      console.log('⚠️ No contacts/groups found in database');
       return null;
     }
     
-    console.log(`📇 Searching through ${contacts.length} contacts in database`);
+    console.log(`📇 Searching through ${contacts.length} contacts and groups in database`);
     
     const match = findBestContactMatch(searchName, contacts, threshold);
     
     if (match) {
-      console.log(`✅ Found contact: "${searchName}" → "${match.contact.contact_name || match.contact.name}" (score: ${match.score.toFixed(2)})`);
+      const isGroup = match.contact.contact_id.endsWith('@g.us');
+      const entityType = isGroup ? 'קבוצה' : 'איש קשר';
+      console.log(`✅ Found ${entityType}: "${searchName}" → "${match.contact.contact_name || match.contact.name}" (score: ${match.score.toFixed(2)})`);
       return {
         contactId: match.contact.contact_id,
         contactName: match.contact.contact_name || match.contact.name,
         matchScore: match.score,
+        isGroup: isGroup,
         // Keep all original contact data for flexibility
         originalName: match.contact.name,
         originalContactName: match.contact.contact_name,
