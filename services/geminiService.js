@@ -15,6 +15,45 @@ const veoClient = new genai.GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY
 });
 
+/**
+ * Extract the actual error message from Gemini response
+ * Uses finishMessage if available, otherwise constructs from finishReason
+ * @param {Object} candidate - Gemini candidate object
+ * @param {Object} promptFeedback - Gemini promptFeedback object
+ * @returns {string} - User-friendly error message
+ */
+function getGeminiErrorMessage(candidate, promptFeedback = null) {
+    // Priority 1: Use finishMessage if available (contains detailed explanation)
+    if (candidate?.finishMessage) {
+        return candidate.finishMessage;
+    }
+    
+    // Priority 2: Use promptFeedback blockReasonMessage if available
+    if (promptFeedback?.blockReasonMessage) {
+        return promptFeedback.blockReasonMessage;
+    }
+    
+    // Priority 3: Construct from finishReason
+    if (candidate?.finishReason) {
+        const reason = candidate.finishReason;
+        
+        if (reason === 'SAFETY' || reason === 'IMAGE_SAFETY') {
+            return 'Gemini blocked the request due to safety concerns. Try a different image or prompt.';
+        }
+        if (reason === 'RECITATION') {
+            return 'Gemini blocked the request due to potential copyright issues. Try a different prompt.';
+        }
+        if (reason === 'PROHIBITED_CONTENT') {
+            return 'Gemini blocked the request due to prohibited content. Try a different image or prompt.';
+        }
+        
+        return `Gemini returned no content (reason: ${reason})`;
+    }
+    
+    // Fallback
+    return 'No response from Gemini';
+}
+
 async function generateImageWithText(prompt) {
     try {
         console.log('🎨 Starting Gemini image generation');
@@ -38,7 +77,8 @@ async function generateImageWithText(prompt) {
         
         if (!response.candidates || response.candidates.length === 0) {
             console.log('❌ Gemini: No candidates returned');
-            return { error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' };
+            const errorMsg = getGeminiErrorMessage(null, response.promptFeedback);
+            return { error: errorMsg };
         }
         
         const cand = response.candidates[0];
@@ -48,7 +88,9 @@ async function generateImageWithText(prompt) {
         // Check if content and parts exist
         if (!cand.content || !cand.content.parts) {
             console.log('❌ Gemini: No content or parts found in candidate');
-            return { error: 'Invalid response structure from Gemini' };
+            console.log('   Full candidate:', JSON.stringify(cand));
+            const errorMsg = getGeminiErrorMessage(cand);
+            return { error: errorMsg };
         }
         
         // Process all parts in the response
@@ -98,9 +140,10 @@ async function generateImageForWhatsApp(prompt, req = null) {
         
         if (!response.candidates || response.candidates.length === 0) {
             console.log('❌ Gemini: No candidates returned');
+            const errorMsg = getGeminiErrorMessage(null, response.promptFeedback);
             return { 
                 success: false, 
-                error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' 
+                error: errorMsg
             };
         }
         
@@ -111,9 +154,11 @@ async function generateImageForWhatsApp(prompt, req = null) {
         // Check if content and parts exist
         if (!cand.content || !cand.content.parts) {
             console.log('❌ Gemini: No content or parts found in candidate');
+            console.log('   Full candidate:', JSON.stringify(cand));
+            const errorMsg = getGeminiErrorMessage(cand);
             return { 
                 success: false, 
-                error: 'Invalid response structure from Gemini' 
+                error: errorMsg
             };
         }
         
@@ -214,10 +259,15 @@ async function editImageWithText(prompt, base64Image) {
         let text = '';
         let imageBuffer = null;
         
+        // Log diagnostic info
+        console.log(`   Finish reason: ${cand.finishReason}`);
+        
         // Check if content and parts exist
         if (!cand.content || !cand.content.parts) {
             console.log('❌ Gemini edit: No content or parts found in candidate');
-            return { error: 'Invalid response structure from Gemini' };
+            console.log('   Full candidate:', JSON.stringify(cand));
+            const errorMsg = getGeminiErrorMessage(cand);
+            return { error: errorMsg };
         }
         
         // Process all parts in the response
@@ -286,17 +336,33 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
             console.log('❌ Gemini edit: No content or parts found in candidate');
             console.log('   Full candidate:', JSON.stringify(cand));
             
-            // Check for safety blocks
-            if (cand.finishReason === 'SAFETY' || cand.finishReason === 'RECITATION' || cand.finishReason === 'PROHIBITED_CONTENT') {
+            // Check for safety/policy blocks
+            if (cand.finishReason === 'SAFETY' || 
+                cand.finishReason === 'IMAGE_SAFETY' || 
+                cand.finishReason === 'RECITATION' || 
+                cand.finishReason === 'PROHIBITED_CONTENT') {
+                
+                // Use finishMessage if available (contains the actual error)
+                const errorMessage = cand.finishMessage || 
+                    `Gemini blocked the request due to: ${cand.finishReason}. Try a different image or prompt.`;
+                
                 return { 
                     success: false, 
-                    error: `Gemini blocked the request due to: ${cand.finishReason}. Try a different image or prompt.` 
+                    error: errorMessage
+                };
+            }
+            
+            // Check for other finish reasons with messages
+            if (cand.finishMessage) {
+                return { 
+                    success: false, 
+                    error: cand.finishMessage
                 };
             }
             
             return { 
                 success: false, 
-                error: 'Invalid response structure from Gemini' 
+                error: `Gemini returned no content (reason: ${cand.finishReason || 'unknown'})` 
             };
         }
         
@@ -1239,7 +1305,8 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         
         if (!response.candidates || response.candidates.length === 0) {
             console.log('❌ Gemini: No candidates returned');
-            return { error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' };
+            const errorMsg = getGeminiErrorMessage(null, response.promptFeedback);
+            return { error: errorMsg };
         }
         
         let text = response.text();
