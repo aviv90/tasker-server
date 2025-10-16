@@ -1182,13 +1182,28 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         // Add system prompt as first user message (Gemini format)
         contents.push({
             role: 'user',
-            parts: [{ text: 'אתה עוזר AI ידידותי, אדיב ונעים. תן תשובות טבעיות ונעימות.\n\nחשוב מאוד:\n1. אל תכתב את תהליך החשיבה שלך. אל תכתב "THOUGHT", "This response:", "*Drafting*" או כל הערות מטא אחרות. תשיב ישירות עם התשובה הסופית בלבד.\n2. תמיד תשיב באותה שפה שבה המשתמש שואל - אם השאלה בעברית, התשובה תהיה בעברית. אם באנגלית, התשובה תהיה באנגלית.' }]
+            parts: [{ text: `אתה עוזר AI ידידותי, אדיב ונעים. תן תשובות טבעיות ונעימות.
+
+חשוב מאוד - כללי תשובה:
+1. תשיב ישירות עם התשובה הסופית בלבד - ללא הסברים על תהליך החשיבה שלך
+2. אסור לכתוב: "As an AI, I should:", "My response should:", "Let's break down", "translates to", "refers to", "In the context of", או כל ניתוח מטא אחר
+3. אסור להסביר את המילים או לתרגם אותן - המשתמש כבר יודע עברית
+4. אסור לכתוב רשימות של "what I should do" - פשוט תעשה את זה
+5. תמיד תשיב באותה שפה שבה המשתמש שואל
+
+דוגמה לתשובה נכונה:
+משתמש: "בחר בין A ל-B"
+אתה: "אני מעדיף את A כי..."  ← ישיר, ללא ניתוח
+
+דוגמה לתשובה שגויה:
+משתמש: "בחר בין A ל-B"
+אתה: "A translates to... B refers to... As an AI, I should: 1. Acknowledge... 2. Avoid..."  ← אסור!` }]
         });
         
         // Add system prompt response
         contents.push({
             role: 'model',
-            parts: [{ text: 'הבנתי. אשיב ישירות ללא כתיבת תהליך חשיבה, ותמיד באותה שפה שבה נשאלת השאלה.' }]
+            parts: [{ text: 'הבנתי לחלוטין. אשיב ישירות ללא תהליך חשיבה, ניתוח, תרגומים או רשימות של "מה אני צריך לעשות". רק התשובה הסופית, באותה שפה שבה נשאלת השאלה.' }]
         });
 
         // Normalize conversation history to an array to avoid undefined lengths
@@ -1244,7 +1259,12 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
             text.startsWith('THOUGHT') ||
             /^THOUGHT\s/m.test(text) || // THOUGHT at start of a line
             text.includes('*Drafting the response:*') ||
-            text.includes('This response:');
+            text.includes('This response:') ||
+            text.includes('As an AI, I should:') ||
+            text.includes('My response should:') ||
+            text.includes('Let\'s break down') ||
+            text.includes('The user is essentially asking') ||
+            text.includes('translates to') && text.includes('In the context of');
         
         if (hasThinkingPattern) {
             console.log('🧹 Detected verbose thinking pattern, extracting final answer...');
@@ -1274,7 +1294,13 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
                     line.includes('Think step-by-step') ||
                     line.includes('I need to:') ||
                     line.includes('*Drafting the response:*') ||
-                    line.includes('This response:')) {
+                    line.includes('This response:') ||
+                    line.includes('As an AI, I should:') ||
+                    line.includes('My response should:') ||
+                    line.includes('The user is essentially asking') ||
+                    line.includes('translates to') ||
+                    line.includes('Let\'s break down') ||
+                    line.includes('In the context of')) {
                     inThinkingSection = true;
                     continue;
                 }
@@ -1283,18 +1309,41 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
                 if (inThinkingSection && (
                     line.startsWith('*') && line.endsWith('*') || // Markdown emphasis for meta-comments
                     line.match(/^\d+\.\s+\*.*\*:/) || // Numbered list with emphasized headers
+                    line.match(/^\d+\.\s+/) || // Any numbered list during thinking
+                    line.startsWith('-   ') || // Bullet points with extra spacing (markdown)
                     line.includes('The user is') ||
                     line.includes('My current instruction') ||
                     line.includes('Let\'s consider') ||
-                    line.includes('I should'))) {
+                    line.includes('I should') ||
+                    line.includes('I cannot') ||
+                    line.includes('I must') ||
+                    line.includes('refers to') ||
+                    line.includes('meaning is'))) {
                     continue;
                 }
                 
                 // If we find a line that looks like actual content (Hebrew/English text, reasonable length)
                 // and doesn't have meta-markers, consider it the start of the answer
+                // Additional check: line should start with actual content, not analysis/meta-discussion
+                const looksLikeMetaDiscussion = 
+                    line.includes('translates to') ||
+                    line.includes('refers to') ||
+                    line.includes('means') ||
+                    line.includes('can mean') ||
+                    line.includes('evokes') ||
+                    line.includes('Together, it') ||
+                    line.includes('In the context') ||
+                    line.includes('Given') ||
+                    line.startsWith('The contrast is') ||
+                    line.match(/^-\s+["'].*["']:/) || // Definition list format
+                    line.match(/^".*".*:$/); // Quoted term with colon (definition)
+                
                 if (line.length > 0 && 
                     !line.startsWith('*') && 
                     !line.match(/^\d+\.\s+\*/) &&
+                    !line.match(/^\d+\.\s+/) && // Skip numbered lists
+                    !line.startsWith('-   ') && // Skip markdown bullets
+                    !looksLikeMetaDiscussion &&
                     !line.includes('THOUGHT')) {
                     foundAnswerStart = true;
                     inThinkingSection = false;
@@ -1322,6 +1371,34 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
                     text = finalAnswer;
                     console.log(`🎯 Extracted final answer (${finalAnswer.length} chars)`);
                     console.log(`   Preview: ${finalAnswer.substring(0, 100)}...`);
+                }
+            } else {
+                // Fallback: Try to find the last substantial paragraph that looks like a real answer
+                // Split by double newlines to get paragraphs
+                const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 0);
+                
+                // Look for the last paragraph that doesn't contain meta-discussion markers
+                for (let i = paragraphs.length - 1; i >= 0; i--) {
+                    const para = paragraphs[i].trim();
+                    
+                    // Check if this paragraph looks like a real answer (not meta-discussion)
+                    const isMetaParagraph = 
+                        para.includes('As an AI') ||
+                        para.includes('translates to') ||
+                        para.includes('refers to') ||
+                        para.includes('Let\'s break down') ||
+                        para.includes('My response should') ||
+                        para.match(/^\d+\.\s+\*/) || // Numbered list with emphasis
+                        para.match(/^-\s+["'].*["']:/) || // Definition list
+                        para.startsWith('THOUGHT');
+                    
+                    if (!isMetaParagraph && para.length > 20) {
+                        finalAnswer = para;
+                        console.log('🎯 Found final answer paragraph (fallback method)');
+                        console.log(`   Preview: ${finalAnswer.substring(0, 100)}...`);
+                        text = finalAnswer;
+                        break;
+                    }
                 }
             }
         }
