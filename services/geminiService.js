@@ -59,7 +59,17 @@ async function generateImageWithText(prompt) {
         console.log('🎨 Starting Gemini image generation');
         
         // Sanitize prompt as an extra safety measure
-        const cleanPrompt = sanitizeText(prompt);
+        let cleanPrompt = sanitizeText(prompt);
+        
+        // Remove image creation instructions from prompt (Gemini Image gets confused by them)
+        // Hebrew patterns: "צייר תמונה של", "צור תמונה של", "הפוך לתמונה את", etc.
+        // English patterns: "draw image of", "create image of", "make image of", etc.
+        cleanPrompt = cleanPrompt
+            .replace(/^(צייר|צור|הפוך|צרי|צייר\s+לי|תצייר|תצור)\s+(תמונה\s+)?(של\s+)?/i, '')
+            .replace(/^(draw|create|make|generate|produce)\s+(an?\s+)?(image|picture|photo)\s+(of\s+)?/i, '')
+            .trim();
+        
+        console.log(`   Cleaned prompt: "${cleanPrompt.substring(0, 100)}${cleanPrompt.length > 100 ? '...' : ''}"`);
         
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.5-flash-image-preview" 
@@ -130,7 +140,17 @@ async function generateImageForWhatsApp(prompt, req = null) {
         console.log('🎨 Starting Gemini image generation');
         
         // Sanitize prompt as an extra safety measure
-        const cleanPrompt = sanitizeText(prompt);
+        let cleanPrompt = sanitizeText(prompt);
+        
+        // Remove image creation instructions from prompt (Gemini Image gets confused by them)
+        // Hebrew patterns: "צייר תמונה של", "צור תמונה של", "הפוך לתמונה את", etc.
+        // English patterns: "draw image of", "create image of", "make image of", etc.
+        cleanPrompt = cleanPrompt
+            .replace(/^(צייר|צור|הפוך|צרי|צייר\s+לי|תצייר|תצור)\s+(תמונה\s+)?(של\s+)?/i, '')
+            .replace(/^(draw|create|make|generate|produce)\s+(an?\s+)?(image|picture|photo)\s+(of\s+)?/i, '')
+            .trim();
+        
+        console.log(`   Cleaned prompt: "${cleanPrompt.substring(0, 100)}${cleanPrompt.length > 100 ? '...' : ''}"`);
         
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.5-flash-image-preview" 

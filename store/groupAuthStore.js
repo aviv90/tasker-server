@@ -41,23 +41,14 @@ class GroupAuthStore {
         const groupName = senderData.chatName || '';
         const senderContact = senderData.senderContactName || senderData.senderName || '';
         
-        console.log(`🔍 Checking group creation authorization in group "${groupName}" for sender "${senderContact}"`);
-        
         // Allow if EITHER the group is authorized OR the individual sender is authorized
         const groupAuthorized = groupName && allowList.includes(groupName);
         const senderAuthorized = senderContact && allowList.includes(senderContact);
         
-        if (groupAuthorized) {
-          console.log(`✅ Group creation allowed - group "${groupName}" is in allow list`);
+        if (groupAuthorized || senderAuthorized) {
           return true;
         }
         
-        if (senderAuthorized) {
-          console.log(`✅ Group creation allowed - sender "${senderContact}" is in allow list (in group "${groupName}")`);
-          return true;
-        }
-        
-        console.log(`🚫 Group creation denied - neither group "${groupName}" nor sender "${senderContact}" are in allow list`);
         return false;
         
       } else if (isPrivateChat) {
@@ -71,22 +62,17 @@ class GroupAuthStore {
           contactName = senderData.senderName;
         }
         
-        console.log(`🔍 Checking group creation authorization for: "${contactName}" (private chat)`);
-        
+        // Check silently (logs only when actually creating a group)
         if (contactName && allowList.includes(contactName)) {
-          console.log(`✅ Group creation authorized for: ${contactName}`);
           return true;
         } else {
-          console.log(`🚫 Group creation denied for: ${contactName} (not in allow list)`);
           return false;
         }
       } else {
         // Fallback for unknown chat types
         const contactName = senderData.senderContactName || senderData.chatName || senderData.senderName;
-        console.log(`🔍 Checking group creation authorization for: "${contactName}" (unknown chat type)`);
         
         if (contactName && allowList.includes(contactName)) {
-          console.log(`✅ Group creation authorized for: ${contactName}`);
           return true;
         }
         return false;

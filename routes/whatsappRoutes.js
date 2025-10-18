@@ -46,6 +46,12 @@ function cleanForLogging(obj) {
         if (typeof o[key] === 'string' && o[key].length > 100) {
           o[key] = `[base64 thumbnail: ${o[key].length} chars]`;
         }
+      } else if (key === 'vcard' && typeof o[key] === 'string' && o[key].length > 200) {
+        // Truncate long vCard fields (contact cards with base64 photos)
+        o[key] = `[vCard: ${o[key].length} chars, starts with: ${o[key].substring(0, 100)}...]`;
+      } else if ((key === 'downloadUrl' || key === 'url') && typeof o[key] === 'string' && o[key].length > 200) {
+        // Truncate long URLs
+        o[key] = `[URL: ${o[key].length} chars, starts with: ${o[key].substring(0, 80)}...]`;
       } else if (key === 'data' && typeof o[key] === 'string' && o[key].length > 200) {
         // Truncate long base64 data fields
         o[key] = `[base64 data: ${o[key].length} chars, starts with: ${o[key].substring(0, 50)}...]`;
@@ -198,7 +204,7 @@ async function sendAck(chatId, command) {
       ackMessage = '🎨 קיבלתי! מייצר תמונה עם Gemini...';
       break;
     case 'openai_image':
-      ackMessage = '🎨 קיבלתי! מייצר תמונה עם DALL-E...';
+      ackMessage = '🎨 קיבלתי! מייצר תמונה עם OpenAI...';
       break;
     case 'grok_image':
       ackMessage = '🎨 קיבלתי! מייצר תמונה עם Grok...';
@@ -533,9 +539,12 @@ async function handleIncomingMessage(webhookData) {
           language: 'he',
           authorizations: {
             media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
-            group_creation: await isAuthorizedForGroupCreation({ senderContactName, chatName, senderName, chatId }),
-            voice_allowed: await conversationManager.isAuthorizedForVoiceTranscription({ senderContactName, chatName, senderName, chatId })
-          }
+            // group_creation and voice_allowed will be checked only when needed (lazy evaluation)
+            group_creation: null,
+            voice_allowed: null
+          },
+          // Pass sender data for lazy authorization checks
+          senderData: { senderContactName, chatName, senderName, chatId }
         };
 
         const decision = await routeIntent(normalized);
@@ -1177,9 +1186,12 @@ async function handleIncomingMessage(webhookData) {
             language: 'he',
             authorizations: {
               media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
-              group_creation: await isAuthorizedForGroupCreation({ senderContactName, chatName, senderName, chatId }),
+              // group_creation will be checked only if user requests group creation (lazy evaluation)
+              group_creation: null,
               voice_allowed: false
-            }
+            },
+            // Pass sender data for lazy authorization checks
+            senderData: { senderContactName, chatName, senderName, chatId }
           };
 
           const decision = await routeIntent(normalized);
@@ -1269,9 +1281,12 @@ async function handleIncomingMessage(webhookData) {
             language: 'he',
             authorizations: {
               media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
-              group_creation: await isAuthorizedForGroupCreation({ senderContactName, chatName, senderName, chatId }),
+              // group_creation will be checked only if user requests group creation (lazy evaluation)
+              group_creation: null,
               voice_allowed: false
-            }
+            },
+            // Pass sender data for lazy authorization checks
+            senderData: { senderContactName, chatName, senderName, chatId }
           };
 
           const decision = await routeIntent(normalized);

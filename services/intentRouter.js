@@ -58,7 +58,15 @@ async function routeIntent(input) {
 
   // Voice-only case: no text, only audio (subject to allow list)
   if (!text && input.hasAudio) {
-    if (!input.authorizations?.voice_allowed) {
+    // Lazy evaluation: check voice authorization only when needed
+    if (input.senderData) {
+      const conversationManager = require('../services/conversationManager');
+      const isAuthorized = await conversationManager.isAuthorizedForVoiceTranscription(input.senderData);
+      if (!isAuthorized) {
+        return { tool: 'deny_unauthorized', args: { feature: 'voice' }, reason: 'Voice not allowed' };
+      }
+    } else if (!input.authorizations?.voice_allowed) {
+      // Fallback for old calls without senderData
       return { tool: 'deny_unauthorized', args: { feature: 'voice' }, reason: 'Voice not allowed' };
     }
     // For now, route to creative voice processing (current active flow)
@@ -168,6 +176,9 @@ async function routeIntent(input) {
     const isHelp = /\b(commands|list|help|capabilities)\b|פקודות|רשימת|רשימה|עזרה|אילו|מה\s+אפשר|what\s+can/i.test(prompt);
     const isCreateGroup = /צור.*קבוצה|יצירת.*קבוצה|פתח.*קבוצה|פתיחת.*קבוצה|הקם.*קבוצה|הקמת.*קבוצה|create.*group|new.*group|open.*group|start.*group|קבוצה.*חדשה/i.test(prompt);
     
+    // Debug: log intent detection
+    console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} Music:${isMusic} TTS:${isTtsLike}`);
+    
     if (isSummary) {
       return { tool: 'chat_summary', args: {}, reason: 'User requested summary' };
     }
@@ -177,7 +188,15 @@ async function routeIntent(input) {
     }
 
     if (isCreateGroup) {
-      if (!input.authorizations?.group_creation) {
+      // Lazy evaluation: check group creation authorization only when needed
+      if (input.senderData) {
+        const groupAuthStore = require('../store/groupAuthStore');
+        const isAuthorized = await groupAuthStore.isAuthorizedForGroupCreation(input.senderData);
+        if (!isAuthorized) {
+          return { tool: 'deny_unauthorized', args: { feature: 'create_group' }, reason: 'No authorization for group creation' };
+        }
+      } else if (!input.authorizations?.group_creation) {
+        // Fallback for old calls without senderData
         return { tool: 'deny_unauthorized', args: { feature: 'create_group' }, reason: 'No authorization for group creation' };
       }
       return { tool: 'create_group', args: { prompt }, reason: 'User requested group creation' };
