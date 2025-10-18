@@ -1803,7 +1803,124 @@ Important: Return only the translation, no explanations, no quotes, no extra tex
     }
 }
 
-module.exports = { 
+/**
+ * Generate a creative poll with rhyming options
+ * @param {string} topic - Poll topic (e.g., "חתולים", "כלבים", "פיצה")
+ * @returns {Object} - Poll data with question and rhyming options
+ */
+async function generateCreativePoll(topic) {
+    try {
+        console.log(`📊 Generating creative poll about: ${topic}`);
+        
+        const cleanTopic = sanitizeText(topic);
+        
+        const pollPrompt = `אתה יוצר סקרים יצירתיים ומשעשעים בעברית.
+
+נושא הסקר: ${cleanTopic}
+
+צור סקר עם:
+1. שאלה מעניינת (או "מה היית מעדיפ/ה?" או שאלה יצירתית אחרת)
+2. בדיוק 2 תשובות אפשריות שחורזות זו עם זו (חריזה מושלמת!)
+3. התשובות צריכות להיות קצרות (עד 100 תווים כל אחת)
+4. התשובות צריכות להיות קשורות לנושא
+5. התשובות חייבות להיות משעשעות ויצירתיות
+
+דוגמאות:
+- נושא: חתולים
+  שאלה: "מה היית מעדיפ/ה?"
+  תשובה 1: "חתול כועס"
+  תשובה 2: "נמר לועס"
+
+- נושא: כלבים
+  שאלה: "אם היה לך כלב, איך תתייחס אליו?"
+  תשובה 1: "בסדר גמור"
+  תשובה 2: "איך שאמור"
+
+- נושא: פיצה
+  שאלה: "איזו פיצה תבחר?"
+  תשובה 1: "פיצה עם זיתים"
+  תשובה 2: "פלאפל בפיתה עם חומוס מעולים"
+
+חשוב מאוד:
+- החרוזים חייבים להיות מושלמים
+- התשובות חייבות להיות שונות זו מזו
+- השאלה מקסימום 255 תווים
+- כל תשובה מקסימום 100 תווים
+
+החזר JSON בלבד בפורמט:
+{
+  "question": "השאלה כאן",
+  "option1": "תשובה ראשונה",
+  "option2": "תשובה שנייה"
+}`;
+
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.5-flash" 
+        });
+        
+        const result = await model.generateContent(pollPrompt);
+        
+        if (!result.response) {
+            throw new Error('No response from Gemini');
+        }
+        
+        const responseText = result.response.text();
+        
+        // Try to extract JSON from response
+        let jsonText = responseText.trim();
+        
+        // If wrapped in code fences, strip them
+        const fenceMatch = jsonText.match(/```[a-zA-Z]*\n([\s\S]*?)\n```/);
+        if (fenceMatch && fenceMatch[1]) {
+            jsonText = fenceMatch[1].trim();
+        }
+        
+        let parsed;
+        try {
+            parsed = JSON.parse(jsonText);
+        } catch (parseError) {
+            console.error('❌ Failed to parse Gemini poll response:', jsonText);
+            throw new Error('Failed to parse poll data from Gemini');
+        }
+        
+        // Validate the response
+        if (!parsed.question || !parsed.option1 || !parsed.option2) {
+            throw new Error('Invalid poll data structure from Gemini');
+        }
+        
+        // Ensure limits
+        if (parsed.question.length > 255) {
+            parsed.question = parsed.question.substring(0, 252) + '...';
+        }
+        if (parsed.option1.length > 100) {
+            parsed.option1 = parsed.option1.substring(0, 97) + '...';
+        }
+        if (parsed.option2.length > 100) {
+            parsed.option2 = parsed.option2.substring(0, 97) + '...';
+        }
+        
+        console.log(`✅ Poll generated successfully:`);
+        console.log(`   Question: "${parsed.question}"`);
+        console.log(`   Option 1: "${parsed.option1}"`);
+        console.log(`   Option 2: "${parsed.option2}"`);
+        
+        return {
+            success: true,
+            question: parsed.question,
+            option1: parsed.option1,
+            option2: parsed.option2
+        };
+        
+    } catch (err) {
+        console.error('❌ Poll generation error:', err);
+        return {
+            success: false,
+            error: err.message || 'Failed to generate poll'
+        };
+    }
+}
+
+module.exports = {
     generateImageWithText, 
     generateImageForWhatsApp, 
     editImageWithText, 
@@ -1818,5 +1935,6 @@ module.exports = {
     generateChatSummary,
     parseMusicRequest,
     parseTextToSpeechRequest,
-    translateText
+    translateText,
+    generateCreativePoll
 };

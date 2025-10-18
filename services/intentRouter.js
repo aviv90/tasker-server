@@ -184,12 +184,17 @@ async function routeIntent(input) {
     const isHelp = /\b(commands|list|help|capabilities)\b|פקודות|רשימת|רשימה|עזרה|אילו|מה\s+אפשר|what\s+can/i.test(prompt);
     const isCreateGroup = /צור.*קבוצה|יצירת.*קבוצה|פתח.*קבוצה|פתיחת.*קבוצה|הקם.*קבוצה|הקמת.*קבוצה|create.*group|new.*group|open.*group|start.*group|קבוצה.*חדשה/i.test(prompt);
     const isRetry = /^(נסה\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)\b/i.test(prompt);
+    const isPoll = /צור.*סקר|יצירת.*סקר|סקר.*על|סקר.*בנושא|הכן.*סקר|create.*poll|make.*poll|poll.*about|new.*poll/i.test(prompt);
     
     // Debug: log intent detection
-    console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} Music:${isMusic} TTS:${isTtsLike} Retry:${isRetry}`);
+    console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} Music:${isMusic} TTS:${isTtsLike} Retry:${isRetry} Poll:${isPoll}`);
     
     if (isRetry) {
       return { tool: 'retry_last_command', args: {}, reason: 'User requested retry' };
+    }
+    
+    if (isPoll) {
+      return { tool: 'create_poll', args: { prompt }, reason: 'User requested poll creation' };
     }
     
     if (isSummary) {
@@ -337,7 +342,7 @@ function validateDecision(obj) {
     'gemini_image', 'openai_image', 'grok_image',
     'veo3_video', 'kling_text_to_video', 'veo3_image_to_video', 'kling_image_to_video', 'video_to_video',
     'image_edit', 'text_to_speech', 'gemini_chat', 'openai_chat', 'grok_chat',
-    'chat_summary', 'music_generation', 'creative_voice_processing', 'show_help', 'create_group', 'retry_last_command', 'deny_unauthorized', 'ask_clarification'
+    'chat_summary', 'music_generation', 'create_poll', 'creative_voice_processing', 'show_help', 'create_group', 'retry_last_command', 'deny_unauthorized', 'ask_clarification'
   ]);
   if (!allowedTools.has(tool)) return null;
   return { tool, args, reason };
@@ -497,6 +502,11 @@ ${JSON.stringify(payload, null, 2)}
       → "retry_last_command"
       💡 Note: Re-runs the last command executed in this chat (or quoted message command)
    
+   📊 **Poll Creation:**
+      Keywords: "צור סקר", "יצירת סקר", "סקר על", "סקר בנושא", "הכן סקר", "create poll", "make poll", "poll about", "new poll"
+      → "create_poll"
+      💡 Note: Creates a creative poll with 2 rhyming options about the given topic
+   
    👥 **Group Creation:**
       Keywords: "צור קבוצה", "יצירת קבוצה", "פתח קבוצה", "פתיחת קבוצה", "הקם קבוצה", "הקמת קבוצה", "create group", "new group", "open group", "start group", "קבוצה חדשה"
       → "create_group"
@@ -616,6 +626,16 @@ ${JSON.stringify(payload, null, 2)}
    
    Input: {"userText": "# summarize", "hasImage": false, "hasVideo": false}
    Output: {"tool": "chat_summary", "args": {"prompt": "summarize"}, "reason": "Summary request"}
+
+   ✅ POLL CREATION:
+   Input: {"userText": "# צור סקר על חתולים", "hasImage": false, "hasVideo": false}
+   Output: {"tool": "create_poll", "args": {"prompt": "צור סקר על חתולים"}, "reason": "Poll creation"}
+   
+   Input: {"userText": "# סקר בנושא פיצה", "hasImage": false, "hasVideo": false}
+   Output: {"tool": "create_poll", "args": {"prompt": "סקר בנושא פיצה"}, "reason": "Poll creation"}
+   
+   Input: {"userText": "# create poll about dogs", "hasImage": false, "hasVideo": false}
+   Output: {"tool": "create_poll", "args": {"prompt": "create poll about dogs"}, "reason": "Poll creation"}
 
    ✅ GROUP CREATION:
    Input: {"userText": "# צור קבוצה בשם 'כדורגל' עם אבי, רועי", "hasImage": false, "hasVideo": false}
@@ -768,7 +788,7 @@ ${JSON.stringify(payload, null, 2)}
 }
 
 ⚙️ AVAILABLE TOOLS:
-gemini_chat, openai_chat, grok_chat, gemini_image, openai_image, grok_image, kling_text_to_video, veo3_video, kling_image_to_video, veo3_image_to_video, video_to_video, image_edit, text_to_speech, music_generation, chat_summary, retry_last_command, creative_voice_processing, deny_unauthorized, ask_clarification, show_help`;
+gemini_chat, openai_chat, grok_chat, gemini_image, openai_image, grok_image, kling_text_to_video, veo3_video, kling_image_to_video, veo3_image_to_video, video_to_video, image_edit, text_to_speech, music_generation, chat_summary, create_poll, retry_last_command, creative_voice_processing, deny_unauthorized, ask_clarification, show_help`;
 }
 
 

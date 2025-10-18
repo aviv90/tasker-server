@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory, getMessage } = require('../services/greenApiService');
+const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory, getMessage, sendPoll } = require('../services/greenApiService');
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const { cleanPromptFromProviders } = require('../utils/promptCleaner');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
-const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, analyzeVideoWithText, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary, parseMusicRequest, parseTextToSpeechRequest, translateText } = require('../services/geminiService');
+const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, analyzeVideoWithText, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary, parseMusicRequest, parseTextToSpeechRequest, translateText, generateCreativePoll } = require('../services/geminiService');
 const { generateTextResponse: generateGrokResponse, generateImageForWhatsApp: generateGrokImage } = require('../services/grokService');
 const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage, generateVideoFromVideoForWhatsApp: generateRunwayVideoFromVideo, generateVideoWithTextForWhatsApp: generateKlingVideoFromText } = require('../services/replicateService');
 const { generateMusicWithLyrics } = require('../services/musicService');
@@ -291,6 +291,10 @@ async function sendAck(chatId, command) {
     
     case 'retry_last_command':
       ackMessage = '🔄 קיבלתי! מריץ שוב את הפקודה האחרונה...';
+      break;
+    
+    case 'create_poll':
+      ackMessage = '📊 קיבלתי! יוצר סקר יצירתי עם חרוזים...';
       break;
       
     default:
@@ -1100,6 +1104,43 @@ async function handleIncomingMessage(webhookData) {
               return;
             }
             
+            // ═══════════════════ POLL CREATION ═══════════════════
+            case 'create_poll': {
+              saveLastCommand(chatId, decision, { normalized });
+              await sendAck(chatId, { type: 'create_poll' });
+              
+              // Extract topic from prompt (remove "צור סקר על/בנושא" etc.)
+              let topic = prompt
+                .replace(/^(צור|יצר|הכן|create|make)\s+(סקר|poll)\s+(על|בנושא|about)?\s*/i, '')
+                .trim();
+              
+              if (!topic || topic.length < 2) {
+                topic = prompt; // Use full prompt if extraction failed
+              }
+              
+              const pollResult = await generateCreativePoll(topic);
+              
+              if (!pollResult.success) {
+                await sendTextMessage(chatId, `❌ ${pollResult.error}`);
+                return;
+              }
+              
+              // Send the poll using Green API
+              try {
+                const pollOptions = [
+                  { optionName: pollResult.option1 },
+                  { optionName: pollResult.option2 }
+                ];
+                
+                await sendPoll(chatId, pollResult.question, pollOptions, false);
+                console.log(`✅ Poll sent successfully to ${chatId}`);
+              } catch (pollError) {
+                console.error('❌ Error sending poll:', pollError);
+                await sendTextMessage(chatId, `❌ שגיאה בשליחת הסקר: ${pollError.message}`);
+              }
+              return;
+            }
+            
             // ═══════════════════ CHAT SUMMARY ═══════════════════
             case 'chat_summary': {
               await sendAck(chatId, { type: 'chat_summary' });
@@ -1129,6 +1170,7 @@ async function handleIncomingMessage(webhookData) {
 • # צור שיר על... - יצירת מוזיקה
 • # המר לדיבור: טקסט - Text-to-Speech
 • # סכם שיחה - סיכום השיחה
+• # צור סקר על/בנושא... - יצירת סקר עם חרוזים
 • # נסה שוב / # שוב - ביצוע מחדש פקודה אחרונה
 • # צור/פתח/הקם קבוצה בשם "שם" עם שם1, שם2 - יצירת קבוצה
 • (אופציה) + עם תמונה של... - הוספת תמונת פרופיל
@@ -2013,6 +2055,7 @@ async function handleOutgoingMessage(webhookData) {
 • # צור שיר על... - יצירת מוזיקה
 • # המר לדיבור: טקסט - Text-to-Speech
 • # סכם שיחה - סיכום השיחה
+• # צור סקר על/בנושא... - יצירת סקר עם חרוזים
 • # נסה שוב / # שוב - ביצוע מחדש פקודה אחרונה
 • # צור/פתח/הקם קבוצה בשם "שם" עם שם1, שם2 - יצירת קבוצה
 • (אופציה) + עם תמונה של... - הוספת תמונת פרופיל

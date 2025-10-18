@@ -292,6 +292,46 @@ async function setGroupPicture(groupId, imageBuffer) {
   }
 }
 
+/**
+ * Send poll message via Green API
+ * @param {string} chatId - Chat ID
+ * @param {string} message - Poll question (max 255 chars)
+ * @param {Array} options - Array of option objects [{optionName: 'text'}]
+ * @param {boolean} multipleAnswers - Allow multiple answers (default: false)
+ * @returns {Promise} - Green API response
+ */
+async function sendPoll(chatId, message, options, multipleAnswers = false) {
+  try {
+    const url = `https://api.green-api.com/waInstance${GREEN_API_ID_INSTANCE}/sendPoll/${GREEN_API_API_TOKEN_INSTANCE}`;
+    
+    const data = {
+      chatId: chatId,
+      message: message,
+      options: options,
+      multipleAnswers: multipleAnswers
+    };
+
+    const response = await axios.post(url, data, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log(`📊 Poll sent to ${chatId}: "${message}" with ${options.length} options`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error sending poll:', error.message);
+    
+    // Log the response details if available for debugging
+    if (error.response) {
+      console.error(`❌ Green API Error: ${error.response.status} - ${error.response.statusText}`);
+      console.error('❌ Response data:', error.response.data);
+    }
+    
+    throw error;
+  }
+}
+
 module.exports = {
   sendTextMessage,
   sendFileByUrl,
@@ -300,5 +340,6 @@ module.exports = {
   getContacts,
   getMessage,
   createGroup,
-  setGroupPicture
+  setGroupPicture,
+  sendPoll
 };
