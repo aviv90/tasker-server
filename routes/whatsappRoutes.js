@@ -1127,11 +1127,10 @@ async function handleIncomingMessage(webhookData) {
               
               // Send the poll using Green API
               try {
-                const pollOptions = [
-                  { optionName: pollResult.option1 },
-                  { optionName: pollResult.option2 }
-                ];
+                // Convert options array to Green API format
+                const pollOptions = pollResult.options.map(opt => ({ optionName: opt }));
                 
+                console.log(`📊 Sending poll with ${pollOptions.length} rhyming options`);
                 await sendPoll(chatId, pollResult.question, pollOptions, false);
                 console.log(`✅ Poll sent successfully to ${chatId}`);
               } catch (pollError) {
@@ -2026,6 +2025,40 @@ async function handleOutgoingMessage(webhookData) {
                 await sendTextMessage(chatId, `❌ ${musicResult.error}`);
               } else if (musicResult.message) {
                 await sendTextMessage(chatId, musicResult.message);
+              }
+              return;
+            }
+            
+            // ═══════════════════ POLL CREATION ═══════════════════
+            case 'create_poll': {
+              await sendAck(chatId, { type: 'create_poll' });
+              
+              // Extract topic from prompt
+              let topic = prompt
+                .replace(/^(צור|יצר|הכן|create|make)\s+(סקר|poll)\s+(על|בנושא|about)?\s*/i, '')
+                .trim();
+              
+              if (!topic || topic.length < 2) {
+                topic = prompt;
+              }
+              
+              const pollResult = await generateCreativePoll(topic);
+              
+              if (!pollResult.success) {
+                await sendTextMessage(chatId, `❌ ${pollResult.error}`);
+                return;
+              }
+              
+              // Send the poll using Green API
+              try {
+                const pollOptions = pollResult.options.map(opt => ({ optionName: opt }));
+                
+                console.log(`📊 Sending poll with ${pollOptions.length} rhyming options (outgoing)`);
+                await sendPoll(chatId, pollResult.question, pollOptions, false);
+                console.log(`✅ Poll sent successfully to ${chatId}`);
+              } catch (pollError) {
+                console.error('❌ Error sending poll:', pollError);
+                await sendTextMessage(chatId, `❌ שגיאה בשליחת הסקר: ${pollError.message}`);
               }
               return;
             }
