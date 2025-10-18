@@ -84,7 +84,8 @@ async function routeIntent(input) {
       // Check for explicit model requests (case-insensitive, with or without space, including Hebrew)
       // Supports model name anywhere in the prompt, not just at the end
       // Note: Using \b only for English words; for Hebrew, check without word boundaries
-      const wantsVeo3 = /\bveo\s*3?\b|ויאו\s*3?|וו[יא]ו\s*3?/i.test(prompt);
+      // Supports both "veo 3" and "veo 3.1" (same for Hebrew)
+      const wantsVeo3 = /\bveo\s*3(\.1)?\b|ויאו\s*3(\.1)?|וו[יא]ו\s*3(\.1)?/i.test(prompt);
       const wantsKling = /\bkling\b|קלינג/i.test(prompt);
       
       if (wantsVeo3) {
@@ -266,7 +267,8 @@ async function routeIntent(input) {
       // Check for explicit model requests (case-insensitive, with or without space, including Hebrew)
       // Supports model name anywhere in the prompt, not just at the end
       // Note: Using \b only for English words; for Hebrew, check without word boundaries
-      const wantsVeo3 = /\bveo\s*3?\b|ויאו\s*3?|וו[יא]ו\s*3?/i.test(prompt);
+      // Supports both "veo 3" and "veo 3.1" (same for Hebrew)
+      const wantsVeo3 = /\bveo\s*3(\.1)?\b|ויאו\s*3(\.1)?|וו[יא]ו\s*3(\.1)?/i.test(prompt);
       const wantsKling = /\bkling\b|קלינג/i.test(prompt);
       
       if (wantsVeo3) {
@@ -384,7 +386,7 @@ ${JSON.stringify(payload, null, 2)}
    
    A. **Video Generation** (highest priority for video keywords):
       - Image + video keywords + Veo mention → "veo3_image_to_video"
-        ✓ Veo mentions: "veo", "Veo", "VEO", "veo 3", "Veo 3", "VEO 3", "veo3", etc.
+        ✓ Veo mentions: "veo", "Veo", "VEO", "veo 3", "veo 3.1", "Veo 3.1", "VEO 3.1", "veo3", "veo3.1", etc.
         ✓ Video keywords: "וידאו", "video", "סרט", "אנימציה", "הנפש", "להנפיש", "animate", "motion", "clip"
       - Image + video keywords (NO Veo) → "kling_image_to_video"
    
@@ -461,7 +463,7 @@ ${JSON.stringify(payload, null, 2)}
    🎬 **Video Generation:**
       Keywords: "וידאו", "video", "סרט", "אנימציה", "קליפ", "clip", "animate", "motion"
       STEP B: Check model preference:
-        - Mentions "veo"/"Veo"/"VEO"/"veo 3"/"Veo 3"/"veo3" (any case, with/without space) → "veo3_video"
+        - Mentions "veo"/"Veo"/"VEO"/"veo 3"/"veo 3.1"/"Veo 3.1"/"veo3"/"veo3.1" (any case, with/without space) → "veo3_video"
         - Otherwise → "kling_text_to_video" (default)
       ⚠️ False positives: "videographer", "clipboard", "eclipse" are NOT video requests
    
@@ -700,7 +702,7 @@ ${JSON.stringify(payload, null, 2)}
    OpenAI triggers: "OpenAI", "Open AI", "GPT", "ChatGPT", "Chat GPT", "DALL-E", "DALL E", "dalle", "דאל-אי", "צ'אט ג'יפיטי", "צ׳אט ג׳יפיטי"
    Grok triggers: "Grok", "grok", "xAI", "x AI", "XAI", "גרוק"
    Gemini triggers: "Gemini", "gemini", "ג'מיני", "ג׳מיני", "ג׳ימיני", "ג'ימיני"
-   Veo triggers: "veo", "Veo", "VEO", "veo 3", "Veo 3", "VEO 3", "veo3", "ויאו", "ווא", "וואו"
+   Veo triggers: "veo", "Veo", "VEO", "veo 3", "veo 3.1", "Veo 3.1", "VEO 3.1", "veo3", "veo3.1", "ויאו", "ויאו 3.1", "ווא", "וואו"
    
 5️⃣ **LANGUAGE SUPPORT:**
    - Treat Hebrew and English equally

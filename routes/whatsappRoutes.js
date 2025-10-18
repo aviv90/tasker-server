@@ -212,13 +212,13 @@ async function sendAck(chatId, command) {
       
     // ═══════════════════ VIDEO GENERATION ═══════════════════
     case 'veo3_video':
-      ackMessage = '🎬 קיבלתי! יוצר וידאו עם Veo 3...';
+      ackMessage = '🎬 קיבלתי! יוצר וידאו עם Veo 3.1...';
       break;
     case 'kling_text_to_video':
       ackMessage = '🎬 קיבלתי! יוצר וידאו עם Kling AI...';
       break;
     case 'veo3_image_to_video':
-      ackMessage = '🎬 קיבלתי את התמונה! יוצר וידאו עם Veo 3...';
+      ackMessage = '🎬 קיבלתי את התמונה! יוצר וידאו עם Veo 3.1...';
       break;
     case 'kling_image_to_video':
       ackMessage = '🎬 קיבלתי את התמונה! יוצר וידאו עם Kling AI...';

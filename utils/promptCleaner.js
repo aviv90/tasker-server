@@ -28,7 +28,7 @@ function cleanPromptFromProviders(prompt) {
     /\s+(עם|ב|באמצעות|דרך|בעזרת|את|using|with|via|by|to)\s+(open\s*ai|openai|gpt|chat\s*gpt|chatgpt|dall[\s-]*e|dalle|דאל[\s-]*אי|צ'אט\s*ג'יפיטי|צ׳אט\s*ג׳יפיטי)/gi,
     /\s+(עם|ב|באמצעות|דרך|בעזרת|את|using|with|via|by|to)\s+(grok|x\s*ai|xai|גרוק)/gi,
     /\s+(עם|ב|באמצעות|דרך|בעזרת|את|using|with|via|by|to)\s+(gemini|ג'מיני|ג׳מיני|ג׳ימיני|ג'ימיני)/gi,
-    /\s+(עם|ב|באמצעות|דרך|בעזרת|את|using|with|via|by|to)\s+(veo\s*3?|ויאו\s*3?|וו[יא]ו\s*3?)/gi,
+    /\s+(עם|ב|באמצעות|דרך|בעזרת|את|using|with|via|by|to)\s+(veo\s*3(\.1)?|ויאו\s*3(\.1)?|וו[יא]ו\s*3(\.1)?)/gi,
     /\s+(עם|ב|באמצעות|דרך|בעזרת|את|using|with|via|by|to)\s+(kling|קלינג)/gi,
     /\s+(עם|ב|באמצעות|דרך|בעזרת|את|using|with|via|by|to)\s+(runway|רנוויי|ראנוויי)/gi,
     /\s+(עם|ב|באמצעות|דרך|בעזרת|את|using|with|via|by|to)\s+(suno|סונו)/gi,
@@ -37,11 +37,11 @@ function cleanPromptFromProviders(prompt) {
     // Pattern 1b: Hebrew "ל" prefix attached to provider (לגרוק, לג'מיני, etc.)
     // Works with or without space before ל (שאל לגרוק, שאללגרוק)
     /\s*ל(grok|גרוק|gemini|ג'מיני|ג׳מיני|ג׳ימיני|ג'ימיני|kling|קלינג|suno|סונו|open\s*ai|openai|chat\s*gpt|דאל[\s-]*אי|צ'אט\s*ג'יפיטי|צ׳אט\s*ג׳יפיטי)/gi,
-    /\s*ל(veo\s*3?|ויאו\s*3?|וו[יא]ו\s*3?)/gi,
+    /\s*ל(veo\s*3(\.1)?|ויאו\s*3(\.1)?|וו[יא]ו\s*3(\.1)?)/gi,
     
     // Pattern 2: Provider at start (^גרוק, ^Grok, etc.) - standalone word
     /^(grok|גרוק)\s+/gi,
-    /^(veo\s*3?|ויאו\s*3?|וו[יא]ו\s*3?)\s+/gi,
+    /^(veo\s*3(\.1)?|ויאו\s*3(\.1)?|וו[יא]ו\s*3(\.1)?)\s+/gi,
     /^(kling|קלינג)\s+/gi,
     /^(gemini|ג'מיני|ג׳מיני|ג׳ימיני|ג'ימיני)\s+/gi,
     /^(open\s*ai|openai|gpt|chat\s*gpt|chatgpt|dall[\s-]*e|dalle|דאל[\s-]*אי|צ'אט\s*ג'יפיטי|צ׳אט\s*ג׳יפיטי)\s+/gi,
@@ -52,7 +52,7 @@ function cleanPromptFromProviders(prompt) {
     // Pattern 3: Provider in middle without connection words (צור גרוק תמונה)
     // Replace with single space to preserve word separation
     /\s+(grok|גרוק)\s+/gi,
-    /\s+(veo\s*3?|ויאו\s*3?|וו[יא]ו\s*3?)\s+/gi,
+    /\s+(veo\s*3(\.1)?|ויאו\s*3(\.1)?|וו[יא]ו\s*3(\.1)?)\s+/gi,
     /\s+(kling|קלינג)\s+/gi,
     /\s+(gemini|ג'מיני|ג׳מיני|ג׳ימיני|ג'ימיני)\s+/gi,
     /\s+(open\s*ai|openai|gpt(?!\s*image)|chat\s*gpt|chatgpt|dall[\s-]*e|dalle|דאל[\s-]*אי|צ'אט\s*ג'יפיטי|צ׳אט\s*ג׳יפיטי)\s+/gi,

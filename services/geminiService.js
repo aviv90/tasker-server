@@ -684,7 +684,7 @@ async function generateVideoWithText(prompt) {
         const cleanPrompt = sanitizeText(prompt);
         
         let operation = await veoClient.models.generateVideos({
-            model: "veo-3.0-generate-001", // Stable version
+            model: "veo-3.1-generate-preview", // Latest Veo 3.1 Preview (September 2025)
             prompt: cleanPrompt,
             config: {
                 aspectRatio: "9:16" // Vertical format for mobile (720p resolution)
@@ -703,7 +703,7 @@ async function generateVideoWithText(prompt) {
             }
             await new Promise(resolve => setTimeout(resolve, 10000));
             pollAttempts++;
-            console.log(`🔄 Polling attempt ${pollAttempts} for Veo 3 text-to-video generation`);
+            console.log(`🔄 Polling attempt ${pollAttempts} for Veo 3.1 text-to-video generation`);
             operation = await veoClient.operations.getVideosOperation({ operation });
         }
         
@@ -712,12 +712,12 @@ async function generateVideoWithText(prompt) {
             !operation.response.generatedVideos.length || 
             !operation.response.generatedVideos[0] || 
             !operation.response.generatedVideos[0].video) {
-            console.error('❌ Invalid Veo 3 response structure:', operation);
+            console.error('❌ Invalid Veo 3.1 response structure:', operation);
             
             // Check if there are filtered reasons from Veo 3
-            let errorMessage = 'Invalid response from Veo 3 API';
+            let errorMessage = 'Invalid response from Veo 3.1 API';
             if (operation.response && operation.response.raiMediaFilteredReasons && operation.response.raiMediaFilteredReasons.length > 0) {
-                errorMessage = operation.response.raiMediaFilteredReasons[0]; // Use the original Veo 3 error message
+                errorMessage = operation.response.raiMediaFilteredReasons[0]; // Use the original Veo 3.1 error message
             }
             
             return { error: errorMessage };
@@ -776,7 +776,7 @@ async function generateVideoWithText(prompt) {
         
         // Don't delete the file, we need the download link
         // Return buffer, text and result path that will be prefixed in finalizeVideo
-        console.log('✅ Veo 3 text-to-video generated successfully.');
+        console.log('✅ Veo 3.1 text-to-video generated successfully.');
         
         const videoBuffer = fs.readFileSync(tempFilePath);
         const filename = path.basename(tempFilePath);
@@ -802,9 +802,9 @@ async function generateVideoWithImage(prompt, imageBuffer) {
         // Convert image buffer to base64 string as expected by the API
         const imageBase64 = imageBuffer.toString('base64');
         
-        // Step 1: Generate video with Veo 3 using the provided image
+        // Step 1: Generate video with Veo 3.1 using the provided image
         let operation = await veoClient.models.generateVideos({
-            model: "veo-3.0-generate-001", // Stable version
+            model: "veo-3.1-generate-preview", // Latest Veo 3.1 Preview (September 2025)
             prompt: cleanPrompt,
             image: {
                 imageBytes: imageBase64,
@@ -822,12 +822,12 @@ async function generateVideoWithImage(prompt, imageBuffer) {
         
         while (!operation.done) {
             if (Date.now() - startTime > maxWaitTime) {
-                console.error('❌ Veo 3 image-to-video generation timed out');
+                console.error('❌ Veo 3.1 image-to-video generation timed out');
                 return { error: 'Video generation timed out after 10 minutes' };
             }
             await new Promise(resolve => setTimeout(resolve, 10000));
             pollAttempts++;
-            console.log(`🔄 Polling attempt ${pollAttempts} for Veo 3 image-to-video generation`);
+            console.log(`🔄 Polling attempt ${pollAttempts} for Veo 3.1 image-to-video generation`);
             operation = await veoClient.operations.getVideosOperation({ operation });
         }
         
@@ -836,12 +836,12 @@ async function generateVideoWithImage(prompt, imageBuffer) {
             !operation.response.generatedVideos.length || 
             !operation.response.generatedVideos[0] || 
             !operation.response.generatedVideos[0].video) {
-            console.error('❌ Invalid Veo 3 response structure:', operation);
+            console.error('❌ Invalid Veo 3.1 response structure:', operation);
             
             // Check if there are filtered reasons from Veo 3
-            let errorMessage = 'Invalid response from Veo 3 API';
+            let errorMessage = 'Invalid response from Veo 3.1 API';
             if (operation.response && operation.response.raiMediaFilteredReasons && operation.response.raiMediaFilteredReasons.length > 0) {
-                errorMessage = operation.response.raiMediaFilteredReasons[0]; // Use the original Veo 3 error message
+                errorMessage = operation.response.raiMediaFilteredReasons[0]; // Use the original Veo 3.1 error message
             }
             
             return { error: errorMessage };
@@ -898,7 +898,7 @@ async function generateVideoWithImage(prompt, imageBuffer) {
             return { error: 'Video file was not downloaded successfully' };
         }
         
-        console.log('✅ Veo 3 image-to-video generated successfully.');
+        console.log('✅ Veo 3.1 image-to-video generated successfully.');
         
         const videoBuffer = fs.readFileSync(tempFilePath);
         const filename = path.basename(tempFilePath);
@@ -910,18 +910,18 @@ async function generateVideoWithImage(prompt, imageBuffer) {
             result: publicPath // This will be processed by finalizeVideo to create full URL
         };
     } catch (err) {
-        console.error('❌ Veo 3 image-to-video generation error:', err);
+        console.error('❌ Veo 3.1 image-to-video generation error:', err);
         return { error: err.message || 'Unknown error' };
     }
 }
 
 async function generateVideoForWhatsApp(prompt, req = null) {
     try {
-        console.log('🎬 Starting Veo 3 text-to-video generation - Stable version');
+        console.log('🎬 Starting Veo 3.1 text-to-video generation - Preview version');
         const cleanPrompt = sanitizeText(prompt);
         
         let operation = await veoClient.models.generateVideos({
-            model: "veo-3.0-generate-001", // Stable version
+            model: "veo-3.1-generate-preview", // Latest Veo 3.1 Preview (September 2025)
             prompt: cleanPrompt,
             config: {
                 aspectRatio: "9:16" // Vertical format for mobile (720p resolution)
@@ -943,7 +943,7 @@ async function generateVideoForWhatsApp(prompt, req = null) {
             }
             await new Promise(resolve => setTimeout(resolve, 10000));
             pollAttempts++;
-            console.log(`🔄 Polling attempt ${pollAttempts} for Veo 3 text-to-video generation`);
+            console.log(`🔄 Polling attempt ${pollAttempts} for Veo 3.1 text-to-video generation`);
             operation = await veoClient.operations.getVideosOperation({ operation });
         }
         
@@ -962,7 +962,7 @@ async function generateVideoForWhatsApp(prompt, req = null) {
             // Check if there are filtered reasons from Veo 3
             let errorMessage = 'No generated videos in Veo 3 response';
             if (operation.response.raiMediaFilteredReasons && operation.response.raiMediaFilteredReasons.length > 0) {
-                errorMessage = operation.response.raiMediaFilteredReasons[0]; // Use the original Veo 3 error message
+                errorMessage = operation.response.raiMediaFilteredReasons[0]; // Use the original Veo 3.1 error message
             }
             
             return {
@@ -977,7 +977,7 @@ async function generateVideoForWhatsApp(prompt, req = null) {
             // Check if there are filtered reasons from Veo 3
             let errorMessage = 'No videos were generated by Veo 3';
             if (operation.response.raiMediaFilteredReasons && operation.response.raiMediaFilteredReasons.length > 0) {
-                errorMessage = operation.response.raiMediaFilteredReasons[0]; // Use the original Veo 3 error message
+                errorMessage = operation.response.raiMediaFilteredReasons[0]; // Use the original Veo 3.1 error message
             }
             
             return {
@@ -1054,7 +1054,7 @@ async function generateVideoForWhatsApp(prompt, req = null) {
         // Create public URL using centralized URL utility
         const videoUrl = getStaticFileUrl(fileName, req);
         
-        console.log('✅ Veo 3 text-to-video generated successfully');
+        console.log('✅ Veo 3.1 text-to-video generated successfully');
         console.log(`🎬 Video saved to: ${filePath}`);
         console.log(`🔗 Public URL: ${videoUrl}`);
         
@@ -1082,7 +1082,7 @@ async function generateVideoFromImageForWhatsApp(prompt, imageBuffer, req = null
         const imageBase64 = imageBuffer.toString('base64');
         
         let operation = await veoClient.models.generateVideos({
-            model: "veo-3.0-generate-001", // Stable version
+            model: "veo-3.1-generate-preview", // Latest Veo 3.1 Preview (September 2025)
             prompt: cleanPrompt,
             image: {
                 imageBytes: imageBase64,
@@ -1108,7 +1108,7 @@ async function generateVideoFromImageForWhatsApp(prompt, imageBuffer, req = null
             }
             await new Promise(resolve => setTimeout(resolve, 10000));
             pollAttempts++;
-            console.log(`🔄 Polling attempt ${pollAttempts} for Veo 3 image-to-video generation`);
+            console.log(`🔄 Polling attempt ${pollAttempts} for Veo 3.1 image-to-video generation`);
             operation = await veoClient.operations.getVideosOperation({ operation });
         }
         
@@ -1127,7 +1127,7 @@ async function generateVideoFromImageForWhatsApp(prompt, imageBuffer, req = null
             // Check if there are filtered reasons from Veo 3
             let errorMessage = 'No generated videos in Veo 3 response';
             if (operation.response.raiMediaFilteredReasons && operation.response.raiMediaFilteredReasons.length > 0) {
-                errorMessage = operation.response.raiMediaFilteredReasons[0]; // Use the original Veo 3 error message
+                errorMessage = operation.response.raiMediaFilteredReasons[0]; // Use the original Veo 3.1 error message
             }
             
             return {
@@ -1142,7 +1142,7 @@ async function generateVideoFromImageForWhatsApp(prompt, imageBuffer, req = null
             // Check if there are filtered reasons from Veo 3
             let errorMessage = 'No videos were generated by Veo 3';
             if (operation.response.raiMediaFilteredReasons && operation.response.raiMediaFilteredReasons.length > 0) {
-                errorMessage = operation.response.raiMediaFilteredReasons[0]; // Use the original Veo 3 error message
+                errorMessage = operation.response.raiMediaFilteredReasons[0]; // Use the original Veo 3.1 error message
             }
             
             return {
@@ -1219,7 +1219,7 @@ async function generateVideoFromImageForWhatsApp(prompt, imageBuffer, req = null
         // Create public URL using centralized URL utility
         const videoUrl = getStaticFileUrl(fileName, req);
         
-        console.log('✅ Veo 3 image-to-video generated successfully');
+        console.log('✅ Veo 3.1 image-to-video generated successfully');
         console.log(`🎬 Video saved to: ${filePath}`);
         console.log(`🔗 Public URL: ${videoUrl}`);
         
