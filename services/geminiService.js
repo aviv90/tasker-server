@@ -115,11 +115,12 @@ async function generateImageWithText(prompt) {
         if (!imageBuffer) {
             console.log('❌ Gemini: No image data found in response');
             
-            // If we got text instead, return it as-is
+            // If we got text instead, it means Gemini failed to generate image
             if (text && text.trim().length > 0) {
-                console.log('📝 Gemini returned text instead of image');
+                console.log('📝 Gemini returned text instead of image - generation failed');
+                console.log(`   Gemini response: ${text.substring(0, 200)}...`);
                 return { 
-                    error: text.trim() // Send the text as error message
+                    error: 'Gemini לא הצליח ליצור תמונה. נסה prompt אחר או השתמש ב-OpenAI במקום.'
                 };
             }
             
@@ -203,12 +204,13 @@ async function generateImageForWhatsApp(prompt, req = null) {
         if (!imageBuffer) {
             console.log('❌ Gemini: No image data found in response');
             
-            // If we got text instead, send it as-is to the user
+            // If we got text instead, it means Gemini failed to edit/generate image
             if (text && text.trim().length > 0) {
-                console.log('📝 Gemini returned text instead of image, sending text');
+                console.log('📝 Gemini returned text instead of image - edit/generation failed');
+                console.log(`   Gemini response: ${text.substring(0, 200)}...`);
                 return { 
                     success: false, 
-                    error: text.trim() // Send the text as error message
+                    error: 'Gemini לא הצליח לערוך/ליצור תמונה. נסה prompt אחר או השתמש ב-OpenAI במקום.'
                 };
             }
             
@@ -309,11 +311,12 @@ async function editImageWithText(prompt, base64Image) {
         if (!imageBuffer) {
             console.log('❌ Gemini edit: No image data found in response');
             
-            // If we got text instead, return it as-is
+            // If we got text instead, it means Gemini failed to generate image
             if (text && text.trim().length > 0) {
-                console.log('📝 Gemini returned text instead of image');
+                console.log('📝 Gemini returned text instead of image - generation failed');
+                console.log(`   Gemini response: ${text.substring(0, 200)}...`);
                 return { 
-                    error: text.trim() // Send the text as error message
+                    error: 'Gemini לא הצליח ליצור תמונה. נסה prompt אחר או השתמש ב-OpenAI במקום.'
                 };
             }
             
@@ -415,12 +418,12 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
             console.log('❌ Gemini edit: No image data found in response');
             console.log(`   Got text response (${text.length} chars): ${text.substring(0, 200)}...`);
             
-            // If we got text instead, send it as-is to the user
+            // If we got text instead, it means Gemini failed to edit image
             if (text && text.trim().length > 0) {
-                console.log('📝 Gemini returned text instead of image, sending text');
+                console.log('📝 Gemini returned text instead of image - edit failed');
                 return { 
                     success: false, 
-                    error: text.trim() // Send the text as error message
+                    error: 'Gemini לא הצליח לערוך את התמונה. נסה prompt אחר או השתמש ב-OpenAI במקום.'
                 };
             }
             

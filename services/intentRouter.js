@@ -110,7 +110,14 @@ async function routeIntent(input) {
     // Third priority: Check if it's an edit command (requires authorization)
     // Edit keywords: add, remove, change, make, create, replace, etc.
     const isEditRequest = /\b(add|remove|delete|change|replace|modify|edit|make|create|draw|paint|color|set|put|insert|erase|fix|adjust|enhance|improve|transform|convert)\b|הוסף|הסר|מחק|שנה|החלף|ערוך|צור|צייר|צבע|הכנס|תקן|שפר|המר|הפוך(?!.*וידאו)|עשה|תן/i.test(prompt);
-    if (isEditRequest) {
+    
+    // Implicit edit: If prompt describes a state/appearance without being a question
+    // Examples: "לבוש בקימונו", "wearing a hat", "with glasses", "as a superhero"
+    // Hebrew: לבוש ב, עם, כ (כברבי, כסופרמן), בתור
+    // English: wearing, dressed, as a, with, in a
+    const isImplicitEdit = /^(לבוש|לבושה|לובש|לובשת|עם|כ(?!מה)|בתור|wearing|dressed|with\s+a|as\s+a|in\s+a)\b/i.test(prompt);
+    
+    if (isEditRequest || isImplicitEdit) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'image_edit' }, reason: 'No media creation authorization' };
       }
@@ -176,9 +183,14 @@ async function routeIntent(input) {
     const isMusic = /\b(suno|music|song)\b|שיר|מוזיקה|שירון/i.test(prompt);
     const isHelp = /\b(commands|list|help|capabilities)\b|פקודות|רשימת|רשימה|עזרה|אילו|מה\s+אפשר|what\s+can/i.test(prompt);
     const isCreateGroup = /צור.*קבוצה|יצירת.*קבוצה|פתח.*קבוצה|פתיחת.*קבוצה|הקם.*קבוצה|הקמת.*קבוצה|create.*group|new.*group|open.*group|start.*group|קבוצה.*חדשה/i.test(prompt);
+    const isRetry = /^(נסה\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)\b/i.test(prompt);
     
     // Debug: log intent detection
-    console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} Music:${isMusic} TTS:${isTtsLike}`);
+    console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} Music:${isMusic} TTS:${isTtsLike} Retry:${isRetry}`);
+    
+    if (isRetry) {
+      return { tool: 'retry_last_command', args: {}, reason: 'User requested retry' };
+    }
     
     if (isSummary) {
       return { tool: 'chat_summary', args: {}, reason: 'User requested summary' };
@@ -325,7 +337,7 @@ function validateDecision(obj) {
     'gemini_image', 'openai_image', 'grok_image',
     'veo3_video', 'kling_text_to_video', 'veo3_image_to_video', 'kling_image_to_video', 'video_to_video',
     'image_edit', 'text_to_speech', 'gemini_chat', 'openai_chat', 'grok_chat',
-    'chat_summary', 'music_generation', 'creative_voice_processing', 'show_help', 'create_group', 'deny_unauthorized', 'ask_clarification'
+    'chat_summary', 'music_generation', 'creative_voice_processing', 'show_help', 'create_group', 'retry_last_command', 'deny_unauthorized', 'ask_clarification'
   ]);
   if (!allowedTools.has(tool)) return null;
   return { tool, args, reason };
@@ -406,9 +418,12 @@ ${JSON.stringify(payload, null, 2)}
    
    C. **Image Editing** (third priority - requires authorization):
       ✓ Edit keywords: "הוסף", "הסר", "מחק", "שנה", "החלף", "ערוך", "צבע", "add", "remove", "delete", "change", "replace", "edit", "make", "create", "draw", "paint", "color"
+      ✓ Implicit edit patterns (describes state/appearance): "לבוש בקימונו", "עם משקפיים", "כברבי", "wearing a hat", "with glasses", "as a superhero"
       ✓ Requires media_creation authorization
       ✓ Check provider preference (OpenAI/Gemini)
       → "image_edit"
+      
+      💡 **IMPORTANT**: If prompt describes how person/object should look (without being a question), treat as edit request!
    
    D. **Default** (no clear pattern):
       - If unclear → "gemini_chat" (safer to analyze than edit)
@@ -477,6 +492,11 @@ ${JSON.stringify(payload, null, 2)}
       Keywords: "סכם", "סיכום", "summary", "לסכם", "summarize"
       → "chat_summary"
    
+   🔄 **Retry Last Command:**
+      Keywords: "נסה שוב", "שוב", "עוד פעם", "שנית", "retry", "again", "try again", "once more"
+      → "retry_last_command"
+      💡 Note: Re-runs the last command executed in this chat (or quoted message command)
+   
    👥 **Group Creation:**
       Keywords: "צור קבוצה", "יצירת קבוצה", "פתח קבוצה", "פתיחת קבוצה", "הקם קבוצה", "הקמת קבוצה", "create group", "new group", "open group", "start group", "קבוצה חדשה"
       → "create_group"
@@ -540,12 +560,22 @@ ${JSON.stringify(payload, null, 2)}
    Input: {"userText": "# A cinematic classroom scene with realistic lighting", "hasImage": false, "hasVideo": false}
    Output: {"tool": "gemini_chat", "args": {"prompt": "A cinematic classroom scene with realistic lighting"}, "reason": "Complex description - chat"}
 
-   ✅ IMAGE EDITING:
+   ✅ IMAGE EDITING (Explicit keywords):
    Input: {"userText": "# הוסף כובע", "hasImage": true, "hasVideo": false}
    Output: {"tool": "image_edit", "args": {"service": "gemini", "prompt": "הוסף כובע"}, "reason": "Edit image"}
 
    Input: {"userText": "# הוסף כובע עם OpenAI", "hasImage": true, "hasVideo": false}
    Output: {"tool": "image_edit", "args": {"service": "openai", "prompt": "הוסף כובע עם OpenAI"}, "reason": "Edit image with OpenAI"}
+
+   ✅ IMAGE EDITING (Implicit - describes appearance):
+   Input: {"userText": "# לבוש בקימונו יפני", "hasImage": true, "hasVideo": false}
+   Output: {"tool": "image_edit", "args": {"service": "gemini", "prompt": "לבוש בקימונו יפני"}, "reason": "Edit image"}
+   
+   Input: {"userText": "# כברבי", "hasImage": true, "hasVideo": false}
+   Output: {"tool": "image_edit", "args": {"service": "gemini", "prompt": "כברבי"}, "reason": "Edit image"}
+   
+   Input: {"userText": "# wearing a superhero costume", "hasImage": true, "hasVideo": false}
+   Output: {"tool": "image_edit", "args": {"service": "gemini", "prompt": "wearing a superhero costume"}, "reason": "Edit image"}
 
    ✅ IMAGE ANALYSIS (Text-only response):
    Input: {"userText": "# מה זה?", "hasImage": true, "hasVideo": false}
@@ -738,7 +768,7 @@ ${JSON.stringify(payload, null, 2)}
 }
 
 ⚙️ AVAILABLE TOOLS:
-gemini_chat, openai_chat, grok_chat, gemini_image, openai_image, grok_image, kling_text_to_video, veo3_video, kling_image_to_video, veo3_image_to_video, video_to_video, image_edit, text_to_speech, music_generation, chat_summary, creative_voice_processing, deny_unauthorized, ask_clarification, show_help`;
+gemini_chat, openai_chat, grok_chat, gemini_image, openai_image, grok_image, kling_text_to_video, veo3_video, kling_image_to_video, veo3_image_to_video, video_to_video, image_edit, text_to_speech, music_generation, chat_summary, retry_last_command, creative_voice_processing, deny_unauthorized, ask_clarification, show_help`;
 }
 
 

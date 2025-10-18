@@ -22,6 +22,10 @@ const path = require('path');
 // Message deduplication cache - prevent processing duplicate messages
 const processedMessages = new Set();
 
+// Last command cache per chat - for retry functionality
+// Structure: { chatId: { tool: 'gemini_image', args: { prompt: '...' }, timestamp: 123456 } }
+const lastCommandCache = new Map();
+
 // Chat history limit for context retrieval
 const CHAT_HISTORY_LIMIT = 30;
 
@@ -61,6 +65,30 @@ function cleanForLogging(obj) {
   
   cleanObject(cleaned);
   return cleaned;
+}
+
+/**
+ * Save last executed command for retry functionality
+ * @param {string} chatId - Chat ID
+ * @param {Object} decision - Router decision object
+ * @param {Object} options - Additional options (imageUrl, videoUrl, normalized)
+ */
+function saveLastCommand(chatId, decision, options = {}) {
+  // Don't save retry, clarification, or denial commands
+  if (['retry_last_command', 'ask_clarification', 'deny_unauthorized'].includes(decision.tool)) {
+    return;
+  }
+  
+  lastCommandCache.set(chatId, {
+    tool: decision.tool,
+    args: decision.args,
+    imageUrl: options.imageUrl || null,
+    videoUrl: options.videoUrl || null,
+    normalized: options.normalized || null,
+    timestamp: Date.now()
+  });
+  
+  console.log(`💾 Saved last command for ${chatId}: ${decision.tool}`);
 }
 
 /**
@@ -173,11 +201,21 @@ async function sendUnauthorizedMessage(chatId, feature) {
   console.log(`🚫 Unauthorized access attempt to ${feature}`);
 }
 
-// Clean up old processed messages every 30 minutes
+// Clean up old processed messages and last command cache every 30 minutes
 setInterval(() => {
   if (processedMessages.size > 1000) {
     processedMessages.clear();
     console.log('🧹 Cleared processed messages cache');
+  }
+  // Clean up old last commands (older than 1 hour)
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  for (const [chatId, command] of lastCommandCache.entries()) {
+    if (command.timestamp < oneHourAgo) {
+      lastCommandCache.delete(chatId);
+    }
+  }
+  if (lastCommandCache.size > 0) {
+    console.log(`🧹 Cleaned up old commands from cache (${lastCommandCache.size} remaining)`);
   }
 }, 30 * 60 * 1000);
 
@@ -249,6 +287,10 @@ async function sendAck(chatId, command) {
     // ═══════════════════ UTILITIES ═══════════════════
     case 'chat_summary':
       ackMessage = '📝 קיבלתי! מכין סיכום השיחה עם Gemini...';
+      break;
+    
+    case 'retry_last_command':
+      ackMessage = '🔄 קיבלתי! מריץ שוב את הפקודה האחרונה...';
       break;
       
     default:
@@ -556,6 +598,109 @@ async function handleIncomingMessage(webhookData) {
         
         try {
           switch (decision.tool) {
+            case 'retry_last_command': {
+              // Check if there's a quoted message with a command
+              if (quotedMessage && quotedMessage.stanzaId) {
+                console.log('🔄 Retry with quoted message - extracting command from quoted message');
+                
+                // Extract the command from the quoted message
+                let quotedText = null;
+                if (quotedMessage.typeMessage === 'textMessage' || quotedMessage.typeMessage === 'extendedTextMessage') {
+                  quotedText = quotedMessage.textMessage || quotedMessage.extendedTextMessage?.text;
+                } else if (quotedMessage.typeMessage === 'imageMessage') {
+                  quotedText = quotedMessage.fileMessageData?.caption || quotedMessage.imageMessageData?.caption;
+                } else if (quotedMessage.typeMessage === 'videoMessage') {
+                  quotedText = quotedMessage.fileMessageData?.caption || quotedMessage.videoMessageData?.caption;
+                }
+                
+                // Check if quoted message has a command (starts with #)
+                if (quotedText && /^#\s+/.test(quotedText.trim())) {
+                  console.log(`🔄 Found command in quoted message: "${quotedText.substring(0, 50)}..."`);
+                  // Re-process the quoted message as if it's a new message
+                  // We'll handle the quoted message using existing logic
+                  const quotedResult = await handleQuotedMessage(quotedMessage, '', chatId);
+                  
+                  if (quotedResult.error) {
+                    await sendTextMessage(chatId, quotedResult.error);
+                    return;
+                  }
+                  
+                  // Re-route with the quoted message content
+                  const retryNormalized = {
+                    userText: quotedText,
+                    hasImage: quotedResult.hasImage,
+                    hasVideo: quotedResult.hasVideo,
+                    hasAudio: false,
+                    chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
+                    language: 'he',
+                    authorizations: {
+                      media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
+                      group_creation: null,
+                      voice_allowed: null
+                    },
+                    senderData: { senderContactName, chatName, senderName, chatId }
+                  };
+                  
+                  const retryDecision = await routeIntent(retryNormalized);
+                  console.log(`🔄 Retry routing decision: ${retryDecision.tool}`);
+                  
+                  // Save this as the last command for future retries
+                  lastCommandCache.set(chatId, {
+                    tool: retryDecision.tool,
+                    args: retryDecision.args,
+                    normalized: retryNormalized,
+                    imageUrl: quotedResult.imageUrl,
+                    videoUrl: quotedResult.videoUrl,
+                    timestamp: Date.now()
+                  });
+                  
+                  // Continue with normal execution (don't return here, fall through to execute the command)
+                  // Re-assign decision to retryDecision so it executes
+                  Object.assign(decision, retryDecision);
+                  // Also update imageUrl/videoUrl for media commands
+                  imageUrl = quotedResult.imageUrl;
+                  videoUrl = quotedResult.videoUrl;
+                  hasImage = quotedResult.hasImage;
+                  hasVideo = quotedResult.hasVideo;
+                } else {
+                  await sendTextMessage(chatId, 'ℹ️ ההודעה המצוטטת לא מכילה פקודה. צטט הודעה שמתחילה ב-"#"');
+                  return;
+                }
+              } else {
+                // No quoted message - retry last command from cache
+                const lastCommand = lastCommandCache.get(chatId);
+                
+                if (!lastCommand) {
+                  await sendTextMessage(chatId, 'ℹ️ אין פקודה קודמת לביצוע מחדש. נסה לשלוח פקודה חדשה.');
+                  return;
+                }
+                
+                console.log(`🔄 Retrying last command: ${lastCommand.tool}`);
+                
+                // Re-assign decision to last command
+                Object.assign(decision, {
+                  tool: lastCommand.tool,
+                  args: lastCommand.args,
+                  reason: 'Retry last command'
+                });
+                
+                // Restore media URLs if they exist
+                if (lastCommand.imageUrl) {
+                  imageUrl = lastCommand.imageUrl;
+                  hasImage = true;
+                }
+                if (lastCommand.videoUrl) {
+                  videoUrl = lastCommand.videoUrl;
+                  hasVideo = true;
+                }
+                
+                // Update timestamp for cleanup
+                lastCommand.timestamp = Date.now();
+              }
+              // Don't return - fall through to execute the command
+              break;
+            }
+            
             case 'ask_clarification':
               await sendTextMessage(chatId, 'ℹ️ לא ברור מה לבצע. תוכל לחדד בבקשה?');
               return;
@@ -568,6 +713,9 @@ async function handleIncomingMessage(webhookData) {
               
             // ═══════════════════ CHAT (Text Generation) ═══════════════════
             case 'gemini_chat': {
+              // Save command for retry (before execution)
+              saveLastCommand(chatId, decision, { imageUrl, videoUrl, normalized });
+              
               await sendAck(chatId, { type: 'gemini_chat' });
               
               // Check if this is image analysis (hasImage = true)
@@ -693,6 +841,7 @@ async function handleIncomingMessage(webhookData) {
             }
             
             case 'openai_chat': {
+              saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'openai_chat' });
               const contextMessages = await conversationManager.getConversationHistory(chatId);
               await conversationManager.addMessage(chatId, 'user', prompt);
@@ -707,6 +856,7 @@ async function handleIncomingMessage(webhookData) {
             }
             
             case 'grok_chat': {
+              saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'grok_chat' });
               // Note: Grok doesn't use conversation history (causes issues)
               await conversationManager.addMessage(chatId, 'user', prompt);
@@ -722,6 +872,7 @@ async function handleIncomingMessage(webhookData) {
             
             // ═══════════════════ IMAGE GENERATION ═══════════════════
             case 'gemini_image': {
+              saveLastCommand(chatId, decision, { normalized });
               try {
                 await sendAck(chatId, { type: 'gemini_image' });
                 console.log('🎨 ACK sent for gemini_image, starting generation...');
@@ -749,6 +900,7 @@ async function handleIncomingMessage(webhookData) {
             }
             
             case 'openai_image': {
+              saveLastCommand(chatId, decision, { normalized });
               try {
                 await sendAck(chatId, { type: 'openai_image' });
                 console.log('🎨 ACK sent for openai_image, starting generation...');
@@ -773,6 +925,7 @@ async function handleIncomingMessage(webhookData) {
             }
             
             case 'grok_image': {
+              saveLastCommand(chatId, decision, { normalized });
               try {
                 // Grok doesn't have image generation - fallback to Gemini
                 await sendAck(chatId, { type: 'grok_image' });
@@ -823,6 +976,7 @@ async function handleIncomingMessage(webhookData) {
             // ═══════════════════ IMAGE/VIDEO EDITING ═══════════════════
             case 'veo3_image_to_video':
             case 'kling_image_to_video':
+              saveLastCommand(chatId, decision, { imageUrl, normalized });
               // Use imageUrl (from quoted message or current message)
               if (hasImage) {
                 const service = decision.tool === 'veo3_image_to_video' ? 'veo3' : 'kling';
@@ -837,6 +991,7 @@ async function handleIncomingMessage(webhookData) {
               return;
               
             case 'image_edit':
+              saveLastCommand(chatId, decision, { imageUrl, normalized });
               // Use imageUrl (from quoted message or current message)
               if (hasImage) {
                 const service = decision.args?.service || 'gemini';
@@ -851,6 +1006,7 @@ async function handleIncomingMessage(webhookData) {
               return;
               
             case 'video_to_video':
+              saveLastCommand(chatId, decision, { videoUrl, normalized });
               // Use videoUrl (from quoted message or current message)
               if (hasVideo) {
                 const finalVideoUrl = videoUrl || (messageData.fileMessageData || messageData.videoMessageData)?.downloadUrl;
@@ -973,6 +1129,7 @@ async function handleIncomingMessage(webhookData) {
 • # צור שיר על... - יצירת מוזיקה
 • # המר לדיבור: טקסט - Text-to-Speech
 • # סכם שיחה - סיכום השיחה
+• # נסה שוב / # שוב - ביצוע מחדש פקודה אחרונה
 • # צור/פתח/הקם קבוצה בשם "שם" עם שם1, שם2 - יצירת קבוצה
 • (אופציה) + עם תמונה של... - הוספת תמונת פרופיל
 • תמונה + # ערוך... - עריכת תמונה
@@ -1856,6 +2013,7 @@ async function handleOutgoingMessage(webhookData) {
 • # צור שיר על... - יצירת מוזיקה
 • # המר לדיבור: טקסט - Text-to-Speech
 • # סכם שיחה - סיכום השיחה
+• # נסה שוב / # שוב - ביצוע מחדש פקודה אחרונה
 • # צור/פתח/הקם קבוצה בשם "שם" עם שם1, שם2 - יצירת קבוצה
 • (אופציה) + עם תמונה של... - הוספת תמונת פרופיל
 • תמונה + # ערוך... - עריכת תמונה
