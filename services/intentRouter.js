@@ -166,8 +166,12 @@ async function routeIntent(input) {
 
   // If there is an attached audio/voice note with text prompt → decide between creative mix, voice response, or general request
   if (input.hasAudio && prompt) {
+    console.log(`🎤 Audio routing - Prompt: "${prompt}"`);
+    
     // First priority: Check if user wants creative audio mix
     const isCreativeMix = /\b(mix|remix|creative|effect|ערבב|מיקס|יצירתי|אפקט|רמיקס)\b/i.test(prompt);
+    console.log(`   Creative Mix: ${isCreativeMix}`);
+    
     if (isCreativeMix) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'creative_audio' }, reason: 'No media creation authorization' };
@@ -176,7 +180,11 @@ async function routeIntent(input) {
     }
     
     // Second priority: Check if user wants voice cloning response
-    const isVoiceResponse = /\b(ענה|תגיב|תגובה|השב|תשובה|reply|respond|response|answer|react)\b.*\b(לזה|על\s*זה|קולי|בקול|to\s+this|to\s+it|voice)\b|תגובה\s+קולית|מענה\s+קולי|voice\s+response|voice\s+reply/i.test(prompt);
+    // Must explicitly mention voice/קול (not just "ענה לזה" which is text response)
+    // Note: "בקול" doesn't need \b at start (ב is a prefix in Hebrew)
+    const isVoiceResponse = /\b(ענה|תגיב|תגובה|השב|תשובה|reply|respond|response|answer|react)\b.*(קולי|בקול|\bvoice\b)|תגובה\s+קולית|מענה\s+קולי|השב.*בקול|ענה.*בקול|voice\s+response|voice\s+reply/i.test(prompt);
+    console.log(`   Voice Response: ${isVoiceResponse}`);
+    
     if (isVoiceResponse) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'voice_cloning' }, reason: 'No media creation authorization' };
@@ -496,7 +504,10 @@ ${JSON.stringify(payload, null, 2)}
       → "creative_voice_processing"
       
    B. **Voice Cloning Response** (second priority):
-      ✓ Response keywords: "ענה לזה", "תגיב על זה", "תגובה קולית", "מענה קולי", "reply to this", "respond to this", "voice response"
+      ✓ MUST explicitly mention VOICE: "קולי", "בקול", "voice"
+      ✓ Response keywords WITH voice: "ענה בקול", "השב בקול", "תגיב בקול", "תגובה קולית", "מענה קולי", "reply with voice", "voice response"
+      ✓ Examples that trigger: "השב לזה בקול", "ענה על זה קולית", "voice reply to this"
+      ✓ Examples that DON'T trigger: "השב לזה", "ענה על זה" (these → gemini_chat for text response)
       ✓ Requires media_creation authorization
       → "voice_cloning_response"
       
@@ -687,7 +698,13 @@ ${JSON.stringify(payload, null, 2)}
    Output: {"tool": "creative_voice_processing", "args": {"prompt": "ערבב את זה"}, "reason": "Creative audio mix"}
    
    Input: {"userText": "# ענה לזה", "hasImage": false, "hasVideo": false, "hasAudio": true}
-   Output: {"tool": "voice_cloning_response", "args": {"prompt": "ענה לזה"}, "reason": "Voice cloning response"}
+   Output: {"tool": "gemini_chat", "args": {"prompt": "ענה לזה", "needsTranscription": true}, "reason": "Text response to audio (no voice keyword)"}
+   
+   Input: {"userText": "# ענה לזה בקול", "hasImage": false, "hasVideo": false, "hasAudio": true}
+   Output: {"tool": "voice_cloning_response", "args": {"prompt": "ענה לזה בקול"}, "reason": "Voice cloning response"}
+   
+   Input: {"userText": "# השב לזה בקול", "hasImage": false, "hasVideo": false, "hasAudio": true}
+   Output: {"tool": "voice_cloning_response", "args": {"prompt": "השב לזה בקול"}, "reason": "Voice cloning response"}
    
    Input: {"userText": "# תגיב על זה קולית", "hasImage": false, "hasVideo": false, "hasAudio": true}
    Output: {"tool": "voice_cloning_response", "args": {"prompt": "תגיב על זה קולית"}, "reason": "Voice cloning response"}
