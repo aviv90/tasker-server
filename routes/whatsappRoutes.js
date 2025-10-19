@@ -881,8 +881,8 @@ async function handleIncomingMessage(webhookData) {
                   const audioBuffer = await downloadFile(finalAudioUrl);
                   
                   const transcriptionOptions = {
-                    model: 'scribe_v1',
-                    language: 'he', // Hebrew as default - most users speak Hebrew
+                    model: 'scribe_v1_experimental', // Use experimental model - excellent multilingual support
+                    language: null, // Auto-detect (Hebrew, English, Spanish, etc.)
                     removeNoise: true,
                     removeFiller: true,
                     optimizeLatency: 0,
@@ -1831,8 +1831,8 @@ async function handleIncomingMessage(webhookData) {
         const audioBuffer = await downloadFile(audioData.downloadUrl);
         
         const transcriptionResult = await speechService.speechToText(audioBuffer, {
-          model: 'scribe_v1',
-          language: 'he', // Hebrew as default - most users speak Hebrew
+          model: 'scribe_v1_experimental', // Use experimental model - excellent multilingual support
+          language: null, // Auto-detect (Hebrew, English, Spanish, etc.)
           removeNoise: true,
           removeFiller: true,
           optimizeLatency: 0,
@@ -2311,8 +2311,8 @@ async function handleOutgoingMessage(webhookData) {
                   const audioBuffer = await downloadFile(finalAudioUrl);
                   
                   const transcriptionOptions = {
-                    model: 'scribe_v1',
-                    language: null,
+                    model: 'scribe_v1_experimental', // Use experimental model - excellent multilingual support
+                    language: null, // Auto-detect (Hebrew, English, Spanish, etc.)
                     removeNoise: true,
                     removeFiller: true,
                     optimizeLatency: 0,
@@ -3664,8 +3664,8 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     // Step 2: Speech-to-Text transcription
     console.log(`🔄 Step 1: Transcribing speech...`);
     const transcriptionOptions = {
-      model: 'scribe_v1',
-      language: 'he', // Hebrew as default - most users speak Hebrew
+      model: 'scribe_v1_experimental', // Use experimental model - excellent multilingual support
+      language: null, // Auto-detect (Hebrew, English, Spanish, etc.)
       removeNoise: true,
       removeFiller: true,
       optimizeLatency: 0,
