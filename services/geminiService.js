@@ -62,11 +62,11 @@ async function generateImageWithText(prompt) {
         let cleanPrompt = sanitizeText(prompt);
         
         // Remove image creation instructions from prompt (Gemini Image gets confused by them)
-        // Hebrew patterns: "צייר תמונה של", "צור תמונה של", "הפוך לתמונה את", etc.
+        // Hebrew patterns: "לצייר תמונה של", "צייר תמונה של", "צור תמונה של", "הפוך לתמונה את", etc.
         // English patterns: "draw image of", "create image of", "make image of", etc.
         cleanPrompt = cleanPrompt
-            .replace(/^(צייר|צור|הפוך|צרי|צייר\s+לי|תצייר|תצור)\s+(תמונה\s+)?(של\s+)?/i, '')
-            .replace(/^(draw|create|make|generate|produce)\s+(an?\s+)?(image|picture|photo)\s+(of\s+)?/i, '')
+            .replace(/^(ל)?(צייר|צור|הפוך|צרי|תצייר|תצור)\s+(תמונה\s+)?(של\s+)?/i, '')
+            .replace(/^(to\s+)?(draw|create|make|generate|produce)\s+(an?\s+)?(image|picture|photo)\s+(of\s+)?/i, '')
             .trim();
         
         console.log(`   Cleaned prompt: "${cleanPrompt.substring(0, 100)}${cleanPrompt.length > 100 ? '...' : ''}"`);
@@ -144,11 +144,11 @@ async function generateImageForWhatsApp(prompt, req = null) {
         let cleanPrompt = sanitizeText(prompt);
         
         // Remove image creation instructions from prompt (Gemini Image gets confused by them)
-        // Hebrew patterns: "צייר תמונה של", "צור תמונה של", "הפוך לתמונה את", etc.
+        // Hebrew patterns: "לצייר תמונה של", "צייר תמונה של", "צור תמונה של", "הפוך לתמונה את", etc.
         // English patterns: "draw image of", "create image of", "make image of", etc.
         cleanPrompt = cleanPrompt
-            .replace(/^(צייר|צור|הפוך|צרי|צייר\s+לי|תצייר|תצור)\s+(תמונה\s+)?(של\s+)?/i, '')
-            .replace(/^(draw|create|make|generate|produce)\s+(an?\s+)?(image|picture|photo)\s+(of\s+)?/i, '')
+            .replace(/^(ל)?(צייר|צור|הפוך|צרי|תצייר|תצור)\s+(תמונה\s+)?(של\s+)?/i, '')
+            .replace(/^(to\s+)?(draw|create|make|generate|produce)\s+(an?\s+)?(image|picture|photo)\s+(of\s+)?/i, '')
             .trim();
         
         console.log(`   Cleaned prompt: "${cleanPrompt.substring(0, 100)}${cleanPrompt.length > 100 ? '...' : ''}"`);
