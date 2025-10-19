@@ -882,7 +882,7 @@ async function handleIncomingMessage(webhookData) {
                   
                   const transcriptionOptions = {
                     model: 'scribe_v1',
-                    language: null, // Auto-detect
+                    language: 'he', // Hebrew as default - most users speak Hebrew
                     removeNoise: true,
                     removeFiller: true,
                     optimizeLatency: 0,
@@ -1832,7 +1832,7 @@ async function handleIncomingMessage(webhookData) {
         
         const transcriptionResult = await speechService.speechToText(audioBuffer, {
           model: 'scribe_v1',
-          language: null,
+          language: 'he', // Hebrew as default - most users speak Hebrew
           removeNoise: true,
           removeFiller: true,
           optimizeLatency: 0,
@@ -3665,7 +3665,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     console.log(`🔄 Step 1: Transcribing speech...`);
     const transcriptionOptions = {
       model: 'scribe_v1',
-      language: null, // Auto-detect
+      language: 'he', // Hebrew as default - most users speak Hebrew
       removeNoise: true,
       removeFiller: true,
       optimizeLatency: 0,
