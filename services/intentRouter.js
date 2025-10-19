@@ -196,8 +196,8 @@ async function routeIntent(input) {
   }
 
   // If text prompt only (no attachments) → decide among chat / image / video generation
-  // CRITICAL: This block should NEVER run if hasImage or hasVideo is true
-  if (prompt && !input.hasImage && !input.hasVideo) {
+  // CRITICAL: This block should NEVER run if hasImage, hasVideo, or hasAudio is true
+  if (prompt && !input.hasImage && !input.hasVideo && !input.hasAudio) {
     // Simple keyword-based heuristic to infer intent; replace later with LLM
     // Note: prompt already has # prefix removed by line 57
     // All checks are case-insensitive using /i flag
@@ -486,9 +486,24 @@ ${JSON.stringify(payload, null, 2)}
    
    ⚠️ NEVER choose music/TTS/help when hasVideo=true
 
-3️⃣ **IF hasAudio=true** (voice message):
-   - If voice_allowed → "creative_voice_processing"
-   - Else → "deny_unauthorized"
+3️⃣ **IF hasAudio=true** (user quoted a voice note with prompt):
+   PRIORITY ORDER (check in this exact sequence):
+   
+   A. **Creative Audio Mix** (highest priority):
+      ✓ Mix keywords: "ערבב", "מיקס", "יצירתי", "אפקט", "רמיקס", "mix", "remix", "creative", "effect"
+      ✓ Requires media_creation authorization
+      → "creative_voice_processing"
+      
+   B. **Voice Cloning Response** (second priority):
+      ✓ Response keywords: "ענה לזה", "תגיב על זה", "תגובה קולית", "מענה קולי", "reply to this", "respond to this", "voice response"
+      ✓ Requires media_creation authorization
+      → "voice_cloning_response"
+      
+   C. **General Request** (transcription, translation, etc.):
+      ✓ Keywords: "תמלל", "תרגם", "סכם", "transcribe", "translate", "summarize"
+      → "gemini_chat" (with needsTranscription=true)
+      
+      💡 **CHAT HISTORY**: If mentions previous messages, set needsChatHistory=true
 
 4️⃣ **IF text only** (no media attached):
    STEP A: Look for PRIMARY INTENT keywords (whole word, case-insensitive):
@@ -663,6 +678,31 @@ ${JSON.stringify(payload, null, 2)}
    Input: {"userText": "# create poll about dogs", "hasImage": false, "hasVideo": false}
    Output: {"tool": "create_poll", "args": {"prompt": "create poll about dogs"}, "reason": "Poll creation"}
 
+   ✅ AUDIO/VOICE PROCESSING (hasAudio=true with prompt):
+   Input: {"userText": "# מיקס", "hasImage": false, "hasVideo": false, "hasAudio": true}
+   Output: {"tool": "creative_voice_processing", "args": {"prompt": "מיקס"}, "reason": "Creative audio mix"}
+   
+   Input: {"userText": "# ערבב את זה", "hasImage": false, "hasVideo": false, "hasAudio": true}
+   Output: {"tool": "creative_voice_processing", "args": {"prompt": "ערבב את זה"}, "reason": "Creative audio mix"}
+   
+   Input: {"userText": "# ענה לזה", "hasImage": false, "hasVideo": false, "hasAudio": true}
+   Output: {"tool": "voice_cloning_response", "args": {"prompt": "ענה לזה"}, "reason": "Voice cloning response"}
+   
+   Input: {"userText": "# תגיב על זה קולית", "hasImage": false, "hasVideo": false, "hasAudio": true}
+   Output: {"tool": "voice_cloning_response", "args": {"prompt": "תגיב על זה קולית"}, "reason": "Voice cloning response"}
+   
+   Input: {"userText": "# תמלל", "hasImage": false, "hasVideo": false, "hasAudio": true}
+   Output: {"tool": "gemini_chat", "args": {"prompt": "תמלל", "needsTranscription": true}, "reason": "Transcription only"}
+   
+   Input: {"userText": "# תרגם לשוודית", "hasImage": false, "hasVideo": false, "hasAudio": true}
+   Output: {"tool": "gemini_chat", "args": {"prompt": "תרגם לשוודית", "needsTranscription": true}, "reason": "Transcribe + translate to text"}
+   
+   Input: {"userText": "# אמור ביפנית", "hasImage": false, "hasVideo": false, "hasAudio": true}
+   Output: {"tool": "gemini_chat", "args": {"prompt": "אמור ביפנית", "needsTranscription": true}, "reason": "Transcribe + translate + TTS"}
+   
+   Input: {"userText": "# say in Japanese", "hasImage": false, "hasVideo": false, "hasAudio": true}
+   Output: {"tool": "gemini_chat", "args": {"prompt": "say in Japanese", "needsTranscription": true}, "reason": "Transcribe + translate + TTS"}
+
    ✅ GROUP CREATION:
    Input: {"userText": "# צור קבוצה בשם 'כדורגל' עם אבי, רועי", "hasImage": false, "hasVideo": false}
    Output: {"tool": "create_group", "args": {"prompt": "צור קבוצה בשם 'כדורגל' עם אבי, רועי"}, "reason": "Group creation"}
@@ -814,7 +854,7 @@ ${JSON.stringify(payload, null, 2)}
 }
 
 ⚙️ AVAILABLE TOOLS:
-gemini_chat, openai_chat, grok_chat, gemini_image, openai_image, grok_image, kling_text_to_video, veo3_video, kling_image_to_video, veo3_image_to_video, video_to_video, image_edit, text_to_speech, music_generation, chat_summary, create_poll, retry_last_command, creative_voice_processing, deny_unauthorized, ask_clarification, show_help`;
+gemini_chat, openai_chat, grok_chat, gemini_image, openai_image, grok_image, kling_text_to_video, veo3_video, kling_image_to_video, veo3_image_to_video, video_to_video, image_edit, text_to_speech, music_generation, chat_summary, create_poll, retry_last_command, creative_voice_processing, voice_cloning_response, deny_unauthorized, ask_clarification, show_help`;
 }
 
 

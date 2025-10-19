@@ -1,0 +1,128 @@
+---
+description: כל פקודה חדשה חייבת לתמוך ב-retry עם אפשרות לשינויים
+---
+
+# All Commands Must Support Retry with Modifications
+
+כל פקודה חדשה שמתווספת לבוט **חייבת** לתמוך במנגנון ה-**retry**.
+
+---
+
+## 📋 **דרישות יישום:**
+
+### 1️⃣ **קריאה ל-saveLastCommand**
+
+כל `case` בבלוק ה-`switch` (גם incoming וגם outgoing) חייב לקרוא ל:
+
+```javascript
+saveLastCommand(chatId, decision, { 
+  imageUrl,      // אם יש תמונה מצורפת
+  videoUrl,      // אם יש וידאו מצורף
+  audioUrl,      // אם יש אודיו מצורף
+  normalized 
+});
+```
+
+**איפה?** מיד **לפני** ביצוע הפקודה (לפני `await sendAck` או לפני הלוגיקה העיקרית).
+
+---
+
+### 2️⃣ **שמירת Media URLs**
+
+אם הפקודה עובדת עם מדיה (תמונה/וידאו/אודיו):
+- ✅ העבר את ה-URL המתאים ל-`saveLastCommand`
+- ✅ וודא שה-URL שמור ב-cache
+- ✅ ה-retry ישתמש באותה מדיה
+
+---
+
+### 3️⃣ **תמיכה בשינויים**
+
+המנגנון **כבר תומך** בשינויים אוטומטית:
+
+#### **תרחיש A: Retry עם ציטוט + שינויים**
+```
+[הודעה מקורית]: # ערוך התמונה כברבי
+→ [לא הצליח]
+[ציטוט]: # נסה שוב, רק עם שיער ארוך
+→ ✅ הבוט יריץ: "ערוך התמונה כברבי, רק עם שיער ארוך"
+```
+
+#### **תרחיש B: Retry ללא ציטוט + שינויים**
+```
+[הודעה אחרונה]: # צור תמונה של דוב
+→ [לא הצליח]
+[הודעה חדשה]: # שוב אבל בצבעים חמים
+→ ✅ הבוט יריץ: "צור תמונה של דוב, אבל בצבעים חמים"
+```
+
+#### **תרחיש C: Retry רגיל (ללא שינויים)**
+```
+[הודעה אחרונה]: # צור וידאו של חתול
+→ [לא הצליח]
+[הודעה חדשה]: # נסה שוב
+→ ✅ הבוט יריץ שוב את אותה פקודה
+```
+
+---
+
+## 4️⃣ **תמיכה בשני הכיוונים**
+
+- ✅ **Incoming** (מלקוחות) - חובה
+- ✅ **Outgoing** (ממך) - חובה
+
+**שני הכיוונים צריכים אותה לוגיקה!**
+
+---
+
+## ✅ **דוגמה לקוד נכון:**
+
+```javascript
+// ✅ INCOMING
+case 'new_command': {
+  saveLastCommand(chatId, decision, { imageUrl, videoUrl, audioUrl, normalized }); // ← חובה!
+  await sendAck(chatId, { type: 'new_command' });
+  
+  // ... לוגיקת הפקודה
+  
+  return;
+}
+
+// ✅ OUTGOING
+case 'new_command': {
+  saveLastCommand(chatId, decision, { imageUrl, videoUrl, audioUrl, normalized }); // ← חובה!
+  await sendAck(chatId, { type: 'new_command' });
+  
+  // ... לוגיקת הפקודה
+  
+  return;
+}
+```
+
+---
+
+## ❌ **דוגמה לקוד שגוי:**
+
+```javascript
+// ❌ BAD - חסר saveLastCommand
+case 'new_command': {
+  await sendAck(chatId, { type: 'new_command' });
+  
+  // ... לוגיקת הפקודה
+  
+  return;
+}
+```
+
+**בלי `saveLastCommand`, הפקודה לא תתמוך ב-retry!**
+
+---
+
+## 🎯 **מטרה:**
+
+חוויית משתמש כמו **ChatGPT/Claude** - תמיד אפשר לבקש:
+- "נסה שוב"
+- "שוב אבל עם X"
+- "retry with Y"
+
+זה מאפשר למשתמשים **לשפר** תוצאות בקלות! 🚀

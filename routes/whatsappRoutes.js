@@ -84,6 +84,7 @@ function saveLastCommand(chatId, decision, options = {}) {
     args: decision.args,
     imageUrl: options.imageUrl || null,
     videoUrl: options.videoUrl || null,
+    audioUrl: options.audioUrl || null,
     normalized: options.normalized || null,
     timestamp: Date.now()
   });
@@ -665,7 +666,7 @@ async function handleIncomingMessage(webhookData) {
                     userText: quotedText,
                     hasImage: quotedResult.hasImage,
                     hasVideo: quotedResult.hasVideo,
-                    hasAudio: false,
+                    hasAudio: quotedResult.hasAudio,
                     chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
                     language: 'he',
                     authorizations: {
@@ -686,17 +687,20 @@ async function handleIncomingMessage(webhookData) {
                     normalized: retryNormalized,
                     imageUrl: quotedResult.imageUrl,
                     videoUrl: quotedResult.videoUrl,
+                    audioUrl: quotedResult.audioUrl,
                     timestamp: Date.now()
                   });
                   
                   // Continue with normal execution (don't return here, fall through to execute the command)
                   // Re-assign decision to retryDecision so it executes
                   Object.assign(decision, retryDecision);
-                  // Also update imageUrl/videoUrl for media commands
+                  // Also update imageUrl/videoUrl/audioUrl for media commands
                   imageUrl = quotedResult.imageUrl;
                   videoUrl = quotedResult.videoUrl;
+                  audioUrl = quotedResult.audioUrl;
                   hasImage = quotedResult.hasImage;
                   hasVideo = quotedResult.hasVideo;
+                  hasAudio = quotedResult.hasAudio;
                 } else {
                   await sendTextMessage(chatId, 'ℹ️ ההודעה המצוטטת לא מכילה פקודה. צטט הודעה שמתחילה ב-"#"');
                   return;
@@ -738,6 +742,10 @@ async function handleIncomingMessage(webhookData) {
                 if (lastCommand.videoUrl) {
                   videoUrl = lastCommand.videoUrl;
                   hasVideo = true;
+                }
+                if (lastCommand.audioUrl) {
+                  audioUrl = lastCommand.audioUrl;
+                  hasAudio = true;
                 }
                 
                 // Update timestamp for cleanup
@@ -847,6 +855,167 @@ async function handleIncomingMessage(webhookData) {
                   }
                 } catch (error) {
                   await sendTextMessage(chatId, `❌ שגיאה בניתוח הוידאו: ${error.message}`);
+                }
+              } else if (normalized.hasAudio && decision.args?.needsTranscription) {
+                // Audio processing with transcription
+                console.log('🎤 Audio message with transcription request');
+                
+                try {
+                  // Get audio URL (either from quoted message or current message)
+                  const finalAudioUrl = audioUrl || messageData.fileMessageData?.downloadUrl || messageData.audioMessageData?.downloadUrl;
+                  if (!finalAudioUrl) {
+                    await sendTextMessage(chatId, '❌ לא הצלחתי לקבל את ההקלטה');
+                    return;
+                  }
+                  
+                  // Step 1: Download and transcribe audio
+                  console.log('🔄 Transcribing audio...');
+                  const audioBuffer = await downloadFile(finalAudioUrl);
+                  
+                  const transcriptionOptions = {
+                    model: 'scribe_v1',
+                    language: null, // Auto-detect
+                    removeNoise: true,
+                    removeFiller: true,
+                    optimizeLatency: 0,
+                    format: 'ogg'
+                  };
+                  
+                  const transcriptionResult = await speechService.speechToText(audioBuffer, transcriptionOptions);
+                  
+                  if (transcriptionResult.error) {
+                    await sendTextMessage(chatId, `❌ לא הצלחתי לתמלל את ההקלטה: ${transcriptionResult.error}`);
+                    return;
+                  }
+                  
+                  const transcribedText = transcriptionResult.text;
+                  const detectedLanguage = transcriptionResult.detectedLanguage || 'he';
+                  console.log(`✅ Transcription complete: ${transcribedText.length} chars, language: ${detectedLanguage}`);
+                  
+                  // Step 2: Detect what user wants to do with the transcription
+                  const promptLower = prompt.toLowerCase();
+                  
+                  // Case 1: Just transcription - send transcribed text
+                  const isJustTranscription = /^(תמלל|תמליל|transcribe|transcript)$/i.test(prompt.trim());
+                  if (isJustTranscription) {
+                    console.log('📝 Just transcription requested');
+                    await sendTextMessage(chatId, `📝 תמלול:\n\n${transcribedText}`);
+                    return;
+                  }
+                  
+                  // Case 2: Translation request with TTS - detect target language and voice keywords
+                  const hasTTSKeywords = /\b(אמור|הקרא|הקריא|דבר|say|speak|tell|voice|read\s+aloud)\b/i.test(prompt);
+                  const hasTextKeywords = /\b(תרגם|תרגום|translate|translation)\b/i.test(prompt) && !hasTTSKeywords;
+                  
+                  // Detect target language from prompt
+                  const languagePatterns = {
+                    'en': /\b(אנגלית|english)\b/i,
+                    'es': /\b(ספרדית|spanish)\b/i,
+                    'fr': /\b(צרפתית|french)\b/i,
+                    'de': /\b(גרמנית|german)\b/i,
+                    'it': /\b(איטלקית|italian)\b/i,
+                    'pt': /\b(פורטוגזית|portuguese)\b/i,
+                    'ru': /\b(רוסית|russian)\b/i,
+                    'zh': /\b(סינית|chinese|מנדרינית|mandarin)\b/i,
+                    'ja': /\b(יפנית|japanese)\b/i,
+                    'ko': /\b(קוריאנית|korean)\b/i,
+                    'ar': /\b(ערבית|arabic)\b/i,
+                    'hi': /\b(הינדית|hindi)\b/i,
+                    'tr': /\b(טורקית|turkish)\b/i,
+                    'pl': /\b(פולנית|polish)\b/i,
+                    'nl': /\b(הולנדית|dutch)\b/i,
+                    'sv': /\b(שוודית|swedish)\b/i,
+                    'he': /\b(עברית|hebrew)\b/i
+                  };
+                  
+                  let targetLanguage = null;
+                  let targetLanguageCode = null;
+                  for (const [code, pattern] of Object.entries(languagePatterns)) {
+                    if (pattern.test(prompt)) {
+                      targetLanguageCode = code;
+                      targetLanguage = prompt.match(pattern)[0];
+                      break;
+                    }
+                  }
+                  
+                  // Case 3: Translation with TTS (e.g., "# אמור ביפנית", "# say in Japanese")
+                  if (hasTTSKeywords && targetLanguageCode) {
+                    console.log(`🔊 Translation + TTS requested to ${targetLanguageCode}`);
+                    
+                    // Translate the transcribed text
+                    const translationPrompt = `Translate the following text to ${targetLanguage}. Return ONLY the translated text, nothing else:\n\n${transcribedText}`;
+                    const translationResult = await generateGeminiResponse(translationPrompt, []);
+                    
+                    if (translationResult.error) {
+                      await sendTextMessage(chatId, `❌ שגיאה בתרגום: ${translationResult.error}`);
+                      return;
+                    }
+                    
+                    const translatedText = translationResult.text;
+                    console.log(`✅ Translated to ${targetLanguageCode}: ${translatedText.substring(0, 100)}...`);
+                    
+                    // Get voice for target language
+                    const voiceResult = await voiceService.getVoiceForLanguage(targetLanguageCode);
+                    if (voiceResult.error) {
+                      // Fallback: send text if TTS fails
+                      await sendTextMessage(chatId, `🌐 תרגום ל${targetLanguage}:\n\n${translatedText}\n\n⚠️ לא הצלחתי ליצור קול: ${voiceResult.error}`);
+                      return;
+                    }
+                    
+                    const voiceId = voiceResult.voiceId;
+                    const ttsResult = await voiceService.textToSpeech(voiceId, translatedText, {
+                      model_id: 'eleven_v3',
+                      optimize_streaming_latency: 0,
+                      output_format: 'mp3_44100_128'
+                    });
+                    
+                    if (ttsResult.success && ttsResult.audioBuffer) {
+                      const conversionResult = await audioConverterService.convertAndSaveAsOpus(ttsResult.audioBuffer, 'mp3');
+                      if (conversionResult.success && conversionResult.opusPath) {
+                        const fullUrl = getStaticFileUrl(conversionResult.opusPath.replace('/static/', ''));
+                        await sendFileByUrl(chatId, fullUrl, conversionResult.opusFileName, `🌐 ${targetLanguage}`);
+                      } else {
+                        await sendTextMessage(chatId, `❌ ${conversionResult.error}`);
+                      }
+                    } else {
+                      await sendTextMessage(chatId, `❌ ${ttsResult.error}`);
+                    }
+                    return;
+                  }
+                  
+                  // Case 4: Text translation only (e.g., "# תרגם לשוודית")
+                  if (hasTextKeywords && targetLanguageCode) {
+                    console.log(`📝 Text translation requested to ${targetLanguageCode}`);
+                    
+                    const translationPrompt = `Translate the following text to ${targetLanguage}. Return ONLY the translated text, nothing else:\n\n${transcribedText}`;
+                    const translationResult = await generateGeminiResponse(translationPrompt, []);
+                    
+                    if (translationResult.error) {
+                      await sendTextMessage(chatId, `❌ שגיאה בתרגום: ${translationResult.error}`);
+                    } else {
+                      await sendTextMessage(chatId, `🌐 תרגום ל${targetLanguage}:\n\n${translationResult.text}`);
+                    }
+                    return;
+                  }
+                  
+                  // Case 5: General request (summarize, analyze, etc.) - use transcription as context
+                  console.log('📝 General request with transcription');
+                  const fullPrompt = `התמלול של ההקלטה:\n\n"${transcribedText}"\n\n${prompt}`;
+                  
+                  const contextMessages = await conversationManager.getConversationHistory(chatId);
+                  await conversationManager.addMessage(chatId, 'user', fullPrompt);
+                  const result = await generateGeminiResponse(fullPrompt, contextMessages);
+                  
+                  if (!result.error) {
+                    await conversationManager.addMessage(chatId, 'assistant', result.text);
+                    await sendTextMessage(chatId, result.text);
+                  } else {
+                    await sendTextMessage(chatId, `❌ ${result.error}`);
+                  }
+                  
+                } catch (audioError) {
+                  console.error('❌ Error processing audio:', audioError);
+                  await sendTextMessage(chatId, `❌ שגיאה בעיבוד האודיו: ${audioError.message}`);
                 }
               } else {
                 // Regular text chat
@@ -1222,7 +1391,9 @@ async function handleIncomingMessage(webhookData) {
 • תמונה + # ערוך... - עריכת תמונה
 • הודעה קולית מצוטטת + # ערבב/מיקס - מיקס יצירתי עם אפקטים
 • הודעה קולית מצוטטת + # ענה לזה/תגיב - תגובה קולית עם שיבוט קול
-• הודעה קולית מצוטטת + # תמלל/תרגם - תמלול או תרגום
+• הודעה קולית מצוטטת + # תמלל - תמלול בלבד
+• הודעה קולית מצוטטת + # תרגם לשוודית - תמלול + תרגום (טקסט)
+• הודעה קולית מצוטטת + # אמור ביפנית - תמלול + תרגום + TTS
 • וידאו + # ערוך... - עריכת וידאו
 • הודעה קולית - תמלול ותשובה קולית
 
@@ -1784,7 +1955,6 @@ async function handleOutgoingMessage(webhookData) {
           hasImage: hasImage,
           hasVideo: hasVideo,
           hasAudio: hasAudio,
-          hasAudio: messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage',
           chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
           language: 'he',
           authorizations: {
@@ -1842,7 +2012,7 @@ async function handleOutgoingMessage(webhookData) {
                     userText: quotedText,
                     hasImage: quotedResult.hasImage,
                     hasVideo: quotedResult.hasVideo,
-                    hasAudio: false,
+                    hasAudio: quotedResult.hasAudio,
                     chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
                     language: 'he',
                     authorizations: {
@@ -1859,8 +2029,10 @@ async function handleOutgoingMessage(webhookData) {
                   Object.assign(decision, retryDecision);
                   imageUrl = quotedResult.imageUrl;
                   videoUrl = quotedResult.videoUrl;
+                  audioUrl = quotedResult.audioUrl;
                   hasImage = quotedResult.hasImage;
                   hasVideo = quotedResult.hasVideo;
+                  hasAudio = quotedResult.hasAudio;
                 } else {
                   await sendTextMessage(chatId, 'ℹ️ ההודעה המצוטטת לא מכילה פקודה. צטט הודעה שמתחילה ב-"#"');
                   return;
@@ -1901,6 +2073,10 @@ async function handleOutgoingMessage(webhookData) {
                 if (lastCommand.videoUrl) {
                   videoUrl = lastCommand.videoUrl;
                   hasVideo = true;
+                }
+                if (lastCommand.audioUrl) {
+                  audioUrl = lastCommand.audioUrl;
+                  hasAudio = true;
                 }
                 
                 // Update timestamp
@@ -1997,6 +2173,160 @@ async function handleOutgoingMessage(webhookData) {
                   }
                 } catch (error) {
                   await sendTextMessage(chatId, `❌ שגיאה בניתוח הוידאו: ${error.message}`);
+                }
+              } else if (normalized.hasAudio && decision.args?.needsTranscription) {
+                // Audio processing with transcription (outgoing - same logic as incoming)
+                console.log('🎤 [Outgoing] Audio message with transcription request');
+                
+                try {
+                  // Get audio URL (either from quoted message or current message)
+                  const finalAudioUrl = audioUrl || messageData.fileMessageData?.downloadUrl || messageData.audioMessageData?.downloadUrl;
+                  if (!finalAudioUrl) {
+                    await sendTextMessage(chatId, '❌ לא הצלחתי לקבל את ההקלטה');
+                    return;
+                  }
+                  
+                  // Step 1: Download and transcribe audio
+                  console.log('🔄 [Outgoing] Transcribing audio...');
+                  const audioBuffer = await downloadFile(finalAudioUrl);
+                  
+                  const transcriptionOptions = {
+                    model: 'scribe_v1',
+                    language: null,
+                    removeNoise: true,
+                    removeFiller: true,
+                    optimizeLatency: 0,
+                    format: 'ogg'
+                  };
+                  
+                  const transcriptionResult = await speechService.speechToText(audioBuffer, transcriptionOptions);
+                  
+                  if (transcriptionResult.error) {
+                    await sendTextMessage(chatId, `❌ לא הצלחתי לתמלל את ההקלטה: ${transcriptionResult.error}`);
+                    return;
+                  }
+                  
+                  const transcribedText = transcriptionResult.text;
+                  const detectedLanguage = transcriptionResult.detectedLanguage || 'he';
+                  console.log(`✅ [Outgoing] Transcription complete: ${transcribedText.length} chars, language: ${detectedLanguage}`);
+                  
+                  // Step 2: Detect what user wants to do with the transcription
+                  const isJustTranscription = /^(תמלל|תמליל|transcribe|transcript)$/i.test(prompt.trim());
+                  if (isJustTranscription) {
+                    console.log('📝 [Outgoing] Just transcription requested');
+                    await sendTextMessage(chatId, `📝 תמלול:\n\n${transcribedText}`);
+                    return;
+                  }
+                  
+                  const hasTTSKeywords = /\b(אמור|הקרא|הקריא|דבר|say|speak|tell|voice|read\s+aloud)\b/i.test(prompt);
+                  const hasTextKeywords = /\b(תרגם|תרגום|translate|translation)\b/i.test(prompt) && !hasTTSKeywords;
+                  
+                  // Detect target language
+                  const languagePatterns = {
+                    'en': /\b(אנגלית|english)\b/i,
+                    'es': /\b(ספרדית|spanish)\b/i,
+                    'fr': /\b(צרפתית|french)\b/i,
+                    'de': /\b(גרמנית|german)\b/i,
+                    'it': /\b(איטלקית|italian)\b/i,
+                    'pt': /\b(פורטוגזית|portuguese)\b/i,
+                    'ru': /\b(רוסית|russian)\b/i,
+                    'zh': /\b(סינית|chinese|מנדרינית|mandarin)\b/i,
+                    'ja': /\b(יפנית|japanese)\b/i,
+                    'ko': /\b(קוריאנית|korean)\b/i,
+                    'ar': /\b(ערבית|arabic)\b/i,
+                    'hi': /\b(הינדית|hindi)\b/i,
+                    'tr': /\b(טורקית|turkish)\b/i,
+                    'pl': /\b(פולנית|polish)\b/i,
+                    'nl': /\b(הולנדית|dutch)\b/i,
+                    'sv': /\b(שוודית|swedish)\b/i,
+                    'he': /\b(עברית|hebrew)\b/i
+                  };
+                  
+                  let targetLanguage = null;
+                  let targetLanguageCode = null;
+                  for (const [code, pattern] of Object.entries(languagePatterns)) {
+                    if (pattern.test(prompt)) {
+                      targetLanguageCode = code;
+                      targetLanguage = prompt.match(pattern)[0];
+                      break;
+                    }
+                  }
+                  
+                  // Case 3: Translation with TTS
+                  if (hasTTSKeywords && targetLanguageCode) {
+                    console.log(`🔊 [Outgoing] Translation + TTS requested to ${targetLanguageCode}`);
+                    
+                    const translationPrompt = `Translate the following text to ${targetLanguage}. Return ONLY the translated text, nothing else:\n\n${transcribedText}`;
+                    const translationResult = await generateGeminiResponse(translationPrompt, []);
+                    
+                    if (translationResult.error) {
+                      await sendTextMessage(chatId, `❌ שגיאה בתרגום: ${translationResult.error}`);
+                      return;
+                    }
+                    
+                    const translatedText = translationResult.text;
+                    console.log(`✅ [Outgoing] Translated to ${targetLanguageCode}`);
+                    
+                    const voiceResult = await voiceService.getVoiceForLanguage(targetLanguageCode);
+                    if (voiceResult.error) {
+                      await sendTextMessage(chatId, `🌐 תרגום ל${targetLanguage}:\n\n${translatedText}\n\n⚠️ לא הצלחתי ליצור קול: ${voiceResult.error}`);
+                      return;
+                    }
+                    
+                    const voiceId = voiceResult.voiceId;
+                    const ttsResult = await voiceService.textToSpeech(voiceId, translatedText, {
+                      model_id: 'eleven_v3',
+                      optimize_streaming_latency: 0,
+                      output_format: 'mp3_44100_128'
+                    });
+                    
+                    if (ttsResult.success && ttsResult.audioBuffer) {
+                      const conversionResult = await audioConverterService.convertAndSaveAsOpus(ttsResult.audioBuffer, 'mp3');
+                      if (conversionResult.success && conversionResult.opusPath) {
+                        const fullUrl = getStaticFileUrl(conversionResult.opusPath.replace('/static/', ''));
+                        await sendFileByUrl(chatId, fullUrl, conversionResult.opusFileName, `🌐 ${targetLanguage}`);
+                      } else {
+                        await sendTextMessage(chatId, `❌ ${conversionResult.error}`);
+                      }
+                    } else {
+                      await sendTextMessage(chatId, `❌ ${ttsResult.error}`);
+                    }
+                    return;
+                  }
+                  
+                  // Case 4: Text translation only
+                  if (hasTextKeywords && targetLanguageCode) {
+                    console.log(`📝 [Outgoing] Text translation requested to ${targetLanguageCode}`);
+                    
+                    const translationPrompt = `Translate the following text to ${targetLanguage}. Return ONLY the translated text, nothing else:\n\n${transcribedText}`;
+                    const translationResult = await generateGeminiResponse(translationPrompt, []);
+                    
+                    if (translationResult.error) {
+                      await sendTextMessage(chatId, `❌ שגיאה בתרגום: ${translationResult.error}`);
+                    } else {
+                      await sendTextMessage(chatId, `🌐 תרגום ל${targetLanguage}:\n\n${translationResult.text}`);
+                    }
+                    return;
+                  }
+                  
+                  // Case 5: General request - use transcription as context
+                  console.log('📝 [Outgoing] General request with transcription');
+                  const fullPrompt = `התמלול של ההקלטה:\n\n"${transcribedText}"\n\n${prompt}`;
+                  
+                  const contextMessages = await conversationManager.getConversationHistory(chatId);
+                  await conversationManager.addMessage(chatId, 'user', fullPrompt);
+                  const result = await generateGeminiResponse(fullPrompt, contextMessages);
+                  
+                  if (!result.error) {
+                    await conversationManager.addMessage(chatId, 'assistant', result.text);
+                    await sendTextMessage(chatId, result.text);
+                  } else {
+                    await sendTextMessage(chatId, `❌ ${result.error}`);
+                  }
+                  
+                } catch (audioError) {
+                  console.error('❌ [Outgoing] Error processing audio:', audioError);
+                  await sendTextMessage(chatId, `❌ שגיאה בעיבוד האודיו: ${audioError.message}`);
                 }
               } else {
                 // Regular text chat
@@ -2289,7 +2619,9 @@ async function handleOutgoingMessage(webhookData) {
 • תמונה + # ערוך... - עריכת תמונה
 • הודעה קולית מצוטטת + # ערבב/מיקס - מיקס יצירתי עם אפקטים
 • הודעה קולית מצוטטת + # ענה לזה/תגיב - תגובה קולית עם שיבוט קול
-• הודעה קולית מצוטטת + # תמלל/תרגם - תמלול או תרגום
+• הודעה קולית מצוטטת + # תמלל - תמלול בלבד
+• הודעה קולית מצוטטת + # תרגם לשוודית - תמלול + תרגום (טקסט)
+• הודעה קולית מצוטטת + # אמור ביפנית - תמלול + תרגום + TTS
 • וידאו + # ערוך... - עריכת וידאו
 • הודעה קולית - תמלול ותשובה קולית
 

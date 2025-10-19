@@ -1,0 +1,83 @@
+---
+description: כל פקודה חדשה צריכה לעבוד עם Regex וגם עם LLM routing
+---
+
+# Dual Routing for New Commands
+
+כל פקודה חדשה שמתווספת לבוט (שאינה פקודת ניהול) **חייבת** להיות מזוהה בשני מסלולי הזיהוי:
+
+## 1️⃣ Regex Heuristic (כש-`INTENT_ROUTER_USE_LLM` כבוי)
+
+במקטע ה-regex של `services/intentRouter.js` (שורות ~56-276), יש להוסיף:
+
+```javascript
+const isNewCommand = /pattern1|pattern2|keyword1|keyword2/i.test(prompt);
+```
+
+**חובה:**
+- ✅ כל הווריאציות הרלוונטיות (עברית **ו**אנגלית)
+- ✅ Case-insensitive (`/i` flag)
+- ✅ כיסוי כל מילות המפתח
+
+**דוגמה:**
+```javascript
+const isPoll = /צור.*סקר|יצירת.*סקר|סקר.*על|create.*poll|make.*poll|poll.*about/i.test(prompt);
+```
+
+---
+
+## 2️⃣ LLM Prompt (כש-`INTENT_ROUTER_USE_LLM='on'`)
+
+בפונקציה `buildRouterPrompt()` (שורות ~396+), יש להוסיף:
+
+### א. הסבר בסעיף הרלוונטי
+```
+🔹 **New Command:**
+   Keywords: "keyword1", "keyword2", "מילה1", "מילה2"
+   → "new_command_tool"
+```
+
+### ב. דוגמאות בסעיף EXAMPLES
+```javascript
+Input: {"userText": "# keyword example", ...}
+Output: {"tool": "new_command_tool", "args": {"prompt": "..."}, "reason": "..."}
+
+Input: {"userText": "# דוגמה בעברית", ...}
+Output: {"tool": "new_command_tool", "args": {"prompt": "..."}, "reason": "..."}
+```
+
+### ג. הוספת הכלי לרשימה
+```javascript
+⚙️ AVAILABLE TOOLS:
+gemini_chat, ..., new_command_tool, ...
+```
+
+---
+
+## 3️⃣ Validation
+
+הוסף את הכלי ל-`allowedTools` בפונקציה `validateDecision()`:
+
+```javascript
+const allowedTools = new Set([
+  'gemini_image', ..., 'new_command_tool', ...
+]);
+```
+
+---
+
+## ✅ **למה זה חשוב?**
+
+זה מבטיח ש:
+- ✅ הפקודה תעבוד **בכל התצורות**
+- ✅ תמיכה **בשתי השפות** (עברית + אנגלית)
+- ✅ **Consistency** - אותה התנהגות עם/בלי LLM
+- ✅ **Fallback** - אם LLM נכשל, Regex תופס
+
+---
+
+## 📂 **קבצים לעדכן:**
+
+1. `services/intentRouter.js` - regex patterns
+2. `services/intentRouter.js` - `buildRouterPrompt()` function
+3. `services/intentRouter.js` - `allowedTools` set
