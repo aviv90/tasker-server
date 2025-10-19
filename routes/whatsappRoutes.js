@@ -1837,10 +1837,52 @@ async function handleIncomingMessage(webhookData) {
         }
         
         const transcribedText = transcriptionResult.text.trim();
-        console.log(`✅ Transcribed: "${transcribedText.substring(0, 100)}"`);
+        console.log(`✅ Transcribed: "${transcribedText}"`);
         
-        // Check if transcribed text contains a command (starts with # or "שולמית" + space)
-        const isCommand = /^(#|שולמית)\s+/i.test(transcribedText);
+        // Check if transcribed text contains a command
+        // Strategy: Try to detect ANY valid command, not just ones with # or "שולמית" prefix
+        let isCommand = /^(#|שולמית)\s+/i.test(transcribedText);
+        let normalizedText = transcribedText;
+        
+        // If no explicit prefix, check if this could be a command using intentRouter
+        if (!isCommand && transcribedText.length > 0) {
+          console.log(`🔍 No explicit prefix - checking if this is a valid command using intentRouter...`);
+          
+          try {
+            // Test with intentRouter to see if this would be recognized as a command
+            const testInput = {
+              userText: transcribedText,
+              hasImage: false,
+              hasVideo: false,
+              hasAudio: false,
+              chatType: 'private',
+              language: null,
+              senderData: { senderContactName, chatName, senderName, chatId },
+              authorizations: {
+                media_creation: await conversationManager.isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
+                voice_allowed: true
+              }
+            };
+            
+            const routingDecision = await routeIntent(testInput);
+            
+            // If intentRouter recognizes it as a command (not ask_clarification or deny_unauthorized),
+            // then treat it as a command
+            if (routingDecision.tool && 
+                routingDecision.tool !== 'ask_clarification' && 
+                routingDecision.tool !== 'creative_voice_processing') {
+              isCommand = true;
+              // Add # prefix for proper processing
+              normalizedText = `# ${transcribedText}`;
+              console.log(`✅ Intent detected: ${routingDecision.tool} - treating as command`);
+            } else {
+              console.log(`ℹ️ Intent router result: ${routingDecision.tool} - not a command`);
+            }
+          } catch (err) {
+            console.error(`⚠️ Error checking intent:`, err.message);
+            // On error, fall back to voice cloning flow
+          }
+        }
         
         if (isCommand) {
           console.log(`🎯 Detected command in voice message! Re-processing as text command...`);
@@ -1860,12 +1902,12 @@ async function handleIncomingMessage(webhookData) {
             messageData: {
               typeMessage: 'textMessage',
               textMessageData: {
-                textMessage: transcribedText
+                textMessage: normalizedText
               }
             }
           };
           
-          console.log(`🔄 Re-processing voice as text: "${transcribedText.substring(0, 100)}"`);
+          console.log(`🔄 Re-processing voice as text: "${normalizedText.substring(0, 100)}"`);
           
           // Call handleIncomingMessage recursively with the fake data
           // This ensures ALL command logic works: retry, quoted messages, media creation, etc.
