@@ -298,7 +298,9 @@ async function sendAck(chatId, command) {
       break;
     
     case 'create_poll':
-      ackMessage = '📊 קיבלתי! יוצר סקר יצירתי עם חרוזים...';
+      ackMessage = command.withRhyme === false 
+        ? '📊 קיבלתי! יוצר סקר יצירתי...' 
+        : '📊 קיבלתי! יוצר סקר יצירתי עם חרוזים...';
       break;
       
     default:
@@ -1333,18 +1335,24 @@ async function handleIncomingMessage(webhookData) {
             // ═══════════════════ POLL CREATION ═══════════════════
             case 'create_poll': {
               saveLastCommand(chatId, decision, { normalized });
-              await sendAck(chatId, { type: 'create_poll' });
+              
+              // Check if user explicitly requested NO rhyming
+              const noRhymePatterns = /\b(בלי|ללא|לא|without|no)\s+(חריזה|חרוזים|rhyme|rhymes|rhyming)\b/i;
+              const withRhyme = !noRhymePatterns.test(prompt);
+              
+              await sendAck(chatId, { type: 'create_poll', withRhyme });
               
               // Extract topic from prompt (remove "צור סקר על/בנושא" etc.)
               let topic = prompt
                 .replace(/^(צור|יצר|הכן|create|make)\s+(סקר|poll)\s+(על|בנושא|about)?\s*/i, '')
+                .replace(noRhymePatterns, '') // Remove "בלי חריזה" etc. from topic
                 .trim();
               
               if (!topic || topic.length < 2) {
                 topic = prompt; // Use full prompt if extraction failed
               }
               
-              const pollResult = await generateCreativePoll(topic);
+              const pollResult = await generateCreativePoll(topic, withRhyme);
               
               if (!pollResult.success) {
                 await sendTextMessage(chatId, `❌ ${pollResult.error}`);
@@ -1356,7 +1364,7 @@ async function handleIncomingMessage(webhookData) {
                 // Convert options array to Green API format
                 const pollOptions = pollResult.options.map(opt => ({ optionName: opt }));
                 
-                console.log(`📊 Sending poll with ${pollOptions.length} rhyming options`);
+                console.log(`📊 Sending poll with ${pollOptions.length} ${withRhyme ? 'rhyming' : 'non-rhyming'} options`);
                 await sendPoll(chatId, pollResult.question, pollOptions, false);
                 console.log(`✅ Poll sent successfully to ${chatId}`);
               } catch (pollError) {
@@ -1395,7 +1403,8 @@ async function handleIncomingMessage(webhookData) {
 • # צור שיר על... - יצירת מוזיקה
 • # המר לדיבור: טקסט - Text-to-Speech
 • # סכם שיחה - סיכום השיחה
-• # צור סקר על/בנושא... - יצירת סקר עם חרוזים
+• # צור סקר על/בנושא... - יצירת סקר עם חרוזים (ברירת מחדל)
+• # צור סקר על/בנושא... בלי חריזה - יצירת סקר ללא חרוזים
 • # נסה שוב / # שוב - ביצוע מחדש פקודה אחרונה
 • # צור/פתח/הקם קבוצה בשם "שם" עם שם1, שם2 - יצירת קבוצה
 • (אופציה) + עם תמונה של... - הוספת תמונת פרופיל
@@ -2668,18 +2677,23 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ POLL CREATION ═══════════════════
             case 'create_poll': {
-              await sendAck(chatId, { type: 'create_poll' });
+              // Check if user explicitly requested NO rhyming
+              const noRhymePatterns = /\b(בלי|ללא|לא|without|no)\s+(חריזה|חרוזים|rhyme|rhymes|rhyming)\b/i;
+              const withRhyme = !noRhymePatterns.test(prompt);
+              
+              await sendAck(chatId, { type: 'create_poll', withRhyme });
               
               // Extract topic from prompt
               let topic = prompt
                 .replace(/^(צור|יצר|הכן|create|make)\s+(סקר|poll)\s+(על|בנושא|about)?\s*/i, '')
+                .replace(noRhymePatterns, '') // Remove "בלי חריזה" etc. from topic
                 .trim();
               
               if (!topic || topic.length < 2) {
                 topic = prompt;
               }
               
-              const pollResult = await generateCreativePoll(topic);
+              const pollResult = await generateCreativePoll(topic, withRhyme);
               
               if (!pollResult.success) {
                 await sendTextMessage(chatId, `❌ ${pollResult.error}`);
@@ -2690,7 +2704,7 @@ async function handleOutgoingMessage(webhookData) {
               try {
                 const pollOptions = pollResult.options.map(opt => ({ optionName: opt }));
                 
-                console.log(`📊 Sending poll with ${pollOptions.length} rhyming options (outgoing)`);
+                console.log(`📊 Sending poll with ${pollOptions.length} ${withRhyme ? 'rhyming' : 'non-rhyming'} options (outgoing)`);
                 await sendPoll(chatId, pollResult.question, pollOptions, false);
                 console.log(`✅ Poll sent successfully to ${chatId}`);
               } catch (pollError) {
@@ -2725,7 +2739,8 @@ async function handleOutgoingMessage(webhookData) {
 • # צור שיר על... - יצירת מוזיקה
 • # המר לדיבור: טקסט - Text-to-Speech
 • # סכם שיחה - סיכום השיחה
-• # צור סקר על/בנושא... - יצירת סקר עם חרוזים
+• # צור סקר על/בנושא... - יצירת סקר עם חרוזים (ברירת מחדל)
+• # צור סקר על/בנושא... בלי חריזה - יצירת סקר ללא חרוזים
 • # נסה שוב / # שוב - ביצוע מחדש פקודה אחרונה
 • # צור/פתח/הקם קבוצה בשם "שם" עם שם1, שם2 - יצירת קבוצה
 • (אופציה) + עם תמונה של... - הוספת תמונת פרופיל

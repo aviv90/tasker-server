@@ -1842,13 +1842,14 @@ Important: Return only the translation, no explanations, no quotes, no extra tex
 }
 
 /**
- * Generate a creative poll with rhyming options
+ * Generate a creative poll with optional rhyming options
  * @param {string} topic - Poll topic (e.g., "חתולים", "כלבים", "פיצה")
- * @returns {Object} - Poll data with question and rhyming options
+ * @param {boolean} withRhyme - Whether options should rhyme (default: true)
+ * @returns {Object} - Poll data with question and options
  */
-async function generateCreativePoll(topic) {
+async function generateCreativePoll(topic, withRhyme = true) {
     try {
-        console.log(`📊 Generating creative poll about: ${topic}`);
+        console.log(`📊 Generating creative poll about: ${topic} ${withRhyme ? '(with rhyme)' : '(without rhyme)'}`);
         
         const cleanTopic = sanitizeText(topic);
         
@@ -1857,7 +1858,11 @@ async function generateCreativePoll(topic) {
         const numOptions = crypto.randomInt(2, 5); // 2, 3, or 4
         console.log(`🎲 Randomly selected ${numOptions} poll options`);
         
-        const pollPrompt = `אתה יוצר סקרים יצירתיים ומשעשעים בעברית עם חריזה מושלמת.
+        // Create prompt based on rhyming preference
+        let pollPrompt;
+        
+        if (withRhyme) {
+            pollPrompt = `אתה יוצר סקרים יצירתיים ומשעשעים בעברית עם חריזה מושלמת.
 
 נושא הסקר: ${cleanTopic}
 
@@ -1910,6 +1915,50 @@ async function generateCreativePoll(topic) {
   "question": "השאלה כאן",
   "options": ["תשובה 1", "תשובה 2"${numOptions > 2 ? ', "תשובה 3"' : ''}${numOptions > 3 ? ', "תשובה 4"' : ''}]
 }`;
+        } else {
+            pollPrompt = `אתה יוצר סקרים יצירתיים ומשעשעים בעברית.
+
+נושא הסקר: ${cleanTopic}
+
+צור סקר עם:
+1. שאלה מעניינת ויצירתית (יכולה להיות "מה היית מעדיפ/ה?" או כל שאלה אחרת)
+2. בדיוק ${numOptions} תשובות אפשריות
+3. התשובות צריכות להיות קצרות (עד 100 תווים כל אחת)
+4. התשובות צריכות להיות קשורות לנושא
+5. התשובות חייבות להיות משעשעות, יצירתיות, ומעניינות
+6. ⭐ חשוב: התשובות לא צריכות לחרוז! ⭐
+
+דוגמאות ללא חריזה:
+- נושא: חתולים (2 תשובות)
+  שאלה: "איזה חתול היית מעדיפ/ה?"
+  תשובה 1: "חתול פרסי רך ונחמד"
+  תשובה 2: "חתול רחוב עצמאי ופראי"
+
+- נושא: פיצה (3 תשובות)
+  שאלה: "איזו פיצה הכי טעימה?"
+  תשובה 1: "מרגריטה קלאסית"
+  תשובה 2: "פפרוני עם גבינה"
+  תשובה 3: "ירקות טריים ובריאים"
+
+- נושא: קפה (4 תשובות)
+  שאלה: "איך אתה שותה קפה?"
+  תשובה 1: "אספרסו חזק"
+  תשובה 2: "קפוצ'ינו מוקצף"
+  תשובה 3: "לאטה עם חלב שקדים"
+  תשובה 4: "קר עם קרח"
+
+חוקים קפדניים:
+- התשובות חייבות להיות שונות זו מזו במשמעות
+- השאלה מקסימום 255 תווים
+- כל תשובה מקסימום 100 תווים
+- התשובות לא צריכות לחרוז (זה חשוב!)
+
+החזר JSON בלבד בפורמט:
+{
+  "question": "השאלה כאן",
+  "options": ["תשובה 1", "תשובה 2"${numOptions > 2 ? ', "תשובה 3"' : ''}${numOptions > 3 ? ', "תשובה 4"' : ''}]
+}`;
+        }
 
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.5-flash" 
@@ -1963,7 +2012,7 @@ async function generateCreativePoll(topic) {
             return opt;
         });
         
-        console.log(`✅ Poll generated successfully with ${parsed.options.length} rhyming options:`);
+        console.log(`✅ Poll generated successfully with ${parsed.options.length} ${withRhyme ? 'rhyming' : 'non-rhyming'} options:`);
         console.log(`   Question: "${parsed.question}"`);
         parsed.options.forEach((opt, idx) => {
             console.log(`   Option ${idx + 1}: "${opt}"`);
