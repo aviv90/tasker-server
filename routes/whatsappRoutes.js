@@ -955,6 +955,7 @@ async function handleIncomingMessage(webhookData) {
             
             // ═══════════════════ VIDEO GENERATION ═══════════════════
             case 'veo3_video': {
+              saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'veo3_video' });
               const videoResult = await generateVideoForWhatsApp(prompt);
               if (videoResult.success && videoResult.videoUrl) {
@@ -966,6 +967,7 @@ async function handleIncomingMessage(webhookData) {
             }
             
             case 'kling_text_to_video': {
+              saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'kling_text_to_video' });
               const videoResult = await generateKlingVideoFromText(prompt);
               if (videoResult.success && videoResult.videoUrl) {
@@ -1024,6 +1026,7 @@ async function handleIncomingMessage(webhookData) {
             
             // ═══════════════════ TEXT-TO-SPEECH ═══════════════════
             case 'text_to_speech': {
+              saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'text_to_speech' });
               
               // Parse the TTS request to check if translation is needed
@@ -1080,6 +1083,7 @@ async function handleIncomingMessage(webhookData) {
             
             // ═══════════════════ MUSIC GENERATION ═══════════════════
             case 'music_generation': {
+              saveLastCommand(chatId, decision, { normalized });
               // Parse music request to check if video is requested
               const musicParsing = await parseMusicRequest(prompt);
               const cleanMusicPrompt = musicParsing.cleanPrompt || prompt;
@@ -1231,6 +1235,7 @@ async function handleIncomingMessage(webhookData) {
             
             // ═══════════════════ CREATE GROUP ═══════════════════
             case 'create_group': {
+              saveLastCommand(chatId, decision, { normalized });
               try {
                 await sendTextMessage(chatId, '👥 מתחיל יצירת קבוצה...');
                 
@@ -1902,6 +1907,7 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ VIDEO GENERATION ═══════════════════
             case 'veo3_video': {
+              saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'veo3_video' });
               const videoResult = await generateVideoForWhatsApp(prompt);
               if (videoResult.success && videoResult.videoUrl) {
@@ -1913,6 +1919,7 @@ async function handleOutgoingMessage(webhookData) {
             }
             case 'kling_text_to_video': {
               await sendAck(chatId, { type: 'kling_text_to_video' });
+              saveLastCommand(chatId, decision, { normalized });
               const videoResult = await generateKlingVideoFromText(prompt);
               if (videoResult.success && videoResult.videoUrl) {
                 await sendFileByUrl(chatId, videoResult.videoUrl, videoResult.fileName || `kling_video_${Date.now()}.mp4`, '');
@@ -1949,6 +1956,7 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ TEXT-TO-SPEECH ═══════════════════
             case 'text_to_speech': {
+              saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'text_to_speech' });
               
               // Parse the TTS request to check if translation is needed
@@ -2005,6 +2013,7 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ MUSIC GENERATION ═══════════════════
             case 'music_generation': {
+              saveLastCommand(chatId, decision, { normalized });
               // Parse music request to check if video is requested
               const musicParsing = await parseMusicRequest(prompt);
               const cleanMusicPrompt = musicParsing.cleanPrompt || prompt;
@@ -2150,6 +2159,7 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ CREATE GROUP (OUTGOING) ═══════════════════
             case 'create_group': {
+              saveLastCommand(chatId, decision, { normalized });
               try {
                 await sendTextMessage(chatId, '👥 מתחיל יצירת קבוצה...');
                 
