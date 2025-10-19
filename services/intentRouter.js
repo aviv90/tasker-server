@@ -424,7 +424,8 @@ ${JSON.stringify(payload, null, 2)}
 
 📋 DECISION LOGIC (follow this EXACT order):
 
-1️⃣ **IF hasImage=true** (user sent an image):
+1️⃣ **IF hasImage=true** (user sent an image or sticker):
+   💡 NOTE: Stickers (stickerMessage) are treated as images (webp format)
    PRIORITY ORDER (check in this exact sequence):
    
    A. **Video Generation** (highest priority for video keywords):

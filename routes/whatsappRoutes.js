@@ -393,8 +393,8 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       };
     }
     
-    // For media messages (image/video/audio), fetch the original message to get downloadUrl
-    if (quotedType === 'imageMessage' || quotedType === 'videoMessage' || quotedType === 'audioMessage') {
+    // For media messages (image/video/audio/sticker), fetch the original message to get downloadUrl
+    if (quotedType === 'imageMessage' || quotedType === 'videoMessage' || quotedType === 'audioMessage' || quotedType === 'stickerMessage') {
       console.log(`📸 Quoted ${quotedType}, fetching original message...`);
       
       // getMessage returns the full message with proper downloadUrl
@@ -408,12 +408,14 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       // Try multiple possible locations in the response structure
       let downloadUrl = null;
       
-      if (quotedType === 'imageMessage') {
+      if (quotedType === 'imageMessage' || quotedType === 'stickerMessage') {
         downloadUrl = originalMessage.downloadUrl || 
                      originalMessage.fileMessageData?.downloadUrl || 
                      originalMessage.imageMessageData?.downloadUrl ||
+                     originalMessage.stickerMessageData?.downloadUrl ||
                      originalMessage.messageData?.fileMessageData?.downloadUrl ||
-                     originalMessage.messageData?.imageMessageData?.downloadUrl;
+                     originalMessage.messageData?.imageMessageData?.downloadUrl ||
+                     originalMessage.messageData?.stickerMessageData?.downloadUrl;
       } else if (quotedType === 'videoMessage') {
         downloadUrl = originalMessage.downloadUrl || 
                      originalMessage.fileMessageData?.downloadUrl || 
@@ -438,11 +440,11 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       
       // Return the URL directly - let the handler functions download when needed
       return {
-        hasImage: quotedType === 'imageMessage',
+        hasImage: quotedType === 'imageMessage' || quotedType === 'stickerMessage',
         hasVideo: quotedType === 'videoMessage',
         hasAudio: quotedType === 'audioMessage',
         prompt: currentPrompt, // Use current prompt as the instruction
-        imageUrl: quotedType === 'imageMessage' ? downloadUrl : null,
+        imageUrl: (quotedType === 'imageMessage' || quotedType === 'stickerMessage') ? downloadUrl : null,
         videoUrl: quotedType === 'videoMessage' ? downloadUrl : null,
         audioUrl: quotedType === 'audioMessage' ? downloadUrl : null
       };
@@ -549,6 +551,10 @@ async function handleIncomingMessage(webhookData) {
       const caption = messageData.fileMessageData?.caption || messageData.imageMessageData?.caption;
       console.log(`   Image Caption: ${caption || 'N/A'}`);
     }
+    if (messageData.typeMessage === 'stickerMessage') {
+      const caption = messageData.fileMessageData?.caption;
+      console.log(`   Sticker Caption: ${caption || 'N/A'} (treating as image)`);
+    }
     if (messageData.typeMessage === 'videoMessage') {
       const caption = messageData.fileMessageData?.caption || messageData.videoMessageData?.caption;
       console.log(`   Video Caption: ${caption || 'N/A'}`);
@@ -570,7 +576,7 @@ async function handleIncomingMessage(webhookData) {
         // Check if this is a quoted/replied message
         const quotedMessage = messageData.quotedMessage;
         let finalPrompt = basePrompt;
-        let hasImage = messageData.typeMessage === 'imageMessage';
+        let hasImage = messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage';
         let hasVideo = messageData.typeMessage === 'videoMessage';
         let hasAudio = messageData.typeMessage === 'audioMessage';
         let imageUrl = null;
@@ -643,7 +649,7 @@ async function handleIncomingMessage(webhookData) {
                 let quotedText = null;
                 if (quotedMessage.typeMessage === 'textMessage' || quotedMessage.typeMessage === 'extendedTextMessage') {
                   quotedText = quotedMessage.textMessage || quotedMessage.extendedTextMessage?.text;
-                } else if (quotedMessage.typeMessage === 'imageMessage') {
+                } else if (quotedMessage.typeMessage === 'imageMessage' || quotedMessage.typeMessage === 'stickerMessage') {
                   quotedText = quotedMessage.fileMessageData?.caption || quotedMessage.imageMessageData?.caption;
                 } else if (quotedMessage.typeMessage === 'videoMessage') {
                   quotedText = quotedMessage.fileMessageData?.caption || quotedMessage.videoMessageData?.caption;
@@ -779,7 +785,7 @@ async function handleIncomingMessage(webhookData) {
                 
                 try {
                   // Get image URL (either from quoted message or current message)
-                  const finalImageUrl = imageUrl || messageData.fileMessageData?.downloadUrl || messageData.imageMessageData?.downloadUrl;
+                  const finalImageUrl = imageUrl || messageData.fileMessageData?.downloadUrl || messageData.imageMessageData?.downloadUrl || messageData.stickerMessageData?.downloadUrl;
                   if (!finalImageUrl) {
                     await sendTextMessage(chatId, '❌ לא הצלחתי לקבל את התמונה לניתוח');
                     return;
@@ -907,25 +913,28 @@ async function handleIncomingMessage(webhookData) {
                   const hasTTSKeywords = /\b(אמור|הקרא|הקריא|דבר|say|speak|tell|voice|read\s+aloud)\b/i.test(prompt);
                   const hasTextKeywords = /\b(תרגם|תרגום|translate|translation)\b/i.test(prompt) && !hasTTSKeywords;
                   
+                  console.log(`🔍 Audio processing intent detection - TTS keywords: ${hasTTSKeywords}, Text keywords: ${hasTextKeywords}`);
+                  
                   // Detect target language from prompt
+                  // Hebrew uses "ב" prefix (e.g., "ביפנית" = "in Japanese")
                   const languagePatterns = {
-                    'en': /\b(אנגלית|english)\b/i,
-                    'es': /\b(ספרדית|spanish)\b/i,
-                    'fr': /\b(צרפתית|french)\b/i,
-                    'de': /\b(גרמנית|german)\b/i,
-                    'it': /\b(איטלקית|italian)\b/i,
-                    'pt': /\b(פורטוגזית|portuguese)\b/i,
-                    'ru': /\b(רוסית|russian)\b/i,
-                    'zh': /\b(סינית|chinese|מנדרינית|mandarin)\b/i,
-                    'ja': /\b(יפנית|japanese)\b/i,
-                    'ko': /\b(קוריאנית|korean)\b/i,
-                    'ar': /\b(ערבית|arabic)\b/i,
-                    'hi': /\b(הינדית|hindi)\b/i,
-                    'tr': /\b(טורקית|turkish)\b/i,
-                    'pl': /\b(פולנית|polish)\b/i,
-                    'nl': /\b(הולנדית|dutch)\b/i,
-                    'sv': /\b(שוודית|swedish)\b/i,
-                    'he': /\b(עברית|hebrew)\b/i
+                    'en': /\b(ב?אנגלית|english|in\s+english)\b/i,
+                    'es': /\b(ב?ספרדית|spanish|in\s+spanish)\b/i,
+                    'fr': /\b(ב?צרפתית|french|in\s+french)\b/i,
+                    'de': /\b(ב?גרמנית|german|in\s+german)\b/i,
+                    'it': /\b(ב?איטלקית|italian|in\s+italian)\b/i,
+                    'pt': /\b(ב?פורטוגזית|portuguese|in\s+portuguese)\b/i,
+                    'ru': /\b(ב?רוסית|russian|in\s+russian)\b/i,
+                    'zh': /\b(ב?סינית|ב?מנדרינית|chinese|mandarin|in\s+chinese)\b/i,
+                    'ja': /\b(ב?יפנית|japanese|in\s+japanese)\b/i,
+                    'ko': /\b(ב?קוריאנית|korean|in\s+korean)\b/i,
+                    'ar': /\b(ב?ערבית|arabic|in\s+arabic)\b/i,
+                    'hi': /\b(ב?הינדית|hindi|in\s+hindi)\b/i,
+                    'tr': /\b(ב?טורקית|turkish|in\s+turkish)\b/i,
+                    'pl': /\b(ב?פולנית|polish|in\s+polish)\b/i,
+                    'nl': /\b(ב?הולנדית|dutch|in\s+dutch)\b/i,
+                    'sv': /\b(ב?שוודית|swedish|in\s+swedish)\b/i,
+                    'he': /\b(ב?עברית|hebrew|in\s+hebrew)\b/i
                   };
                   
                   let targetLanguage = null;
@@ -937,6 +946,8 @@ async function handleIncomingMessage(webhookData) {
                       break;
                     }
                   }
+                  
+                  console.log(`🌐 Language detection - Target: ${targetLanguageCode || 'none'} (${targetLanguage || 'N/A'})`);
                   
                   // Case 3: Translation with TTS (e.g., "# אמור ביפנית", "# say in Japanese")
                   if (hasTTSKeywords && targetLanguageCode) {
@@ -1197,7 +1208,7 @@ async function handleIncomingMessage(webhookData) {
               // Use imageUrl (from quoted message or current message)
               if (hasImage) {
                 const service = decision.tool === 'veo3_image_to_video' ? 'veo3' : 'kling';
-                const finalImageUrl = imageUrl || (messageData.fileMessageData || messageData.imageMessageData)?.downloadUrl;
+                const finalImageUrl = imageUrl || (messageData.fileMessageData || messageData.imageMessageData || messageData.stickerMessageData)?.downloadUrl;
                 processImageToVideoAsync({
                   chatId, senderId, senderName,
                   imageUrl: finalImageUrl,
@@ -1212,7 +1223,7 @@ async function handleIncomingMessage(webhookData) {
               // Use imageUrl (from quoted message or current message)
               if (hasImage) {
                 const service = decision.args?.service || 'gemini';
-                const finalImageUrl = imageUrl || (messageData.fileMessageData || messageData.imageMessageData)?.downloadUrl;
+                const finalImageUrl = imageUrl || (messageData.fileMessageData || messageData.imageMessageData || messageData.stickerMessageData)?.downloadUrl;
                 processImageEditAsync({
                   chatId, senderId, senderName,
                   imageUrl: finalImageUrl,
@@ -1616,10 +1627,10 @@ async function handleIncomingMessage(webhookData) {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // Handle IMAGE messages with caption starting with "# "
+    // Handle IMAGE/STICKER messages with caption starting with "# "
     // ═══════════════════════════════════════════════════════════════
-    if (messageData.typeMessage === 'imageMessage') {
-      const imageData = messageData.fileMessageData || messageData.imageMessageData;
+    if (messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage') {
+      const imageData = messageData.fileMessageData || messageData.imageMessageData || messageData.stickerMessageData;
       const caption = imageData?.caption || '';
       
       if (/^#\s+/.test(caption.trim())) {
@@ -1895,6 +1906,10 @@ async function handleOutgoingMessage(webhookData) {
       const caption = messageData.fileMessageData?.caption || messageData.imageMessageData?.caption;
       console.log(`   Image Caption: ${caption || 'N/A'}`);
     }
+    if (messageData.typeMessage === 'stickerMessage') {
+      const caption = messageData.fileMessageData?.caption;
+      console.log(`   Sticker Caption: ${caption || 'N/A'} (treating as image)`);
+    }
     if (messageData.typeMessage === 'videoMessage') {
       const caption = messageData.fileMessageData?.caption || messageData.videoMessageData?.caption;
       console.log(`   Video Caption: ${caption || 'N/A'}`);
@@ -1922,7 +1937,7 @@ async function handleOutgoingMessage(webhookData) {
         // Check if this is a quoted/replied message
         const quotedMessage = messageData.quotedMessage;
         let finalPrompt = basePrompt;
-        let hasImage = messageData.typeMessage === 'imageMessage';
+        let hasImage = messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage';
         let hasVideo = messageData.typeMessage === 'videoMessage';
         let hasAudio = messageData.typeMessage === 'audioMessage';
         let imageUrl = null;
@@ -1990,7 +2005,7 @@ async function handleOutgoingMessage(webhookData) {
                 let quotedText = null;
                 if (quotedMessage.typeMessage === 'textMessage' || quotedMessage.typeMessage === 'extendedTextMessage') {
                   quotedText = quotedMessage.textMessage || quotedMessage.extendedTextMessage?.text;
-                } else if (quotedMessage.typeMessage === 'imageMessage') {
+                } else if (quotedMessage.typeMessage === 'imageMessage' || quotedMessage.typeMessage === 'stickerMessage') {
                   quotedText = quotedMessage.fileMessageData?.caption || quotedMessage.imageMessageData?.caption;
                 } else if (quotedMessage.typeMessage === 'videoMessage') {
                   quotedText = quotedMessage.fileMessageData?.caption || quotedMessage.videoMessageData?.caption;
@@ -2097,7 +2112,7 @@ async function handleOutgoingMessage(webhookData) {
                 
                 try {
                   // Get image URL (either from quoted message or current message)
-                  const finalImageUrl = imageUrl || messageData.fileMessageData?.downloadUrl || messageData.imageMessageData?.downloadUrl;
+                  const finalImageUrl = imageUrl || messageData.fileMessageData?.downloadUrl || messageData.imageMessageData?.downloadUrl || messageData.stickerMessageData?.downloadUrl;
                   if (!finalImageUrl) {
                     await sendTextMessage(chatId, '❌ לא הצלחתי לקבל את התמונה לניתוח');
                     return;
@@ -2251,6 +2266,8 @@ async function handleOutgoingMessage(webhookData) {
                       break;
                     }
                   }
+                  
+                  console.log(`🌐 Language detection - Target: ${targetLanguageCode || 'none'} (${targetLanguage || 'N/A'})`);
                   
                   // Case 3: Translation with TTS
                   if (hasTTSKeywords && targetLanguageCode) {
@@ -2448,7 +2465,7 @@ async function handleOutgoingMessage(webhookData) {
             case 'image_edit':
               if (hasImage) {
                 const service = decision.args?.service || 'gemini';
-                const finalImageUrl = imageUrl || (messageData.fileMessageData || messageData.imageMessageData)?.downloadUrl;
+                const finalImageUrl = imageUrl || (messageData.fileMessageData || messageData.imageMessageData || messageData.stickerMessageData)?.downloadUrl;
                 processImageEditAsync({
                   chatId, senderId, senderName,
                   imageUrl: finalImageUrl,
@@ -2838,10 +2855,10 @@ async function handleOutgoingMessage(webhookData) {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // Handle IMAGE messages with caption starting with "# " (OUTGOING)
+    // Handle IMAGE/STICKER messages with caption starting with "# " (OUTGOING)
     // ═══════════════════════════════════════════════════════════════
-    if (messageData.typeMessage === 'imageMessage') {
-      const imageData = messageData.fileMessageData || messageData.imageMessageData;
+    if (messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage') {
+      const imageData = messageData.fileMessageData || messageData.imageMessageData || messageData.stickerMessageData;
       const caption = imageData?.caption || '';
       
       if (/^#\s+/.test(caption.trim())) {
