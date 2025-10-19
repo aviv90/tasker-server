@@ -164,6 +164,32 @@ async function routeIntent(input) {
     return { tool: 'gemini_chat', args: { prompt, needsChatHistory: needsChatHistoryVideoDefault }, reason: 'Video-related request (default to analysis)' };
   }
 
+  // If there is an attached audio/voice note with text prompt → decide between creative mix, voice response, or general request
+  if (input.hasAudio && prompt) {
+    // First priority: Check if user wants creative audio mix
+    const isCreativeMix = /\b(mix|remix|creative|effect|ערבב|מיקס|יצירתי|אפקט|רמיקס)\b/i.test(prompt);
+    if (isCreativeMix) {
+      if (!input.authorizations?.media_creation) {
+        return { tool: 'deny_unauthorized', args: { feature: 'creative_audio' }, reason: 'No media creation authorization' };
+      }
+      return { tool: 'creative_voice_processing', args: { prompt }, reason: 'Audio creative mix requested' };
+    }
+    
+    // Second priority: Check if user wants voice cloning response
+    const isVoiceResponse = /\b(ענה|תגיב|תגובה|השב|תשובה|reply|respond|response|answer|react)\b.*\b(לזה|על\s*זה|קולי|בקול|to\s+this|to\s+it|voice)\b|תגובה\s+קולית|מענה\s+קולי|voice\s+response|voice\s+reply/i.test(prompt);
+    if (isVoiceResponse) {
+      if (!input.authorizations?.media_creation) {
+        return { tool: 'deny_unauthorized', args: { feature: 'voice_cloning' }, reason: 'No media creation authorization' };
+      }
+      return { tool: 'voice_cloning_response', args: { prompt }, reason: 'Voice cloning response requested' };
+    }
+    
+    // Third priority: General requests (transcription, translation, etc.) - route to gemini_chat
+    // These will need transcription first, then processing
+    const needsChatHistoryAudio = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
+    return { tool: 'gemini_chat', args: { prompt, needsChatHistory: needsChatHistoryAudio, needsTranscription: true }, reason: 'Audio with general request (transcribe + process)' };
+  }
+
   // If there is an attached image WITHOUT prompt → ignore (no automatic analysis)
   if (input.hasImage && (!prompt || prompt.length < 3)) {
     return { tool: 'ask_clarification', args: {}, reason: 'Image attached without clear instruction' };
@@ -342,7 +368,7 @@ function validateDecision(obj) {
     'gemini_image', 'openai_image', 'grok_image',
     'veo3_video', 'kling_text_to_video', 'veo3_image_to_video', 'kling_image_to_video', 'video_to_video',
     'image_edit', 'text_to_speech', 'gemini_chat', 'openai_chat', 'grok_chat',
-    'chat_summary', 'music_generation', 'create_poll', 'creative_voice_processing', 'show_help', 'create_group', 'retry_last_command', 'deny_unauthorized', 'ask_clarification'
+    'chat_summary', 'music_generation', 'create_poll', 'creative_voice_processing', 'voice_cloning_response', 'show_help', 'create_group', 'retry_last_command', 'deny_unauthorized', 'ask_clarification'
   ]);
   if (!allowedTools.has(tool)) return null;
   return { tool, args, reason };

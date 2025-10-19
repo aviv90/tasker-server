@@ -278,6 +278,9 @@ async function sendAck(chatId, command) {
     case 'creative_voice_processing':
       ackMessage = '🎨 קיבלתי את ההקלטה! מתחיל עיבוד יצירתי עם אפקטים ומוזיקה...';
       break;
+    case 'voice_cloning_response':
+      ackMessage = '🎤 קיבלתי! מתחיל שיבוט קול ויצירת תגובה...';
+      break;
       
     // ═══════════════════ MUSIC ═══════════════════
     case 'music_generation':
@@ -389,8 +392,8 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       };
     }
     
-    // For media messages (image/video), fetch the original message to get downloadUrl
-    if (quotedType === 'imageMessage' || quotedType === 'videoMessage') {
+    // For media messages (image/video/audio), fetch the original message to get downloadUrl
+    if (quotedType === 'imageMessage' || quotedType === 'videoMessage' || quotedType === 'audioMessage') {
       console.log(`📸 Quoted ${quotedType}, fetching original message...`);
       
       // getMessage returns the full message with proper downloadUrl
@@ -416,6 +419,12 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
                      originalMessage.videoMessageData?.downloadUrl ||
                      originalMessage.messageData?.fileMessageData?.downloadUrl ||
                      originalMessage.messageData?.videoMessageData?.downloadUrl;
+      } else if (quotedType === 'audioMessage') {
+        downloadUrl = originalMessage.downloadUrl || 
+                     originalMessage.fileMessageData?.downloadUrl || 
+                     originalMessage.audioMessageData?.downloadUrl ||
+                     originalMessage.messageData?.fileMessageData?.downloadUrl ||
+                     originalMessage.messageData?.audioMessageData?.downloadUrl;
       }
       
       if (!downloadUrl) {
@@ -430,9 +439,11 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       return {
         hasImage: quotedType === 'imageMessage',
         hasVideo: quotedType === 'videoMessage',
+        hasAudio: quotedType === 'audioMessage',
         prompt: currentPrompt, // Use current prompt as the instruction
         imageUrl: quotedType === 'imageMessage' ? downloadUrl : null,
-        videoUrl: quotedType === 'videoMessage' ? downloadUrl : null
+        videoUrl: quotedType === 'videoMessage' ? downloadUrl : null,
+        audioUrl: quotedType === 'audioMessage' ? downloadUrl : null
       };
     }
     
@@ -441,9 +452,11 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
     return {
       hasImage: false,
       hasVideo: false,
+      hasAudio: false,
       prompt: currentPrompt,
       imageUrl: null,
-      videoUrl: null
+      videoUrl: null,
+      audioUrl: null
     };
     
   } catch (error) {
@@ -454,10 +467,12 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       return {
         hasImage: false,
         hasVideo: false,
+        hasAudio: false,
         prompt: currentPrompt,
         imageUrl: null,
         videoUrl: null,
-        error: '⚠️ לא יכול לעבד תמונות/וידאו שהבוט שלח. שלח את המדיה מחדש או צטט הודעה ממשתמש אחר.'
+        audioUrl: null,
+        error: '⚠️ לא יכול לעבד תמונות/וידאו/אודיו שהבוט שלח. שלח את המדיה מחדש או צטט הודעה ממשתמש אחר.'
       };
     }
     
@@ -465,9 +480,11 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
     return {
       hasImage: false,
       hasVideo: false,
+      hasAudio: false,
       prompt: currentPrompt,
       imageUrl: null,
-      videoUrl: null
+      videoUrl: null,
+      audioUrl: null
     };
   }
 }
@@ -554,8 +571,10 @@ async function handleIncomingMessage(webhookData) {
         let finalPrompt = basePrompt;
         let hasImage = messageData.typeMessage === 'imageMessage';
         let hasVideo = messageData.typeMessage === 'videoMessage';
+        let hasAudio = messageData.typeMessage === 'audioMessage';
         let imageUrl = null;
         let videoUrl = null;
+        let audioUrl = null;
         
         if (quotedMessage && quotedMessage.stanzaId) {
           console.log(`🔗 Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
@@ -572,14 +591,17 @@ async function handleIncomingMessage(webhookData) {
           finalPrompt = quotedResult.prompt;
           hasImage = quotedResult.hasImage;
           hasVideo = quotedResult.hasVideo;
+          hasAudio = quotedResult.hasAudio;
           imageUrl = quotedResult.imageUrl;
           videoUrl = quotedResult.videoUrl;
+          audioUrl = quotedResult.audioUrl;
         }
         
         const normalized = {
           userText: `# ${finalPrompt}`, // Add back the # prefix for router
           hasImage: hasImage,
           hasVideo: hasVideo,
+          hasAudio: hasAudio,
           hasAudio: messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage',
           chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
           language: 'he',
@@ -1198,6 +1220,9 @@ async function handleIncomingMessage(webhookData) {
 • # צור/פתח/הקם קבוצה בשם "שם" עם שם1, שם2 - יצירת קבוצה
 • (אופציה) + עם תמונה של... - הוספת תמונת פרופיל
 • תמונה + # ערוך... - עריכת תמונה
+• הודעה קולית מצוטטת + # ערבב/מיקס - מיקס יצירתי עם אפקטים
+• הודעה קולית מצוטטת + # ענה לזה/תגיב - תגובה קולית עם שיבוט קול
+• הודעה קולית מצוטטת + # תמלל/תרגם - תמלול או תרגום
 • וידאו + # ערוך... - עריכת וידאו
 • הודעה קולית - תמלול ותשובה קולית
 
@@ -1371,9 +1396,37 @@ async function handleIncomingMessage(webhookData) {
               return;
             }
             
+            // ═══════════════════ VOICE/AUDIO PROCESSING ═══════════════════
+            case 'creative_voice_processing': {
+              // Creative audio processing with effects and background music
+              if (!audioUrl) {
+                await sendTextMessage(chatId, '❌ לא נמצא קובץ אודיו מצוטט. צטט הודעה קולית ונסה שוב.');
+                return;
+              }
+              
+              saveLastCommand(chatId, decision, { audioUrl, normalized });
+              await sendAck(chatId, { type: 'creative_voice_processing' });
+              
+              await handleCreativeVoiceMessage({ chatId, senderId, senderName, audioUrl });
+              return;
+            }
+            
+            case 'voice_cloning_response': {
+              // Voice cloning with Gemini response
+              if (!audioUrl) {
+                await sendTextMessage(chatId, '❌ לא נמצא קובץ אודיו מצוטט. צטט הודעה קולית ונסה שוב.');
+                return;
+              }
+              
+              saveLastCommand(chatId, decision, { audioUrl, normalized });
+              await sendAck(chatId, { type: 'voice_cloning_response' });
+              
+              await handleVoiceMessage({ chatId, senderId, senderName, audioUrl });
+              return;
+            }
+            
             case 'voice_processing':
-            case 'creative_voice_processing':
-              // Voice messages are handled by separate block below
+              // Legacy - Voice messages are handled by separate block below
               break;
               
             default:
@@ -1700,8 +1753,10 @@ async function handleOutgoingMessage(webhookData) {
         let finalPrompt = basePrompt;
         let hasImage = messageData.typeMessage === 'imageMessage';
         let hasVideo = messageData.typeMessage === 'videoMessage';
+        let hasAudio = messageData.typeMessage === 'audioMessage';
         let imageUrl = null;
         let videoUrl = null;
+        let audioUrl = null;
         
         if (quotedMessage && quotedMessage.stanzaId) {
           console.log(`🔗 Outgoing: Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
@@ -1718,14 +1773,17 @@ async function handleOutgoingMessage(webhookData) {
           finalPrompt = quotedResult.prompt;
           hasImage = quotedResult.hasImage;
           hasVideo = quotedResult.hasVideo;
+          hasAudio = quotedResult.hasAudio;
           imageUrl = quotedResult.imageUrl;
           videoUrl = quotedResult.videoUrl;
+          audioUrl = quotedResult.audioUrl;
         }
 
         const normalized = {
           userText: `# ${finalPrompt}`, // Add back the # prefix for router
           hasImage: hasImage,
           hasVideo: hasVideo,
+          hasAudio: hasAudio,
           hasAudio: messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage',
           chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
           language: 'he',
@@ -2229,6 +2287,9 @@ async function handleOutgoingMessage(webhookData) {
 • # צור/פתח/הקם קבוצה בשם "שם" עם שם1, שם2 - יצירת קבוצה
 • (אופציה) + עם תמונה של... - הוספת תמונת פרופיל
 • תמונה + # ערוך... - עריכת תמונה
+• הודעה קולית מצוטטת + # ערבב/מיקס - מיקס יצירתי עם אפקטים
+• הודעה קולית מצוטטת + # ענה לזה/תגיב - תגובה קולית עם שיבוט קול
+• הודעה קולית מצוטטת + # תמלל/תרגם - תמלול או תרגום
 • וידאו + # ערוך... - עריכת וידאו
 • הודעה קולית - תמלול ותשובה קולית
 
@@ -2399,6 +2460,33 @@ async function handleOutgoingMessage(webhookData) {
                 console.error('❌ Error creating group (outgoing):', error);
                 await sendTextMessage(chatId, `❌ שגיאה ביצירת הקבוצה: ${error.message}\n\n💡 וודא שהפורמט נכון, לדוגמה:\n# צור/פתח/הקם קבוצה בשם "שם הקבוצה" עם שם1, שם2, שם3\n# צור קבוצה בשם "שם" עם שם1, שם2 עם תמונה של חתול`);
               }
+              return;
+            }
+            
+            // ═══════════════════ VOICE/AUDIO PROCESSING (OUTGOING) ═══════════════════
+            case 'creative_voice_processing': {
+              // Creative audio processing with effects and background music (outgoing)
+              if (!audioUrl) {
+                await sendTextMessage(chatId, '❌ לא נמצא קובץ אודיו מצוטט. צטט הודעה קולית ונסה שוב.');
+                return;
+              }
+              
+              await sendAck(chatId, { type: 'creative_voice_processing' });
+              
+              await handleCreativeVoiceMessage({ chatId, senderId, senderName, audioUrl });
+              return;
+            }
+            
+            case 'voice_cloning_response': {
+              // Voice cloning with Gemini response (outgoing)
+              if (!audioUrl) {
+                await sendTextMessage(chatId, '❌ לא נמצא קובץ אודיו מצוטט. צטט הודעה קולית ונסה שוב.');
+                return;
+              }
+              
+              await sendAck(chatId, { type: 'voice_cloning_response' });
+              
+              await handleVoiceMessage({ chatId, senderId, senderName, audioUrl });
               return;
             }
             
