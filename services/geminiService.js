@@ -1348,7 +1348,11 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
             text.includes('My response should:') ||
             text.includes('Let\'s break down') ||
             text.includes('The user is essentially asking') ||
-            text.includes('translates to') && text.includes('In the context of');
+            (text.includes('translates to') && text.includes('In the context of')) ||
+            text.startsWith('If I were to') || // Chain of thought reasoning
+            (text.includes('However, as an AI') || text.includes('However, from a technical perspective')) ||
+            text.includes('Let\'s consider the implications') ||
+            text.includes('Given the instructions to be');
         
         if (hasThinkingPattern) {
             console.log('🧹 Detected verbose thinking pattern, extracting final answer...');
@@ -1384,7 +1388,12 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
                     line.includes('The user is essentially asking') ||
                     line.includes('translates to') ||
                     line.includes('Let\'s break down') ||
-                    line.includes('In the context of')) {
+                    line.includes('In the context of') ||
+                    line.startsWith('If I were to') ||
+                    line.includes('However, as an AI') ||
+                    line.includes('However, from a technical perspective') ||
+                    line.includes('Let\'s consider the implications') ||
+                    line.includes('Given the instructions')) {
                     inThinkingSection = true;
                     continue;
                 }
@@ -1457,31 +1466,60 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
                     console.log(`   Preview: ${finalAnswer.substring(0, 100)}...`);
                 }
             } else {
-                // Fallback: Try to find the last substantial paragraph that looks like a real answer
-                // Split by double newlines to get paragraphs
-                const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 0);
+                // Fallback: If mostly English text with Hebrew ending, extract Hebrew part
+                const allLines = text.split('\n');
+                const hebrewLines = [];
+                let foundHebrewSection = false;
                 
-                // Look for the last paragraph that doesn't contain meta-discussion markers
-                for (let i = paragraphs.length - 1; i >= 0; i--) {
-                    const para = paragraphs[i].trim();
+                // Hebrew character detection
+                const hasHebrew = (str) => /[\u0590-\u05FF]/.test(str);
+                
+                // Scan from bottom up for Hebrew content
+                for (let i = allLines.length - 1; i >= 0; i--) {
+                    const line = allLines[i].trim();
+                    if (!line) continue;
                     
-                    // Check if this paragraph looks like a real answer (not meta-discussion)
-                    const isMetaParagraph = 
-                        para.includes('As an AI') ||
-                        para.includes('translates to') ||
-                        para.includes('refers to') ||
-                        para.includes('Let\'s break down') ||
-                        para.includes('My response should') ||
-                        para.match(/^\d+\.\s+\*/) || // Numbered list with emphasis
-                        para.match(/^-\s+["'].*["']:/) || // Definition list
-                        para.startsWith('THOUGHT');
-                    
-                    if (!isMetaParagraph && para.length > 20) {
-                        finalAnswer = para;
-                        console.log('🎯 Found final answer paragraph (fallback method)');
-                        console.log(`   Preview: ${finalAnswer.substring(0, 100)}...`);
-                        text = finalAnswer;
+                    if (hasHebrew(line)) {
+                        hebrewLines.unshift(allLines[i]); // Keep original formatting
+                        foundHebrewSection = true;
+                    } else if (foundHebrewSection) {
+                        // Stop when we hit English after finding Hebrew
                         break;
+                    }
+                }
+                
+                if (hebrewLines.length > 0 && hebrewLines.join('').length > 20) {
+                    const hebrewAnswer = hebrewLines.join('\n').trim();
+                    text = hebrewAnswer;
+                    console.log(`🎯 Extracted Hebrew final answer from mixed response (${hebrewAnswer.length} chars)`);
+                    console.log(`   Preview: ${hebrewAnswer.substring(0, 100)}...`);
+                } else {
+                    // Fallback: Try to find the last substantial paragraph that looks like a real answer
+                    // Split by double newlines to get paragraphs
+                    const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 0);
+                    
+                    // Look for the last paragraph that doesn't contain meta-discussion markers
+                    for (let i = paragraphs.length - 1; i >= 0; i--) {
+                        const para = paragraphs[i].trim();
+                        
+                        // Check if this paragraph looks like a real answer (not meta-discussion)
+                        const isMetaParagraph = 
+                            para.includes('As an AI') ||
+                            para.includes('translates to') ||
+                            para.includes('refers to') ||
+                            para.includes('Let\'s break down') ||
+                            para.includes('My response should') ||
+                            para.match(/^\d+\.\s+\*/) || // Numbered list with emphasis
+                            para.match(/^-\s+["'].*["']:/) || // Definition list
+                            para.startsWith('THOUGHT');
+                        
+                        if (!isMetaParagraph && para.length > 20) {
+                            finalAnswer = para;
+                            console.log('🎯 Found final answer paragraph (fallback method)');
+                            console.log(`   Preview: ${finalAnswer.substring(0, 100)}...`);
+                            text = finalAnswer;
+                            break;
+                        }
                     }
                 }
             }

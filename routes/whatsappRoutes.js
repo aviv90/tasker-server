@@ -603,9 +603,18 @@ async function handleIncomingMessage(webhookData) {
         try {
           switch (decision.tool) {
             case 'retry_last_command': {
+              // Extract any additional instructions after "נסה שוב"
+              // Examples: "# נסה שוב, רק עם שיער ארוך", "# שוב אבל בלי משקפיים"
+              const additionalInstructions = basePrompt
+                .replace(/^(נסה\s*שוב|שוב|retry|try\s*again)\s*,?\s*/i, '')
+                .trim();
+              
               // Check if there's a quoted message with a command
               if (quotedMessage && quotedMessage.stanzaId) {
                 console.log('🔄 Retry with quoted message - extracting command from quoted message');
+                if (additionalInstructions) {
+                  console.log(`📝 Additional instructions to merge: "${additionalInstructions}"`);
+                }
                 
                 // Extract the command from the quoted message
                 let quotedText = null;
@@ -620,9 +629,9 @@ async function handleIncomingMessage(webhookData) {
                 // Check if quoted message has a command (starts with #)
                 if (quotedText && /^#\s+/.test(quotedText.trim())) {
                   console.log(`🔄 Found command in quoted message: "${quotedText.substring(0, 50)}..."`);
-                  // Re-process the quoted message as if it's a new message
-                  // We'll handle the quoted message using existing logic
-                  const quotedResult = await handleQuotedMessage(quotedMessage, '', chatId);
+                  // Re-process the quoted message, merging with additional instructions
+                  // This allows users to say "# נסה שוב, רק עם שיער ארוך יותר"
+                  const quotedResult = await handleQuotedMessage(quotedMessage, additionalInstructions, chatId);
                   
                   if (quotedResult.error) {
                     await sendTextMessage(chatId, quotedResult.error);
@@ -680,12 +689,23 @@ async function handleIncomingMessage(webhookData) {
                 }
                 
                 console.log(`🔄 Retrying last command: ${lastCommand.tool}`);
+                if (additionalInstructions) {
+                  console.log(`📝 Merging additional instructions: "${additionalInstructions}"`);
+                }
                 
-                // Re-assign decision to last command
+                // Merge additional instructions with the original prompt if provided
+                let mergedArgs = { ...lastCommand.args };
+                if (additionalInstructions && lastCommand.args?.prompt) {
+                  // Append additional instructions to the original prompt
+                  mergedArgs.prompt = `${lastCommand.args.prompt}, ${additionalInstructions}`;
+                  console.log(`✨ New merged prompt: "${mergedArgs.prompt}"`);
+                }
+                
+                // Re-assign decision to last command with merged args
                 Object.assign(decision, {
                   tool: lastCommand.tool,
-                  args: lastCommand.args,
-                  reason: 'Retry last command'
+                  args: mergedArgs,
+                  reason: 'Retry last command with modifications'
                 });
                 
                 // Restore media URLs if they exist
@@ -1725,6 +1745,113 @@ async function handleOutgoingMessage(webhookData) {
         // Router-based direct execution for outgoing messages (same as incoming)
         try {
           switch (decision.tool) {
+            case 'retry_last_command': {
+              // Extract any additional instructions after "נסה שוב" (same logic as incoming)
+              const additionalInstructions = basePrompt
+                .replace(/^(נסה\s*שוב|שוב|retry|try\s*again)\s*,?\s*/i, '')
+                .trim();
+              
+              // Check if there's a quoted message with a command
+              if (quotedMessage && quotedMessage.stanzaId) {
+                console.log('🔄 [Outgoing] Retry with quoted message');
+                if (additionalInstructions) {
+                  console.log(`📝 [Outgoing] Additional instructions to merge: "${additionalInstructions}"`);
+                }
+                
+                // Extract the command from the quoted message
+                let quotedText = null;
+                if (quotedMessage.typeMessage === 'textMessage' || quotedMessage.typeMessage === 'extendedTextMessage') {
+                  quotedText = quotedMessage.textMessage || quotedMessage.extendedTextMessage?.text;
+                } else if (quotedMessage.typeMessage === 'imageMessage') {
+                  quotedText = quotedMessage.fileMessageData?.caption || quotedMessage.imageMessageData?.caption;
+                } else if (quotedMessage.typeMessage === 'videoMessage') {
+                  quotedText = quotedMessage.fileMessageData?.caption || quotedMessage.videoMessageData?.caption;
+                }
+                
+                // Check if quoted message has a command (starts with #)
+                if (quotedText && /^#\s+/.test(quotedText.trim())) {
+                  console.log(`🔄 [Outgoing] Found command in quoted message: "${quotedText.substring(0, 50)}..."`);
+                  // Re-process the quoted message, merging with additional instructions
+                  const quotedResult = await handleQuotedMessage(quotedMessage, additionalInstructions, chatId);
+                  
+                  if (quotedResult.error) {
+                    await sendTextMessage(chatId, quotedResult.error);
+                    return;
+                  }
+                  
+                  // Re-route with the quoted message content
+                  const retryNormalized = {
+                    userText: quotedText,
+                    hasImage: quotedResult.hasImage,
+                    hasVideo: quotedResult.hasVideo,
+                    hasAudio: false,
+                    chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
+                    language: 'he',
+                    authorizations: {
+                      media_creation: true,
+                      group_creation: true,
+                      voice_allowed: true
+                    }
+                  };
+                  
+                  const retryDecision = await routeIntent(retryNormalized);
+                  console.log(`🔄 [Outgoing] Retry routing decision: ${retryDecision.tool}`);
+                  
+                  // Continue with normal execution
+                  Object.assign(decision, retryDecision);
+                  imageUrl = quotedResult.imageUrl;
+                  videoUrl = quotedResult.videoUrl;
+                  hasImage = quotedResult.hasImage;
+                  hasVideo = quotedResult.hasVideo;
+                } else {
+                  await sendTextMessage(chatId, 'ℹ️ ההודעה המצוטטת לא מכילה פקודה. צטט הודעה שמתחילה ב-"#"');
+                  return;
+                }
+              } else {
+                // No quoted message - retry last command from cache
+                const lastCommand = lastCommandCache.get(chatId);
+                
+                if (!lastCommand) {
+                  await sendTextMessage(chatId, 'ℹ️ אין פקודה קודמת לביצוע מחדש. נסה לשלוח פקודה חדשה.');
+                  return;
+                }
+                
+                console.log(`🔄 [Outgoing] Retrying last command: ${lastCommand.tool}`);
+                if (additionalInstructions) {
+                  console.log(`📝 [Outgoing] Merging additional instructions: "${additionalInstructions}"`);
+                }
+                
+                // Merge additional instructions with the original prompt if provided
+                let mergedArgs = { ...lastCommand.args };
+                if (additionalInstructions && lastCommand.args?.prompt) {
+                  mergedArgs.prompt = `${lastCommand.args.prompt}, ${additionalInstructions}`;
+                  console.log(`✨ [Outgoing] New merged prompt: "${mergedArgs.prompt}"`);
+                }
+                
+                // Re-assign decision to last command with merged args
+                Object.assign(decision, {
+                  tool: lastCommand.tool,
+                  args: mergedArgs,
+                  reason: 'Retry last command with modifications (outgoing)'
+                });
+                
+                // Restore media URLs if they exist
+                if (lastCommand.imageUrl) {
+                  imageUrl = lastCommand.imageUrl;
+                  hasImage = true;
+                }
+                if (lastCommand.videoUrl) {
+                  videoUrl = lastCommand.videoUrl;
+                  hasVideo = true;
+                }
+                
+                // Update timestamp
+                lastCommand.timestamp = Date.now();
+              }
+              // Don't return - fall through to execute the command
+              break;
+            }
+            
             // ═══════════════════ CHAT ═══════════════════
             case 'gemini_chat': {
               await sendAck(chatId, { type: 'gemini_chat' });
