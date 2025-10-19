@@ -1868,7 +1868,7 @@ async function handleIncomingMessage(webhookData) {
               language: null,
               senderData: { senderContactName, chatName, senderName, chatId },
               authorizations: {
-                media_creation: await conversationManager.isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
+                media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
                 voice_allowed: true
               }
             };
