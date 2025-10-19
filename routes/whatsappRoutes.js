@@ -1799,7 +1799,7 @@ async function handleIncomingMessage(webhookData) {
     }
     
     // ═══════════════════════════════════════════════════════════════
-    // Handle voice messages for voice-to-voice processing
+    // Handle voice messages with smart routing
     // ═══════════════════════════════════════════════════════════════
     else if (messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage') {
       const audioData = messageData.fileMessageData || messageData.audioMessageData;
@@ -1808,29 +1808,83 @@ async function handleIncomingMessage(webhookData) {
       
       try {
         // Check if sender is authorized for voice transcription
-        // Checks both group AND individual sender (if in group)
         const isAuthorized = await conversationManager.isAuthorizedForVoiceTranscription({ senderContactName, chatName, senderName, chatId });
         
         if (!isAuthorized) {
           console.log(`🚫 Voice processing not allowed - not authorized`);
-          // Silently ignore unauthorized voice messages (no reply)
           return;
         }
         
-        console.log(`✅ Voice processing authorized - proceeding with voice-to-voice flow`);
-      } catch (dbError) {
-        console.error('❌ Error checking voice transcription authorization:', dbError);
-        console.log(`🔇 Skipping voice processing due to database error`);
-        return;
+        console.log(`✅ Voice processing authorized`);
+        
+        // ═══════════ NEW: Transcribe first to detect if it's a command ═══════════
+        console.log(`🔄 Step 1: Transcribing to detect intent...`);
+        const audioBuffer = await downloadFile(audioData.downloadUrl);
+        
+        const transcriptionResult = await speechService.speechToText(audioBuffer, {
+          model: 'scribe_v1',
+          language: null,
+          removeNoise: true,
+          removeFiller: true,
+          optimizeLatency: 0,
+          format: 'ogg'
+        });
+        
+        if (transcriptionResult.error) {
+          console.error('❌ Transcription failed:', transcriptionResult.error);
+          await sendTextMessage(chatId, `❌ סליחה, לא הצלחתי לתמלל את ההקלטה: ${transcriptionResult.error}`);
+          return;
+        }
+        
+        const transcribedText = transcriptionResult.text.trim();
+        console.log(`✅ Transcribed: "${transcribedText.substring(0, 100)}"`);
+        
+        // Check if transcribed text contains a command (starts with # or "שולמית" + space)
+        const isCommand = /^(#|שולמית)\s+/i.test(transcribedText);
+        
+        if (isCommand) {
+          console.log(`🎯 Detected command in voice message! Re-processing as text command...`);
+          
+          // Create a fake webhook data with the transcribed text as if user typed it
+          // This allows ALL commands to work, including quoted messages, retry, etc.
+          const fakeWebhookData = {
+            typeWebhook: 'incomingMessageReceived',
+            idMessage: `voice_${messageData.idMessage || Date.now()}`,
+            senderData: {
+              chatId,
+              sender: senderId,
+              senderName,
+              senderContactName,
+              chatName
+            },
+            messageData: {
+              typeMessage: 'textMessage',
+              textMessageData: {
+                textMessage: transcribedText
+              }
+            }
+          };
+          
+          console.log(`🔄 Re-processing voice as text: "${transcribedText.substring(0, 100)}"`);
+          
+          // Call handleIncomingMessage recursively with the fake data
+          // This ensures ALL command logic works: retry, quoted messages, media creation, etc.
+          await handleIncomingMessage(fakeWebhookData);
+        } else {
+          // No command detected - proceed with normal voice-to-voice flow
+          console.log(`💬 No command in voice message - proceeding with voice cloning flow`);
+          
+          processVoiceMessageAsync({
+            chatId,
+            senderId,
+            senderName,
+            audioUrl: audioData.downloadUrl
+          });
+        }
+      } catch (error) {
+        console.error('❌ Error processing voice message:', error);
+        await sendTextMessage(chatId, `❌ שגיאה בעיבוד ההקלטה: ${error.message}`);
       }
-      
-      // Process voice-to-voice asynchronously
-      processVoiceMessageAsync({
-        chatId,
-        senderId,
-        senderName,
-        audioUrl: audioData.downloadUrl
-      });
     } else if (messageText && !messageText.startsWith('#')) {
       // Non-"#" text messages - handle management commands only
       const command = parseTextCommand(messageText);
