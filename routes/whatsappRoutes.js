@@ -441,12 +441,16 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       console.log(`✅ Found downloadUrl for quoted ${quotedType}`);
       
       // Extract caption from media message (if exists)
+      // Caption can be directly on quotedMessage or nested in fileMessageData/imageMessageData
       let originalCaption = null;
       if (quotedType === 'imageMessage' || quotedType === 'stickerMessage') {
-        originalCaption = quotedMessage.fileMessageData?.caption || quotedMessage.imageMessageData?.caption;
+        originalCaption = quotedMessage.caption || quotedMessage.fileMessageData?.caption || quotedMessage.imageMessageData?.caption;
       } else if (quotedType === 'videoMessage') {
-        originalCaption = quotedMessage.fileMessageData?.caption || quotedMessage.videoMessageData?.caption;
+        originalCaption = quotedMessage.caption || quotedMessage.fileMessageData?.caption || quotedMessage.videoMessageData?.caption;
       }
+      
+      console.log(`📝 [handleQuotedMessage] Original caption found: "${originalCaption}"`);
+      console.log(`📝 [handleQuotedMessage] Current prompt (additional): "${currentPrompt}"`);
       
       // If there's a caption with a command (starts with #), merge it with additional instructions
       let finalPrompt = currentPrompt;
@@ -588,6 +592,9 @@ async function handleIncomingMessage(webhookData) {
       if (messageData.quotedMessage.textMessage) {
         console.log(`   Quoted Text: ${messageData.quotedMessage.textMessage.substring(0, 50)}...`);
       }
+      if (messageData.quotedMessage.caption) {
+        console.log(`   Quoted Caption: ${messageData.quotedMessage.caption.substring(0, 50)}...`);
+      }
     }
     
     // Unified intent router for commands that start with "# "
@@ -673,9 +680,9 @@ async function handleIncomingMessage(webhookData) {
                 if (quotedMessage.typeMessage === 'textMessage' || quotedMessage.typeMessage === 'extendedTextMessage') {
                   quotedText = quotedMessage.textMessage || quotedMessage.extendedTextMessage?.text;
                 } else if (quotedMessage.typeMessage === 'imageMessage' || quotedMessage.typeMessage === 'stickerMessage') {
-                  quotedText = quotedMessage.fileMessageData?.caption || quotedMessage.imageMessageData?.caption;
+                  quotedText = quotedMessage.caption || quotedMessage.fileMessageData?.caption || quotedMessage.imageMessageData?.caption;
                 } else if (quotedMessage.typeMessage === 'videoMessage') {
-                  quotedText = quotedMessage.fileMessageData?.caption || quotedMessage.videoMessageData?.caption;
+                  quotedText = quotedMessage.caption || quotedMessage.fileMessageData?.caption || quotedMessage.videoMessageData?.caption;
                 }
                 
                 // Check if quoted message has a command (starts with #)
@@ -707,8 +714,15 @@ async function handleIncomingMessage(webhookData) {
                     senderData: { senderContactName, chatName, senderName, chatId }
                   };
                   
+                  console.log(`🔄 [Retry] Routing with merged prompt:`, {
+                    userText: retryNormalized.userText.substring(0, 150) + '...',
+                    hasImage: retryNormalized.hasImage,
+                    hasVideo: retryNormalized.hasVideo,
+                    imageUrl: quotedResult.imageUrl ? 'EXISTS' : 'NULL'
+                  });
+                  
                   const retryDecision = await routeIntent(retryNormalized);
-                  console.log(`🔄 Retry routing decision: ${retryDecision.tool}`);
+                  console.log(`🔄 Retry routing decision: ${retryDecision.tool}, reason: ${retryDecision.reason}`);
                   
                   // Save this as the last command for future retries
                   lastCommandCache.set(chatId, {
@@ -2052,6 +2066,9 @@ async function handleOutgoingMessage(webhookData) {
       if (messageData.quotedMessage.textMessage) {
         console.log(`   Quoted Text: ${messageData.quotedMessage.textMessage.substring(0, 50)}...`);
       }
+      if (messageData.quotedMessage.caption) {
+        console.log(`   Quoted Caption: ${messageData.quotedMessage.caption.substring(0, 50)}...`);
+      }
     }
     
     // Unified intent router for outgoing when text starts with "# "
@@ -2139,9 +2156,9 @@ async function handleOutgoingMessage(webhookData) {
                 if (quotedMessage.typeMessage === 'textMessage' || quotedMessage.typeMessage === 'extendedTextMessage') {
                   quotedText = quotedMessage.textMessage || quotedMessage.extendedTextMessage?.text;
                 } else if (quotedMessage.typeMessage === 'imageMessage' || quotedMessage.typeMessage === 'stickerMessage') {
-                  quotedText = quotedMessage.fileMessageData?.caption || quotedMessage.imageMessageData?.caption;
+                  quotedText = quotedMessage.caption || quotedMessage.fileMessageData?.caption || quotedMessage.imageMessageData?.caption;
                 } else if (quotedMessage.typeMessage === 'videoMessage') {
-                  quotedText = quotedMessage.fileMessageData?.caption || quotedMessage.videoMessageData?.caption;
+                  quotedText = quotedMessage.caption || quotedMessage.fileMessageData?.caption || quotedMessage.videoMessageData?.caption;
                 }
                 
                 // Check if quoted message has a command (starts with #)
@@ -2171,8 +2188,15 @@ async function handleOutgoingMessage(webhookData) {
                     }
                   };
                   
+                  console.log(`🔄 [Outgoing Retry] Routing with merged prompt:`, {
+                    userText: retryNormalized.userText.substring(0, 150) + '...',
+                    hasImage: retryNormalized.hasImage,
+                    hasVideo: retryNormalized.hasVideo,
+                    imageUrl: quotedResult.imageUrl ? 'EXISTS' : 'NULL'
+                  });
+                  
                   const retryDecision = await routeIntent(retryNormalized);
-                  console.log(`🔄 [Outgoing] Retry routing decision: ${retryDecision.tool}`);
+                  console.log(`🔄 [Outgoing] Retry routing decision: ${retryDecision.tool}, reason: ${retryDecision.reason}`);
                   
                   // Continue with normal execution
                   Object.assign(decision, retryDecision);
