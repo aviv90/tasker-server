@@ -76,7 +76,8 @@ async function routeIntent(input) {
   // If there is an attached image with text prompt → decide between image edit vs image→video vs analysis
   if (input.hasImage && prompt) {
     // First priority: Check if it's a video generation request
-    const isVideoLike = /\b(video|animate|motion|clip)\b|וידאו|סרט|אנימציה|הנפש|להנפיש|תזיז|קליפ/i.test(prompt);
+    // Includes common typos: וידיאו, וודאו, ווידאו (Hebrew); vidio, vedio, vidoe (English)
+    const isVideoLike = /\b(video|vidio|vedio|vidoe|animate|motion|clip)\b|וידאו|וידיאו|וודאו|ווידאו|וידיו|סרט|אנימציה|הנפש|להנפיש|תזיז|קליפ/i.test(prompt);
     if (isVideoLike) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'image_to_video' }, reason: 'No media creation authorization' };
@@ -210,15 +211,16 @@ async function routeIntent(input) {
     // Note: prompt already has # prefix removed by line 57
     // All checks are case-insensitive using /i flag
     // Using \b for word boundaries to match whole words only
-    const isImageLike = /\b(image|poster|illustration|render)\b|תמונה|ציור|תצלום|לוגו|איור|צייר|ציירי/i.test(prompt);
-    const isVideoLike = /\b(video|clip|animate|motion)\b|וידאו|סרט|אנימציה|קליפ/i.test(prompt);
-    const isTtsLike = /\b(speech|tts)\b|קרא|הקרא|הקריא|הקראת|דיבור|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text\s*to\s*speech|אמור/i.test(prompt);
-    const isSummary = /\b(summary)\b|סכם|סיכום|לסכם/i.test(prompt);
-    const isMusic = /\b(suno|music|song)\b|שיר|מוזיקה|שירון/i.test(prompt);
-    const isHelp = /\b(commands|list|help|capabilities)\b|פקודות|רשימת|רשימה|עזרה|אילו|מה\s+אפשר|what\s+can/i.test(prompt);
-    const isCreateGroup = /צור.*קבוצה|יצירת.*קבוצה|פתח.*קבוצה|פתיחת.*קבוצה|הקם.*קבוצה|הקמת.*קבוצה|create.*group|new.*group|open.*group|start.*group|קבוצה.*חדשה/i.test(prompt);
-    const isRetry = /^(נסה\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)\b/i.test(prompt);
-    const isPoll = /צור.*סקר|יצירת.*סקר|סקר.*על|סקר.*בנושא|הכן.*סקר|create.*poll|make.*poll|poll.*about|new.*poll/i.test(prompt);
+    // Includes common typos for better UX
+    const isImageLike = /\b(image|imge|imagee|poster|illustration|render)\b|תמונה|תמונא|תמונת|ציור|צייור|תצלום|לוגו|איור|צייר|ציירי|צייירי/i.test(prompt);
+    const isVideoLike = /\b(video|vidio|vedio|vidoe|clip|animate|motion)\b|וידאו|וידיאו|וודאו|ווידאו|וידיו|סרט|אנימציה|קליפ/i.test(prompt);
+    const isTtsLike = /\b(speech|speach|tts)\b|קרא|הקרא|הקריא|הקראת|דיבור|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text\s*to\s*speech|אמור|אמר/i.test(prompt);
+    const isSummary = /\b(summary|summery|sumary)\b|סכם|סיכום|לסכם|סכום/i.test(prompt);
+    const isMusic = /\b(suno|music|song|musik)\b|שיר|מוזיקה|מוסיקה|שירון|שיירון/i.test(prompt);
+    const isHelp = /\b(commands|comands|list|help|capabilities)\b|פקודות|פיקודות|רשימת|רשימה|עזרה|אילו|מה\s+אפשר|what\s+can/i.test(prompt);
+    const isCreateGroup = /צור.*קבוצה|צר.*קבוצה|יצירת.*קבוצה|פתח.*קבוצה|פתיחת.*קבוצה|הקם.*קבוצה|הקמת.*קבוצה|create.*group|creat.*group|new.*group|open.*group|start.*group|קבוצה.*חדשה/i.test(prompt);
+    const isRetry = /^(נסה\s+שוב|נסא\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)\b/i.test(prompt);
+    const isPoll = /צור.*סקר|צר.*סקר|יצירת.*סקר|סקר.*על|סקר.*בנושא|הכן.*סקר|create.*poll|creat.*poll|make.*poll|poll.*about|new.*poll/i.test(prompt);
     
     // Debug: log intent detection
     console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} Music:${isMusic} TTS:${isTtsLike} Retry:${isRetry} Poll:${isPoll}`);
@@ -426,6 +428,9 @@ Your task: Analyze the user's request and return ONLY a valid JSON object.
    - All keyword matching is case-insensitive (VEO = veo = Veo)
    - Space-flexible (OpenAI = Open AI, ChatGPT = Chat GPT, veo3 = veo 3)
    - WHOLE WORDS ONLY (realistic ≠ list, classroom ≠ room, musician ≠ music)
+   - **BE FORGIVING WITH TYPOS**: Accept common spelling errors and variations
+     • Hebrew: וידאו = וידיאו = וודאו = ווידאו; תמונה = תמונא; צור = צר; ציור = צייור
+     • English: video = vidio = vedio = vidoe; image = imge = imagee; create = creat
 
 🔍 INPUT CONTEXT:
 ${JSON.stringify(payload, null, 2)}
@@ -439,7 +444,7 @@ ${JSON.stringify(payload, null, 2)}
    A. **Video Generation** (highest priority for video keywords):
       - Image + video keywords + Veo mention → "veo3_image_to_video"
         ✓ Veo mentions: "veo", "Veo", "VEO", "veo 3", "veo 3.1", "Veo 3.1", "VEO 3.1", "veo3", "veo3.1", etc.
-        ✓ Video keywords: "וידאו", "video", "סרט", "אנימציה", "הנפש", "להנפיש", "animate", "motion", "clip"
+        ✓ Video keywords (including typos): "וידאו", "וידיאו", "וודאו", "ווידאו", "video", "vidio", "vedio", "vidoe", "סרט", "אנימציה", "הנפש", "להנפיש", "animate", "motion", "clip", "קליפ"
       - Image + video keywords (NO Veo) → "kling_image_to_video"
    
    B. **Analysis/Questions** (second priority - text-only response):
@@ -521,12 +526,12 @@ ${JSON.stringify(payload, null, 2)}
    STEP A: Look for PRIMARY INTENT keywords (whole word, case-insensitive):
    
    🎵 **Music Generation:**
-      Keywords: "שיר", "מוזיקה", "שירון", "song", "music", "suno"
+      Keywords (including typos): "שיר", "מוזיקה", "מוסיקה", "שירון", "song", "music", "musik", "suno"
       → "music_generation"
       ⚠️ False positives: "musician", "musical", "musicology" are NOT music requests
    
    🖼️ **Image Generation:**
-      Keywords: "תמונה", "ציור", "צייר", "ציירי", "draw", "picture", "image", "poster", "illustration", "render"
+      Keywords (including typos): "תמונה", "תמונא", "ציור", "צייור", "צייר", "ציירי", "draw", "picture", "image", "imge", "imagee", "poster", "illustration", "render"
       STEP B: Check provider preference:
         - Mentions "OpenAI"/"Open AI"/"GPT"/"DALL-E"/"DALL E"/"dalle" → "openai_image"
         - Mentions "Grok"/"xAI"/"x AI" → "grok_image"
@@ -534,20 +539,20 @@ ${JSON.stringify(payload, null, 2)}
       ⚠️ False positives: "imaginative", "imagine", "drawer" are NOT image requests
       
    🎬 **Video Generation:**
-      Keywords: "וידאו", "video", "סרט", "אנימציה", "קליפ", "clip", "animate", "motion"
+      Keywords (including typos): "וידאו", "וידיאו", "וודאו", "ווידאו", "video", "vidio", "vedio", "vidoe", "סרט", "אנימציה", "קליפ", "clip", "animate", "motion"
       STEP B: Check model preference:
         - Mentions "veo"/"Veo"/"VEO"/"veo 3"/"veo 3.1"/"Veo 3.1"/"veo3"/"veo3.1" (any case, with/without space) → "veo3_video"
         - Otherwise → "kling_text_to_video" (default)
       ⚠️ False positives: "videographer", "clipboard", "eclipse" are NOT video requests
    
    🗣️ **Text-to-Speech (TTS):**
-      Keywords: "הקרא", "הקריא", "קרא", "דיבור", "speech", "TTS", "read this", "אמור", "להשמיע"
+      Keywords (including typos): "הקרא", "הקריא", "קרא", "דיבור", "speech", "speach", "TTS", "read this", "אמור", "אמר", "להשמיע"
       → "text_to_speech"
       💡 Note: Extract text after colon if present
       ⚠️ False positives: "speechless", "freedom" are NOT TTS requests
    
    📝 **Chat Summary:**
-      Keywords: "סכם", "סיכום", "summary", "לסכם", "summarize"
+      Keywords (including typos): "סכם", "סיכום", "סכום", "summary", "summery", "sumary", "לסכם", "summarize"
       → "chat_summary"
    
    🔄 **Retry Last Command:**
@@ -556,18 +561,18 @@ ${JSON.stringify(payload, null, 2)}
       💡 Note: Re-runs the last command executed in this chat (or quoted message command)
    
    📊 **Poll Creation:**
-      Keywords: "צור סקר", "יצירת סקר", "סקר על", "סקר בנושא", "הכן סקר", "create poll", "make poll", "poll about", "new poll"
+      Keywords (including typos): "צור סקר", "צר סקר", "יצירת סקר", "סקר על", "סקר בנושא", "הכן סקר", "create poll", "creat poll", "make poll", "poll about", "new poll"
       → "create_poll"
       💡 Note: Creates a creative poll with 2 rhyming options about the given topic
    
    👥 **Group Creation:**
-      Keywords: "צור קבוצה", "יצירת קבוצה", "פתח קבוצה", "פתיחת קבוצה", "הקם קבוצה", "הקמת קבוצה", "create group", "new group", "open group", "start group", "קבוצה חדשה"
+      Keywords (including typos): "צור קבוצה", "צר קבוצה", "יצירת קבוצה", "פתח קבוצה", "פתיחת קבוצה", "הקם קבוצה", "הקמת קבוצה", "create group", "creat group", "new group", "open group", "start group", "קבוצה חדשה"
       → "create_group"
       ⚠️ Requires group_creation authorization
       💡 Can include: group name, participants, and optional picture description
    
    ℹ️ **Help/Commands:**
-      Keywords: "פקודות", "רשימת פקודות", "רשימה", "commands", "list", "help", "עזרה", "capabilities"
+      Keywords (including typos): "פקודות", "פיקודות", "רשימת פקודות", "רשימה", "commands", "comands", "list", "help", "עזרה", "capabilities"
       → "show_help"
       ⚠️ False positives: "realistic", "playlist", "checklist" are NOT help requests
    

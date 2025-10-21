@@ -440,12 +440,34 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       
       console.log(`✅ Found downloadUrl for quoted ${quotedType}`);
       
+      // Extract caption from media message (if exists)
+      let originalCaption = null;
+      if (quotedType === 'imageMessage' || quotedType === 'stickerMessage') {
+        originalCaption = quotedMessage.fileMessageData?.caption || quotedMessage.imageMessageData?.caption;
+      } else if (quotedType === 'videoMessage') {
+        originalCaption = quotedMessage.fileMessageData?.caption || quotedMessage.videoMessageData?.caption;
+      }
+      
+      // If there's a caption with a command (starts with #), merge it with additional instructions
+      let finalPrompt = currentPrompt;
+      if (originalCaption && /^#\s+/.test(originalCaption.trim())) {
+        // Remove # prefix from original caption
+        const cleanCaption = originalCaption.trim().replace(/^#\s+/, '');
+        // If there are additional instructions, append them
+        if (currentPrompt && currentPrompt.trim()) {
+          finalPrompt = `${cleanCaption}, ${currentPrompt}`;
+          console.log(`🔗 Merged caption with additional instructions: "${finalPrompt.substring(0, 100)}..."`);
+        } else {
+          finalPrompt = cleanCaption;
+        }
+      }
+      
       // Return the URL directly - let the handler functions download when needed
       return {
         hasImage: quotedType === 'imageMessage' || quotedType === 'stickerMessage',
         hasVideo: quotedType === 'videoMessage',
         hasAudio: quotedType === 'audioMessage',
-        prompt: currentPrompt, // Use current prompt as the instruction
+        prompt: finalPrompt, // Use merged prompt (original caption + additional instructions)
         imageUrl: (quotedType === 'imageMessage' || quotedType === 'stickerMessage') ? downloadUrl : null,
         videoUrl: quotedType === 'videoMessage' ? downloadUrl : null,
         audioUrl: quotedType === 'audioMessage' ? downloadUrl : null
@@ -611,7 +633,6 @@ async function handleIncomingMessage(webhookData) {
           hasImage: hasImage,
           hasVideo: hasVideo,
           hasAudio: hasAudio,
-          hasAudio: messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'voiceMessage',
           chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
           language: 'he',
           authorizations: {
@@ -670,8 +691,9 @@ async function handleIncomingMessage(webhookData) {
                   }
                   
                   // Re-route with the quoted message content
+                  // Use quotedResult.prompt (merged text) instead of quotedText (original only)
                   const retryNormalized = {
-                    userText: quotedText,
+                    userText: `# ${quotedResult.prompt}`,
                     hasImage: quotedResult.hasImage,
                     hasVideo: quotedResult.hasVideo,
                     hasAudio: quotedResult.hasAudio,
@@ -1250,11 +1272,14 @@ async function handleIncomingMessage(webhookData) {
             
             // ═══════════════════ TEXT-TO-SPEECH ═══════════════════
             case 'text_to_speech': {
+              // Ensure decision.args.prompt contains the full prompt for retry functionality
+              decision.args.prompt = prompt;
               saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'text_to_speech' });
               
               // Parse the TTS request to check if translation is needed
-              const originalText = decision.args?.text || prompt;
+              // Use full prompt (not decision.args.text) to include quoted message text
+              const originalText = prompt;
               const parseResult = await parseTextToSpeechRequest(originalText);
               
               let textToSpeak = parseResult.text;
@@ -1826,6 +1851,9 @@ async function handleIncomingMessage(webhookData) {
         
         console.log(`✅ Voice processing authorized`);
         
+        // Send immediate ACK for voice messages
+        await sendAck(chatId, { type: 'voice_processing' });
+        
         // ═══════════ NEW: Transcribe first to detect if it's a command ═══════════
         console.log(`🔄 Step 1: Transcribing to detect intent...`);
         const audioBuffer = await downloadFile(audioData.downloadUrl);
@@ -2128,8 +2156,9 @@ async function handleOutgoingMessage(webhookData) {
                   }
                   
                   // Re-route with the quoted message content
+                  // Use quotedResult.prompt (merged text) instead of quotedText (original only)
                   const retryNormalized = {
-                    userText: quotedText,
+                    userText: `# ${quotedResult.prompt}`,
                     hasImage: quotedResult.hasImage,
                     hasVideo: quotedResult.hasVideo,
                     hasAudio: quotedResult.hasAudio,
@@ -2593,11 +2622,14 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ TEXT-TO-SPEECH ═══════════════════
             case 'text_to_speech': {
+              // Ensure decision.args.prompt contains the full prompt for retry functionality
+              decision.args.prompt = prompt;
               saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'text_to_speech' });
               
               // Parse the TTS request to check if translation is needed
-              const originalText = decision.args?.text || prompt;
+              // Use full prompt (not decision.args.text) to include quoted message text
+              const originalText = prompt;
               const parseResult = await parseTextToSpeechRequest(originalText);
               
               let textToSpeak = parseResult.text;
