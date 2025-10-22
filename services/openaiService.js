@@ -358,15 +358,16 @@ async function generateVideoWithSora(prompt, options = {}) {
         // Default options
         const model = options.model || 'sora-2'; // sora-2 or sora-2-pro
         const size = options.size || '1280x720'; // 1280x720 or 1920x1080 (high res for sora-2-pro)
-        const seconds = options.seconds || 10; // Up to 12 seconds
+        const seconds = options.seconds || 8; // Supported values: 4, 8, or 12
         
         console.log(`   Model: ${model}, Size: ${size}, Seconds: ${seconds}s`);
         
-        // Validate parameters
+        // Validate parameters - only 4, 8, or 12 seconds are supported
         let validSeconds = seconds;
-        if (seconds > 12) {
-            console.log('⚠️ Duration capped at 12 seconds');
-            validSeconds = 12;
+        const supportedDurations = [4, 8, 12];
+        if (!supportedDurations.includes(Number(seconds))) {
+            console.log(`⚠️ Invalid duration ${seconds}s. Using 8 seconds (supported: 4, 8, 12)`);
+            validSeconds = 8;
         }
         
         // Create video generation job using SDK
@@ -448,15 +449,16 @@ async function generateVideoWithSoraForWhatsApp(prompt, req = null, options = {}
         // Default options
         const model = options.model || 'sora-2'; // sora-2 or sora-2-pro
         const size = options.size || '1280x720'; // 1280x720 or 1920x1080 (high res for sora-2-pro)
-        const seconds = options.seconds || 10; // Up to 12 seconds
+        const seconds = options.seconds || 8; // Supported values: 4, 8, or 12
         
         console.log(`   Model: ${model}, Size: ${size}, Seconds: ${seconds}s`);
         
-        // Validate parameters
+        // Validate parameters - only 4, 8, or 12 seconds are supported
         let validSeconds = seconds;
-        if (seconds > 12) {
-            console.log('⚠️ Duration capped at 12 seconds');
-            validSeconds = 12;
+        const supportedDurations = [4, 8, 12];
+        if (!supportedDurations.includes(Number(seconds))) {
+            console.log(`⚠️ Invalid duration ${seconds}s. Using 8 seconds (supported: 4, 8, 12)`);
+            validSeconds = 8;
         }
         
         // Create video generation job using SDK
