@@ -338,9 +338,13 @@ async function routeIntent(input) {
       // Supports both "veo 3" and "veo 3.1" (same for Hebrew)
       const wantsVeo3 = /\bveo\s*3(\.1)?\b|ויאו\s*3(\.1)?|וו[יא]ו\s*3(\.1)?/i.test(prompt);
       const wantsKling = /\bkling\b|קלינג/i.test(prompt);
+      const wantsSora = /\bsora\s*2?\b|סורה\s*2?/i.test(prompt);
       
       if (wantsVeo3) {
         return { tool: 'veo3_video', args: { prompt }, reason: 'Video-like request, user requested Veo3' };
+      }
+      if (wantsSora) {
+        return { tool: 'sora_video', args: { prompt }, reason: 'Video-like request, user requested Sora 2' };
       }
       if (wantsKling) {
         return { tool: 'kling_text_to_video', args: { prompt }, reason: 'Video-like request, user requested Kling' };
@@ -391,7 +395,7 @@ function validateDecision(obj) {
   const reason = typeof obj.reason === 'string' ? obj.reason : '';
   const allowedTools = new Set([
     'gemini_image', 'openai_image', 'grok_image',
-    'veo3_video', 'kling_text_to_video', 'veo3_image_to_video', 'kling_image_to_video', 'video_to_video',
+    'veo3_video', 'sora_video', 'kling_text_to_video', 'veo3_image_to_video', 'kling_image_to_video', 'video_to_video',
     'image_edit', 'text_to_speech', 'gemini_chat', 'openai_chat', 'grok_chat',
     'chat_summary', 'music_generation', 'create_poll', 'creative_voice_processing', 'voice_cloning_response', 'show_help', 'create_group', 'retry_last_command', 'deny_unauthorized', 'ask_clarification'
   ]);
@@ -557,6 +561,7 @@ ${JSON.stringify(payload, null, 2)}
       Keywords (including typos): "וידאו", "וידיאו", "וודאו", "ווידאו", "video", "vidio", "vedio", "vidoe", "סרט", "אנימציה", "קליפ", "clip", "animate", "motion"
       STEP B: Check model preference:
         - Mentions "veo"/"Veo"/"VEO"/"veo 3"/"veo 3.1"/"Veo 3.1"/"veo3"/"veo3.1" (any case, with/without space) → "veo3_video"
+        - Mentions "sora"/"Sora"/"SORA"/"sora 2"/"Sora 2"/"סורה"/"סורה 2" (any case, with/without space) → "sora_video"
         - Otherwise → "kling_text_to_video" (default)
       ⚠️ False positives: "videographer", "clipboard", "eclipse" are NOT video requests
    

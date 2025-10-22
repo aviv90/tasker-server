@@ -3,7 +3,7 @@ const router = express.Router();
 const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory, getMessage, sendPoll } = require('../services/greenApiService');
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const { cleanPromptFromProviders } = require('../utils/promptCleaner');
-const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage } = require('../services/openaiService');
+const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage, generateVideoWithSoraForWhatsApp } = require('../services/openaiService');
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, analyzeVideoWithText, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary, parseMusicRequest, parseTextToSpeechRequest, translateText, generateCreativePoll } = require('../services/geminiService');
 const { generateTextResponse: generateGrokResponse, generateImageForWhatsApp: generateGrokImage } = require('../services/grokService');
 const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage, generateVideoFromVideoForWhatsApp: generateRunwayVideoFromVideo, generateVideoWithTextForWhatsApp: generateKlingVideoFromText } = require('../services/replicateService');
@@ -252,6 +252,9 @@ async function sendAck(chatId, command) {
     // ═══════════════════ VIDEO GENERATION ═══════════════════
     case 'veo3_video':
       ackMessage = '🎬 קיבלתי! יוצר וידאו עם Veo 3.1...';
+      break;
+    case 'sora_video':
+      ackMessage = '🎬 קיבלתי! יוצר וידאו עם Sora 2...';
       break;
     case 'kling_text_to_video':
       ackMessage = '🎬 קיבלתי! יוצר וידאו עם Kling AI...';
@@ -1230,6 +1233,19 @@ async function handleIncomingMessage(webhookData) {
               return;
             }
             
+            case 'sora_video': {
+              saveLastCommand(chatId, decision, { normalized });
+              await sendAck(chatId, { type: 'sora_video' });
+              const videoResult = await generateVideoWithSoraForWhatsApp(prompt);
+              if (videoResult.success && videoResult.videoUrl) {
+                const fileName = videoResult.fileName || `sora_video_${Date.now()}.mp4`;
+                await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
+              } else {
+                await sendTextMessage(chatId, `❌ ${videoResult.error || 'לא הצלחתי ליצור וידאו'}`);
+              }
+              return;
+            }
+            
             case 'kling_text_to_video': {
               saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'kling_text_to_video' });
@@ -1496,13 +1512,29 @@ async function handleIncomingMessage(webhookData) {
             }
             
             case 'veo3_video':
+            case 'sora_video':
             case 'kling_text_to_video': {
-              const service = decision.tool === 'veo3_video' ? 'veo3' : 'kling';
+              let service;
+              if (decision.tool === 'veo3_video') {
+                service = 'veo3';
+              } else if (decision.tool === 'sora_video') {
+                service = 'sora';
+              } else {
+                service = 'kling';
+              }
               console.log(`🎬 ${service} text-to-video request (incoming)`);
               await sendAck(chatId, { type: decision.tool });
               
               // Text-to-video
-              const videoGenFunction = service === 'veo3' ? generateVideoForWhatsApp : generateKlingVideoFromText;
+              let videoGenFunction;
+              if (service === 'veo3') {
+                videoGenFunction = generateVideoForWhatsApp;
+              } else if (service === 'sora') {
+                videoGenFunction = generateVideoWithSoraForWhatsApp;
+              } else {
+                videoGenFunction = generateKlingVideoFromText;
+              }
+              
               const result = await videoGenFunction(prompt);
               
               if (result.error) {

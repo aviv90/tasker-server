@@ -342,4 +342,215 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
     }
 }
 
-module.exports = { generateImageWithText, editImageWithText, generateTextResponse, generateImageForWhatsApp, editImageForWhatsApp };
+/**
+ * Generate video using Sora 2 from text prompt
+ * @param {string} prompt - Video description
+ * @param {Object} options - Video generation options (model, resolution, duration)
+ * @returns {Promise<Object>} - Video generation result
+ */
+async function generateVideoWithSora(prompt, options = {}) {
+    try {
+        console.log('🎬 Starting Sora 2 video generation');
+        
+        // Sanitize prompt
+        const cleanPrompt = sanitizeText(prompt);
+        
+        // Default options
+        const model = options.model || 'sora-2'; // sora-2 or sora-2-pro
+        const resolution = options.resolution || '720p'; // 720p or 1024p (1024p only for sora-2-pro)
+        const duration = options.duration || 10; // Up to 12 seconds
+        
+        console.log(`   Model: ${model}, Resolution: ${resolution}, Duration: ${duration}s`);
+        
+        // Validate parameters
+        if (model === 'sora-2' && resolution === '1024p') {
+            console.log('⚠️ 1024p only available for sora-2-pro, falling back to 720p');
+            resolution = '720p';
+        }
+        
+        if (duration > 12) {
+            console.log('⚠️ Duration capped at 12 seconds');
+            duration = 12;
+        }
+        
+        // Create video generation job
+        const response = await openai.videos.create({
+            model: model,
+            prompt: cleanPrompt,
+            resolution: resolution,
+            duration: duration
+        });
+        
+        const jobId = response.id;
+        console.log(`📋 Job created: ${jobId}`);
+        
+        // Poll for completion
+        console.log('⏳ Waiting for video generation to complete...');
+        const maxWaitTime = 10 * 60 * 1000; // 10 minutes
+        const startTime = Date.now();
+        let pollAttempts = 0;
+        
+        let status;
+        while (true) {
+            if (Date.now() - startTime > maxWaitTime) {
+                console.error('❌ Sora 2 video generation timed out');
+                return { error: 'Video generation timed out after 10 minutes' };
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+            pollAttempts++;
+            console.log(`🔄 Polling attempt ${pollAttempts} for Sora 2 video generation`);
+            
+            status = await openai.videos.retrieve(jobId);
+            
+            if (status.status === 'completed') {
+                break;
+            } else if (status.status === 'failed') {
+                console.error('❌ Sora 2 video generation failed');
+                return { error: status.error || 'Video generation failed' };
+            }
+        }
+        
+        console.log('✅ Video generation completed');
+        
+        // Download video
+        const videoData = await openai.videos.download(jobId);
+        const videoBuffer = Buffer.from(videoData);
+        
+        console.log('✅ Sora 2 video generated successfully');
+        return { 
+            text: cleanPrompt, 
+            videoBuffer: videoBuffer 
+        };
+    } catch (err) {
+        console.error('❌ Sora 2 video generation error:', err);
+        throw err;
+    }
+}
+
+/**
+ * Generate video using Sora 2 for WhatsApp (with URL)
+ * @param {string} prompt - Video description
+ * @param {Object} req - Express request object (for URL generation)
+ * @param {Object} options - Video generation options (model, resolution, duration)
+ * @returns {Promise<Object>} - Video generation result with URL
+ */
+async function generateVideoWithSoraForWhatsApp(prompt, req = null, options = {}) {
+    try {
+        console.log('🎬 Starting Sora 2 video generation for WhatsApp');
+        
+        // Sanitize prompt
+        const cleanPrompt = sanitizeText(prompt);
+        
+        // Default options
+        const model = options.model || 'sora-2'; // sora-2 or sora-2-pro
+        const resolution = options.resolution || '720p'; // 720p or 1024p (1024p only for sora-2-pro)
+        const duration = options.duration || 10; // Up to 12 seconds
+        
+        console.log(`   Model: ${model}, Resolution: ${resolution}, Duration: ${duration}s`);
+        
+        // Validate parameters
+        let validResolution = resolution;
+        if (model === 'sora-2' && resolution === '1024p') {
+            console.log('⚠️ 1024p only available for sora-2-pro, falling back to 720p');
+            validResolution = '720p';
+        }
+        
+        let validDuration = duration;
+        if (duration > 12) {
+            console.log('⚠️ Duration capped at 12 seconds');
+            validDuration = 12;
+        }
+        
+        // Create video generation job
+        const response = await openai.videos.create({
+            model: model,
+            prompt: cleanPrompt,
+            resolution: validResolution,
+            duration: validDuration
+        });
+        
+        const jobId = response.id;
+        console.log(`📋 Job created: ${jobId}`);
+        
+        // Poll for completion
+        console.log('⏳ Waiting for video generation to complete...');
+        const maxWaitTime = 10 * 60 * 1000; // 10 minutes
+        const startTime = Date.now();
+        let pollAttempts = 0;
+        
+        let status;
+        while (true) {
+            if (Date.now() - startTime > maxWaitTime) {
+                console.error('❌ Sora 2 video generation timed out');
+                return { 
+                    success: false, 
+                    error: 'Video generation timed out after 10 minutes' 
+                };
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+            pollAttempts++;
+            console.log(`🔄 Polling attempt ${pollAttempts} for Sora 2 video generation`);
+            
+            status = await openai.videos.retrieve(jobId);
+            
+            if (status.status === 'completed') {
+                break;
+            } else if (status.status === 'failed') {
+                console.error('❌ Sora 2 video generation failed');
+                return { 
+                    success: false, 
+                    error: status.error || 'Video generation failed' 
+                };
+            }
+        }
+        
+        console.log('✅ Video generation completed');
+        
+        // Download video
+        const videoData = await openai.videos.download(jobId);
+        const videoBuffer = Buffer.from(videoData);
+        
+        // Save video to tmp folder
+        const fileName = `sora2_video_${uuidv4()}.mp4`;
+        const filePath = path.join(__dirname, '..', 'public', 'tmp', fileName);
+        const tmpDir = path.dirname(filePath);
+        
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        
+        fs.writeFileSync(filePath, videoBuffer);
+        
+        // Create public URL
+        const videoUrl = getStaticFileUrl(fileName, req);
+        
+        console.log('✅ Sora 2 video generated successfully');
+        console.log(`🎬 Video saved to: ${filePath}`);
+        console.log(`🔗 Public URL: ${videoUrl}`);
+        
+        return { 
+            success: true,
+            videoUrl: videoUrl,
+            description: cleanPrompt,
+            fileName: fileName
+        };
+    } catch (err) {
+        console.error('❌ Sora 2 video generation error:', err);
+        return { 
+            success: false, 
+            error: err.message || 'Unknown error occurred during video generation' 
+        };
+    }
+}
+
+module.exports = { 
+    generateImageWithText, 
+    editImageWithText, 
+    generateTextResponse, 
+    generateImageForWhatsApp, 
+    editImageForWhatsApp,
+    generateVideoWithSora,
+    generateVideoWithSoraForWhatsApp
+};
