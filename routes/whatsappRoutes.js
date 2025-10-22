@@ -254,8 +254,8 @@ async function sendAck(chatId, command) {
       ackMessage = '🎬 קיבלתי! יוצר וידאו עם Veo 3.1...';
       break;
     case 'sora_video':
-      // Check if using Pro model from decision args
-      ackMessage = decision.args?.model === 'sora-2-pro' 
+      // Check if using Pro model from command.model
+      ackMessage = command.model === 'sora-2-pro' 
         ? '🎬 קיבלתי! יוצר וידאו עם Sora 2 Pro...' 
         : '🎬 קיבלתי! יוצר וידאו עם Sora 2...';
       break;
@@ -1238,7 +1238,7 @@ async function handleIncomingMessage(webhookData) {
             
             case 'sora_video': {
               saveLastCommand(chatId, decision, { normalized });
-              await sendAck(chatId, { type: 'sora_video' });
+              await sendAck(chatId, { type: 'sora_video', model: decision.args?.model });
               // Pass model from decision args (defaults to sora-2 in the function)
               const options = decision.args?.model ? { model: decision.args.model } : {};
               const videoResult = await generateVideoWithSoraForWhatsApp(prompt, null, options);
@@ -2656,7 +2656,7 @@ async function handleOutgoingMessage(webhookData) {
             }
             case 'sora_video': {
               saveLastCommand(chatId, decision, { normalized });
-              await sendAck(chatId, { type: 'sora_video' });
+              await sendAck(chatId, { type: 'sora_video', model: decision.args?.model });
               // Pass model from decision args (defaults to sora-2 in the function)
               const options = decision.args?.model ? { model: decision.args.model } : {};
               const videoResult = await generateVideoWithSoraForWhatsApp(prompt, null, options);
