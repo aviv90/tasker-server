@@ -1245,7 +1245,7 @@ async function generateVideoFromImageForWhatsApp(prompt, imageBuffer, req = null
  * Generate text response using Gemini with conversation history support
  * @param {string} prompt - User input text
  * @param {Array} conversationHistory - Previous messages in conversation
- * @param {Object} options - Additional options
+ * @param {Object} options - Additional options (model, useGoogleSearch)
  * @returns {Object} - Response with generated text
  */
 async function generateTextResponse(prompt, conversationHistory = [], options = {}) {
@@ -1254,6 +1254,12 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         
         // Sanitize prompt
         const cleanPrompt = sanitizeText(prompt);
+        
+        // Check if Google Search should be enabled
+        const useGoogleSearch = options.useGoogleSearch === true;
+        if (useGoogleSearch) {
+            console.log('🔍 Google Search enabled for this request');
+        }
         
         const model = genAI.getGenerativeModel({ 
             model: options.model || "gemini-2.5-flash" 
@@ -1316,8 +1322,21 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
 
         console.log(`🔮 Gemini processing (${Array.isArray(conversationHistory) ? conversationHistory.length : 0} context messages)`);
 
-        // Generate response with history
-        const result = await model.generateContent({ contents });
+        // Build generation config
+        const generationConfig = {};
+        
+        // Add Google Search tool if requested
+        if (useGoogleSearch) {
+            generationConfig.tools = [{
+                googleSearch: {}
+            }];
+        }
+        
+        // Generate response with history (and optionally Google Search)
+        const result = await model.generateContent({ 
+            contents,
+            ...(Object.keys(generationConfig).length > 0 ? generationConfig : {})
+        });
         const response = result.response;
         
         if (!response.candidates || response.candidates.length === 0) {

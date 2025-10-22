@@ -105,7 +105,9 @@ async function routeIntent(input) {
     if (isAnalysisRequest) {
       // Check if user wants to reference previous messages in the analysis
       const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
-      return { tool: 'gemini_chat', args: { prompt, needsChatHistory }, reason: 'Image analysis/question' };
+      // Check for Google Search request
+      const needsGoogleSearch = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
+      return { tool: 'gemini_chat', args: { prompt, needsChatHistory, useGoogleSearch: needsGoogleSearch }, reason: 'Image analysis/question' };
     }
     
     // Third priority: Check if it's an edit command (requires authorization)
@@ -133,7 +135,9 @@ async function routeIntent(input) {
     // This is safer than defaulting to edit
     // Check if user wants to reference previous messages in the analysis
     const needsChatHistoryDefault = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
-    return { tool: 'gemini_chat', args: { prompt, needsChatHistory: needsChatHistoryDefault }, reason: 'Image-related request (default to analysis)' };
+    // Check for Google Search request
+    const needsGoogleSearchDefault = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
+    return { tool: 'gemini_chat', args: { prompt, needsChatHistory: needsChatHistoryDefault, useGoogleSearch: needsGoogleSearchDefault }, reason: 'Image-related request (default to analysis)' };
   }
 
   // If there is an attached video with text prompt → decide between video analysis vs video-to-video
@@ -144,7 +148,9 @@ async function routeIntent(input) {
     if (isAnalysisRequest) {
       // Check if user wants to reference previous messages in the analysis
       const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
-      return { tool: 'gemini_chat', args: { prompt, needsChatHistory }, reason: 'Video analysis/question' };
+      // Check for Google Search request
+      const needsGoogleSearch = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
+      return { tool: 'gemini_chat', args: { prompt, needsChatHistory, useGoogleSearch: needsGoogleSearch }, reason: 'Video analysis/question' };
     }
     
     // Second priority: Video-to-video editing (requires authorization)
@@ -162,7 +168,9 @@ async function routeIntent(input) {
     // This is safer than defaulting to edit
     // Check if user wants to reference previous messages in the analysis
     const needsChatHistoryVideoDefault = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
-    return { tool: 'gemini_chat', args: { prompt, needsChatHistory: needsChatHistoryVideoDefault }, reason: 'Video-related request (default to analysis)' };
+    // Check for Google Search request
+    const needsGoogleSearchVideoDefault = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
+    return { tool: 'gemini_chat', args: { prompt, needsChatHistory: needsChatHistoryVideoDefault, useGoogleSearch: needsGoogleSearchVideoDefault }, reason: 'Video-related request (default to analysis)' };
   }
 
   // If there is an attached audio/voice note with text prompt → decide between creative mix, voice response, or general request
@@ -196,7 +204,9 @@ async function routeIntent(input) {
     // Third priority: General requests (transcription, translation, etc.) - route to gemini_chat
     // These will need transcription first, then processing
     const needsChatHistoryAudio = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
-    return { tool: 'gemini_chat', args: { prompt, needsChatHistory: needsChatHistoryAudio, needsTranscription: true }, reason: 'Audio with general request (transcribe + process)' };
+    // Check for Google Search request
+    const needsGoogleSearchAudio = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
+    return { tool: 'gemini_chat', args: { prompt, needsChatHistory: needsChatHistoryAudio, needsTranscription: true, useGoogleSearch: needsGoogleSearchAudio }, reason: 'Audio with general request (transcribe + process)' };
   }
 
   // If there is an attached image WITHOUT prompt → ignore (no automatic analysis)
@@ -221,6 +231,11 @@ async function routeIntent(input) {
     const isCreateGroup = /צור.*קבוצה|צר.*קבוצה|יצירת.*קבוצה|פתח.*קבוצה|פתיחת.*קבוצה|הקם.*קבוצה|הקמת.*קבוצה|create.*group|creat.*group|new.*group|open.*group|start.*group|קבוצה.*חדשה/i.test(prompt);
     const isRetry = /^(נסה\s+שוב|נסא\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)|^#\s*(נסה\s+שוב|נסא\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)/i.test(prompt);
     const isPoll = /צור.*סקר|צר.*סקר|יצירת.*סקר|סקר.*על|סקר.*בנושא|הכן.*סקר|create.*poll|creat.*poll|make.*poll|poll.*about|new.*poll/i.test(prompt);
+    
+    // Check for Google Search request (explicit search or link requests)
+    // Hebrew: חפש באינטרנט, עשה חיפוש, תחפש ברשת, תן לי לינקים, שלח לינקים ל, לינק ל
+    // English: search the web, search online, search google, give me links, send links to, link to
+    const needsGoogleSearch = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
     
     // Debug: log intent detection
     console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} Music:${isMusic} TTS:${isTtsLike} Retry:${isRetry} Poll:${isPoll}`);
@@ -347,16 +362,16 @@ async function routeIntent(input) {
     const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
     
     if (wantsOpenAI) {
-      return { tool: 'openai_chat', args: { prompt, needsChatHistory }, reason: 'Chat request, user requested OpenAI' };
+      return { tool: 'openai_chat', args: { prompt, needsChatHistory, useGoogleSearch: needsGoogleSearch }, reason: 'Chat request, user requested OpenAI' };
     }
     if (wantsGrok) {
-      return { tool: 'grok_chat', args: { prompt, needsChatHistory }, reason: 'Chat request, user requested Grok' };
+      return { tool: 'grok_chat', args: { prompt, needsChatHistory, useGoogleSearch: needsGoogleSearch }, reason: 'Chat request, user requested Grok' };
     }
     if (wantsGemini) {
-      return { tool: 'gemini_chat', args: { prompt, needsChatHistory }, reason: 'Chat request, user requested Gemini' };
+      return { tool: 'gemini_chat', args: { prompt, needsChatHistory, useGoogleSearch: needsGoogleSearch }, reason: 'Chat request, user requested Gemini' };
     }
     // Default to Gemini
-    return { tool: 'gemini_chat', args: { prompt, needsChatHistory }, reason: 'Default to chat' };
+    return { tool: 'gemini_chat', args: { prompt, needsChatHistory, useGoogleSearch: needsGoogleSearch }, reason: 'Default to chat' };
   }
 
   // No recognized pattern → ask clarification
@@ -596,6 +611,17 @@ ${JSON.stringify(payload, null, 2)}
       - "# לפי ההודעות האחרונות, מה אני צריך לעשות?" → {"tool": "gemini_chat", "args": {"prompt": "...", "needsChatHistory": true}}
       - "# על סמך השיחה, תן לי סיכום" → {"tool": "gemini_chat", "args": {"prompt": "...", "needsChatHistory": true}}
       - "# based on the recent messages, what should I do?" → {"tool": "gemini_chat", "args": {"prompt": "...", "needsChatHistory": true}}
+      
+      🌐 **GOOGLE SEARCH** (applies to ALL chat tools):
+      If the user explicitly requests web search or links, set useGoogleSearch=true in args:
+      Hebrew patterns: "חפש באינטרנט", "חפש ברשת", "חפש בגוגל", "עשה חיפוש", "תן לי לינקים", "שלח לינקים", "לינק ל"
+      English patterns: "search the web", "search online", "search google", "give me links", "send links", "link to"
+      
+      Examples with Google Search:
+      - "# חפש באינטרנט מה זה מודל Gemini 2.5 Flash" → {"tool": "gemini_chat", "args": {"prompt": "...", "useGoogleSearch": true}}
+      - "# תן לי לינקים לשירים של הביטלס ביוטיוב" → {"tool": "gemini_chat", "args": {"prompt": "...", "useGoogleSearch": true}}
+      - "# search the web for latest AI news" → {"tool": "gemini_chat", "args": {"prompt": "...", "useGoogleSearch": true}}
+      - "# give me links to python tutorials" → {"tool": "gemini_chat", "args": {"prompt": "...", "useGoogleSearch": true}}
 
 🎯 **CRITICAL EXAMPLES:**
 

@@ -1053,7 +1053,9 @@ async function handleIncomingMessage(webhookData) {
                   
                   const contextMessages = await conversationManager.getConversationHistory(chatId);
                   await conversationManager.addMessage(chatId, 'user', fullPrompt);
-                  const result = await generateGeminiResponse(fullPrompt, contextMessages);
+                  // Check if Google Search should be used
+                  const useGoogleSearchAudio = decision.args?.useGoogleSearch === true;
+                  const result = await generateGeminiResponse(fullPrompt, contextMessages, { useGoogleSearch: useGoogleSearchAudio });
                   
                   if (!result.error) {
                     await conversationManager.addMessage(chatId, 'assistant', result.text);
@@ -1093,7 +1095,9 @@ async function handleIncomingMessage(webhookData) {
                 
                 const contextMessages = await conversationManager.getConversationHistory(chatId);
                 await conversationManager.addMessage(chatId, 'user', finalPrompt);
-                const result = await generateGeminiResponse(finalPrompt, contextMessages);
+                // Check if Google Search should be used
+                const useGoogleSearch = decision.args?.useGoogleSearch === true;
+                const result = await generateGeminiResponse(finalPrompt, contextMessages, { useGoogleSearch });
                 if (!result.error) {
                   await conversationManager.addMessage(chatId, 'assistant', result.text);
                   await sendTextMessage(chatId, result.text);
@@ -2492,7 +2496,9 @@ async function handleOutgoingMessage(webhookData) {
                   
                   const contextMessages = await conversationManager.getConversationHistory(chatId);
                   await conversationManager.addMessage(chatId, 'user', fullPrompt);
-                  const result = await generateGeminiResponse(fullPrompt, contextMessages);
+                  // Check if Google Search should be used
+                  const useGoogleSearchOutgoingAudio = decision.args?.useGoogleSearch === true;
+                  const result = await generateGeminiResponse(fullPrompt, contextMessages, { useGoogleSearch: useGoogleSearchOutgoingAudio });
                   
                   if (!result.error) {
                     await conversationManager.addMessage(chatId, 'assistant', result.text);
@@ -2532,7 +2538,9 @@ async function handleOutgoingMessage(webhookData) {
                 
                 const contextMessages = await conversationManager.getConversationHistory(chatId);
                 await conversationManager.addMessage(chatId, 'user', finalPromptOutgoing);
-                const result = await generateGeminiResponse(finalPromptOutgoing, contextMessages);
+                // Check if Google Search should be used
+                const useGoogleSearchOutgoing = decision.args?.useGoogleSearch === true;
+                const result = await generateGeminiResponse(finalPromptOutgoing, contextMessages, { useGoogleSearch: useGoogleSearchOutgoing });
                 if (!result.error) {
                   await conversationManager.addMessage(chatId, 'assistant', result.text);
                   await sendTextMessage(chatId, result.text);
