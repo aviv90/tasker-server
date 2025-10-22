@@ -214,8 +214,8 @@ async function routeIntent(input) {
     // Includes common typos for better UX
     const isImageLike = /\b(image|imge|imagee|poster|illustration|render)\b|תמונה|תמונא|תמונת|ציור|צייור|תצלום|לוגו|איור|צייר|ציירי|צייירי/i.test(prompt);
     const isVideoLike = /\b(video|vidio|vedio|vidoe|clip|animate|motion)\b|וידאו|וידיאו|וודאו|ווידאו|וידיו|סרט|אנימציה|קליפ/i.test(prompt);
-    const isTtsLike = /\b(speech|speach|tts)\b|קרא|הקרא|הקריא|הקראת|דיבור|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text\s*to\s*speech|אמור|אמר/i.test(prompt);
-    const isSummary = /\b(summary|summery|sumary)\b|סכם|סיכום|לסכם|סכום/i.test(prompt);
+    const isTtsLike = /\b(speech|speach|tts)\b|^קרא\b|^הקרא\b|^הקריא\b|^הקראת\b|דיבור|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text\s*to\s*speech|אמור|אמר/i.test(prompt);
+    const isSummary = /\b(summary|summery|sumary)\b|סכם|סיכום|לסכם|סכום|תמצת|תמצה|תמצה.*את|תמצת.*את|תמצה.*מה|תמצת.*מה/i.test(prompt);
     const isMusic = /\b(suno|music|song|musik)\b|שיר|מוזיקה|מוסיקה|שירון|שיירון/i.test(prompt);
     const isHelp = /\b(commands|comands|list|help|capabilities)\b|פקודות|פיקודות|רשימת|רשימה|עזרה|אילו|מה\s+אפשר|what\s+can/i.test(prompt);
     const isCreateGroup = /צור.*קבוצה|צר.*קבוצה|יצירת.*קבוצה|פתח.*קבוצה|פתיחת.*קבוצה|הקם.*קבוצה|הקמת.*קבוצה|create.*group|creat.*group|new.*group|open.*group|start.*group|קבוצה.*חדשה/i.test(prompt);
@@ -552,7 +552,7 @@ ${JSON.stringify(payload, null, 2)}
       ⚠️ False positives: "speechless", "freedom" are NOT TTS requests
    
    📝 **Chat Summary:**
-      Keywords (including typos): "סכם", "סיכום", "סכום", "summary", "summery", "sumary", "לסכם", "summarize"
+      Keywords (including typos): "סכם", "סיכום", "סכום", "תמצת", "תמצה", "summary", "summery", "sumary", "לסכם", "summarize"
       → "chat_summary"
    
    🔄 **Retry Last Command:**
@@ -683,6 +683,9 @@ ${JSON.stringify(payload, null, 2)}
    ✅ CHAT SUMMARY:
    Input: {"userText": "# סכם את השיחה", "hasImage": false, "hasVideo": false}
    Output: {"tool": "chat_summary", "args": {"prompt": "סכם את השיחה"}, "reason": "Summary request"}
+   
+   Input: {"userText": "# תמצת את מה שכתבת", "hasImage": false, "hasVideo": false}
+   Output: {"tool": "chat_summary", "args": {"prompt": "תמצת את מה שכתבת"}, "reason": "Summary request"}
    
    Input: {"userText": "# summarize", "hasImage": false, "hasVideo": false}
    Output: {"tool": "chat_summary", "args": {"prompt": "summarize"}, "reason": "Summary request"}
