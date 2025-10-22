@@ -219,7 +219,7 @@ async function routeIntent(input) {
     const isMusic = /\b(suno|music|song|musik)\b|שיר|מוזיקה|מוסיקה|שירון|שיירון/i.test(prompt);
     const isHelp = /\b(commands|comands|list|help|capabilities)\b|פקודות|פיקודות|רשימת|רשימה|עזרה|אילו|מה\s+אפשר|what\s+can/i.test(prompt);
     const isCreateGroup = /צור.*קבוצה|צר.*קבוצה|יצירת.*קבוצה|פתח.*קבוצה|פתיחת.*קבוצה|הקם.*קבוצה|הקמת.*קבוצה|create.*group|creat.*group|new.*group|open.*group|start.*group|קבוצה.*חדשה/i.test(prompt);
-    const isRetry = /^(נסה\s+שוב|נסא\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)\b/i.test(prompt);
+    const isRetry = /^(נסה\s+שוב|נסא\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)|^#\s*(נסה\s+שוב|נסא\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)/i.test(prompt);
     const isPoll = /צור.*סקר|צר.*סקר|יצירת.*סקר|סקר.*על|סקר.*בנושא|הכן.*סקר|create.*poll|creat.*poll|make.*poll|poll.*about|new.*poll/i.test(prompt);
     
     // Debug: log intent detection
@@ -563,7 +563,9 @@ ${JSON.stringify(payload, null, 2)}
    📊 **Poll Creation:**
       Keywords (including typos): "צור סקר", "צר סקר", "יצירת סקר", "סקר על", "סקר בנושא", "הכן סקר", "create poll", "creat poll", "make poll", "poll about", "new poll"
       → "create_poll"
-      💡 Note: Creates a creative poll with 2 rhyming options about the given topic
+      💡 Note: Creates a creative poll with 2-4 options about the given topic. 
+         Default: rhyming options. 
+         Special: If user requests "ללא חרוזים", "בלי חריזה", "לא חרוזים", "without rhyme", "no rhymes" → creates poll WITHOUT rhyming
    
    👥 **Group Creation:**
       Keywords (including typos): "צור קבוצה", "צר קבוצה", "יצירת קבוצה", "פתח קבוצה", "פתיחת קבוצה", "הקם קבוצה", "הקמת קבוצה", "create group", "creat group", "new group", "open group", "start group", "קבוצה חדשה"
@@ -688,6 +690,9 @@ ${JSON.stringify(payload, null, 2)}
    ✅ POLL CREATION:
    Input: {"userText": "# צור סקר על חתולים", "hasImage": false, "hasVideo": false}
    Output: {"tool": "create_poll", "args": {"prompt": "צור סקר על חתולים"}, "reason": "Poll creation"}
+   
+   Input: {"userText": "# צור סקר ללא חרוזים על נכסים", "hasImage": false, "hasVideo": false}
+   Output: {"tool": "create_poll", "args": {"prompt": "צור סקר ללא חרוזים על נכסים"}, "reason": "Poll creation (no rhyme)"}
    
    Input: {"userText": "# סקר בנושא פיצה", "hasImage": false, "hasVideo": false}
    Output: {"tool": "create_poll", "args": {"prompt": "סקר בנושא פיצה"}, "reason": "Poll creation"}

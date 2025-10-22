@@ -1376,13 +1376,15 @@ async function handleIncomingMessage(webhookData) {
               saveLastCommand(chatId, decision, { normalized });
               
               // Check if user explicitly requested NO rhyming
-              const noRhymePatterns = /\b(בלי|ללא|לא|without|no)\s+(חריזה|חרוזים|rhyme|rhymes|rhyming)\b/i;
+              // Note: \b word boundaries don't work with Hebrew, so we use a more flexible pattern
+              const noRhymePatterns = /(בלי|ללא|לא|without|no)\s+(חריזה|חרוזים|rhyme|rhymes|rhyming)/i;
               const withRhyme = !noRhymePatterns.test(prompt);
               
               await sendAck(chatId, { type: 'create_poll', withRhyme });
               
               // Extract topic from prompt (remove "צור סקר על/בנושא" etc.)
               let topic = prompt
+                .replace(/^#\s*/, '') // Remove # prefix first
                 .replace(/^(צור|יצר|הכן|create|make)\s+(סקר|poll)\s+(על|בנושא|about)?\s*/i, '')
                 .replace(noRhymePatterns, '') // Remove "בלי חריזה" etc. from topic
                 .trim();
@@ -2734,13 +2736,15 @@ async function handleOutgoingMessage(webhookData) {
             // ═══════════════════ POLL CREATION ═══════════════════
             case 'create_poll': {
               // Check if user explicitly requested NO rhyming
-              const noRhymePatterns = /\b(בלי|ללא|לא|without|no)\s+(חריזה|חרוזים|rhyme|rhymes|rhyming)\b/i;
+              // Note: \b word boundaries don't work with Hebrew, so we use a more flexible pattern
+              const noRhymePatterns = /(בלי|ללא|לא|without|no)\s+(חריזה|חרוזים|rhyme|rhymes|rhyming)/i;
               const withRhyme = !noRhymePatterns.test(prompt);
               
               await sendAck(chatId, { type: 'create_poll', withRhyme });
               
               // Extract topic from prompt
               let topic = prompt
+                .replace(/^#\s*/, '') // Remove # prefix first
                 .replace(/^(צור|יצר|הכן|create|make)\s+(סקר|poll)\s+(על|בנושא|about)?\s*/i, '')
                 .replace(noRhymePatterns, '') // Remove "בלי חריזה" etc. from topic
                 .trim();
