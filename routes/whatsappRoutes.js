@@ -254,7 +254,10 @@ async function sendAck(chatId, command) {
       ackMessage = '🎬 קיבלתי! יוצר וידאו עם Veo 3.1...';
       break;
     case 'sora_video':
-      ackMessage = '🎬 קיבלתי! יוצר וידאו עם Sora 2...';
+      // Check if using Pro model from decision args
+      ackMessage = decision.args?.model === 'sora-2-pro' 
+        ? '🎬 קיבלתי! יוצר וידאו עם Sora 2 Pro...' 
+        : '🎬 קיבלתי! יוצר וידאו עם Sora 2...';
       break;
     case 'kling_text_to_video':
       ackMessage = '🎬 קיבלתי! יוצר וידאו עם Kling AI...';
@@ -1236,7 +1239,9 @@ async function handleIncomingMessage(webhookData) {
             case 'sora_video': {
               saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'sora_video' });
-              const videoResult = await generateVideoWithSoraForWhatsApp(prompt);
+              // Pass model from decision args (defaults to sora-2 in the function)
+              const options = decision.args?.model ? { model: decision.args.model } : {};
+              const videoResult = await generateVideoWithSoraForWhatsApp(prompt, null, options);
               if (videoResult.success && videoResult.videoUrl) {
                 const fileName = videoResult.fileName || `sora_video_${Date.now()}.mp4`;
                 await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '');
@@ -2652,7 +2657,9 @@ async function handleOutgoingMessage(webhookData) {
             case 'sora_video': {
               saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'sora_video' });
-              const videoResult = await generateVideoWithSoraForWhatsApp(prompt);
+              // Pass model from decision args (defaults to sora-2 in the function)
+              const options = decision.args?.model ? { model: decision.args.model } : {};
+              const videoResult = await generateVideoWithSoraForWhatsApp(prompt, null, options);
               if (videoResult.success && videoResult.videoUrl) {
                 await sendFileByUrl(chatId, videoResult.videoUrl, videoResult.fileName || `sora_video_${Date.now()}.mp4`, '');
               } else {

@@ -338,13 +338,18 @@ async function routeIntent(input) {
       // Supports both "veo 3" and "veo 3.1" (same for Hebrew)
       const wantsVeo3 = /\bveo\s*3(\.1)?\b|ויאו\s*3(\.1)?|וו[יא]ו\s*3(\.1)?/i.test(prompt);
       const wantsKling = /\bkling\b|קלינג/i.test(prompt);
+      // Check for Sora 2 Pro first (more specific), then regular Sora 2
+      const wantsSoraPro = /\bsora\s*2?\s*pro\b|סורה\s*2?\s*פרו|סורה\s*2?\s*pro/i.test(prompt);
       const wantsSora = /\bsora\s*2?\b|סורה\s*2?/i.test(prompt);
       
       if (wantsVeo3) {
         return { tool: 'veo3_video', args: { prompt }, reason: 'Video-like request, user requested Veo3' };
       }
+      if (wantsSoraPro) {
+        return { tool: 'sora_video', args: { prompt, model: 'sora-2-pro' }, reason: 'Video-like request, user requested Sora 2 Pro' };
+      }
       if (wantsSora) {
-        return { tool: 'sora_video', args: { prompt }, reason: 'Video-like request, user requested Sora 2' };
+        return { tool: 'sora_video', args: { prompt, model: 'sora-2' }, reason: 'Video-like request, user requested Sora 2' };
       }
       if (wantsKling) {
         return { tool: 'kling_text_to_video', args: { prompt }, reason: 'Video-like request, user requested Kling' };
@@ -561,7 +566,8 @@ ${JSON.stringify(payload, null, 2)}
       Keywords (including typos): "וידאו", "וידיאו", "וודאו", "ווידאו", "video", "vidio", "vedio", "vidoe", "סרט", "אנימציה", "קליפ", "clip", "animate", "motion"
       STEP B: Check model preference:
         - Mentions "veo"/"Veo"/"VEO"/"veo 3"/"veo 3.1"/"Veo 3.1"/"veo3"/"veo3.1" (any case, with/without space) → "veo3_video"
-        - Mentions "sora"/"Sora"/"SORA"/"sora 2"/"Sora 2"/"סורה"/"סורה 2" (any case, with/without space) → "sora_video"
+        - Mentions "sora 2 pro"/"Sora 2 Pro"/"סורה 2 פרו"/"סורה פרו" (any case, with/without space) → "sora_video" with model="sora-2-pro"
+        - Mentions "sora"/"Sora"/"SORA"/"sora 2"/"Sora 2"/"סורה"/"סורה 2" (any case, with/without space) → "sora_video" with model="sora-2"
         - Otherwise → "kling_text_to_video" (default)
       ⚠️ False positives: "videographer", "clipboard", "eclipse" are NOT video requests
    
