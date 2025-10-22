@@ -2649,6 +2649,17 @@ async function handleOutgoingMessage(webhookData) {
               }
               return;
             }
+            case 'sora_video': {
+              saveLastCommand(chatId, decision, { normalized });
+              await sendAck(chatId, { type: 'sora_video' });
+              const videoResult = await generateVideoWithSoraForWhatsApp(prompt);
+              if (videoResult.success && videoResult.videoUrl) {
+                await sendFileByUrl(chatId, videoResult.videoUrl, videoResult.fileName || `sora_video_${Date.now()}.mp4`, '');
+              } else {
+                await sendTextMessage(chatId, `❌ ${videoResult.error || 'לא הצלחתי ליצור וידאו'}`);
+              }
+              return;
+            }
             case 'kling_text_to_video': {
               await sendAck(chatId, { type: 'kling_text_to_video' });
               saveLastCommand(chatId, decision, { normalized });
