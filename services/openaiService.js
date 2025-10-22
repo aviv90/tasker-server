@@ -345,7 +345,10 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
 /**
  * Generate video using Sora 2 from text prompt
  * @param {string} prompt - Video description
- * @param {Object} options - Video generation options (model, size, seconds)
+ * @param {Object} options - Video generation options:
+ *   - model: 'sora-2' (default) or 'sora-2-pro'
+ *   - size: '720x1280' (portrait, default), '1280x720' (landscape), '1080x1920', '1920x1080', etc.
+ *   - seconds: 4, 8 (default), or 12
  * @returns {Promise<Object>} - Video generation result
  */
 async function generateVideoWithSora(prompt, options = {}) {
@@ -357,7 +360,9 @@ async function generateVideoWithSora(prompt, options = {}) {
         
         // Default options
         const model = options.model || 'sora-2'; // sora-2 or sora-2-pro
-        const size = options.size || '1280x720'; // 1280x720 or 1920x1080 (high res for sora-2-pro)
+        const size = options.size || '720x1280'; // Portrait/vertical by default (אורכי)
+        // Supported: sora-2: 1280x720 (landscape), 720x1280 (portrait)
+        //            sora-2-pro: 1920x1080, 1080x1920, 1792x1024, 1024x1792
         const seconds = options.seconds || 8; // Supported values: 4, 8, or 12
         
         console.log(`   Model: ${model}, Size: ${size}, Seconds: ${seconds}s`);
@@ -436,7 +441,10 @@ async function generateVideoWithSora(prompt, options = {}) {
  * Generate video using Sora 2 for WhatsApp (with URL)
  * @param {string} prompt - Video description
  * @param {Object} req - Express request object (for URL generation)
- * @param {Object} options - Video generation options (model, size, seconds)
+ * @param {Object} options - Video generation options:
+ *   - model: 'sora-2' (default) or 'sora-2-pro'
+ *   - size: '720x1280' (portrait, default), '1280x720' (landscape), '1080x1920', '1920x1080', etc.
+ *   - seconds: 4, 8 (default), or 12
  * @returns {Promise<Object>} - Video generation result with URL
  */
 async function generateVideoWithSoraForWhatsApp(prompt, req = null, options = {}) {
@@ -448,7 +456,9 @@ async function generateVideoWithSoraForWhatsApp(prompt, req = null, options = {}
         
         // Default options
         const model = options.model || 'sora-2'; // sora-2 or sora-2-pro
-        const size = options.size || '1280x720'; // 1280x720 or 1920x1080 (high res for sora-2-pro)
+        const size = options.size || '720x1280'; // Portrait/vertical by default (אורכי)
+        // Supported: sora-2: 1280x720 (landscape), 720x1280 (portrait)
+        //            sora-2-pro: 1920x1080, 1080x1920, 1792x1024, 1024x1792
         const seconds = options.seconds || 8; // Supported values: 4, 8, or 12
         
         console.log(`   Model: ${model}, Size: ${size}, Seconds: ${seconds}s`);
