@@ -611,7 +611,10 @@ async function handleIncomingMessage(webhookData) {
         const basePrompt = messageText.trim().replace(/^#\s+/, '').trim();
         
         // Check if this is a quoted/replied message
+        // Only process quotedMessage if typeMessage is 'quotedMessage' (actual reply)
+        // Don't process if it's just extendedTextMessage with leftover quotedMessage metadata
         const quotedMessage = messageData.quotedMessage;
+        const isActualQuote = messageData.typeMessage === 'quotedMessage';
         let finalPrompt = basePrompt;
         let hasImage = messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage';
         let hasVideo = messageData.typeMessage === 'videoMessage';
@@ -620,7 +623,7 @@ async function handleIncomingMessage(webhookData) {
         let videoUrl = null;
         let audioUrl = null;
         
-        if (quotedMessage && quotedMessage.stanzaId) {
+        if (isActualQuote && quotedMessage && quotedMessage.stanzaId) {
           console.log(`🔗 Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
           
           // Handle quoted message - merge content
@@ -675,7 +678,8 @@ async function handleIncomingMessage(webhookData) {
                 .trim();
               
               // Check if there's a quoted message with a command
-              if (quotedMessage && quotedMessage.stanzaId) {
+              // Use isActualQuote to avoid false positives from extendedTextMessage metadata
+              if (isActualQuote && quotedMessage && quotedMessage.stanzaId) {
                 console.log('🔄 Retry with quoted message - extracting command from quoted message');
                 if (additionalInstructions) {
                   console.log(`📝 Additional instructions to merge: "${additionalInstructions}"`);
@@ -2128,7 +2132,10 @@ async function handleOutgoingMessage(webhookData) {
         const basePrompt = messageText.trim().replace(/^#\s+/, '').trim();
         
         // Check if this is a quoted/replied message
+        // Only process quotedMessage if typeMessage is 'quotedMessage' (actual reply)
+        // Don't process if it's just extendedTextMessage with leftover quotedMessage metadata
         const quotedMessage = messageData.quotedMessage;
+        const isActualQuote = messageData.typeMessage === 'quotedMessage';
         let finalPrompt = basePrompt;
         let hasImage = messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage';
         let hasVideo = messageData.typeMessage === 'videoMessage';
@@ -2137,7 +2144,7 @@ async function handleOutgoingMessage(webhookData) {
         let videoUrl = null;
         let audioUrl = null;
         
-        if (quotedMessage && quotedMessage.stanzaId) {
+        if (isActualQuote && quotedMessage && quotedMessage.stanzaId) {
           console.log(`🔗 Outgoing: Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
           
           // Handle quoted message - merge content
@@ -2188,7 +2195,8 @@ async function handleOutgoingMessage(webhookData) {
                 .trim();
               
               // Check if there's a quoted message with a command
-              if (quotedMessage && quotedMessage.stanzaId) {
+              // Use isActualQuote to avoid false positives from extendedTextMessage metadata
+              if (isActualQuote && quotedMessage && quotedMessage.stanzaId) {
                 console.log('🔄 [Outgoing] Retry with quoted message');
                 if (additionalInstructions) {
                   console.log(`📝 [Outgoing] Additional instructions to merge: "${additionalInstructions}"`);
@@ -3097,13 +3105,15 @@ async function handleOutgoingMessage(webhookData) {
           
           // Check if this is a quoted/replied message
           const quotedMessage = messageData.quotedMessage;
+          // Validate that quotedMessage has actual content (not just leftover metadata)
+          const isActualQuote = quotedMessage && quotedMessage.stanzaId && quotedMessage.typeMessage;
           let finalPrompt = basePrompt;
           let hasImage = true; // Current message is image
           let hasVideo = false;
           let imageUrl = imageData.downloadUrl; // Start with current image
           let videoUrl = null;
           
-          if (quotedMessage && quotedMessage.stanzaId) {
+          if (isActualQuote) {
             console.log(`🔗 Outgoing Image: Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
             
             // Handle quoted message - merge content
@@ -3214,13 +3224,15 @@ async function handleOutgoingMessage(webhookData) {
           
           // Check if this is a quoted/replied message
           const quotedMessage = messageData.quotedMessage;
+          // Validate that quotedMessage has actual content (not just leftover metadata)
+          const isActualQuote = quotedMessage && quotedMessage.stanzaId && quotedMessage.typeMessage;
           let finalPrompt = basePrompt;
           let hasImage = false;
           let hasVideo = true; // Current message is video
           let imageUrl = null;
           let videoUrl = videoData.downloadUrl; // Start with current video
           
-          if (quotedMessage && quotedMessage.stanzaId) {
+          if (isActualQuote) {
             console.log(`🔗 Outgoing Video: Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
             
             // Handle quoted message - merge content

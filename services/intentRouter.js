@@ -226,16 +226,21 @@ async function routeIntent(input) {
     const isVideoLike = /\b(video|vidio|vedio|vidoe|clip|animate|motion)\b|וידאו|וידיאו|וודאו|ווידאו|וידיו|סרט|אנימציה|קליפ/i.test(prompt);
     const isTtsLike = /\b(speech|speach|tts)\b|^קרא\b|^הקרא\b|^הקריא\b|^הקראת\b|דיבור|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text\s*to\s*speech|אמור|אמר/i.test(prompt);
     const isSummary = /\b(summary|summery|sumary)\b|סכם|סיכום|לסכם|סכום|תמצת|תמצה|תמצה.*את|תמצת.*את|תמצה.*מה|תמצת.*מה/i.test(prompt);
-    const isMusic = /\b(suno|music|song|musik)\b|שיר|מוזיקה|מוסיקה|שירון|שיירון/i.test(prompt);
-    const isHelp = /\b(commands|comands|list|help|capabilities)\b|פקודות|פיקודות|רשימת|רשימה|עזרה|אילו|מה\s+אפשר|what\s+can/i.test(prompt);
-    const isCreateGroup = /צור.*קבוצה|צר.*קבוצה|יצירת.*קבוצה|פתח.*קבוצה|פתיחת.*קבוצה|הקם.*קבוצה|הקמת.*קבוצה|create.*group|creat.*group|new.*group|open.*group|start.*group|קבוצה.*חדשה/i.test(prompt);
-    const isRetry = /^(נסה\s+שוב|נסא\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)|^#\s*(נסה\s+שוב|נסא\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)/i.test(prompt);
-    const isPoll = /צור.*סקר|צר.*סקר|יצירת.*סקר|סקר.*על|סקר.*בנושא|הכן.*סקר|create.*poll|creat.*poll|make.*poll|poll.*about|new.*poll/i.test(prompt);
     
     // Check for Google Search request (explicit search or link requests)
     // Hebrew: חפש באינטרנט, עשה חיפוש, תחפש ברשת, תן לי לינקים, שלח לינקים ל, לינק ל
     // English: search the web, search online, search google, give me links, send links to, link to
     const needsGoogleSearch = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
+    
+    // Check if user wants music generation (Suno) vs just asking about existing songs
+    // IMPORTANT: If user asks for a link to a song, it's NOT music generation - it's a search request
+    const isLinkRequest = /\b(link|links|url|לינק|לינקים|קישור|קישורים)\b/i.test(prompt);
+    const isMusic = !isLinkRequest && /\b(suno|music|song|musik)\b|שיר|מוזיקה|מוסיקה|שירון|שיירון/i.test(prompt);
+    
+    const isHelp = /\b(commands|comands|list|help|capabilities)\b|פקודות|פיקודות|רשימת|רשימה|עזרה|אילו|מה\s+אפשר|what\s+can/i.test(prompt);
+    const isCreateGroup = /צור.*קבוצה|צר.*קבוצה|יצירת.*קבוצה|פתח.*קבוצה|פתיחת.*קבוצה|הקם.*קבוצה|הקמת.*קבוצה|create.*group|creat.*group|new.*group|open.*group|start.*group|קבוצה.*חדשה/i.test(prompt);
+    const isRetry = /^(נסה\s+שוב|נסא\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)|^#\s*(נסה\s+שוב|נסא\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)/i.test(prompt);
+    const isPoll = /צור.*סקר|צר.*סקר|יצירת.*סקר|סקר.*על|סקר.*בנושא|הכן.*סקר|create.*poll|creat.*poll|make.*poll|poll.*about|new.*poll/i.test(prompt);
     
     // Debug: log intent detection
     console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} Music:${isMusic} TTS:${isTtsLike} Retry:${isRetry} Poll:${isPoll}`);
