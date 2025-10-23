@@ -234,7 +234,8 @@ async function routeIntent(input) {
     
     // Check if user wants music generation (Suno) vs just asking about existing songs
     // IMPORTANT: If user asks for a link to a song, it's NOT music generation - it's a search request
-    const isLinkRequest = /\b(link|links|url|לינק|לינקים|קישור|קישורים)\b/i.test(prompt);
+    // Note: Don't use \b for Hebrew words (word boundaries don't work well with Hebrew in JavaScript)
+    const isLinkRequest = /\b(link|links|url)\b|לינק|לינקים|קישור|קישורים/i.test(prompt);
     const isMusic = !isLinkRequest && /\b(suno|music|song|musik)\b|שיר|מוזיקה|מוסיקה|שירון|שיירון/i.test(prompt);
     
     const isHelp = /\b(commands|comands|list|help|capabilities)\b|פקודות|פיקודות|רשימת|רשימה|עזרה|אילו|מה\s+אפשר|what\s+can/i.test(prompt);
