@@ -1283,11 +1283,16 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
             systemPrompt += `
 
 🔍 חשוב ביותר - שימוש ב-Google Search (חובה מוחלטת!):
-6. יש לך גישה לכלי Google Search - **חובה** להשתמש בו לכל בקשת קישור
-7. כאשר נדרש קישור - **אסור בהחלט** לשלוח קישור שלא מצאת ממש ב-Google Search הזה
-8. **אסור לחלוטין להמציא/לנחש/לזכור** קישורים מהזיכרון או האימון שלך
-9. אם Google Search לא החזיר תוצאות: אמור "לא מצאתי קישור" - **אל תמציא קישור!**
-10. **כל קישור YouTube חייב להיות מתוצאות Google Search בלבד** - לא מהידע הקודם שלך
+6. **אתה לא יכול לענות ללא Google Search!** - כל בקשת קישור דורשת חיפוש אמיתי
+7. **אסור בהחלט** לשלוח קישור שלא מצאת ב-Google Search **ברגע זה**
+8. **אסור לחלוטין** להשתמש בידע מהאימון שלך - רק מה שמצאת ב-Google Search **עכשיו**
+9. אם Google Search לא החזיר תוצאות: "לא מצאתי קישור זמין כרגע" - **אסור להמציא!**
+10. **חשוב ביותר**: הזיכרון שלך מ-2023 - הקישורים ישנים! חפש מחדש **תמיד**!
+
+⚠️ **דוגמה למה שאסור לעשות:**
+משתמש: "שלח קישור ל-Love Story של טיילור"
+אתה: "הנה: https://youtube.com/watch?v=eK6F13e0n5Y" ← **אסור!** זה מהזיכרון!
+✅ נכון: תחפש ב-Google Search → תמצא קישור עדכני → תשלח
 
 ❌ **דוגמאות לקישורים אסורים (מומצאים):**
 - https://youtube.com/watch?v=xxx123 ← נראה מומצא
@@ -1326,7 +1331,7 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         let modelResponse = 'הבנתי לחלוטין. אשיב ישירות ללא תהליך חשיבה, ניתוח, תרגומים או רשימות של "מה אני צריך לעשות". רק התשובה הסופית, באותה שפה שבה נשאלת השאלה.';
         
         if (useGoogleSearch) {
-            modelResponse += ' כאשר נדרש קישור - אחפש רק ב-Google Search. אם לא אמצא - אודיע על כך. אסור לחלוטין להמציא/לזכור קישורים מהאימון שלי.';
+            modelResponse += ' כאשר נדרש קישור - אחפש **רק** ב-Google Search **עכשיו** (לא מהזיכרון). אם Google Search לא מחזיר תוצאות - אודיע "לא מצאתי". אסור להשתמש בקישורים מהאימון שלי מ-2023.';
         }
         
         contents.push({
@@ -1372,7 +1377,13 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
             generateConfig.tools = [{
                 googleSearch: {}
             }];
-            console.log('🔍 Adding Google Search tool to Gemini API call');
+            // Force Gemini to use the Google Search tool (not optional)
+            generateConfig.toolConfig = {
+                functionCallingConfig: {
+                    mode: 'ANY'  // Force tool usage
+                }
+            };
+            console.log('🔍 Adding Google Search tool to Gemini API call (FORCED MODE)');
         }
         
         // Generate response with history (and optionally Google Search)
