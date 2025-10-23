@@ -1454,42 +1454,58 @@ async function handleIncomingMessage(webhookData) {
               await sendAck(chatId, { type: 'send_random_location' });
               
               // Generate truly random coordinates within populated land areas
-              // Using bounding boxes for each continent/region to avoid oceans
+              // Using tighter bounding boxes to avoid oceans/seas - subdivided into smaller regions
               const continents = [
-                // EUROPE - Portugal to Ural, Scandinavia to Mediterranean
-                { name: 'Europe', minLat: 36, maxLat: 71, minLng: -10, maxLng: 40, weight: 3 },
+                // EUROPE - subdivided to avoid Mediterranean/Atlantic/Black Sea
+                { name: 'Western Europe', minLat: 42, maxLat: 60, minLng: -5, maxLng: 15, weight: 2 },
+                { name: 'Eastern Europe', minLat: 44, maxLat: 60, minLng: 15, maxLng: 40, weight: 2 },
+                { name: 'Southern Europe', minLat: 36, maxLat: 46, minLng: -9, maxLng: 28, weight: 2 },
+                { name: 'Scandinavia', minLat: 55, maxLat: 71, minLng: 5, maxLng: 31, weight: 1 },
+                { name: 'UK & Ireland', minLat: 50, maxLat: 60, minLng: -10, maxLng: 2, weight: 1 },
                 
-                // ASIA - East Asia (China, Japan, Korea)
-                { name: 'East Asia', minLat: 20, maxLat: 50, minLng: 100, maxLng: 145, weight: 3 },
+                // ASIA - East Asia (subdivided)
+                { name: 'China Mainland', minLat: 18, maxLat: 53, minLng: 73, maxLng: 135, weight: 3 },
+                { name: 'Japan', minLat: 30, maxLat: 46, minLng: 129, maxLng: 146, weight: 1 },
+                { name: 'Korea', minLat: 33, maxLat: 43, minLng: 124, maxLng: 131, weight: 1 },
                 
-                // ASIA - Southeast Asia (Thailand, Vietnam, Indonesia, Philippines)
-                { name: 'Southeast Asia', minLat: -10, maxLat: 25, minLng: 95, maxLng: 140, weight: 2 },
+                // ASIA - Southeast Asia (subdivided to avoid Pacific Ocean)
+                { name: 'Mainland Southeast Asia', minLat: 5, maxLat: 28, minLng: 92, maxLng: 109, weight: 2 },
+                { name: 'Indonesia West', minLat: -11, maxLat: 6, minLng: 95, maxLng: 120, weight: 1 },
+                { name: 'Philippines', minLat: 5, maxLat: 19, minLng: 117, maxLng: 127, weight: 1 },
                 
-                // ASIA - South Asia (India, Pakistan, Bangladesh)
-                { name: 'South Asia', minLat: 8, maxLat: 35, minLng: 60, maxLng: 95, weight: 2 },
+                // ASIA - South Asia (tightened to avoid Indian Ocean)
+                { name: 'India', minLat: 8, maxLat: 35, minLng: 68, maxLng: 97, weight: 2 },
+                { name: 'Pakistan & Afghanistan', minLat: 24, maxLat: 38, minLng: 60, maxLng: 75, weight: 1 },
                 
-                // MIDDLE EAST (Turkey, Iran, Arabian Peninsula)
-                { name: 'Middle East', minLat: 12, maxLat: 42, minLng: 25, maxLng: 63, weight: 2 },
+                // MIDDLE EAST (subdivided)
+                { name: 'Levant & Turkey', minLat: 31, maxLat: 42, minLng: 26, maxLng: 45, weight: 1 },
+                { name: 'Arabian Peninsula', minLat: 12, maxLat: 32, minLng: 34, maxLng: 60, weight: 1 },
+                { name: 'Iran', minLat: 25, maxLat: 40, minLng: 44, maxLng: 63, weight: 1 },
                 
-                // NORTH AMERICA - USA & Canada
-                { name: 'North America', minLat: 25, maxLat: 60, minLng: -130, maxLng: -65, weight: 3 },
+                // NORTH AMERICA (subdivided to avoid Atlantic/Pacific)
+                { name: 'Eastern USA', minLat: 25, maxLat: 50, minLng: -98, maxLng: -67, weight: 2 },
+                { name: 'Western USA', minLat: 31, maxLat: 49, minLng: -125, maxLng: -102, weight: 2 },
+                { name: 'Eastern Canada', minLat: 43, maxLat: 62, minLng: -95, maxLng: -52, weight: 1 },
+                { name: 'Western Canada', minLat: 49, maxLat: 62, minLng: -140, maxLng: -95, weight: 1 },
                 
-                // CENTRAL AMERICA & CARIBBEAN
-                { name: 'Central America', minLat: 7, maxLat: 25, minLng: -110, maxLng: -60, weight: 1 },
+                // CENTRAL AMERICA & MEXICO (tightened)
+                { name: 'Mexico', minLat: 14, maxLat: 32, minLng: -118, maxLng: -86, weight: 1 },
+                { name: 'Central America', minLat: 7, maxLat: 18, minLng: -93, maxLng: -77, weight: 1 },
                 
-                // SOUTH AMERICA
-                { name: 'South America', minLat: -55, maxLat: 12, minLng: -80, maxLng: -35, weight: 2 },
+                // SOUTH AMERICA (subdivided)
+                { name: 'Brazil North', minLat: -10, maxLat: 5, minLng: -74, maxLng: -35, weight: 2 },
+                { name: 'Brazil South', minLat: -34, maxLat: -10, minLng: -58, maxLng: -35, weight: 1 },
+                { name: 'Andean Countries', minLat: -18, maxLat: 12, minLng: -81, maxLng: -66, weight: 1 },
+                { name: 'Chile & Argentina', minLat: -55, maxLat: -22, minLng: -75, maxLng: -53, weight: 1 },
                 
-                // AFRICA - North (Mediterranean coast, Sahara edges)
-                { name: 'North Africa', minLat: 0, maxLat: 37, minLng: -18, maxLng: 52, weight: 2 },
+                // AFRICA (subdivided)
+                { name: 'North Africa', minLat: 15, maxLat: 37, minLng: -17, maxLng: 52, weight: 2 },
+                { name: 'West Africa', minLat: 4, maxLat: 20, minLng: -17, maxLng: 16, weight: 1 },
+                { name: 'East Africa', minLat: -12, maxLat: 16, minLng: 22, maxLng: 51, weight: 1 },
+                { name: 'Southern Africa', minLat: -35, maxLat: -15, minLng: 11, maxLng: 42, weight: 1 },
                 
-                // AFRICA - Sub-Saharan
-                { name: 'Sub-Saharan Africa', minLat: -35, maxLat: 15, minLng: -18, maxLng: 52, weight: 2 },
-                
-                // OCEANIA - Australia
+                // OCEANIA (tightened)
                 { name: 'Australia', minLat: -44, maxLat: -10, minLng: 113, maxLng: 154, weight: 2 },
-                
-                // OCEANIA - New Zealand & Pacific
                 { name: 'New Zealand', minLat: -47, maxLat: -34, minLng: 166, maxLng: 179, weight: 1 }
               ];
               
@@ -2934,42 +2950,58 @@ async function handleOutgoingMessage(webhookData) {
               await sendAck(chatId, { type: 'send_random_location' });
               
               // Generate truly random coordinates within populated land areas
-              // Using bounding boxes for each continent/region to avoid oceans
+              // Using tighter bounding boxes to avoid oceans/seas - subdivided into smaller regions
               const continents = [
-                // EUROPE - Portugal to Ural, Scandinavia to Mediterranean
-                { name: 'Europe', minLat: 36, maxLat: 71, minLng: -10, maxLng: 40, weight: 3 },
+                // EUROPE - subdivided to avoid Mediterranean/Atlantic/Black Sea
+                { name: 'Western Europe', minLat: 42, maxLat: 60, minLng: -5, maxLng: 15, weight: 2 },
+                { name: 'Eastern Europe', minLat: 44, maxLat: 60, minLng: 15, maxLng: 40, weight: 2 },
+                { name: 'Southern Europe', minLat: 36, maxLat: 46, minLng: -9, maxLng: 28, weight: 2 },
+                { name: 'Scandinavia', minLat: 55, maxLat: 71, minLng: 5, maxLng: 31, weight: 1 },
+                { name: 'UK & Ireland', minLat: 50, maxLat: 60, minLng: -10, maxLng: 2, weight: 1 },
                 
-                // ASIA - East Asia (China, Japan, Korea)
-                { name: 'East Asia', minLat: 20, maxLat: 50, minLng: 100, maxLng: 145, weight: 3 },
+                // ASIA - East Asia (subdivided)
+                { name: 'China Mainland', minLat: 18, maxLat: 53, minLng: 73, maxLng: 135, weight: 3 },
+                { name: 'Japan', minLat: 30, maxLat: 46, minLng: 129, maxLng: 146, weight: 1 },
+                { name: 'Korea', minLat: 33, maxLat: 43, minLng: 124, maxLng: 131, weight: 1 },
                 
-                // ASIA - Southeast Asia (Thailand, Vietnam, Indonesia, Philippines)
-                { name: 'Southeast Asia', minLat: -10, maxLat: 25, minLng: 95, maxLng: 140, weight: 2 },
+                // ASIA - Southeast Asia (subdivided to avoid Pacific Ocean)
+                { name: 'Mainland Southeast Asia', minLat: 5, maxLat: 28, minLng: 92, maxLng: 109, weight: 2 },
+                { name: 'Indonesia West', minLat: -11, maxLat: 6, minLng: 95, maxLng: 120, weight: 1 },
+                { name: 'Philippines', minLat: 5, maxLat: 19, minLng: 117, maxLng: 127, weight: 1 },
                 
-                // ASIA - South Asia (India, Pakistan, Bangladesh)
-                { name: 'South Asia', minLat: 8, maxLat: 35, minLng: 60, maxLng: 95, weight: 2 },
+                // ASIA - South Asia (tightened to avoid Indian Ocean)
+                { name: 'India', minLat: 8, maxLat: 35, minLng: 68, maxLng: 97, weight: 2 },
+                { name: 'Pakistan & Afghanistan', minLat: 24, maxLat: 38, minLng: 60, maxLng: 75, weight: 1 },
                 
-                // MIDDLE EAST (Turkey, Iran, Arabian Peninsula)
-                { name: 'Middle East', minLat: 12, maxLat: 42, minLng: 25, maxLng: 63, weight: 2 },
+                // MIDDLE EAST (subdivided)
+                { name: 'Levant & Turkey', minLat: 31, maxLat: 42, minLng: 26, maxLng: 45, weight: 1 },
+                { name: 'Arabian Peninsula', minLat: 12, maxLat: 32, minLng: 34, maxLng: 60, weight: 1 },
+                { name: 'Iran', minLat: 25, maxLat: 40, minLng: 44, maxLng: 63, weight: 1 },
                 
-                // NORTH AMERICA - USA & Canada
-                { name: 'North America', minLat: 25, maxLat: 60, minLng: -130, maxLng: -65, weight: 3 },
+                // NORTH AMERICA (subdivided to avoid Atlantic/Pacific)
+                { name: 'Eastern USA', minLat: 25, maxLat: 50, minLng: -98, maxLng: -67, weight: 2 },
+                { name: 'Western USA', minLat: 31, maxLat: 49, minLng: -125, maxLng: -102, weight: 2 },
+                { name: 'Eastern Canada', minLat: 43, maxLat: 62, minLng: -95, maxLng: -52, weight: 1 },
+                { name: 'Western Canada', minLat: 49, maxLat: 62, minLng: -140, maxLng: -95, weight: 1 },
                 
-                // CENTRAL AMERICA & CARIBBEAN
-                { name: 'Central America', minLat: 7, maxLat: 25, minLng: -110, maxLng: -60, weight: 1 },
+                // CENTRAL AMERICA & MEXICO (tightened)
+                { name: 'Mexico', minLat: 14, maxLat: 32, minLng: -118, maxLng: -86, weight: 1 },
+                { name: 'Central America', minLat: 7, maxLat: 18, minLng: -93, maxLng: -77, weight: 1 },
                 
-                // SOUTH AMERICA
-                { name: 'South America', minLat: -55, maxLat: 12, minLng: -80, maxLng: -35, weight: 2 },
+                // SOUTH AMERICA (subdivided)
+                { name: 'Brazil North', minLat: -10, maxLat: 5, minLng: -74, maxLng: -35, weight: 2 },
+                { name: 'Brazil South', minLat: -34, maxLat: -10, minLng: -58, maxLng: -35, weight: 1 },
+                { name: 'Andean Countries', minLat: -18, maxLat: 12, minLng: -81, maxLng: -66, weight: 1 },
+                { name: 'Chile & Argentina', minLat: -55, maxLat: -22, minLng: -75, maxLng: -53, weight: 1 },
                 
-                // AFRICA - North (Mediterranean coast, Sahara edges)
-                { name: 'North Africa', minLat: 0, maxLat: 37, minLng: -18, maxLng: 52, weight: 2 },
+                // AFRICA (subdivided)
+                { name: 'North Africa', minLat: 15, maxLat: 37, minLng: -17, maxLng: 52, weight: 2 },
+                { name: 'West Africa', minLat: 4, maxLat: 20, minLng: -17, maxLng: 16, weight: 1 },
+                { name: 'East Africa', minLat: -12, maxLat: 16, minLng: 22, maxLng: 51, weight: 1 },
+                { name: 'Southern Africa', minLat: -35, maxLat: -15, minLng: 11, maxLng: 42, weight: 1 },
                 
-                // AFRICA - Sub-Saharan
-                { name: 'Sub-Saharan Africa', minLat: -35, maxLat: 15, minLng: -18, maxLng: 52, weight: 2 },
-                
-                // OCEANIA - Australia
+                // OCEANIA (tightened)
                 { name: 'Australia', minLat: -44, maxLat: -10, minLng: 113, maxLng: 154, weight: 2 },
-                
-                // OCEANIA - New Zealand & Pacific
                 { name: 'New Zealand', minLat: -47, maxLat: -34, minLng: 166, maxLng: 179, weight: 1 }
               ];
               
