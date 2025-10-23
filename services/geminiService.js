@@ -1355,6 +1355,19 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         // Clean up verbose thinking patterns that sometimes appear
         text = text.trim();
         
+        // Fix URLs with parentheses - Gemini sometimes wraps URLs in parentheses
+        // or uses Markdown link syntax [text](url)
+        // Example: "הנה השיר (https://youtube.com/...)" becomes broken in WhatsApp
+        
+        // 1. Convert Markdown links [text](url) to plain text with URL
+        text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '$1: $2');
+        
+        // 2. Add space between URL and closing parenthesis to prevent WhatsApp from including ) in URL
+        text = text.replace(/(\bhttps?:\/\/[^\s)]+)\)/g, '$1 )');
+        
+        // 3. Add space between opening parenthesis and URL
+        text = text.replace(/\((\bhttps?:\/\/[^\s)]+)/g, '( $1');
+        
         // Detect various thinking/reasoning patterns that should be removed
         const hasThinkingPattern = 
             text.includes('SPECIAL INSTRUCTION:') || 

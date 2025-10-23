@@ -101,7 +101,8 @@ async function routeIntent(input) {
     
     // Second priority: Check if user wants image analysis/questions (text-only response)
     // Expanded to include more question patterns and info requests
-    const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous|מסוכן|בטוח)\b/i.test(prompt);
+    // Note: Don't use \b after Hebrew words - it doesn't work in JavaScript
+    const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|מסוכן|בטוח)\b|^\b(identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous)\b/i.test(prompt);
     if (isAnalysisRequest) {
       // Check if user wants to reference previous messages in the analysis
       const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
@@ -118,7 +119,8 @@ async function routeIntent(input) {
     // Examples: "לבוש בקימונו", "wearing a hat", "with glasses", "as a superhero"
     // Hebrew: לבוש ב, עם, כ (כברבי, כסופרמן), בתור
     // English: wearing, dressed, as a, with, in a
-    const isImplicitEdit = /^(לבוש|לבושה|לובש|לובשת|עם|כ(?!מה)|בתור|wearing|dressed|with\s+a|as\s+a|in\s+a)\b/i.test(prompt);
+    // Note: Don't use \b after Hebrew words - it doesn't work in JavaScript
+    const isImplicitEdit = /^(לבוש|לבושה|לובש|לובשת|עם|כ(?!מה)|בתור)\b|^\b(wearing|dressed|with\s+a|as\s+a|in\s+a)\b/i.test(prompt);
     
     if (isEditRequest || isImplicitEdit) {
       if (!input.authorizations?.media_creation) {
@@ -144,7 +146,8 @@ async function routeIntent(input) {
   if (input.hasVideo && prompt) {
     // First priority: Check if user wants video analysis/questions (text-only response)
     // Same pattern as image analysis
-    const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous|מסוכן|בטוח)\b/i.test(prompt);
+    // Note: Don't use \b after Hebrew words - it doesn't work in JavaScript
+    const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|מסוכן|בטוח)\b|^\b(identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous)\b/i.test(prompt);
     if (isAnalysisRequest) {
       // Check if user wants to reference previous messages in the analysis
       const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
@@ -178,7 +181,8 @@ async function routeIntent(input) {
     console.log(`🎤 Audio routing - Prompt: "${prompt}"`);
     
     // First priority: Check if user wants creative audio mix
-    const isCreativeMix = /\b(mix|remix|creative|effect|ערבב|מיקס|יצירתי|אפקט|רמיקס)\b/i.test(prompt);
+    // Note: Don't use \b for Hebrew words - it doesn't work in JavaScript
+    const isCreativeMix = /\b(mix|remix|creative|effect)\b|ערבב|מיקס|יצירתי|אפקט|רמיקס/i.test(prompt);
     console.log(`   Creative Mix: ${isCreativeMix}`);
     
     if (isCreativeMix) {
@@ -190,8 +194,8 @@ async function routeIntent(input) {
     
     // Second priority: Check if user wants voice cloning response
     // Must explicitly mention voice/קול (not just "ענה לזה" which is text response)
-    // Note: "בקול" doesn't need \b at start (ב is a prefix in Hebrew)
-    const isVoiceResponse = /\b(ענה|תגיב|תגובה|השב|תשובה|reply|respond|response|answer|react)\b.*(קולי|בקול|\bvoice\b)|תגובה\s+קולית|מענה\s+קולי|השב.*בקול|ענה.*בקול|voice\s+response|voice\s+reply/i.test(prompt);
+    // Note: Don't use \b for Hebrew words - it doesn't work in JavaScript
+    const isVoiceResponse = /(ענה|תגיב|תגובה|השב|תשובה).*(קולי|בקול)|תגובה\s+קולית|מענה\s+קולי|השב.*בקול|ענה.*בקול|\b(reply|respond|response|answer|react)\b.*\bvoice\b|voice\s+response|voice\s+reply/i.test(prompt);
     console.log(`   Voice Response: ${isVoiceResponse}`);
     
     if (isVoiceResponse) {
@@ -222,21 +226,22 @@ async function routeIntent(input) {
     // All checks are case-insensitive using /i flag
     // Using \b for word boundaries to match whole words only
     // Includes common typos for better UX
-    const isImageLike = /\b(image|imge|imagee|poster|illustration|render)\b|תמונה|תמונא|תמונת|ציור|צייור|תצלום|לוגו|איור|צייר|ציירי|צייירי/i.test(prompt);
-    const isVideoLike = /\b(video|vidio|vedio|vidoe|clip|animate|motion)\b|וידאו|וידיאו|וודאו|ווידאו|וידיו|סרט|אנימציה|קליפ/i.test(prompt);
-    const isTtsLike = /\b(speech|speach|tts)\b|^קרא\b|^הקרא\b|^הקריא\b|^הקראת\b|דיבור|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text\s*to\s*speech|אמור|אמר/i.test(prompt);
-    const isSummary = /\b(summary|summery|sumary)\b|סכם|סיכום|לסכם|סכום|תמצת|תמצה|תמצה.*את|תמצת.*את|תמצה.*מה|תמצת.*מה/i.test(prompt);
+    const isImageLike = /\b(image|imge|imagee|poster|illustration|render|picture|pic|photo|draw|paint)\b|תמונה|תמונא|תמונת|ציור|צייור|תצלום|לוגו|איור|צייר|ציירי|צייירי|צור\s+תמונה|עשה\s+תמונה/i.test(prompt);
+    const isVideoLike = /\b(video|vidio|vedio|vidoe|clip|animate|motion|movie|film)\b|וידאו|וידיאו|וודאו|ווידאו|וידיו|סרט|סרטון|אנימציה|קליפ|צור\s+וידאו|עשה\s+וידאו|עשה\s+סרט/i.test(prompt);
+    // Note: Don't use \b after Hebrew words - it doesn't work in JavaScript
+    const isTtsLike = /\b(speech|speach|tts|read\s+this|read\s+aloud|say\s+this)\b|^(קרא|הקרא|הקריא|הקראת)\b|דיבור|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text\s*to\s*speech|אמור|אמרי/i.test(prompt);
+    const isSummary = /\b(summary|summery|sumary|summarize|sum\s+up)\b|סכם|סיכום|לסכם|סכום|תמצת|תמצה|תמצה.*את|תמצת.*את|תמצה.*מה|תמצת.*מה/i.test(prompt);
     
     // Check for Google Search request (explicit search or link requests)
-    // Hebrew: חפש באינטרנט, עשה חיפוש, תחפש ברשת, תן לי לינקים, שלח לינקים ל, לינק ל
-    // English: search the web, search online, search google, give me links, send links to, link to
-    const needsGoogleSearch = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
+    // Hebrew: חפש באינטרנט, עשה חיפוש, תחפש ברשת, תן לי לינקים, שלח לינקים ל, לינק ל, מצא לי
+    // English: search the web, search online, search google, give me links, send links to, link to, find me
+    const needsGoogleSearch = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|מצא\s+(לי\s+)?|תמצא\s+(לי\s+)?|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|find\s+(me\s+)?|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
     
     // Check if user wants music generation (Suno) vs just asking about existing songs
     // IMPORTANT: If user asks for a link to a song, it's NOT music generation - it's a search request
     // Note: Don't use \b for Hebrew words (word boundaries don't work well with Hebrew in JavaScript)
     const isLinkRequest = /\b(link|links|url)\b|לינק|לינקים|קישור|קישורים/i.test(prompt);
-    const isMusic = !isLinkRequest && /\b(suno|music|song|musik)\b|שיר|מוזיקה|מוסיקה|שירון|שיירון/i.test(prompt);
+    const isMusic = !isLinkRequest && /\b(suno|music|song|musik)\b|שיר|שירה|מוזיקה|מוסיקה|זמר|זמרה|שירון|שיירון/i.test(prompt);
     
     const isHelp = /\b(commands|comands|list|help|capabilities)\b|פקודות|פיקודות|רשימת|רשימה|עזרה|אילו|מה\s+אפשר|what\s+can/i.test(prompt);
     const isCreateGroup = /צור.*קבוצה|צר.*קבוצה|יצירת.*קבוצה|פתח.*קבוצה|פתיחת.*קבוצה|הקם.*קבוצה|הקמת.*קבוצה|create.*group|creat.*group|new.*group|open.*group|start.*group|קבוצה.*חדשה/i.test(prompt);
