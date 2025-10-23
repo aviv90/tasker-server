@@ -2136,15 +2136,9 @@ async function getLocationInfo(latitude, longitude) {
             model: "gemini-2.5-flash" 
         });
         
-        const prompt = `תאר את המיקום הגיאוגרפי הזה בפירוט: קווי רוחב ${latitude}, קווי אורך ${longitude}. 
-        
-ספר:
-1. איזו עיר או מקום זה (אם יש)
-2. באיזו מדינה זה נמצא
-3. מה מיוחד או מעניין במקום הזה
-4. אם זה מקום מפורסם - למה הוא מפורסם
-
-תשובה קצרה ומעניינת בעברית (2-3 שורות).`;
+        // Google Maps Grounding works best with location queries, not direct coordinates
+        // So we ask about what's interesting/notable at this location
+        const prompt = `מה יש במיקום הזה? תאר באיזו עיר או אזור זה נמצא, באיזו מדינה, ומה מעניין או מפורסם במקום הזה. תשובה קצרה ומעניינת בעברית (2-3 שורות).`;
 
         const result = await model.generateContent({
             contents: [{ role: "user", parts: [{ text: prompt }] }],
