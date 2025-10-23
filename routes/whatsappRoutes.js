@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory, getMessage, sendPoll } = require('../services/greenApiService');
+const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory, getMessage, sendPoll, sendLocation } = require('../services/greenApiService');
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const { cleanPromptFromProviders } = require('../utils/promptCleaner');
 const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage, generateVideoWithSoraForWhatsApp } = require('../services/openaiService');
-const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, analyzeVideoWithText, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary, parseMusicRequest, parseTextToSpeechRequest, translateText, generateCreativePoll } = require('../services/geminiService');
+const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, analyzeVideoWithText, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary, parseMusicRequest, parseTextToSpeechRequest, translateText, generateCreativePoll, getLocationInfo } = require('../services/geminiService');
 const { generateTextResponse: generateGrokResponse, generateImageForWhatsApp: generateGrokImage } = require('../services/grokService');
 const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage, generateVideoFromVideoForWhatsApp: generateRunwayVideoFromVideo, generateVideoWithTextForWhatsApp: generateKlingVideoFromText } = require('../services/replicateService');
 const { generateMusicWithLyrics } = require('../services/musicService');
@@ -307,6 +307,10 @@ async function sendAck(chatId, command) {
       ackMessage = command.withRhyme === false 
         ? '📊 קיבלתי! יוצר סקר יצירתי...' 
         : '📊 קיבלתי! יוצר סקר יצירתי עם חרוזים...';
+      break;
+    
+    case 'send_random_location':
+      ackMessage = '🗺️ קיבלתי! בוחר מיקום אקראי על מפת העולם...';
       break;
       
     default:
@@ -1444,6 +1448,37 @@ async function handleIncomingMessage(webhookData) {
               return;
             }
             
+            // ═══════════════════ RANDOM LOCATION ═══════════════════
+            case 'send_random_location': {
+              saveLastCommand(chatId, decision, { normalized });
+              await sendAck(chatId, { type: 'send_random_location' });
+              
+              // Generate random coordinates
+              const latitude = (Math.random() * 180 - 90).toFixed(6); // -90 to 90
+              const longitude = (Math.random() * 360 - 180).toFixed(6); // -180 to 180
+              
+              console.log(`🗺️ Generated random location: ${latitude}, ${longitude}`);
+              
+              // Get location information from Gemini with Google Maps grounding
+              const locationInfo = await getLocationInfo(parseFloat(latitude), parseFloat(longitude));
+              
+              if (!locationInfo.success) {
+                await sendTextMessage(chatId, `❌ ${locationInfo.error}`);
+                return;
+              }
+              
+              // Send the location with description
+              try {
+                await sendLocation(chatId, parseFloat(latitude), parseFloat(longitude), '', '');
+                await sendTextMessage(chatId, `📍 ${locationInfo.description}`);
+                console.log(`✅ Random location sent to ${chatId}`);
+              } catch (locationError) {
+                console.error('❌ Error sending location:', locationError);
+                await sendTextMessage(chatId, `❌ שגיאה בשליחת המיקום: ${locationError.message}`);
+              }
+              return;
+            }
+            
             // ═══════════════════ CHAT SUMMARY ═══════════════════
             case 'chat_summary': {
               await sendAck(chatId, { type: 'chat_summary' });
@@ -1475,6 +1510,7 @@ async function handleIncomingMessage(webhookData) {
 • # סכם שיחה - סיכום השיחה
 • # צור סקר על/בנושא... - יצירת סקר עם חרוזים (ברירת מחדל)
 • # צור סקר על/בנושא... בלי חריזה - יצירת סקר ללא חרוזים
+• # שלח מיקום / # מיקום אקראי - מיקום אקראי על מפת העולם
 • # נסה שוב / # שוב - ביצוע מחדש פקודה אחרונה
 • # צור/פתח/הקם קבוצה בשם "שם" עם שם1, שם2 - יצירת קבוצה
 • (אופציה) + עם תמונה של... - הוספת תמונת פרופיל
@@ -2840,6 +2876,36 @@ async function handleOutgoingMessage(webhookData) {
               return;
             }
             
+            // ═══════════════════ RANDOM LOCATION ═══════════════════
+            case 'send_random_location': {
+              await sendAck(chatId, { type: 'send_random_location' });
+              
+              // Generate random coordinates
+              const latitude = (Math.random() * 180 - 90).toFixed(6); // -90 to 90
+              const longitude = (Math.random() * 360 - 180).toFixed(6); // -180 to 180
+              
+              console.log(`🗺️ Generated random location: ${latitude}, ${longitude}`);
+              
+              // Get location information from Gemini with Google Maps grounding
+              const locationInfo = await getLocationInfo(parseFloat(latitude), parseFloat(longitude));
+              
+              if (!locationInfo.success) {
+                await sendTextMessage(chatId, `❌ ${locationInfo.error}`);
+                return;
+              }
+              
+              // Send the location with description
+              try {
+                await sendLocation(chatId, parseFloat(latitude), parseFloat(longitude), '', '');
+                await sendTextMessage(chatId, `📍 ${locationInfo.description}`);
+                console.log(`✅ Random location sent to ${chatId}`);
+              } catch (locationError) {
+                console.error('❌ Error sending location:', locationError);
+                await sendTextMessage(chatId, `❌ שגיאה בשליחת המיקום: ${locationError.message}`);
+              }
+              return;
+            }
+            
             // ═══════════════════ CHAT SUMMARY ═══════════════════
             case 'chat_summary': {
               await sendAck(chatId, { type: 'chat_summary' });
@@ -2867,6 +2933,7 @@ async function handleOutgoingMessage(webhookData) {
 • # סכם שיחה - סיכום השיחה
 • # צור סקר על/בנושא... - יצירת סקר עם חרוזים (ברירת מחדל)
 • # צור סקר על/בנושא... בלי חריזה - יצירת סקר ללא חרוזים
+• # שלח מיקום / # מיקום אקראי - מיקום אקראי על מפת העולם
 • # נסה שוב / # שוב - ביצוע מחדש פקודה אחרונה
 • # צור/פתח/הקם קבוצה בשם "שם" עם שם1, שם2 - יצירת קבוצה
 • (אופציה) + עם תמונה של... - הוספת תמונת פרופיל

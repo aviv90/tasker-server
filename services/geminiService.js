@@ -1268,17 +1268,37 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         // Build conversation contents for Gemini
         const contents = [];
 
-        // Add system prompt as first user message (Gemini format)
-        contents.push({
-            role: 'user',
-            parts: [{ text: `אתה עוזר AI ידידותי, אדיב ונעים. תן תשובות טבעיות ונעימות.
+        // Build system prompt - add Google Search instructions if enabled
+        let systemPrompt = `אתה עוזר AI ידידותי, אדיב ונעים. תן תשובות טבעיות ונעימות.
 
 חשוב מאוד - כללי תשובה:
 1. תשיב ישירות עם התשובה הסופית בלבד - ללא הסברים על תהליך החשיבה שלך
 2. אסור לכתוב: "As an AI, I should:", "My response should:", "Let's break down", "translates to", "refers to", "In the context of", או כל ניתוח מטא אחר
 3. אסור להסביר את המילים או לתרגם אותן - המשתמש כבר יודע עברית
 4. אסור לכתוב רשימות של "what I should do" - פשוט תעשה את זה
-5. תמיד תשיב באותה שפה שבה המשתמש שואל
+5. תמיד תשיב באותה שפה שבה המשתמש שואל`;
+
+        // Add Google Search specific instructions if enabled
+        if (useGoogleSearch) {
+            systemPrompt += `
+
+🔍 חשוב ביותר - שימוש ב-Google Search:
+6. יש לך גישה לכלי Google Search - השתמש בו כדי לחפש מידע עדכני באינטרנט
+7. כאשר נדרש לשלוח קישורים (links/URLs) - חייב לחפש אותם באמצעות Google Search
+8. לעולם אל תמציא קישורים! השתמש רק בקישורים אמיתיים שמצאת ב-Google Search
+9. כאשר מוצא קישורים, שלח אותם כ-URLs מלאים (לדוגמה: https://youtube.com/...)
+10. אם לא מצאת קישורים ב-Google Search, אמור זאת בבירור במקום להמציא
+
+דוגמה נכונה:
+משתמש: "שלח לינק לשיר X"
+אתה: [חפש ב-Google Search] → "הנה הקישור: https://youtube.com/watch?v=..."
+
+דוגמה שגויה:
+משתמש: "שלח לינק לשיר X"
+אתה: "הנה הקישור: https://youtube.com/watch?v=abc123" ← המצאת קישור!`;
+        }
+
+        systemPrompt += `
 
 דוגמה לתשובה נכונה:
 משתמש: "בחר בין A ל-B"
@@ -1286,13 +1306,24 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
 
 דוגמה לתשובה שגויה:
 משתמש: "בחר בין A ל-B"
-אתה: "A translates to... B refers to... As an AI, I should: 1. Acknowledge... 2. Avoid..."  ← אסור!` }]
+אתה: "A translates to... B refers to... As an AI, I should: 1. Acknowledge... 2. Avoid..."  ← אסור!`;
+
+        // Add system prompt as first user message (Gemini format)
+        contents.push({
+            role: 'user',
+            parts: [{ text: systemPrompt }]
         });
         
         // Add system prompt response
+        let modelResponse = 'הבנתי לחלוטין. אשיב ישירות ללא תהליך חשיבה, ניתוח, תרגומים או רשימות של "מה אני צריך לעשות". רק התשובה הסופית, באותה שפה שבה נשאלת השאלה.';
+        
+        if (useGoogleSearch) {
+            modelResponse += ' כאשר נדרש לשלוח קישורים, אשתמש ב-Google Search למציאת קישורים אמיתיים ולעולם לא אמציא קישורים.';
+        }
+        
         contents.push({
             role: 'model',
-            parts: [{ text: 'הבנתי לחלוטין. אשיב ישירות ללא תהליך חשיבה, ניתוח, תרגומים או רשימות של "מה אני צריך לעשות". רק התשובה הסופית, באותה שפה שבה נשאלת השאלה.' }]
+            parts: [{ text: modelResponse }]
         });
 
         // Normalize conversation history to an array to avoid undefined lengths
@@ -1367,6 +1398,31 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         
         // 3. Add space between opening parenthesis and URL
         text = text.replace(/\((\bhttps?:\/\/[^\s)]+)/g, '( $1');
+        
+        // 4. Detect suspicious YouTube URLs (likely hallucinated)
+        // YouTube video IDs are exactly 11 characters (alphanumeric, -, _)
+        // If we find a YouTube URL with a suspicious ID, log a warning
+        if (useGoogleSearch) {
+            const youtubeUrls = text.match(/https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([^\s&)]+)/g);
+            if (youtubeUrls) {
+                youtubeUrls.forEach(url => {
+                    const videoIdMatch = url.match(/(?:watch\?v=|youtu\.be\/)([^\s&)]+)/);
+                    if (videoIdMatch && videoIdMatch[1]) {
+                        const videoId = videoIdMatch[1];
+                        // YouTube video IDs should be 11 characters
+                        if (videoId.length < 10 || videoId.length > 12) {
+                            console.warn(`⚠️ Suspicious YouTube URL detected (ID length: ${videoId.length}): ${url}`);
+                            console.warn(`   This URL might be hallucinated by Gemini!`);
+                        }
+                        // Check for obvious hallucination patterns (e.g., "abc123", "example", "xxx")
+                        if (/^(abc|test|example|xxx|demo|sample)/i.test(videoId)) {
+                            console.warn(`⚠️ Likely hallucinated YouTube URL detected: ${url}`);
+                            console.warn(`   Video ID "${videoId}" looks fake!`);
+                        }
+                    }
+                });
+            }
+        }
         
         // Detect various thinking/reasoning patterns that should be removed
         const hasThinkingPattern = 
@@ -2066,6 +2122,85 @@ async function generateCreativePoll(topic, withRhyme = true) {
     }
 }
 
+/**
+ * Get location information using Google Maps grounding
+ * @param {number} latitude - Latitude
+ * @param {number} longitude - Longitude
+ * @returns {Object} - Location information
+ */
+async function getLocationInfo(latitude, longitude) {
+    try {
+        console.log(`🗺️ Getting location info for: ${latitude}, ${longitude}`);
+        
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.5-flash" 
+        });
+        
+        const prompt = `תאר את המיקום הגיאוגרפי הזה בפירוט: קווי רוחב ${latitude}, קווי אורך ${longitude}. 
+        
+ספר:
+1. איזו עיר או מקום זה (אם יש)
+2. באיזו מדינה זה נמצא
+3. מה מיוחד או מעניין במקום הזה
+4. אם זה מקום מפורסם - למה הוא מפורסם
+
+תשובה קצרה ומעניינת בעברית (2-3 שורות).`;
+
+        const result = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            // Enable Google Maps grounding
+            tools: [{
+                googleMaps: {}
+            }],
+            // Provide the location context
+            toolConfig: {
+                retrievalConfig: {
+                    latLng: {
+                        latitude: latitude,
+                        longitude: longitude
+                    }
+                }
+            }
+        });
+        
+        const response = result.response;
+        
+        if (!response.candidates || response.candidates.length === 0) {
+            console.log('❌ Gemini Maps: No candidates returned');
+            return { 
+                success: false, 
+                error: 'No response from Gemini Maps' 
+            };
+        }
+        
+        let text = response.text();
+        
+        if (!text || text.trim().length === 0) {
+            console.log('❌ Gemini Maps: Empty text response');
+            return { 
+                success: false, 
+                error: 'Empty response from Gemini Maps' 
+            };
+        }
+        
+        console.log(`✅ Location info retrieved: ${text.substring(0, 100)}...`);
+        
+        return {
+            success: true,
+            description: text.trim(),
+            latitude: latitude,
+            longitude: longitude
+        };
+        
+    } catch (err) {
+        console.error('❌ Gemini Maps error:', err);
+        return { 
+            success: false, 
+            error: err.message || 'Failed to get location info' 
+        };
+    }
+}
+
 module.exports = {
     generateImageWithText, 
     generateImageForWhatsApp, 
@@ -2082,5 +2217,6 @@ module.exports = {
     parseMusicRequest,
     parseTextToSpeechRequest,
     translateText,
-    generateCreativePoll
+    generateCreativePoll,
+    getLocationInfo
 };

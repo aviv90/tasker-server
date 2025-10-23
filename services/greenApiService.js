@@ -332,6 +332,48 @@ async function sendPoll(chatId, message, options, multipleAnswers = false) {
   }
 }
 
+/**
+ * Send location message via Green API
+ * @param {string} chatId - Chat ID
+ * @param {number} latitude - Latitude
+ * @param {number} longitude - Longitude
+ * @param {string} nameLocation - Name of the location (optional)
+ * @param {string} address - Address of the location (optional)
+ * @returns {Promise} - Green API response
+ */
+async function sendLocation(chatId, latitude, longitude, nameLocation = '', address = '') {
+  try {
+    const url = `https://api.green-api.com/waInstance${GREEN_API_ID_INSTANCE}/sendLocation/${GREEN_API_API_TOKEN_INSTANCE}`;
+    
+    const data = {
+      chatId: chatId,
+      latitude: latitude,
+      longitude: longitude,
+      nameLocation: nameLocation,
+      address: address
+    };
+
+    const response = await axios.post(url, data, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log(`📍 Location sent to ${chatId}: ${latitude}, ${longitude}`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error sending location:', error.message);
+    
+    // Log the response details if available for debugging
+    if (error.response) {
+      console.error(`❌ Green API Error: ${error.response.status} - ${error.response.statusText}`);
+      console.error('❌ Response data:', error.response.data);
+    }
+    
+    throw error;
+  }
+}
+
 module.exports = {
   sendTextMessage,
   sendFileByUrl,
@@ -341,5 +383,6 @@ module.exports = {
   getMessage,
   createGroup,
   setGroupPicture,
-  sendPoll
+  sendPoll,
+  sendLocation
 };

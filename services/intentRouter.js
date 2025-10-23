@@ -247,9 +247,10 @@ async function routeIntent(input) {
     const isCreateGroup = /צור.*קבוצה|צר.*קבוצה|יצירת.*קבוצה|פתח.*קבוצה|פתיחת.*קבוצה|הקם.*קבוצה|הקמת.*קבוצה|create.*group|creat.*group|new.*group|open.*group|start.*group|קבוצה.*חדשה/i.test(prompt);
     const isRetry = /^(נסה\s+שוב|נסא\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)|^#\s*(נסה\s+שוב|נסא\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)/i.test(prompt);
     const isPoll = /צור.*סקר|צר.*סקר|יצירת.*סקר|סקר.*על|סקר.*בנושא|הכן.*סקר|create.*poll|creat.*poll|make.*poll|poll.*about|new.*poll/i.test(prompt);
+    const isRandomLocation = /שלח\s+מיקום|שלחי\s+מיקום|תשלח\s+מיקום|מיקום\s+אקראי|מיקום\s+רנדומלי|location\s+random|random\s+location|send\s+location|send\s+random\s+location/i.test(prompt);
     
     // Debug: log intent detection
-    console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} Music:${isMusic} TTS:${isTtsLike} Retry:${isRetry} Poll:${isPoll}`);
+    console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} Music:${isMusic} TTS:${isTtsLike} Retry:${isRetry} Poll:${isPoll} Location:${isRandomLocation}`);
     
     if (isRetry) {
       return { tool: 'retry_last_command', args: {}, reason: 'User requested retry' };
@@ -257,6 +258,10 @@ async function routeIntent(input) {
     
     if (isPoll) {
       return { tool: 'create_poll', args: { prompt }, reason: 'User requested poll creation' };
+    }
+    
+    if (isRandomLocation) {
+      return { tool: 'send_random_location', args: {}, reason: 'User requested random location' };
     }
     
     if (isSummary) {
@@ -413,7 +418,7 @@ function validateDecision(obj) {
     'gemini_image', 'openai_image', 'grok_image',
     'veo3_video', 'sora_video', 'kling_text_to_video', 'veo3_image_to_video', 'kling_image_to_video', 'video_to_video',
     'image_edit', 'text_to_speech', 'gemini_chat', 'openai_chat', 'grok_chat',
-    'chat_summary', 'music_generation', 'create_poll', 'creative_voice_processing', 'voice_cloning_response', 'show_help', 'create_group', 'retry_last_command', 'deny_unauthorized', 'ask_clarification'
+    'chat_summary', 'music_generation', 'create_poll', 'send_random_location', 'creative_voice_processing', 'voice_cloning_response', 'show_help', 'create_group', 'retry_last_command', 'deny_unauthorized', 'ask_clarification'
   ]);
   if (!allowedTools.has(tool)) return null;
   return { tool, args, reason };
@@ -603,6 +608,11 @@ ${JSON.stringify(payload, null, 2)}
       💡 Note: Creates a creative poll with 2-4 options about the given topic. 
          Default: rhyming options. 
          Special: If user requests "ללא חרוזים", "בלי חריזה", "לא חרוזים", "without rhyme", "no rhymes" → creates poll WITHOUT rhyming
+   
+   📍 **Random Location:**
+      Keywords (including typos): "שלח מיקום", "שלחי מיקום", "תשלח מיקום", "מיקום אקראי", "מיקום רנדומלי", "send location", "send random location", "random location", "location random"
+      → "send_random_location"
+      💡 Note: Sends a random location anywhere on Earth with interesting description about that place using Google Maps grounding
    
    👥 **Group Creation:**
       Keywords (including typos): "צור קבוצה", "צר קבוצה", "יצירת קבוצה", "פתח קבוצה", "פתיחת קבוצה", "הקם קבוצה", "הקמת קבוצה", "create group", "creat group", "new group", "open group", "start group", "קבוצה חדשה"
