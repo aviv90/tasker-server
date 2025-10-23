@@ -232,15 +232,18 @@ async function routeIntent(input) {
     const isTtsLike = /\b(speech|speach|tts|read\s+this|read\s+aloud|say\s+this)\b|^(קרא|הקרא|הקריא|הקראת)\b|דיבור|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text\s*to\s*speech|אמור|אמרי/i.test(prompt);
     const isSummary = /\b(summary|summery|sumary|summarize|sum\s+up)\b|סכם|סיכום|לסכם|סכום|תמצת|תמצה|תמצה.*את|תמצת.*את|תמצה.*מה|תמצת.*מה/i.test(prompt);
     
-    // Check for Google Search request (explicit search or link requests)
-    // Hebrew: חפש באינטרנט, עשה חיפוש, תחפש ברשת, תן לי לינקים, שלח לינקים ל, לינק ל, מצא לי
-    // English: search the web, search online, search google, give me links, send links to, link to, find me
-    const needsGoogleSearch = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|מצא\s+(לי\s+)?|תמצא\s+(לי\s+)?|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|find\s+(me\s+)?|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
-    
-    // Check if user wants music generation (Suno) vs just asking about existing songs
-    // IMPORTANT: If user asks for a link to a song, it's NOT music generation - it's a search request
+    // Check if user wants a link (any link request should trigger Google Search)
     // Note: Don't use \b for Hebrew words (word boundaries don't work well with Hebrew in JavaScript)
     const isLinkRequest = /\b(link|links|url)\b|לינק|לינקים|קישור|קישורים/i.test(prompt);
+    
+    // Check for Google Search request (explicit search or link requests)
+    // IMPORTANT: ANY link request should use Google Search to find real links
+    // Hebrew: חפש באינטרנט, עשה חיפוש, תחפש ברשת, תן לי לינקים, שלח לינקים ל, לינק ל, מצא לי
+    // English: search the web, search online, search google, give me links, send links to, link to, find me
+    const needsGoogleSearch = isLinkRequest || /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|מצא\s+(לי\s+)?|תמצא\s+(לי\s+)?|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|find\s+(me\s+)?/i.test(prompt);
+    
+    // Check if user wants music generation (Suno) vs just asking about existing songs
+    // IMPORTANT: If user asks for a link to a song, it's NOT music generation - it's a search request with Google Search
     const isMusic = !isLinkRequest && /\b(suno|music|song|musik)\b|שיר|שירה|מוזיקה|מוסיקה|זמר|זמרה|שירון|שיירון/i.test(prompt);
     
     const isHelp = /\b(commands|comands|list|help|capabilities)\b|פקודות|פיקודות|רשימת|רשימה|עזרה|אילו|מה\s+אפשר|what\s+can/i.test(prompt);
@@ -250,7 +253,7 @@ async function routeIntent(input) {
     const isRandomLocation = /שלח\s+מיקום|שלחי\s+מיקום|תשלח\s+מיקום|מיקום\s+אקראי|מיקום\s+רנדומלי|location\s+random|random\s+location|send\s+location|send\s+random\s+location/i.test(prompt);
     
     // Debug: log intent detection
-    console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} Music:${isMusic} TTS:${isTtsLike} Retry:${isRetry} Poll:${isPoll} Location:${isRandomLocation}`);
+    console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} Music:${isMusic} TTS:${isTtsLike} Retry:${isRetry} Poll:${isPoll} Location:${isRandomLocation} LinkReq:${isLinkRequest} GoogleSearch:${needsGoogleSearch}`);
     
     if (isRetry) {
       return { tool: 'retry_last_command', args: {}, reason: 'User requested retry' };

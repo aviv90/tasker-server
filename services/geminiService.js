@@ -1282,20 +1282,28 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         if (useGoogleSearch) {
             systemPrompt += `
 
-🔍 חשוב ביותר - שימוש ב-Google Search:
-6. יש לך גישה לכלי Google Search - השתמש בו כדי לחפש מידע עדכני באינטרנט
-7. כאשר נדרש לשלוח קישורים (links/URLs) - חייב לחפש אותם באמצעות Google Search
-8. לעולם אל תמציא קישורים! השתמש רק בקישורים אמיתיים שמצאת ב-Google Search
-9. כאשר מוצא קישורים, שלח אותם כ-URLs מלאים (לדוגמה: https://youtube.com/...)
-10. אם לא מצאת קישורים ב-Google Search, אמור זאת בבירור במקום להמציא
+🔍 חשוב ביותר - שימוש ב-Google Search (חובה מוחלטת!):
+6. יש לך גישה לכלי Google Search - **חובה** להשתמש בו לכל בקשת קישור
+7. כאשר נדרש קישור - **אסור בהחלט** לשלוח קישור שלא מצאת ממש ב-Google Search הזה
+8. **אסור לחלוטין להמציא/לנחש/לזכור** קישורים מהזיכרון או האימון שלך
+9. אם Google Search לא החזיר תוצאות: אמור "לא מצאתי קישור" - **אל תמציא קישור!**
+10. **כל קישור YouTube חייב להיות מתוצאות Google Search בלבד** - לא מהידע הקודם שלך
 
-דוגמה נכונה:
-משתמש: "שלח לינק לשיר X"
-אתה: [חפש ב-Google Search] → "הנה הקישור: https://youtube.com/watch?v=..."
+❌ **דוגמאות לקישורים אסורים (מומצאים):**
+- https://youtube.com/watch?v=xxx123 ← נראה מומצא
+- https://youtube.com/watch?v=abc123 ← נראה מומצא
+- https://youtube.com/watch?v=example ← כללי מדי
+- כל קישור שלא הופיע בפועל ב-Google Search שלך ברגע זה
 
-דוגמה שגויה:
+✅ **התהליך הנכון - חובה לעקוב:**
+משתמש: "שלח לינק לשיר Love Story של טיילור סוויפט"
+1. **חפש ממש ב-Google Search** (לא מהזיכרון שלך!)
+2. אם מצאת תוצאה: שלח את הקישור המדויק מהחיפוש
+3. אם לא מצאת: "לא הצלחתי למצוא קישור, נסה לחפש ביוטיוב" - **אל תמציא קישור!**
+
+❌ **אסור לחלוטין לעשות:**
 משתמש: "שלח לינק לשיר X"
-אתה: "הנה הקישור: https://youtube.com/watch?v=abc123" ← המצאת קישור!`;
+אתה: "הנה הקישור: https://youtube.com/watch?v=eK6F13e0n5Y" ← אסור! אם לא חיפשת עכשיו ב-Google Search`;
         }
 
         systemPrompt += `
@@ -1318,7 +1326,7 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         let modelResponse = 'הבנתי לחלוטין. אשיב ישירות ללא תהליך חשיבה, ניתוח, תרגומים או רשימות של "מה אני צריך לעשות". רק התשובה הסופית, באותה שפה שבה נשאלת השאלה.';
         
         if (useGoogleSearch) {
-            modelResponse += ' כאשר נדרש לשלוח קישורים, אשתמש ב-Google Search למציאת קישורים אמיתיים ולעולם לא אמציא קישורים.';
+            modelResponse += ' כאשר נדרש קישור - אחפש רק ב-Google Search. אם לא אמצא - אודיע על כך. אסור לחלוטין להמציא/לזכור קישורים מהאימון שלי.';
         }
         
         contents.push({
@@ -1354,21 +1362,31 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         console.log(`🔮 Gemini processing (${Array.isArray(conversationHistory) ? conversationHistory.length : 0} context messages)`);
 
         // Build generation config
-        const generationConfig = {};
+        const generateConfig = {
+            contents
+        };
         
         // Add Google Search tool if requested
         if (useGoogleSearch) {
-            generationConfig.tools = [{
-                googleSearch: {}
+            generateConfig.tools = [{
+                googleSearchRetrieval: {}
             }];
+            console.log('🔍 Adding Google Search tool to Gemini API call');
         }
         
         // Generate response with history (and optionally Google Search)
-        const result = await model.generateContent({ 
-            contents,
-            ...(Object.keys(generationConfig).length > 0 ? generationConfig : {})
-        });
+        const result = await model.generateContent(generateConfig);
         const response = result.response;
+        
+        // Log if Google Search was actually used
+        if (useGoogleSearch) {
+            const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
+            if (groundingMetadata) {
+                console.log('✅ Google Search was USED by Gemini:', JSON.stringify(groundingMetadata, null, 2));
+            } else {
+                console.warn('⚠️ Google Search was enabled but NOT used by Gemini (it may have answered from memory)');
+            }
+        }
         
         if (!response.candidates || response.candidates.length === 0) {
             console.log('❌ Gemini: No candidates returned');
