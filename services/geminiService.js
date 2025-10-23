@@ -2136,44 +2136,37 @@ async function getLocationInfo(latitude, longitude) {
             model: "gemini-2.5-flash" 
         });
         
-        // Google Maps Grounding works best with location queries, not direct coordinates
-        // So we ask about what's interesting/notable at this location
-        const prompt = `מה יש במיקום הזה? תאר באיזו עיר או אזור זה נמצא, באיזו מדינה, ומה מעניין או מפורסם במקום הזה. תשובה קצרה ומעניינת בעברית (2-3 שורות).`;
+        // Use Gemini's geographic knowledge to describe the location
+        // Note: We don't use Google Maps Grounding here because random coordinates 
+        // often fall in oceans or unpopulated areas with no Maps data
+        const prompt = `תאר את המיקום הגיאוגרפי: קו רוחב ${latitude}°, קו אורך ${longitude}°.
 
-        const result = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            // Enable Google Maps grounding
-            tools: [{
-                googleMaps: {}
-            }],
-            // Provide the location context
-            toolConfig: {
-                retrievalConfig: {
-                    latLng: {
-                        latitude: latitude,
-                        longitude: longitude
-                    }
-                }
-            }
-        });
+ספר בקצרה (2-3 שורות):
+- באיזו מדינה, אזור או אוקיינוס זה נמצא
+- מה האקלים והטבע של האזור
+- אם יש שם משהו מעניין או מפורסם, ציין את זה
+
+תשובה מעניינת בעברית.`;
+
+        const result = await model.generateContent(prompt);
         
         const response = result.response;
         
         if (!response.candidates || response.candidates.length === 0) {
-            console.log('❌ Gemini Maps: No candidates returned');
+            console.log('❌ Gemini: No candidates returned');
             return { 
                 success: false, 
-                error: 'No response from Gemini Maps' 
+                error: 'No response from Gemini' 
             };
         }
         
         let text = response.text();
         
         if (!text || text.trim().length === 0) {
-            console.log('❌ Gemini Maps: Empty text response');
+            console.log('❌ Gemini: Empty text response');
             return { 
                 success: false, 
-                error: 'Empty response from Gemini Maps' 
+                error: 'Empty response from Gemini' 
             };
         }
         
@@ -2187,7 +2180,7 @@ async function getLocationInfo(latitude, longitude) {
         };
         
     } catch (err) {
-        console.error('❌ Gemini Maps error:', err);
+        console.error('❌ Gemini error:', err);
         return { 
             success: false, 
             error: err.message || 'Failed to get location info' 
