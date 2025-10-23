@@ -2171,12 +2171,24 @@ async function getLocationInfo(latitude, longitude) {
                 const unhelpfulPatterns = [
                     'אני זקוק למיקום',
                     'אני צריך מיקום',
+                    'איזה מיקום',
+                    'איזה מקום',
+                    'ספק את שם',
+                    'ספק שם',
+                    'ספקי את',
                     'I need a location',
                     'I need more information',
+                    'which location',
+                    'which place',
+                    'provide the location',
+                    'provide the place',
+                    'provide a location',
                     'אנא ציין',
                     'please specify',
                     'לא ברור',
-                    'unclear'
+                    'unclear',
+                    'לא יכול לתאר',
+                    'cannot describe'
                 ];
                 
                 const isUnhelpful = unhelpfulPatterns.some(pattern => 
