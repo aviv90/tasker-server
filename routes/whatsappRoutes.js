@@ -310,7 +310,7 @@ async function sendAck(chatId, command) {
       break;
     
     case 'send_random_location':
-      ackMessage = '🗺️ קיבלתי! בוחר מיקום אקראי על מפת העולם...';
+      ackMessage = '🌍 קיבלתי! בוחר מיקום אקראי על כדור הארץ...';
       break;
       
     default:
@@ -1453,11 +1453,215 @@ async function handleIncomingMessage(webhookData) {
               saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'send_random_location' });
               
-              // Generate random coordinates
-              const latitude = (Math.random() * 180 - 90).toFixed(6); // -90 to 90
-              const longitude = (Math.random() * 360 - 180).toFixed(6); // -180 to 180
+              // Curated list of 180+ interesting locations around the world
+              // Mix of famous cities, landmarks, natural wonders, and unique places
+              const interestingLocations = [
+                // === ASIA - MAJOR CITIES ===
+                { lat: 35.6762, lng: 139.6503, name: 'Tokyo, Japan' },
+                { lat: 34.6937, lng: 135.5023, name: 'Osaka, Japan' },
+                { lat: 37.5665, lng: 126.9780, name: 'Seoul, South Korea' },
+                { lat: 35.1796, lng: 129.0756, name: 'Busan, South Korea' },
+                { lat: 39.9042, lng: 116.4074, name: 'Beijing, China' },
+                { lat: 31.2304, lng: 121.4737, name: 'Shanghai, China' },
+                { lat: 22.3193, lng: 114.1694, name: 'Hong Kong' },
+                { lat: 25.0330, lng: 121.5654, name: 'Taipei, Taiwan' },
+                { lat: 13.7563, lng: 100.5018, name: 'Bangkok, Thailand' },
+                { lat: 18.7883, lng: 98.9853, name: 'Chiang Mai, Thailand' },
+                { lat: 1.3521, lng: 103.8198, name: 'Singapore' },
+                { lat: 3.1390, lng: 101.6869, name: 'Kuala Lumpur, Malaysia' },
+                { lat: -6.2088, lng: 106.8456, name: 'Jakarta, Indonesia' },
+                { lat: -8.3405, lng: 115.0920, name: 'Ubud, Bali' },
+                { lat: 21.0285, lng: 105.8542, name: 'Hanoi, Vietnam' },
+                { lat: 10.8231, lng: 106.6297, name: 'Ho Chi Minh City, Vietnam' },
+                { lat: 11.5564, lng: 104.9282, name: 'Phnom Penh, Cambodia' },
+                { lat: 13.3611, lng: 103.8645, name: 'Angkor Wat, Cambodia' },
+                { lat: 16.8409, lng: 96.1735, name: 'Yangon, Myanmar' },
+                { lat: 28.6139, lng: 77.2090, name: 'New Delhi, India' },
+                { lat: 19.0760, lng: 72.8777, name: 'Mumbai, India' },
+                { lat: 12.9716, lng: 77.5946, name: 'Bangalore, India' },
+                { lat: 26.9124, lng: 75.7873, name: 'Jaipur, India' },
+                { lat: 27.7172, lng: 85.3240, name: 'Kathmandu, Nepal' },
+                { lat: 6.9271, lng: 79.8612, name: 'Colombo, Sri Lanka' },
+                { lat: 25.2048, lng: 55.2708, name: 'Dubai, UAE' },
+                { lat: 24.7136, lng: 46.6753, name: 'Riyadh, Saudi Arabia' },
+                { lat: 25.2854, lng: 51.5310, name: 'Doha, Qatar' },
+                { lat: 40.4093, lng: 49.8671, name: 'Baku, Azerbaijan' },
+                { lat: 41.7151, lng: 44.8271, name: 'Tbilisi, Georgia' },
+                
+                // === EUROPE - MAJOR CITIES ===
+                { lat: 51.5074, lng: -0.1278, name: 'London, UK' },
+                { lat: 55.8642, lng: -4.2518, name: 'Glasgow, Scotland' },
+                { lat: 53.3498, lng: -6.2603, name: 'Dublin, Ireland' },
+                { lat: 48.8566, lng: 2.3522, name: 'Paris, France' },
+                { lat: 43.7102, lng: 7.2620, name: 'Monaco' },
+                { lat: 43.2965, lng: 5.3698, name: 'Marseille, France' },
+                { lat: 45.4642, lng: 9.1900, name: 'Milan, Italy' },
+                { lat: 41.9028, lng: 12.4964, name: 'Rome, Italy' },
+                { lat: 43.7696, lng: 11.2558, name: 'Florence, Italy' },
+                { lat: 45.4408, lng: 12.3155, name: 'Venice, Italy' },
+                { lat: 41.3851, lng: 2.1734, name: 'Barcelona, Spain' },
+                { lat: 40.4168, lng: -3.7038, name: 'Madrid, Spain' },
+                { lat: 37.3891, lng: -5.9845, name: 'Seville, Spain' },
+                { lat: 38.7223, lng: -9.1393, name: 'Lisbon, Portugal' },
+                { lat: 41.1579, lng: -8.6291, name: 'Porto, Portugal' },
+                { lat: 52.5200, lng: 13.4050, name: 'Berlin, Germany' },
+                { lat: 48.1351, lng: 11.5820, name: 'Munich, Germany' },
+                { lat: 53.5511, lng: 9.9937, name: 'Hamburg, Germany' },
+                { lat: 47.3769, lng: 8.5417, name: 'Zurich, Switzerland' },
+                { lat: 46.2044, lng: 6.1432, name: 'Geneva, Switzerland' },
+                { lat: 48.2082, lng: 16.3738, name: 'Vienna, Austria' },
+                { lat: 47.8095, lng: 13.0550, name: 'Salzburg, Austria' },
+                { lat: 52.3676, lng: 4.9041, name: 'Amsterdam, Netherlands' },
+                { lat: 50.8503, lng: 4.3517, name: 'Brussels, Belgium' },
+                { lat: 50.0755, lng: 14.4378, name: 'Prague, Czech Republic' },
+                { lat: 47.4979, lng: 19.0402, name: 'Budapest, Hungary' },
+                { lat: 52.2297, lng: 21.0122, name: 'Warsaw, Poland' },
+                { lat: 50.0647, lng: 19.9450, name: 'Krakow, Poland' },
+                { lat: 59.3293, lng: 18.0686, name: 'Stockholm, Sweden' },
+                { lat: 55.6761, lng: 12.5683, name: 'Copenhagen, Denmark' },
+                { lat: 59.9139, lng: 10.7522, name: 'Oslo, Norway' },
+                { lat: 60.1695, lng: 24.9354, name: 'Helsinki, Finland' },
+                { lat: 64.1466, lng: -21.9426, name: 'Reykjavik, Iceland' },
+                { lat: 59.9343, lng: 30.3351, name: 'St. Petersburg, Russia' },
+                { lat: 55.7558, lng: 37.6173, name: 'Moscow, Russia' },
+                { lat: 41.0082, lng: 28.9784, name: 'Istanbul, Turkey' },
+                { lat: 37.9838, lng: 23.7275, name: 'Athens, Greece' },
+                { lat: 40.6401, lng: 22.9444, name: 'Thessaloniki, Greece' },
+                
+                // === AMERICAS - NORTH ===
+                { lat: 40.7128, lng: -74.0060, name: 'New York City, USA' },
+                { lat: 34.0522, lng: -118.2437, name: 'Los Angeles, USA' },
+                { lat: 41.8781, lng: -87.6298, name: 'Chicago, USA' },
+                { lat: 37.7749, lng: -122.4194, name: 'San Francisco, USA' },
+                { lat: 47.6062, lng: -122.3321, name: 'Seattle, USA' },
+                { lat: 36.1699, lng: -115.1398, name: 'Las Vegas, USA' },
+                { lat: 25.7617, lng: -80.1918, name: 'Miami, USA' },
+                { lat: 30.2672, lng: -97.7431, name: 'Austin, Texas, USA' },
+                { lat: 39.7392, lng: -104.9903, name: 'Denver, USA' },
+                { lat: 43.6532, lng: -79.3832, name: 'Toronto, Canada' },
+                { lat: 45.5017, lng: -73.5673, name: 'Montreal, Canada' },
+                { lat: 49.2827, lng: -123.1207, name: 'Vancouver, Canada' },
+                { lat: 51.0447, lng: -114.0719, name: 'Calgary, Canada' },
+                { lat: 19.4326, lng: -99.1332, name: 'Mexico City, Mexico' },
+                { lat: 20.6597, lng: -103.3496, name: 'Guadalajara, Mexico' },
+                { lat: 25.6866, lng: -100.3161, name: 'Monterrey, Mexico' },
+                { lat: 20.9674, lng: -89.5926, name: 'Merida, Yucatan' },
+                
+                // === AMERICAS - CENTRAL & CARIBBEAN ===
+                { lat: 9.7489, lng: -83.7534, name: 'San Jose, Costa Rica' },
+                { lat: 9.1021, lng: -79.4028, name: 'Panama City, Panama' },
+                { lat: 18.4655, lng: -66.1057, name: 'San Juan, Puerto Rico' },
+                { lat: 23.1136, lng: -82.3666, name: 'Havana, Cuba' },
+                { lat: 18.0179, lng: -76.8099, name: 'Kingston, Jamaica' },
+                
+                // === AMERICAS - SOUTH ===
+                { lat: -23.5505, lng: -46.6333, name: 'São Paulo, Brazil' },
+                { lat: -22.9068, lng: -43.1729, name: 'Rio de Janeiro, Brazil' },
+                { lat: -15.7942, lng: -47.8822, name: 'Brasilia, Brazil' },
+                { lat: -12.9714, lng: -38.5014, name: 'Salvador, Brazil' },
+                { lat: -34.6037, lng: -58.3816, name: 'Buenos Aires, Argentina' },
+                { lat: -33.4489, lng: -70.6693, name: 'Santiago, Chile' },
+                { lat: -33.0153, lng: -71.5500, name: 'Valparaiso, Chile' },
+                { lat: -12.0464, lng: -77.0428, name: 'Lima, Peru' },
+                { lat: -13.5319, lng: -71.9675, name: 'Cusco, Peru' },
+                { lat: -0.1807, lng: -78.4678, name: 'Quito, Ecuador' },
+                { lat: 4.7110, lng: -74.0721, name: 'Bogota, Colombia' },
+                { lat: 6.2442, lng: -75.5812, name: 'Medellin, Colombia' },
+                { lat: -16.5000, lng: -68.1500, name: 'La Paz, Bolivia' },
+                
+                // === AFRICA ===
+                { lat: 30.0444, lng: 31.2357, name: 'Cairo, Egypt' },
+                { lat: 25.2769, lng: 51.5200, name: 'Luxor, Egypt' },
+                { lat: 33.5731, lng: -7.5898, name: 'Casablanca, Morocco' },
+                { lat: 31.6295, lng: -7.9811, name: 'Marrakech, Morocco' },
+                { lat: 36.7538, lng: 3.0588, name: 'Algiers, Algeria' },
+                { lat: 9.0579, lng: 7.4951, name: 'Abuja, Nigeria' },
+                { lat: 6.5244, lng: 3.3792, name: 'Lagos, Nigeria' },
+                { lat: 5.6037, lng: -0.1870, name: 'Accra, Ghana' },
+                { lat: -1.2921, lng: 36.8219, name: 'Nairobi, Kenya' },
+                { lat: -6.7924, lng: 39.2083, name: 'Dar es Salaam, Tanzania' },
+                { lat: -3.3869, lng: 36.6830, name: 'Mount Kilimanjaro' },
+                { lat: -17.8252, lng: 31.0335, name: 'Harare, Zimbabwe' },
+                { lat: -33.9249, lng: 18.4241, name: 'Cape Town, South Africa' },
+                { lat: -26.2041, lng: 28.0473, name: 'Johannesburg, South Africa' },
+                { lat: -29.8587, lng: 31.0218, name: 'Durban, South Africa' },
+                
+                // === OCEANIA ===
+                { lat: -33.8688, lng: 151.2093, name: 'Sydney, Australia' },
+                { lat: -37.8136, lng: 144.9631, name: 'Melbourne, Australia' },
+                { lat: -27.4698, lng: 153.0251, name: 'Brisbane, Australia' },
+                { lat: -31.9505, lng: 115.8605, name: 'Perth, Australia' },
+                { lat: -42.8821, lng: 147.3272, name: 'Hobart, Tasmania' },
+                { lat: -25.3444, lng: 131.0369, name: 'Uluru (Ayers Rock)' },
+                { lat: -16.9186, lng: 145.7781, name: 'Cairns (Great Barrier Reef)' },
+                { lat: -36.8485, lng: 174.7633, name: 'Auckland, New Zealand' },
+                { lat: -41.2865, lng: 174.7762, name: 'Wellington, New Zealand' },
+                { lat: -43.5321, lng: 172.6362, name: 'Christchurch, New Zealand' },
+                { lat: -45.0312, lng: 168.6626, name: 'Queenstown, New Zealand' },
+                { lat: -18.1416, lng: 178.4419, name: 'Suva, Fiji' },
+                
+                // === MIDDLE EAST ===
+                { lat: 32.0853, lng: 34.7818, name: 'Tel Aviv, Israel' },
+                { lat: 31.7683, lng: 35.2137, name: 'Jerusalem, Israel' },
+                { lat: 33.8938, lng: 35.5018, name: 'Beirut, Lebanon' },
+                { lat: 33.3152, lng: 44.3661, name: 'Baghdad, Iraq' },
+                { lat: 21.4225, lng: 39.8262, name: 'Mecca, Saudi Arabia' },
+                { lat: 31.0542, lng: 34.2774, name: 'Dead Sea' },
+                { lat: 30.3285, lng: 35.4444, name: 'Petra, Jordan' },
+                
+                // === FAMOUS LANDMARKS ===
+                { lat: 27.1751, lng: 78.0421, name: 'Taj Mahal, India' },
+                { lat: 40.4319, lng: 116.5704, name: 'Great Wall of China' },
+                { lat: -13.1631, lng: -72.5450, name: 'Machu Picchu, Peru' },
+                { lat: 29.9792, lng: 31.1342, name: 'Pyramids of Giza' },
+                { lat: 43.7231, lng: 10.3966, name: 'Leaning Tower of Pisa' },
+                { lat: 48.8584, lng: 2.2945, name: 'Eiffel Tower, Paris' },
+                { lat: 41.8902, lng: 12.4922, name: 'Colosseum, Rome' },
+                { lat: 27.9881, lng: 86.9250, name: 'Mount Everest Base Camp' },
+                { lat: 37.9715, lng: 23.7257, name: 'Acropolis, Athens' },
+                { lat: 51.1789, lng: -1.8262, name: 'Stonehenge, UK' },
+                { lat: 40.7580, lng: -73.9855, name: 'Times Square, New York' },
+                { lat: 37.8199, lng: -122.4783, name: 'Golden Gate Bridge' },
+                { lat: -22.9519, lng: -43.2105, name: 'Christ the Redeemer, Rio' },
+                { lat: -25.3444, lng: -57.6330, name: 'Iguazu Falls' },
+                { lat: 20.6843, lng: -88.5678, name: 'Chichen Itza, Mexico' },
+                { lat: 13.4125, lng: 103.8670, name: 'Angkor Wat, Cambodia' },
+                
+                // === NATURAL WONDERS ===
+                { lat: 36.1069, lng: -112.1129, name: 'Grand Canyon, USA' },
+                { lat: 44.4280, lng: 110.5885, name: 'Yellowstone, USA' },
+                { lat: 37.8651, lng: -119.5383, name: 'Yosemite, USA' },
+                { lat: -3.4653, lng: -62.2159, name: 'Amazon Rainforest, Brazil' },
+                { lat: -50.5024, lng: -73.0544, name: 'Perito Moreno Glacier' },
+                { lat: -17.9246, lng: -67.1092, name: 'Uyuni Salt Flats, Bolivia' },
+                { lat: 19.8511, lng: -155.4681, name: 'Hawaii Volcanoes' },
+                { lat: 64.9631, lng: -19.0208, name: 'Vatnajökull Glacier, Iceland' },
+                { lat: 66.5039, lng: -18.0492, name: 'Dettifoss Waterfall, Iceland' },
+                { lat: 60.0000, lng: 6.5000, name: 'Fjords of Norway' },
+                { lat: 62.0000, lng: -7.0000, name: 'Faroe Islands' },
+                { lat: 69.6492, lng: 18.9553, name: 'Tromsø (Northern Lights)' },
+                { lat: 78.2232, lng: 15.6267, name: 'Svalbard, Norway' },
+                { lat: 46.5197, lng: 9.8550, name: 'Swiss Alps - Bernina Pass' },
+                { lat: 45.8326, lng: 6.8652, name: 'Mont Blanc' },
+                { lat: 46.4868, lng: 11.8385, name: 'Dolomites, Italy' },
+                { lat: 36.8617, lng: 24.8633, name: 'Santorini, Greece' },
+                { lat: -24.6282, lng: 15.9000, name: 'Namib Desert, Namibia' },
+                { lat: -19.0154, lng: 47.5079, name: 'Avenue of Baobabs, Madagascar' },
+                { lat: -20.3484, lng: 57.5522, name: 'Mauritius Island' },
+                { lat: -0.7893, lng: -90.3127, name: 'Galápagos Islands' },
+                { lat: -27.1127, lng: -109.3497, name: 'Easter Island, Chile' },
+                { lat: -54.8019, lng: -68.3029, name: 'Ushuaia (End of the World)' },
+                { lat: -64.7747, lng: -64.0535, name: 'Paradise Bay, Antarctica' },
+                { lat: -77.8500, lng: 166.6833, name: 'McMurdo Station, Antarctica' },
+                { lat: 71.7069, lng: -42.6043, name: 'Greenland Ice Sheet' }
+              ];
               
-              console.log(`🗺️ Generated random location: ${latitude}, ${longitude}`);
+              // Pick a random location from the curated list
+              const randomLocation = interestingLocations[Math.floor(Math.random() * interestingLocations.length)];
+              const latitude = randomLocation.lat;
+              const longitude = randomLocation.lng;
+              
+              console.log(`🌍 Selected random location: ${randomLocation.name} (${latitude}, ${longitude})`);
               
               // Get location information from Gemini with Google Maps grounding
               const locationInfo = await getLocationInfo(parseFloat(latitude), parseFloat(longitude));
@@ -2880,11 +3084,215 @@ async function handleOutgoingMessage(webhookData) {
             case 'send_random_location': {
               await sendAck(chatId, { type: 'send_random_location' });
               
-              // Generate random coordinates
-              const latitude = (Math.random() * 180 - 90).toFixed(6); // -90 to 90
-              const longitude = (Math.random() * 360 - 180).toFixed(6); // -180 to 180
+              // Curated list of 180+ interesting locations around the world
+              // Mix of famous cities, landmarks, natural wonders, and unique places
+              const interestingLocations = [
+                // === ASIA - MAJOR CITIES ===
+                { lat: 35.6762, lng: 139.6503, name: 'Tokyo, Japan' },
+                { lat: 34.6937, lng: 135.5023, name: 'Osaka, Japan' },
+                { lat: 37.5665, lng: 126.9780, name: 'Seoul, South Korea' },
+                { lat: 35.1796, lng: 129.0756, name: 'Busan, South Korea' },
+                { lat: 39.9042, lng: 116.4074, name: 'Beijing, China' },
+                { lat: 31.2304, lng: 121.4737, name: 'Shanghai, China' },
+                { lat: 22.3193, lng: 114.1694, name: 'Hong Kong' },
+                { lat: 25.0330, lng: 121.5654, name: 'Taipei, Taiwan' },
+                { lat: 13.7563, lng: 100.5018, name: 'Bangkok, Thailand' },
+                { lat: 18.7883, lng: 98.9853, name: 'Chiang Mai, Thailand' },
+                { lat: 1.3521, lng: 103.8198, name: 'Singapore' },
+                { lat: 3.1390, lng: 101.6869, name: 'Kuala Lumpur, Malaysia' },
+                { lat: -6.2088, lng: 106.8456, name: 'Jakarta, Indonesia' },
+                { lat: -8.3405, lng: 115.0920, name: 'Ubud, Bali' },
+                { lat: 21.0285, lng: 105.8542, name: 'Hanoi, Vietnam' },
+                { lat: 10.8231, lng: 106.6297, name: 'Ho Chi Minh City, Vietnam' },
+                { lat: 11.5564, lng: 104.9282, name: 'Phnom Penh, Cambodia' },
+                { lat: 13.3611, lng: 103.8645, name: 'Angkor Wat, Cambodia' },
+                { lat: 16.8409, lng: 96.1735, name: 'Yangon, Myanmar' },
+                { lat: 28.6139, lng: 77.2090, name: 'New Delhi, India' },
+                { lat: 19.0760, lng: 72.8777, name: 'Mumbai, India' },
+                { lat: 12.9716, lng: 77.5946, name: 'Bangalore, India' },
+                { lat: 26.9124, lng: 75.7873, name: 'Jaipur, India' },
+                { lat: 27.7172, lng: 85.3240, name: 'Kathmandu, Nepal' },
+                { lat: 6.9271, lng: 79.8612, name: 'Colombo, Sri Lanka' },
+                { lat: 25.2048, lng: 55.2708, name: 'Dubai, UAE' },
+                { lat: 24.7136, lng: 46.6753, name: 'Riyadh, Saudi Arabia' },
+                { lat: 25.2854, lng: 51.5310, name: 'Doha, Qatar' },
+                { lat: 40.4093, lng: 49.8671, name: 'Baku, Azerbaijan' },
+                { lat: 41.7151, lng: 44.8271, name: 'Tbilisi, Georgia' },
+                
+                // === EUROPE - MAJOR CITIES ===
+                { lat: 51.5074, lng: -0.1278, name: 'London, UK' },
+                { lat: 55.8642, lng: -4.2518, name: 'Glasgow, Scotland' },
+                { lat: 53.3498, lng: -6.2603, name: 'Dublin, Ireland' },
+                { lat: 48.8566, lng: 2.3522, name: 'Paris, France' },
+                { lat: 43.7102, lng: 7.2620, name: 'Monaco' },
+                { lat: 43.2965, lng: 5.3698, name: 'Marseille, France' },
+                { lat: 45.4642, lng: 9.1900, name: 'Milan, Italy' },
+                { lat: 41.9028, lng: 12.4964, name: 'Rome, Italy' },
+                { lat: 43.7696, lng: 11.2558, name: 'Florence, Italy' },
+                { lat: 45.4408, lng: 12.3155, name: 'Venice, Italy' },
+                { lat: 41.3851, lng: 2.1734, name: 'Barcelona, Spain' },
+                { lat: 40.4168, lng: -3.7038, name: 'Madrid, Spain' },
+                { lat: 37.3891, lng: -5.9845, name: 'Seville, Spain' },
+                { lat: 38.7223, lng: -9.1393, name: 'Lisbon, Portugal' },
+                { lat: 41.1579, lng: -8.6291, name: 'Porto, Portugal' },
+                { lat: 52.5200, lng: 13.4050, name: 'Berlin, Germany' },
+                { lat: 48.1351, lng: 11.5820, name: 'Munich, Germany' },
+                { lat: 53.5511, lng: 9.9937, name: 'Hamburg, Germany' },
+                { lat: 47.3769, lng: 8.5417, name: 'Zurich, Switzerland' },
+                { lat: 46.2044, lng: 6.1432, name: 'Geneva, Switzerland' },
+                { lat: 48.2082, lng: 16.3738, name: 'Vienna, Austria' },
+                { lat: 47.8095, lng: 13.0550, name: 'Salzburg, Austria' },
+                { lat: 52.3676, lng: 4.9041, name: 'Amsterdam, Netherlands' },
+                { lat: 50.8503, lng: 4.3517, name: 'Brussels, Belgium' },
+                { lat: 50.0755, lng: 14.4378, name: 'Prague, Czech Republic' },
+                { lat: 47.4979, lng: 19.0402, name: 'Budapest, Hungary' },
+                { lat: 52.2297, lng: 21.0122, name: 'Warsaw, Poland' },
+                { lat: 50.0647, lng: 19.9450, name: 'Krakow, Poland' },
+                { lat: 59.3293, lng: 18.0686, name: 'Stockholm, Sweden' },
+                { lat: 55.6761, lng: 12.5683, name: 'Copenhagen, Denmark' },
+                { lat: 59.9139, lng: 10.7522, name: 'Oslo, Norway' },
+                { lat: 60.1695, lng: 24.9354, name: 'Helsinki, Finland' },
+                { lat: 64.1466, lng: -21.9426, name: 'Reykjavik, Iceland' },
+                { lat: 59.9343, lng: 30.3351, name: 'St. Petersburg, Russia' },
+                { lat: 55.7558, lng: 37.6173, name: 'Moscow, Russia' },
+                { lat: 41.0082, lng: 28.9784, name: 'Istanbul, Turkey' },
+                { lat: 37.9838, lng: 23.7275, name: 'Athens, Greece' },
+                { lat: 40.6401, lng: 22.9444, name: 'Thessaloniki, Greece' },
+                
+                // === AMERICAS - NORTH ===
+                { lat: 40.7128, lng: -74.0060, name: 'New York City, USA' },
+                { lat: 34.0522, lng: -118.2437, name: 'Los Angeles, USA' },
+                { lat: 41.8781, lng: -87.6298, name: 'Chicago, USA' },
+                { lat: 37.7749, lng: -122.4194, name: 'San Francisco, USA' },
+                { lat: 47.6062, lng: -122.3321, name: 'Seattle, USA' },
+                { lat: 36.1699, lng: -115.1398, name: 'Las Vegas, USA' },
+                { lat: 25.7617, lng: -80.1918, name: 'Miami, USA' },
+                { lat: 30.2672, lng: -97.7431, name: 'Austin, Texas, USA' },
+                { lat: 39.7392, lng: -104.9903, name: 'Denver, USA' },
+                { lat: 43.6532, lng: -79.3832, name: 'Toronto, Canada' },
+                { lat: 45.5017, lng: -73.5673, name: 'Montreal, Canada' },
+                { lat: 49.2827, lng: -123.1207, name: 'Vancouver, Canada' },
+                { lat: 51.0447, lng: -114.0719, name: 'Calgary, Canada' },
+                { lat: 19.4326, lng: -99.1332, name: 'Mexico City, Mexico' },
+                { lat: 20.6597, lng: -103.3496, name: 'Guadalajara, Mexico' },
+                { lat: 25.6866, lng: -100.3161, name: 'Monterrey, Mexico' },
+                { lat: 20.9674, lng: -89.5926, name: 'Merida, Yucatan' },
+                
+                // === AMERICAS - CENTRAL & CARIBBEAN ===
+                { lat: 9.7489, lng: -83.7534, name: 'San Jose, Costa Rica' },
+                { lat: 9.1021, lng: -79.4028, name: 'Panama City, Panama' },
+                { lat: 18.4655, lng: -66.1057, name: 'San Juan, Puerto Rico' },
+                { lat: 23.1136, lng: -82.3666, name: 'Havana, Cuba' },
+                { lat: 18.0179, lng: -76.8099, name: 'Kingston, Jamaica' },
+                
+                // === AMERICAS - SOUTH ===
+                { lat: -23.5505, lng: -46.6333, name: 'São Paulo, Brazil' },
+                { lat: -22.9068, lng: -43.1729, name: 'Rio de Janeiro, Brazil' },
+                { lat: -15.7942, lng: -47.8822, name: 'Brasilia, Brazil' },
+                { lat: -12.9714, lng: -38.5014, name: 'Salvador, Brazil' },
+                { lat: -34.6037, lng: -58.3816, name: 'Buenos Aires, Argentina' },
+                { lat: -33.4489, lng: -70.6693, name: 'Santiago, Chile' },
+                { lat: -33.0153, lng: -71.5500, name: 'Valparaiso, Chile' },
+                { lat: -12.0464, lng: -77.0428, name: 'Lima, Peru' },
+                { lat: -13.5319, lng: -71.9675, name: 'Cusco, Peru' },
+                { lat: -0.1807, lng: -78.4678, name: 'Quito, Ecuador' },
+                { lat: 4.7110, lng: -74.0721, name: 'Bogota, Colombia' },
+                { lat: 6.2442, lng: -75.5812, name: 'Medellin, Colombia' },
+                { lat: -16.5000, lng: -68.1500, name: 'La Paz, Bolivia' },
+                
+                // === AFRICA ===
+                { lat: 30.0444, lng: 31.2357, name: 'Cairo, Egypt' },
+                { lat: 25.2769, lng: 51.5200, name: 'Luxor, Egypt' },
+                { lat: 33.5731, lng: -7.5898, name: 'Casablanca, Morocco' },
+                { lat: 31.6295, lng: -7.9811, name: 'Marrakech, Morocco' },
+                { lat: 36.7538, lng: 3.0588, name: 'Algiers, Algeria' },
+                { lat: 9.0579, lng: 7.4951, name: 'Abuja, Nigeria' },
+                { lat: 6.5244, lng: 3.3792, name: 'Lagos, Nigeria' },
+                { lat: 5.6037, lng: -0.1870, name: 'Accra, Ghana' },
+                { lat: -1.2921, lng: 36.8219, name: 'Nairobi, Kenya' },
+                { lat: -6.7924, lng: 39.2083, name: 'Dar es Salaam, Tanzania' },
+                { lat: -3.3869, lng: 36.6830, name: 'Mount Kilimanjaro' },
+                { lat: -17.8252, lng: 31.0335, name: 'Harare, Zimbabwe' },
+                { lat: -33.9249, lng: 18.4241, name: 'Cape Town, South Africa' },
+                { lat: -26.2041, lng: 28.0473, name: 'Johannesburg, South Africa' },
+                { lat: -29.8587, lng: 31.0218, name: 'Durban, South Africa' },
+                
+                // === OCEANIA ===
+                { lat: -33.8688, lng: 151.2093, name: 'Sydney, Australia' },
+                { lat: -37.8136, lng: 144.9631, name: 'Melbourne, Australia' },
+                { lat: -27.4698, lng: 153.0251, name: 'Brisbane, Australia' },
+                { lat: -31.9505, lng: 115.8605, name: 'Perth, Australia' },
+                { lat: -42.8821, lng: 147.3272, name: 'Hobart, Tasmania' },
+                { lat: -25.3444, lng: 131.0369, name: 'Uluru (Ayers Rock)' },
+                { lat: -16.9186, lng: 145.7781, name: 'Cairns (Great Barrier Reef)' },
+                { lat: -36.8485, lng: 174.7633, name: 'Auckland, New Zealand' },
+                { lat: -41.2865, lng: 174.7762, name: 'Wellington, New Zealand' },
+                { lat: -43.5321, lng: 172.6362, name: 'Christchurch, New Zealand' },
+                { lat: -45.0312, lng: 168.6626, name: 'Queenstown, New Zealand' },
+                { lat: -18.1416, lng: 178.4419, name: 'Suva, Fiji' },
+                
+                // === MIDDLE EAST ===
+                { lat: 32.0853, lng: 34.7818, name: 'Tel Aviv, Israel' },
+                { lat: 31.7683, lng: 35.2137, name: 'Jerusalem, Israel' },
+                { lat: 33.8938, lng: 35.5018, name: 'Beirut, Lebanon' },
+                { lat: 33.3152, lng: 44.3661, name: 'Baghdad, Iraq' },
+                { lat: 21.4225, lng: 39.8262, name: 'Mecca, Saudi Arabia' },
+                { lat: 31.0542, lng: 34.2774, name: 'Dead Sea' },
+                { lat: 30.3285, lng: 35.4444, name: 'Petra, Jordan' },
+                
+                // === FAMOUS LANDMARKS ===
+                { lat: 27.1751, lng: 78.0421, name: 'Taj Mahal, India' },
+                { lat: 40.4319, lng: 116.5704, name: 'Great Wall of China' },
+                { lat: -13.1631, lng: -72.5450, name: 'Machu Picchu, Peru' },
+                { lat: 29.9792, lng: 31.1342, name: 'Pyramids of Giza' },
+                { lat: 43.7231, lng: 10.3966, name: 'Leaning Tower of Pisa' },
+                { lat: 48.8584, lng: 2.2945, name: 'Eiffel Tower, Paris' },
+                { lat: 41.8902, lng: 12.4922, name: 'Colosseum, Rome' },
+                { lat: 27.9881, lng: 86.9250, name: 'Mount Everest Base Camp' },
+                { lat: 37.9715, lng: 23.7257, name: 'Acropolis, Athens' },
+                { lat: 51.1789, lng: -1.8262, name: 'Stonehenge, UK' },
+                { lat: 40.7580, lng: -73.9855, name: 'Times Square, New York' },
+                { lat: 37.8199, lng: -122.4783, name: 'Golden Gate Bridge' },
+                { lat: -22.9519, lng: -43.2105, name: 'Christ the Redeemer, Rio' },
+                { lat: -25.3444, lng: -57.6330, name: 'Iguazu Falls' },
+                { lat: 20.6843, lng: -88.5678, name: 'Chichen Itza, Mexico' },
+                { lat: 13.4125, lng: 103.8670, name: 'Angkor Wat, Cambodia' },
+                
+                // === NATURAL WONDERS ===
+                { lat: 36.1069, lng: -112.1129, name: 'Grand Canyon, USA' },
+                { lat: 44.4280, lng: 110.5885, name: 'Yellowstone, USA' },
+                { lat: 37.8651, lng: -119.5383, name: 'Yosemite, USA' },
+                { lat: -3.4653, lng: -62.2159, name: 'Amazon Rainforest, Brazil' },
+                { lat: -50.5024, lng: -73.0544, name: 'Perito Moreno Glacier' },
+                { lat: -17.9246, lng: -67.1092, name: 'Uyuni Salt Flats, Bolivia' },
+                { lat: 19.8511, lng: -155.4681, name: 'Hawaii Volcanoes' },
+                { lat: 64.9631, lng: -19.0208, name: 'Vatnajökull Glacier, Iceland' },
+                { lat: 66.5039, lng: -18.0492, name: 'Dettifoss Waterfall, Iceland' },
+                { lat: 60.0000, lng: 6.5000, name: 'Fjords of Norway' },
+                { lat: 62.0000, lng: -7.0000, name: 'Faroe Islands' },
+                { lat: 69.6492, lng: 18.9553, name: 'Tromsø (Northern Lights)' },
+                { lat: 78.2232, lng: 15.6267, name: 'Svalbard, Norway' },
+                { lat: 46.5197, lng: 9.8550, name: 'Swiss Alps - Bernina Pass' },
+                { lat: 45.8326, lng: 6.8652, name: 'Mont Blanc' },
+                { lat: 46.4868, lng: 11.8385, name: 'Dolomites, Italy' },
+                { lat: 36.8617, lng: 24.8633, name: 'Santorini, Greece' },
+                { lat: -24.6282, lng: 15.9000, name: 'Namib Desert, Namibia' },
+                { lat: -19.0154, lng: 47.5079, name: 'Avenue of Baobabs, Madagascar' },
+                { lat: -20.3484, lng: 57.5522, name: 'Mauritius Island' },
+                { lat: -0.7893, lng: -90.3127, name: 'Galápagos Islands' },
+                { lat: -27.1127, lng: -109.3497, name: 'Easter Island, Chile' },
+                { lat: -54.8019, lng: -68.3029, name: 'Ushuaia (End of the World)' },
+                { lat: -64.7747, lng: -64.0535, name: 'Paradise Bay, Antarctica' },
+                { lat: -77.8500, lng: 166.6833, name: 'McMurdo Station, Antarctica' },
+                { lat: 71.7069, lng: -42.6043, name: 'Greenland Ice Sheet' }
+              ];
               
-              console.log(`🗺️ Generated random location: ${latitude}, ${longitude}`);
+              // Pick a random location from the curated list
+              const randomLocation = interestingLocations[Math.floor(Math.random() * interestingLocations.length)];
+              const latitude = randomLocation.lat;
+              const longitude = randomLocation.lng;
+              
+              console.log(`🌍 Selected random location: ${randomLocation.name} (${latitude}, ${longitude})`);
               
               // Get location information from Gemini with Google Maps grounding
               const locationInfo = await getLocationInfo(parseFloat(latitude), parseFloat(longitude));

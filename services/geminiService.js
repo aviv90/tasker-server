@@ -2136,10 +2136,70 @@ async function getLocationInfo(latitude, longitude) {
             model: "gemini-2.5-flash" 
         });
         
-        // Use Gemini's geographic knowledge to describe the location
-        // Note: We don't use Google Maps Grounding here because random coordinates 
-        // often fall in oceans or unpopulated areas with no Maps data
-        const prompt = `תאר את המיקום הגיאוגרפי: קו רוחב ${latitude}°, קו אורך ${longitude}°.
+        // HYBRID APPROACH:
+        // 1. Try Google Maps Grounding first (best for populated areas)
+        // 2. If it fails or returns unhelpful response, fallback to general Gemini knowledge
+        
+        let text = '';
+        let usedMapsGrounding = false;
+        
+        try {
+            console.log('🗺️ Trying Google Maps Grounding first...');
+            const mapsPrompt = `מה יש במיקום הזה? תאר באיזו עיר או אזור זה נמצא, באיזו מדינה, ומה מעניין או מפורסם במקום הזה. תשובה קצרה ומעניינת בעברית (2-3 שורות).`;
+
+            const mapsResult = await model.generateContent({
+                contents: [{ role: "user", parts: [{ text: mapsPrompt }] }],
+                tools: [{
+                    googleMaps: {}
+                }],
+                toolConfig: {
+                    retrievalConfig: {
+                        latLng: {
+                            latitude: latitude,
+                            longitude: longitude
+                        }
+                    }
+                }
+            });
+            
+            const mapsResponse = mapsResult.response;
+            if (mapsResponse.candidates && mapsResponse.candidates.length > 0) {
+                text = mapsResponse.text();
+                
+                // Check if Maps Grounding gave a useful answer
+                // If it asks for more info or says it needs a specific location, it means no data
+                const unhelpfulPatterns = [
+                    'אני זקוק למיקום',
+                    'אני צריך מיקום',
+                    'I need a location',
+                    'I need more information',
+                    'אנא ציין',
+                    'please specify',
+                    'לא ברור',
+                    'unclear'
+                ];
+                
+                const isUnhelpful = unhelpfulPatterns.some(pattern => 
+                    text.toLowerCase().includes(pattern.toLowerCase())
+                );
+                
+                if (!isUnhelpful && text.trim().length > 20) {
+                    console.log('✅ Google Maps Grounding provided useful info');
+                    usedMapsGrounding = true;
+                } else {
+                    console.log('⚠️ Google Maps Grounding response not useful, falling back to general knowledge...');
+                    text = ''; // Reset for fallback
+                }
+            }
+        } catch (mapsError) {
+            console.log(`⚠️ Google Maps Grounding failed: ${mapsError.message}, falling back to general knowledge...`);
+            text = ''; // Reset for fallback
+        }
+        
+        // Fallback: Use Gemini's general geographic knowledge
+        if (!text || text.trim().length === 0) {
+            console.log('🌍 Using Gemini general geographic knowledge...');
+            const generalPrompt = `תאר את המיקום הגיאוגרפי: קו רוחב ${latitude}°, קו אורך ${longitude}°.
 
 ספר בקצרה (2-3 שורות):
 - באיזו מדינה, אזור או אוקיינוס זה נמצא
@@ -2148,19 +2208,19 @@ async function getLocationInfo(latitude, longitude) {
 
 תשובה מעניינת בעברית.`;
 
-        const result = await model.generateContent(prompt);
-        
-        const response = result.response;
-        
-        if (!response.candidates || response.candidates.length === 0) {
-            console.log('❌ Gemini: No candidates returned');
-            return { 
-                success: false, 
-                error: 'No response from Gemini' 
-            };
+            const generalResult = await model.generateContent(generalPrompt);
+            const generalResponse = generalResult.response;
+            
+            if (!generalResponse.candidates || generalResponse.candidates.length === 0) {
+                console.log('❌ Gemini: No candidates returned');
+                return { 
+                    success: false, 
+                    error: 'No response from Gemini' 
+                };
+            }
+            
+            text = generalResponse.text();
         }
-        
-        let text = response.text();
         
         if (!text || text.trim().length === 0) {
             console.log('❌ Gemini: Empty text response');
@@ -2170,13 +2230,14 @@ async function getLocationInfo(latitude, longitude) {
             };
         }
         
-        console.log(`✅ Location info retrieved: ${text.substring(0, 100)}...`);
+        console.log(`✅ Location info retrieved (${usedMapsGrounding ? 'Maps Grounding' : 'General Knowledge'}): ${text.substring(0, 100)}...`);
         
         return {
             success: true,
             description: text.trim(),
             latitude: latitude,
-            longitude: longitude
+            longitude: longitude,
+            usedMapsGrounding: usedMapsGrounding
         };
         
     } catch (err) {
