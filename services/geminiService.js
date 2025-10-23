@@ -1367,9 +1367,10 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         };
         
         // Add Google Search tool if requested
+        // Note: Using 'googleSearch' (not 'googleSearchRetrieval') for Gemini 2.5 models
         if (useGoogleSearch) {
             generateConfig.tools = [{
-                googleSearchRetrieval: {}
+                googleSearch: {}
             }];
             console.log('🔍 Adding Google Search tool to Gemini API call');
         }
