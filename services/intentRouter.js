@@ -99,21 +99,11 @@ async function routeIntent(input) {
       return { tool: 'kling_image_to_video', args: { prompt }, reason: 'Image attached, video-like request' };
     }
     
-    // Second priority: Check if user wants image analysis/questions (text-only response)
-    // Expanded to include more question patterns and info requests
-    // Note: Don't use \b after Hebrew words - it doesn't work in JavaScript
-    const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|מסוכן|בטוח)\b|^\b(identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous)\b/i.test(prompt);
-    if (isAnalysisRequest) {
-      // Check if user wants to reference previous messages in the analysis
-      const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
-      // Check for Google Search request
-      const needsGoogleSearch = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
-      return { tool: 'gemini_chat', args: { prompt, needsChatHistory, useGoogleSearch: needsGoogleSearch }, reason: 'Image analysis/question' };
-    }
-    
-    // Third priority: Check if it's an edit command (requires authorization)
+    // Second priority: Check if it's an edit command (requires authorization)
+    // IMPORTANT: Check edit BEFORE analysis to catch edit imperatives like "תוריד", "תסיר"
     // Edit keywords: add, remove, change, make, create, replace, etc.
-    const isEditRequest = /\b(add|remove|delete|change|replace|modify|edit|make|create|draw|paint|color|set|put|insert|erase|fix|adjust|enhance|improve|transform|convert)\b|הוסף|הסר|מחק|שנה|החלף|ערוך|צור|צייר|צבע|הכנס|תקן|שפר|המר|הפוך(?!.*וידאו)|עשה|תן/i.test(prompt);
+    // Hebrew imperatives: הוסף, הסר, מחק, תסיר, תמחק, תוריד, תשנה, תחליף, תצייר...
+    const isEditRequest = /\b(add|remove|delete|change|replace|modify|edit|make|create|draw|paint|color|set|put|insert|erase|fix|adjust|enhance|improve|transform|convert)\b|הוסף|הוסיפ|הסר|תסיר|מחק|תמחק|תוריד|הורד|שנה|תשנה|החלף|תחליף|ערוך|תערוך|צור|תצור|צייר|תצייר|צבע|תצבע|הכנס|תכניס|תקן|תתקן|שפר|תשפר|המר|תמיר|הפוך(?!.*וידאו)|עשה|תעשה|תן/i.test(prompt);
     
     // Implicit edit: If prompt describes a state/appearance without being a question
     // Examples: "לבוש בקימונו", "wearing a hat", "with glasses", "as a superhero"
@@ -133,6 +123,18 @@ async function routeIntent(input) {
       return { tool: 'image_edit', args: { service, prompt }, reason: 'Image edit request' };
     }
     
+    // Third priority: Check if user wants image analysis/questions (text-only response)
+    // Expanded to include more question patterns and info requests
+    // Note: Don't use \b after Hebrew words - it doesn't work in JavaScript
+    const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|מסוכן|בטוח)\b|^\b(identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous)\b/i.test(prompt);
+    if (isAnalysisRequest) {
+      // Check if user wants to reference previous messages in the analysis
+      const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
+      // Check for Google Search request
+      const needsGoogleSearch = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
+      return { tool: 'gemini_chat', args: { prompt, needsChatHistory, useGoogleSearch: needsGoogleSearch }, reason: 'Image analysis/question' };
+    }
+    
     // Default: If no clear pattern detected, treat as analysis/question
     // This is safer than defaulting to edit
     // Check if user wants to reference previous messages in the analysis
@@ -144,7 +146,21 @@ async function routeIntent(input) {
 
   // If there is an attached video with text prompt → decide between video analysis vs video-to-video
   if (input.hasVideo && prompt) {
-    // First priority: Check if user wants video analysis/questions (text-only response)
+    // First priority: Video-to-video editing (requires authorization)
+    // IMPORTANT: Check edit BEFORE analysis to catch edit imperatives like "תוריד", "תסיר"
+    // Edit keywords: add, remove, change, make, create, replace, etc.
+    // Hebrew imperatives: הוסף, הסר, מחק, תסיר, תמחק, תוריד, תשנה, תחליף, תצייר...
+    const isEditRequest = /\b(add|remove|delete|change|replace|modify|edit|make|create|draw|paint|color|set|put|insert|erase|fix|adjust|enhance|improve|transform|convert)\b|הוסף|הוסיפ|הסר|תסיר|מחק|תמחק|תוריד|הורד|שנה|תשנה|החלף|תחליף|ערוך|תערוך|צור|תצור|צייר|תצייר|צבע|תצבע|הכנס|תכניס|תקן|תתקן|שפר|תשפר|המר|תמיר|הפוך(?!.*וידאו)|עשה|תעשה|תן/i.test(prompt);
+    if (isEditRequest) {
+      if (!input.authorizations?.media_creation) {
+        return { tool: 'deny_unauthorized', args: { feature: 'video_to_video' }, reason: 'No media creation authorization' };
+      }
+      // Only Runway for video editing
+      const service = 'runway';
+      return { tool: 'video_to_video', args: { service, prompt }, reason: 'Video edit request' };
+    }
+    
+    // Second priority: Check if user wants video analysis/questions (text-only response)
     // Same pattern as image analysis
     // Note: Don't use \b after Hebrew words - it doesn't work in JavaScript
     const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|מסוכן|בטוח)\b|^\b(identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous)\b/i.test(prompt);
@@ -154,17 +170,6 @@ async function routeIntent(input) {
       // Check for Google Search request
       const needsGoogleSearch = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
       return { tool: 'gemini_chat', args: { prompt, needsChatHistory, useGoogleSearch: needsGoogleSearch }, reason: 'Video analysis/question' };
-    }
-    
-    // Second priority: Video-to-video editing (requires authorization)
-    const isEditRequest = /\b(add|remove|delete|change|replace|modify|edit|make|create|draw|paint|color|set|put|insert|erase|fix|adjust|enhance|improve|transform|convert)\b|הוסף|הסר|מחק|שנה|החלף|ערוך|צור|צייר|צבע|הכנס|תקן|שפר|המר|הפוך(?!.*וידאו)|עשה|תן/i.test(prompt);
-    if (isEditRequest) {
-      if (!input.authorizations?.media_creation) {
-        return { tool: 'deny_unauthorized', args: { feature: 'video_to_video' }, reason: 'No media creation authorization' };
-      }
-      // Only Runway for video editing
-      const service = 'runway';
-      return { tool: 'video_to_video', args: { service, prompt }, reason: 'Video edit request' };
     }
     
     // Default: If no clear pattern detected, treat as analysis/question
