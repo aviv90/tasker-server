@@ -510,13 +510,22 @@ ${JSON.stringify(payload, null, 2)}
       💡 **CHAT HISTORY**: If request mentions previous messages (e.g., "לפי ההודעות האחרונות מה זה?"), set needsChatHistory=true
    
    C. **Image Editing** (third priority - requires authorization):
-      ✓ Edit keywords: "הוסף", "הסר", "מחק", "שנה", "החלף", "ערוך", "צבע", "add", "remove", "delete", "change", "replace", "edit", "make", "create", "draw", "paint", "color"
+      ✓ Edit keywords WITH ALL HEBREW CONJUGATIONS (male/female/plural):
+        - Remove: "הסר", "סיר", "תסיר", "תסירי", "תסירו", "מחק", "מחקי", "מחקו", "תמחק", "תמחקי", "תמחקו", "הורד", "הורידי", "הורידו", "תוריד", "תורידי", "תורידו"
+        - Change: "שנה", "שני", "תשנה", "תשני", "תשנו", "החלף", "החליפ", "תחליף", "תחליפי", "תחליפו"
+        - Edit: "ערוך", "ערכי", "תערוך", "תערכי", "תערכו"
+        - Create: "צור", "צרי", "תצור", "תצרי", "תצרו", "הוסף", "הוסיפ", "תוסיפ"
+        - Draw: "צייר", "צירי", "תצייר", "תצירי", "תצירו"
+        - Color: "צבע", "צבעי", "תצבע", "תצבעי", "תצבעו"
+        - Other: "הכנס", "הכניס", "תכניס", "תכניסי", "תכניסו", "תקן", "תקני", "תתקן", "תתקני", "תתקנו", "שפר", "שפרי", "תשפר", "תשפרי", "תשפרו"
+        - English: "add", "remove", "delete", "change", "replace", "edit", "make", "create", "draw", "paint", "color"
       ✓ Implicit edit patterns (describes state/appearance): "לבוש בקימונו", "עם משקפיים", "כברבי", "wearing a hat", "with glasses", "as a superhero"
       ✓ Requires media_creation authorization
       ✓ Check provider preference (OpenAI/Gemini)
       → "image_edit"
       
       💡 **IMPORTANT**: If prompt describes how person/object should look (without being a question), treat as edit request!
+      💡 **BE FORGIVING**: Accept all Hebrew verb conjugations - users shouldn't think about correct grammar!
    
    D. **Default** (no clear pattern):
       - If unclear → "gemini_chat" (safer to analyze than edit)
@@ -539,9 +548,17 @@ ${JSON.stringify(payload, null, 2)}
       💡 **CHAT HISTORY**: If request mentions previous messages (e.g., "לפי ההודעות בקבוצה מה קורה בוידאו?"), set needsChatHistory=true
    
    B. **Video Editing** (second priority - requires authorization):
-      ✓ Edit keywords: "הוסף", "הסר", "מחק", "שנה", "החלף", "ערוך", "add", "remove", "delete", "change", "replace", "edit", "make", "create"
+      ✓ Edit keywords WITH ALL HEBREW CONJUGATIONS (male/female/plural):
+        - Remove: "הסר", "סיר", "תסיר", "תסירי", "תסירו", "מחק", "מחקי", "מחקו", "תמחק", "תמחקי", "תמחקו", "הורד", "הורידי", "הורידו", "תוריד", "תורידי", "תורידו"
+        - Change: "שנה", "שני", "תשנה", "תשני", "תשנו", "החלף", "החליפ", "תחליף", "תחליפי", "תחליפו"
+        - Edit: "ערוך", "ערכי", "תערוך", "תערכי", "תערכו"
+        - Create: "צור", "צרי", "תצור", "תצרי", "תצרו", "הוסף", "הוסיפ", "תוסיפ"
+        - Other: "הכנס", "הכניס", "תכניס", "תכניסי", "תכניסו", "תקן", "תקני", "תתקן", "תתקני", "תתקנו", "שפר", "שפרי", "תשפר", "תשפרי", "תשפרו"
+        - English: "add", "remove", "delete", "change", "replace", "edit", "make", "create"
       ✓ Requires media_creation authorization
       → "video_to_video"
+      
+      💡 **BE FORGIVING**: Accept all Hebrew verb conjugations - users shouldn't think about correct grammar!
    
    C. **Default** (no clear pattern):
       - If unclear → "gemini_chat" (safer to analyze than edit)
