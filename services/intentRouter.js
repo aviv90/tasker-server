@@ -247,9 +247,15 @@ async function routeIntent(input) {
     // English: search the web, search online, search google, give me links, send links to, link to, find me
     const needsGoogleSearch = isLinkRequest || /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|מצא\s+(לי\s+)?|תמצא\s+(לי\s+)?|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|find\s+(me\s+)?/i.test(prompt);
     
-    // Check if user wants music generation (Suno) vs just asking about existing songs
-    // IMPORTANT: If user asks for a link to a song, it's NOT music generation - it's a search request with Google Search
-    const isMusic = !isLinkRequest && /\b(suno|music|song|musik)\b|שיר|שירה|מוזיקה|מוסיקה|זמר|זמרה|שירון|שיירון/i.test(prompt);
+    // Check if user wants music generation (Suno) vs just text/lyrics
+    // Music generation (Suno) requires explicit mention of: melody, tune, Suno, music with sound
+    // Just "שיר" alone = text/lyrics request (Gemini chat)
+    // "שיר עם מנגינה/לחן/Suno" = music generation (Suno)
+    const isMusicGeneration = !isLinkRequest && (
+      /\b(suno|music\s+with|melody|tune)\b/i.test(prompt) ||
+      /שיר.*עם.*(מנגינה|לחן|צליל|מוזיקה|מוסיקה|קול)|מנגינה|לחן|מוזיקה|מוסיקה.*עם|שירה.*עם.*לחן/i.test(prompt)
+    );
+    const isSongLyrics = !isLinkRequest && !isMusicGeneration && /\b(song|musik)\b|שיר|שירה|זמר|זמרה|שירון|שיירון/i.test(prompt);
     
     const isHelp = /\b(commands|comands|list|help|capabilities)\b|פקודות|פיקודות|רשימת|רשימה|עזרה|אילו|מה\s+אפשר|what\s+can/i.test(prompt);
     const isCreateGroup = /צור.*קבוצה|צרי.*קבוצה|צרו.*קבוצה|תצור.*קבוצה|תצרי.*קבוצה|תצרו.*קבוצה|יצירת.*קבוצה|פתח.*קבוצה|פתחי.*קבוצה|פתחו.*קבוצה|תפתח.*קבוצה|תפתחי.*קבוצה|תפתחו.*קבוצה|פתיחת.*קבוצה|הקם.*קבוצה|הקימי.*קבוצה|הקימו.*קבוצה|תקים.*קבוצה|תקימי.*קבוצה|תקימו.*קבוצה|הקמת.*קבוצה|create.*group|creat.*group|new.*group|open.*group|start.*group|קבוצה.*חדשה/i.test(prompt);
@@ -258,7 +264,7 @@ async function routeIntent(input) {
     const isRandomLocation = /שלח\s+מיקום|שלחי\s+מיקום|שלחו\s+מיקום|תשלח\s+מיקום|תשלחי\s+מיקום|תשלחו\s+מיקום|מיקום\s+אקראי|מיקום\s+רנדומלי|location\s+random|random\s+location|send\s+location|send\s+random\s+location/i.test(prompt);
     
     // Debug: log intent detection
-    console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} Music:${isMusic} TTS:${isTtsLike} Retry:${isRetry} Poll:${isPoll} Location:${isRandomLocation} LinkReq:${isLinkRequest} GoogleSearch:${needsGoogleSearch}`);
+    console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} MusicGen:${isMusicGeneration} Lyrics:${isSongLyrics} TTS:${isTtsLike} Retry:${isRetry} Poll:${isPoll} Location:${isRandomLocation} LinkReq:${isLinkRequest} GoogleSearch:${needsGoogleSearch}`);
     
     if (isRetry) {
       return { tool: 'retry_last_command', args: {}, reason: 'User requested retry' };
@@ -321,11 +327,16 @@ async function routeIntent(input) {
       return { tool: 'text_to_speech', args: { text: textToSpeak }, reason: 'TTS-like request' };
     }
 
-    if (isMusic) {
+    if (isMusicGeneration) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'music_generation' }, reason: 'No media creation authorization' };
       }
-      return { tool: 'music_generation', args: { prompt }, reason: 'Music-like request' };
+      return { tool: 'music_generation', args: { prompt }, reason: 'Music generation with melody/Suno' };
+    }
+    
+    if (isSongLyrics) {
+      // Just text/lyrics - route to Gemini chat
+      return { tool: 'gemini_chat', args: { prompt, needsChatHistory: false, useGoogleSearch: false }, reason: 'Song lyrics/text request (not music generation)' };
     }
 
     if (isImageLike) {
@@ -590,10 +601,31 @@ ${JSON.stringify(payload, null, 2)}
 4️⃣ **IF text only** (no media attached):
    STEP A: Look for PRIMARY INTENT keywords (whole word, case-insensitive):
    
-   🎵 **Music Generation:**
-      Keywords (including typos): "שיר", "מוזיקה", "מוסיקה", "שירון", "song", "music", "musik", "suno"
-      → "music_generation"
-      ⚠️ False positives: "musician", "musical", "musicology" are NOT music requests
+   🎵 **Music Generation vs Song Lyrics:**
+      ⚠️ **CRITICAL DISTINCTION**:
+      
+      A. **Music Generation** (Suno - with melody/tune):
+         ✓ Requires EXPLICIT mention of melody/tune/Suno:
+           - Hebrew: "שיר עם מנגינה", "שיר עם לחן", "שיר עם צליל", "שיר עם מוזיקה", "מנגינה", "לחן"
+           - English: "suno", "music with", "melody", "tune", "song with music"
+         ✓ Examples that trigger music_generation:
+           - "# צור שיר עם מנגינה על אהבה" → music_generation
+           - "# שיר עם לחן על הטבע" → music_generation
+           - "# create a song with melody about love" → music_generation
+           - "# Suno שיר על ים" → music_generation
+         → "music_generation"
+      
+      B. **Song Lyrics** (text only - no melody):
+         ✓ Just the word "שיר" or "song" WITHOUT melody/tune/Suno:
+           - Hebrew: "שיר", "שירה", "זמר", "זמרה"
+           - English: "song", "musik" (without "with melody/tune")
+         ✓ Examples that trigger gemini_chat (NOT music_generation):
+           - "# כתוב שיר על אהבה" → gemini_chat (lyrics only)
+           - "# צור שיר על הטבע" → gemini_chat (lyrics only)
+           - "# write a song about love" → gemini_chat (lyrics only)
+         → "gemini_chat"
+      
+      ⚠️ False positives: "musician", "musical", "musicology" are NOT music/song requests
    
    🖼️ **Image Generation:**
       Keywords (including typos): "תמונה", "תמונא", "ציור", "צייור", "צייר", "ציירי", "draw", "picture", "image", "imge", "imagee", "poster", "illustration", "render"
