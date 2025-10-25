@@ -252,10 +252,10 @@ async function routeIntent(input) {
     const isMusic = !isLinkRequest && /\b(suno|music|song|musik)\b|שיר|שירה|מוזיקה|מוסיקה|זמר|זמרה|שירון|שיירון/i.test(prompt);
     
     const isHelp = /\b(commands|comands|list|help|capabilities)\b|פקודות|פיקודות|רשימת|רשימה|עזרה|אילו|מה\s+אפשר|what\s+can/i.test(prompt);
-    const isCreateGroup = /צור.*קבוצה|צר.*קבוצה|יצירת.*קבוצה|פתח.*קבוצה|פתיחת.*קבוצה|הקם.*קבוצה|הקמת.*קבוצה|create.*group|creat.*group|new.*group|open.*group|start.*group|קבוצה.*חדשה/i.test(prompt);
+    const isCreateGroup = /צור.*קבוצה|צרי.*קבוצה|צרו.*קבוצה|תצור.*קבוצה|תצרי.*קבוצה|תצרו.*קבוצה|יצירת.*קבוצה|פתח.*קבוצה|פתחי.*קבוצה|פתחו.*קבוצה|תפתח.*קבוצה|תפתחי.*קבוצה|תפתחו.*קבוצה|פתיחת.*קבוצה|הקם.*קבוצה|הקימי.*קבוצה|הקימו.*קבוצה|תקים.*קבוצה|תקימי.*קבוצה|תקימו.*קבוצה|הקמת.*קבוצה|create.*group|creat.*group|new.*group|open.*group|start.*group|קבוצה.*חדשה/i.test(prompt);
     const isRetry = /^(נסה\s+שוב|נסא\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)|^#\s*(נסה\s+שוב|נסא\s+שוב|שוב|עוד\s+פעם|שנית|retry|again|try\s+again|once\s+more)/i.test(prompt);
-    const isPoll = /צור.*סקר|צר.*סקר|יצירת.*סקר|סקר.*על|סקר.*בנושא|הכן.*סקר|create.*poll|creat.*poll|make.*poll|poll.*about|new.*poll/i.test(prompt);
-    const isRandomLocation = /שלח\s+מיקום|שלחי\s+מיקום|תשלח\s+מיקום|מיקום\s+אקראי|מיקום\s+רנדומלי|location\s+random|random\s+location|send\s+location|send\s+random\s+location/i.test(prompt);
+    const isPoll = /צור.*סקר|צרי.*סקר|צרו.*סקר|תצור.*סקר|תצרי.*סקר|תצרו.*סקר|יצירת.*סקר|סקר.*על|סקר.*בנושא|הכן.*סקר|הכני.*סקר|הכנו.*סקר|תכין.*סקר|תכיני.*סקר|תכינו.*סקר|create.*poll|creat.*poll|make.*poll|poll.*about|new.*poll/i.test(prompt);
+    const isRandomLocation = /שלח\s+מיקום|שלחי\s+מיקום|שלחו\s+מיקום|תשלח\s+מיקום|תשלחי\s+מיקום|תשלחו\s+מיקום|מיקום\s+אקראי|מיקום\s+רנדומלי|location\s+random|random\s+location|send\s+location|send\s+random\s+location/i.test(prompt);
     
     // Debug: log intent detection
     console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} Music:${isMusic} TTS:${isTtsLike} Retry:${isRetry} Poll:${isPoll} Location:${isRandomLocation} LinkReq:${isLinkRequest} GoogleSearch:${needsGoogleSearch}`);
@@ -628,22 +628,37 @@ ${JSON.stringify(payload, null, 2)}
       💡 Note: Re-runs the last command executed in this chat (or quoted message command)
    
    📊 **Poll Creation:**
-      Keywords (including typos): "צור סקר", "צר סקר", "יצירת סקר", "סקר על", "סקר בנושא", "הכן סקר", "create poll", "creat poll", "make poll", "poll about", "new poll"
+      Keywords WITH ALL HEBREW CONJUGATIONS (male/female/plural):
+        - Create: "צור סקר", "צרי סקר", "צרו סקר", "תצור סקר", "תצרי סקר", "תצרו סקר"
+        - Prepare: "הכן סקר", "הכני סקר", "הכנו סקר", "תכין סקר", "תכיני סקר", "תכינו סקר"
+        - Other: "יצירת סקר", "סקר על", "סקר בנושא"
+        - English: "create poll", "creat poll", "make poll", "poll about", "new poll"
       → "create_poll"
       💡 Note: Creates a creative poll with 2-4 options about the given topic. 
          Default: rhyming options. 
          Special: If user requests "ללא חרוזים", "בלי חריזה", "לא חרוזים", "without rhyme", "no rhymes" → creates poll WITHOUT rhyming
+      💡 **BE FORGIVING**: Accept all Hebrew verb conjugations!
    
    📍 **Random Location:**
-      Keywords (including typos): "שלח מיקום", "שלחי מיקום", "תשלח מיקום", "מיקום אקראי", "מיקום רנדומלי", "send location", "send random location", "random location", "location random"
+      Keywords WITH ALL HEBREW CONJUGATIONS (male/female/plural):
+        - Send: "שלח מיקום", "שלחי מיקום", "שלחו מיקום", "תשלח מיקום", "תשלחי מיקום", "תשלחו מיקום"
+        - Other: "מיקום אקראי", "מיקום רנדומלי"
+        - English: "send location", "send random location", "random location", "location random"
       → "send_random_location"
       💡 Note: Sends a random location anywhere on Earth with interesting description about that place using Google Maps grounding
+      💡 **BE FORGIVING**: Accept all Hebrew verb conjugations!
    
    👥 **Group Creation:**
-      Keywords (including typos): "צור קבוצה", "צר קבוצה", "יצירת קבוצה", "פתח קבוצה", "פתיחת קבוצה", "הקם קבוצה", "הקמת קבוצה", "create group", "creat group", "new group", "open group", "start group", "קבוצה חדשה"
+      Keywords WITH ALL HEBREW CONJUGATIONS (male/female/plural):
+        - Create: "צור קבוצה", "צרי קבוצה", "צרו קבוצה", "תצור קבוצה", "תצרי קבוצה", "תצרו קבוצה"
+        - Open: "פתח קבוצה", "פתחי קבוצה", "פתחו קבוצה", "תפתח קבוצה", "תפתחי קבוצה", "תפתחו קבוצה"
+        - Establish: "הקם קבוצה", "הקימי קבוצה", "הקימו קבוצה", "תקים קבוצה", "תקימי קבוצה", "תקימו קבוצה"
+        - Other: "יצירת קבוצה", "פתיחת קבוצה", "הקמת קבוצה", "קבוצה חדשה"
+        - English: "create group", "creat group", "new group", "open group", "start group"
       → "create_group"
       ⚠️ Requires group_creation authorization
       💡 Can include: group name, participants, and optional picture description
+      💡 **BE FORGIVING**: Accept all Hebrew verb conjugations!
    
    ℹ️ **Help/Commands:**
       Keywords (including typos): "פקודות", "פיקודות", "רשימת פקודות", "רשימה", "commands", "comands", "list", "help", "עזרה", "capabilities"
