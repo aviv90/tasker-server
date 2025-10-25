@@ -102,8 +102,8 @@ async function routeIntent(input) {
     // Second priority: Check if it's an edit command (requires authorization)
     // IMPORTANT: Check edit BEFORE analysis to catch edit imperatives like "תוריד", "תסיר"
     // Edit keywords: add, remove, change, make, create, replace, etc.
-    // Hebrew imperatives: הוסף, הסר, מחק, תסיר, תמחק, תוריד, תשנה, תחליף, תצייר...
-    const isEditRequest = /\b(add|remove|delete|change|replace|modify|edit|make|create|draw|paint|color|set|put|insert|erase|fix|adjust|enhance|improve|transform|convert)\b|הוסף|הוסיפ|הסר|תסיר|מחק|תמחק|תוריד|הורד|שנה|תשנה|החלף|תחליף|ערוך|תערוך|צור|תצור|צייר|תצייר|צבע|תצבע|הכנס|תכניס|תקן|תתקן|שפר|תשפר|המר|תמיר|הפוך(?!.*וידאו)|עשה|תעשה|תן/i.test(prompt);
+    // Hebrew imperatives with ALL conjugations (male/female/plural): תוריד/תורידי/תורידו, מחק/מחקי/מחקו...
+    const isEditRequest = /\b(add|remove|delete|change|replace|modify|edit|make|create|draw|paint|color|set|put|insert|erase|fix|adjust|enhance|improve|transform|convert)\b|הוסף|הוסיפ|תוסיפ|סיר|תסיר|הסר|תסירי|תסירו|מחק|מחקי|מחקו|תמחק|תמחקי|תמחקו|הורד|הורידי|הורידו|תוריד|תורידי|תורידו|שנה|שני|תשנה|תשני|תשנו|החלף|החליפ|תחליף|תחליפי|תחליפו|ערוך|ערכי|תערוך|תערכי|תערכו|צור|צרי|תצור|תצרי|תצרו|צייר|צירי|תצייר|תצירי|תצירו|צבע|צבעי|תצבע|תצבעי|תצבעו|הכנס|הכניס|תכניס|תכניסי|תכניסו|תקן|תקני|תתקן|תתקני|תתקנו|שפר|שפרי|תשפר|תשפרי|תשפרו|המר|המירי|תמיר|תמירי|תמירו|הפוך(?!.*וידאו)|עשה|עשי|תעשה|תעשי|תעשו|תן/i.test(prompt);
     
     // Implicit edit: If prompt describes a state/appearance without being a question
     // Examples: "לבוש בקימונו", "wearing a hat", "with glasses", "as a superhero"
@@ -149,8 +149,8 @@ async function routeIntent(input) {
     // First priority: Video-to-video editing (requires authorization)
     // IMPORTANT: Check edit BEFORE analysis to catch edit imperatives like "תוריד", "תסיר"
     // Edit keywords: add, remove, change, make, create, replace, etc.
-    // Hebrew imperatives: הוסף, הסר, מחק, תסיר, תמחק, תוריד, תשנה, תחליף, תצייר...
-    const isEditRequest = /\b(add|remove|delete|change|replace|modify|edit|make|create|draw|paint|color|set|put|insert|erase|fix|adjust|enhance|improve|transform|convert)\b|הוסף|הוסיפ|הסר|תסיר|מחק|תמחק|תוריד|הורד|שנה|תשנה|החלף|תחליף|ערוך|תערוך|צור|תצור|צייר|תצייר|צבע|תצבע|הכנס|תכניס|תקן|תתקן|שפר|תשפר|המר|תמיר|הפוך(?!.*וידאו)|עשה|תעשה|תן/i.test(prompt);
+    // Hebrew imperatives with ALL conjugations (male/female/plural): תוריד/תורידי/תורידו, מחק/מחקי/מחקו...
+    const isEditRequest = /\b(add|remove|delete|change|replace|modify|edit|make|create|draw|paint|color|set|put|insert|erase|fix|adjust|enhance|improve|transform|convert)\b|הוסף|הוסיפ|תוסיפ|סיר|תסיר|הסר|תסירי|תסירו|מחק|מחקי|מחקו|תמחק|תמחקי|תמחקו|הורד|הורידי|הורידו|תוריד|תורידי|תורידו|שנה|שני|תשנה|תשני|תשנו|החלף|החליפ|תחליף|תחליפי|תחליפו|ערוך|ערכי|תערוך|תערכי|תערכו|צור|צרי|תצור|תצרי|תצרו|צייר|צירי|תצייר|תצירי|תצירו|צבע|צבעי|תצבע|תצבעי|תצבעו|הכנס|הכניס|תכניס|תכניסי|תכניסו|תקן|תקני|תתקן|תתקני|תתקנו|שפר|שפרי|תשפר|תשפרי|תשפרו|המר|המירי|תמיר|תמירי|תמירו|הפוך(?!.*וידאו)|עשה|עשי|תעשה|תעשי|תעשו|תן/i.test(prompt);
     if (isEditRequest) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'video_to_video' }, reason: 'No media creation authorization' };
