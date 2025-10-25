@@ -1455,6 +1455,11 @@ async function handleIncomingMessage(webhookData) {
               
               // Generate truly random coordinates within populated land areas
               // Using tighter bounding boxes to avoid oceans/seas - subdivided into smaller regions
+              // Will retry up to 5 times if location falls in water
+              let locationInfo = null;
+              let attempts = 0;
+              const maxAttempts = 5;
+              
               const continents = [
                 // EUROPE - subdivided to avoid Mediterranean/Atlantic/Black Sea
                 { name: 'Western Europe', minLat: 42, maxLat: 60, minLng: -5, maxLng: 15, weight: 2 },
@@ -1509,36 +1514,60 @@ async function handleIncomingMessage(webhookData) {
                 { name: 'New Zealand', minLat: -47, maxLat: -34, minLng: 166, maxLng: 179, weight: 1 }
               ];
               
-              // Weighted random selection (some regions more populous than others)
-              const totalWeight = continents.reduce((sum, c) => sum + c.weight, 0);
-              let randomWeight = Math.random() * totalWeight;
-              let selectedContinent = continents[0];
-              
-              for (const continent of continents) {
-                randomWeight -= continent.weight;
-                if (randomWeight <= 0) {
-                  selectedContinent = continent;
-                  break;
+              // Retry loop to avoid water locations
+              while (attempts < maxAttempts && !locationInfo) {
+                attempts++;
+                console.log(`🎲 Attempt ${attempts}/${maxAttempts} to find land location...`);
+                
+                // Weighted random selection (some regions more populous than others)
+                const totalWeight = continents.reduce((sum, c) => sum + c.weight, 0);
+                let randomWeight = Math.random() * totalWeight;
+                let selectedContinent = continents[0];
+                
+                for (const continent of continents) {
+                  randomWeight -= continent.weight;
+                  if (randomWeight <= 0) {
+                    selectedContinent = continent;
+                    break;
+                  }
+                }
+                
+                // Generate random coordinates within the selected region
+                const latitude = (Math.random() * (selectedContinent.maxLat - selectedContinent.minLat) + selectedContinent.minLat).toFixed(6);
+                const longitude = (Math.random() * (selectedContinent.maxLng - selectedContinent.minLng) + selectedContinent.minLng).toFixed(6);
+                
+                console.log(`🌍 Generated random location in ${selectedContinent.name}: ${latitude}, ${longitude}`);
+                
+                // Get location information from Gemini with Google Maps grounding
+                const tempLocationInfo = await getLocationInfo(parseFloat(latitude), parseFloat(longitude));
+                
+                // Check if location is valid (not in water/ocean)
+                if (tempLocationInfo.success && tempLocationInfo.description) {
+                  const description = tempLocationInfo.description.toLowerCase();
+                  const waterKeywords = ['אוקיינוס', 'ים ', 'ocean', 'sea', 'water', 'מים'];
+                  const isWater = waterKeywords.some(keyword => description.includes(keyword));
+                  
+                  if (!isWater) {
+                    // Valid land location found!
+                    locationInfo = { ...tempLocationInfo, latitude, longitude };
+                    console.log(`✅ Found valid land location on attempt ${attempts}`);
+                  } else {
+                    console.log(`⚠️ Location is in water, retrying... (${description.substring(0, 50)})`);
+                  }
+                } else {
+                  console.log(`⚠️ Location info failed, retrying...`);
                 }
               }
               
-              // Generate random coordinates within the selected region
-              const latitude = (Math.random() * (selectedContinent.maxLat - selectedContinent.minLat) + selectedContinent.minLat).toFixed(6);
-              const longitude = (Math.random() * (selectedContinent.maxLng - selectedContinent.minLng) + selectedContinent.minLng).toFixed(6);
-              
-              console.log(`🌍 Generated random location in ${selectedContinent.name}: ${latitude}, ${longitude}`);
-              
-              // Get location information from Gemini with Google Maps grounding
-              const locationInfo = await getLocationInfo(parseFloat(latitude), parseFloat(longitude));
-              
-              if (!locationInfo.success) {
-                await sendTextMessage(chatId, `❌ ${locationInfo.error}`);
+              // If no valid location found after max attempts, use last one anyway
+              if (!locationInfo) {
+                await sendTextMessage(chatId, `❌ לא הצלחתי למצוא מיקום תקין אחרי ${maxAttempts} ניסיונות`);
                 return;
               }
               
               // Send the location with description
               try {
-                await sendLocation(chatId, parseFloat(latitude), parseFloat(longitude), '', '');
+                await sendLocation(chatId, parseFloat(locationInfo.latitude), parseFloat(locationInfo.longitude), '', '');
                 await sendTextMessage(chatId, `📍 ${locationInfo.description}`);
                 console.log(`✅ Random location sent to ${chatId}`);
               } catch (locationError) {
@@ -3005,36 +3034,60 @@ async function handleOutgoingMessage(webhookData) {
                 { name: 'New Zealand', minLat: -47, maxLat: -34, minLng: 166, maxLng: 179, weight: 1 }
               ];
               
-              // Weighted random selection (some regions more populous than others)
-              const totalWeight = continents.reduce((sum, c) => sum + c.weight, 0);
-              let randomWeight = Math.random() * totalWeight;
-              let selectedContinent = continents[0];
-              
-              for (const continent of continents) {
-                randomWeight -= continent.weight;
-                if (randomWeight <= 0) {
-                  selectedContinent = continent;
-                  break;
+              // Retry loop to avoid water locations
+              while (attempts < maxAttempts && !locationInfo) {
+                attempts++;
+                console.log(`🎲 Attempt ${attempts}/${maxAttempts} to find land location...`);
+                
+                // Weighted random selection (some regions more populous than others)
+                const totalWeight = continents.reduce((sum, c) => sum + c.weight, 0);
+                let randomWeight = Math.random() * totalWeight;
+                let selectedContinent = continents[0];
+                
+                for (const continent of continents) {
+                  randomWeight -= continent.weight;
+                  if (randomWeight <= 0) {
+                    selectedContinent = continent;
+                    break;
+                  }
+                }
+                
+                // Generate random coordinates within the selected region
+                const latitude = (Math.random() * (selectedContinent.maxLat - selectedContinent.minLat) + selectedContinent.minLat).toFixed(6);
+                const longitude = (Math.random() * (selectedContinent.maxLng - selectedContinent.minLng) + selectedContinent.minLng).toFixed(6);
+                
+                console.log(`🌍 Generated random location in ${selectedContinent.name}: ${latitude}, ${longitude}`);
+                
+                // Get location information from Gemini with Google Maps grounding
+                const tempLocationInfo = await getLocationInfo(parseFloat(latitude), parseFloat(longitude));
+                
+                // Check if location is valid (not in water/ocean)
+                if (tempLocationInfo.success && tempLocationInfo.description) {
+                  const description = tempLocationInfo.description.toLowerCase();
+                  const waterKeywords = ['אוקיינוס', 'ים ', 'ocean', 'sea', 'water', 'מים'];
+                  const isWater = waterKeywords.some(keyword => description.includes(keyword));
+                  
+                  if (!isWater) {
+                    // Valid land location found!
+                    locationInfo = { ...tempLocationInfo, latitude, longitude };
+                    console.log(`✅ Found valid land location on attempt ${attempts}`);
+                  } else {
+                    console.log(`⚠️ Location is in water, retrying... (${description.substring(0, 50)})`);
+                  }
+                } else {
+                  console.log(`⚠️ Location info failed, retrying...`);
                 }
               }
               
-              // Generate random coordinates within the selected region
-              const latitude = (Math.random() * (selectedContinent.maxLat - selectedContinent.minLat) + selectedContinent.minLat).toFixed(6);
-              const longitude = (Math.random() * (selectedContinent.maxLng - selectedContinent.minLng) + selectedContinent.minLng).toFixed(6);
-              
-              console.log(`🌍 Generated random location in ${selectedContinent.name}: ${latitude}, ${longitude}`);
-              
-              // Get location information from Gemini with Google Maps grounding
-              const locationInfo = await getLocationInfo(parseFloat(latitude), parseFloat(longitude));
-              
-              if (!locationInfo.success) {
-                await sendTextMessage(chatId, `❌ ${locationInfo.error}`);
+              // If no valid location found after max attempts, use last one anyway
+              if (!locationInfo) {
+                await sendTextMessage(chatId, `❌ לא הצלחתי למצוא מיקום תקין אחרי ${maxAttempts} ניסיונות`);
                 return;
               }
               
               // Send the location with description
               try {
-                await sendLocation(chatId, parseFloat(latitude), parseFloat(longitude), '', '');
+                await sendLocation(chatId, parseFloat(locationInfo.latitude), parseFloat(locationInfo.longitude), '', '');
                 await sendTextMessage(chatId, `📍 ${locationInfo.description}`);
                 console.log(`✅ Random location sent to ${chatId}`);
               } catch (locationError) {
