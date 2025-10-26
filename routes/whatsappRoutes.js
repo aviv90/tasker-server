@@ -2980,6 +2980,11 @@ async function handleOutgoingMessage(webhookData) {
               
               // Generate truly random coordinates within populated land areas
               // Using tighter bounding boxes to avoid oceans/seas - subdivided into smaller regions
+              // Will retry up to 5 times if location falls in water
+              let locationInfo = null;
+              let attempts = 0;
+              const maxAttempts = 5;
+              
               const continents = [
                 // EUROPE - subdivided to avoid Mediterranean/Atlantic/Black Sea
                 { name: 'Western Europe', minLat: 42, maxLat: 60, minLng: -5, maxLng: 15, weight: 2 },
