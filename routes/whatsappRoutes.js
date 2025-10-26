@@ -68,6 +68,43 @@ function cleanForLogging(obj) {
 }
 
 /**
+ * Check if a location description indicates land (not open water)
+ * @param {string} description - Location description from Gemini
+ * @returns {boolean} - true if land, false if open water
+ */
+function isLandLocation(description) {
+  const descLower = description.toLowerCase();
+  
+  // POSITIVE INDICATORS: If any found, immediately accept as land
+  // (e.g., "city by the sea" should be accepted)
+  const landIndicators = [
+    'עיר', 'כפר', 'ישוב', 'מדינה', 'רחוב', 'שכונה', 'אזור', 'מחוז', 'מדבר', 'הר', 'עמק', 'יער',
+    'city', 'town', 'village', 'country', 'street', 'district', 'region', 'province', 
+    'desert', 'mountain', 'valley', 'forest', 'park', 'road', 'highway', 'building',
+    'neighborhood', 'settlement', 'capital', 'state', 'county', 'rural', 'urban', 'population'
+  ];
+  
+  const hasLandIndicator = landIndicators.some(indicator => descLower.includes(indicator));
+  
+  if (hasLandIndicator) {
+    return true; // Strong land indicator - accept!
+  }
+  
+  // NEGATIVE INDICATORS: Only reject if OPEN WATER (not coastal areas)
+  const openWaterKeywords = [
+    'אוקיינוס', 'באוקיינוס', 'באמצע האוקיינוס', 'באמצע הים', 'בלב הים',
+    'in the ocean', 'in the middle of the ocean', 'in the middle of the sea',
+    'open water', 'open ocean', 'deep water', 'deep ocean', 'open sea',
+    'atlantic ocean', 'pacific ocean', 'indian ocean', 'arctic ocean',
+    'מים פתוחים', 'מים עמוקים', 'אין יבשה', 'no land'
+  ];
+  
+  const isOpenWater = openWaterKeywords.some(keyword => descLower.includes(keyword));
+  
+  return !isOpenWater; // Accept unless it's open water
+}
+
+/**
  * Save last executed command for retry functionality
  * @param {string} chatId - Chat ID
  * @param {Object} decision - Router decision object
@@ -1455,10 +1492,10 @@ async function handleIncomingMessage(webhookData) {
               
               // Generate truly random coordinates within populated land areas
               // Using tighter bounding boxes to avoid oceans/seas - subdivided into smaller regions
-              // Will retry up to 10 times if location falls in water
+              // Will retry up to 15 times if location falls in water
               let locationInfo = null;
               let attempts = 0;
-              const maxAttempts = 10;
+              const maxAttempts = 15;
               
               const continents = [
                 // EUROPE - subdivided to avoid Mediterranean/Atlantic/Black Sea
@@ -1543,31 +1580,12 @@ async function handleIncomingMessage(webhookData) {
                 
                 // Check if location is valid (not in water/ocean)
                 if (tempLocationInfo.success && tempLocationInfo.description) {
-                  const description = tempLocationInfo.description.toLowerCase();
-                  // Expanded water detection - more keywords and patterns
-                  const waterKeywords = [
-                    'אוקיינוס', 'ים', 'מים', 'ימה', 'אגם', 'נהר גדול', 'מפרץ', 
-                    'ocean', 'sea', 'water', 'waters', 'lake', 'bay', 'gulf',
-                    'atlantic', 'pacific', 'indian ocean', 'arctic', 'mediterranean',
-                    'אטלנטי', 'שקט', 'הודי', 'תיכון', 'ארקטי'
-                  ];
-                  
-                  // Also check for phrases that indicate open water (no land features)
-                  const openWaterPhrases = [
-                    'באמצע ה', 'בלב ה', 'in the middle of', 'in the heart of',
-                    'open water', 'deep water', 'מים פתוחים', 'מים עמוקים'
-                  ];
-                  
-                  const hasWaterKeyword = waterKeywords.some(keyword => description.includes(keyword));
-                  const hasOpenWaterPhrase = openWaterPhrases.some(phrase => description.includes(phrase));
-                  const isWater = hasWaterKeyword || hasOpenWaterPhrase;
-                  
-                  if (!isWater) {
+                  if (isLandLocation(tempLocationInfo.description)) {
                     // Valid land location found!
                     locationInfo = { ...tempLocationInfo, latitude, longitude };
                     console.log(`✅ Found valid land location on attempt ${attempts}`);
                   } else {
-                    console.log(`⚠️ Location is in water, retrying... (${description.substring(0, 80)})`);
+                    console.log(`⚠️ Location is in open water, retrying... (${tempLocationInfo.description.substring(0, 80)})`);
                   }
                 } else {
                   console.log(`⚠️ Location info failed, retrying...`);
@@ -2995,10 +3013,10 @@ async function handleOutgoingMessage(webhookData) {
               
               // Generate truly random coordinates within populated land areas
               // Using tighter bounding boxes to avoid oceans/seas - subdivided into smaller regions
-              // Will retry up to 10 times if location falls in water
+              // Will retry up to 15 times if location falls in water
               let locationInfo = null;
               let attempts = 0;
-              const maxAttempts = 10;
+              const maxAttempts = 15;
               
               const continents = [
                 // EUROPE - subdivided to avoid Mediterranean/Atlantic/Black Sea
@@ -3083,31 +3101,12 @@ async function handleOutgoingMessage(webhookData) {
                 
                 // Check if location is valid (not in water/ocean)
                 if (tempLocationInfo.success && tempLocationInfo.description) {
-                  const description = tempLocationInfo.description.toLowerCase();
-                  // Expanded water detection - more keywords and patterns
-                  const waterKeywords = [
-                    'אוקיינוס', 'ים', 'מים', 'ימה', 'אגם', 'נהר גדול', 'מפרץ', 
-                    'ocean', 'sea', 'water', 'waters', 'lake', 'bay', 'gulf',
-                    'atlantic', 'pacific', 'indian ocean', 'arctic', 'mediterranean',
-                    'אטלנטי', 'שקט', 'הודי', 'תיכון', 'ארקטי'
-                  ];
-                  
-                  // Also check for phrases that indicate open water (no land features)
-                  const openWaterPhrases = [
-                    'באמצע ה', 'בלב ה', 'in the middle of', 'in the heart of',
-                    'open water', 'deep water', 'מים פתוחים', 'מים עמוקים'
-                  ];
-                  
-                  const hasWaterKeyword = waterKeywords.some(keyword => description.includes(keyword));
-                  const hasOpenWaterPhrase = openWaterPhrases.some(phrase => description.includes(phrase));
-                  const isWater = hasWaterKeyword || hasOpenWaterPhrase;
-                  
-                  if (!isWater) {
+                  if (isLandLocation(tempLocationInfo.description)) {
                     // Valid land location found!
                     locationInfo = { ...tempLocationInfo, latitude, longitude };
                     console.log(`✅ Found valid land location on attempt ${attempts}`);
                   } else {
-                    console.log(`⚠️ Location is in water, retrying... (${description.substring(0, 80)})`);
+                    console.log(`⚠️ Location is in open water, retrying... (${tempLocationInfo.description.substring(0, 80)})`);
                   }
                 } else {
                   console.log(`⚠️ Location info failed, retrying...`);
