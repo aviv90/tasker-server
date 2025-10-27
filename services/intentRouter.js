@@ -88,9 +88,18 @@ async function routeIntent(input) {
       // Supports both "veo 3" and "veo 3.1" (same for Hebrew)
       const wantsVeo3 = /\bveo\s*3(\.1)?\b|ויאו\s*3(\.1)?|וו[יא]ו\s*3(\.1)?/i.test(prompt);
       const wantsKling = /\bkling\b|קלינג/i.test(prompt);
+      // Check for Sora 2 Pro first (more specific), then regular Sora 2
+      const wantsSoraPro = /\bsora\s*2?\s*pro\b|סורה\s*2?\s*פרו|סורה\s*2?\s*pro/i.test(prompt);
+      const wantsSora = /\bsora\s*2?\b|סורה\s*2?/i.test(prompt);
       
       if (wantsVeo3) {
         return { tool: 'veo3_image_to_video', args: { prompt }, reason: 'Image attached, user requested Veo3' };
+      }
+      if (wantsSoraPro) {
+        return { tool: 'sora_image_to_video', args: { prompt, model: 'sora-2-pro' }, reason: 'Image attached, user requested Sora 2 Pro' };
+      }
+      if (wantsSora) {
+        return { tool: 'sora_image_to_video', args: { prompt, model: 'sora-2' }, reason: 'Image attached, user requested Sora 2' };
       }
       if (wantsKling) {
         return { tool: 'kling_image_to_video', args: { prompt }, reason: 'Image attached, user requested Kling' };
@@ -443,7 +452,7 @@ function validateDecision(obj) {
   const reason = typeof obj.reason === 'string' ? obj.reason : '';
   const allowedTools = new Set([
     'gemini_image', 'openai_image', 'grok_image',
-    'veo3_video', 'sora_video', 'kling_text_to_video', 'veo3_image_to_video', 'kling_image_to_video', 'video_to_video',
+    'veo3_video', 'sora_video', 'kling_text_to_video', 'veo3_image_to_video', 'sora_image_to_video', 'kling_image_to_video', 'video_to_video',
     'image_edit', 'text_to_speech', 'gemini_chat', 'openai_chat', 'grok_chat',
     'chat_summary', 'music_generation', 'create_poll', 'send_random_location', 'creative_voice_processing', 'voice_cloning_response', 'show_help', 'create_group', 'retry_last_command', 'deny_unauthorized', 'ask_clarification'
   ]);

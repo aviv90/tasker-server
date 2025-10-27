@@ -3,7 +3,7 @@ const router = express.Router();
 const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory, getMessage, sendPoll, sendLocation } = require('../services/greenApiService');
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const { cleanPromptFromProviders } = require('../utils/promptCleaner');
-const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage, generateVideoWithSoraForWhatsApp } = require('../services/openaiService');
+const { generateTextResponse: generateOpenAIResponse, generateImageForWhatsApp: generateOpenAIImage, editImageForWhatsApp: editOpenAIImage, generateVideoWithSoraForWhatsApp, generateVideoWithSoraFromImageForWhatsApp } = require('../services/openaiService');
 const { generateTextResponse: generateGeminiResponse, generateImageForWhatsApp, editImageForWhatsApp, analyzeVideoWithText, generateVideoForWhatsApp, generateVideoFromImageForWhatsApp, generateChatSummary, parseMusicRequest, parseTextToSpeechRequest, translateText, generateCreativePoll, getLocationInfo } = require('../services/geminiService');
 const { generateTextResponse: generateGrokResponse, generateImageForWhatsApp: generateGrokImage } = require('../services/grokService');
 const { generateVideoFromImageForWhatsApp: generateKlingVideoFromImage, generateVideoFromVideoForWhatsApp: generateRunwayVideoFromVideo, generateVideoWithTextForWhatsApp: generateKlingVideoFromText } = require('../services/replicateService');
@@ -284,6 +284,12 @@ async function sendAck(chatId, command) {
       break;
     case 'veo3_image_to_video':
       ackMessage = '🎬 קיבלתי את התמונה! יוצר וידאו עם Veo 3.1...';
+      break;
+    case 'sora_image_to_video':
+      // Check if using Pro model from command.model
+      ackMessage = command.model === 'sora-2-pro' 
+        ? '🎬 קיבלתי את התמונה! יוצר וידאו עם Sora 2 Pro...' 
+        : '🎬 קיבלתי את התמונה! יוצר וידאו עם Sora 2...';
       break;
     case 'kling_image_to_video':
       ackMessage = '🎬 קיבלתי את התמונה! יוצר וידאו עם Kling AI...';
@@ -1302,17 +1308,27 @@ async function handleIncomingMessage(webhookData) {
             
             // ═══════════════════ IMAGE/VIDEO EDITING ═══════════════════
             case 'veo3_image_to_video':
+            case 'sora_image_to_video':
             case 'kling_image_to_video':
               saveLastCommand(chatId, decision, { imageUrl, normalized });
               // Use imageUrl (from quoted message or current message)
               if (hasImage) {
-                const service = decision.tool === 'veo3_image_to_video' ? 'veo3' : 'kling';
+                let service;
+                if (decision.tool === 'veo3_image_to_video') {
+                  service = 'veo3';
+                } else if (decision.tool === 'sora_image_to_video') {
+                  service = 'sora';
+                } else {
+                  service = 'kling';
+                }
                 const finalImageUrl = imageUrl || (messageData.fileMessageData || messageData.imageMessageData || messageData.stickerMessageData)?.downloadUrl;
+                const model = decision.args?.model; // Pass model for Sora Pro/regular
                 processImageToVideoAsync({
                   chatId, senderId, senderName,
                   imageUrl: finalImageUrl,
                   prompt: prompt,
-                  service: service
+                  service: service,
+                  model: model
                 });
               }
               return;
@@ -1661,16 +1677,26 @@ async function handleIncomingMessage(webhookData) {
             
             // ═══════════════════ IMAGE/VIDEO GENERATION FROM TEXT ═══════════════════
             case 'veo3_image_to_video':
+            case 'sora_image_to_video':
             case 'kling_image_to_video': {
               // These require an image - check if one was provided via quoted message
               if (hasImage && imageUrl) {
-                const service = decision.tool === 'veo3_image_to_video' ? 'veo3' : 'kling';
+                let service;
+                if (decision.tool === 'veo3_image_to_video') {
+                  service = 'veo3';
+                } else if (decision.tool === 'sora_image_to_video') {
+                  service = 'sora';
+                } else {
+                  service = 'kling';
+                }
                 console.log(`🎬 ${service} image-to-video request from text command (incoming)`);
+                const model = decision.args?.model; // Pass model for Sora Pro/regular
                 processImageToVideoAsync({
                   chatId, senderId, senderName,
                   imageUrl: imageUrl,
                   prompt: prompt,
-                  service: service
+                  service: service,
+                  model: model
                 });
               } else {
                 await sendTextMessage(chatId, '❌ פקודה זו דורשת תמונה. אנא ענה על הודעה עם תמונה או שלח תמונה עם caption.');
@@ -1934,16 +1960,26 @@ async function handleIncomingMessage(webhookData) {
             
             case 'veo3_video':
             case 'veo3_image_to_video':
+            case 'sora_image_to_video':
             case 'kling_text_to_video':
             case 'kling_image_to_video': {
-              const service = (decision.tool === 'veo3_video' || decision.tool === 'veo3_image_to_video') ? 'veo3' : 'kling';
+              let service;
+              if (decision.tool === 'veo3_video' || decision.tool === 'veo3_image_to_video') {
+                service = 'veo3';
+              } else if (decision.tool === 'sora_image_to_video') {
+                service = 'sora';
+              } else {
+                service = 'kling';
+              }
               console.log(`🎬 ${service} image-to-video request (via router)`);
               await saveLastCommand(chatId, decision, { imageUrl: imageData.downloadUrl, normalized });
+              const model = decision.args?.model; // Pass model for Sora Pro/regular
               processImageToVideoAsync({
                 chatId, senderId, senderName,
                 imageUrl: imageData.downloadUrl,
                 prompt: decision.args?.prompt || prompt,
-                service: service
+                service: service,
+                model: model
               });
               return;
             }
@@ -3213,16 +3249,26 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ IMAGE/VIDEO GENERATION FROM TEXT ═══════════════════
             case 'veo3_image_to_video':
+            case 'sora_image_to_video':
             case 'kling_image_to_video': {
               // These require an image - check if one was provided via quoted message
               if (hasImage && imageUrl) {
-                const service = decision.tool === 'veo3_image_to_video' ? 'veo3' : 'kling';
+                let service;
+                if (decision.tool === 'veo3_image_to_video') {
+                  service = 'veo3';
+                } else if (decision.tool === 'sora_image_to_video') {
+                  service = 'sora';
+                } else {
+                  service = 'kling';
+                }
+                const model = decision.args?.model;
                 console.log(`🎬 ${service} image-to-video request from text command (outgoing)`);
                 processImageToVideoAsync({
                   chatId, senderId, senderName,
                   imageUrl: imageUrl,
                   prompt: prompt,
-                  service: service
+                  service: service,
+                  model: model
                 });
               } else {
                 await sendTextMessage(chatId, '❌ פקודה זו דורשת תמונה. אנא ענה על הודעה עם תמונה או שלח תמונה עם caption.');
@@ -3487,15 +3533,25 @@ async function handleOutgoingMessage(webhookData) {
             
             case 'veo3_video':
             case 'veo3_image_to_video':
+            case 'sora_image_to_video':
             case 'kling_text_to_video':
             case 'kling_image_to_video': {
-              const service = (decision.tool === 'veo3_video' || decision.tool === 'veo3_image_to_video') ? 'veo3' : 'kling';
+              let service;
+              if (decision.tool === 'veo3_video' || decision.tool === 'veo3_image_to_video') {
+                service = 'veo3';
+              } else if (decision.tool === 'sora_image_to_video') {
+                service = 'sora';
+              } else {
+                service = 'kling';
+              }
               console.log(`🎬 ${service} image-to-video request (outgoing, via router)`);
+              const model = decision.args?.model; // Pass model for Sora Pro/regular
               processImageToVideoAsync({
                 chatId, senderId, senderName,
                 imageUrl: imageUrl, // Use the URL (either from current message or quoted)
                 prompt: decision.args?.prompt || prompt,
-                service: service
+                service: service,
+                model: model
               });
               return;
             }
@@ -3936,17 +3992,31 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
 }
 
 /**
- * Handle image-to-video with Veo 3 or Kling
+ * Handle image-to-video with Veo 3, Sora 2, or Kling
  */
-async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prompt, service = 'veo3' }) {
-  const serviceName = service === 'veo3' ? 'Veo 3' : 'Kling 2.1 Master';
+async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prompt, service = 'veo3', model = null }) {
+  let serviceName;
+  if (service === 'veo3') {
+    serviceName = 'Veo 3';
+  } else if (service === 'sora') {
+    serviceName = model === 'sora-2-pro' ? 'Sora 2 Pro' : 'Sora 2';
+  } else {
+    serviceName = 'Kling 2.1 Master';
+  }
   console.log(`🎬 Processing ${serviceName} image-to-video request from ${senderName}`);
   
   try {
     // Send immediate ACK
-    const ackMessage = service === 'veo3' 
-      ? '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Veo 3...'
-      : '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Kling 2.1...';
+    let ackMessage;
+    if (service === 'veo3') {
+      ackMessage = '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Veo 3...';
+    } else if (service === 'sora') {
+      ackMessage = model === 'sora-2-pro' 
+        ? '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Sora 2 Pro...'
+        : '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Sora 2...';
+    } else {
+      ackMessage = '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Kling 2.1...';
+    }
     await sendTextMessage(chatId, ackMessage);
     
     // Note: Image-to-video commands do NOT add to conversation history
@@ -3962,6 +4032,10 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
     let videoResult;
     if (service === 'veo3') {
       videoResult = await generateVideoFromImageForWhatsApp(prompt, imageBuffer);
+    } else if (service === 'sora') {
+      // Sora 2 image-to-video with image_reference
+      const options = model ? { model } : {};
+      videoResult = await generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, options);
     } else {
       videoResult = await generateKlingVideoFromImage(imageBuffer, prompt);
     }

@@ -347,7 +347,7 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
  * @param {string} prompt - Video description
  * @param {Object} options - Video generation options:
  *   - model: 'sora-2' (default) or 'sora-2-pro'
- *   - size: '720x1280' (portrait, default), '1280x720' (landscape), '1080x1920', '1920x1080', etc.
+ *   - size: '1280x720' (landscape, default), '720x1280' (portrait), '1920x1080', '1080x1920', etc.
  *   - seconds: 4, 8 (default), or 12
  * @returns {Promise<Object>} - Video generation result
  */
@@ -360,7 +360,7 @@ async function generateVideoWithSora(prompt, options = {}) {
         
         // Default options
         const model = options.model || 'sora-2'; // sora-2 or sora-2-pro
-        const size = options.size || '720x1280'; // Portrait/vertical by default (אורכי)
+        const size = options.size || '1280x720'; // Landscape by default (smaller file size, better WhatsApp compatibility)
         // Supported: sora-2: 1280x720 (landscape), 720x1280 (portrait)
         //            sora-2-pro: 1920x1080, 1080x1920, 1792x1024, 1024x1792
         const seconds = options.seconds || 8; // Supported values: 4, 8, or 12
@@ -443,7 +443,7 @@ async function generateVideoWithSora(prompt, options = {}) {
  * @param {Object} req - Express request object (for URL generation)
  * @param {Object} options - Video generation options:
  *   - model: 'sora-2' (default) or 'sora-2-pro'
- *   - size: '720x1280' (portrait, default), '1280x720' (landscape), '1080x1920', '1920x1080', etc.
+ *   - size: '1280x720' (landscape, default), '720x1280' (portrait), '1920x1080', '1080x1920', etc.
  *   - seconds: 4, 8 (default), or 12
  * @returns {Promise<Object>} - Video generation result with URL
  */
@@ -456,7 +456,7 @@ async function generateVideoWithSoraForWhatsApp(prompt, req = null, options = {}
         
         // Default options
         const model = options.model || 'sora-2'; // sora-2 or sora-2-pro
-        const size = options.size || '720x1280'; // Portrait/vertical by default (אורכי)
+        const size = options.size || '1280x720'; // Landscape by default (smaller file size, better WhatsApp compatibility)
         // Supported: sora-2: 1280x720 (landscape), 720x1280 (portrait)
         //            sora-2-pro: 1920x1080, 1080x1920, 1792x1024, 1024x1792
         const seconds = options.seconds || 8; // Supported values: 4, 8, or 12
@@ -564,6 +564,144 @@ async function generateVideoWithSoraForWhatsApp(prompt, req = null, options = {}
     }
 }
 
+/**
+ * Generate video from image using Sora 2 / Sora 2 Pro
+ * Uses image_reference parameter to animate a static image
+ */
+async function generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, options = {}) {
+    try {
+        console.log('🎬 Starting Sora 2 image-to-video generation for WhatsApp');
+        
+        // Sanitize prompt
+        const cleanPrompt = sanitizeText(prompt);
+        
+        // Default options
+        const model = options.model || 'sora-2'; // sora-2 or sora-2-pro
+        const size = options.size || '1280x720'; // Landscape by default
+        const seconds = options.seconds || 8; // Supported values: 4, 8, or 12
+        
+        console.log(`   Model: ${model}, Size: ${size}, Seconds: ${seconds}s`);
+        
+        // Validate parameters
+        let validSeconds = seconds;
+        const supportedDurations = [4, 8, 12];
+        if (!supportedDurations.includes(Number(seconds))) {
+            console.log(`⚠️ Invalid duration ${seconds}s. Using 8 seconds (supported: 4, 8, 12)`);
+            validSeconds = 8;
+        }
+        
+        // Step 1: Upload the image to OpenAI
+        console.log('📤 Uploading image to OpenAI...');
+        const imageFile = new File([imageBuffer], 'image.jpg', { type: 'image/jpeg' });
+        const uploadedFile = await openai.files.create({
+            file: imageFile,
+            purpose: 'assistants' // or 'vision' if supported
+        });
+        
+        console.log(`✅ Image uploaded: ${uploadedFile.id}`);
+        
+        // Step 2: Create video generation job with image_reference
+        const video = await openai.videos.create({
+            model: model,
+            prompt: cleanPrompt,
+            size: size,
+            seconds: validSeconds.toString(),
+            image_reference: uploadedFile.id // Reference the uploaded image
+        });
+        
+        const jobId = video.id;
+        console.log(`📋 Job created: ${jobId}, Status: ${video.status}`);
+        
+        // Poll for completion
+        console.log('⏳ Waiting for video generation to complete...');
+        const maxWaitTime = 10 * 60 * 1000; // 10 minutes
+        const startTime = Date.now();
+        let pollAttempts = 0;
+        
+        let currentVideo = video;
+        while (currentVideo.status === 'in_progress' || currentVideo.status === 'queued') {
+            if (Date.now() - startTime > maxWaitTime) {
+                console.error('❌ Sora 2 image-to-video timed out');
+                return { 
+                    success: false, 
+                    error: 'Video generation timed out after 10 minutes' 
+                };
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+            pollAttempts++;
+            
+            currentVideo = await openai.videos.retrieve(jobId);
+            const progress = currentVideo.progress || 0;
+            console.log(`🔄 Polling attempt ${pollAttempts}: Status=${currentVideo.status}, Progress=${progress}%`);
+            
+            if (currentVideo.status === 'failed') {
+                const errorMsg = currentVideo.error?.message || 'Video generation failed';
+                console.error('❌ Sora 2 image-to-video failed:', errorMsg);
+                return { 
+                    success: false, 
+                    error: errorMsg
+                };
+            }
+        }
+        
+        if (currentVideo.status !== 'completed') {
+            console.error('❌ Unexpected status:', currentVideo.status);
+            return { 
+                success: false, 
+                error: `Unexpected status: ${currentVideo.status}` 
+            };
+        }
+        
+        console.log('✅ Video generation completed');
+        
+        // Download video content
+        console.log('📥 Downloading video content...');
+        const content = await openai.videos.downloadContent(jobId);
+        const arrayBuffer = await content.arrayBuffer();
+        const videoBuffer = Buffer.from(arrayBuffer);
+        
+        // Save video to tmp folder
+        const fileName = `sora2_image_video_${uuidv4()}.mp4`;
+        const filePath = path.join(__dirname, '..', 'public', 'tmp', fileName);
+        const tmpDir = path.dirname(filePath);
+        
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        
+        fs.writeFileSync(filePath, videoBuffer);
+        
+        // Create public URL
+        const publicVideoUrl = getStaticFileUrl(fileName);
+        
+        console.log('✅ Sora 2 image-to-video generated successfully');
+        console.log(`🎬 Video saved to: ${filePath}`);
+        console.log(`🔗 Public URL: ${publicVideoUrl}`);
+        
+        // Clean up uploaded file (optional)
+        try {
+            await openai.files.del(uploadedFile.id);
+            console.log(`🗑️ Cleaned up uploaded file: ${uploadedFile.id}`);
+        } catch (delError) {
+            console.warn('⚠️ Could not delete uploaded file:', delError.message);
+        }
+        
+        return { 
+            success: true,
+            videoUrl: publicVideoUrl,
+            description: cleanPrompt,
+            fileName: fileName
+        };
+    } catch (err) {
+        console.error('❌ Sora 2 image-to-video error:', err);
+        return { 
+            success: false, 
+            error: err.message || 'Unknown error occurred during image-to-video generation' 
+        };
+    }
+}
+
 module.exports = { 
     generateImageWithText, 
     editImageWithText, 
@@ -571,5 +709,6 @@ module.exports = {
     generateImageForWhatsApp, 
     editImageForWhatsApp,
     generateVideoWithSora,
-    generateVideoWithSoraForWhatsApp
+    generateVideoWithSoraForWhatsApp,
+    generateVideoWithSoraFromImageForWhatsApp
 };
