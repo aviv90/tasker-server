@@ -596,29 +596,30 @@ async function generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, op
         const imageWidth = metadata.width;
         const imageHeight = metadata.height;
         
-        // Sora 2 supported sizes: 720x1280, 1280x720, 1024x1792, 1792x1024
-        // Determine if image is portrait or landscape and choose appropriate supported size
-        const isPortrait = imageHeight > imageWidth;
+        // Sora 2 supported sizes: 720x1280 (portrait), 1280x720 (landscape), 1024x1792 (portrait), 1792x1024 (landscape)
+        // ALWAYS prefer portrait format to avoid cropping important elements
+        // If original is landscape, we'll resize to 720x1280 (portrait) to avoid cropping
         let targetWidth, targetHeight;
         
-        if (isPortrait) {
-            // Portrait images → 720x1280 (mobile/portrait format)
-            targetWidth = 720;
-            targetHeight = 1280;
-        } else {
-            // Landscape images → 1280x720 (wide/landscape format)
-            targetWidth = 1280;
-            targetHeight = 720;
-        }
+        // Use portrait format (720x1280) for all images to maximize detail preservation
+        // This is safer than landscape because:
+        // 1. Portrait captures more vertical detail (faces, bodies, objects)
+        // 2. Landscape would crop too much vertical content
+        // 3. Portrait is more suitable for social media and mobile viewing
+        targetWidth = 720;
+        targetHeight = 1280;
         
         const targetSize = `${targetWidth}x${targetHeight}`;
         console.log(`   Original: ${imageWidth}x${imageHeight}, Resizing to: ${targetSize}`);
         
-        // Resize image to supported format
+        // Resize image to supported format using 'inside' to preserve all content
+        // 'inside' ensures the entire image fits within the bounds without cropping
+        // Any letterboxing will be added naturally (black/white bars if needed)
         const resizedImageBuffer = await sharp(imageBuffer)
             .resize(targetWidth, targetHeight, {
-                fit: 'cover', // Crop to fit if needed
-                position: 'center'
+                fit: 'inside', // Preserve entire image, no cropping
+                withoutEnlargement: false, // Allow upscaling if needed
+                background: { r: 0, g: 0, b: 0 } // Black background for letterboxing if needed
             })
             .jpeg({ quality: 95 })
             .toBuffer();
