@@ -22,10 +22,6 @@ const path = require('path');
 // Message deduplication cache - prevent processing duplicate messages
 const processedMessages = new Set();
 
-// Last command cache per chat - for retry functionality
-// Structure: { chatId: { tool: 'gemini_image', args: { prompt: '...' }, timestamp: 123456 } }
-const lastCommandCache = new Map();
-
 // Chat history limit for context retrieval
 const CHAT_HISTORY_LIMIT = 30;
 
@@ -105,28 +101,24 @@ function isLandLocation(description) {
 }
 
 /**
- * Save last executed command for retry functionality
+ * Save last executed command for retry functionality (persisted to DB)
  * @param {string} chatId - Chat ID
  * @param {Object} decision - Router decision object
  * @param {Object} options - Additional options (imageUrl, videoUrl, normalized)
  */
-function saveLastCommand(chatId, decision, options = {}) {
+async function saveLastCommand(chatId, decision, options = {}) {
   // Don't save retry, clarification, or denial commands
   if (['retry_last_command', 'ask_clarification', 'deny_unauthorized'].includes(decision.tool)) {
     return;
   }
   
-  lastCommandCache.set(chatId, {
-    tool: decision.tool,
-    args: decision.args,
-    imageUrl: options.imageUrl || null,
-    videoUrl: options.videoUrl || null,
-    audioUrl: options.audioUrl || null,
-    normalized: options.normalized || null,
-    timestamp: Date.now()
+  // Save to database for persistence across restarts
+  await conversationManager.saveLastCommand(chatId, decision.tool, decision.args, {
+    normalized: options.normalized,
+    imageUrl: options.imageUrl,
+    videoUrl: options.videoUrl,
+    audioUrl: options.audioUrl
   });
-  
-  console.log(`💾 Saved last command for ${chatId}: ${decision.tool}`);
 }
 
 /**
@@ -239,22 +231,13 @@ async function sendUnauthorizedMessage(chatId, feature) {
   console.log(`🚫 Unauthorized access attempt to ${feature}`);
 }
 
-// Clean up old processed messages and last command cache every 30 minutes
+// Clean up old processed messages cache every 30 minutes
 setInterval(() => {
   if (processedMessages.size > 1000) {
     processedMessages.clear();
     console.log('🧹 Cleared processed messages cache');
   }
-  // Clean up old last commands (older than 1 hour)
-  const oneHourAgo = Date.now() - 60 * 60 * 1000;
-  for (const [chatId, command] of lastCommandCache.entries()) {
-    if (command.timestamp < oneHourAgo) {
-      lastCommandCache.delete(chatId);
-    }
-  }
-  if (lastCommandCache.size > 0) {
-    console.log(`🧹 Cleaned up old commands from cache (${lastCommandCache.size} remaining)`);
-  }
+  // Last commands are now persisted in DB, no need to clean up in-memory cache
 }, 30 * 60 * 1000);
 
 /**
@@ -787,16 +770,7 @@ async function handleIncomingMessage(webhookData) {
                   const retryDecision = await routeIntent(retryNormalized);
                   console.log(`🔄 Retry routing decision: ${retryDecision.tool}, reason: ${retryDecision.reason}`);
                   
-                  // Save this as the last command for future retries
-                  lastCommandCache.set(chatId, {
-                    tool: retryDecision.tool,
-                    args: retryDecision.args,
-                    normalized: retryNormalized,
-                    imageUrl: quotedResult.imageUrl,
-                    videoUrl: quotedResult.videoUrl,
-                    audioUrl: quotedResult.audioUrl,
-                    timestamp: Date.now()
-                  });
+                  // No need to save here - will be saved automatically when the command executes
                   
                   // Continue with normal execution (don't return here, fall through to execute the command)
                   // Re-assign decision to retryDecision so it executes
@@ -813,17 +787,17 @@ async function handleIncomingMessage(webhookData) {
                   return;
                 }
               } else {
-                // No quoted message - retry last command from cache
-                console.log(`🔄 No quoted message, checking lastCommandCache for chatId: ${chatId}`);
-                const lastCommand = lastCommandCache.get(chatId);
+                // No quoted message - retry last command from database
+                console.log(`🔄 No quoted message, checking database for last command: ${chatId}`);
+                const lastCommand = await conversationManager.getLastCommand(chatId);
                 
                 if (!lastCommand) {
-                  console.log(`❌ No last command found in cache for ${chatId}`);
+                  console.log(`❌ No last command found in database for ${chatId}`);
                   await sendTextMessage(chatId, 'ℹ️ אין פקודה קודמת לביצוע מחדש. נסה לשלוח פקודה חדשה.');
                   return;
                 }
                 
-                console.log(`🔄 Found last command in cache: ${lastCommand.tool}`);
+                console.log(`🔄 Found last command in database: ${lastCommand.tool}`);
                 console.log(`🔄 Last command args:`, JSON.stringify(lastCommand.args).substring(0, 200));
                 if (additionalInstructions) {
                   console.log(`📝 Merging additional instructions: "${additionalInstructions}"`);
@@ -858,8 +832,7 @@ async function handleIncomingMessage(webhookData) {
                   hasAudio = true;
                 }
                 
-                // Update timestamp for cleanup
-                lastCommand.timestamp = Date.now();
+                // No need to update timestamp - it's persisted in DB
               }
               // Continue to next iteration of while loop to execute the updated command
               continue;
@@ -2461,17 +2434,17 @@ async function handleOutgoingMessage(webhookData) {
                   return;
                 }
               } else {
-                // No quoted message - retry last command from cache
-                console.log(`🔄 [Outgoing] No quoted message, checking lastCommandCache for chatId: ${chatId}`);
-                const lastCommand = lastCommandCache.get(chatId);
+                // No quoted message - retry last command from database
+                console.log(`🔄 [Outgoing] No quoted message, checking database for last command: ${chatId}`);
+                const lastCommand = await conversationManager.getLastCommand(chatId);
                 
                 if (!lastCommand) {
-                  console.log(`❌ [Outgoing] No last command found in cache for ${chatId}`);
+                  console.log(`❌ [Outgoing] No last command found in database for ${chatId}`);
                   await sendTextMessage(chatId, 'ℹ️ אין פקודה קודמת לביצוע מחדש. נסה לשלוח פקודה חדשה.');
                   return;
                 }
                 
-                console.log(`🔄 [Outgoing] Found last command in cache: ${lastCommand.tool}`);
+                console.log(`🔄 [Outgoing] Found last command in database: ${lastCommand.tool}`);
                 console.log(`🔄 [Outgoing] Last command args:`, JSON.stringify(lastCommand.args).substring(0, 200));
                 if (additionalInstructions) {
                   console.log(`📝 [Outgoing] Merging additional instructions: "${additionalInstructions}"`);
@@ -2505,8 +2478,7 @@ async function handleOutgoingMessage(webhookData) {
                   hasAudio = true;
                 }
                 
-                // Update timestamp
-                lastCommand.timestamp = Date.now();
+                // No need to update timestamp - it's persisted in DB
               }
               // Continue to next iteration of while loop to execute the updated command
               continue;
@@ -2514,6 +2486,7 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ CHAT ═══════════════════
             case 'gemini_chat': {
+              saveLastCommand(chatId, decision, { imageUrl, videoUrl, normalized });
               await sendAck(chatId, { type: 'gemini_chat' });
               
               // Check if this is image analysis (hasImage = true)
@@ -2822,6 +2795,7 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ IMAGE GENERATION ═══════════════════
             case 'gemini_image': {
+              saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'gemini_image' });
               const imageResult = await generateImageForWhatsApp(prompt);
               if (imageResult.success && imageResult.imageUrl) {
@@ -3003,6 +2977,7 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ POLL CREATION ═══════════════════
             case 'create_poll': {
+              saveLastCommand(chatId, decision, { normalized });
               // Check if user explicitly requested NO rhyming
               // Note: \b word boundaries don't work with Hebrew, so we use a more flexible pattern
               const noRhymePatterns = /(בלי|ללא|לא|without|no)\s+(חריזה|חרוזים|rhyme|rhymes|rhyming)/i;
@@ -3044,6 +3019,7 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ RANDOM LOCATION ═══════════════════
             case 'send_random_location': {
+              saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'send_random_location' });
               
               // Generate truly random coordinates within populated land areas
