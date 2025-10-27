@@ -1219,18 +1219,54 @@ async function generateVideoFromImageForWhatsApp(prompt, imageBuffer, req = null
             };
         }
         
-        // Create public URL using centralized URL utility
-        const videoUrl = getStaticFileUrl(fileName, req);
+        // Convert video to WhatsApp-compatible format using ffmpeg
+        // WhatsApp requires MP4 with H.264 video and AAC audio
+        console.log('🎬 Converting video to WhatsApp-compatible format...');
+        const { exec } = require('child_process');
+        const convertedFileName = `veo3_image_video_converted_${uuidv4()}.mp4`;
+        const convertedFilePath = path.join(__dirname, '..', 'public', 'tmp', convertedFileName);
         
-        console.log('✅ Veo 3.1 image-to-video generated successfully');
-        console.log(`🎬 Video saved to: ${filePath}`);
+        try {
+            await new Promise((resolve, reject) => {
+                exec(`ffmpeg -i "${filePath}" -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -movflags +faststart "${convertedFilePath}" -y`, 
+                    (error, stdout, stderr) => {
+                        if (error) {
+                            console.error('❌ FFmpeg conversion failed:', error);
+                            console.error('❌ FFmpeg stderr:', stderr);
+                            reject(error);
+                        } else {
+                            console.log('✅ Video converted successfully');
+                            // Delete original file
+                            fs.unlinkSync(filePath);
+                            resolve();
+                        }
+                    });
+            });
+        } catch (convertError) {
+            console.error('❌ Video conversion failed:', convertError);
+            // Fallback: use original file
+            console.log('⚠️ Using original file without conversion');
+            const originalVideoUrl = getStaticFileUrl(fileName, req);
+            return { 
+                success: true,
+                videoUrl: originalVideoUrl,
+                description: cleanPrompt,
+                fileName: fileName
+            };
+        }
+        
+        // Create public URL using centralized URL utility
+        const videoUrl = getStaticFileUrl(convertedFileName, req);
+        
+        console.log('✅ Veo 3.1 image-to-video generated and converted successfully');
+        console.log(`🎬 Video saved to: ${convertedFilePath}`);
         console.log(`🔗 Public URL: ${videoUrl}`);
         
         return { 
             success: true,
             videoUrl: videoUrl,
             description: cleanPrompt, // Include the prompt as description
-            fileName: fileName
+            fileName: convertedFileName
         };
     } catch (err) {
         console.error('❌ Veo 3 image-to-video generation error:', err);
