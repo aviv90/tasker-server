@@ -802,14 +802,17 @@ async function handleIncomingMessage(webhookData) {
                 }
               } else {
                 // No quoted message - retry last command from cache
+                console.log(`🔄 No quoted message, checking lastCommandCache for chatId: ${chatId}`);
                 const lastCommand = lastCommandCache.get(chatId);
                 
                 if (!lastCommand) {
+                  console.log(`❌ No last command found in cache for ${chatId}`);
                   await sendTextMessage(chatId, 'ℹ️ אין פקודה קודמת לביצוע מחדש. נסה לשלוח פקודה חדשה.');
                   return;
                 }
                 
-                console.log(`🔄 Retrying last command: ${lastCommand.tool}`);
+                console.log(`🔄 Found last command in cache: ${lastCommand.tool}`);
+                console.log(`🔄 Last command args:`, JSON.stringify(lastCommand.args).substring(0, 200));
                 if (additionalInstructions) {
                   console.log(`📝 Merging additional instructions: "${additionalInstructions}"`);
                 }
@@ -2430,14 +2433,17 @@ async function handleOutgoingMessage(webhookData) {
                 }
               } else {
                 // No quoted message - retry last command from cache
+                console.log(`🔄 [Outgoing] No quoted message, checking lastCommandCache for chatId: ${chatId}`);
                 const lastCommand = lastCommandCache.get(chatId);
                 
                 if (!lastCommand) {
+                  console.log(`❌ [Outgoing] No last command found in cache for ${chatId}`);
                   await sendTextMessage(chatId, 'ℹ️ אין פקודה קודמת לביצוע מחדש. נסה לשלוח פקודה חדשה.');
                   return;
                 }
                 
-                console.log(`🔄 [Outgoing] Retrying last command: ${lastCommand.tool}`);
+                console.log(`🔄 [Outgoing] Found last command in cache: ${lastCommand.tool}`);
+                console.log(`🔄 [Outgoing] Last command args:`, JSON.stringify(lastCommand.args).substring(0, 200));
                 if (additionalInstructions) {
                   console.log(`📝 [Outgoing] Merging additional instructions: "${additionalInstructions}"`);
                 }
