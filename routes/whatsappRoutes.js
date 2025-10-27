@@ -690,7 +690,7 @@ async function handleIncomingMessage(webhookData) {
         // Router-based direct execution - call services directly
         const rawPrompt = decision.args?.prompt || finalPrompt;
         // Clean prompt from provider mentions before sending to services
-        const prompt = cleanPromptFromProviders(rawPrompt);
+        let prompt = cleanPromptFromProviders(rawPrompt);
         
         try {
           // Execute command - loop allows retry to re-execute with updated decision
@@ -2351,7 +2351,7 @@ async function handleOutgoingMessage(webhookData) {
         const decision = await routeIntent(normalized);
         const rawPrompt = decision.args?.prompt || finalPrompt;
         // Clean prompt from provider mentions before sending to services
-        const prompt = cleanPromptFromProviders(rawPrompt);
+        let prompt = cleanPromptFromProviders(rawPrompt);
 
         // Router-based direct execution for outgoing messages (same as incoming)
         try {
