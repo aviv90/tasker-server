@@ -710,6 +710,18 @@ async function handleIncomingMessage(webhookData) {
         const prompt = cleanPromptFromProviders(rawPrompt);
         
         try {
+          // Execute command - loop allows retry to re-execute with updated decision
+          let executionAttempts = 0;
+          const maxExecutionAttempts = 2; // Allow retry to run command once more
+          
+          while (executionAttempts < maxExecutionAttempts) {
+            executionAttempts++;
+            const isRetryExecution = executionAttempts > 1;
+            
+            if (isRetryExecution) {
+              console.log(`🔄 Retry execution attempt ${executionAttempts} with tool: ${decision.tool}`);
+            }
+          
           switch (decision.tool) {
             case 'retry_last_command': {
               // Extract any additional instructions after "נסה שוב"
@@ -849,8 +861,8 @@ async function handleIncomingMessage(webhookData) {
                 // Update timestamp for cleanup
                 lastCommand.timestamp = Date.now();
               }
-              // Don't return - fall through to execute the command
-              break;
+              // Continue to next iteration of while loop to execute the updated command
+              continue;
             }
             
             case 'ask_clarification':
@@ -1881,6 +1893,11 @@ async function handleIncomingMessage(webhookData) {
               await sendTextMessage(chatId, `⚠️ Unknown tool from router: ${decision.tool}`);
               break;
           }
+          
+          // Break out of while loop after successful execution (unless retry continues)
+          break;
+          
+          } // End of while loop
         } catch (toolError) {
           console.error(`❌ Error executing tool ${decision.tool}:`, toolError);
           await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${toolError.message || toolError}`);
@@ -2357,6 +2374,18 @@ async function handleOutgoingMessage(webhookData) {
 
         // Router-based direct execution for outgoing messages (same as incoming)
         try {
+          // Execute command - loop allows retry to re-execute with updated decision
+          let executionAttempts = 0;
+          const maxExecutionAttempts = 2; // Allow retry to run command once more
+          
+          while (executionAttempts < maxExecutionAttempts) {
+            executionAttempts++;
+            const isRetryExecution = executionAttempts > 1;
+            
+            if (isRetryExecution) {
+              console.log(`🔄 [Outgoing] Retry execution attempt ${executionAttempts} with tool: ${decision.tool}`);
+            }
+          
           switch (decision.tool) {
             case 'retry_last_command': {
               // Extract any additional instructions after "נסה שוב" (same logic as incoming)
@@ -2479,8 +2508,8 @@ async function handleOutgoingMessage(webhookData) {
                 // Update timestamp
                 lastCommand.timestamp = Date.now();
               }
-              // Don't return - fall through to execute the command
-              break;
+              // Continue to next iteration of while loop to execute the updated command
+              continue;
             }
             
             // ═══════════════════ CHAT ═══════════════════
@@ -3379,6 +3408,11 @@ async function handleOutgoingMessage(webhookData) {
               await sendTextMessage(chatId, `⚠️ Unknown tool from router (outgoing): ${decision.tool}`);
               break;
           }
+          
+          // Break out of while loop after successful execution (unless retry continues)
+          break;
+          
+          } // End of while loop
         } catch (toolError) {
           console.error(`❌ Error executing tool ${decision.tool} (outgoing):`, toolError);
           await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${toolError.message || toolError}`);
