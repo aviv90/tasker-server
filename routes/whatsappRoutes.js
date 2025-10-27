@@ -833,6 +833,9 @@ async function handleIncomingMessage(webhookData) {
                 }
                 
                 // No need to update timestamp - it's persisted in DB
+                
+                // Update prompt from decision.args for the re-execution
+                prompt = decision.args?.prompt || prompt;
               }
               // Continue to next iteration of while loop to execute the updated command
               continue;
@@ -2484,6 +2487,9 @@ async function handleOutgoingMessage(webhookData) {
                 }
                 
                 // No need to update timestamp - it's persisted in DB
+                
+                // Update prompt from decision.args for the re-execution
+                prompt = decision.args?.prompt || prompt;
               }
               // Continue to next iteration of while loop to execute the updated command
               continue;
