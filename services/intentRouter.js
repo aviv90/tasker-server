@@ -521,7 +521,11 @@ ${JSON.stringify(payload, null, 2)}
       - Image + video keywords + Veo mention → "veo3_image_to_video"
         ✓ Veo mentions: "veo", "Veo", "VEO", "veo 3", "veo 3.1", "Veo 3.1", "VEO 3.1", "veo3", "veo3.1", etc.
         ✓ Video keywords (including typos): "וידאו", "וידיאו", "וודאו", "ווידאו", "video", "vidio", "vedio", "vidoe", "סרט", "אנימציה", "הנפש", "להנפיש", "animate", "motion", "clip", "קליפ"
-      - Image + video keywords (NO Veo) → "kling_image_to_video"
+      - Image + video keywords + Sora mention → "sora_image_to_video"
+        ✓ Sora mentions: "sora", "Sora", "SORA", "sora 2", "sora 2 pro", "sora-2", "sora-2-pro", "סורה", "סורה 2", "סורה 2 פרו", etc.
+      - Image + video keywords + Kling mention → "kling_image_to_video"
+        ✓ Kling mentions: "kling", "Kling", "KLING", "קלינג"
+      - Image + video keywords (NO service specified) → "kling_image_to_video" (default)
    
    B. **Analysis/Questions** (second priority - text-only response):
       ✓ Question words: "מה", "איך", "למה", "האם", "מי", "איפה", "מתי", "כמה", "what", "how", "why", "is", "are", "does", "can", "should", "could", "would", "who", "where", "when", "which"
