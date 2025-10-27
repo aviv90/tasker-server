@@ -590,26 +590,51 @@ async function generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, op
             validSeconds = 8;
         }
         
-        // Get image dimensions to match the size parameter
+        // Get image dimensions and resize to supported Sora 2 format
         console.log('📏 Reading image dimensions...');
         const metadata = await sharp(imageBuffer).metadata();
         const imageWidth = metadata.width;
         const imageHeight = metadata.height;
-        const imageSize = `${imageWidth}x${imageHeight}`;
         
-        console.log(`   Image dimensions: ${imageSize}`);
+        // Sora 2 supported sizes: 720x1280, 1280x720, 1024x1792, 1792x1024
+        // Determine if image is portrait or landscape and choose appropriate supported size
+        const isPortrait = imageHeight > imageWidth;
+        let targetWidth, targetHeight;
         
-        // Create File object from buffer
+        if (isPortrait) {
+            // Portrait images → 720x1280 (mobile/portrait format)
+            targetWidth = 720;
+            targetHeight = 1280;
+        } else {
+            // Landscape images → 1280x720 (wide/landscape format)
+            targetWidth = 1280;
+            targetHeight = 720;
+        }
+        
+        const targetSize = `${targetWidth}x${targetHeight}`;
+        console.log(`   Original: ${imageWidth}x${imageHeight}, Resizing to: ${targetSize}`);
+        
+        // Resize image to supported format
+        const resizedImageBuffer = await sharp(imageBuffer)
+            .resize(targetWidth, targetHeight, {
+                fit: 'cover', // Crop to fit if needed
+                position: 'center'
+            })
+            .jpeg({ quality: 95 })
+            .toBuffer();
+        
+        console.log(`✅ Image resized to ${targetSize}`);
+        
+        // Create File object from resized buffer
         console.log('📤 Preparing image file...');
-        const imageFile = new File([imageBuffer], 'image.jpg', { type: 'image/jpeg' });
+        const imageFile = new File([resizedImageBuffer], 'image.jpg', { type: 'image/jpeg' });
         
-        // Create video generation job with input_reference (pass File object directly)
-        // IMPORTANT: When using input_reference, the size parameter MUST match the image dimensions
+        // Create video generation job with input_reference
         console.log('🎬 Creating Sora video with input_reference...');
         const video = await openai.videos.create({
             model: model,
             prompt: cleanPrompt,
-            size: imageSize, // MUST match image dimensions when using input_reference
+            size: targetSize, // MUST match resized image dimensions
             seconds: validSeconds.toString(),
             input_reference: imageFile // Pass the File object directly
         });
