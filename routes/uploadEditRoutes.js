@@ -48,7 +48,7 @@ router.post('/upload-edit', upload.single('file'), async (req, res) => {
   }
 
   const taskId = uuidv4();
-  taskStore.set(taskId, { status:'pending' });
+  await taskStore.set(taskId, { status:'pending' });
   res.json({ taskId });
 
   try {
@@ -66,7 +66,7 @@ router.post('/upload-edit', upload.single('file'), async (req, res) => {
     await finalize(taskId, result, req);
   } catch (error) {
     console.error(`❌ Image edit error:`, error);
-    taskStore.set(taskId, getTaskError(error));
+    await taskStore.set(taskId, getTaskError(error));
   }
 });
 
@@ -77,7 +77,7 @@ router.post('/upload-video', upload.single('file'), async (req, res) => {
   }
 
   const taskId = uuidv4();
-  taskStore.set(taskId, { status:'pending' });
+  await taskStore.set(taskId, { status:'pending' });
   res.json({ taskId });
 
   try {
@@ -96,7 +96,7 @@ router.post('/upload-video', upload.single('file'), async (req, res) => {
     await finalizeVideo(taskId, result, prompt, req);
   } catch (error) {
     console.error(`❌ Image-to-video error:`, error);
-    taskStore.set(taskId, getTaskError(error));
+    await taskStore.set(taskId, getTaskError(error));
   }
 });
 
@@ -107,7 +107,7 @@ router.post('/upload-video-edit', upload.single('file'), async (req, res) => {
   }
 
   const taskId = uuidv4();
-  taskStore.set(taskId, { status:'pending' });
+  await taskStore.set(taskId, { status:'pending' });
   res.json({ taskId });
 
   try {
@@ -115,7 +115,7 @@ router.post('/upload-video-edit', upload.single('file'), async (req, res) => {
     await finalizeVideo(taskId, result, prompt, req);
   } catch (error) {
     console.error(`❌ Video-to-video error:`, error);
-    taskStore.set(taskId, getTaskError(error));
+    await taskStore.set(taskId, getTaskError(error));
   }
 });
 
@@ -133,7 +133,7 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
   }
 
   const taskId = uuidv4();
-  taskStore.set(taskId, { status:'pending' });
+  await taskStore.set(taskId, { status:'pending' });
   res.json({ taskId });
 
   try {
@@ -285,14 +285,14 @@ router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
     
   } catch (error) {
     console.error(`❌ Pipeline error:`, error);
-    taskStore.set(taskId, getTaskError(error));
+    await taskStore.set(taskId, getTaskError(error));
   }
 });
 
-function finalize(taskId, result, req) {
+async function finalize(taskId, result, req) {
   try {
     if (!result || result.error) {
-      taskStore.set(taskId, getTaskError(result));
+      await taskStore.set(taskId, getTaskError(result));
       return;
     }
     
@@ -302,18 +302,18 @@ function finalize(taskId, result, req) {
     fs.writeFileSync(path.join(outputDir, filename), result.imageBuffer);
 
     const host = `${req.protocol}://${req.get('host')}`;
-    taskStore.set(taskId, {
+    await taskStore.set(taskId, {
       status:'done',
       result: `${host}/static/${filename}`,
       text: result.text
     });
   } catch (error) {
     console.error(`❌ Error in finalize:`, error);
-    taskStore.set(taskId, getTaskError(error));
+    await taskStore.set(taskId, getTaskError(error));
   }
 }
 
-function finalizeTranscription(taskId, result) {
+async function finalizeTranscription(taskId, result) {
   try {
     // Check if there's an error
     if (!result || result.error) {
@@ -327,7 +327,7 @@ function finalizeTranscription(taskId, result) {
         errorResult.text = result.text;
       }
       
-      taskStore.set(taskId, errorResult);
+      await taskStore.set(taskId, errorResult);
       console.log(`❌ Transcription failed: ${result?.error || 'Unknown error'}`);
       return;
     }
@@ -346,15 +346,15 @@ function finalizeTranscription(taskId, result) {
       taskResult.metadata = result.metadata;
     }
 
-    taskStore.set(taskId, taskResult);
+    await taskStore.set(taskId, taskResult);
     console.log(`✅ Transcription completed. Text length: ${result.text?.length || 0} characters`);
   } catch (error) {
     console.error(`❌ Error in finalizeTranscription:`, error);
-    taskStore.set(taskId, getTaskError(error));
+    await taskStore.set(taskId, getTaskError(error));
   }
 }
 
-function finalizeVoiceProcessing(taskId, result, req = null) {
+async function finalizeVoiceProcessing(taskId, result, req = null) {
   try {
     // Check if there's an error
     if (result.error) {
@@ -368,7 +368,7 @@ function finalizeVoiceProcessing(taskId, result, req = null) {
         errorResult.text = result.text;
       }
       
-      taskStore.set(taskId, errorResult);
+      await taskStore.set(taskId, errorResult);
       console.log(`❌ Voice processing failed: ${result.error}`);
       return;
     }
@@ -387,11 +387,11 @@ function finalizeVoiceProcessing(taskId, result, req = null) {
     };
 
     console.log(`📝 Saving final result with text: "${result.text?.substring(0, 100) || 'MISSING TEXT'}..."`);
-    taskStore.set(taskId, taskResult);
+    await taskStore.set(taskId, taskResult);
     console.log(`✅ Voice processing completed: ${result.text?.length || 0} chars → ${audioURL}`);
   } catch (error) {
     console.error(`❌ Error in finalizeVoiceProcessing:`, error);
-    taskStore.set(taskId, getTaskError(error));
+    await taskStore.set(taskId, getTaskError(error));
   }
 }
 
@@ -419,7 +419,7 @@ router.post('/music/callback', async (req, res) => {
           
           if (ourTaskId) {
             // Update our task store with the processed result
-            taskStore.set(ourTaskId, { 
+            await taskStore.set(ourTaskId, { 
               status: 'done', 
               result: result.result,
               audioBuffer: result.audioBuffer,
@@ -572,7 +572,7 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
     if (isErrorResult(result)) {
       const errorMessage = getTaskError(result);
       console.error(`❌ Speech-to-Song generation failed for task ${taskId}:`, errorMessage);
-      taskStore.set(taskId, { status: 'failed', error: errorMessage });
+      await taskStore.set(taskId, { status: 'failed', error: errorMessage });
     } else {
       console.log(`✅ Speech-to-Song generation completed for task ${taskId}`);
       
@@ -582,7 +582,7 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
         songUrl = result.songs[0].audioUrl;
       }
       
-      taskStore.set(taskId, { 
+      await taskStore.set(taskId, { 
         status: 'done', 
         result: songUrl || result, // Use simple URL or fallback to full result
         type: 'speech-to-song',
@@ -592,7 +592,7 @@ router.post('/speech-to-song', upload.single('file'), async (req, res) => {
 
   } catch (error) {
     console.error(`❌ Speech-to-Song generation error for task ${taskId}:`, error);
-    taskStore.set(taskId, { 
+    await taskStore.set(taskId, { 
       status: 'failed', 
       error: error.message || 'Speech-to-Song generation failed' 
     });

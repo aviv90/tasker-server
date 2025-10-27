@@ -3,10 +3,10 @@ const taskStore = require('../store/taskStore');
 const fs = require('fs');
 const path = require('path');
 
-function finalizeVideo(taskId, result, prompt, req = null) {
+async function finalizeVideo(taskId, result, prompt, req = null) {
   try {
     if (isErrorResult(result)) {
-      taskStore.set(taskId, getTaskError(result));
+      await taskStore.set(taskId, getTaskError(result));
       return;
     }
     
@@ -37,7 +37,7 @@ function finalizeVideo(taskId, result, prompt, req = null) {
       videoURL = `${host}${videoURL}`;
     }
     
-    taskStore.set(taskId, {
+    await taskStore.set(taskId, {
       status:'done',
       result: videoURL,
       text: result.text || prompt,
@@ -45,7 +45,7 @@ function finalizeVideo(taskId, result, prompt, req = null) {
     });
   } catch (error) {
     console.error(`❌ Error in finalizeVideo:`, error);
-    taskStore.set(taskId, getTaskError(error, 'Failed to finalize video'));
+    await taskStore.set(taskId, getTaskError(error, 'Failed to finalize video'));
   }
 }
 

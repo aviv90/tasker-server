@@ -36,7 +36,7 @@ router.post('/start-task', async (req, res) => {
     }
 
     const taskId = uuidv4();
-    taskStore.set(taskId, { status: 'pending' });
+    await taskStore.set(taskId, { status: 'pending' });
     res.json({ taskId });
 
     try {
@@ -122,27 +122,27 @@ router.post('/start-task', async (req, res) => {
             
             await finalizeTextResponse(taskId, result, sanitizedPrompt, req);
         } else {
-            taskStore.set(taskId, { 
+            await taskStore.set(taskId, { 
                 status: 'error', 
                 error: { message: 'Unsupported task type', type: type, supportedTypes: ['text-to-image', 'text-to-video', 'text-to-music', 'gemini-chat', 'openai-chat'] }
             });
         }
     } catch (error) {
         // Service already logs the error, just store it
-        taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
+        await taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
     }
 });
 
-router.get('/task-status/:taskId', (req, res) => {
-    const task = taskStore.get(req.params.taskId);
+router.get('/task-status/:taskId', async (req, res) => {
+    const task = await taskStore.get(req.params.taskId);
     if (!task) return res.status(404).json({ error: 'Task not found' });
     res.json(task);
 });
 
-function finalizeTask(taskId, result, req, fileExtension = 'png') {
+async function finalizeTask(taskId, result, req, fileExtension = 'png') {
     try {
         if (isErrorResult(result)) {
-            taskStore.set(taskId, { status: 'error', ...result });
+            await taskStore.set(taskId, { status: 'error', ...result });
             return;
         }
         
@@ -156,12 +156,12 @@ function finalizeTask(taskId, result, req, fileExtension = 'png') {
         if (buffer) {
             fs.writeFileSync(outputPath, buffer);
         } else {
-            taskStore.set(taskId, { status: 'error', error: { message: 'No buffer data', code: 'NO_BUFFER' } });
+            await taskStore.set(taskId, { status: 'error', error: { message: 'No buffer data', code: 'NO_BUFFER' } });
             return;
         }
 
         const host = `${req.protocol}://${req.get('host')}`;
-        taskStore.set(taskId, {
+        await taskStore.set(taskId, {
             status: 'done',
             result: `${host}/static/${filename}`,
             text: result.text,
@@ -169,15 +169,15 @@ function finalizeTask(taskId, result, req, fileExtension = 'png') {
         });
     } catch (error) {
         console.error(`❌ Error in finalizeTask:`, error);
-        taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
+        await taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
     }
 }
 
-function finalizeMusic(taskId, result, prompt, req) {
+async function finalizeMusic(taskId, result, prompt, req) {
     try {
         if (isErrorResult(result)) {
             console.log(`❌ Music generation failed for task ${taskId}:`, result.error);
-            taskStore.set(taskId, { status: 'error', error: result.error });
+            await taskStore.set(taskId, { status: 'error', error: result.error });
             return;
         }
         
@@ -191,7 +191,7 @@ function finalizeMusic(taskId, result, prompt, req) {
             console.log(`✅ Music file saved: ${filename}`);
         } else {
             console.error(`❌ No audio buffer in result for task ${taskId}`);
-            taskStore.set(taskId, { status: 'error', error: 'No audio buffer data' });
+            await taskStore.set(taskId, { status: 'error', error: 'No audio buffer data' });
             return;
         }
 
@@ -214,20 +214,20 @@ function finalizeMusic(taskId, result, prompt, req) {
             };
         }
 
-        taskStore.set(taskId, taskResult);
+        await taskStore.set(taskId, taskResult);
         console.log(`✅ Music generation completed for task ${taskId}`);
         
     } catch (error) {
         console.error(`❌ Error in finalizeMusic:`, error);
-        taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
+        await taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
     }
 }
 
-function finalizeTextResponse(taskId, result, prompt, req) {
+async function finalizeTextResponse(taskId, result, prompt, req) {
     try {
         if (isErrorResult(result)) {
             console.log(`❌ Text generation failed for task ${taskId}:`, result.error);
-            taskStore.set(taskId, { status: 'error', error: result.error });
+            await taskStore.set(taskId, { status: 'error', error: result.error });
             return;
         }
         
@@ -255,11 +255,11 @@ function finalizeTextResponse(taskId, result, prompt, req) {
             taskResult.originalPrompt = result.originalPrompt;
         }
 
-        taskStore.set(taskId, taskResult);
+        await taskStore.set(taskId, taskResult);
         console.log(`📋 Task ${taskId} completed successfully`);
     } catch (error) {
         console.error(`❌ Error in finalizeTextResponse:`, error);
-        taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
+        await taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
     }
 }
 
