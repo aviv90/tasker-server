@@ -1919,6 +1919,7 @@ async function handleIncomingMessage(webhookData) {
             case 'image_edit': {
               const service = decision.args?.service || 'gemini';
               console.log(`🎨 ${service} image edit request (via router)`);
+              await saveLastCommand(chatId, decision, { imageUrl: imageData.downloadUrl, normalized });
               processImageEditAsync({
                 chatId, senderId, senderName,
                 imageUrl: imageData.downloadUrl,
@@ -1934,6 +1935,7 @@ async function handleIncomingMessage(webhookData) {
             case 'kling_image_to_video': {
               const service = (decision.tool === 'veo3_video' || decision.tool === 'veo3_image_to_video') ? 'veo3' : 'kling';
               console.log(`🎬 ${service} image-to-video request (via router)`);
+              await saveLastCommand(chatId, decision, { imageUrl: imageData.downloadUrl, normalized });
               processImageToVideoAsync({
                 chatId, senderId, senderName,
                 imageUrl: imageData.downloadUrl,
@@ -1944,6 +1946,7 @@ async function handleIncomingMessage(webhookData) {
             }
             
             case 'gemini_chat': {
+              await saveLastCommand(chatId, decision, { imageUrl: imageData.downloadUrl, normalized });
               await sendAck(chatId, { type: 'gemini_chat' });
               // Image analysis - use analyzeImageWithText
               const { analyzeImageWithText } = require('../services/geminiService');
@@ -2012,6 +2015,7 @@ async function handleIncomingMessage(webhookData) {
               return;
               
             case 'gemini_chat': {
+              await saveLastCommand(chatId, decision, { videoUrl: videoData.downloadUrl, normalized });
               await sendAck(chatId, { type: 'gemini_chat' });
               // Video analysis - use analyzeVideoWithText
               const { analyzeVideoWithText } = require('../services/geminiService');
@@ -2033,6 +2037,7 @@ async function handleIncomingMessage(webhookData) {
             
             case 'video_to_video': {
               console.log(`🎬 RunwayML Gen4 video-to-video request (via router)`);
+              await saveLastCommand(chatId, decision, { videoUrl: videoData.downloadUrl, normalized });
               processVideoToVideoAsync({
                 chatId, senderId, senderName,
                 videoUrl: videoData.downloadUrl,
@@ -2771,6 +2776,7 @@ async function handleOutgoingMessage(webhookData) {
               return;
             }
             case 'openai_chat': {
+              await saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'openai_chat' });
               const contextMessages = await conversationManager.getConversationHistory(chatId);
               await conversationManager.addMessage(chatId, 'user', prompt);
@@ -2782,6 +2788,7 @@ async function handleOutgoingMessage(webhookData) {
               return;
             }
             case 'grok_chat': {
+              await saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'grok_chat' });
               // Note: Grok doesn't use conversation history (causes issues)
               await conversationManager.addMessage(chatId, 'user', prompt);
@@ -2806,6 +2813,7 @@ async function handleOutgoingMessage(webhookData) {
               return;
             }
             case 'openai_image': {
+              await saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'openai_image' });
               const imageResult = await generateOpenAIImage(prompt);
               if (imageResult.success && imageResult.imageUrl) {
@@ -2816,6 +2824,7 @@ async function handleOutgoingMessage(webhookData) {
               return;
             }
             case 'grok_image': {
+              await saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'grok_image' });
               const imageResult = await generateGrokImage(prompt);
               if (imageResult.success && imageResult.imageUrl) {
