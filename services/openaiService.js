@@ -566,7 +566,7 @@ async function generateVideoWithSoraForWhatsApp(prompt, req = null, options = {}
 
 /**
  * Generate video from image using Sora 2 / Sora 2 Pro
- * Uses image_reference parameter to animate a static image
+ * Uses input_reference parameter to animate a static image
  */
 async function generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, options = {}) {
     try {
@@ -595,18 +595,19 @@ async function generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, op
         const imageFile = new File([imageBuffer], 'image.jpg', { type: 'image/jpeg' });
         const uploadedFile = await openai.files.create({
             file: imageFile,
-            purpose: 'assistants' // or 'vision' if supported
+            purpose: 'vision'
         });
         
         console.log(`✅ Image uploaded: ${uploadedFile.id}`);
         
-        // Step 2: Create video generation job with image_reference
+        // Step 2: Create video generation job with input_reference
+        console.log('🎬 Creating Sora video with input_reference...');
         const video = await openai.videos.create({
             model: model,
             prompt: cleanPrompt,
             size: size,
             seconds: validSeconds.toString(),
-            image_reference: uploadedFile.id // Reference the uploaded image
+            input_reference: uploadedFile.id // Reference the uploaded file
         });
         
         const jobId = video.id;
