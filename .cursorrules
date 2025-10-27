@@ -40,3 +40,64 @@ const isEditRequest = /מחק|הורד|תוריד/i
 ### מטרה:
 המשתמש לא צריך לחשוב איך לנסח - הבוט צריך להבין כל נוסח סביר!
 
+---
+
+## 8-heroku-logs-command
+**הרצת לוגים מ-Heroku בצורה נכונה**
+
+כשצריך לבדוק לוגים של האפליקציה ב-Heroku, **חובה** להוסיף את הפרמטר `--app`:
+
+### ✅ נכון:
+```bash
+heroku logs --app tasker-server -n 150
+heroku logs --app tasker-server --tail
+heroku logs --app tasker-server -n 100 | grep "שגיאה"
+```
+
+### ❌ שגוי:
+```bash
+heroku logs -n 150          # ← חסר --app tasker-server
+heroku logs --tail          # ← חסר --app tasker-server
+```
+
+**סיבה**: ללא `--app`, Heroku CLI עלול לנסות לגלות את ה-app אוטומטית ולהיכשל או לגשת ל-app שגוי.
+
+**מומלץ**: תמיד להוסיף `--app tasker-server` כדי למנוע טעויות.
+
+---
+
+## 9-no-auto-git-operations
+**אל תבצע פעולות Git אוטומטיות - המשתמש יעשה זאת בעצמו**
+
+### כלל חשוב:
+**אל תבצע `git commit` או `git push` אוטומטית בסיום משימות.**
+
+המשתמש מעדיף לבצע את פעולות ה-Git באופן ידני בעצמו:
+1. **סקירת שינויים** לפני commit
+2. **כתיבת commit message** בעצמו (אם רוצה)
+3. **Push** רק כשמוכן
+
+### מה מותר:
+- ✅ להציע commit message (בטקסט)
+- ✅ להראות איזה קבצים שונו
+- ✅ לומר "מוכן ל-commit"
+
+### מה אסור:
+- ❌ `git add .` אוטומטי
+- ❌ `git commit` אוטומטי
+- ❌ `git push` אוטומטי
+
+### Remote נכון:
+- **GitHub**: `origin` (ברירת מחדל)
+- **Heroku**: `heroku` (רק לדפלויים)
+
+יש אינטגרציה עם GitHub, אז:
+```bash
+git push origin main        # ← push ל-GitHub
+git push heroku main        # ← deploy ל-Heroku
+```
+
+**אם המשתמש מבקש push**, תמיד תשאל: "ל-GitHub (origin) או ל-Heroku?"
+
+---
+
