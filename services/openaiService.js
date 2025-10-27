@@ -590,24 +590,18 @@ async function generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, op
             validSeconds = 8;
         }
         
-        // Step 1: Upload the image to OpenAI
-        console.log('📤 Uploading image to OpenAI...');
+        // Create File object from buffer
+        console.log('📤 Preparing image file...');
         const imageFile = new File([imageBuffer], 'image.jpg', { type: 'image/jpeg' });
-        const uploadedFile = await openai.files.create({
-            file: imageFile,
-            purpose: 'vision'
-        });
         
-        console.log(`✅ Image uploaded: ${uploadedFile.id}`);
-        
-        // Step 2: Create video generation job with input_reference
+        // Create video generation job with input_reference (pass File object directly)
         console.log('🎬 Creating Sora video with input_reference...');
         const video = await openai.videos.create({
             model: model,
             prompt: cleanPrompt,
             size: size,
             seconds: validSeconds.toString(),
-            input_reference: uploadedFile.id // Reference the uploaded file
+            input_reference: imageFile // Pass the File object directly
         });
         
         const jobId = video.id;
@@ -679,14 +673,6 @@ async function generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, op
         console.log('✅ Sora 2 image-to-video generated successfully');
         console.log(`🎬 Video saved to: ${filePath}`);
         console.log(`🔗 Public URL: ${publicVideoUrl}`);
-        
-        // Clean up uploaded file (optional)
-        try {
-            await openai.files.del(uploadedFile.id);
-            console.log(`🗑️ Cleaned up uploaded file: ${uploadedFile.id}`);
-        } catch (delError) {
-            console.warn('⚠️ Could not delete uploaded file:', delError.message);
-        }
         
         return { 
             success: true,
