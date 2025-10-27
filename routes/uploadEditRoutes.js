@@ -410,7 +410,7 @@ router.post('/music/callback', async (req, res) => {
       const musicService = require('../services/musicService');
       
       // Process callback in background without blocking response
-      musicService.handleCallbackCompletion(kieTaskId, callbackData).then(result => {
+      musicService.handleCallbackCompletion(kieTaskId, callbackData).then(async result => {
         if (result && !result.error) {
           console.log(`✅ Suno music callback processed successfully for task ${kieTaskId}`);
           
