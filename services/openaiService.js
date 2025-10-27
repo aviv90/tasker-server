@@ -5,6 +5,7 @@ const { getStaticFileUrl } = require('../utils/urlUtils');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const sharp = require('sharp');
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
@@ -577,10 +578,9 @@ async function generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, op
         
         // Default options
         const model = options.model || 'sora-2'; // sora-2 or sora-2-pro
-        const size = options.size || '1280x720'; // Landscape by default
         const seconds = options.seconds || 8; // Supported values: 4, 8, or 12
         
-        console.log(`   Model: ${model}, Size: ${size}, Seconds: ${seconds}s`);
+        console.log(`   Model: ${model}, Seconds: ${seconds}s`);
         
         // Validate parameters
         let validSeconds = seconds;
@@ -590,16 +590,26 @@ async function generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, op
             validSeconds = 8;
         }
         
+        // Get image dimensions to match the size parameter
+        console.log('📏 Reading image dimensions...');
+        const metadata = await sharp(imageBuffer).metadata();
+        const imageWidth = metadata.width;
+        const imageHeight = metadata.height;
+        const imageSize = `${imageWidth}x${imageHeight}`;
+        
+        console.log(`   Image dimensions: ${imageSize}`);
+        
         // Create File object from buffer
         console.log('📤 Preparing image file...');
         const imageFile = new File([imageBuffer], 'image.jpg', { type: 'image/jpeg' });
         
         // Create video generation job with input_reference (pass File object directly)
-        // NOTE: When using input_reference (image-to-video), do NOT specify size - it uses the image dimensions
+        // IMPORTANT: When using input_reference, the size parameter MUST match the image dimensions
         console.log('🎬 Creating Sora video with input_reference...');
         const video = await openai.videos.create({
             model: model,
             prompt: cleanPrompt,
+            size: imageSize, // MUST match image dimensions when using input_reference
             seconds: validSeconds.toString(),
             input_reference: imageFile // Pass the File object directly
         });
