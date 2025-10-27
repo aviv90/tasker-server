@@ -595,11 +595,11 @@ async function generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, op
         const imageFile = new File([imageBuffer], 'image.jpg', { type: 'image/jpeg' });
         
         // Create video generation job with input_reference (pass File object directly)
+        // NOTE: When using input_reference (image-to-video), do NOT specify size - it uses the image dimensions
         console.log('🎬 Creating Sora video with input_reference...');
         const video = await openai.videos.create({
             model: model,
             prompt: cleanPrompt,
-            size: size,
             seconds: validSeconds.toString(),
             input_reference: imageFile // Pass the File object directly
         });
