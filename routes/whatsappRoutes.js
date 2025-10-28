@@ -121,6 +121,83 @@ async function saveLastCommand(chatId, decision, options = {}) {
   });
 }
 
+// Provider override helper for retry (supports Hebrew/English variants)
+function applyProviderOverride(additionalInstructions, currentDecision, context = {}) {
+  if (!additionalInstructions || !additionalInstructions.trim()) return null;
+
+  const text = additionalInstructions.toLowerCase();
+  const wantsOpenAI = /openai|אוופנאי|אופן איי/i.test(additionalInstructions);
+  const wantsGemini = /gemini|ג׳מיני|גמיני|גימיני/i.test(additionalInstructions);
+  const wantsGrok   = /grok|גרוק/i.test(additionalInstructions);
+  const wantsSora   = /sora|סורה/i.test(additionalInstructions);
+  const wantsVeo    = /veo\s*3?(?:\.\d+)?|veo|ויו|וֶאו/i.test(additionalInstructions);
+  const wantsKling  = /kling|קלינג/i.test(additionalInstructions);
+
+  // Sora model variants
+  const wantsSoraPro = /sora\s*2\s*pro|sora-2-pro|סורה\s*2\s*פרו|סורה-?2-?פרו/i.test(additionalInstructions);
+  const wantsSora2   = /sora\s*2\b|sora-2\b|סורה\s*2\b|סורה-?2\b/i.test(additionalInstructions);
+
+  // Decide new tool by media context and provider intent
+  const { hasImage, hasVideo } = context;
+  const originalTool = currentDecision?.tool || '';
+
+  const cloneArgs = (args) => ({ ...(args || {}) });
+
+  // Image-to-video intents with image present
+  if (hasImage && (wantsSora || wantsVeo || wantsKling)) {
+    if (wantsSora) {
+      return {
+        tool: 'sora_image_to_video',
+        args: { ...cloneArgs(currentDecision.args), model: wantsSoraPro ? 'sora-2-pro' : (wantsSora2 ? 'sora-2' : (currentDecision.args?.model || 'sora-2')), service: 'openai' },
+        reason: 'Retry override → Sora image-to-video'
+      };
+    }
+    if (wantsVeo) {
+      return {
+        tool: 'veo3_image_to_video',
+        args: { ...cloneArgs(currentDecision.args), model: currentDecision.args?.model || 'veo-3', service: 'gemini' },
+        reason: 'Retry override → Veo image-to-video'
+      };
+    }
+    if (wantsKling) {
+      return {
+        tool: 'kling_image_to_video',
+        args: { ...cloneArgs(currentDecision.args), model: currentDecision.args?.model || 'kling-1', service: 'kling' },
+        reason: 'Retry override → Kling image-to-video'
+      };
+    }
+  }
+
+  // Text-to-image
+  if (!hasImage && /image|תמונה|צייר|ציור|צור.*תמונה|תייצר.*תמונה|תייצרי.*תמונה/i.test(additionalInstructions)) {
+    if (wantsOpenAI) return { tool: 'openai_image', args: cloneArgs(currentDecision.args), reason: 'Retry override → OpenAI image' };
+    if (wantsGemini) return { tool: 'gemini_image', args: cloneArgs(currentDecision.args), reason: 'Retry override → Gemini image' };
+    if (wantsGrok)   return { tool: 'grok_image',   args: cloneArgs(currentDecision.args), reason: 'Retry override → Grok image' };
+  }
+
+  // Generic provider swap preserving tool family
+  if (originalTool.endsWith('_image')) {
+    if (wantsOpenAI) return { tool: 'openai_image', args: cloneArgs(currentDecision.args), reason: 'Retry override → OpenAI image' };
+    if (wantsGemini) return { tool: 'gemini_image', args: cloneArgs(currentDecision.args), reason: 'Retry override → Gemini image' };
+    if (wantsGrok)   return { tool: 'grok_image',   args: cloneArgs(currentDecision.args), reason: 'Retry override → Grok image' };
+  }
+
+  if (originalTool.endsWith('_image_to_video') || originalTool === 'video_to_video') {
+    if (wantsSora)   return { tool: 'sora_image_to_video',  args: { ...cloneArgs(currentDecision.args), model: wantsSoraPro ? 'sora-2-pro' : (wantsSora2 ? 'sora-2' : (currentDecision.args?.model || 'sora-2')) }, reason: 'Retry override → Sora image-to-video' };
+    if (wantsVeo)    return { tool: 'veo3_image_to_video',  args: cloneArgs(currentDecision.args), reason: 'Retry override → Veo image-to-video' };
+    if (wantsKling)  return { tool: 'kling_image_to_video', args: cloneArgs(currentDecision.args), reason: 'Retry override → Kling image-to-video' };
+  }
+
+  // Chat provider swap
+  if (originalTool.endsWith('_chat')) {
+    if (wantsOpenAI) return { tool: 'openai_chat', args: cloneArgs(currentDecision.args), reason: 'Retry override → OpenAI chat' };
+    if (wantsGemini) return { tool: 'gemini_chat', args: cloneArgs(currentDecision.args), reason: 'Retry override → Gemini chat' };
+    if (wantsGrok)   return { tool: 'grok_chat',   args: cloneArgs(currentDecision.args), reason: 'Retry override → Grok chat' };
+  }
+
+  return null;
+}
+
 /**
  * Format chat history messages for including as context in prompts
  * @param {Array} messages - Array of messages from getChatHistory
@@ -718,6 +795,18 @@ async function handleIncomingMessage(webhookData) {
               const additionalInstructions = basePrompt
                 .replace(/^(נסה\s*שוב|שוב|retry|try\s*again)\s*,?\s*/i, '')
                 .trim();
+
+              // Apply provider override if specified
+              const override = applyProviderOverride(additionalInstructions, decision, { hasImage, hasVideo });
+              if (override) {
+                console.log(`🔁 Retry override detected → tool: ${override.tool}, reason: ${override.reason}`);
+                Object.assign(decision, override);
+                if (override.args?.prompt) {
+                  prompt = override.args.prompt;
+                }
+                // Continue to execution of the overridden tool
+                continue;
+              }
               
               // Check if there's a quoted message with a command
               // Use isActualQuote to avoid false positives from extendedTextMessage metadata
@@ -2409,6 +2498,17 @@ async function handleOutgoingMessage(webhookData) {
               const additionalInstructions = basePrompt
                 .replace(/^(נסה\s*שוב|שוב|retry|try\s*again)\s*,?\s*/i, '')
                 .trim();
+
+              // Apply provider override if specified (outgoing)
+              const override = applyProviderOverride(additionalInstructions, decision, { hasImage, hasVideo });
+              if (override) {
+                console.log(`🔁 [Outgoing] Retry override detected → tool: ${override.tool}, reason: ${override.reason}`);
+                Object.assign(decision, override);
+                if (override.args?.prompt) {
+                  prompt = override.args.prompt;
+                }
+                continue;
+              }
               
               // Check if there's a quoted message with a command
               // Use isActualQuote to avoid false positives from extendedTextMessage metadata
