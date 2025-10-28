@@ -2919,6 +2919,8 @@ async function handleOutgoingMessage(webhookData) {
               if (hasImage) {
                 const service = decision.args?.service || 'gemini';
                 const finalImageUrl = imageUrl || (messageData.fileMessageData || messageData.imageMessageData || messageData.stickerMessageData)?.downloadUrl;
+                // Persist last command so retry (# שוב) works for outgoing image edits
+                await saveLastCommand(chatId, decision, { imageUrl: finalImageUrl, normalized });
                 processImageEditAsync({
                   chatId, senderId, senderName,
                   imageUrl: finalImageUrl,
@@ -2931,6 +2933,8 @@ async function handleOutgoingMessage(webhookData) {
             case 'video_to_video':
               if (hasVideo) {
                 const finalVideoUrl = videoUrl || (messageData.fileMessageData || messageData.videoMessageData)?.downloadUrl;
+                // Persist last command so retry (# שוב) works for outgoing video edits
+                await saveLastCommand(chatId, decision, { videoUrl: finalVideoUrl, normalized });
                 processVideoToVideoAsync({
                   chatId, senderId, senderName,
                   videoUrl: finalVideoUrl,
@@ -3263,6 +3267,8 @@ async function handleOutgoingMessage(webhookData) {
                 }
                 const model = decision.args?.model;
                 console.log(`🎬 ${service} image-to-video request from text command (outgoing)`);
+                // Persist last command so retry (# שוב) works for outgoing image-to-video
+                await saveLastCommand(chatId, decision, { imageUrl, normalized });
                 processImageToVideoAsync({
                   chatId, senderId, senderName,
                   imageUrl: imageUrl,
@@ -3522,6 +3528,8 @@ async function handleOutgoingMessage(webhookData) {
             case 'image_edit': {
               const service = decision.args?.service || 'gemini';
               console.log(`🎨 ${service} image edit request (outgoing, via router)`);
+              // Persist last command so retry (# שוב) works for outgoing image edits
+              await saveLastCommand(chatId, decision, { imageUrl, normalized });
               processImageEditAsync({
                 chatId, senderId, senderName,
                 imageUrl: imageUrl, // Use the URL (either from current message or quoted)
