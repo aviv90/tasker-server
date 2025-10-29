@@ -3578,6 +3578,12 @@ async function handleOutgoingMessage(webhookData) {
       
       if (/^#\s+/.test(caption.trim())) {
         try {
+          const chatId = senderData.chatId;
+          const senderId = senderData.sender;
+          const senderName = senderData.senderName || senderId;
+          const senderContactName = senderData.senderContactName || "";
+          const chatName = senderData.chatName || "";
+          
           // Extract the prompt (remove "# " prefix)
           const basePrompt = caption.trim().replace(/^#\s+/, '').trim();
           
@@ -3710,6 +3716,12 @@ async function handleOutgoingMessage(webhookData) {
       
       if (/^#\s+/.test(caption.trim())) {
         try {
+          const chatId = senderData.chatId;
+          const senderId = senderData.sender;
+          const senderName = senderData.senderName || senderId;
+          const senderContactName = senderData.senderContactName || "";
+          const chatName = senderData.chatName || "";
+          
           // Extract the prompt (remove "# " prefix)
           const basePrompt = caption.trim().replace(/^#\s+/, '').trim();
           
