@@ -691,6 +691,13 @@ async function handleIncomingMessage(webhookData) {
     } else if (messageData.typeMessage === 'quotedMessage') {
       // When replying to a message, the text is in extendedTextMessageData
       messageText = messageData.extendedTextMessageData?.text;
+      // BUT: If this is actually an image/video/sticker with caption (not a reply), extract the caption
+      if (!messageText) {
+        messageText = messageData.fileMessageData?.caption || 
+                     messageData.imageMessageData?.caption || 
+                     messageData.videoMessageData?.caption ||
+                     messageData.stickerMessageData?.caption;
+      }
     } else if (messageData.typeMessage === 'editedMessage') {
       // Handle edited messages - treat them as regular messages
       messageText = messageData.editedMessageData?.textMessage;
@@ -2385,6 +2392,13 @@ async function handleOutgoingMessage(webhookData) {
     } else if (messageData.typeMessage === 'quotedMessage') {
       // When replying to a message, the text is in extendedTextMessageData
       messageText = messageData.extendedTextMessageData?.text;
+      // BUT: If this is actually an image/video/sticker with caption (not a reply), extract the caption
+      if (!messageText) {
+        messageText = messageData.fileMessageData?.caption || 
+                     messageData.imageMessageData?.caption || 
+                     messageData.videoMessageData?.caption ||
+                     messageData.stickerMessageData?.caption;
+      }
     } else if (messageData.typeMessage === 'editedMessage') {
       // Handle edited messages - treat them as regular messages
       messageText = messageData.editedMessageData?.textMessage;
