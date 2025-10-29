@@ -458,6 +458,11 @@ router.post('/webhook', async (req, res) => {
     
     // Log full webhook payload for debugging
     console.log(`📱 Green API webhook: ${webhookData.typeWebhook || 'unknown'} | Type: ${webhookData.messageData?.typeMessage || 'N/A'}`);
+    
+    // TEMPORARY DEBUG: Log full payload to see what we're missing
+    if (webhookData.messageData?.typeMessage) {
+      console.log('🔍 FULL WEBHOOK PAYLOAD:', JSON.stringify(webhookData, null, 2));
+    }
 
     // Handle different webhook types asynchronously
     if (webhookData.typeWebhook === 'incomingMessageReceived') {
