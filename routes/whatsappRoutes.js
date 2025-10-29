@@ -811,17 +811,21 @@ async function handleIncomingMessage(webhookData) {
                       quotedMessage.imageMessageData?.downloadUrl ||
                       quotedMessage.stickerMessageData?.downloadUrl;
             
-            // If still not found, log full structure for debugging
+            // If still not found, try getMessage to fetch the current message's downloadUrl
             if (!imageUrl) {
-              console.log('⚠️ downloadUrl not found! Checking messageData structure:', {
-                downloadUrl: messageData.downloadUrl,
-                fileMessageData: messageData.fileMessageData ? Object.keys(messageData.fileMessageData) : 'N/A',
-                imageMessageData: messageData.imageMessageData ? Object.keys(messageData.imageMessageData) : 'N/A',
-                quotedMessage_downloadUrl: quotedMessage.downloadUrl,
-                quotedMessage_fileMessageData: quotedMessage.fileMessageData ? Object.keys(quotedMessage.fileMessageData) : 'N/A',
-              });
+              console.log('⚠️ downloadUrl not found in webhook, fetching from Green API...');
+              try {
+                const currentMessageId = webhookData.idMessage;
+                const originalMessage = await greenApiService.getMessage(chatId, currentMessageId);
+                imageUrl = originalMessage?.downloadUrl || 
+                          originalMessage?.fileMessageData?.downloadUrl || 
+                          originalMessage?.imageMessageData?.downloadUrl;
+                console.log(`✅ downloadUrl fetched from getMessage: ${imageUrl ? 'found' : 'still NOT FOUND'}`);
+              } catch (err) {
+                console.log(`❌ Failed to fetch downloadUrl via getMessage: ${err.message}`);
+              }
             }
-            console.log(`📸 Image with caption detected, downloadUrl: ${imageUrl ? 'found' : 'NOT FOUND'}`);
+            console.log(`📸 Image with caption detected, final downloadUrl: ${imageUrl ? 'found' : 'NOT FOUND'}`);
           } else if (quotedMessage.typeMessage === 'videoMessage') {
             hasVideo = true;
             videoUrl = messageData.downloadUrl || 
@@ -830,7 +834,22 @@ async function handleIncomingMessage(webhookData) {
                       quotedMessage.downloadUrl ||
                       quotedMessage.fileMessageData?.downloadUrl ||
                       quotedMessage.videoMessageData?.downloadUrl;
-            console.log(`🎥 Video with caption detected, downloadUrl: ${videoUrl ? 'found' : 'NOT FOUND'}`);
+            
+            // If still not found, try getMessage to fetch the current message's downloadUrl
+            if (!videoUrl) {
+              console.log('⚠️ Video downloadUrl not found in webhook, fetching from Green API...');
+              try {
+                const currentMessageId = webhookData.idMessage;
+                const originalMessage = await greenApiService.getMessage(chatId, currentMessageId);
+                videoUrl = originalMessage?.downloadUrl || 
+                          originalMessage?.fileMessageData?.downloadUrl || 
+                          originalMessage?.videoMessageData?.downloadUrl;
+                console.log(`✅ Video downloadUrl fetched from getMessage: ${videoUrl ? 'found' : 'still NOT FOUND'}`);
+              } catch (err) {
+                console.log(`❌ Failed to fetch video downloadUrl via getMessage: ${err.message}`);
+              }
+            }
+            console.log(`🎥 Video with caption detected, final downloadUrl: ${videoUrl ? 'found' : 'NOT FOUND'}`);
           }
         }
         
@@ -2577,17 +2596,21 @@ async function handleOutgoingMessage(webhookData) {
                       quotedMessage.imageMessageData?.downloadUrl ||
                       quotedMessage.stickerMessageData?.downloadUrl;
             
-            // If still not found, log full structure for debugging
+            // If still not found, try getMessage to fetch the current message's downloadUrl
             if (!imageUrl) {
-              console.log('⚠️ Outgoing: downloadUrl not found! Checking messageData structure:', {
-                downloadUrl: messageData.downloadUrl,
-                fileMessageData: messageData.fileMessageData ? Object.keys(messageData.fileMessageData) : 'N/A',
-                imageMessageData: messageData.imageMessageData ? Object.keys(messageData.imageMessageData) : 'N/A',
-                quotedMessage_downloadUrl: quotedMessage.downloadUrl,
-                quotedMessage_fileMessageData: quotedMessage.fileMessageData ? Object.keys(quotedMessage.fileMessageData) : 'N/A',
-              });
+              console.log('⚠️ Outgoing: downloadUrl not found in webhook, fetching from Green API...');
+              try {
+                const currentMessageId = webhookData.idMessage;
+                const originalMessage = await greenApiService.getMessage(chatId, currentMessageId);
+                imageUrl = originalMessage?.downloadUrl || 
+                          originalMessage?.fileMessageData?.downloadUrl || 
+                          originalMessage?.imageMessageData?.downloadUrl;
+                console.log(`✅ Outgoing: downloadUrl fetched from getMessage: ${imageUrl ? 'found' : 'still NOT FOUND'}`);
+              } catch (err) {
+                console.log(`❌ Outgoing: Failed to fetch downloadUrl via getMessage: ${err.message}`);
+              }
             }
-            console.log(`📸 Outgoing: Image with caption detected, downloadUrl: ${imageUrl ? 'found' : 'NOT FOUND'}`);
+            console.log(`📸 Outgoing: Image with caption detected, final downloadUrl: ${imageUrl ? 'found' : 'NOT FOUND'}`);
           } else if (quotedMessage.typeMessage === 'videoMessage') {
             hasVideo = true;
             videoUrl = messageData.downloadUrl || 
@@ -2597,16 +2620,21 @@ async function handleOutgoingMessage(webhookData) {
                       quotedMessage.fileMessageData?.downloadUrl ||
                       quotedMessage.videoMessageData?.downloadUrl;
             
+            // If still not found, try getMessage to fetch the current message's downloadUrl
             if (!videoUrl) {
-              console.log('⚠️ Outgoing: videoUrl not found! Checking messageData structure:', {
-                downloadUrl: messageData.downloadUrl,
-                fileMessageData: messageData.fileMessageData ? Object.keys(messageData.fileMessageData) : 'N/A',
-                videoMessageData: messageData.videoMessageData ? Object.keys(messageData.videoMessageData) : 'N/A',
-                quotedMessage_downloadUrl: quotedMessage.downloadUrl,
-                quotedMessage_fileMessageData: quotedMessage.fileMessageData ? Object.keys(quotedMessage.fileMessageData) : 'N/A',
-              });
+              console.log('⚠️ Outgoing: Video downloadUrl not found in webhook, fetching from Green API...');
+              try {
+                const currentMessageId = webhookData.idMessage;
+                const originalMessage = await greenApiService.getMessage(chatId, currentMessageId);
+                videoUrl = originalMessage?.downloadUrl || 
+                          originalMessage?.fileMessageData?.downloadUrl || 
+                          originalMessage?.videoMessageData?.downloadUrl;
+                console.log(`✅ Outgoing: Video downloadUrl fetched from getMessage: ${videoUrl ? 'found' : 'still NOT FOUND'}`);
+              } catch (err) {
+                console.log(`❌ Outgoing: Failed to fetch video downloadUrl via getMessage: ${err.message}`);
+              }
             }
-            console.log(`🎥 Outgoing: Video with caption detected, downloadUrl: ${videoUrl ? 'found' : 'NOT FOUND'}`);
+            console.log(`🎥 Outgoing: Video with caption detected, final downloadUrl: ${videoUrl ? 'found' : 'NOT FOUND'}`);
           }
         }
 
