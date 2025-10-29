@@ -1181,8 +1181,9 @@ async function handleIncomingMessage(webhookData) {
                   }
                   
                   // Case 2: Translation request with TTS - detect target language and voice keywords
-                  const hasTTSKeywords = /\b(אמור|הקרא|הקריא|דבר|say|speak|tell|voice|read\s+aloud)\b/i.test(prompt);
-                  const hasTextKeywords = /\b(תרגם|תרגום|translate|translation)\b/i.test(prompt) && !hasTTSKeywords;
+                  // Support ALL Hebrew conjugations (male/female/plural) per rule 7
+                  const hasTTSKeywords = /אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו|הקרא|הקראי|הקראו|תקרא|תקראי|תקראו|הקריא|הקריאי|הקריאו|תקריא|תקריאי|תקריאו|דבר|דברי|דברו|תדבר|תדברי|תדברו|\b(say|speak|tell|voice|read\s+aloud)\b/i.test(prompt);
+                  const hasTextKeywords = /תרגם|תרגמי|תרגמו|תתרגם|תתרגמי|תתרגמו|תרגום|\b(translate|translation)\b/i.test(prompt) && !hasTTSKeywords;
                   
                   console.log(`🔍 Audio processing intent detection - TTS keywords: ${hasTTSKeywords}, Text keywords: ${hasTextKeywords}`);
                   
@@ -2938,8 +2939,9 @@ async function handleOutgoingMessage(webhookData) {
                     return;
                   }
                   
-                  const hasTTSKeywords = /\b(אמור|הקרא|הקריא|דבר|say|speak|tell|voice|read\s+aloud)\b/i.test(prompt);
-                  const hasTextKeywords = /\b(תרגם|תרגום|translate|translation)\b/i.test(prompt) && !hasTTSKeywords;
+                  // Support ALL Hebrew conjugations (male/female/plural) per rule 7
+                  const hasTTSKeywords = /אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו|הקרא|הקראי|הקראו|תקרא|תקראי|תקראו|הקריא|הקריאי|הקריאו|תקריא|תקריאי|תקריאו|דבר|דברי|דברו|תדבר|תדברי|תדברו|\b(say|speak|tell|voice|read\s+aloud)\b/i.test(prompt);
+                  const hasTextKeywords = /תרגם|תרגמי|תרגמו|תתרגם|תתרגמי|תתרגמו|תרגום|\b(translate|translation)\b/i.test(prompt) && !hasTTSKeywords;
                   
                   // Detect target language
                   const languagePatterns = {
