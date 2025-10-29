@@ -746,11 +746,15 @@ async function handleIncomingMessage(webhookData) {
         // IMPORTANT: Green API sends images/videos with captions as quotedMessage, but they're NOT actual quotes!
         // Check if this is a REAL quote (reply) or just a media message with caption
         // Logic:
-        // - If caption exists AND matches the text → It's a NEW media message (not a quote)
+        // - If caption exists AND matches/starts with the text → It's a NEW media message (not a quote)
         // - If caption doesn't exist OR doesn't match → It's a REAL quote
         const quotedCaption = quotedMessage?.caption;
         const extractedText = messageData.extendedTextMessageData?.text; // Don't shadow messageText!
-        const captionMatchesText = quotedCaption && extractedText && quotedCaption === extractedText;
+        // Check if caption matches text (exact match OR caption starts with text, covering "# מה זה..." case)
+        const captionMatchesText = quotedCaption && extractedText && 
+                                  (quotedCaption === extractedText || 
+                                   quotedCaption.startsWith(extractedText) ||
+                                   extractedText.startsWith(quotedCaption));
         
         const isActualQuote = messageData.typeMessage === 'quotedMessage' && 
                              quotedMessage && 
@@ -2494,11 +2498,15 @@ async function handleOutgoingMessage(webhookData) {
         // IMPORTANT: Green API sends images/videos with captions as quotedMessage, but they're NOT actual quotes!
         // Check if this is a REAL quote (reply) or just a media message with caption
         // Logic:
-        // - If caption exists AND matches the text → It's a NEW media message (not a quote)
+        // - If caption exists AND matches/starts with the text → It's a NEW media message (not a quote)
         // - If caption doesn't exist OR doesn't match → It's a REAL quote
         const quotedCaption = quotedMessage?.caption;
         const extractedText = messageData.extendedTextMessageData?.text; // Don't shadow messageText!
-        const captionMatchesText = quotedCaption && extractedText && quotedCaption === extractedText;
+        // Check if caption matches text (exact match OR caption starts with text, covering "# מה זה..." case)
+        const captionMatchesText = quotedCaption && extractedText && 
+                                  (quotedCaption === extractedText || 
+                                   quotedCaption.startsWith(extractedText) ||
+                                   extractedText.startsWith(quotedCaption));
         
         const isActualQuote = messageData.typeMessage === 'quotedMessage' && 
                              quotedMessage && 
