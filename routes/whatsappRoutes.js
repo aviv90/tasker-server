@@ -745,12 +745,18 @@ async function handleIncomingMessage(webhookData) {
         
         // IMPORTANT: Green API sends images/videos with captions as quotedMessage, but they're NOT actual quotes!
         // Check if this is a REAL quote (reply) or just a media message with caption
+        // Logic:
+        // - If caption exists AND matches the text → It's a NEW media message (not a quote)
+        // - If caption doesn't exist OR doesn't match → It's a REAL quote
+        const quotedCaption = quotedMessage?.caption;
+        const messageText = messageData.extendedTextMessageData?.text;
+        const captionMatchesText = quotedCaption && messageText && quotedCaption === messageText;
+        
         const isActualQuote = messageData.typeMessage === 'quotedMessage' && 
                              quotedMessage && 
                              quotedMessage.stanzaId &&
-                             // If there's text in extendedTextMessageData that's different from the caption, it's a real reply
-                             messageData.extendedTextMessageData?.text &&
-                             messageData.extendedTextMessageData.text !== quotedMessage.caption;
+                             messageText &&
+                             !captionMatchesText; // It's a quote if text doesn't match caption
         
         let finalPrompt = basePrompt;
         let hasImage = messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage';
@@ -2487,12 +2493,18 @@ async function handleOutgoingMessage(webhookData) {
         
         // IMPORTANT: Green API sends images/videos with captions as quotedMessage, but they're NOT actual quotes!
         // Check if this is a REAL quote (reply) or just a media message with caption
+        // Logic:
+        // - If caption exists AND matches the text → It's a NEW media message (not a quote)
+        // - If caption doesn't exist OR doesn't match → It's a REAL quote
+        const quotedCaption = quotedMessage?.caption;
+        const messageText = messageData.extendedTextMessageData?.text;
+        const captionMatchesText = quotedCaption && messageText && quotedCaption === messageText;
+        
         const isActualQuote = messageData.typeMessage === 'quotedMessage' && 
                              quotedMessage && 
                              quotedMessage.stanzaId &&
-                             // If there's text in extendedTextMessageData that's different from the caption, it's a real reply
-                             messageData.extendedTextMessageData?.text &&
-                             messageData.extendedTextMessageData.text !== quotedMessage.caption;
+                             messageText &&
+                             !captionMatchesText; // It's a quote if text doesn't match caption
         
         let finalPrompt = basePrompt;
         let hasImage = messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage';
