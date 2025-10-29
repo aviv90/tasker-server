@@ -457,10 +457,7 @@ router.post('/webhook', async (req, res) => {
     const webhookData = req.body;
     
     // Log full webhook payload for debugging
-    console.log('📱 Green API webhook received:');
-    console.log(`   Type: ${webhookData.typeWebhook || 'unknown'}`);
-    console.log(`   Message Type: ${webhookData.messageData?.typeMessage || 'N/A'}`);
-    console.log(`   Full Payload:`, JSON.stringify(cleanForLogging(webhookData), null, 2));
+    console.log(`📱 Green API webhook: ${webhookData.typeWebhook || 'unknown'} | Type: ${webhookData.messageData?.typeMessage || 'N/A'}`);
 
     // Handle different webhook types asynchronously
     if (webhookData.typeWebhook === 'incomingMessageReceived') {
@@ -564,8 +561,7 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
         }
         
         if (!downloadUrl) {
-          console.log('⚠️ No downloadUrl found in quotedMessage either:');
-          console.log(JSON.stringify(cleanForLogging(quotedMessage), null, 2));
+          console.log(`⚠️ No downloadUrl found for quoted ${quotedType} in getMessage or quotedMessage`);
           throw new Error(`No downloadUrl found for quoted ${quotedType}. Cannot process this quoted media.`);
         }
         console.log(`✅ Found downloadUrl in quotedMessage (fallback)`);
@@ -702,9 +698,7 @@ async function handleIncomingMessage(webhookData) {
     }
     
     // Enhanced logging for incoming messages
-    console.log(`📱 Incoming from ${senderName}:`);
-    console.log(`   Message Type: ${messageData.typeMessage}${messageData.typeMessage === 'editedMessage' ? ' ✏️' : ''}`);
-    console.log(`   messageText extracted: ${messageText ? `"${messageText.substring(0, 100)}"` : 'NULL/UNDEFINED'}`);
+    console.log(`📱 Incoming from ${senderName} | Type: ${messageData.typeMessage}${messageData.typeMessage === 'editedMessage' ? ' ✏️' : ''}`);
     if (messageText) {
       console.log(`   Text: ${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}`);
     }
@@ -875,12 +869,7 @@ async function handleIncomingMessage(webhookData) {
                     senderData: { senderContactName, chatName, senderName, chatId }
                   };
                   
-                  console.log(`🔄 [Retry] Routing with merged prompt:`, {
-                    userText: retryNormalized.userText.substring(0, 150) + '...',
-                    hasImage: retryNormalized.hasImage,
-                    hasVideo: retryNormalized.hasVideo,
-                    imageUrl: quotedResult.imageUrl ? 'EXISTS' : 'NULL'
-                  });
+                  console.log(`🔄 [Retry] Routing with merged prompt | Image:${retryNormalized.hasImage} Video:${retryNormalized.hasVideo}`);
                   
                   const retryDecision = await routeIntent(retryNormalized);
                   console.log(`🔄 Retry routing decision: ${retryDecision.tool}, reason: ${retryDecision.reason}`);
@@ -912,8 +901,7 @@ async function handleIncomingMessage(webhookData) {
                   return;
                 }
                 
-                console.log(`🔄 Found last command in database: ${lastCommand.tool}`);
-                console.log(`🔄 Last command args:`, JSON.stringify(lastCommand.args).substring(0, 200));
+                console.log(`🔄 Found last command: ${lastCommand.tool}`);
                 if (additionalInstructions) {
                   console.log(`📝 Merging additional instructions: "${additionalInstructions}"`);
                 }
@@ -1800,6 +1788,7 @@ async function handleIncomingMessage(webhookData) {
                 }
                 console.log(`🎬 ${service} image-to-video request from text command (incoming)`);
                 const model = decision.args?.model; // Pass model for Sora Pro/regular
+                await saveLastCommand(chatId, decision, { imageUrl, normalized });
                 processImageToVideoAsync({
                   chatId, senderId, senderName,
                   imageUrl: imageUrl,
@@ -2575,12 +2564,7 @@ async function handleOutgoingMessage(webhookData) {
                     }
                   };
                   
-                  console.log(`🔄 [Outgoing Retry] Routing with merged prompt:`, {
-                    userText: retryNormalized.userText.substring(0, 150) + '...',
-                    hasImage: retryNormalized.hasImage,
-                    hasVideo: retryNormalized.hasVideo,
-                    imageUrl: quotedResult.imageUrl ? 'EXISTS' : 'NULL'
-                  });
+                  console.log(`🔄 [Outgoing Retry] Routing with merged prompt | Image:${retryNormalized.hasImage} Video:${retryNormalized.hasVideo}`);
                   
                   const retryDecision = await routeIntent(retryNormalized);
                   console.log(`🔄 [Outgoing] Retry routing decision: ${retryDecision.tool}, reason: ${retryDecision.reason}`);
@@ -2608,8 +2592,7 @@ async function handleOutgoingMessage(webhookData) {
                   return;
                 }
                 
-                console.log(`🔄 [Outgoing] Found last command in database: ${lastCommand.tool}`);
-                console.log(`🔄 [Outgoing] Last command args:`, JSON.stringify(lastCommand.args).substring(0, 200));
+                console.log(`🔄 [Outgoing] Found last command: ${lastCommand.tool}`);
                 if (additionalInstructions) {
                   console.log(`📝 [Outgoing] Merging additional instructions: "${additionalInstructions}"`);
                 }
@@ -3674,6 +3657,7 @@ async function handleOutgoingMessage(webhookData) {
               }
               console.log(`🎬 ${service} image-to-video request (outgoing, via router)`);
               const model = decision.args?.model; // Pass model for Sora Pro/regular
+              await saveLastCommand(chatId, decision, { imageUrl, normalized });
               processImageToVideoAsync({
                 chatId, senderId, senderName,
                 imageUrl: imageUrl, // Use the URL (either from current message or quoted)
@@ -3798,6 +3782,7 @@ async function handleOutgoingMessage(webhookData) {
             
             case 'video_to_video': {
               console.log(`🎬 RunwayML Gen4 video-to-video request (outgoing, via router)`);
+              await saveLastCommand(chatId, decision, { videoUrl, normalized });
               processVideoToVideoAsync({
                 chatId, senderId, senderName,
                 videoUrl: videoUrl, // Use the URL (either from current message or quoted)
