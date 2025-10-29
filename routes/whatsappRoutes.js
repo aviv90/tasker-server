@@ -348,7 +348,7 @@ async function sendAck(chatId, command) {
       
     // ═══════════════════ VIDEO GENERATION ═══════════════════
     case 'veo3_video':
-      ackMessage = '🎬 קיבלתי! יוצר וידאו עם Veo 3.1...';
+      ackMessage = '🎬 קיבלתי! יוצר וידאו עם Veo 3...';
       break;
     case 'sora_video':
       // Check if using Pro model from command.model
@@ -360,7 +360,7 @@ async function sendAck(chatId, command) {
       ackMessage = '🎬 קיבלתי! יוצר וידאו עם Kling AI...';
       break;
     case 'veo3_image_to_video':
-      ackMessage = '🎬 קיבלתי את התמונה! יוצר וידאו עם Veo 3.1...';
+      ackMessage = '🎬 קיבלתי את התמונה! יוצר וידאו עם Veo 3...';
       break;
     case 'sora_image_to_video':
       // Check if using Pro model from command.model
@@ -546,9 +546,29 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       }
       
       if (!downloadUrl) {
-        console.log('⚠️ No downloadUrl found in originalMessage structure:');
-        console.log(JSON.stringify(cleanForLogging(originalMessage), null, 2));
-        throw new Error(`No downloadUrl found for quoted ${quotedType}. Cannot process media from bot's own messages yet.`);
+        console.log('⚠️ No downloadUrl found in originalMessage structure, trying quotedMessage directly...');
+        // Fallback: try to get downloadUrl from quotedMessage itself (for outgoing messages)
+        if (quotedType === 'imageMessage' || quotedType === 'stickerMessage') {
+          downloadUrl = quotedMessage.downloadUrl || 
+                       quotedMessage.fileMessageData?.downloadUrl || 
+                       quotedMessage.imageMessageData?.downloadUrl ||
+                       quotedMessage.stickerMessageData?.downloadUrl;
+        } else if (quotedType === 'videoMessage') {
+          downloadUrl = quotedMessage.downloadUrl || 
+                       quotedMessage.fileMessageData?.downloadUrl || 
+                       quotedMessage.videoMessageData?.downloadUrl;
+        } else if (quotedType === 'audioMessage') {
+          downloadUrl = quotedMessage.downloadUrl || 
+                       quotedMessage.fileMessageData?.downloadUrl || 
+                       quotedMessage.audioMessageData?.downloadUrl;
+        }
+        
+        if (!downloadUrl) {
+          console.log('⚠️ No downloadUrl found in quotedMessage either:');
+          console.log(JSON.stringify(cleanForLogging(quotedMessage), null, 2));
+          throw new Error(`No downloadUrl found for quoted ${quotedType}. Cannot process this quoted media.`);
+        }
+        console.log(`✅ Found downloadUrl in quotedMessage (fallback)`);
       }
       
       console.log(`✅ Found downloadUrl for quoted ${quotedType}`);
@@ -4117,7 +4137,7 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
     // Send immediate ACK
     let ackMessage;
     if (service === 'veo3') {
-      ackMessage = '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Veo 3...';
+      ackMessage = '🎬 קיבלתי את התמונה! יוצר וידאו עם Veo 3...';
     } else if (service === 'sora') {
       ackMessage = model === 'sora-2-pro' 
         ? '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Sora 2 Pro...'
