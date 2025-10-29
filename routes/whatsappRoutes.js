@@ -796,12 +796,26 @@ async function handleIncomingMessage(webhookData) {
           
           if (quotedMessage.typeMessage === 'imageMessage' || quotedMessage.typeMessage === 'stickerMessage') {
             hasImage = true;
+            // Try all possible locations for downloadUrl
             imageUrl = messageData.downloadUrl || 
                       messageData.fileMessageData?.downloadUrl || 
                       messageData.imageMessageData?.downloadUrl ||
+                      messageData.stickerMessageData?.downloadUrl ||
                       quotedMessage.downloadUrl ||
                       quotedMessage.fileMessageData?.downloadUrl ||
-                      quotedMessage.imageMessageData?.downloadUrl;
+                      quotedMessage.imageMessageData?.downloadUrl ||
+                      quotedMessage.stickerMessageData?.downloadUrl;
+            
+            // If still not found, log full structure for debugging
+            if (!imageUrl) {
+              console.log('⚠️ downloadUrl not found! Checking messageData structure:', {
+                downloadUrl: messageData.downloadUrl,
+                fileMessageData: messageData.fileMessageData ? Object.keys(messageData.fileMessageData) : 'N/A',
+                imageMessageData: messageData.imageMessageData ? Object.keys(messageData.imageMessageData) : 'N/A',
+                quotedMessage_downloadUrl: quotedMessage.downloadUrl,
+                quotedMessage_fileMessageData: quotedMessage.fileMessageData ? Object.keys(quotedMessage.fileMessageData) : 'N/A',
+              });
+            }
             console.log(`📸 Image with caption detected, downloadUrl: ${imageUrl ? 'found' : 'NOT FOUND'}`);
           } else if (quotedMessage.typeMessage === 'videoMessage') {
             hasVideo = true;
@@ -2541,6 +2555,54 @@ async function handleOutgoingMessage(webhookData) {
           imageUrl = quotedResult.imageUrl;
           videoUrl = quotedResult.videoUrl;
           audioUrl = quotedResult.audioUrl;
+        } else if (messageData.typeMessage === 'quotedMessage' && quotedMessage) {
+          // This is a media message (image/video) with caption, NOT an actual quote
+          // Extract downloadUrl from the message itself
+          console.log(`📸 Outgoing: Media message with caption (not a quote) - Type: ${quotedMessage.typeMessage || 'unknown'}`);
+          
+          if (quotedMessage.typeMessage === 'imageMessage' || quotedMessage.typeMessage === 'stickerMessage') {
+            hasImage = true;
+            // Try all possible locations for downloadUrl
+            imageUrl = messageData.downloadUrl || 
+                      messageData.fileMessageData?.downloadUrl || 
+                      messageData.imageMessageData?.downloadUrl ||
+                      messageData.stickerMessageData?.downloadUrl ||
+                      quotedMessage.downloadUrl ||
+                      quotedMessage.fileMessageData?.downloadUrl ||
+                      quotedMessage.imageMessageData?.downloadUrl ||
+                      quotedMessage.stickerMessageData?.downloadUrl;
+            
+            // If still not found, log full structure for debugging
+            if (!imageUrl) {
+              console.log('⚠️ Outgoing: downloadUrl not found! Checking messageData structure:', {
+                downloadUrl: messageData.downloadUrl,
+                fileMessageData: messageData.fileMessageData ? Object.keys(messageData.fileMessageData) : 'N/A',
+                imageMessageData: messageData.imageMessageData ? Object.keys(messageData.imageMessageData) : 'N/A',
+                quotedMessage_downloadUrl: quotedMessage.downloadUrl,
+                quotedMessage_fileMessageData: quotedMessage.fileMessageData ? Object.keys(quotedMessage.fileMessageData) : 'N/A',
+              });
+            }
+            console.log(`📸 Outgoing: Image with caption detected, downloadUrl: ${imageUrl ? 'found' : 'NOT FOUND'}`);
+          } else if (quotedMessage.typeMessage === 'videoMessage') {
+            hasVideo = true;
+            videoUrl = messageData.downloadUrl || 
+                      messageData.fileMessageData?.downloadUrl || 
+                      messageData.videoMessageData?.downloadUrl ||
+                      quotedMessage.downloadUrl ||
+                      quotedMessage.fileMessageData?.downloadUrl ||
+                      quotedMessage.videoMessageData?.downloadUrl;
+            
+            if (!videoUrl) {
+              console.log('⚠️ Outgoing: videoUrl not found! Checking messageData structure:', {
+                downloadUrl: messageData.downloadUrl,
+                fileMessageData: messageData.fileMessageData ? Object.keys(messageData.fileMessageData) : 'N/A',
+                videoMessageData: messageData.videoMessageData ? Object.keys(messageData.videoMessageData) : 'N/A',
+                quotedMessage_downloadUrl: quotedMessage.downloadUrl,
+                quotedMessage_fileMessageData: quotedMessage.fileMessageData ? Object.keys(quotedMessage.fileMessageData) : 'N/A',
+              });
+            }
+            console.log(`🎥 Outgoing: Video with caption detected, downloadUrl: ${videoUrl ? 'found' : 'NOT FOUND'}`);
+          }
         }
 
         const normalized = {
