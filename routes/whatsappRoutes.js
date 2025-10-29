@@ -742,7 +742,16 @@ async function handleIncomingMessage(webhookData) {
         // Only process quotedMessage if typeMessage is 'quotedMessage' (actual reply)
         // Don't process if it's just extendedTextMessage with leftover quotedMessage metadata
         const quotedMessage = messageData.quotedMessage;
-        const isActualQuote = messageData.typeMessage === 'quotedMessage';
+        
+        // IMPORTANT: Green API sends images/videos with captions as quotedMessage, but they're NOT actual quotes!
+        // Check if this is a REAL quote (reply) or just a media message with caption
+        const isActualQuote = messageData.typeMessage === 'quotedMessage' && 
+                             quotedMessage && 
+                             quotedMessage.stanzaId &&
+                             // If there's text in extendedTextMessageData that's different from the caption, it's a real reply
+                             messageData.extendedTextMessageData?.text &&
+                             messageData.extendedTextMessageData.text !== quotedMessage.caption;
+        
         let finalPrompt = basePrompt;
         let hasImage = messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage';
         let hasVideo = messageData.typeMessage === 'videoMessage';
@@ -751,7 +760,7 @@ async function handleIncomingMessage(webhookData) {
         let videoUrl = null;
         let audioUrl = null;
         
-        if (isActualQuote && quotedMessage && quotedMessage.stanzaId) {
+        if (isActualQuote) {
           console.log(`🔗 Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
           
           // Handle quoted message - merge content
@@ -770,6 +779,30 @@ async function handleIncomingMessage(webhookData) {
           imageUrl = quotedResult.imageUrl;
           videoUrl = quotedResult.videoUrl;
           audioUrl = quotedResult.audioUrl;
+        } else if (messageData.typeMessage === 'quotedMessage' && quotedMessage) {
+          // This is a media message (image/video) with caption, NOT an actual quote
+          // Extract downloadUrl from the message itself
+          console.log(`📸 Media message with caption (not a quote) - Type: ${quotedMessage.typeMessage || 'unknown'}`);
+          
+          if (quotedMessage.typeMessage === 'imageMessage' || quotedMessage.typeMessage === 'stickerMessage') {
+            hasImage = true;
+            imageUrl = messageData.downloadUrl || 
+                      messageData.fileMessageData?.downloadUrl || 
+                      messageData.imageMessageData?.downloadUrl ||
+                      quotedMessage.downloadUrl ||
+                      quotedMessage.fileMessageData?.downloadUrl ||
+                      quotedMessage.imageMessageData?.downloadUrl;
+            console.log(`📸 Image with caption detected, downloadUrl: ${imageUrl ? 'found' : 'NOT FOUND'}`);
+          } else if (quotedMessage.typeMessage === 'videoMessage') {
+            hasVideo = true;
+            videoUrl = messageData.downloadUrl || 
+                      messageData.fileMessageData?.downloadUrl || 
+                      messageData.videoMessageData?.downloadUrl ||
+                      quotedMessage.downloadUrl ||
+                      quotedMessage.fileMessageData?.downloadUrl ||
+                      quotedMessage.videoMessageData?.downloadUrl;
+            console.log(`🎥 Video with caption detected, downloadUrl: ${videoUrl ? 'found' : 'NOT FOUND'}`);
+          }
         }
         
         const normalized = {
@@ -2451,7 +2484,16 @@ async function handleOutgoingMessage(webhookData) {
         // Only process quotedMessage if typeMessage is 'quotedMessage' (actual reply)
         // Don't process if it's just extendedTextMessage with leftover quotedMessage metadata
         const quotedMessage = messageData.quotedMessage;
-        const isActualQuote = messageData.typeMessage === 'quotedMessage';
+        
+        // IMPORTANT: Green API sends images/videos with captions as quotedMessage, but they're NOT actual quotes!
+        // Check if this is a REAL quote (reply) or just a media message with caption
+        const isActualQuote = messageData.typeMessage === 'quotedMessage' && 
+                             quotedMessage && 
+                             quotedMessage.stanzaId &&
+                             // If there's text in extendedTextMessageData that's different from the caption, it's a real reply
+                             messageData.extendedTextMessageData?.text &&
+                             messageData.extendedTextMessageData.text !== quotedMessage.caption;
+        
         let finalPrompt = basePrompt;
         let hasImage = messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage';
         let hasVideo = messageData.typeMessage === 'videoMessage';
@@ -2460,7 +2502,7 @@ async function handleOutgoingMessage(webhookData) {
         let videoUrl = null;
         let audioUrl = null;
         
-        if (isActualQuote && quotedMessage && quotedMessage.stanzaId) {
+        if (isActualQuote) {
           console.log(`🔗 Outgoing: Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
           
           // Handle quoted message - merge content
