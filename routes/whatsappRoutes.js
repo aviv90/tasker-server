@@ -749,13 +749,13 @@ async function handleIncomingMessage(webhookData) {
         // - If caption exists AND matches the text → It's a NEW media message (not a quote)
         // - If caption doesn't exist OR doesn't match → It's a REAL quote
         const quotedCaption = quotedMessage?.caption;
-        const messageText = messageData.extendedTextMessageData?.text;
-        const captionMatchesText = quotedCaption && messageText && quotedCaption === messageText;
+        const extractedText = messageData.extendedTextMessageData?.text; // Don't shadow messageText!
+        const captionMatchesText = quotedCaption && extractedText && quotedCaption === extractedText;
         
         const isActualQuote = messageData.typeMessage === 'quotedMessage' && 
                              quotedMessage && 
                              quotedMessage.stanzaId &&
-                             messageText &&
+                             extractedText &&
                              !captionMatchesText; // It's a quote if text doesn't match caption
         
         let finalPrompt = basePrompt;
@@ -2497,13 +2497,13 @@ async function handleOutgoingMessage(webhookData) {
         // - If caption exists AND matches the text → It's a NEW media message (not a quote)
         // - If caption doesn't exist OR doesn't match → It's a REAL quote
         const quotedCaption = quotedMessage?.caption;
-        const messageText = messageData.extendedTextMessageData?.text;
-        const captionMatchesText = quotedCaption && messageText && quotedCaption === messageText;
+        const extractedText = messageData.extendedTextMessageData?.text; // Don't shadow messageText!
+        const captionMatchesText = quotedCaption && extractedText && quotedCaption === extractedText;
         
         const isActualQuote = messageData.typeMessage === 'quotedMessage' && 
                              quotedMessage && 
                              quotedMessage.stanzaId &&
-                             messageText &&
+                             extractedText &&
                              !captionMatchesText; // It's a quote if text doesn't match caption
         
         let finalPrompt = basePrompt;
