@@ -135,7 +135,7 @@ function applyProviderOverride(additionalInstructions, currentDecision, context 
 
   // Sora model variants
   const wantsSoraPro = /sora\s*2\s*pro|sora-2-pro|סורה\s*2\s*פרו|סורה-?2-?פרו/i.test(additionalInstructions);
-  const wantsSora2   = /sora\s*2\b|sora-2\b|סורה\s*2\b|סורה-?2\b/i.test(additionalInstructions);
+  const wantsSora2   = /sora\s*2\b|sora-2\b|סורה\s*2|סורה-?2/i.test(additionalInstructions);
 
   // Decide new tool by media context and provider intent
   const { hasImage, hasVideo } = context;
