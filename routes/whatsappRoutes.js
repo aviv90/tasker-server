@@ -1182,31 +1182,32 @@ async function handleIncomingMessage(webhookData) {
                   
                   // Case 2: Translation request with TTS - detect target language and voice keywords
                   // Support ALL Hebrew conjugations (male/female/plural) per rule 7
-                  const hasTTSKeywords = /אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו|הקרא|הקראי|הקראו|תקרא|תקראי|תקראו|הקריא|הקריאי|הקריאו|תקריא|תקריאי|תקריאו|דבר|דברי|דברו|תדבר|תדברי|תדברו|\b(say|speak|tell|voice|read\s+aloud)\b/i.test(prompt);
+                  const hasTTSKeywords = /אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו|הקרא|הקראי|הקראו|תקרא|תקראי|תקראו|הקריא|הקריאי|הקריאו|תקריא|תקריאי|תקריאו|דבר|דברי|דברו|תדבר|תדברי|תדברו|בקול|קולית|\b(say|speak|tell|voice|read\s+aloud)\b/i.test(prompt);
                   const hasTextKeywords = /תרגם|תרגמי|תרגמו|תתרגם|תתרגמי|תתרגמו|תרגום|\b(translate|translation)\b/i.test(prompt) && !hasTTSKeywords;
                   
                   console.log(`🔍 Audio processing intent detection - TTS keywords: ${hasTTSKeywords}, Text keywords: ${hasTextKeywords}`);
                   
                   // Detect target language from prompt
                   // Hebrew uses "ב" prefix (e.g., "ביפנית" = "in Japanese")
+                  // NOTE: Don't use \b before Hebrew words - it doesn't work in JavaScript
                   const languagePatterns = {
-                    'en': /\b(ב?אנגלית|english|in\s+english)\b/i,
-                    'es': /\b(ב?ספרדית|spanish|in\s+spanish)\b/i,
-                    'fr': /\b(ב?צרפתית|french|in\s+french)\b/i,
-                    'de': /\b(ב?גרמנית|german|in\s+german)\b/i,
-                    'it': /\b(ב?איטלקית|italian|in\s+italian)\b/i,
-                    'pt': /\b(ב?פורטוגזית|portuguese|in\s+portuguese)\b/i,
-                    'ru': /\b(ב?רוסית|russian|in\s+russian)\b/i,
-                    'zh': /\b(ב?סינית|ב?מנדרינית|chinese|mandarin|in\s+chinese)\b/i,
-                    'ja': /\b(ב?יפנית|japanese|in\s+japanese)\b/i,
-                    'ko': /\b(ב?קוריאנית|korean|in\s+korean)\b/i,
-                    'ar': /\b(ב?ערבית|arabic|in\s+arabic)\b/i,
-                    'hi': /\b(ב?הינדית|hindi|in\s+hindi)\b/i,
-                    'tr': /\b(ב?טורקית|turkish|in\s+turkish)\b/i,
-                    'pl': /\b(ב?פולנית|polish|in\s+polish)\b/i,
-                    'nl': /\b(ב?הולנדית|dutch|in\s+dutch)\b/i,
-                    'sv': /\b(ב?שוודית|swedish|in\s+swedish)\b/i,
-                    'he': /\b(ב?עברית|hebrew|in\s+hebrew)\b/i
+                    'en': /(ב?אנגלית|\benglish\b|\bin\s+english\b)/i,
+                    'es': /(ב?ספרדית|\bspanish\b|\bin\s+spanish\b)/i,
+                    'fr': /(ב?צרפתית|\bfrench\b|\bin\s+french\b)/i,
+                    'de': /(ב?גרמנית|\bgerman\b|\bin\s+german\b)/i,
+                    'it': /(ב?איטלקית|\bitalian\b|\bin\s+italian\b)/i,
+                    'pt': /(ב?פורטוגזית|\bportuguese\b|\bin\s+portuguese\b)/i,
+                    'ru': /(ב?רוסית|\brussian\b|\bin\s+russian\b)/i,
+                    'zh': /(ב?סינית|ב?מנדרינית|\bchinese\b|\bmandarin\b|\bin\s+chinese\b)/i,
+                    'ja': /(ב?יפנית|\bjapanese\b|\bin\s+japanese\b)/i,
+                    'ko': /(ב?קוריאנית|\bkorean\b|\bin\s+korean\b)/i,
+                    'ar': /(ב?ערבית|\barabic\b|\bin\s+arabic\b)/i,
+                    'hi': /(ב?הינדית|\bhindi\b|\bin\s+hindi\b)/i,
+                    'tr': /(ב?טורקית|\bturkish\b|\bin\s+turkish\b)/i,
+                    'pl': /(ב?פולנית|\bpolish\b|\bin\s+polish\b)/i,
+                    'nl': /(ב?הולנדית|\bdutch\b|\bin\s+dutch\b)/i,
+                    'sv': /(ב?שוודית|\bswedish\b|\bin\s+swedish\b)/i,
+                    'he': /(ב?עברית|\bhebrew\b|\bin\s+hebrew\b)/i
                   };
                   
                   let targetLanguage = null;
@@ -2940,28 +2941,29 @@ async function handleOutgoingMessage(webhookData) {
                   }
                   
                   // Support ALL Hebrew conjugations (male/female/plural) per rule 7
-                  const hasTTSKeywords = /אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו|הקרא|הקראי|הקראו|תקרא|תקראי|תקראו|הקריא|הקריאי|הקריאו|תקריא|תקריאי|תקריאו|דבר|דברי|דברו|תדבר|תדברי|תדברו|\b(say|speak|tell|voice|read\s+aloud)\b/i.test(prompt);
+                  const hasTTSKeywords = /אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו|הקרא|הקראי|הקראו|תקרא|תקראי|תקראו|הקריא|הקריאי|הקריאו|תקריא|תקריאי|תקריאו|דבר|דברי|דברו|תדבר|תדברי|תדברו|בקול|קולית|\b(say|speak|tell|voice|read\s+aloud)\b/i.test(prompt);
                   const hasTextKeywords = /תרגם|תרגמי|תרגמו|תתרגם|תתרגמי|תתרגמו|תרגום|\b(translate|translation)\b/i.test(prompt) && !hasTTSKeywords;
                   
                   // Detect target language
+                  // NOTE: Don't use \b before Hebrew words - it doesn't work in JavaScript
                   const languagePatterns = {
-                    'en': /\b(אנגלית|english)\b/i,
-                    'es': /\b(ספרדית|spanish)\b/i,
-                    'fr': /\b(צרפתית|french)\b/i,
-                    'de': /\b(גרמנית|german)\b/i,
-                    'it': /\b(איטלקית|italian)\b/i,
-                    'pt': /\b(פורטוגזית|portuguese)\b/i,
-                    'ru': /\b(רוסית|russian)\b/i,
-                    'zh': /\b(סינית|chinese|מנדרינית|mandarin)\b/i,
-                    'ja': /\b(יפנית|japanese)\b/i,
-                    'ko': /\b(קוריאנית|korean)\b/i,
-                    'ar': /\b(ערבית|arabic)\b/i,
-                    'hi': /\b(הינדית|hindi)\b/i,
-                    'tr': /\b(טורקית|turkish)\b/i,
-                    'pl': /\b(פולנית|polish)\b/i,
-                    'nl': /\b(הולנדית|dutch)\b/i,
-                    'sv': /\b(שוודית|swedish)\b/i,
-                    'he': /\b(עברית|hebrew)\b/i
+                    'en': /(ב?אנגלית|\benglish\b|\bin\s+english\b)/i,
+                    'es': /(ב?ספרדית|\bspanish\b|\bin\s+spanish\b)/i,
+                    'fr': /(ב?צרפתית|\bfrench\b|\bin\s+french\b)/i,
+                    'de': /(ב?גרמנית|\bgerman\b|\bin\s+german\b)/i,
+                    'it': /(ב?איטלקית|\bitalian\b|\bin\s+italian\b)/i,
+                    'pt': /(ב?פורטוגזית|\bportuguese\b|\bin\s+portuguese\b)/i,
+                    'ru': /(ב?רוסית|\brussian\b|\bin\s+russian\b)/i,
+                    'zh': /(ב?סינית|ב?מנדרינית|\bchinese\b|\bmandarin\b|\bin\s+chinese\b)/i,
+                    'ja': /(ב?יפנית|\bjapanese\b|\bin\s+japanese\b)/i,
+                    'ko': /(ב?קוריאנית|\bkorean\b|\bin\s+korean\b)/i,
+                    'ar': /(ב?ערבית|\barabic\b|\bin\s+arabic\b)/i,
+                    'hi': /(ב?הינדית|\bhindi\b|\bin\s+hindi\b)/i,
+                    'tr': /(ב?טורקית|\bturkish\b|\bin\s+turkish\b)/i,
+                    'pl': /(ב?פולנית|\bpolish\b|\bin\s+polish\b)/i,
+                    'nl': /(ב?הולנדית|\bdutch\b|\bin\s+dutch\b)/i,
+                    'sv': /(ב?שוודית|\bswedish\b|\bin\s+swedish\b)/i,
+                    'he': /(ב?עברית|\bhebrew\b|\bin\s+hebrew\b)/i
                   };
                   
                   let targetLanguage = null;

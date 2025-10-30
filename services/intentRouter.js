@@ -244,7 +244,7 @@ async function routeIntent(input) {
     const isVideoLike = /\b(video|vidio|vedio|vidoe|clip|animate|motion|movie|film)\b|וידאו|וידיאו|וודאו|ווידאו|וידיו|סרט|סרטון|אנימציה|קליפ|צור\s+וידאו|עשה\s+וידאו|עשה\s+סרט/i.test(prompt);
     // Note: Don't use \b after Hebrew words - it doesn't work in JavaScript
     // Support ALL Hebrew conjugations (male/female/plural) per rule 7
-    const isTtsLike = /\b(speech|speach|tts|read\s+this|read\s+aloud|say\s+this)\b|^(קרא|קראי|קראו|תקרא|תקראי|תקראו|הקרא|הקראי|הקראו|הקריא|הקריאי|הקריאו|הקראת)\b|דיבור|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text\s*to\s*speech|אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו/i.test(prompt);
+    const isTtsLike = /\b(speech|speach|tts|read\s+this|read\s+aloud|say\s+this)\b|^(קרא|קראי|קראו|תקרא|תקראי|תקראו|הקרא|הקראי|הקראו|הקריא|הקריאי|הקריאו|הקראת)\b|דיבור|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text\s*to\s*speech|אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו|בקול|קולית/i.test(prompt);
     const isSummary = /\b(summary|summery|sumary|summarize|sum\s+up)\b|סכם|סיכום|לסכם|סכום|תמצת|תמצה|תמצה.*את|תמצת.*את|תמצה.*מה|תמצת.*מה/i.test(prompt);
     
     // Check if user wants a link (any link request should trigger Google Search)
