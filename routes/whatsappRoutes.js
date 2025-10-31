@@ -3055,14 +3055,54 @@ async function handleOutgoingMessage(webhookData) {
                     const translatedText = translationResult.text;
                     console.log(`✅ [Outgoing] Translated to ${targetLanguageCode}`);
                     
-                    const voiceResult = await voiceService.getVoiceForLanguage(targetLanguageCode);
-                    if (voiceResult.error) {
-                      await sendTextMessage(chatId, `🌐 תרגום ל${targetLanguage}:\n\n${translatedText}\n\n⚠️ לא הצלחתי ליצור קול: ${voiceResult.error}`);
-                      return;
+                    // Check audio duration and decide whether to clone voice
+                    const audioDuration = await getAudioDuration(audioBuffer);
+                    const MIN_DURATION_FOR_CLONING = 4.6; // ElevenLabs minimum requirement
+                    let quotedVoiceId = null;
+                    let shouldCloneQuotedVoice = audioDuration >= MIN_DURATION_FOR_CLONING;
+                    
+                    if (shouldCloneQuotedVoice) {
+                      console.log(`🎤 [Outgoing] Attempting voice clone (duration: ${audioDuration.toFixed(2)}s >= ${MIN_DURATION_FOR_CLONING}s)...`);
+                      
+                      const voiceCloneOptions = {
+                        name: `WhatsApp Quoted Voice Clone ${Date.now()}`,
+                        description: `Voice clone from quoted audio`,
+                        removeBackgroundNoise: true,
+                        labels: JSON.stringify({
+                          accent: 'natural',
+                          use_case: 'conversational',
+                          quality: 'high',
+                          style: 'natural',
+                          language: targetLanguageCode
+                        })
+                      };
+                      
+                      const voiceCloneResult = await voiceService.createInstantVoiceClone(audioBuffer, voiceCloneOptions);
+                      
+                      if (voiceCloneResult.error) {
+                        console.warn(`⚠️ Voice cloning failed: ${voiceCloneResult.error}. Falling back to random voice.`);
+                        shouldCloneQuotedVoice = false;
+                      } else {
+                        quotedVoiceId = voiceCloneResult.voiceId;
+                        console.log(`✅ Voice cloned: ${quotedVoiceId} for ${targetLanguageCode}`);
+                      }
+                    } else {
+                      console.log(`⏭️ Skipping voice clone (duration: ${audioDuration.toFixed(2)}s < ${MIN_DURATION_FOR_CLONING}s) - will use random voice`);
                     }
                     
-                    const voiceId = voiceResult.voiceId;
-                    const ttsResult = await voiceService.textToSpeech(voiceId, translatedText, {
+                    // If voice wasn't cloned, get random voice for target language
+                    if (!shouldCloneQuotedVoice || !quotedVoiceId) {
+                      console.log(`🔄 [Outgoing] Getting random voice for ${targetLanguageCode}...`);
+                      const voiceResult = await voiceService.getVoiceForLanguage(targetLanguageCode);
+                      if (voiceResult.error) {
+                        await sendTextMessage(chatId, `🌐 תרגום ל${targetLanguage}:\n\n${translatedText}\n\n⚠️ לא הצלחתי ליצור קול: ${voiceResult.error}`);
+                        return;
+                      }
+                      quotedVoiceId = voiceResult.voiceId;
+                    }
+                    
+                    // Generate speech with cloned or random voice
+                    const ttsResult = await voiceService.textToSpeech(quotedVoiceId, translatedText, {
                       model_id: 'eleven_v3',
                       optimize_streaming_latency: 0,
                       output_format: 'mp3_44100_128'
@@ -3079,6 +3119,17 @@ async function handleOutgoingMessage(webhookData) {
                     } else {
                       await sendTextMessage(chatId, `❌ ${ttsResult.error || 'שגיאה ביצירת הקול'}`);
                     }
+                    
+                    // Cleanup cloned voice if needed
+                    if (shouldCloneQuotedVoice && quotedVoiceId) {
+                      try {
+                        await voiceService.deleteVoice(quotedVoiceId);
+                        console.log(`🧹 Quoted voice clone ${quotedVoiceId} deleted`);
+                      } catch (cleanupError) {
+                        console.warn('⚠️ Could not delete quoted voice clone:', cleanupError.message);
+                      }
+                    }
+                    
                     return;
                   }
                   
@@ -4597,6 +4648,48 @@ async function handleCreativeVoiceMessage({ chatId, senderId, senderName, audioU
 */
 
 /**
+ * Get audio duration in seconds using ffprobe
+ * @param {Buffer} audioBuffer - Audio buffer
+ * @returns {Promise<number>} - Duration in seconds, or 0 if failed
+ */
+async function getAudioDuration(audioBuffer) {
+  try {
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const execAsync = promisify(exec);
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+    
+    // Write buffer to temp file
+    const tempFilePath = path.join(os.tmpdir(), `audio_check_${Date.now()}.ogg`);
+    fs.writeFileSync(tempFilePath, audioBuffer);
+    
+    try {
+      // Use ffprobe to get duration
+      const { stdout } = await execAsync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${tempFilePath}"`);
+      const duration = parseFloat(stdout.trim());
+      
+      // Cleanup
+      fs.unlinkSync(tempFilePath);
+      
+      console.log(`⏱️ Audio duration: ${duration.toFixed(2)} seconds`);
+      return duration;
+    } catch (err) {
+      // Cleanup on error
+      if (fs.existsSync(tempFilePath)) {
+        fs.unlinkSync(tempFilePath);
+      }
+      console.error(`❌ Could not get audio duration: ${err.message}`);
+      return 0;
+    }
+  } catch (err) {
+    console.error(`❌ Error in getAudioDuration: ${err.message}`);
+    return 0;
+  }
+}
+
+/**
  * Handle voice message with full voice-to-voice processing
  * Flow: Speech-to-Text → Voice Clone → Gemini Response → Text-to-Speech
  */
@@ -4639,33 +4732,42 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 
     // Don't send transcription to user - they should only receive the final voice response
 
-    // Step 2: Create Instant Voice Clone
-    console.log(`🔄 Step 2: Creating voice clone...`);
+    // Step 2: Check audio duration and decide whether to clone voice
+    const audioDuration = await getAudioDuration(audioBuffer);
+    const MIN_DURATION_FOR_CLONING = 4.6; // ElevenLabs minimum requirement
+    let voiceId = null;
+    let shouldCloneVoice = audioDuration >= MIN_DURATION_FOR_CLONING;
     
-    const voiceCloneOptions = {
-      name: `WhatsApp Voice Clone ${Date.now()}`,
-      description: `Voice clone from WhatsApp audio`,
-      removeBackgroundNoise: true,
-      labels: JSON.stringify({
-        accent: originalLanguage === 'he' ? 'hebrew' : 'natural',
-        use_case: 'conversational',
-        quality: 'high',
-        style: 'natural',
-        language: originalLanguage
-      })
-    };
-    
-    const voiceCloneResult = await voiceService.createInstantVoiceClone(audioBuffer, voiceCloneOptions);
-    
-    if (voiceCloneResult.error) {
-      console.error('❌ Voice cloning failed:', voiceCloneResult.error);
-      await sendTextMessage(chatId, `❌ סליחה, לא הצלחתי ליצור שיבוט קול: ${voiceCloneResult.error}`);
-      return;
+    if (shouldCloneVoice) {
+      console.log(`🔄 Step 2: Creating voice clone (duration: ${audioDuration.toFixed(2)}s >= ${MIN_DURATION_FOR_CLONING}s)...`);
+      
+      const voiceCloneOptions = {
+        name: `WhatsApp Voice Clone ${Date.now()}`,
+        description: `Voice clone from WhatsApp audio`,
+        removeBackgroundNoise: true,
+        labels: JSON.stringify({
+          accent: originalLanguage === 'he' ? 'hebrew' : 'natural',
+          use_case: 'conversational',
+          quality: 'high',
+          style: 'natural',
+          language: originalLanguage
+        })
+      };
+      
+      const voiceCloneResult = await voiceService.createInstantVoiceClone(audioBuffer, voiceCloneOptions);
+      
+      if (voiceCloneResult.error) {
+        console.warn(`⚠️ Voice cloning failed: ${voiceCloneResult.error}. Falling back to random voice.`);
+        shouldCloneVoice = false;
+      } else {
+        voiceId = voiceCloneResult.voiceId;
+        console.log(`✅ Step 2 complete: Voice cloned (ID: ${voiceId}), Language: ${originalLanguage}`);
+      }
+    } else {
+      console.log(`⏭️ Step 2: Skipping voice clone (duration: ${audioDuration.toFixed(2)}s < ${MIN_DURATION_FOR_CLONING}s) - will use random voice`);
     }
-
-    const voiceId = voiceCloneResult.voiceId;
+    
     const detectedLanguage = transcriptionResult.detectedLanguage || 'he';
-    console.log(`✅ Step 2 complete: Voice cloned (ID: ${voiceId}), Language: ${detectedLanguage}`);
 
     // Step 3: Generate Gemini response in the same language as the original
     console.log(`🔄 Step 3: Generating Gemini response in ${originalLanguage}...`);
@@ -4701,12 +4803,14 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
         : `❌ Sorry, I couldn't generate a response: ${geminiResult.error}`;
       await sendTextMessage(chatId, errorMessage);
       
-      // Clean up voice clone before returning
-      try {
-        await voiceService.deleteVoice(voiceId);
-        console.log(`🧹 Voice clone ${voiceId} deleted (cleanup after Gemini error)`);
-      } catch (cleanupError) {
-        console.warn('⚠️ Could not delete voice clone:', cleanupError.message);
+      // Clean up voice clone before returning (only if we cloned)
+      if (shouldCloneVoice && voiceId) {
+        try {
+          await voiceService.deleteVoice(voiceId);
+          console.log(`🧹 Voice clone ${voiceId} deleted (cleanup after Gemini error)`);
+        } catch (cleanupError) {
+          console.warn('⚠️ Could not delete voice clone:', cleanupError.message);
+        }
       }
       return;
     }
@@ -4717,14 +4821,26 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     // Add AI response to conversation history
     await conversationManager.addMessage(chatId, 'assistant', geminiResponse);
 
-    // Step 4: Text-to-Speech with cloned voice
-    console.log(`🔄 Step 4: Converting text to speech with cloned voice...`);
-    
-    // Use the original language for TTS to maintain consistency throughout the flow
+    // Step 4: Text-to-Speech with cloned voice or random voice
     const responseLanguage = originalLanguage; // Force same language as original
     console.log(`🌐 Language consistency enforced:`);
     console.log(`   - Original (from user): ${originalLanguage}`);
     console.log(`   - TTS (forced same): ${responseLanguage}`);
+    
+    // If voice wasn't cloned, get a random voice for the target language
+    if (!shouldCloneVoice || !voiceId) {
+      console.log(`🔄 Step 4: Getting random voice for ${responseLanguage} (no cloning)...`);
+      const randomVoiceResult = await voiceService.getVoiceForLanguage(responseLanguage);
+      if (randomVoiceResult.error) {
+        console.error(`❌ Could not get random voice: ${randomVoiceResult.error}`);
+        await sendTextMessage(chatId, `❌ סליחה, לא הצלחתי ליצור תגובה קולית`);
+        return;
+      }
+      voiceId = randomVoiceResult.voiceId;
+      console.log(`✅ Using random voice: ${voiceId} for language ${responseLanguage}`);
+    } else {
+      console.log(`🔄 Step 4: Converting text to speech with cloned voice...`);
+    }
     
     const ttsOptions = {
       modelId: 'eleven_v3', // Use the most advanced model
@@ -4742,12 +4858,14 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
         : '❌ Sorry, I couldn\'t generate voice response. Please try again.';
       await sendTextMessage(chatId, errorMessage);
       
-      // Clean up voice clone before returning
-      try {
-        await voiceService.deleteVoice(voiceId);
-        console.log(`🧹 Voice clone ${voiceId} deleted (cleanup after TTS error)`);
-      } catch (cleanupError) {
-        console.warn('⚠️ Could not delete voice clone:', cleanupError.message);
+      // Clean up voice clone before returning (only if we cloned)
+      if (shouldCloneVoice && voiceId) {
+        try {
+          await voiceService.deleteVoice(voiceId);
+          console.log(`🧹 Voice clone ${voiceId} deleted (cleanup after TTS error)`);
+        } catch (cleanupError) {
+          console.warn('⚠️ Could not delete voice clone:', cleanupError.message);
+        }
       }
       return;
     }
@@ -4774,12 +4892,14 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     
     console.log(`✅ Voice-to-voice processing complete for ${senderName}`);
 
-    // Cleanup: Delete the cloned voice (optional - ElevenLabs has limits)
-    try {
-      await voiceService.deleteVoice(voiceId);
-      console.log(`🧹 Cleanup: Voice ${voiceId} deleted`);
-    } catch (cleanupError) {
-      console.warn('⚠️ Voice cleanup failed:', cleanupError.message);
+    // Cleanup: Delete the cloned voice (only if we cloned - ElevenLabs has limits)
+    if (shouldCloneVoice && voiceId) {
+      try {
+        await voiceService.deleteVoice(voiceId);
+        console.log(`🧹 Cleanup: Voice ${voiceId} deleted`);
+      } catch (cleanupError) {
+        console.warn('⚠️ Voice cleanup failed:', cleanupError.message);
+      }
     }
 
   } catch (error) {
