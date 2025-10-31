@@ -1255,9 +1255,9 @@ async function handleIncomingMessage(webhookData) {
                     
                     if (!ttsResult.error && ttsResult.audioBuffer) {
                       const conversionResult = await audioConverterService.convertAndSaveAsOpus(ttsResult.audioBuffer, 'mp3');
-                      if (conversionResult.success && conversionResult.opusPath) {
-                        const fullUrl = getStaticFileUrl(conversionResult.opusPath.replace('/static/', ''));
-                        await sendFileByUrl(chatId, fullUrl, conversionResult.opusFileName, `🌐 ${targetLanguage}`);
+                      if (conversionResult.success && conversionResult.fileName) {
+                        const fullUrl = getStaticFileUrl(conversionResult.fileName);
+                        await sendFileByUrl(chatId, fullUrl, conversionResult.fileName, `🌐 ${targetLanguage}`);
                       } else {
                         await sendTextMessage(chatId, `❌ ${conversionResult.error}`);
                       }
@@ -3008,9 +3008,9 @@ async function handleOutgoingMessage(webhookData) {
                     
                     if (!ttsResult.error && ttsResult.audioBuffer) {
                       const conversionResult = await audioConverterService.convertAndSaveAsOpus(ttsResult.audioBuffer, 'mp3');
-                      if (conversionResult.success && conversionResult.opusPath) {
-                        const fullUrl = getStaticFileUrl(conversionResult.opusPath.replace('/static/', ''));
-                        await sendFileByUrl(chatId, fullUrl, conversionResult.opusFileName, `🌐 ${targetLanguage}`);
+                      if (conversionResult.success && conversionResult.fileName) {
+                        const fullUrl = getStaticFileUrl(conversionResult.fileName);
+                        await sendFileByUrl(chatId, fullUrl, conversionResult.fileName, `🌐 ${targetLanguage}`);
                       } else {
                         await sendTextMessage(chatId, `❌ ${conversionResult.error}`);
                       }
