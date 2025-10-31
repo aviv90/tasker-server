@@ -1274,6 +1274,115 @@ async function generateVideoFromImageForWhatsApp(prompt, imageBuffer, req = null
 }
 
 /**
+ * Clean meta-linguistic thinking patterns and duplicate text from Gemini responses
+ * Gemini sometimes ignores instructions and adds reasoning/thinking in English
+ * @param {string} text - The raw text from Gemini
+ * @returns {string} - Cleaned text without thinking patterns or duplicates
+ */
+function cleanThinkingPatterns(text) {
+    if (!text || typeof text !== 'string') return text;
+    
+    let cleaned = text;
+    const originalLength = text.length;
+    
+    // 1. Remove English meta-linguistic phrases that appear at the start
+    // These often appear before the actual answer
+    const metaPhrases = [
+        /^This (directly )?addresses? the question[^.]*\.\s*/i,
+        /^I('| a)m (understanding|explaining|providing|answering)[^.]*\.\s*/i,
+        /^Let me (answer|explain|clarify|tell you)[^.]*\.\s*/i,
+        /^As (an AI|requested)[^.]*\.\s*/i,
+        /^My (response|answer) (is|should be)[^.]*\.\s*/i,
+        /^I should (answer|respond|explain)[^.]*\.\s*/i,
+        /^To answer (this|the question)[^.]*\.\s*/i,
+        /^The (answer|response) (is|should be)[^.]*\.\s*/i,
+        /^Based on (the question|what you asked)[^.]*\.\s*/i
+    ];
+    
+    for (const pattern of metaPhrases) {
+        cleaned = cleaned.replace(pattern, '');
+    }
+    
+    // 2. Remove parenthetical thinking/reasoning in English
+    // Example: "(without asking for more context)" or "(as the rules state...)"
+    cleaned = cleaned.replace(/\([^)]*without asking[^)]*\)/gi, '');
+    cleaned = cleaned.replace(/\([^)]*as the rules state[^)]*\)/gi, '');
+    cleaned = cleaned.replace(/\([^)]*as requested[^)]*\)/gi, '');
+    
+    // 3. Remove duplicate paragraphs/sentences
+    // Sometimes Gemini repeats the same text twice
+    const lines = cleaned.split('\n');
+    const uniqueLines = [];
+    const seenLines = new Set();
+    
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+        // Skip empty lines in deduplication (but keep them in output)
+        if (trimmedLine === '') {
+            uniqueLines.push(line);
+            continue;
+        }
+        
+        // Only add non-duplicate content lines
+        if (!seenLines.has(trimmedLine)) {
+            seenLines.add(trimmedLine);
+            uniqueLines.push(line);
+        } else {
+            console.log(`🧹 Removed duplicate line: "${trimmedLine.substring(0, 50)}..."`);
+        }
+    }
+    
+    cleaned = uniqueLines.join('\n');
+    
+    // 4. Remove consecutive duplicate words (sometimes Gemini stutters)
+    // Example: "אני מבין מבין את השאלה" -> "אני מבין את השאלה"
+    cleaned = cleaned.replace(/\b(\w+)\s+\1\b/g, '$1');
+    
+    // 5. Detect and handle mixed languages - remove English paragraphs if main content is Hebrew
+    // Count Hebrew vs English characters to determine primary language
+    const hebrewChars = (cleaned.match(/[\u0590-\u05FF]/g) || []).length;
+    const englishChars = (cleaned.match(/[a-zA-Z]/g) || []).length;
+    
+    // If primary language is Hebrew (Hebrew chars > English chars), remove English-only paragraphs
+    if (hebrewChars > englishChars && hebrewChars > 10) {
+        console.log(`🌐 Detected Hebrew as primary language (${hebrewChars} Hebrew vs ${englishChars} English chars)`);
+        
+        // Split by double newlines (paragraphs)
+        const paragraphs = cleaned.split(/\n\n+/);
+        const filteredParagraphs = [];
+        
+        for (const para of paragraphs) {
+            const paraHebrew = (para.match(/[\u0590-\u05FF]/g) || []).length;
+            const paraEnglish = (para.match(/[a-zA-Z]/g) || []).length;
+            
+            // Keep paragraph if it has Hebrew OR if it's very short (like a single word/emoji)
+            if (paraHebrew > 0 || para.trim().length < 20) {
+                filteredParagraphs.push(para);
+            } else if (paraEnglish > paraHebrew * 2) {
+                // This paragraph is mostly English - likely meta-text
+                console.log(`🧹 Removed English-only paragraph: "${para.substring(0, 60)}..."`);
+            } else {
+                // Keep it if unclear
+                filteredParagraphs.push(para);
+            }
+        }
+        
+        cleaned = filteredParagraphs.join('\n\n');
+    }
+    
+    // 6. Trim extra whitespace
+    cleaned = cleaned.replace(/\n{3,}/g, '\n\n'); // Max 2 consecutive newlines
+    cleaned = cleaned.trim();
+    
+    // Log if significant cleaning happened
+    if (cleaned.length < originalLength * 0.8) {
+        console.log(`🧹 Cleaned thinking patterns: ${originalLength} -> ${cleaned.length} chars (removed ${originalLength - cleaned.length})`);
+    }
+    
+    return cleaned;
+}
+
+/**
  * Generate text response using Gemini with conversation history support
  * @param {string} prompt - User input text
  * @param {Array} conversationHistory - Previous messages in conversation
@@ -1447,6 +1556,10 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         
         // Clean up verbose thinking patterns that sometimes appear
         text = text.trim();
+        
+        // Remove meta-linguistic reasoning and English thinking patterns
+        // Sometimes Gemini ignores the system prompt and adds reasoning anyway
+        text = cleanThinkingPatterns(text);
         
         // Fix URLs with parentheses - Gemini sometimes wraps URLs in parentheses
         // or uses Markdown link syntax [text](url)
