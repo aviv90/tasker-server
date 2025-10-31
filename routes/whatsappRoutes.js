@@ -380,7 +380,7 @@ async function sendAck(chatId, command) {
       ackMessage = '🗣️ קיבלתי! מייצר דיבור עם ElevenLabs...';
       break;
     case 'voice_processing':
-      ackMessage = '🎤 קיבלתי את ההקלטה! מעבד תמלול, שיבוט קול ותשובה...';
+      ackMessage = '🎤 קיבלתי את ההקלטה! מעבד ומכין תשובה...';
       break;
     case 'voice_generation':
       ackMessage = '🎤 קיבלתי! מייצר קול עם ElevenLabs...';
@@ -1253,7 +1253,7 @@ async function handleIncomingMessage(webhookData) {
                       output_format: 'mp3_44100_128'
                     });
                     
-                    if (ttsResult.success && ttsResult.audioBuffer) {
+                    if (!ttsResult.error && ttsResult.audioBuffer) {
                       const conversionResult = await audioConverterService.convertAndSaveAsOpus(ttsResult.audioBuffer, 'mp3');
                       if (conversionResult.success && conversionResult.opusPath) {
                         const fullUrl = getStaticFileUrl(conversionResult.opusPath.replace('/static/', ''));
@@ -1262,7 +1262,7 @@ async function handleIncomingMessage(webhookData) {
                         await sendTextMessage(chatId, `❌ ${conversionResult.error}`);
                       }
                     } else {
-                      await sendTextMessage(chatId, `❌ ${ttsResult.error}`);
+                      await sendTextMessage(chatId, `❌ ${ttsResult.error || 'שגיאה ביצירת הקול'}`);
                     }
                     return;
                   }
@@ -3006,7 +3006,7 @@ async function handleOutgoingMessage(webhookData) {
                       output_format: 'mp3_44100_128'
                     });
                     
-                    if (ttsResult.success && ttsResult.audioBuffer) {
+                    if (!ttsResult.error && ttsResult.audioBuffer) {
                       const conversionResult = await audioConverterService.convertAndSaveAsOpus(ttsResult.audioBuffer, 'mp3');
                       if (conversionResult.success && conversionResult.opusPath) {
                         const fullUrl = getStaticFileUrl(conversionResult.opusPath.replace('/static/', ''));
@@ -3015,7 +3015,7 @@ async function handleOutgoingMessage(webhookData) {
                         await sendTextMessage(chatId, `❌ ${conversionResult.error}`);
                       }
                     } else {
-                      await sendTextMessage(chatId, `❌ ${ttsResult.error}`);
+                      await sendTextMessage(chatId, `❌ ${ttsResult.error || 'שגיאה ביצירת הקול'}`);
                     }
                     return;
                   }
