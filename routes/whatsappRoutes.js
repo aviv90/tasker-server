@@ -376,8 +376,11 @@ async function sendAck(chatId, command) {
       break;
       
     // ═══════════════════ AUDIO & VOICE ═══════════════════
+    case 'translate_text':
+      ackMessage = '🌐 קיבלתי! מתרגם עם Gemini...';
+      break;
     case 'text_to_speech':
-      ackMessage = '🗣️ קיבלתי! מייצר דיבור עם ElevenLabs...';
+      ackMessage = '🗣️ קיבלתי! מתרגם ומייצר דיבור עם ElevenLabs...';
       break;
     case 'voice_processing':
       ackMessage = '🎤 קיבלתי את ההקלטה! מעבד ומכין תשובה...';
@@ -1547,6 +1550,65 @@ async function handleIncomingMessage(webhookData) {
                 });
               }
               return;
+            
+            // ═══════════════════ TEXT TRANSLATION (NO TTS) ═══════════════════
+            case 'translate_text': {
+              saveLastCommand(chatId, decision, { normalized });
+              await sendAck(chatId, { type: 'translate_text' });
+              
+              // Detect target language from prompt (e.g., "תרגם ליפנית: טקסט")
+              const languagePatterns = {
+                'English': /(ל?אנגלית|\bto\s+english\b|\benglish\b)/i,
+                'Spanish': /(ל?ספרדית|\bto\s+spanish\b|\bspanish\b)/i,
+                'French': /(ל?צרפתית|\bto\s+french\b|\bfrench\b)/i,
+                'German': /(ל?גרמנית|\bto\s+german\b|\bgerman\b)/i,
+                'Italian': /(ל?איטלקית|\bto\s+italian\b|\bitalian\b)/i,
+                'Portuguese': /(ל?פורטוגזית|\bto\s+portuguese\b|\bportuguese\b)/i,
+                'Russian': /(ל?רוסית|\bto\s+russian\b|\brussian\b)/i,
+                'Chinese': /(ל?סינית|ל?מנדרינית|\bto\s+chinese\b|\bchinese\b|\bmandarin\b)/i,
+                'Japanese': /(ל?יפנית|\bto\s+japanese\b|\bjapanese\b)/i,
+                'Korean': /(ל?קוריאנית|\bto\s+korean\b|\bkorean\b)/i,
+                'Arabic': /(ל?ערבית|\bto\s+arabic\b|\barabic\b)/i,
+                'Hindi': /(ל?הינדית|\bto\s+hindi\b|\bhindi\b)/i,
+                'Turkish': /(ל?טורקית|\bto\s+turkish\b|\bturkish\b)/i,
+                'Polish': /(ל?פולנית|\bto\s+polish\b|\bpolish\b)/i,
+                'Dutch': /(ל?הולנדית|\bto\s+dutch\b|\bdutch\b)/i,
+                'Swedish': /(ל?שוודית|\bto\s+swedish\b|\bswedish\b)/i,
+                'Hebrew': /(ל?עברית|\bto\s+hebrew\b|\bhebrew\b)/i
+              };
+              
+              let targetLanguage = 'English'; // Default
+              for (const [langName, pattern] of Object.entries(languagePatterns)) {
+                if (pattern.test(prompt)) {
+                  targetLanguage = langName;
+                  break;
+                }
+              }
+              
+              // Extract text to translate (remove translation instructions)
+              let textToTranslate = prompt
+                .replace(/^(תרגם|תרגמי|תרגמו|תתרגם|translate)\s+/i, '')
+                .replace(new RegExp(`(ל|to)\\s*${targetLanguage}`, 'i'), '')
+                .replace(/[:：]\s*/, '')
+                .trim();
+              
+              // If text is too short, use the full prompt
+              if (textToTranslate.length < 2) {
+                textToTranslate = prompt;
+              }
+              
+              console.log(`🌐 Text translation: "${textToTranslate}" → ${targetLanguage}`);
+              
+              // Translate using Gemini
+              const translationResult = await translateText(textToTranslate, targetLanguage);
+              
+              if (translationResult.success) {
+                await sendTextMessage(chatId, `🌐 תרגום ל${targetLanguage}:\n\n${translationResult.translatedText}`);
+              } else {
+                await sendTextMessage(chatId, `❌ שגיאה בתרגום: ${translationResult.error}`);
+              }
+              return;
+            }
             
             // ═══════════════════ TEXT-TO-SPEECH ═══════════════════
             case 'text_to_speech': {
@@ -3220,6 +3282,65 @@ async function handleOutgoingMessage(webhookData) {
                 });
               }
               return;
+            
+            // ═══════════════════ TEXT TRANSLATION (NO TTS) ═══════════════════
+            case 'translate_text': {
+              saveLastCommand(chatId, decision, { normalized });
+              await sendAck(chatId, { type: 'translate_text' });
+              
+              // Detect target language from prompt (e.g., "תרגם ליפנית: טקסט")
+              const languagePatterns = {
+                'English': /(ל?אנגלית|\bto\s+english\b|\benglish\b)/i,
+                'Spanish': /(ל?ספרדית|\bto\s+spanish\b|\bspanish\b)/i,
+                'French': /(ל?צרפתית|\bto\s+french\b|\bfrench\b)/i,
+                'German': /(ל?גרמנית|\bto\s+german\b|\bgerman\b)/i,
+                'Italian': /(ל?איטלקית|\bto\s+italian\b|\bitalian\b)/i,
+                'Portuguese': /(ל?פורטוגזית|\bto\s+portuguese\b|\bportuguese\b)/i,
+                'Russian': /(ל?רוסית|\bto\s+russian\b|\brussian\b)/i,
+                'Chinese': /(ל?סינית|ל?מנדרינית|\bto\s+chinese\b|\bchinese\b|\bmandarin\b)/i,
+                'Japanese': /(ל?יפנית|\bto\s+japanese\b|\bjapanese\b)/i,
+                'Korean': /(ל?קוריאנית|\bto\s+korean\b|\bkorean\b)/i,
+                'Arabic': /(ל?ערבית|\bto\s+arabic\b|\barabic\b)/i,
+                'Hindi': /(ל?הינדית|\bto\s+hindi\b|\bhindi\b)/i,
+                'Turkish': /(ל?טורקית|\bto\s+turkish\b|\bturkish\b)/i,
+                'Polish': /(ל?פולנית|\bto\s+polish\b|\bpolish\b)/i,
+                'Dutch': /(ל?הולנדית|\bto\s+dutch\b|\bdutch\b)/i,
+                'Swedish': /(ל?שוודית|\bto\s+swedish\b|\bswedish\b)/i,
+                'Hebrew': /(ל?עברית|\bto\s+hebrew\b|\bhebrew\b)/i
+              };
+              
+              let targetLanguage = 'English'; // Default
+              for (const [langName, pattern] of Object.entries(languagePatterns)) {
+                if (pattern.test(prompt)) {
+                  targetLanguage = langName;
+                  break;
+                }
+              }
+              
+              // Extract text to translate (remove translation instructions)
+              let textToTranslate = prompt
+                .replace(/^(תרגם|תרגמי|תרגמו|תתרגם|translate)\s+/i, '')
+                .replace(new RegExp(`(ל|to)\\s*${targetLanguage}`, 'i'), '')
+                .replace(/[:：]\s*/, '')
+                .trim();
+              
+              // If text is too short, use the full prompt
+              if (textToTranslate.length < 2) {
+                textToTranslate = prompt;
+              }
+              
+              console.log(`🌐 Text translation: "${textToTranslate}" → ${targetLanguage}`);
+              
+              // Translate using Gemini
+              const translationResult = await translateText(textToTranslate, targetLanguage);
+              
+              if (translationResult.success) {
+                await sendTextMessage(chatId, `🌐 תרגום ל${targetLanguage}:\n\n${translationResult.translatedText}`);
+              } else {
+                await sendTextMessage(chatId, `❌ שגיאה בתרגום: ${translationResult.error}`);
+              }
+              return;
+            }
             
             // ═══════════════════ TEXT-TO-SPEECH ═══════════════════
             case 'text_to_speech': {

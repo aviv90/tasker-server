@@ -244,7 +244,19 @@ async function routeIntent(input) {
     const isVideoLike = /\b(video|vidio|vedio|vidoe|clip|animate|motion|movie|film)\b|וידאו|וידיאו|וודאו|ווידאו|וידיו|סרט|סרטון|אנימציה|קליפ|צור\s+וידאו|עשה\s+וידאו|עשה\s+סרט/i.test(prompt);
     // Note: Don't use \b after Hebrew words - it doesn't work in JavaScript
     // Support ALL Hebrew conjugations (male/female/plural) per rule 7
-    const isTtsLike = /\b(speech|speach|tts|read\s+this|read\s+aloud|say\s+this)\b|^(קרא|קראי|קראו|תקרא|תקראי|תקראו|הקרא|הקראי|הקראו|הקריא|הקריאי|הקריאו|הקראת)\b|דיבור|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text\s*to\s*speech|אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו|בקול|קולית/i.test(prompt);
+    
+    // IMPORTANT: Check text-only translation BEFORE TTS
+    // "# תרגם ל..." → text translation only (no voice)
+    // "# אמור ב..." → translation + TTS voice
+    const hasTranslateKeywords = /תרגם|תרגמי|תרגמו|תתרגם|תתרגמי|תתרגמו|תרגום|\b(translate|translation)\b/i.test(prompt);
+    const hasTTSKeywords = /אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו|הקרא|הקראי|הקראו|תקרא|תקראי|תקראו|הקריא|הקריאי|הקריאו|תקריא|תקריאי|תקריאו|דבר|דברי|דברו|תדבר|תדברי|תדברו|בקול|קולית|\b(say|speak|tell|voice|read\s+aloud)\b/i.test(prompt);
+    
+    // Text-only translation: has translate keywords but NO TTS keywords
+    const isTranslateOnly = hasTranslateKeywords && !hasTTSKeywords;
+    
+    // TTS includes: explicit TTS keywords OR read aloud requests
+    const isTtsLike = /\b(speech|speach|tts|read\s+this|read\s+aloud|say\s+this)\b|^(קרא|קראי|קראו|תקרא|תקראי|תקראו|הקרא|הקראי|הקראו|הקריא|הקריאי|הקריאו|הקראת)\b|דיבור|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text\s*to\s*speech/i.test(prompt) || hasTTSKeywords;
+    
     const isSummary = /\b(summary|summery|sumary|summarize|sum\s+up)\b|סכם|סיכום|לסכם|סכום|תמצת|תמצה|תמצה.*את|תמצת.*את|תמצה.*מה|תמצת.*מה/i.test(prompt);
     
     // Check if user wants a link (any link request should trigger Google Search)
@@ -282,7 +294,7 @@ async function routeIntent(input) {
     const isRandomLocation = /שלח\s+מיקום|שלחי\s+מיקום|שלחו\s+מיקום|תשלח\s+מיקום|תשלחי\s+מיקום|תשלחו\s+מיקום|מיקום\s+אקראי|מיקום\s+רנדומלי|location\s+random|random\s+location|send\s+location|send\s+random\s+location/i.test(prompt);
     
     // Debug: log intent detection
-    console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} WriteSong:${isWriteSong} MusicGen:${isMusicGeneration} Lyrics:${isSongLyrics} TTS:${isTtsLike} Retry:${isRetry} Poll:${isPoll} Location:${isRandomLocation} LinkReq:${isLinkRequest} GoogleSearch:${needsGoogleSearch}`);
+    console.log(`🔍 Intent Router - Prompt: "${prompt.substring(0, 100)}" | Image:${isImageLike} Video:${isVideoLike} WriteSong:${isWriteSong} MusicGen:${isMusicGeneration} Lyrics:${isSongLyrics} TranslateOnly:${isTranslateOnly} TTS:${isTtsLike} Retry:${isRetry} Poll:${isPoll} Location:${isRandomLocation} LinkReq:${isLinkRequest} GoogleSearch:${needsGoogleSearch}`);
     
     if (isRetry) {
       return { tool: 'retry_last_command', args: {}, reason: 'User requested retry' };
@@ -302,6 +314,11 @@ async function routeIntent(input) {
 
     if (isHelp) {
       return { tool: 'show_help', args: {}, reason: 'User requested command list' };
+    }
+
+    // Check text-only translation BEFORE TTS (higher priority)
+    if (isTranslateOnly) {
+      return { tool: 'translate_text', args: { prompt }, reason: 'Text-only translation requested (no TTS)' };
     }
 
     if (isCreateGroup) {
