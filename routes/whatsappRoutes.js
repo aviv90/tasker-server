@@ -2418,17 +2418,19 @@ async function handleIncomingMessage(webhookData) {
             
             const routingDecision = await routeIntent(testInput);
             
-            // If intentRouter recognizes it as a command (not ask_clarification or deny_unauthorized),
+            // If intentRouter recognizes it as a command (not ask_clarification, gemini_chat, or creative_voice_processing),
             // then treat it as a command
+            // Note: gemini_chat should go through voice-to-voice flow, not text re-processing
             if (routingDecision.tool && 
                 routingDecision.tool !== 'ask_clarification' && 
-                routingDecision.tool !== 'creative_voice_processing') {
+                routingDecision.tool !== 'creative_voice_processing' &&
+                routingDecision.tool !== 'gemini_chat') {
               isCommand = true;
               // Add # prefix for proper processing
               normalizedText = `# ${transcribedText}`;
               console.log(`✅ Intent detected: ${routingDecision.tool} - treating as command`);
             } else {
-              console.log(`ℹ️ Intent router result: ${routingDecision.tool} - not a command`);
+              console.log(`ℹ️ Intent router result: ${routingDecision.tool} - going to voice-to-voice flow`);
             }
           } catch (err) {
             console.error(`⚠️ Error checking intent:`, err.message);

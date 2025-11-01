@@ -2320,7 +2320,11 @@ async function getLocationInfo(latitude, longitude) {
         
         try {
             console.log('🗺️ Trying Google Maps Grounding first...');
-            const mapsPrompt = `מה יש במיקום הזה? תאר באיזו עיר או אזור זה נמצא, באיזו מדינה, ומה מעניין או מפורסם במקום הזה. תשובה קצרה ומעניינת בעברית (2-3 שורות).`;
+            const mapsPrompt = `תאר את המיקום בקואורדינטות: קו רוחב ${latitude}°, קו אורך ${longitude}°.
+            
+באיזו עיר או אזור זה נמצא? באיזו מדינה? מה מעניין או מפורסם במקום הזה?
+
+תשובה קצרה ומעניינת בעברית (2-3 שורות).`;
 
             const mapsResult = await model.generateContent({
                 contents: [{ role: "user", parts: [{ text: mapsPrompt }] }],
