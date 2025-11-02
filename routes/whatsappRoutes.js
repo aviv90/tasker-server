@@ -101,6 +101,225 @@ function isLandLocation(description) {
 }
 
 /**
+ * Extract requested region/country from location prompt
+ * Supports flexible Hebrew and English variations
+ * @param {string} prompt - User prompt (e.g., "# שלח מיקום באזור סלובניה")
+ * @returns {Object|null} - {continentName: string, displayName: string} or null if no match
+ */
+function extractRequestedRegion(prompt) {
+  if (!prompt || typeof prompt !== 'string') return null;
+  
+  const promptLower = prompt.toLowerCase();
+  
+  // Map of countries/regions to continent names (supporting Hebrew and English)
+  // Format: 'country_name': {continent: 'Continent Name', display: 'Display Name'}
+  const regionMap = {
+    // Europe
+    'סלובניה': {continent: 'Southern Europe', display: 'סלובניה'},
+    'slovenia': {continent: 'Southern Europe', display: 'Slovenia'},
+    'סלובקיה': 'Eastern Europe',
+    'slovakia': 'Eastern Europe',
+    'פולין': 'Eastern Europe',
+    'poland': 'Eastern Europe',
+    'גרמניה': 'Western Europe',
+    'germany': 'Western Europe',
+    'צרפת': 'Western Europe',
+    'france': 'Western Europe',
+    'ספרד': 'Southern Europe',
+    'spain': 'Southern Europe',
+    'איטליה': 'Southern Europe',
+    'italy': 'Southern Europe',
+    'בריטניה': 'UK & Ireland',
+    'britain': 'UK & Ireland',
+    'uk': 'UK & Ireland',
+    'אנגליה': 'UK & Ireland',
+    'england': 'UK & Ireland',
+    'שוודיה': 'Scandinavia',
+    'sweden': 'Scandinavia',
+    'נורווגיה': 'Scandinavia',
+    'norway': 'Scandinavia',
+    'דנמרק': 'Scandinavia',
+    'denmark': 'Scandinavia',
+    'פינלנד': 'Scandinavia',
+    'finland': 'Scandinavia',
+    'רוסיה': 'Eastern Europe',
+    'russia': 'Eastern Europe',
+    'טורקיה': 'Levant & Turkey',
+    'turkey': 'Levant & Turkey',
+    'יוון': 'Southern Europe',
+    'greece': 'Southern Europe',
+    'פורטוגל': 'Southern Europe',
+    'portugal': 'Southern Europe',
+    'הולנד': 'Western Europe',
+    'netherlands': 'Western Europe',
+    'בלגיה': 'Western Europe',
+    'belgium': 'Western Europe',
+    'שוויץ': 'Western Europe',
+    'switzerland': 'Western Europe',
+    'אוסטריה': 'Western Europe',
+    'austria': 'Western Europe',
+    'צ\'כיה': 'Eastern Europe',
+    'czech': 'Eastern Europe',
+    'הונגריה': 'Eastern Europe',
+    'hungary': 'Eastern Europe',
+    'רומניה': 'Eastern Europe',
+    'romania': 'Eastern Europe',
+    'בולגריה': 'Eastern Europe',
+    'bulgaria': 'Eastern Europe',
+    'קרואטיה': 'Southern Europe',
+    'croatia': 'Southern Europe',
+    'סרביה': 'Eastern Europe',
+    'serbia': 'Eastern Europe',
+    'אירלנד': 'UK & Ireland',
+    'ireland': 'UK & Ireland',
+    
+    // Asia
+    'סין': 'China Mainland',
+    'china': 'China Mainland',
+    'יפן': 'Japan',
+    'japan': 'Japan',
+    'קוריאה': 'Korea',
+    'korea': 'Korea',
+    'דרום קוריאה': 'Korea',
+    'south korea': 'Korea',
+    'הודו': 'India',
+    'india': 'India',
+    'תאילנד': 'Mainland Southeast Asia',
+    'thailand': 'Mainland Southeast Asia',
+    'וייטנאם': 'Mainland Southeast Asia',
+    'vietnam': 'Mainland Southeast Asia',
+    'אינדונזיה': 'Indonesia West',
+    'indonesia': 'Indonesia West',
+    'פיליפינים': 'Philippines',
+    'philippines': 'Philippines',
+    'סינגפור': 'Mainland Southeast Asia',
+    'singapore': 'Mainland Southeast Asia',
+    'מלזיה': 'Mainland Southeast Asia',
+    'malaysia': 'Mainland Southeast Asia',
+    'פקיסטן': 'Pakistan & Afghanistan',
+    'pakistan': 'Pakistan & Afghanistan',
+    'אפגניסטן': 'Pakistan & Afghanistan',
+    'afghanistan': 'Pakistan & Afghanistan',
+    
+    // Middle East
+    'ישראל': 'Levant & Turkey',
+    'israel': 'Levant & Turkey',
+    'פלסטין': 'Levant & Turkey',
+    'palestine': 'Levant & Turkey',
+    'לבנון': 'Levant & Turkey',
+    'lebanon': 'Levant & Turkey',
+    'סוריה': 'Levant & Turkey',
+    'syria': 'Levant & Turkey',
+    'ירדן': 'Levant & Turkey',
+    'jordan': 'Levant & Turkey',
+    'ערב הסעודית': 'Arabian Peninsula',
+    'saudi arabia': 'Arabian Peninsula',
+    'איחוד האמירויות': 'Arabian Peninsula',
+    'uae': 'Arabian Peninsula',
+    'איראן': 'Iran',
+    'iran': 'Iran',
+    'עיראק': 'Levant & Turkey',
+    'iraq': 'Levant & Turkey',
+    
+    // North America
+    'ארצות הברית': 'Eastern USA',
+    'usa': 'Eastern USA',
+    'united states': 'Eastern USA',
+    'ארה"ב': 'Eastern USA',
+    'קנדה': 'Eastern Canada',
+    'canada': 'Eastern Canada',
+    'מקסיקו': 'Mexico',
+    'mexico': 'Mexico',
+    
+    // South America
+    'ברזיל': 'Brazil North',
+    'brazil': 'Brazil North',
+    'ארגנטינה': 'Chile & Argentina',
+    'argentina': 'Chile & Argentina',
+    'צ\'ילה': 'Chile & Argentina',
+    'chile': 'Chile & Argentina',
+    'פרו': 'Andean Countries',
+    'peru': 'Andean Countries',
+    'קולומביה': 'Andean Countries',
+    'colombia': 'Andean Countries',
+    
+    // Africa
+    'מצרים': 'North Africa',
+    'egypt': 'North Africa',
+    'מרוקו': 'North Africa',
+    'morocco': 'North Africa',
+    'דרום אפריקה': 'Southern Africa',
+    'south africa': 'Southern Africa',
+    'ניגריה': 'West Africa',
+    'nigeria': 'West Africa',
+    'קניה': 'East Africa',
+    'kenya': 'East Africa',
+    
+    // Oceania
+    'אוסטרליה': 'Australia',
+    'australia': 'Australia',
+    'ניו זילנד': 'New Zealand',
+    'new zealand': 'New Zealand',
+    
+    // Regional names
+    'אירופה': 'Western Europe',
+    'europe': 'Western Europe',
+    'אסיה': 'China Mainland',
+    'asia': 'China Mainland',
+    'מזרח אסיה': 'Japan',
+    'east asia': 'Japan',
+    'דרום אסיה': 'India',
+    'south asia': 'India',
+    'דרום מזרח אסיה': 'Mainland Southeast Asia',
+    'southeast asia': 'Mainland Southeast Asia',
+    'מזרח התיכון': 'Levant & Turkey',
+    'middle east': 'Levant & Turkey',
+    'אמריקה': 'Eastern USA',
+    'america': 'Eastern USA',
+    'צפון אמריקה': 'Eastern USA',
+    'north america': 'Eastern USA',
+    'דרום אמריקה': 'Brazil North',
+    'south america': 'Brazil North',
+    'אפריקה': 'North Africa',
+    'africa': 'North Africa',
+    'אוקיאניה': 'Australia',
+    'oceania': 'Australia'
+  };
+  
+  // Search for region keywords in prompt
+  // Support patterns like: "באזור X", "ב-X", "X", "in X", "in region X", etc.
+  for (const [regionName, regionData] of Object.entries(regionMap)) {
+    // Check for various patterns
+    const patterns = [
+      new RegExp(`באזור\\s+${regionName}`, 'i'),
+      new RegExp(`ב-?${regionName}`, 'i'),
+      new RegExp(`\\b${regionName}\\b`, 'i'),
+      new RegExp(`in\\s+(the\\s+)?(region\\s+of\\s+)?${regionName}`, 'i'),
+      new RegExp(`in\\s+${regionName}`, 'i')
+    ];
+    
+    if (patterns.some(pattern => pattern.test(promptLower))) {
+      // Support both old format (string) and new format (object)
+      if (typeof regionData === 'string') {
+        // Old format: use continent name as display name
+        return {
+          continentName: regionData,
+          displayName: regionName.charAt(0).toUpperCase() + regionName.slice(1) // Capitalize first letter
+        };
+      } else {
+        // New format: object with continent and display
+        return {
+          continentName: regionData.continent,
+          displayName: regionData.display
+        };
+      }
+    }
+  }
+  
+  return null; // No region found
+}
+
+/**
  * Save last executed command for retry functionality (persisted to DB)
  * @param {string} chatId - Chat ID
  * @param {Object} decision - Router decision object
@@ -1744,7 +1963,15 @@ async function handleIncomingMessage(webhookData) {
             // ═══════════════════ RANDOM LOCATION ═══════════════════
             case 'send_random_location': {
               saveLastCommand(chatId, decision, { normalized });
-              await sendAck(chatId, { type: 'send_random_location' });
+              
+              // Check if user requested a specific region
+              const requestedRegion = extractRequestedRegion(normalized);
+              const requestedRegionName = requestedRegion ? requestedRegion.continentName : null;
+              const displayName = requestedRegion ? requestedRegion.displayName : null;
+              const ackMessage = requestedRegionName 
+                ? `🌍 קיבלתי! בוחר מיקום אקראי באזור ${displayName}...`
+                : '🌍 קיבלתי! בוחר מיקום אקראי על כדור הארץ...';
+              await sendTextMessage(chatId, ackMessage);
               
               // Generate truly random coordinates within populated land areas
               // Using tighter bounding boxes to avoid oceans/seas - subdivided into smaller regions
@@ -1807,17 +2034,29 @@ async function handleIncomingMessage(webhookData) {
                 { name: 'New Zealand', minLat: -47, maxLat: -34, minLng: 166, maxLng: 179, weight: 1 }
               ];
               
+              // Filter continents if specific region requested
+              let availableContinents = continents;
+              if (requestedRegionName) {
+                availableContinents = continents.filter(c => c.name === requestedRegionName);
+                if (availableContinents.length === 0) {
+                  await sendTextMessage(chatId, `❌ לא מצאתי אזור בשם "${requestedRegionName}". בוחר מיקום אקראי בכל העולם...`);
+                  availableContinents = continents; // Fallback to all regions
+                } else {
+                  console.log(`🎯 Filtering to region: ${requestedRegionName}`);
+                }
+              }
+              
               // Retry loop to avoid water locations
               while (attempts < maxAttempts && !locationInfo) {
                 attempts++;
                 console.log(`🎲 Attempt ${attempts}/${maxAttempts} to find land location...`);
                 
                 // Weighted random selection (some regions more populous than others)
-                const totalWeight = continents.reduce((sum, c) => sum + c.weight, 0);
+                const totalWeight = availableContinents.reduce((sum, c) => sum + c.weight, 0);
                 let randomWeight = Math.random() * totalWeight;
-                let selectedContinent = continents[0];
+                let selectedContinent = availableContinents[0];
                 
-                for (const continent of continents) {
+                for (const continent of availableContinents) {
                   randomWeight -= continent.weight;
                   if (randomWeight <= 0) {
                     selectedContinent = continent;
@@ -3527,7 +3766,15 @@ async function handleOutgoingMessage(webhookData) {
             // ═══════════════════ RANDOM LOCATION ═══════════════════
             case 'send_random_location': {
               saveLastCommand(chatId, decision, { normalized });
-              await sendAck(chatId, { type: 'send_random_location' });
+              
+              // Check if user requested a specific region
+              const requestedRegion = extractRequestedRegion(normalized);
+              const requestedRegionName = requestedRegion ? requestedRegion.continentName : null;
+              const displayName = requestedRegion ? requestedRegion.displayName : null;
+              const ackMessage = requestedRegionName 
+                ? `🌍 קיבלתי! בוחר מיקום אקראי באזור ${displayName}...`
+                : '🌍 קיבלתי! בוחר מיקום אקראי על כדור הארץ...';
+              await sendTextMessage(chatId, ackMessage);
               
               // Generate truly random coordinates within populated land areas
               // Using tighter bounding boxes to avoid oceans/seas - subdivided into smaller regions
@@ -3590,17 +3837,29 @@ async function handleOutgoingMessage(webhookData) {
                 { name: 'New Zealand', minLat: -47, maxLat: -34, minLng: 166, maxLng: 179, weight: 1 }
               ];
               
+              // Filter continents if specific region requested
+              let availableContinents = continents;
+              if (requestedRegionName) {
+                availableContinents = continents.filter(c => c.name === requestedRegionName);
+                if (availableContinents.length === 0) {
+                  await sendTextMessage(chatId, `❌ לא מצאתי אזור בשם "${requestedRegionName}". בוחר מיקום אקראי בכל העולם...`);
+                  availableContinents = continents; // Fallback to all regions
+                } else {
+                  console.log(`🎯 Filtering to region: ${requestedRegionName}`);
+                }
+              }
+              
               // Retry loop to avoid water locations
               while (attempts < maxAttempts && !locationInfo) {
                 attempts++;
                 console.log(`🎲 Attempt ${attempts}/${maxAttempts} to find land location...`);
                 
                 // Weighted random selection (some regions more populous than others)
-                const totalWeight = continents.reduce((sum, c) => sum + c.weight, 0);
+                const totalWeight = availableContinents.reduce((sum, c) => sum + c.weight, 0);
                 let randomWeight = Math.random() * totalWeight;
-                let selectedContinent = continents[0];
+                let selectedContinent = availableContinents[0];
                 
-                for (const continent of continents) {
+                for (const continent of availableContinents) {
                   randomWeight -= continent.weight;
                   if (randomWeight <= 0) {
                     selectedContinent = continent;

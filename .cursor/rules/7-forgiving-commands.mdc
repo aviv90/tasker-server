@@ -1,0 +1,198 @@
+---
+description: Every command or intent detection must be forgiving and include all possible variations
+---
+
+# Forgiving Commands
+
+Every command or intent detection must be **forgiving** towards the user and include **all possible variations**.
+
+---
+
+## 🎯 **Core Principle:**
+
+**The user shouldn't need to think about how to phrase the command - the bot should understand any reasonable phrasing!**
+
+---
+
+## 📋 **Implementation Requirements:**
+
+### 1️⃣ **All Hebrew Conjugations**
+
+In Hebrew, words change according to:
+- **Masculine singular**: מחק, תמחק, הורד, תוריד
+- **Feminine singular**: מחקי, תמחקי, הורידי, תורידי  
+- **Plural**: מחקו, תמחקו, הורידו, תורידו
+- **Base forms**: סיר, צור, צייר, שנה, שפר
+
+**Correct example:**
+```javascript
+// ✅ Correct - all conjugations:
+const isEditRequest = /מחק|מחקי|מחקו|תמחק|תמחקי|תמחקו|הורד|הורידי|הורידו|תוריד|תורידי|תורידו/i
+
+// ❌ Wrong - only one form:
+const isEditRequest = /מחק|הורד|תוריד/i
+```
+
+---
+
+### 2️⃣ **Both Languages - Hebrew and English**
+
+Every command must work in both Hebrew and English:
+
+```javascript
+// ✅ Correct:
+const isLocation = /שלח.*מיקום|send.*location|מיקום|location/i
+
+// ❌ Wrong - only Hebrew:
+const isLocation = /שלח.*מיקום/i
+```
+
+---
+
+### 3️⃣ **Different Phrasing Patterns**
+
+Support all natural phrasing patterns:
+
+#### **Example - Region Selection:**
+```javascript
+// ✅ Correct - all patterns:
+const patterns = [
+  /באזור\s+(\w+)/i,           // "באזור סלובניה"
+  /ב-?(\w+)/i,                 // "בסלובניה", "ב-סלובניה"
+  /\b(\w+)\b/i,                // "סלובניה"
+  /in\s+(the\s+)?(region\s+of\s+)?(\w+)/i,  // "in slovenia", "in region of slovenia"
+  /in\s+(\w+)/i                // "in slovenia"
+];
+```
+
+#### **Example - TTS Commands:**
+```javascript
+// ✅ Correct - all variations:
+const isTTS = /אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו|הקרא|הקראי|הקראו|תקרא|תקראי|תקראו|בקול|קולית|say|speak|tell|voice|read\s+aloud/i
+
+// ❌ Wrong - only partial variations:
+const isTTS = /אמור|say/i
+```
+
+---
+
+### 4️⃣ **Partial Phrases and Abbreviations**
+
+Support partial phrases and abbreviations:
+
+```javascript
+// ✅ Correct - supports abbreviations too:
+const isLocation = /שלח.*מיקום|מיקום|send.*location|location/i
+
+// Examples that will work:
+// "שלח מיקום" ✅
+// "מיקום" ✅
+// "send location" ✅
+// "location" ✅
+```
+
+---
+
+### 5️⃣ **LLM Router Support**
+
+When using LLM Router (`INTENT_ROUTER_USE_LLM='on'`), the prompt must include:
+
+- ✅ All Hebrew variations
+- ✅ All English variations
+- ✅ Examples of all possible phrasings
+- ✅ Explicit note that the command should be forgiving
+
+**Example LLM Prompt:**
+```
+🔹 **Location Command:**
+   Hebrew keywords: "שלח מיקום", "מיקום", "באזור X", "ב-X", "אזור X"
+   English keywords: "send location", "location", "in X", "in region X"
+   → "send_random_location"
+   
+   Examples:
+   - "שלח מיקום" → send_random_location
+   - "שלח מיקום באזור סלובניה" → send_random_location (with region filter)
+   - "send location in japan" → send_random_location (with region filter)
+   - "מיקום" → send_random_location
+```
+
+---
+
+## ✅ **Principles:**
+
+1. **No "correct phrasing"** - any reasonable phrasing should work
+2. **Case-insensitive** - always use `/i` flag
+3. **Maximum flexibility** - prefer more patterns than fewer
+4. **Both languages** - always Hebrew + English
+5. **All conjugations** - all relevant Hebrew conjugations
+
+---
+
+## 📂 **Relevant Files:**
+
+1. **`services/intentRouter.js`** - regex patterns (lines ~56-276)
+2. **`services/intentRouter.js`** - `buildRouterPrompt()` function (lines ~396+)
+3. **`routes/whatsappRoutes.js`** - any command processing function
+
+---
+
+## 🎯 **Implementation Examples:**
+
+### **Example 1: Location Command**
+```javascript
+// ✅ Correct - all variations:
+const isLocation = /שלח.*מיקום|מיקום|send.*location|location|מיקום.*אקראי|random.*location/i
+
+// Also support regions:
+const regionPatterns = [
+  /באזור\s+(\w+)/i,
+  /ב-?(\w+)/i,
+  /\b(\w+)\b/i,
+  /in\s+(\w+)/i
+];
+```
+
+### **Example 2: TTS Command**
+```javascript
+// ✅ Correct - all conjugations and patterns:
+const isTTS = /אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו|הקרא|הקראי|הקראו|תקרא|תקראי|תקראו|בקול|קולית|say|speak|tell|voice|read\s+aloud/i
+
+// Also support languages:
+const languagePatterns = {
+  'he': /ב?עברית|hebrew/i,
+  'en': /ב?אנגלית|english/i,
+  'ja': /ב?יפנית|japanese/i,
+  // ... all languages
+};
+```
+
+---
+
+## 🚫 **What NOT to Do:**
+
+❌ **Don't do:**
+```javascript
+// Only one form - not enough!
+const isLocation = /שלח מיקום/i
+
+// Only Hebrew - not enough!
+const isLocation = /שלח.*מיקום/i
+
+// Case-sensitive - not enough!
+const isLocation = /שלח.*מיקום/
+```
+
+---
+
+## 💡 **Tips:**
+
+1. **Test with real users** - how did they phrase the command?
+2. **Add more patterns** - better too many than too few
+3. **Always test** - try all variations
+4. **Document in JSDoc** - list all supported variations
+
+---
+
+## ✅ **Goal:**
+
+**Smooth user experience** - users can phrase commands however they want, and the bot will always understand! 🎯
