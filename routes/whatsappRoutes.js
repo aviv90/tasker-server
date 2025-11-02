@@ -110,6 +110,7 @@ function extractRequestedRegion(prompt) {
   if (!prompt || typeof prompt !== 'string') return null;
   
   const promptLower = prompt.toLowerCase();
+  console.log(`🔍 extractRequestedRegion called with: "${prompt}"`);
   
   // Map of countries/regions to continent names (supporting Hebrew and English)
   // Format: 'country_name': {continent: 'Continent Name', display: 'Display Name'}
@@ -289,33 +290,54 @@ function extractRequestedRegion(prompt) {
   // Search for region keywords in prompt
   // Support patterns like: "באזור X", "ב-X", "X", "in X", "in region X", etc.
   for (const [regionName, regionData] of Object.entries(regionMap)) {
+    // Escape special regex characters in region name
+    const escapedRegionName = regionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
     // Check for various patterns
+    // Note: \b (word boundary) doesn't work well with Hebrew, so we use more flexible patterns
     const patterns = [
-      new RegExp(`באזור\\s+${regionName}`, 'i'),
-      new RegExp(`ב-?${regionName}`, 'i'),
-      new RegExp(`\\b${regionName}\\b`, 'i'),
-      new RegExp(`in\\s+(the\\s+)?(region\\s+of\\s+)?${regionName}`, 'i'),
-      new RegExp(`in\\s+${regionName}`, 'i')
+      // Pattern 1: "באזור X" or "באזורX" (with or without space)
+      new RegExp(`באזור\\s*${escapedRegionName}(?:\\s|$|,|\\.|!|\\?|:|\\))`, 'i'),
+      // Pattern 2: "ב-X" or "בX" (with or without dash)
+      new RegExp(`ב-?${escapedRegionName}(?:\\s|$|,|\\.|!|\\?|:|\\))`, 'i'),
+      // Pattern 3: "X" as standalone word (Hebrew - not part of another word)
+      new RegExp(`(?:^|[^א-תa-z])${escapedRegionName}(?:[^א-תa-z]|$)`, 'i'),
+      // Pattern 4: "in X" or "in region X" (English)
+      new RegExp(`in\\s+(the\\s+)?(region\\s+of\\s+)?${escapedRegionName}(?:\\s|$|,|\\.|!|\\?|:|\\))`, 'i'),
+      // Pattern 5: "in X" (English, simple)
+      new RegExp(`in\\s+${escapedRegionName}(?:\\s|$|,|\\.|!|\\?|:|\\))`, 'i')
     ];
     
-    if (patterns.some(pattern => pattern.test(promptLower))) {
-      // Support both old format (string) and new format (object)
-      if (typeof regionData === 'string') {
-        // Old format: use continent name as display name
-        return {
-          continentName: regionData,
-          displayName: regionName.charAt(0).toUpperCase() + regionName.slice(1) // Capitalize first letter
-        };
-      } else {
-        // New format: object with continent and display
-        return {
-          continentName: regionData.continent,
-          displayName: regionData.display
-        };
+    // Test each pattern
+    for (let i = 0; i < patterns.length; i++) {
+      const pattern = patterns[i];
+      try {
+        if (pattern.test(promptLower)) {
+          console.log(`✅ Pattern ${i + 1} matched: "${pattern.source}" for "${regionName}"`);
+          console.log(`✅ Found region match: "${regionName}" → "${typeof regionData === 'string' ? regionData : regionData.continent}"`);
+          // Support both old format (string) and new format (object)
+          if (typeof regionData === 'string') {
+            // Old format: use continent name as display name
+            return {
+              continentName: regionData,
+              displayName: regionName.charAt(0).toUpperCase() + regionName.slice(1) // Capitalize first letter
+            };
+          } else {
+            // New format: object with continent and display
+            return {
+              continentName: regionData.continent,
+              displayName: regionData.display
+            };
+          }
+        }
+      } catch (err) {
+        // Skip invalid patterns
+        console.warn(`⚠️ Pattern ${i + 1} failed for "${regionName}":`, err.message);
       }
     }
   }
   
+  console.log(`❌ No region found in prompt: "${prompt}"`);
   return null; // No region found
 }
 
