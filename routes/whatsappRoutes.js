@@ -1987,9 +1987,12 @@ async function handleIncomingMessage(webhookData) {
               saveLastCommand(chatId, decision, { normalized });
               
               // Check if user requested a specific region
-              const requestedRegion = extractRequestedRegion(normalized);
+              // Use the prompt text (not normalized object) to extract region
+              console.log(`📍 [INCOMING] Extracting region from prompt: "${prompt}"`);
+              const requestedRegion = extractRequestedRegion(prompt);
               const requestedRegionName = requestedRegion ? requestedRegion.continentName : null;
               const displayName = requestedRegion ? requestedRegion.displayName : null;
+              console.log(`📍 [INCOMING] Extracted region: ${requestedRegionName ? `${displayName} (${requestedRegionName})` : 'none'}`);
               const ackMessage = requestedRegionName 
                 ? `🌍 קיבלתי! בוחר מיקום אקראי באזור ${displayName}...`
                 : '🌍 קיבלתי! בוחר מיקום אקראי על כדור הארץ...';
@@ -2059,13 +2062,19 @@ async function handleIncomingMessage(webhookData) {
               // Filter continents if specific region requested
               let availableContinents = continents;
               if (requestedRegionName) {
+                console.log(`🎯 [INCOMING] Filtering continents to region: "${requestedRegionName}"`);
+                console.log(`🎯 [INCOMING] Available continent names: ${continents.map(c => c.name).join(', ')}`);
                 availableContinents = continents.filter(c => c.name === requestedRegionName);
+                console.log(`🎯 [INCOMING] Filtered continents count: ${availableContinents.length}`);
                 if (availableContinents.length === 0) {
+                  console.log(`⚠️ [INCOMING] No continent found matching "${requestedRegionName}", falling back to all regions`);
                   await sendTextMessage(chatId, `❌ לא מצאתי אזור בשם "${requestedRegionName}". בוחר מיקום אקראי בכל העולם...`);
                   availableContinents = continents; // Fallback to all regions
                 } else {
-                  console.log(`🎯 Filtering to region: ${requestedRegionName}`);
+                  console.log(`✅ [INCOMING] Filtered to region: ${requestedRegionName} (${availableContinents.length} continent(s))`);
                 }
+              } else {
+                console.log(`🌍 [INCOMING] No region filter - using all continents`);
               }
               
               // Retry loop to avoid water locations
@@ -3790,9 +3799,12 @@ async function handleOutgoingMessage(webhookData) {
               saveLastCommand(chatId, decision, { normalized });
               
               // Check if user requested a specific region
-              const requestedRegion = extractRequestedRegion(normalized);
+              // Use the prompt text (not normalized object) to extract region
+              console.log(`📍 [OUTGOING] Extracting region from prompt: "${prompt}"`);
+              const requestedRegion = extractRequestedRegion(prompt);
               const requestedRegionName = requestedRegion ? requestedRegion.continentName : null;
               const displayName = requestedRegion ? requestedRegion.displayName : null;
+              console.log(`📍 [OUTGOING] Extracted region: ${requestedRegionName ? `${displayName} (${requestedRegionName})` : 'none'}`);
               const ackMessage = requestedRegionName 
                 ? `🌍 קיבלתי! בוחר מיקום אקראי באזור ${displayName}...`
                 : '🌍 קיבלתי! בוחר מיקום אקראי על כדור הארץ...';
@@ -3862,13 +3874,19 @@ async function handleOutgoingMessage(webhookData) {
               // Filter continents if specific region requested
               let availableContinents = continents;
               if (requestedRegionName) {
+                console.log(`🎯 [OUTGOING] Filtering continents to region: "${requestedRegionName}"`);
+                console.log(`🎯 [OUTGOING] Available continent names: ${continents.map(c => c.name).join(', ')}`);
                 availableContinents = continents.filter(c => c.name === requestedRegionName);
+                console.log(`🎯 [OUTGOING] Filtered continents count: ${availableContinents.length}`);
                 if (availableContinents.length === 0) {
+                  console.log(`⚠️ [OUTGOING] No continent found matching "${requestedRegionName}", falling back to all regions`);
                   await sendTextMessage(chatId, `❌ לא מצאתי אזור בשם "${requestedRegionName}". בוחר מיקום אקראי בכל העולם...`);
                   availableContinents = continents; // Fallback to all regions
                 } else {
-                  console.log(`🎯 Filtering to region: ${requestedRegionName}`);
+                  console.log(`✅ [OUTGOING] Filtered to region: ${requestedRegionName} (${availableContinents.length} continent(s))`);
                 }
+              } else {
+                console.log(`🌍 [OUTGOING] No region filter - using all continents`);
               }
               
               // Retry loop to avoid water locations
