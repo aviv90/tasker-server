@@ -101,19 +101,28 @@ function isLandLocation(description) {
 }
 
 /**
- * Extract requested region/country from location prompt
+ * Extract requested region/country/city from location prompt
  * Supports flexible Hebrew and English variations
- * @param {string} prompt - User prompt (e.g., "# שלח מיקום באזור סלובניה")
- * @returns {Object|null} - {continentName: string, displayName: string} or null if no match
+ * @param {string} prompt - User prompt (e.g., "# שלח מיקום באזור סלובניה" or "שלח מיקום בתל אביב")
+ * @returns {Promise<Object|null>} - {continentName: string, displayName: string, bounds: Object|null} or null if no match
  */
-function extractRequestedRegion(prompt) {
+async function extractRequestedRegion(prompt) {
   if (!prompt || typeof prompt !== 'string') return null;
   
   const promptLower = prompt.toLowerCase();
   console.log(`🔍 extractRequestedRegion called with: "${prompt}"`);
   
+  // Load country bounds from JSON file (loaded once, cached)
+  let countryBounds = null;
+  try {
+    countryBounds = require('../utils/countryBounds.json');
+  } catch (err) {
+    console.warn('⚠️ Could not load countryBounds.json:', err.message);
+  }
+  
   // Map of countries/regions to continent names (supporting Hebrew and English)
   // Format: 'country_name': {continent: 'Continent Name', display: 'Display Name'}
+  // Bounds are loaded from countryBounds.json and added automatically if available
   const regionMap = {
     // Europe
     'סלובניה': {continent: 'Southern Europe', display: 'סלובניה'},
@@ -324,9 +333,12 @@ function extractRequestedRegion(prompt) {
             };
           } else {
             // New format: object with continent and display
+            // Try to get bounds from countryBounds.json file
+            const bounds = countryBounds && countryBounds[regionName] ? countryBounds[regionName] : null;
             return {
               continentName: regionData.continent,
-              displayName: regionData.display
+              displayName: regionData.display,
+              bounds: bounds // Include bounds if available for specific country
             };
           }
         }
@@ -337,7 +349,78 @@ function extractRequestedRegion(prompt) {
     }
   }
   
-  console.log(`❌ No region found in prompt: "${prompt}"`);
+  // If no country/region found, try to search for a city/location
+  console.log(`🔍 No country/region found, trying to find city/location in prompt: "${prompt}"`);
+  
+  // Extract potential location name from prompt
+  // Remove common command words first, but preserve location context
+  let cleanPrompt = prompt
+    .replace(/^(שלח|שלחי|שלחו|תשלח|תשלחי|תשלחו)\s+(מיקום|location)/i, '')
+    .replace(/מיקום\s+(אקראי|random)/gi, '')
+    .replace(/location\s+(random|אקראי)/gi, '')
+    .replace(/שלח\s+(מיקום|location)/gi, '')
+    .replace(/send\s+(location|מיקום)/gi, '')
+    .trim();
+  
+  // Enhanced patterns for city/location extraction
+  // Support: "באזור X", "ב-X", "X", "in X", "near X", etc.
+  const locationPatterns = [
+    /באזור\s+(.+?)(?:\s|$|,|\.|!|\?|:|\))/i,           // "באזור תל אביב"
+    /באזור\s*(.+?)$/i,                                  // "באזור תל אביב" (end of string)
+    /ב-?(.+?)(?:\s|$|,|\.|!|\?|:|\))/i,                 // "בתל אביב" or "ב-תל אביב"
+    /ב-?(.+?)$/i,                                       // "בתל אביב" (end of string)
+    /in\s+(?:the\s+)?(?:area\s+of\s+)?(.+?)(?:\s|$|,|\.|!|\?|:|\))/i,  // "in Barcelona" or "in the area of Paris"
+    /in\s+(?:the\s+)?(.+?)$/i,                          // "in Barcelona" (end of string)
+    /near\s+(.+?)(?:\s|$|,|\.|!|\?|:|\))/i,            // "near Tokyo"
+    /near\s+(.+?)$/i,                                    // "near Tokyo" (end of string)
+    /^([א-תa-z]+(?:\s+[א-תa-z]+)*)$/i                   // Just location name (Hebrew/English words only)
+  ];
+  
+  // Words to skip (too common or not locations)
+  const skipWords = new Set([
+    'שלח', 'מיקום', 'אקראי', 'location', 'random', 'send', 'in', 'the', 'region', 'of', 
+    'אזור', 'ב', 'באזור', 'near', 'area', 'את', 'אתה', 'אתי', 'אתם', 'אתן',
+    'the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were'
+  ]);
+  
+  let locationName = null;
+  for (const pattern of locationPatterns) {
+    const match = cleanPrompt.match(pattern);
+    if (match && match[1]) {
+      const candidate = match[1].trim();
+      // Skip if too short, is a skip word, or contains only numbers/special chars
+      if (candidate.length >= 2 && 
+          !skipWords.has(candidate.toLowerCase()) &&
+          /[א-תa-z]/.test(candidate)) { // Must contain at least one letter
+        locationName = candidate;
+        console.log(`🌍 Extracted location name: "${locationName}" from pattern: ${pattern.source}`);
+        break;
+      }
+    }
+  }
+  
+  // If we found a potential location name, try to geocode it
+  if (locationName) {
+    console.log(`🌍 Attempting to geocode city/location: "${locationName}"`);
+    try {
+      const { getLocationBounds } = require('../services/geminiService');
+      const cityBounds = await getLocationBounds(locationName);
+      
+      if (cityBounds) {
+        console.log(`✅ Found city/location bounds for "${locationName}"`);
+        return {
+          continentName: null, // City doesn't have a continent
+          displayName: locationName,
+          bounds: cityBounds,
+          isCity: true // Flag to indicate this is a city, not a country
+        };
+      }
+    } catch (err) {
+      console.warn(`⚠️ Error geocoding "${locationName}":`, err.message);
+    }
+  }
+  
+  console.log(`❌ No region/city found in prompt: "${prompt}"`);
   return null; // No region found
 }
 
@@ -1989,12 +2072,13 @@ async function handleIncomingMessage(webhookData) {
               // Check if user requested a specific region
               // Use the prompt text (not normalized object) to extract region
               console.log(`📍 [INCOMING] Extracting region from prompt: "${prompt}"`);
-              const requestedRegion = extractRequestedRegion(prompt);
+              const requestedRegion = await extractRequestedRegion(prompt);
               const requestedRegionName = requestedRegion ? requestedRegion.continentName : null;
               const displayName = requestedRegion ? requestedRegion.displayName : null;
-              console.log(`📍 [INCOMING] Extracted region: ${requestedRegionName ? `${displayName} (${requestedRegionName})` : 'none'}`);
-              const ackMessage = requestedRegionName 
-                ? `🌍 קיבלתי! בוחר מיקום אקראי באזור ${displayName}...`
+              const isCity = requestedRegion ? requestedRegion.isCity : false;
+              console.log(`📍 [INCOMING] Extracted region: ${displayName ? `${displayName}${requestedRegionName ? ` (${requestedRegionName})` : isCity ? ' (עיר)' : ''}` : 'none'}`);
+              const ackMessage = displayName 
+                ? `🌍 קיבלתי! בוחר מיקום אקראי ${isCity ? 'בעיר' : 'באזור'} ${displayName}...`
                 : '🌍 קיבלתי! בוחר מיקום אקראי על כדור הארץ...';
               await sendTextMessage(chatId, ackMessage);
               
@@ -2059,9 +2143,13 @@ async function handleIncomingMessage(webhookData) {
                 { name: 'New Zealand', minLat: -47, maxLat: -34, minLng: 166, maxLng: 179, weight: 1 }
               ];
               
-              // Filter continents if specific region requested
+              // Check if specific country/city bounds are available (more precise than continent)
+              const hasSpecificBounds = requestedRegion && requestedRegion.bounds;
+              const isCityLocation = requestedRegion && requestedRegion.isCity === true;
+              
+              // Filter continents if specific region requested (but use country/city bounds if available)
               let availableContinents = continents;
-              if (requestedRegionName) {
+              if (requestedRegionName && !hasSpecificBounds) {
                 console.log(`🎯 [INCOMING] Filtering continents to region: "${requestedRegionName}"`);
                 console.log(`🎯 [INCOMING] Available continent names: ${continents.map(c => c.name).join(', ')}`);
                 availableContinents = continents.filter(c => c.name === requestedRegionName);
@@ -2073,33 +2161,74 @@ async function handleIncomingMessage(webhookData) {
                 } else {
                   console.log(`✅ [INCOMING] Filtered to region: ${requestedRegionName} (${availableContinents.length} continent(s))`);
                 }
+              } else if (hasSpecificBounds) {
+                if (isCityLocation) {
+                  console.log(`🎯 [INCOMING] Using specific city bounds for ${displayName}: lat ${requestedRegion.bounds.minLat}-${requestedRegion.bounds.maxLat}, lng ${requestedRegion.bounds.minLng}-${requestedRegion.bounds.maxLng}`);
+                } else {
+                  console.log(`🎯 [INCOMING] Using specific country bounds for ${displayName}: lat ${requestedRegion.bounds.minLat}-${requestedRegion.bounds.maxLat}, lng ${requestedRegion.bounds.minLng}-${requestedRegion.bounds.maxLng}`);
+                }
               } else {
                 console.log(`🌍 [INCOMING] No region filter - using all continents`);
               }
               
               // Retry loop to avoid water locations
+              // Track if we should use bounds or fallback to continent
+              let useBoundsForGeneration = hasSpecificBounds;
+              
               while (attempts < maxAttempts && !locationInfo) {
                 attempts++;
-                console.log(`🎲 Attempt ${attempts}/${maxAttempts} to find land location...`);
+                console.log(`🎲 [INCOMING] Attempt ${attempts}/${maxAttempts} to find land location...`);
                 
-                // Weighted random selection (some regions more populous than others)
-                const totalWeight = availableContinents.reduce((sum, c) => sum + c.weight, 0);
-                let randomWeight = Math.random() * totalWeight;
-                let selectedContinent = availableContinents[0];
+                let latitude, longitude, regionName;
                 
-                for (const continent of availableContinents) {
-                  randomWeight -= continent.weight;
-                  if (randomWeight <= 0) {
-                    selectedContinent = continent;
-                    break;
+                if (useBoundsForGeneration && requestedRegion && requestedRegion.bounds) {
+                  // Use specific country/city bounds with validation
+                  const bounds = requestedRegion.bounds;
+                  
+                  // Validate bounds before using
+                  if (bounds && 
+                      typeof bounds.minLat === 'number' && typeof bounds.maxLat === 'number' &&
+                      typeof bounds.minLng === 'number' && typeof bounds.maxLng === 'number' &&
+                      bounds.minLat < bounds.maxLat && bounds.minLng < bounds.maxLng &&
+                      bounds.minLat >= -90 && bounds.maxLat <= 90 &&
+                      bounds.minLng >= -180 && bounds.maxLng <= 180) {
+                    latitude = (Math.random() * (bounds.maxLat - bounds.minLat) + bounds.minLat).toFixed(6);
+                    longitude = (Math.random() * (bounds.maxLng - bounds.minLng) + bounds.minLng).toFixed(6);
+                    regionName = displayName;
+                  } else {
+                    console.warn(`⚠️ [INCOMING] Invalid bounds detected, falling back to continent-based generation`);
+                    useBoundsForGeneration = false; // Fallback to continent-based
+                    // Will continue to else block below
                   }
                 }
                 
-                // Generate random coordinates within the selected region
-                const latitude = (Math.random() * (selectedContinent.maxLat - selectedContinent.minLat) + selectedContinent.minLat).toFixed(6);
-                const longitude = (Math.random() * (selectedContinent.maxLng - selectedContinent.minLng) + selectedContinent.minLng).toFixed(6);
+                // If bounds were invalid or not available, use continent-based generation
+                if (!useBoundsForGeneration || !latitude || !longitude) {
+                  // Weighted random selection from continents (some regions more populous than others)
+                  const totalWeight = availableContinents.reduce((sum, c) => sum + c.weight, 0);
+                  if (totalWeight === 0) {
+                    console.error(`❌ [INCOMING] No available continents, using first continent as fallback`);
+                    availableContinents = [continents[0]];
+                  }
+                  
+                  let randomWeight = Math.random() * availableContinents.reduce((sum, c) => sum + c.weight, 0);
+                  let selectedContinent = availableContinents[0];
+                  
+                  for (const continent of availableContinents) {
+                    randomWeight -= continent.weight;
+                    if (randomWeight <= 0) {
+                      selectedContinent = continent;
+                      break;
+                    }
+                  }
+                  
+                  // Generate random coordinates within the selected region
+                  latitude = (Math.random() * (selectedContinent.maxLat - selectedContinent.minLat) + selectedContinent.minLat).toFixed(6);
+                  longitude = (Math.random() * (selectedContinent.maxLng - selectedContinent.minLng) + selectedContinent.minLng).toFixed(6);
+                  regionName = selectedContinent.name;
+                }
                 
-                console.log(`🌍 Generated random location in ${selectedContinent.name}: ${latitude}, ${longitude}`);
+                console.log(`🌍 [INCOMING] Generated random location in ${regionName}: ${latitude}, ${longitude}`);
                 
                 // Get location information from Gemini with Google Maps grounding
                 const tempLocationInfo = await getLocationInfo(parseFloat(latitude), parseFloat(longitude));
@@ -3801,12 +3930,13 @@ async function handleOutgoingMessage(webhookData) {
               // Check if user requested a specific region
               // Use the prompt text (not normalized object) to extract region
               console.log(`📍 [OUTGOING] Extracting region from prompt: "${prompt}"`);
-              const requestedRegion = extractRequestedRegion(prompt);
+              const requestedRegion = await extractRequestedRegion(prompt);
               const requestedRegionName = requestedRegion ? requestedRegion.continentName : null;
               const displayName = requestedRegion ? requestedRegion.displayName : null;
-              console.log(`📍 [OUTGOING] Extracted region: ${requestedRegionName ? `${displayName} (${requestedRegionName})` : 'none'}`);
-              const ackMessage = requestedRegionName 
-                ? `🌍 קיבלתי! בוחר מיקום אקראי באזור ${displayName}...`
+              const isCity = requestedRegion ? requestedRegion.isCity : false;
+              console.log(`📍 [OUTGOING] Extracted region: ${displayName ? `${displayName}${requestedRegionName ? ` (${requestedRegionName})` : isCity ? ' (עיר)' : ''}` : 'none'}`);
+              const ackMessage = displayName 
+                ? `🌍 קיבלתי! בוחר מיקום אקראי ${isCity ? 'בעיר' : 'באזור'} ${displayName}...`
                 : '🌍 קיבלתי! בוחר מיקום אקראי על כדור הארץ...';
               await sendTextMessage(chatId, ackMessage);
               
@@ -3871,9 +4001,13 @@ async function handleOutgoingMessage(webhookData) {
                 { name: 'New Zealand', minLat: -47, maxLat: -34, minLng: 166, maxLng: 179, weight: 1 }
               ];
               
-              // Filter continents if specific region requested
+              // Check if specific country/city bounds are available (more precise than continent)
+              const hasSpecificBounds = requestedRegion && requestedRegion.bounds;
+              const isCityLocation = requestedRegion && requestedRegion.isCity === true;
+              
+              // Filter continents if specific region requested (but use country/city bounds if available)
               let availableContinents = continents;
-              if (requestedRegionName) {
+              if (requestedRegionName && !hasSpecificBounds) {
                 console.log(`🎯 [OUTGOING] Filtering continents to region: "${requestedRegionName}"`);
                 console.log(`🎯 [OUTGOING] Available continent names: ${continents.map(c => c.name).join(', ')}`);
                 availableContinents = continents.filter(c => c.name === requestedRegionName);
@@ -3885,33 +4019,74 @@ async function handleOutgoingMessage(webhookData) {
                 } else {
                   console.log(`✅ [OUTGOING] Filtered to region: ${requestedRegionName} (${availableContinents.length} continent(s))`);
                 }
+              } else if (hasSpecificBounds) {
+                if (isCityLocation) {
+                  console.log(`🎯 [OUTGOING] Using specific city bounds for ${displayName}: lat ${requestedRegion.bounds.minLat}-${requestedRegion.bounds.maxLat}, lng ${requestedRegion.bounds.minLng}-${requestedRegion.bounds.maxLng}`);
+                } else {
+                  console.log(`🎯 [OUTGOING] Using specific country bounds for ${displayName}: lat ${requestedRegion.bounds.minLat}-${requestedRegion.bounds.maxLat}, lng ${requestedRegion.bounds.minLng}-${requestedRegion.bounds.maxLng}`);
+                }
               } else {
                 console.log(`🌍 [OUTGOING] No region filter - using all continents`);
               }
               
               // Retry loop to avoid water locations
+              // Track if we should use bounds or fallback to continent
+              let useBoundsForGeneration = hasSpecificBounds;
+              
               while (attempts < maxAttempts && !locationInfo) {
                 attempts++;
-                console.log(`🎲 Attempt ${attempts}/${maxAttempts} to find land location...`);
+                console.log(`🎲 [OUTGOING] Attempt ${attempts}/${maxAttempts} to find land location...`);
                 
-                // Weighted random selection (some regions more populous than others)
-                const totalWeight = availableContinents.reduce((sum, c) => sum + c.weight, 0);
-                let randomWeight = Math.random() * totalWeight;
-                let selectedContinent = availableContinents[0];
+                let latitude, longitude, regionName;
                 
-                for (const continent of availableContinents) {
-                  randomWeight -= continent.weight;
-                  if (randomWeight <= 0) {
-                    selectedContinent = continent;
-                    break;
+                if (useBoundsForGeneration && requestedRegion && requestedRegion.bounds) {
+                  // Use specific country/city bounds with validation
+                  const bounds = requestedRegion.bounds;
+                  
+                  // Validate bounds before using
+                  if (bounds && 
+                      typeof bounds.minLat === 'number' && typeof bounds.maxLat === 'number' &&
+                      typeof bounds.minLng === 'number' && typeof bounds.maxLng === 'number' &&
+                      bounds.minLat < bounds.maxLat && bounds.minLng < bounds.maxLng &&
+                      bounds.minLat >= -90 && bounds.maxLat <= 90 &&
+                      bounds.minLng >= -180 && bounds.maxLng <= 180) {
+                    latitude = (Math.random() * (bounds.maxLat - bounds.minLat) + bounds.minLat).toFixed(6);
+                    longitude = (Math.random() * (bounds.maxLng - bounds.minLng) + bounds.minLng).toFixed(6);
+                    regionName = displayName;
+                  } else {
+                    console.warn(`⚠️ [OUTGOING] Invalid bounds detected, falling back to continent-based generation`);
+                    useBoundsForGeneration = false; // Fallback to continent-based
+                    // Will continue to else block below
                   }
                 }
                 
-                // Generate random coordinates within the selected region
-                const latitude = (Math.random() * (selectedContinent.maxLat - selectedContinent.minLat) + selectedContinent.minLat).toFixed(6);
-                const longitude = (Math.random() * (selectedContinent.maxLng - selectedContinent.minLng) + selectedContinent.minLng).toFixed(6);
+                // If bounds were invalid or not available, use continent-based generation
+                if (!useBoundsForGeneration || !latitude || !longitude) {
+                  // Weighted random selection from continents (some regions more populous than others)
+                  const totalWeight = availableContinents.reduce((sum, c) => sum + c.weight, 0);
+                  if (totalWeight === 0) {
+                    console.error(`❌ [OUTGOING] No available continents, using first continent as fallback`);
+                    availableContinents = [continents[0]];
+                  }
+                  
+                  let randomWeight = Math.random() * availableContinents.reduce((sum, c) => sum + c.weight, 0);
+                  let selectedContinent = availableContinents[0];
+                  
+                  for (const continent of availableContinents) {
+                    randomWeight -= continent.weight;
+                    if (randomWeight <= 0) {
+                      selectedContinent = continent;
+                      break;
+                    }
+                  }
+                  
+                  // Generate random coordinates within the selected region
+                  latitude = (Math.random() * (selectedContinent.maxLat - selectedContinent.minLat) + selectedContinent.minLat).toFixed(6);
+                  longitude = (Math.random() * (selectedContinent.maxLng - selectedContinent.minLng) + selectedContinent.minLng).toFixed(6);
+                  regionName = selectedContinent.name;
+                }
                 
-                console.log(`🌍 Generated random location in ${selectedContinent.name}: ${latitude}, ${longitude}`);
+                console.log(`🌍 [OUTGOING] Generated random location in ${regionName}: ${latitude}, ${longitude}`);
                 
                 // Get location information from Gemini with Google Maps grounding
                 const tempLocationInfo = await getLocationInfo(parseFloat(latitude), parseFloat(longitude));
