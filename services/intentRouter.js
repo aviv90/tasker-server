@@ -249,13 +249,17 @@ async function routeIntent(input) {
     // "# תרגם ל..." → text translation only (no voice)
     // "# אמור ב..." → translation + TTS voice
     const hasTranslateKeywords = /תרגם|תרגמי|תרגמו|תתרגם|תתרגמי|תתרגמו|תרגום|\b(translate|translation)\b/i.test(prompt);
-    const hasTTSKeywords = /אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו|הקרא|הקראי|הקראו|תקרא|תקראי|תקראו|הקריא|הקריאי|הקריאו|תקריא|תקריאי|תקריאו|דבר|דברי|דברו|תדבר|תדברי|תדברו|בקול|קולית|\b(say|speak|tell|voice|read\s+aloud)\b/i.test(prompt);
+    // Note: For Hebrew words that can be both verbs and nouns (like דבר), use stricter matching:
+    // - ^word or \sword ensures the word is at start or after whitespace
+    // - word$ or word\s ensures the word is at end or before whitespace
+    const hasTTSKeywords = /אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו|הקרא|הקראי|הקראו|תקרא|תקראי|תקראו|הקריא|הקריאי|הקריאו|תקריא|תקריאי|תקריאו|(^|\s)(דבר|דברי|דברו|תדבר|תדברי|תדברו)(\s|$)|בקול|קולית|\b(say|speak|tell|voice|read\s+aloud)\b/i.test(prompt);
     
     // Text-only translation: has translate keywords but NO TTS keywords
     const isTranslateOnly = hasTranslateKeywords && !hasTTSKeywords;
     
     // TTS includes: explicit TTS keywords OR read aloud requests
-    const isTtsLike = /\b(speech|speach|tts|read\s+this|read\s+aloud|say\s+this)\b|^(קרא|קראי|קראו|תקרא|תקראי|תקראו|הקרא|הקראי|הקראו|הקריא|הקריאי|הקריאו|הקראת)\b|דיבור|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text\s*to\s*speech/i.test(prompt) || hasTTSKeywords;
+    // Note: Using stricter matching for Hebrew nouns that might be part of other words
+    const isTtsLike = /\b(speech|speach|tts|read\s+this|read\s+aloud|say\s+this)\b|^(קרא|קראי|קראו|תקרא|תקראי|תקראו|הקרא|הקראי|הקראו|הקריא|הקריאי|הקריאו|הקראת)\b|(^|\s)(דיבור)(\s|$)|להשמיע|הפוך.*לדיבור|המר.*לדיבור|text\s*to\s*speech/i.test(prompt) || hasTTSKeywords;
     
     const isSummary = /\b(summary|summery|sumary|summarize|sum\s+up)\b|סכם|סיכום|לסכם|סכום|תמצת|תמצה|תמצה.*את|תמצת.*את|תמצה.*מה|תמצת.*מה/i.test(prompt);
     
@@ -686,10 +690,13 @@ ${JSON.stringify(payload, null, 2)}
       ⚠️ False positives: "videographer", "clipboard", "eclipse" are NOT video requests
    
    🗣️ **Text-to-Speech (TTS):**
-      Keywords (including typos): "הקרא", "הקריא", "קרא", "דיבור", "speech", "speach", "TTS", "read this", "אמור", "אמר", "להשמיע"
+      Keywords (including typos): "הקרא", "הקריא", "קרא", "דיבור" (as standalone word), "speech", "speach", "TTS", "read this", "אמור", "אמר", "להשמיע"
       → "text_to_speech"
       💡 Note: Extract text after colon if present
-      ⚠️ False positives: "speechless", "freedom" are NOT TTS requests
+      ⚠️ CRITICAL False positives:
+         - "הדבר", "דברים", "מדבר" (noun forms of דבר) are NOT TTS - only "דבר" as verb (e.g., "דבר אתי")
+         - "speechless", "freedom" are NOT TTS requests
+         - ONLY trigger TTS when דבר/דיבור appear as standalone words or verbs, NOT as part of nouns
    
    📝 **Chat Summary:**
       Keywords (including typos): "סכם", "סיכום", "סכום", "תמצת", "תמצה", "summary", "summery", "sumary", "לסכם", "summarize"
