@@ -240,8 +240,23 @@ async function routeIntent(input) {
     // All checks are case-insensitive using /i flag
     // Using \b for word boundaries to match whole words only
     // Includes common typos for better UX
-    const isImageLike = /\b(image|imge|imagee|poster|illustration|render|picture|pic|photo|draw|paint)\b|תמונה|תמונא|תמונת|ציור|צייור|תצלום|לוגו|איור|צייר|ציירי|צייירי|צור\s+תמונה|עשה\s+תמונה/i.test(prompt);
-    const isVideoLike = /\b(video|vidio|vedio|vidoe|clip|animate|motion|movie|film)\b|וידאו|וידיאו|וודאו|ווידאו|וידיו|סרט|סרטון|אנימציה|קליפ|צור\s+וידאו|עשה\s+וידאו|עשה\s+סרט/i.test(prompt);
+    
+    // Image detection: Must have creation verbs OR be at start of prompt
+    // ✅ "צור תמונה של", "תמונה של חתול", "picture of a cat", "draw a dog"
+    // ❌ "בתמונה שלהלן", "in the picture", "מה יש בתמונה", "שלמעשה" (not a verb!)
+    // Note: Using (^|\s) and (\s|$) for Hebrew word boundaries to avoid false matches like "שלמעשה"
+    const hasImageCreationVerbs = /(^|\s)(צור|צרי|צרו|תצור|תצרי|תצרו|עשה|עשי|עשו|תעשה|תעשי|תעשו|צייר|ציירי|צוירו|תצייר|תצירי|תצירו|הכן|הכני|הכינו|תכין|תכיני|תכינו|יצור|תיצור|ייצר|תייצר|תן|תני|תנו|הראה|הראי|הראו|תראה|תראי|תראו)(\s|$)|\b(create|make|generate|draw|paint|design|render|produce|show\s+me)\b/i.test(prompt);
+    const hasImageNounAtStart = /^(תמונה|תמונא|תמונת|ציור|צייור|תצלום|לוגו|איור|poster|illustration|picture|pic|photo|image|imge|imagee)/i.test(prompt);
+    const hasImageOf = /(תמונה|תמונא|תמונת|ציור|צייור|picture|pic|image)\s+(של|שלי|שלך|שלו|שלה|שלנו|שלהם|שלהן|of|with)\s+/i.test(prompt);
+    const isImageLike = hasImageCreationVerbs || hasImageNounAtStart || hasImageOf;
+    
+    // Video detection: Same logic as image - must have creation verbs OR be at start
+    // ✅ "צור וידאו של", "וידאו של כלב", "video of a cat", "animate this"
+    // ❌ "בווידאו הזה", "in the video", "מה יש בוידאו", "שלמעשה" (not a verb!)
+    const hasVideoCreationVerbs = /(^|\s)(צור|צרי|צרו|תצור|תצרי|תצרו|עשה|עשי|עשו|תעשה|תעשי|תעשו|הכן|הכני|הכינו|תכין|תכיני|תכינו|יצור|תיצור|ייצר|תייצר|הנפש|הנפישי|הנפישו|תנפיש|תנפישי|תנפישו|הראה|הראי|הראו|תראה|תראי|תראו)(\s|$)|\b(create|make|generate|animate|produce|show\s+me)\b/i.test(prompt);
+    const hasVideoNounAtStart = /^(וידאו|וידיאו|וודאו|ווידאו|וידיו|סרט|סרטון|אנימציה|קליפ|video|vidio|vedio|vidoe|clip|movie|film)/i.test(prompt);
+    const hasVideoOf = /(וידאו|וידיאו|סרט|סרטון|video|clip|movie)\s+(של|שלי|שלך|שלו|שלה|שלנו|שלהם|שלהן|of|with|about)\s+/i.test(prompt);
+    const isVideoLike = hasVideoCreationVerbs || hasVideoNounAtStart || hasVideoOf;
     // Note: Don't use \b after Hebrew words - it doesn't work in JavaScript
     // Support ALL Hebrew conjugations (male/female/plural) per rule 7
     
@@ -673,21 +688,42 @@ ${JSON.stringify(payload, null, 2)}
       ⚠️ False positives: "musician", "musical", "musicology" are NOT music/song requests
    
    🖼️ **Image Generation:**
-      Keywords (including typos): "תמונה", "תמונא", "ציור", "צייור", "צייר", "ציירי", "draw", "picture", "image", "imge", "imagee", "poster", "illustration", "render"
+      ⚠️ CRITICAL: Image keywords alone are NOT enough! Must have one of:
+         A. Creation VERBS (as standalone words): "צור", "עשה", "צייר", "הכן", "יצור", "הראה", "תן", "create", "make", "draw", "generate", "show me"
+         B. Image noun AT START of prompt: "תמונה של...", "picture of...", "ציור של..."
+         C. Image noun + "של/of/with": "תמונה של חתול", "picture of a cat"
+      
+      Keywords (including typos): "תמונה", "תמונא", "ציור", "צייור", "צייר", "draw", "picture", "image", "poster"
       STEP B: Check provider preference:
-        - Mentions "OpenAI"/"Open AI"/"GPT"/"DALL-E"/"DALL E"/"dalle" → "openai_image"
-        - Mentions "Grok"/"xAI"/"x AI" → "grok_image"
+        - Mentions "OpenAI"/"Open AI"/"GPT"/"DALL-E"/"DALL E" → "openai_image"
+        - Mentions "Grok"/"xAI" → "grok_image"
         - Otherwise → "gemini_image" (default)
-      ⚠️ False positives: "imaginative", "imagine", "drawer" are NOT image requests
+      
+      ⚠️ FALSE POSITIVES - Do NOT trigger image generation:
+         - "בתמונה שלהלן" (discussing existing image)
+         - "מה יש בתמונה?" (asking about image)
+         - "שלמעשה" (contains "עשה" but not a verb!)
+         - "in the picture you can see" (discussing existing image)
+         - ANY case where image noun appears WITHOUT creation context
       
    🎬 **Video Generation:**
-      Keywords (including typos): "וידאו", "וידיאו", "וודאו", "ווידאו", "video", "vidio", "vedio", "vidoe", "סרט", "אנימציה", "קליפ", "clip", "animate", "motion"
+      ⚠️ CRITICAL: Video keywords alone are NOT enough! Must have one of:
+         A. Creation VERBS (as standalone words): "צור", "עשה", "הכן", "יצור", "הנפש", "הראה", "create", "make", "animate", "generate", "show me"
+         B. Video noun AT START of prompt: "וידאו של...", "video of...", "סרט על..."
+         C. Video noun + "של/of/about": "וידאו של כלב", "video of a cat"
+      
+      Keywords (including typos): "וידאו", "וידיאו", "video", "vidio", "סרט", "אנימציה", "clip", "animate"
       STEP B: Check model preference:
-        - Mentions "veo"/"Veo"/"VEO"/"veo 3"/"veo 3.1"/"Veo 3.1"/"veo3"/"veo3.1" (any case, with/without space) → "veo3_video"
-        - Mentions "sora 2 pro"/"Sora 2 Pro"/"סורה 2 פרו"/"סורה פרו" (any case, with/without space) → "sora_video" with model="sora-2-pro"
-        - Mentions "sora"/"Sora"/"SORA"/"sora 2"/"Sora 2"/"סורה"/"סורה 2" (any case, with/without space) → "sora_video" with model="sora-2"
+        - Mentions "veo"/"Veo"/"veo 3"/"veo3" → "veo3_video"
+        - Mentions "sora 2 pro"/"Sora 2 Pro"/"סורה 2 פרו" → "sora_video" with model="sora-2-pro"
+        - Mentions "sora"/"Sora"/"sora 2"/"סורה 2" → "sora_video" with model="sora-2"
         - Otherwise → "kling_text_to_video" (default)
-      ⚠️ False positives: "videographer", "clipboard", "eclipse" are NOT video requests
+      
+      ⚠️ FALSE POSITIVES - Do NOT trigger video generation:
+         - "בווידאו הזה" (discussing existing video)
+         - "מה יש בוידאו?" (asking about video)
+         - "שלמעשה" (contains "עשה" but not a verb!)
+         - ANY case where video noun appears WITHOUT creation context
    
    🗣️ **Text-to-Speech (TTS):**
       Keywords (including typos): "הקרא", "הקריא", "קרא", "דיבור" (as standalone word), "speech", "speach", "TTS", "read this", "אמור", "אמר", "להשמיע"
