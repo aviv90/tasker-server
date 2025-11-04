@@ -500,16 +500,39 @@ function applyProviderOverride(additionalInstructions, currentDecision, context 
   }
 
   // Generic provider swap preserving tool family
-  if (originalTool.endsWith('_image')) {
+  
+  // Image editing
+  if (originalTool.endsWith('_image_edit') || originalTool === 'image_edit') {
+    if (wantsOpenAI) return { tool: 'image_edit', args: { ...cloneArgs(currentDecision.args), service: 'openai' }, reason: 'Retry override → OpenAI image edit' };
+    if (wantsGemini) return { tool: 'image_edit', args: { ...cloneArgs(currentDecision.args), service: 'gemini' }, reason: 'Retry override → Gemini image edit' };
+  }
+  
+  // Video editing
+  if (originalTool.endsWith('_video_edit') || originalTool === 'video_to_video') {
+    if (wantsSora) return { tool: 'video_to_video', args: { ...cloneArgs(currentDecision.args), service: 'openai' }, reason: 'Retry override → Sora video' };
+    if (wantsVeo) return { tool: 'video_to_video', args: { ...cloneArgs(currentDecision.args), service: 'gemini' }, reason: 'Retry override → Veo video' };
+    if (wantsKling) return { tool: 'video_to_video', args: { ...cloneArgs(currentDecision.args), service: 'kling' }, reason: 'Retry override → Kling video' };
+  }
+  
+  // Image generation (not editing)
+  if (originalTool.endsWith('_image') && !originalTool.endsWith('_image_edit')) {
     if (wantsOpenAI) return { tool: 'openai_image', args: cloneArgs(currentDecision.args), reason: 'Retry override → OpenAI image' };
     if (wantsGemini) return { tool: 'gemini_image', args: cloneArgs(currentDecision.args), reason: 'Retry override → Gemini image' };
     if (wantsGrok)   return { tool: 'grok_image',   args: cloneArgs(currentDecision.args), reason: 'Retry override → Grok image' };
   }
 
-  if (originalTool.endsWith('_image_to_video') || originalTool === 'video_to_video') {
+  // Image-to-video
+  if (originalTool.endsWith('_image_to_video')) {
     if (wantsSora)   return { tool: 'sora_image_to_video',  args: { ...cloneArgs(currentDecision.args), model: wantsSoraPro ? 'sora-2-pro' : (wantsSora2 ? 'sora-2' : (currentDecision.args?.model || 'sora-2')) }, reason: 'Retry override → Sora image-to-video' };
     if (wantsVeo)    return { tool: 'veo3_image_to_video',  args: cloneArgs(currentDecision.args), reason: 'Retry override → Veo image-to-video' };
     if (wantsKling)  return { tool: 'kling_image_to_video', args: cloneArgs(currentDecision.args), reason: 'Retry override → Kling image-to-video' };
+  }
+  
+  // Text-to-video
+  if (originalTool.endsWith('_video') || originalTool === 'kling_text_to_video') {
+    if (wantsSora)   return { tool: 'sora_video',  args: { ...cloneArgs(currentDecision.args), model: wantsSoraPro ? 'sora-2-pro' : (wantsSora2 ? 'sora-2' : (currentDecision.args?.model || 'sora-2')) }, reason: 'Retry override → Sora text-to-video' };
+    if (wantsVeo)    return { tool: 'veo3_video',  args: cloneArgs(currentDecision.args), reason: 'Retry override → Veo text-to-video' };
+    if (wantsKling)  return { tool: 'kling_text_to_video', args: cloneArgs(currentDecision.args), reason: 'Retry override → Kling text-to-video' };
   }
 
   // Chat provider swap
@@ -1378,14 +1401,11 @@ async function handleIncomingMessage(webhookData) {
               
               // Check if this is image analysis (hasImage = true)
               if (normalized.hasImage) {
-                // This is image analysis - use analyzeImageWithText
-                const { analyzeImageWithText } = require('../services/geminiService');
-                
                 try {
                   // Get image URL (either from quoted message or current message)
                   const finalImageUrl = imageUrl || messageData.fileMessageData?.downloadUrl || messageData.imageMessageData?.downloadUrl || messageData.stickerMessageData?.downloadUrl;
                   if (!finalImageUrl) {
-                    await sendTextMessage(chatId, '❌ לא הצלחתי לקבל את התמונה לניתוח');
+                    await sendTextMessage(chatId, '❌ לא הצלחתי לקבל את התמונה');
                     return;
                   }
                   
@@ -1393,31 +1413,77 @@ async function handleIncomingMessage(webhookData) {
                   const downloadedBuffer = await downloadFile(finalImageUrl);
                   const base64Image = downloadedBuffer.toString('base64');
                   
-                  // Check if user wants to reference previous messages
-                  let finalPrompt = prompt;
-                  if (decision.args?.needsChatHistory) {
-                    try {
-                      console.log(`📜 User requested chat history context for image analysis, fetching last ${CHAT_HISTORY_LIMIT} messages...`);
-                      const chatHistory = await getChatHistory(chatId, CHAT_HISTORY_LIMIT);
-                      
-                      if (chatHistory && chatHistory.length > 0) {
-                        const formattedHistory = formatChatHistoryForContext(chatHistory);
-                        finalPrompt = `להלן ההודעות האחרונות בשיחה/קבוצה:\n\n${formattedHistory}\n\nבהתבסס על ההודעות לעיל, ${prompt}`;
-                        console.log(`✅ Added ${chatHistory.length} messages as context to image analysis`);
+                  // Check if this is an edit request vs analysis request
+                  // Edit requests: שנה/תשנה/ערוך/תערוך/תסדר/סדר/הוסף/תוסיף/מחק/תמחק/צייר/תצייר...
+                  // Implicit edit: לבוש/dressed/wearing/כ.../בתור...
+                  const isEditRequest = /שנה|תשנה|תשני|שני|ערוך|תערוך|ערכי|עדכן|תעדכן|תקן|תתקן|סדר|תסדר|סדרי|תסדרי|הוסף|תוסיף|תוסיפי|הוסיפי|מחק|תמחק|מחקי|תמחקי|הורד|תוריד|הורידי|תורידי|סיר|תסיר|סירי|תסירי|צייר|תצייר|ציירי|תצרי|הפוך|תהפוך|המר|תהמר|שפר|תשפר|שפרי|תשפרי|תחליף|החלף|החליפי|תחליפי|צור|תצור|צורי|תצרי|edit|change|modify|update|fix|correct|add|remove|delete|draw|paint|replace|swap|improve|enhance|create|make|transform/i.test(prompt);
+                  const isImplicitEdit = /^(לבוש|לבושה|לובש|לובשת|עם|כ(?!מה)|בתור)|^\b(wearing|dressed|with\s+a|as\s+a|in\s+a)\b/i.test(prompt);
+                  
+                  if (isEditRequest || isImplicitEdit) {
+                    // This is image EDITING - use editImageForWhatsApp
+                    console.log(`🖼️ Detected image edit request in gemini_chat, switching to editImageForWhatsApp`);
+                    
+                    // Check if user wants to reference previous messages
+                    let finalPrompt = prompt;
+                    if (decision.args?.needsChatHistory) {
+                      try {
+                        console.log(`📜 User requested chat history context for image editing, fetching last ${CHAT_HISTORY_LIMIT} messages...`);
+                        const chatHistory = await getChatHistory(chatId, CHAT_HISTORY_LIMIT);
+                        
+                        if (chatHistory && chatHistory.length > 0) {
+                          const formattedHistory = formatChatHistoryForContext(chatHistory);
+                          finalPrompt = `להלן ההודעות האחרונות בשיחה/קבוצה:\n\n${formattedHistory}\n\nבהתבסס על ההודעות לעיל, ${prompt}`;
+                          console.log(`✅ Added ${chatHistory.length} messages as context to image editing`);
+                        }
+                      } catch (historyError) {
+                        console.error('❌ Error fetching chat history:', historyError);
                       }
-                    } catch (historyError) {
-                      console.error('❌ Error fetching chat history:', historyError);
+                    }
+                    
+                    const editResult = await editImageForWhatsApp(finalPrompt, base64Image);
+                    if (editResult.success && editResult.imageUrl) {
+                      const fileName = `gemini_edited_${Date.now()}.png`;
+                      await sendFileByUrl(chatId, editResult.imageUrl, fileName, editResult.description || '');
+                      console.log('🎨 Edited image sent successfully');
+                    } else if (editResult.textResponse) {
+                      // Gemini returned text instead of image
+                      await sendTextMessage(chatId, `⚠️ ${editResult.textResponse}\n\n💡 הצעה: נסה עם OpenAI - שלח "# נסה שוב, עם OpenAI"`);
+                      console.log('🎨 Gemini returned text instead of image, sent suggestion to user');
+                    } else {
+                      await sendTextMessage(chatId, `❌ ${editResult.error || 'לא הצלחתי לערוך את התמונה'}`);
+                      console.log('🎨 Error message sent:', editResult.error);
+                    }
+                  } else {
+                    // This is image ANALYSIS - use analyzeImageWithText
+                    const { analyzeImageWithText } = require('../services/geminiService');
+                    console.log(`🔍 Detected image analysis request in gemini_chat`);
+                    
+                    // Check if user wants to reference previous messages
+                    let finalPrompt = prompt;
+                    if (decision.args?.needsChatHistory) {
+                      try {
+                        console.log(`📜 User requested chat history context for image analysis, fetching last ${CHAT_HISTORY_LIMIT} messages...`);
+                        const chatHistory = await getChatHistory(chatId, CHAT_HISTORY_LIMIT);
+                        
+                        if (chatHistory && chatHistory.length > 0) {
+                          const formattedHistory = formatChatHistoryForContext(chatHistory);
+                          finalPrompt = `להלן ההודעות האחרונות בשיחה/קבוצה:\n\n${formattedHistory}\n\nבהתבסס על ההודעות לעיל, ${prompt}`;
+                          console.log(`✅ Added ${chatHistory.length} messages as context to image analysis`);
+                        }
+                      } catch (historyError) {
+                        console.error('❌ Error fetching chat history:', historyError);
+                      }
+                    }
+                    
+                    const result = await analyzeImageWithText(finalPrompt, base64Image);
+                    if (result.success) {
+                      await sendTextMessage(chatId, result.text);
+                    } else {
+                      await sendTextMessage(chatId, `❌ ${result.error}`);
                     }
                   }
-                  
-                  const result = await analyzeImageWithText(finalPrompt, base64Image);
-                  if (result.success) {
-                    await sendTextMessage(chatId, result.text);
-                  } else {
-                    await sendTextMessage(chatId, `❌ ${result.error}`);
-                  }
                 } catch (error) {
-                  await sendTextMessage(chatId, `❌ שגיאה בניתוח התמונה: ${error.message}`);
+                  await sendTextMessage(chatId, `❌ שגיאה בעיבוד התמונה: ${error.message}`);
                 }
               } else if (normalized.hasVideo) {
                 // This is video analysis - use analyzeVideoWithText
@@ -2267,6 +2333,7 @@ async function handleIncomingMessage(webhookData) {
             
             // ═══════════════════ CHAT SUMMARY ═══════════════════
             case 'chat_summary': {
+              saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'chat_summary' });
               const chatHistory = await getChatHistory(chatId, CHAT_HISTORY_LIMIT);
               if (!chatHistory || chatHistory.length === 0) {
@@ -2356,6 +2423,7 @@ async function handleIncomingMessage(webhookData) {
             case 'veo3_video':
             case 'sora_video':
             case 'kling_text_to_video': {
+              saveLastCommand(chatId, decision, { normalized });
               let service;
               if (decision.tool === 'veo3_video') {
                 service = 'veo3';
@@ -3277,14 +3345,11 @@ async function handleOutgoingMessage(webhookData) {
               
               // Check if this is image analysis (hasImage = true)
               if (normalized.hasImage) {
-                // This is image analysis - use analyzeImageWithText
-                const { analyzeImageWithText } = require('../services/geminiService');
-                
                 try {
                   // Get image URL (either from quoted message or current message)
                   const finalImageUrl = imageUrl || messageData.fileMessageData?.downloadUrl || messageData.imageMessageData?.downloadUrl || messageData.stickerMessageData?.downloadUrl;
                   if (!finalImageUrl) {
-                    await sendTextMessage(chatId, '❌ לא הצלחתי לקבל את התמונה לניתוח');
+                    await sendTextMessage(chatId, '❌ לא הצלחתי לקבל את התמונה');
                     return;
                   }
                   
@@ -3292,31 +3357,75 @@ async function handleOutgoingMessage(webhookData) {
                   const downloadedBuffer = await downloadFile(finalImageUrl);
                   const base64Image = downloadedBuffer.toString('base64');
                   
-                  // Check if user wants to reference previous messages
-                  let finalPromptOutgoingImage = prompt;
-                  if (decision.args?.needsChatHistory) {
-                    try {
-                      console.log(`📜 User requested chat history context for image analysis (outgoing), fetching last ${CHAT_HISTORY_LIMIT} messages...`);
-                      const chatHistory = await getChatHistory(chatId, CHAT_HISTORY_LIMIT);
-                      
-                      if (chatHistory && chatHistory.length > 0) {
-                        const formattedHistory = formatChatHistoryForContext(chatHistory);
-                        finalPromptOutgoingImage = `להלן ההודעות האחרונות בשיחה/קבוצה:\n\n${formattedHistory}\n\nבהתבסס על ההודעות לעיל, ${prompt}`;
-                        console.log(`✅ Added ${chatHistory.length} messages as context to image analysis (outgoing)`);
+                  // Check if this is an edit request vs analysis request
+                  const isEditRequest = /שנה|תשנה|תשני|שני|ערוך|תערוך|ערכי|עדכן|תעדכן|תקן|תתקן|סדר|תסדר|סדרי|תסדרי|הוסף|תוסיף|תוסיפי|הוסיפי|מחק|תמחק|מחקי|תמחקי|הורד|תוריד|הורידי|תורידי|סיר|תסיר|סירי|תסירי|צייר|תצייר|ציירי|תצרי|הפוך|תהפוך|המר|תהמר|שפר|תשפר|שפרי|תשפרי|תחליף|החלף|החליפי|תחליפי|צור|תצור|צורי|תצרי|edit|change|modify|update|fix|correct|add|remove|delete|draw|paint|replace|swap|improve|enhance|create|make|transform/i.test(prompt);
+                  const isImplicitEdit = /^(לבוש|לבושה|לובש|לובשת|עם|כ(?!מה)|בתור)|^\b(wearing|dressed|with\s+a|as\s+a|in\s+a)\b/i.test(prompt);
+                  
+                  if (isEditRequest || isImplicitEdit) {
+                    // This is image EDITING - use editImageForWhatsApp
+                    console.log(`🖼️ [OUTGOING] Detected image edit request in gemini_chat, switching to editImageForWhatsApp`);
+                    
+                    // Check if user wants to reference previous messages
+                    let finalPromptOutgoingImage = prompt;
+                    if (decision.args?.needsChatHistory) {
+                      try {
+                        console.log(`📜 User requested chat history context for image editing (outgoing), fetching last ${CHAT_HISTORY_LIMIT} messages...`);
+                        const chatHistory = await getChatHistory(chatId, CHAT_HISTORY_LIMIT);
+                        
+                        if (chatHistory && chatHistory.length > 0) {
+                          const formattedHistory = formatChatHistoryForContext(chatHistory);
+                          finalPromptOutgoingImage = `להלן ההודעות האחרונות בשיחה/קבוצה:\n\n${formattedHistory}\n\nבהתבסס על ההודעות לעיל, ${prompt}`;
+                          console.log(`✅ Added ${chatHistory.length} messages as context to image editing (outgoing)`);
+                        }
+                      } catch (historyError) {
+                        console.error('❌ Error fetching chat history:', historyError);
                       }
-                    } catch (historyError) {
-                      console.error('❌ Error fetching chat history:', historyError);
+                    }
+                    
+                    const editResult = await editImageForWhatsApp(finalPromptOutgoingImage, base64Image);
+                    if (editResult.success && editResult.imageUrl) {
+                      const fileName = `gemini_edited_${Date.now()}.png`;
+                      await sendFileByUrl(chatId, editResult.imageUrl, fileName, editResult.description || '');
+                      console.log('🎨 [OUTGOING] Edited image sent successfully');
+                    } else if (editResult.textResponse) {
+                      // Gemini returned text instead of image
+                      await sendTextMessage(chatId, `⚠️ ${editResult.textResponse}\n\n💡 הצעה: נסה עם OpenAI - שלח "# נסה שוב, עם OpenAI"`);
+                      console.log('🎨 [OUTGOING] Gemini returned text instead of image, sent suggestion to user');
+                    } else {
+                      await sendTextMessage(chatId, `❌ ${editResult.error || 'לא הצלחתי לערוך את התמונה'}`);
+                      console.log('🎨 [OUTGOING] Error message sent:', editResult.error);
+                    }
+                  } else {
+                    // This is image ANALYSIS - use analyzeImageWithText
+                    const { analyzeImageWithText } = require('../services/geminiService');
+                    console.log(`🔍 [OUTGOING] Detected image analysis request in gemini_chat`);
+                    
+                    // Check if user wants to reference previous messages
+                    let finalPromptOutgoingImage = prompt;
+                    if (decision.args?.needsChatHistory) {
+                      try {
+                        console.log(`📜 User requested chat history context for image analysis (outgoing), fetching last ${CHAT_HISTORY_LIMIT} messages...`);
+                        const chatHistory = await getChatHistory(chatId, CHAT_HISTORY_LIMIT);
+                        
+                        if (chatHistory && chatHistory.length > 0) {
+                          const formattedHistory = formatChatHistoryForContext(chatHistory);
+                          finalPromptOutgoingImage = `להלן ההודעות האחרונות בשיחה/קבוצה:\n\n${formattedHistory}\n\nבהתבסס על ההודעות לעיל, ${prompt}`;
+                          console.log(`✅ Added ${chatHistory.length} messages as context to image analysis (outgoing)`);
+                        }
+                      } catch (historyError) {
+                        console.error('❌ Error fetching chat history:', historyError);
+                      }
+                    }
+                    
+                    const result = await analyzeImageWithText(finalPromptOutgoingImage, base64Image);
+                    if (result.success) {
+                      await sendTextMessage(chatId, result.text);
+                    } else {
+                      await sendTextMessage(chatId, `❌ ${result.error}`);
                     }
                   }
-                  
-                  const result = await analyzeImageWithText(finalPromptOutgoingImage, base64Image);
-                  if (result.success) {
-                    await sendTextMessage(chatId, result.text);
-                  } else {
-                    await sendTextMessage(chatId, `❌ ${result.error}`);
-                  }
                 } catch (error) {
-                  await sendTextMessage(chatId, `❌ שגיאה בניתוח התמונה: ${error.message}`);
+                  await sendTextMessage(chatId, `❌ שגיאה בעיבוד התמונה: ${error.message}`);
                 }
               } else if (normalized.hasVideo) {
                 // This is video analysis - use analyzeVideoWithText
@@ -4125,6 +4234,7 @@ async function handleOutgoingMessage(webhookData) {
             
             // ═══════════════════ CHAT SUMMARY ═══════════════════
             case 'chat_summary': {
+              saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'chat_summary' });
               const chatHistory = await getChatHistory(chatId, CHAT_HISTORY_LIMIT);
               if (chatHistory && chatHistory.length > 0) {
@@ -4210,6 +4320,7 @@ async function handleOutgoingMessage(webhookData) {
             
             case 'veo3_video':
             case 'kling_text_to_video': {
+              saveLastCommand(chatId, decision, { normalized });
               const service = decision.tool === 'veo3_video' ? 'veo3' : 'kling';
               console.log(`🎬 ${service} text-to-video request (outgoing)`);
               await sendAck(chatId, { type: decision.tool });
@@ -4353,6 +4464,7 @@ async function handleOutgoingMessage(webhookData) {
                 return;
               }
               
+              saveLastCommand(chatId, decision, { audioUrl, normalized });
               await sendAck(chatId, { type: 'creative_voice_processing' });
               
               await handleCreativeVoiceMessage({ chatId, senderId, senderName, audioUrl });
@@ -4366,6 +4478,7 @@ async function handleOutgoingMessage(webhookData) {
                 return;
               }
               
+              saveLastCommand(chatId, decision, { audioUrl, normalized });
               await sendAck(chatId, { type: 'voice_cloning_response' });
               
               await handleVoiceMessage({ chatId, senderId, senderName, audioUrl });
@@ -4498,6 +4611,7 @@ async function handleOutgoingMessage(webhookData) {
             }
             
             case 'gemini_chat': {
+              saveLastCommand(chatId, decision, { imageUrl, normalized });
               await sendAck(chatId, { type: 'gemini_chat' });
               // Image analysis - use analyzeImageWithText
               const { analyzeImageWithText } = require('../services/geminiService');
@@ -4596,6 +4710,7 @@ async function handleOutgoingMessage(webhookData) {
 
           switch (decision.tool) {
             case 'gemini_chat': {
+              saveLastCommand(chatId, decision, { videoUrl, normalized });
               await sendAck(chatId, { type: 'gemini_chat' });
               // Video analysis - use analyzeVideoWithText
               const { analyzeVideoWithText } = require('../services/geminiService');
