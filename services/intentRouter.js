@@ -137,8 +137,8 @@ async function routeIntent(input) {
     // Note: Don't use \b after Hebrew words - it doesn't work in JavaScript
     const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|מסוכן|בטוח)|^\b(identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous)\b/i.test(prompt);
     if (isAnalysisRequest) {
-      // Check if user wants to reference previous messages in the analysis
-      const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
+      // Check if user wants to reference previous messages in the analysis (EXPANDED PATTERNS)
+      const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|מה\s+(אמרתי|אמרת|כתבתי|כתבת|שלחתי|שלחת|דיברתי|דיברת)\s+(קודם|לפני|בהודעה|בשיחה)?|על\s+מה\s+(דיברנו|עסקנו|שוחחנו)|כפי\s+ש(אמרת|כתבת|ציינת)|כמו\s+ש(אמרת|כתבת)|בהמשך\s+ל|בהתאם\s+ל(שיחה|דיון)|ממה\s+שאמר|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages|what\s+(did\s+)?(I|we|you)\s+(say|said|write|wrote|mention|talk|discuss)|as\s+(I|we|you)\s+(said|mentioned|discussed)|continuing\s+(from|the)|as\s+we\s+(talked|discussed|mentioned)|like\s+(I|you)\s+said/i.test(prompt);
       // Check for Google Search request
       const needsGoogleSearch = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
       return { tool: 'gemini_chat', args: { prompt, needsChatHistory, useGoogleSearch: needsGoogleSearch }, reason: 'Image analysis/question' };
@@ -146,8 +146,8 @@ async function routeIntent(input) {
     
     // Default: If no clear pattern detected, treat as analysis/question
     // This is safer than defaulting to edit
-    // Check if user wants to reference previous messages in the analysis
-    const needsChatHistoryDefault = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
+    // Check if user wants to reference previous messages in the analysis (EXPANDED PATTERNS)
+    const needsChatHistoryDefault = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|מה\s+(אמרתי|אמרת|כתבתי|כתבת|שלחתי|שלחת|דיברתי|דיברת)\s+(קודם|לפני|בהודעה|בשיחה)?|על\s+מה\s+(דיברנו|עסקנו|שוחחנו)|כפי\s+ש(אמרת|כתבת|ציינת)|כמו\s+ש(אמרת|כתבת)|בהמשך\s+ל|בהתאם\s+ל(שיחה|דיון)|ממה\s+שאמר|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages|what\s+(did\s+)?(I|we|you)\s+(say|said|write|wrote|mention|talk|discuss)|as\s+(I|we|you)\s+(said|mentioned|discussed)|continuing\s+(from|the)|as\s+we\s+(talked|discussed|mentioned)|like\s+(I|you)\s+said/i.test(prompt);
     // Check for Google Search request
     const needsGoogleSearchDefault = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
     return { tool: 'gemini_chat', args: { prompt, needsChatHistory: needsChatHistoryDefault, useGoogleSearch: needsGoogleSearchDefault }, reason: 'Image-related request (default to analysis)' };
@@ -161,8 +161,8 @@ async function routeIntent(input) {
     // Note: Don't use \b after Hebrew words - it doesn't work in JavaScript
     const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|מסוכן|בטוח)|^\b(identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous)\b/i.test(prompt);
     if (isAnalysisRequest) {
-      // Check if user wants to reference previous messages in the analysis
-      const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
+      // Check if user wants to reference previous messages in the analysis (EXPANDED PATTERNS)
+      const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|מה\s+(אמרתי|אמרת|כתבתי|כתבת|שלחתי|שלחת|דיברתי|דיברת)\s+(קודם|לפני|בהודעה|בשיחה)?|על\s+מה\s+(דיברנו|עסקנו|שוחחנו)|כפי\s+ש(אמרת|כתבת|ציינת)|כמו\s+ש(אמרת|כתבת)|בהמשך\s+ל|בהתאם\s+ל(שיחה|דיון)|ממה\s+שאמר|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages|what\s+(did\s+)?(I|we|you)\s+(say|said|write|wrote|mention|talk|discuss)|as\s+(I|we|you)\s+(said|mentioned|discussed)|continuing\s+(from|the)|as\s+we\s+(talked|discussed|mentioned)|like\s+(I|you)\s+said/i.test(prompt);
       // Check for Google Search request
       const needsGoogleSearch = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
       return { tool: 'gemini_chat', args: { prompt, needsChatHistory, useGoogleSearch: needsGoogleSearch }, reason: 'Video analysis/question' };
@@ -183,8 +183,8 @@ async function routeIntent(input) {
     
     // Default: If no clear pattern detected, treat as analysis/question
     // This is safer than defaulting to edit
-    // Check if user wants to reference previous messages in the analysis
-    const needsChatHistoryVideoDefault = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
+    // Check if user wants to reference previous messages in the analysis (EXPANDED PATTERNS)
+    const needsChatHistoryVideoDefault = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|מה\s+(אמרתי|אמרת|כתבתי|כתבת|שלחתי|שלחת|דיברתי|דיברת)\s+(קודם|לפני|בהודעה|בשיחה)?|על\s+מה\s+(דיברנו|עסקנו|שוחחנו)|כפי\s+ש(אמרת|כתבת|ציינת)|כמו\s+ש(אמרת|כתבת)|בהמשך\s+ל|בהתאם\s+ל(שיחה|דיון)|ממה\s+שאמר|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages|what\s+(did\s+)?(I|we|you)\s+(say|said|write|wrote|mention|talk|discuss)|as\s+(I|we|you)\s+(said|mentioned|discussed)|continuing\s+(from|the)|as\s+we\s+(talked|discussed|mentioned)|like\s+(I|you)\s+said/i.test(prompt);
     // Check for Google Search request
     const needsGoogleSearchVideoDefault = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
     return { tool: 'gemini_chat', args: { prompt, needsChatHistory: needsChatHistoryVideoDefault, useGoogleSearch: needsGoogleSearchVideoDefault }, reason: 'Video-related request (default to analysis)' };
@@ -220,8 +220,8 @@ async function routeIntent(input) {
     }
     
     // Third priority: General requests (transcription, translation, etc.) - route to gemini_chat
-    // These will need transcription first, then processing
-    const needsChatHistoryAudio = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
+    // These will need transcription first, then processing (EXPANDED PATTERNS)
+    const needsChatHistoryAudio = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|מה\s+(אמרתי|אמרת|כתבתי|כתבת|שלחתי|שלחת|דיברתי|דיברת)\s+(קודם|לפני|בהודעה|בשיחה)?|על\s+מה\s+(דיברנו|עסקנו|שוחחנו)|כפי\s+ש(אמרת|כתבת|ציינת)|כמו\s+ש(אמרת|כתבת)|בהמשך\s+ל|בהתאם\s+ל(שיחה|דיון)|ממה\s+שאמר|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages|what\s+(did\s+)?(I|we|you)\s+(say|said|write|wrote|mention|talk|discuss)|as\s+(I|we|you)\s+(said|mentioned|discussed)|continuing\s+(from|the)|as\s+we\s+(talked|discussed|mentioned)|like\s+(I|you)\s+said/i.test(prompt);
     // Check for Google Search request
     const needsGoogleSearchAudio = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
     return { tool: 'gemini_chat', args: { prompt, needsChatHistory: needsChatHistoryAudio, needsTranscription: true, useGoogleSearch: needsGoogleSearchAudio }, reason: 'Audio with general request (transcribe + process)' };
@@ -455,9 +455,10 @@ async function routeIntent(input) {
     const wantsGemini = /\bgemini\b|ג'מיני|ג׳מיני|ג׳ימיני|ג'ימיני/i.test(prompt);
     
     // Check if user wants to reference previous messages in the chat/group
-    // Hebrew patterns: לפי ההודעות, על סמך ההודעות, בהתייחס להודעות, על פי ההודעות, לפי השיחה, מההודעות האחרונות, etc.
-    // English patterns: based on messages, according to messages, referring to messages, based on chat, from recent messages, etc.
-    const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
+    // EXPANDED: Now detects implicit context needs like "what did I say?", "continuing from...", "as we discussed"
+    // Hebrew patterns: לפי ההודעות, מה אמרתי, מה כתבתי, על מה דיברנו, במה עסקנו, בהמשך ל, כפי שאמרת, etc.
+    // English patterns: based on messages, what did I say, what did we discuss, as we talked, continuing from, as you said, etc.
+    const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|מה\s+(אמרתי|אמרת|כתבתי|כתבת|שלחתי|שלחת|דיברתי|דיברת)\s+(קודם|לפני|בהודעה|בשיחה)?|על\s+מה\s+(דיברנו|עסקנו|שוחחנו)|כפי\s+ש(אמרת|כתבת|ציינת)|כמו\s+ש(אמרת|כתבת)|בהמשך\s+ל|בהתאם\s+ל(שיחה|דיון)|ממה\s+שאמר|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages|what\s+(did\s+)?(I|we|you)\s+(say|said|write|wrote|mention|talk|discuss)|as\s+(I|we|you)\s+(said|mentioned|discussed)|continuing\s+(from|the)|as\s+we\s+(talked|discussed|mentioned)|like\s+(I|you)\s+said/i.test(prompt);
     
     if (wantsOpenAI) {
       return { tool: 'openai_chat', args: { prompt, needsChatHistory, useGoogleSearch: needsGoogleSearch }, reason: 'Chat request, user requested OpenAI' };
@@ -576,7 +577,7 @@ ${JSON.stringify(payload, null, 2)}
         - "can I eat this?" → "gemini_chat"
       → "gemini_chat" (text-only analysis)
       
-      💡 **CHAT HISTORY**: If request mentions previous messages (e.g., "לפי ההודעות האחרונות מה זה?"), set needsChatHistory=true
+      💡 **CHAT HISTORY**: Auto-detect context needs! Set needsChatHistory=true if request mentions previous messages OR asks about past conversation (e.g., "לפי ההודעות מה זה?", "מה אמרתי קודם?", "what did we discuss?")
    
    C. **Image Editing** (third priority - requires authorization):
       ✓ Edit keywords WITH ALL HEBREW CONJUGATIONS (male/female/plural):
@@ -614,7 +615,7 @@ ${JSON.stringify(payload, null, 2)}
         - "what is happening in this video?" → "gemini_chat"
       → "gemini_chat" (text-only analysis)
       
-      💡 **CHAT HISTORY**: If request mentions previous messages (e.g., "לפי ההודעות בקבוצה מה קורה בוידאו?"), set needsChatHistory=true
+      💡 **CHAT HISTORY**: Auto-detect context needs! Set needsChatHistory=true if request mentions previous messages OR asks about past conversation (e.g., "לפי ההודעות מה בוידאו?", "מה דיברנו?", "as we discussed")
    
    B. **Video Editing** (second priority - requires authorization):
       ✓ Edit keywords WITH ALL HEBREW CONJUGATIONS (male/female/plural):
@@ -791,14 +792,33 @@ ${JSON.stringify(payload, null, 2)}
       ⚠️ CRITICAL: Hebrew names like "גרוק", "ג'מיני" are FULL WORDS, match them!
       
       🔍 **CHAT HISTORY CONTEXT** (applies to ALL chat tools):
-      If the user's request mentions previous messages in the chat/group, set needsChatHistory=true in args:
-      Hebrew patterns: "לפי ההודעות", "על סמך ההודעות", "בהתייחס להודעות", "על פי ההודעות", "לפי השיחה", "מההודעות האחרונות", "הודעות אחרונות", "הודעות קודמות"
-      English patterns: "based on messages", "according to messages", "referring to messages", "based on chat", "from recent messages", "recent messages", "previous messages"
+      **BE SMART**: Automatically detect when the user needs conversation context!
+      Set needsChatHistory=true when:
+      
+      ✓ **Explicit references** to previous messages:
+        Hebrew: "לפי ההודעות", "על סמך השיחה", "בהתייחס להודעות", "מההודעות האחרונות"
+        English: "based on messages", "according to the chat", "referring to messages", "from recent messages"
+      
+      ✓ **Questions about past conversation**:
+        Hebrew: "מה אמרתי קודם?", "מה כתבת?", "על מה דיברנו?", "במה עסקנו?"
+        English: "what did I say?", "what did you write?", "what did we discuss?", "what were we talking about?"
+      
+      ✓ **Continuing from previous context**:
+        Hebrew: "בהמשך ל...", "כפי שאמרת", "כמו שכתבת", "בהתאם לשיחה"
+        English: "continuing from...", "as you said", "like you mentioned", "as we discussed"
+      
+      ✓ **Implicit context needs** (when question assumes shared knowledge):
+        - "מה התוצאה?" (what's the result?) - assumes something was discussed
+        - "עוד משהו?" (anything else?) - refers to previous topic
+        - "תשלים את זה" (finish it) - refers to something mentioned before
+        - "תוסיף לזה" (add to it) - needs context about "it"
       
       Examples with chat history:
       - "# לפי ההודעות האחרונות, מה אני צריך לעשות?" → {"tool": "gemini_chat", "args": {"prompt": "...", "needsChatHistory": true}}
-      - "# על סמך השיחה, תן לי סיכום" → {"tool": "gemini_chat", "args": {"prompt": "...", "needsChatHistory": true}}
-      - "# based on the recent messages, what should I do?" → {"tool": "gemini_chat", "args": {"prompt": "...", "needsChatHistory": true}}
+      - "# מה אמרתי על הפרויקט?" → {"tool": "gemini_chat", "args": {"prompt": "...", "needsChatHistory": true}}
+      - "# what did we discuss about the meeting?" → {"tool": "gemini_chat", "args": {"prompt": "...", "needsChatHistory": true}}
+      - "# תשלים את זה" → {"tool": "gemini_chat", "args": {"prompt": "...", "needsChatHistory": true}} (implicit reference)
+      - "# בהמשך למה שדיברנו, מה דעתך?" → {"tool": "gemini_chat", "args": {"prompt": "...", "needsChatHistory": true}}
       
       🌐 **GOOGLE SEARCH** (applies to ALL chat tools):
       If the user explicitly requests web search or links, set useGoogleSearch=true in args:
