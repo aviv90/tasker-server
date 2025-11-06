@@ -155,8 +155,20 @@ async function routeIntent(input) {
 
   // If there is an attached video with text prompt → decide between video analysis vs video-to-video
   if (input.hasVideo && prompt) {
-    // First priority: Video-to-video editing (requires authorization)
-    // IMPORTANT: Check edit BEFORE analysis to catch edit imperatives like "תוריד", "תסיר"
+    // First priority: Check if user wants video analysis/questions (text-only response)
+    // IMPORTANT: Check analysis BEFORE edit - questions like "האם גמד מעורב?" should be analysis, not edit
+    // Same pattern as image analysis
+    // Note: Don't use \b after Hebrew words - it doesn't work in JavaScript
+    const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|מסוכן|בטוח)|^\b(identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous)\b/i.test(prompt);
+    if (isAnalysisRequest) {
+      // Check if user wants to reference previous messages in the analysis
+      const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
+      // Check for Google Search request
+      const needsGoogleSearch = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
+      return { tool: 'gemini_chat', args: { prompt, needsChatHistory, useGoogleSearch: needsGoogleSearch }, reason: 'Video analysis/question' };
+    }
+    
+    // Second priority: Video-to-video editing (requires authorization)
     // Edit keywords: add, remove, change, make, create, replace, etc.
     // Hebrew imperatives with ALL conjugations (male/female/plural): תוריד/תורידי/תורידו, מחק/מחקי/מחקו...
     const isEditRequest = /\b(add|remove|delete|change|replace|modify|edit|make|create|draw|paint|color|set|put|insert|erase|fix|adjust|enhance|improve|transform|convert)\b|הוסף|הוסיפ|תוסיפ|סיר|תסיר|הסר|תסירי|תסירו|מחק|מחקי|מחקו|תמחק|תמחקי|תמחקו|הורד|הורידי|הורידו|תוריד|תורידי|תורידו|שנה|שני|תשנה|תשני|תשנו|החלף|החליפ|תחליף|תחליפי|תחליפו|ערוך|ערכי|תערוך|תערכי|תערכו|צור|צרי|תצור|תצרי|תצרו|צייר|צירי|תצייר|תצירי|תצירו|צבע|צבעי|תצבע|תצבעי|תצבעו|הכנס|הכניס|תכניס|תכניסי|תכניסו|תקן|תקני|תתקן|תתקני|תתקנו|שפר|שפרי|תשפר|תשפרי|תשפרו|המר|המירי|תמיר|תמירי|תמירו|הפוך(?!.*וידאו)|עשה|עשי|תעשה|תעשי|תעשו|תן/i.test(prompt);
@@ -167,18 +179,6 @@ async function routeIntent(input) {
       // Only Runway for video editing
       const service = 'runway';
       return { tool: 'video_to_video', args: { service, prompt }, reason: 'Video edit request' };
-    }
-    
-    // Second priority: Check if user wants video analysis/questions (text-only response)
-    // Same pattern as image analysis
-    // Note: Don't use \b after Hebrew words - it doesn't work in JavaScript
-    const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|מסוכן|בטוח)|^\b(identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous)\b/i.test(prompt);
-    if (isAnalysisRequest) {
-      // Check if user wants to reference previous messages in the analysis
-      const needsChatHistory = /לפי\s+(ה)?(הודעות|שיחה|צ'אט|קבוצה)|על\s+סמך\s+(ה)?(הודעות|שיחה)|בהתייחס\s+ל(הודעות|שיחה)|על\s+פי\s+(ה)?(הודעות|שיחה)|מ(ה)?(הודעות|שיחה)\s+(האחרונות|האחרונה|הקודמות|הקודמת)|הודעות\s+אחרונות|הודעות\s+קודמות|based\s+on\s+(the\s+)?(messages|chat|conversation)|according\s+to\s+(the\s+)?(messages|chat)|referring\s+to\s+(the\s+)?(messages|chat)|from\s+(the\s+)?(recent|previous|last)\s+(messages|chat)|recent\s+messages|previous\s+messages/i.test(prompt);
-      // Check for Google Search request
-      const needsGoogleSearch = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
-      return { tool: 'gemini_chat', args: { prompt, needsChatHistory, useGoogleSearch: needsGoogleSearch }, reason: 'Video analysis/question' };
     }
     
     // Default: If no clear pattern detected, treat as analysis/question
