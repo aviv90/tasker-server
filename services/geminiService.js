@@ -1273,6 +1273,36 @@ async function generateVideoFromImageForWhatsApp(prompt, imageBuffer, req = null
     }
 }
 
+// ⚡ Pre-compiled regex patterns for performance (created once, not on every call)
+const META_PHRASE_PATTERNS = [
+    /^This (directly )?addresses? the question[^.]*\.\s*/i,
+    /^I('| a)m (understanding|explaining|providing|answering)[^.]*\.\s*/i,
+    /^Let me (answer|explain|clarify|tell you)[^.]*\.\s*/i,
+    /^As (an AI|requested)[^.]*\.\s*/i,
+    /^My (response|answer) (is|should be)[^.]*\.\s*/i,
+    /^I should (answer|respond|explain)[^.]*\.\s*/i,
+    /^To answer (this|the question)[^.]*\.\s*/i,
+    /^The (answer|response) (is|should be)[^.]*\.\s*/i,
+    /^Based on (the question|what you asked)[^.]*\.\s*/i,
+    /^Got it\.\s+I need to[^.]*\.\s*/gi,
+    /^I need to (pivot|move|shift|change)[^.]*\.\s*/gi,
+    /^I'll (acknowledge|recognize|note|pivot)[^.]*\.\s*/gi
+];
+
+const THINKING_SECTION_PATTERNS = [
+    /My internal thoughts?:[\s\S]*?(?=\n\n|\n[א-ת]|$)/gi,
+    /Internal thoughts?:[\s\S]*?(?=\n\n|\n[א-ת]|$)/gi,
+    /Thoughts?:[\s\S]*?(?=\n\n|\n[א-ת]|$)/gi,
+    /\(thinking:[\s\S]*?\)/gi,
+    /^-\s+(Acknowledge|Be friendly|Do not|Wait for)[\s\S]*?(?=\n\n|$)/gmi
+];
+
+const PARENTHETICAL_PATTERNS = [
+    /\([^)]*without asking[^)]*\)/gi,
+    /\([^)]*as the rules state[^)]*\)/gi,
+    /\([^)]*as requested[^)]*\)/gi
+];
+
 /**
  * Clean meta-linguistic thinking patterns and duplicate text from Gemini responses
  * Gemini sometimes ignores instructions and adds reasoning/thinking in English
@@ -1286,41 +1316,19 @@ function cleanThinkingPatterns(text) {
     const originalLength = text.length;
     
     // 1. Remove English meta-linguistic phrases that appear at the start
-    // These often appear before the actual answer
-    const metaPhrases = [
-        /^This (directly )?addresses? the question[^.]*\.\s*/i,
-        /^I('| a)m (understanding|explaining|providing|answering)[^.]*\.\s*/i,
-        /^Let me (answer|explain|clarify|tell you)[^.]*\.\s*/i,
-        /^As (an AI|requested)[^.]*\.\s*/i,
-        /^My (response|answer) (is|should be)[^.]*\.\s*/i,
-        /^I should (answer|respond|explain)[^.]*\.\s*/i,
-        /^To answer (this|the question)[^.]*\.\s*/i,
-        /^The (answer|response) (is|should be)[^.]*\.\s*/i,
-        /^Based on (the question|what you asked)[^.]*\.\s*/i,
-        /^Got it\.\s+I need to[^.]*\.\s*/gi,
-        /^I need to (pivot|move|shift|change)[^.]*\.\s*/gi,
-        /^I'll (acknowledge|recognize|note|pivot)[^.]*\.\s*/gi
-    ];
-    
-    for (const pattern of metaPhrases) {
+    for (const pattern of META_PHRASE_PATTERNS) {
         cleaned = cleaned.replace(pattern, '');
     }
     
     // 1.5. Remove "My internal thoughts:" sections (CRITICAL!)
-    // This is the most egregious violation - exposing internal reasoning
-    cleaned = cleaned.replace(/My internal thoughts?:[\s\S]*?(?=\n\n|\n[א-ת]|$)/gi, '');
-    cleaned = cleaned.replace(/Internal thoughts?:[\s\S]*?(?=\n\n|\n[א-ת]|$)/gi, '');
-    cleaned = cleaned.replace(/Thoughts?:[\s\S]*?(?=\n\n|\n[א-ת]|$)/gi, '');
-    cleaned = cleaned.replace(/\(thinking:[\s\S]*?\)/gi, '');
-    
-    // Remove bullet point thinking lists
-    cleaned = cleaned.replace(/^-\s+(Acknowledge|Be friendly|Do not|Wait for)[\s\S]*?(?=\n\n|$)/gmi, '');
+    for (const pattern of THINKING_SECTION_PATTERNS) {
+        cleaned = cleaned.replace(pattern, '');
+    }
     
     // 2. Remove parenthetical thinking/reasoning in English
-    // Example: "(without asking for more context)" or "(as the rules state...)"
-    cleaned = cleaned.replace(/\([^)]*without asking[^)]*\)/gi, '');
-    cleaned = cleaned.replace(/\([^)]*as the rules state[^)]*\)/gi, '');
-    cleaned = cleaned.replace(/\([^)]*as requested[^)]*\)/gi, '');
+    for (const pattern of PARENTHETICAL_PATTERNS) {
+        cleaned = cleaned.replace(pattern, '');
+    }
     
     // 3. Remove duplicate paragraphs/sentences
     // Sometimes Gemini repeats the same text twice
