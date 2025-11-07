@@ -24,6 +24,137 @@ const getServices = () => {
  */
 
 /**
+ * Utility functions for smart retry strategies
+ */
+
+/**
+ * Simplify a complex prompt by removing unnecessary details
+ * @param {string} prompt - Original prompt
+ * @returns {string} - Simplified prompt
+ */
+function simplifyPrompt(prompt) {
+  if (!prompt) return prompt;
+  
+  // Remove excessive details, adjectives, and complex descriptions
+  let simplified = prompt;
+  
+  // Remove multiple adjectives (keep only core nouns/verbs)
+  // "beautiful, stunning, amazing cat" → "cat"
+  simplified = simplified.replace(/(\w+,\s*){2,}(\w+)\s+(\w+)/gi, '$3');
+  
+  // Remove very specific style requests
+  simplified = simplified.replace(/\b(in the style of|בסגנון|כמו|like)\s+.+?(,|\.|$)/gi, '');
+  
+  // Remove detailed background descriptions
+  simplified = simplified.replace(/\b(with (a |an )?background|ברקע|עם רקע)\s+.+?(,|\.|$)/gi, '');
+  
+  // Remove complex lighting/atmosphere descriptions
+  simplified = simplified.replace(/\b(lighting|תאורה|אווירה|atmosphere):?\s+.+?(,|\.|$)/gi, '');
+  
+  // Trim and clean up
+  simplified = simplified.trim().replace(/\s+/g, ' ');
+  
+  // If we removed too much, return original
+  if (simplified.length < 10) return prompt;
+  
+  return simplified;
+}
+
+/**
+ * Check if a prompt is too complex and should be split
+ * @param {string} prompt - Prompt to check
+ * @returns {boolean} - True if should split
+ */
+function shouldSplitTask(prompt) {
+  if (!prompt) return false;
+  
+  // Check for multiple independent requests
+  const hasMultipleRequests = /\bו(גם|אז|אחר כך|לאחר מכן)\b/gi.test(prompt) || 
+                              /\b(and then|after that|also|plus)\b/gi.test(prompt);
+  
+  // Check for conditional logic
+  const hasConditional = /\b(אם|if|when|כש|במידה)\b/gi.test(prompt);
+  
+  // Check for multiple steps explicitly mentioned
+  const hasSteps = /\b(קודם|ראשון|שני|שלישי|אחרון|first|second|third|last|step)\b/gi.test(prompt);
+  
+  // Check prompt length (very long prompts often need splitting)
+  const isTooLong = prompt.length > 200;
+  
+  return (hasMultipleRequests || hasConditional || hasSteps) && isTooLong;
+}
+
+/**
+ * Split a complex prompt into smaller subtasks
+ * @param {string} prompt - Complex prompt
+ * @returns {string[]} - Array of subtasks
+ */
+function splitTaskIntoSteps(prompt) {
+  if (!prompt) return [prompt];
+  
+  const steps = [];
+  
+  // Try to split by explicit connectors
+  const splitPatterns = [
+    /\s+(ואז|ואחר כך|ולאחר מכן|וגם)\s+/gi,
+    /\s+(and then|after that|afterwards|also)\s+/gi,
+    /\.\s+/g  // Split by sentences
+  ];
+  
+  let parts = [prompt];
+  
+  for (const pattern of splitPatterns) {
+    if (pattern.test(prompt)) {
+      parts = prompt.split(pattern).filter(p => p.trim().length > 10);
+      break;
+    }
+  }
+  
+  // If we couldn't split intelligently, try to extract main concepts
+  if (parts.length === 1 && prompt.length > 150) {
+    // Extract main nouns/actions as separate steps
+    const mainConcepts = prompt.match(/\b(צור|תצור|ערוך|תערוך|נתח|תנתח|הוסף|תוסיף|create|edit|analyze|add)\s+[^,\.]+/gi);
+    
+    if (mainConcepts && mainConcepts.length > 1) {
+      return mainConcepts.map(c => c.trim());
+    }
+  }
+  
+  return parts.length > 1 ? parts.map(p => p.trim()) : [prompt];
+}
+
+/**
+ * Make a prompt more generic by removing specific details
+ * @param {string} prompt - Original prompt
+ * @returns {string} - Generic version
+ */
+function makePromptMoreGeneric(prompt) {
+  if (!prompt) return prompt;
+  
+  let generic = prompt;
+  
+  // Remove specific names/brands
+  generic = generic.replace(/\b(של|מבית|by|from)\s+[A-Z][a-z]+\b/g, '');
+  
+  // Remove specific years/dates
+  generic = generic.replace(/\b(מ?שנת|from|in)\s+(19|20)\d{2}\b/gi, '');
+  
+  // Remove very specific technical terms
+  generic = generic.replace(/\b(resolution|רזולוציה|quality|איכות):\s*\d+[a-z]*/gi, '');
+  
+  // Remove specific color codes
+  generic = generic.replace(/#[0-9A-Fa-f]{6}\b/g, 'color');
+  
+  // Simplify comparative language
+  generic = generic.replace(/\b(very|extremely|super|incredibly|מאוד|סופר|במיוחד)\s+/gi, '');
+  
+  // Trim
+  generic = generic.trim().replace(/\s+/g, ' ');
+  
+  return generic;
+}
+
+/**
  * Define available tools for the agent
  */
 const agentTools = {
@@ -393,7 +524,165 @@ const agentTools = {
     }
   },
 
-  // Tool 6: Retry with different provider (meta-tool)
+  // Tool 6: Smart Execute with Fallback (meta-tool - Stage 3)
+  smart_execute_with_fallback: {
+    declaration: {
+      name: 'smart_execute_with_fallback',
+      description: 'בצע משימה עם אסטרטגיות fallback חכמות. אם ניסיון ראשון נכשל, ננסה אוטומטית: לפשט את הפרומפט, לנסות ספק אחר, או לפצל למשימות קטנות יותר. השתמש בכלי הזה רק לאחר שניסיון רגיל כבר נכשל!',
+      parameters: {
+        type: 'object',
+        properties: {
+          task_type: {
+            type: 'string',
+            description: 'סוג המשימה: image_creation, video_creation, audio_creation',
+            enum: ['image_creation', 'video_creation', 'audio_creation']
+          },
+          original_prompt: {
+            type: 'string',
+            description: 'הפרומפט המקורי שנכשל'
+          },
+          failure_reason: {
+            type: 'string',
+            description: 'למה הניסיון הראשון נכשל'
+          },
+          provider_tried: {
+            type: 'string',
+            description: 'איזה ספק כבר נוסה (gemini/openai/grok)',
+            enum: ['gemini', 'openai', 'grok']
+          }
+        },
+        required: ['task_type', 'original_prompt', 'failure_reason']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🧠 [Agent Tool] smart_execute_with_fallback called for ${args.task_type}`);
+      
+      try {
+        const { geminiService, openaiService, grokService } = getServices();
+        
+        // Strategy 1: Try different provider
+        console.log(`📊 Strategy 1: Trying different provider...`);
+        const providersTried = args.provider_tried ? [args.provider_tried] : [];
+        const providers = ['gemini', 'openai', 'grok'].filter(p => !providersTried.includes(p));
+        
+        for (const provider of providers) {
+          console.log(`   → Attempting with ${provider}...`);
+          
+          try {
+            let result;
+            if (args.task_type === 'image_creation') {
+              if (provider === 'openai') {
+                result = await openaiService.generateImageForWhatsApp(args.original_prompt);
+              } else if (provider === 'grok') {
+                result = await grokService.generateImageForWhatsApp(args.original_prompt);
+              } else {
+                result = await geminiService.generateImageForWhatsApp(args.original_prompt);
+              }
+              
+              if (!result.error) {
+                return {
+                  success: true,
+                  data: `✅ הצלחתי עם ${provider}! (אסטרטגיה: ספק חלופי)`,
+                  imageUrl: result.url,
+                  strategy_used: 'different_provider',
+                  provider: provider
+                };
+              }
+            }
+          } catch (e) {
+            console.log(`   ✗ ${provider} failed: ${e.message}`);
+          }
+        }
+        
+        // Strategy 2: Simplify prompt
+        console.log(`📊 Strategy 2: Simplifying prompt...`);
+        const simplifiedPrompt = simplifyPrompt(args.original_prompt);
+        
+        if (simplifiedPrompt !== args.original_prompt) {
+          console.log(`   → Original: "${args.original_prompt}"`);
+          console.log(`   → Simplified: "${simplifiedPrompt}"`);
+          
+          try {
+            let result;
+            if (args.task_type === 'image_creation') {
+              result = await geminiService.generateImageForWhatsApp(simplifiedPrompt);
+              
+              if (!result.error) {
+                return {
+                  success: true,
+                  data: `✅ הצלחתי עם פרומפט פשוט יותר! (אסטרטגיה: פישוט)`,
+                  imageUrl: result.url,
+                  strategy_used: 'simplified_prompt',
+                  original_prompt: args.original_prompt,
+                  simplified_prompt: simplifiedPrompt
+                };
+              }
+            }
+          } catch (e) {
+            console.log(`   ✗ Simplified prompt failed: ${e.message}`);
+          }
+        }
+        
+        // Strategy 3: Split into smaller tasks (for complex prompts)
+        console.log(`📊 Strategy 3: Checking if task should be split...`);
+        if (shouldSplitTask(args.original_prompt)) {
+          const subtasks = splitTaskIntoSteps(args.original_prompt);
+          console.log(`   → Split into ${subtasks.length} subtasks`);
+          
+          return {
+            success: false,
+            data: `הפרומפט מורכב מדי. אני מציע לפצל למשימות קטנות יותר:\n${subtasks.map((t, i) => `${i+1}. ${t}`).join('\n')}`,
+            strategy_used: 'suggest_split',
+            subtasks: subtasks
+          };
+        }
+        
+        // Strategy 4: Try with relaxed parameters (less strict)
+        console.log(`📊 Strategy 4: Trying with relaxed parameters...`);
+        try {
+          // For images, try with a more generic/simplified version
+          const genericPrompt = makePromptMoreGeneric(args.original_prompt);
+          
+          if (genericPrompt !== args.original_prompt) {
+            console.log(`   → Generic version: "${genericPrompt}"`);
+            
+            let result;
+            if (args.task_type === 'image_creation') {
+              result = await openaiService.generateImageForWhatsApp(genericPrompt);
+              
+              if (!result.error) {
+                return {
+                  success: true,
+                  data: `✅ הצלחתי עם גרסה כללית יותר! (אסטרטגיה: הכללה)`,
+                  imageUrl: result.url,
+                  strategy_used: 'generic_prompt',
+                  original_prompt: args.original_prompt,
+                  generic_prompt: genericPrompt
+                };
+              }
+            }
+          }
+        } catch (e) {
+          console.log(`   ✗ Generic prompt failed: ${e.message}`);
+        }
+        
+        // All strategies failed
+        return {
+          success: false,
+          error: `כל האסטרטגיות נכשלו:\n1. ספקים שונים ✗\n2. פישוט פרומפט ✗\n3. פרמטרים כלליים ✗\n\nאולי תנסה לנסח את הבקשה אחרת?`
+        };
+        
+      } catch (error) {
+        console.error('❌ Error in smart_execute_with_fallback:', error);
+        return {
+          success: false,
+          error: `שגיאה במנגנון החכם: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool 7: Retry with different provider (meta-tool)
   retry_with_different_provider: {
     declaration: {
       name: 'retry_with_different_provider',
@@ -491,15 +780,39 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   const functionDeclarations = Object.values(agentTools).map(tool => tool.declaration);
   
   // System prompt for the agent
-  const systemInstruction = `אתה עוזר AI אוטונומי וחכם. יש לך גישה לכלים שיכולים לעזור לך לענות על שאלות.
+  const systemInstruction = `אתה עוזר AI אוטונומי וחכם עם יכולות מתקדמות. יש לך גישה לכלים שיכולים לעזור לך לענות על שאלות.
 
 כללי שימוש בכלים:
+
+📚 כלי מידע:
 1. אם המשתמש שואל שאלה על תוכן השיחה או מתייחס להודעות קודמות - השתמש ב-get_chat_history
 2. אם בהיסטוריה יש תמונה רלוונטית לשאלה - השתמש ב-analyze_image_from_history
 3. אם אתה צריך מידע עדכני או מידע שאינו זמין לך - השתמש ב-search_web
-4. אם אין צורך בכלים - פשוט ענה ישירות
 
-חשוב: תשיב בעברית, באופן טבעי ונעים.`;
+🎨 Meta-tools (משימות מורכבות):
+4. אם צריך ליצור תמונה ולנתח אותה מיד - השתמש ב-create_and_analyze
+5. אם צריך לנתח תמונה מההיסטוריה ואז לערוך אותה - השתמש ב-analyze_and_edit
+6. אם צריך לנסות ספק אחר - השתמש ב-retry_with_different_provider
+
+🧠 Smart Retry (Stage 3 - חדש!):
+7. אם משימה נכשלה או המשתמש לא מרוצה מהתוצאה - השתמש ב-smart_execute_with_fallback
+   הכלי הזה ינסה אוטומטית:
+   - ספקים שונים (Gemini/OpenAI/Grok)
+   - פישוט הפרומפט
+   - פרמטרים כלליים יותר
+   - הצעה לפיצול המשימה
+   
+   דוגמאות למתי להשתמש:
+   - "התמונה לא יצאה טוב"
+   - "זה לא עבד"
+   - "נסה שוב בצורה אחרת"
+   - "פשט את זה"
+
+💡 חשוב: 
+- תמיד נסה תחילה את הכלי הרגיל, ורק אם נכשל השתמש ב-smart_execute_with_fallback
+- תשיב בעברית, באופן טבעי ונעים
+- אם אין צורך בכלים - פשוט ענה ישירות`;
+
 
   // Context for tool execution
   const context = {
@@ -632,7 +945,16 @@ function shouldUseAgent(prompt, input) {
     /create.+(and|then).+(analyze|check|edit|improve)/i,
     /analyze.+(and|then).+(edit|improve|enhance)/i,
     /search.+(and|then).+(summarize|create|tell)/i,
-    /(if|when).+(not\s+good|fails?|doesn'?t\s+work).+(try|use).+(another|different|other)/i
+    /(if|when).+(not\s+good|fails?|doesn'?t\s+work).+(try|use).+(another|different|other)/i,
+    
+    // Smart retry patterns (Stage 3) - requests that imply need for fallback strategies
+    /(זה|ה\w+)\s+(לא\s+)?(עבד|עובד|הצליח|יוצא|יצא)\s+(כמו\s+שצריך|טוב|נכון|כראוי)?/i,  // "זה לא עבד", "התמונה לא יצאה טוב"
+    /(נסה|תנסה)\s+(שוב|עוד פעם)\s+(עם|ב|אבל|רק).+/i,  // "נסה שוב עם פישוט", "נסה עוד פעם אבל בפשטות"
+    /(this|it)\s+(didn'?t|doesn'?t)\s+(work|come\s+out|turn\s+out)/i,  // "it didn't work well"
+    /try\s+(again|once\s+more)\s+(with|but|using).+/i,  // "try again with simplification"
+    /(פשט|פשטו|תפשט)\s+(את\s+)?(זה|הפרומפט|הבקשה)/i,  // "פשט את זה"
+    /(simplify|make\s+it\s+simpler)/i,  // "simplify the request"
+    /too\s+(complex|complicated|detailed)/i  // "too complex"
   ];
   
   for (const pattern of agentPatterns) {
