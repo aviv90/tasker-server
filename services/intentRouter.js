@@ -39,9 +39,76 @@ function pickRandom(options) {
  *
  * The tool names are mapped 1:1 to existing command handlers in whatsappRoutes.
  */
+
+/**
+ * Detect if user is requesting improvement/modification of previous command
+ * Examples: "לא יצא טוב", "תקן את זה", "הפיל צריך להיות גדול יותר"
+ * @param {string} prompt - User's current prompt
+ * @returns {boolean} - True if this looks like a refinement request
+ */
+function isRefinementRequest(prompt) {
+  if (!prompt || prompt.length < 3) return false;
+  
+  const promptLower = prompt.toLowerCase();
+  
+  // Patterns that indicate dissatisfaction or request for improvement
+  const refinementPatterns = [
+    // Dissatisfaction / Problems
+    /לא\s+(יצא|יצאה|יוצא|טוב|נכון|מדויק|מספיק)/i,  // "לא יצא טוב", "לא נכון"
+    /didn't\s+(work|come\s+out|turn\s+out)\s+(well|good|right)/i,
+    /not\s+(good|right|correct|accurate|enough)/i,
+    
+    // Direct requests to fix/improve/change
+    /^(תקן|תקני|תקנו|תתקן|fix|correct|improve)\s+/i,  // "תקן את זה"
+    /^(שפר|שפרי|שפרו|תשפר|better|enhance)\s+/i,  // "שפר את זה"
+    /^(שנה|שני|תשנה|change|modify|alter)\s+/i,  // "שנה את זה"
+    
+    // References to "this/it" (implies previous context)
+    /^(זה|את\s+זה|this|it)\s+(לא|not|isn't|doesn't)/i,  // "זה לא טוב"
+    /(תקן|שפר|שנה|fix|improve|change)\s+(את\s+)?(זה|this|it)/i,  // "תקן את זה"
+    
+    // Comparative requests (implies current result isn't good enough)
+    /(צריך|צריכה|should|needs?)\s+(להיות|to\s+be)\s+(יותר|more|less|פחות)/i,  // "צריך להיות גדול יותר"
+    /(עם|with|בלי|without)\s+.+\s+(במקום|instead)/i,  // "עם כובע במקום משקפיים"
+    /(אבל|but)\s+(עם|with|בלי|without|ב|in)/i,  // "אבל עם שיער ארוך"
+    
+    // Explicit references to previous output
+    /(ה)?(תמונה|וידאו|שיר|מיקום|תוצאה|פלט)\s+(לא|not)/i,  // "התמונה לא יצאה טוב"
+    /(ה)?(פיל|חתול|כלב|אדם|בנין|רכב)\s+(לא|not)\s+(יצא|נראה|טוב)/i,  // "הפיל לא יצא טוב"
+    
+    // "Instead" / "Rather" patterns
+    /(במקום|instead\s+of)\s+/i,
+    /(ולא|and\s+not|rather\s+than)\s+/i
+  ];
+  
+  // Check if any pattern matches
+  for (const pattern of refinementPatterns) {
+    if (pattern.test(promptLower)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 async function routeIntent(input) {
   // Optional LLM routing (config-gated). Falls back to heuristic on any failure.
   const useLLM = String(process.env.INTENT_ROUTER_USE_LLM || '').toLowerCase() === 'on';
+  
+  // IMPORTANT: Check if this is a refinement request BEFORE general routing
+  // This allows users to refine previous commands without explicit "retry" keyword
+  const prompt = (input.userText || '').trim().replace(/^#\s+/, '');
+  
+  if (isRefinementRequest(prompt)) {
+    console.log(`🔄 Detected refinement request: "${prompt.substring(0, 50)}..."`);
+    // Mark as retry with modification - will be handled by retry_last_command logic
+    return {
+      tool: 'retry_last_command',
+      args: { prompt },
+      reason: 'Auto-detected refinement request'
+    };
+  }
+  
   if (useLLM) {
     try {
       const llmDecision = await decideWithLLM(input);

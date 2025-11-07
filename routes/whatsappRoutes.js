@@ -1773,16 +1773,56 @@ async function handleIncomingMessage(webhookData) {
                     const translatedText = translationResult.text;
                     console.log(`✅ Translated to ${targetLanguageCode}: ${translatedText.substring(0, 100)}...`);
                     
-                    // Get voice for target language
-                    const voiceResult = await voiceService.getVoiceForLanguage(targetLanguageCode);
-                    if (voiceResult.error) {
-                      // Fallback: send text if TTS fails
-                      await sendTextMessage(chatId, `🌐 תרגום ל${targetLanguage}:\n\n${translatedText}\n\n⚠️ לא הצלחתי ליצור קול: ${voiceResult.error}`);
-                      return;
+                    // ✨ VOICE CLONING: Try to clone the voice from the quoted audio
+                    // Check audio duration and decide whether to clone voice
+                    const audioDuration = await getAudioDuration(audioBuffer);
+                    const MIN_DURATION_FOR_CLONING = 4.6; // ElevenLabs minimum requirement
+                    let quotedVoiceId = null;
+                    let shouldCloneQuotedVoice = audioDuration >= MIN_DURATION_FOR_CLONING;
+                    
+                    if (shouldCloneQuotedVoice) {
+                      console.log(`🎤 Attempting voice clone (duration: ${audioDuration.toFixed(2)}s >= ${MIN_DURATION_FOR_CLONING}s)...`);
+                      
+                      const voiceCloneOptions = {
+                        name: `WhatsApp Quoted Voice Clone ${Date.now()}`,
+                        description: `Voice clone from quoted audio`,
+                        removeBackgroundNoise: true,
+                        labels: JSON.stringify({
+                          accent: 'natural',
+                          use_case: 'conversational',
+                          quality: 'high',
+                          style: 'natural',
+                          language: targetLanguageCode
+                        })
+                      };
+                      
+                      const voiceCloneResult = await voiceService.createInstantVoiceClone(audioBuffer, voiceCloneOptions);
+                      
+                      if (voiceCloneResult.error) {
+                        console.warn(`⚠️ Voice cloning failed: ${voiceCloneResult.error}. Falling back to random voice.`);
+                        shouldCloneQuotedVoice = false;
+                      } else {
+                        quotedVoiceId = voiceCloneResult.voiceId;
+                        console.log(`✅ Voice cloned: ${quotedVoiceId} for ${targetLanguageCode}`);
+                      }
+                    } else {
+                      console.log(`⏭️ Skipping voice clone (duration: ${audioDuration.toFixed(2)}s < ${MIN_DURATION_FOR_CLONING}s) - will use random voice`);
                     }
                     
-                    const voiceId = voiceResult.voiceId;
-                    const ttsResult = await voiceService.textToSpeech(voiceId, translatedText, {
+                    // If voice wasn't cloned, get random voice for target language
+                    if (!shouldCloneQuotedVoice || !quotedVoiceId) {
+                      console.log(`🔄 Getting random voice for ${targetLanguageCode}...`);
+                      const voiceResult = await voiceService.getVoiceForLanguage(targetLanguageCode);
+                      if (voiceResult.error) {
+                        // Fallback: send text if TTS fails
+                        await sendTextMessage(chatId, `🌐 תרגום ל${targetLanguage}:\n\n${translatedText}\n\n⚠️ לא הצלחתי ליצור קול: ${voiceResult.error}`);
+                        return;
+                      }
+                      quotedVoiceId = voiceResult.voiceId;
+                    }
+                    
+                    // Generate speech with cloned or random voice
+                    const ttsResult = await voiceService.textToSpeech(quotedVoiceId, translatedText, {
                       model_id: 'eleven_v3',
                       optimize_streaming_latency: 0,
                       output_format: 'mp3_44100_128'
