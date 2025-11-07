@@ -103,8 +103,9 @@ function isLandLocation(description) {
 /**
  * Extract requested region/country/city from location prompt
  * Supports flexible Hebrew and English variations
+ * IMPROVED: Better city detection, expanded country list, priority handling
  * @param {string} prompt - User prompt (e.g., "# שלח מיקום באזור סלובניה" or "שלח מיקום בתל אביב")
- * @returns {Promise<Object|null>} - {continentName: string, displayName: string, bounds: Object|null} or null if no match
+ * @returns {Promise<Object|null>} - {continentName: string, displayName: string, bounds: Object|null, isCity: boolean} or null if no match
  */
 async function extractRequestedRegion(prompt) {
   if (!prompt || typeof prompt !== 'string') return null;
@@ -112,12 +113,141 @@ async function extractRequestedRegion(prompt) {
   const promptLower = prompt.toLowerCase();
   console.log(`🔍 extractRequestedRegion called with: "${prompt}"`);
   
-  // Load country bounds from JSON file (loaded once, cached)
+  // Load country and city bounds from JSON files (loaded once, cached)
   let countryBounds = null;
+  let cityBounds = null;
   try {
     countryBounds = require('../utils/countryBounds.json');
   } catch (err) {
     console.warn('⚠️ Could not load countryBounds.json:', err.message);
+  }
+  try {
+    cityBounds = require('../utils/cityBounds.json');
+  } catch (err) {
+    console.warn('⚠️ Could not load cityBounds.json:', err.message);
+  }
+  
+  // IMPORTANT: Check for specific city names FIRST (before checking countries)
+  // This prevents "תל אביב" from being incorrectly matched as "אביב" (spring)
+  const cityKeywords = {
+    // Israel
+    'תל אביב': true, 'tel aviv': true, 'תל-אביב': true,
+    'ירושלים': true, 'jerusalem': true,
+    'חיפה': true, 'haifa': true,
+    'באר שבע': true, 'beer sheva': true, 'באר-שבע': true,
+    'אילת': true, 'eilat': true,
+    'נתניה': true, 'netanya': true,
+    'פתח תקווה': true, 'petah tikva': true, 'פתח-תקווה': true,
+    'ראשון לציון': true, 'rishon lezion': true, 'ראשון-לציון': true,
+    // International major cities
+    'ניו יורק': true, 'new york': true, 'ny': true, 'nyc': true,
+    'לוס אנג\'לס': true, 'los angeles': true, 'la': true,
+    'לונדון': true, 'london': true,
+    'פריז': true, 'paris': true,
+    'ברלין': true, 'berlin': true,
+    'מדריד': true, 'madrid': true,
+    'רומא': true, 'rome': true,
+    'מילאנו': true, 'milan': true,
+    'ברצלונה': true, 'barcelona': true,
+    'אמסטרדם': true, 'amsterdam': true,
+    'טוקיו': true, 'tokyo': true,
+    'סיאול': true, 'seoul': true,
+    'בייג\'ינג': true, 'beijing': true, 'פקין': true,
+    'שנגחאי': true, 'shanghai': true,
+    'דובאי': true, 'dubai': true,
+    'סינגפור': true, 'singapore': true,
+    'הונג קונג': true, 'hong kong': true,
+    'בנגקוק': true, 'bangkok': true,
+    'איסטנבול': true, 'istanbul': true,
+    'קהיר': true, 'cairo': true,
+    'מומבאי': true, 'mumbai': true,
+    'דלהי': true, 'delhi': true,
+    'סידני': true, 'sydney': true,
+    'מלבורן': true, 'melbourne': true,
+    'טורונטו': true, 'toronto': true,
+    'ונקובר': true, 'vancouver': true,
+    'מכסיקו סיטי': true, 'mexico city': true,
+    'ריו דה ז\'נרו': true, 'rio de janeiro': true, 'rio': true,
+    'סאו פאולו': true, 'sao paulo': true,
+    'בואנוס איירס': true, 'buenos aires': true,
+    'קייפטאון': true, 'cape town': true,
+    'יוהנסבורג': true, 'johannesburg': true,
+    'מוסקבה': true, 'moscow': true,
+    'סנט פטרבורג': true, 'saint petersburg': true, 'st petersburg': true,
+    'ורשה': true, 'warsaw': true,
+    'פראג': true, 'prague': true,
+    'בודפשט': true, 'budapest': true,
+    'וינה': true, 'vienna': true,
+    'ציריך': true, 'zurich': true,
+    'ג\'נבה': true, 'geneva': true,
+    'בריסל': true, 'brussels': true,
+    'אתונה': true, 'athens': true,
+    'ליסבון': true, 'lisbon': true,
+    'קופנהגן': true, 'copenhagen': true,
+    'שטוקהולם': true, 'stockholm': true,
+    'אוסלו': true, 'oslo': true,
+    'הלסינקי': true, 'helsinki': true,
+    'דבלין': true, 'dublin': true
+  };
+  
+  // Check if prompt explicitly mentions a known city (PRIORITY OVER COUNTRIES!)
+  let detectedCity = null;
+  for (const cityName in cityKeywords) {
+    const escapedCityName = cityName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Check for city with various patterns (more lenient for cities)
+    const cityPatterns = [
+      new RegExp(`\\b${escapedCityName}\\b`, 'i'),  // Standalone word
+      new RegExp(`ב-?${escapedCityName}(?:[^א-תa-z]|$)`, 'i'),  // "בתל אביב"
+      new RegExp(`באזור\\s*${escapedCityName}`, 'i'), // "באזור תל אביב"
+      new RegExp(`in\\s+${escapedCityName}`, 'i')  // "in Tel Aviv"
+    ];
+    
+    for (const pattern of cityPatterns) {
+      if (pattern.test(promptLower)) {
+        console.log(`🏙️ Detected explicit city mention: "${cityName}" - prioritizing over countries`);
+        detectedCity = cityName;
+        break;
+      }
+    }
+    if (detectedCity) break;
+  }
+  
+  // If a known city was detected, try to get its bounds (prefer hardcoded, then geocoding)
+  if (detectedCity) {
+    console.log(`🌍 Priority city detected: "${detectedCity}"`);
+    
+    // STEP 1: Try hardcoded city bounds first (most reliable)
+    const detectedCityLower = detectedCity.toLowerCase();
+    if (cityBounds && cityBounds[detectedCityLower]) {
+      console.log(`✅ Found hardcoded bounds for city: "${detectedCity}"`);
+      return {
+        continentName: null, // Cities don't have continents
+        displayName: detectedCity,
+        bounds: cityBounds[detectedCityLower],
+        isCity: true
+      };
+    }
+    
+    // STEP 2: Try geocoding as fallback
+    try {
+      const { getLocationBounds } = require('../services/geminiService');
+      const geocodedBounds = await getLocationBounds(detectedCity);
+      
+      if (geocodedBounds) {
+        console.log(`✅ Found geocoded bounds for priority city: "${detectedCity}"`);
+        return {
+          continentName: null, // Cities don't have continents
+          displayName: geocodedBounds.foundName || detectedCity,
+          bounds: geocodedBounds,
+          isCity: true
+        };
+      } else {
+        console.warn(`⚠️ Could not get bounds for known city "${detectedCity}", will try country search as fallback`);
+      }
+    } catch (err) {
+      console.warn(`⚠️ Error geocoding known city "${detectedCity}":`, err.message);
+      // Continue to country search as fallback
+    }
   }
   
   // Map of countries/regions to continent names (supporting Hebrew and English)
@@ -271,29 +401,30 @@ async function extractRequestedRegion(prompt) {
     'ניו זילנד': 'New Zealand',
     'new zealand': 'New Zealand',
     
-    // Regional names
-    'אירופה': 'Western Europe',
-    'europe': 'Western Europe',
-    'אסיה': 'China Mainland',
-    'asia': 'China Mainland',
-    'מזרח אסיה': 'Japan',
-    'east asia': 'Japan',
-    'דרום אסיה': 'India',
-    'south asia': 'India',
-    'דרום מזרח אסיה': 'Mainland Southeast Asia',
-    'southeast asia': 'Mainland Southeast Asia',
-    'מזרח התיכון': 'Levant & Turkey',
-    'middle east': 'Levant & Turkey',
-    'אמריקה': 'Eastern USA',
-    'america': 'Eastern USA',
-    'צפון אמריקה': 'Eastern USA',
-    'north america': 'Eastern USA',
-    'דרום אמריקה': 'Brazil North',
-    'south america': 'Brazil North',
-    'אפריקה': 'North Africa',
-    'africa': 'North Africa',
-    'אוקיאניה': 'Australia',
-    'oceania': 'Australia'
+    // Regional/Continental names - returns MULTIPLE continents when applicable
+    // For broader geographic requests, we'll handle these specially to include multiple regions
+    'אירופה': {continent: 'MULTI_EUROPE', display: 'אירופה', multiRegions: ['Western Europe', 'Eastern Europe', 'Southern Europe', 'Scandinavia', 'UK & Ireland']},
+    'europe': {continent: 'MULTI_EUROPE', display: 'Europe', multiRegions: ['Western Europe', 'Eastern Europe', 'Southern Europe', 'Scandinavia', 'UK & Ireland']},
+    'אסיה': {continent: 'MULTI_ASIA', display: 'אסיה', multiRegions: ['China Mainland', 'Japan', 'Korea', 'Mainland Southeast Asia', 'India', 'Pakistan & Afghanistan']},
+    'asia': {continent: 'MULTI_ASIA', display: 'Asia', multiRegions: ['China Mainland', 'Japan', 'Korea', 'Mainland Southeast Asia', 'India', 'Pakistan & Afghanistan']},
+    'מזרח אסיה': {continent: 'MULTI_EAST_ASIA', display: 'מזרח אסיה', multiRegions: ['China Mainland', 'Japan', 'Korea']},
+    'east asia': {continent: 'MULTI_EAST_ASIA', display: 'East Asia', multiRegions: ['China Mainland', 'Japan', 'Korea']},
+    'דרום אסיה': {continent: 'India', display: 'דרום אסיה'},
+    'south asia': {continent: 'India', display: 'South Asia'},
+    'דרום מזרח אסיה': {continent: 'MULTI_SOUTHEAST_ASIA', display: 'דרום מזרח אסיה', multiRegions: ['Mainland Southeast Asia', 'Indonesia West', 'Philippines']},
+    'southeast asia': {continent: 'MULTI_SOUTHEAST_ASIA', display: 'Southeast Asia', multiRegions: ['Mainland Southeast Asia', 'Indonesia West', 'Philippines']},
+    'מזרח התיכון': {continent: 'MULTI_MIDDLE_EAST', display: 'מזרח התיכון', multiRegions: ['Levant & Turkey', 'Arabian Peninsula', 'Iran']},
+    'middle east': {continent: 'MULTI_MIDDLE_EAST', display: 'Middle East', multiRegions: ['Levant & Turkey', 'Arabian Peninsula', 'Iran']},
+    'אמריקה': {continent: 'MULTI_AMERICAS', display: 'אמריקה', multiRegions: ['Eastern USA', 'Western USA', 'Eastern Canada', 'Western Canada', 'Mexico', 'Brazil North', 'Brazil South', 'Chile & Argentina']},
+    'america': {continent: 'MULTI_AMERICAS', display: 'America', multiRegions: ['Eastern USA', 'Western USA', 'Eastern Canada', 'Western Canada', 'Mexico', 'Brazil North', 'Brazil South', 'Chile & Argentina']},
+    'צפון אמריקה': {continent: 'MULTI_NORTH_AMERICA', display: 'צפון אמריקה', multiRegions: ['Eastern USA', 'Western USA', 'Eastern Canada', 'Western Canada', 'Mexico']},
+    'north america': {continent: 'MULTI_NORTH_AMERICA', display: 'North America', multiRegions: ['Eastern USA', 'Western USA', 'Eastern Canada', 'Western Canada', 'Mexico']},
+    'דרום אמריקה': {continent: 'MULTI_SOUTH_AMERICA', display: 'דרום אמריקה', multiRegions: ['Brazil North', 'Brazil South', 'Andean Countries', 'Chile & Argentina']},
+    'south america': {continent: 'MULTI_SOUTH_AMERICA', display: 'South America', multiRegions: ['Brazil North', 'Brazil South', 'Andean Countries', 'Chile & Argentina']},
+    'אפריקה': {continent: 'MULTI_AFRICA', display: 'אפריקה', multiRegions: ['North Africa', 'West Africa', 'East Africa', 'Southern Africa']},
+    'africa': {continent: 'MULTI_AFRICA', display: 'Africa', multiRegions: ['North Africa', 'West Africa', 'East Africa', 'Southern Africa']},
+    'אוקיאניה': {continent: 'MULTI_OCEANIA', display: 'אוקיאניה', multiRegions: ['Australia', 'New Zealand']},
+    'oceania': {continent: 'MULTI_OCEANIA', display: 'Oceania', multiRegions: ['Australia', 'New Zealand']}
   };
   
   // Search for region keywords in prompt
@@ -335,6 +466,17 @@ async function extractRequestedRegion(prompt) {
             // New format: object with continent and display
             // Try to get bounds from countryBounds.json file
             const bounds = countryBounds && countryBounds[regionName] ? countryBounds[regionName] : null;
+            
+            // If this is a multi-region request (continent/large area), return the list
+            if (regionData.multiRegions && Array.isArray(regionData.multiRegions)) {
+              return {
+                continentName: regionData.continent,
+                displayName: regionData.display,
+                bounds: bounds, // Usually null for broad regions
+                multiRegions: regionData.multiRegions // List of specific regions to include
+              };
+            }
+            
             return {
               continentName: regionData.continent,
               displayName: regionData.display,
@@ -2215,17 +2357,37 @@ async function handleIncomingMessage(webhookData) {
               
               // Filter continents if specific region requested (but use country/city bounds if available)
               let availableContinents = continents;
+              
+              // Check if this is a multi-region request (e.g., "Europe", "Asia")
+              const hasMultiRegions = requestedRegion && requestedRegion.multiRegions && Array.isArray(requestedRegion.multiRegions);
+              
               if (requestedRegionName && !hasSpecificBounds) {
-                console.log(`🎯 [INCOMING] Filtering continents to region: "${requestedRegionName}"`);
-                console.log(`🎯 [INCOMING] Available continent names: ${continents.map(c => c.name).join(', ')}`);
-                availableContinents = continents.filter(c => c.name === requestedRegionName);
-                console.log(`🎯 [INCOMING] Filtered continents count: ${availableContinents.length}`);
-                if (availableContinents.length === 0) {
-                  console.log(`⚠️ [INCOMING] No continent found matching "${requestedRegionName}", falling back to all regions`);
-                  await sendTextMessage(chatId, `❌ לא מצאתי אזור בשם "${requestedRegionName}". בוחר מיקום אקראי בכל העולם...`);
-                  availableContinents = continents; // Fallback to all regions
+                if (hasMultiRegions) {
+                  // Multi-region: filter to multiple specific continents
+                  console.log(`🎯 [INCOMING] Multi-region request: "${displayName}" includes ${requestedRegion.multiRegions.length} regions`);
+                  availableContinents = continents.filter(c => requestedRegion.multiRegions.includes(c.name));
+                  console.log(`🎯 [INCOMING] Filtered to ${availableContinents.length} continents: ${availableContinents.map(c => c.name).join(', ')}`);
+                  
+                  if (availableContinents.length === 0) {
+                    console.log(`⚠️ [INCOMING] No continents found for multi-region "${displayName}", falling back to all regions`);
+                    await sendTextMessage(chatId, `❌ לא מצאתי אזורים עבור "${displayName}". בוחר מיקום אקראי בכל העולם...`);
+                    availableContinents = continents; // Fallback to all regions
+                  } else {
+                    console.log(`✅ [INCOMING] Multi-region filtered successfully: ${displayName} (${availableContinents.length} regions)`);
+                  }
                 } else {
-                  console.log(`✅ [INCOMING] Filtered to region: ${requestedRegionName} (${availableContinents.length} continent(s))`);
+                  // Single region/continent
+                  console.log(`🎯 [INCOMING] Filtering continents to region: "${requestedRegionName}"`);
+                  console.log(`🎯 [INCOMING] Available continent names: ${continents.map(c => c.name).join(', ')}`);
+                  availableContinents = continents.filter(c => c.name === requestedRegionName);
+                  console.log(`🎯 [INCOMING] Filtered continents count: ${availableContinents.length}`);
+                  if (availableContinents.length === 0) {
+                    console.log(`⚠️ [INCOMING] No continent found matching "${requestedRegionName}", falling back to all regions`);
+                    await sendTextMessage(chatId, `❌ לא מצאתי אזור בשם "${requestedRegionName}". בוחר מיקום אקראי בכל העולם...`);
+                    availableContinents = continents; // Fallback to all regions
+                  } else {
+                    console.log(`✅ [INCOMING] Filtered to region: ${requestedRegionName} (${availableContinents.length} continent(s))`);
+                  }
                 }
               } else if (hasSpecificBounds) {
                 if (isCityLocation) {
@@ -4116,17 +4278,37 @@ async function handleOutgoingMessage(webhookData) {
               
               // Filter continents if specific region requested (but use country/city bounds if available)
               let availableContinents = continents;
+              
+              // Check if this is a multi-region request (e.g., "Europe", "Asia")
+              const hasMultiRegions = requestedRegion && requestedRegion.multiRegions && Array.isArray(requestedRegion.multiRegions);
+              
               if (requestedRegionName && !hasSpecificBounds) {
-                console.log(`🎯 [OUTGOING] Filtering continents to region: "${requestedRegionName}"`);
-                console.log(`🎯 [OUTGOING] Available continent names: ${continents.map(c => c.name).join(', ')}`);
-                availableContinents = continents.filter(c => c.name === requestedRegionName);
-                console.log(`🎯 [OUTGOING] Filtered continents count: ${availableContinents.length}`);
-                if (availableContinents.length === 0) {
-                  console.log(`⚠️ [OUTGOING] No continent found matching "${requestedRegionName}", falling back to all regions`);
-                  await sendTextMessage(chatId, `❌ לא מצאתי אזור בשם "${requestedRegionName}". בוחר מיקום אקראי בכל העולם...`);
-                  availableContinents = continents; // Fallback to all regions
+                if (hasMultiRegions) {
+                  // Multi-region: filter to multiple specific continents
+                  console.log(`🎯 [OUTGOING] Multi-region request: "${displayName}" includes ${requestedRegion.multiRegions.length} regions`);
+                  availableContinents = continents.filter(c => requestedRegion.multiRegions.includes(c.name));
+                  console.log(`🎯 [OUTGOING] Filtered to ${availableContinents.length} continents: ${availableContinents.map(c => c.name).join(', ')}`);
+                  
+                  if (availableContinents.length === 0) {
+                    console.log(`⚠️ [OUTGOING] No continents found for multi-region "${displayName}", falling back to all regions`);
+                    await sendTextMessage(chatId, `❌ לא מצאתי אזורים עבור "${displayName}". בוחר מיקום אקראי בכל העולם...`);
+                    availableContinents = continents; // Fallback to all regions
+                  } else {
+                    console.log(`✅ [OUTGOING] Multi-region filtered successfully: ${displayName} (${availableContinents.length} regions)`);
+                  }
                 } else {
-                  console.log(`✅ [OUTGOING] Filtered to region: ${requestedRegionName} (${availableContinents.length} continent(s))`);
+                  // Single region/continent
+                  console.log(`🎯 [OUTGOING] Filtering continents to region: "${requestedRegionName}"`);
+                  console.log(`🎯 [OUTGOING] Available continent names: ${continents.map(c => c.name).join(', ')}`);
+                  availableContinents = continents.filter(c => c.name === requestedRegionName);
+                  console.log(`🎯 [OUTGOING] Filtered continents count: ${availableContinents.length}`);
+                  if (availableContinents.length === 0) {
+                    console.log(`⚠️ [OUTGOING] No continent found matching "${requestedRegionName}", falling back to all regions`);
+                    await sendTextMessage(chatId, `❌ לא מצאתי אזור בשם "${requestedRegionName}". בוחר מיקום אקראי בכל העולם...`);
+                    availableContinents = continents; // Fallback to all regions
+                  } else {
+                    console.log(`✅ [OUTGOING] Filtered to region: ${requestedRegionName} (${availableContinents.length} continent(s))`);
+                  }
                 }
               } else if (hasSpecificBounds) {
                 if (isCityLocation) {

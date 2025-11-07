@@ -2457,7 +2457,7 @@ async function getLocationInfo(latitude, longitude) {
  * Get bounds for a city/location name using Google Maps Geocoding
  * Optimized to get accurate bounds and handle various city sizes
  * @param {string} locationName - City or location name (e.g., "תל אביב", "ירושלים", "Barcelona")
- * @returns {Promise<Object|null>} - {minLat, maxLat, minLng, maxLng} or null if not found
+ * @returns {Promise<Object|null>} - {minLat, maxLat, minLng, maxLng, foundName, country} or null if not found
  */
 async function getLocationBounds(locationName) {
     try {
@@ -2467,13 +2467,16 @@ async function getLocationBounds(locationName) {
             model: "gemini-2.5-flash" 
         });
         
-        // Optimized prompt: request both center coordinates AND bounds/viewport if available
+        // Improved prompt: request location name, country AND coordinates for validation
         const geocodePrompt = `מצא את המקום הבא ב-Google Maps וחזור עם המידע הגיאוגרפי המדויק שלו:
 
-שם המקום: ${locationName}
+שם המקום שהמשתמש ביקש: ${locationName}
 
 החזר JSON בלבד בפורמט הבא:
 {
+  "found_name": "שם המקום המלא שנמצא (כולל עיר ומדינה, לדוגמה: Tel Aviv, Israel)",
+  "city": "שם העיר בלבד",
+  "country": "שם המדינה",
   "latitude": מספר קו רוחב (נקודת מרכז),
   "longitude": מספר קו אורך (נקודת מרכז),
   "viewport": {
@@ -2482,14 +2485,17 @@ async function getLocationBounds(locationName) {
     "east": מספר (קו אורך מקסימלי),
     "west": מספר (קו אורך מינימלי)
   },
+  "type": "city/country/region",
   "found": true/false
 }
 
-חשוב:
+חשוב מאוד:
+- וודא שהמקום שמצאת תואם למה שהמשתמש ביקש
+- אם המשתמש ביקש "תל אביב", אל תחזיר "טוקיו"
 - אם יש viewport/bounds ב-Google Maps, השתמש בהם (מדויק יותר)
 - אם אין viewport, השתמש בקואורדינטות המרכז בלבד
 - וודא שהקואורדינטות בתוך הטווחים התקפים: קו רוחב בין -90 ל-90, קו אורך בין -180 ל-180
-- אם לא מצאת את המקום, החזר {"found": false}`;
+- אם לא מצאת את המקום או יש אי-התאמה, החזר {"found": false}`;
 
         const result = await model.generateContent({
             contents: [{ role: "user", parts: [{ text: geocodePrompt }] }],
@@ -2562,6 +2568,34 @@ async function getLocationBounds(locationName) {
             return null;
         }
         
+        // Extract metadata
+        const foundName = locationData.found_name || locationData.city || locationName;
+        const city = locationData.city || null;
+        const country = locationData.country || null;
+        const locationType = locationData.type || 'unknown';
+        
+        // VALIDATION: Check if found location name reasonably matches requested name
+        // This prevents cases like requesting "Tel Aviv" and getting "Tokyo"
+        const requestedLower = locationName.toLowerCase().trim();
+        const foundLower = foundName.toLowerCase().trim();
+        const cityLower = (city || '').toLowerCase().trim();
+        
+        // Check if there's a reasonable match (contains, starts with, or similar)
+        const isReasonableMatch = 
+            foundLower.includes(requestedLower) || 
+            requestedLower.includes(foundLower) ||
+            cityLower.includes(requestedLower) ||
+            requestedLower.includes(cityLower) ||
+            // Allow some flexibility for translations/variations
+            (requestedLower.length >= 3 && foundLower.slice(0, 3) === requestedLower.slice(0, 3));
+        
+        if (!isReasonableMatch) {
+            console.warn(`⚠️ Location mismatch: requested "${locationName}" but got "${foundName}". Rejecting.`);
+            return null;
+        }
+        
+        console.log(`✅ Location validation passed: requested "${locationName}" → found "${foundName}" (${country || 'unknown country'})`);
+        
         // Validate coordinates
         const centerLat = parseFloat(locationData.latitude);
         const centerLng = parseFloat(locationData.longitude);
@@ -2582,14 +2616,18 @@ async function getLocationBounds(locationName) {
                 minLat: Math.min(locationData.viewport.south, locationData.viewport.north),
                 maxLat: Math.max(locationData.viewport.south, locationData.viewport.north),
                 minLng: Math.min(locationData.viewport.west, locationData.viewport.east),
-                maxLng: Math.max(locationData.viewport.west, locationData.viewport.east)
+                maxLng: Math.max(locationData.viewport.west, locationData.viewport.east),
+                foundName,
+                city,
+                country,
+                type: locationType
             };
             
             // Validate bounds
             if (bounds.minLat >= -90 && bounds.maxLat <= 90 && 
                 bounds.minLng >= -180 && bounds.maxLng <= 180 &&
                 bounds.minLat < bounds.maxLat && bounds.minLng < bounds.maxLng) {
-                console.log(`✅ Found viewport bounds for "${locationName}": ${JSON.stringify(bounds)}`);
+                console.log(`✅ Found viewport bounds for "${locationName}" (${foundName}): ${JSON.stringify({minLat: bounds.minLat, maxLat: bounds.maxLat, minLng: bounds.minLng, maxLng: bounds.maxLng})}`);
                 return bounds;
             }
         }
@@ -2604,10 +2642,14 @@ async function getLocationBounds(locationName) {
             minLat: Math.max(-90, centerLat - baseRadius),
             maxLat: Math.min(90, centerLat + baseRadius),
             minLng: Math.max(-180, centerLng - (baseRadius / latAdjustment)),
-            maxLng: Math.min(180, centerLng + (baseRadius / latAdjustment))
+            maxLng: Math.min(180, centerLng + (baseRadius / latAdjustment)),
+            foundName,
+            city,
+            country,
+            type: locationType
         };
         
-        console.log(`✅ Found center-point bounds for "${locationName}": ${JSON.stringify(bounds)}`);
+        console.log(`✅ Found center-point bounds for "${locationName}" (${foundName}): ${JSON.stringify({minLat: bounds.minLat, maxLat: bounds.maxLat, minLng: bounds.minLng, maxLng: bounds.maxLng})}`);
         return bounds;
         
     } catch (err) {
