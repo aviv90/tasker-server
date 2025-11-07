@@ -1,8 +1,17 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const conversationManager = require('./conversationManager');
-const geminiService = require('./geminiService');
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+
+// Lazy-loaded services to avoid circular dependencies and improve startup time
+let geminiService, openaiService, grokService, fileDownloader;
+const getServices = () => {
+  if (!geminiService) geminiService = require('./geminiService');
+  if (!openaiService) openaiService = require('./openaiService');
+  if (!grokService) grokService = require('./grokService');
+  if (!fileDownloader) fileDownloader = require('../utils/fileDownloader');
+  return { geminiService, openaiService, grokService, fileDownloader };
+};
 
 /**
  * Agent Service - Autonomous AI agent that can use tools dynamically
@@ -104,6 +113,7 @@ const agentTools = {
     execute: async (args, context) => {
       console.log(`🔧 [Agent Tool] analyze_image_from_history called with image_id: ${args.image_id}`);
       
+      let imageBuffer = null;
       try {
         // Get the message with the image
         const history = context.previousToolResults?.get_chat_history?.messages;
@@ -125,11 +135,13 @@ const agentTools = {
         }
         
         // Download and analyze the image
-        const { downloadFile } = require('../utils/fileDownloader');
-        const imageBuffer = await downloadFile(imageUrl);
+        const { geminiService, fileDownloader } = getServices();
+        imageBuffer = await fileDownloader.downloadFile(imageUrl);
         
-        const { analyzeImageWithText } = require('./geminiService');
-        const result = await analyzeImageWithText(args.question, imageBuffer);
+        const result = await geminiService.analyzeImageWithText(args.question, imageBuffer);
+        
+        // Free memory
+        imageBuffer = null;
         
         if (result.success) {
           return {
@@ -144,6 +156,8 @@ const agentTools = {
         }
       } catch (error) {
         console.error('❌ Error in analyze_image_from_history tool:', error);
+        // Free memory on error
+        imageBuffer = null;
         return {
           success: false,
           error: `שגיאה בניתוח תמונה: ${error.message}`
@@ -173,6 +187,7 @@ const agentTools = {
       
       try {
         // Use Gemini with Google Search
+        const { geminiService } = getServices();
         const result = await geminiService.generateTextResponse(args.query, [], {
           useGoogleSearch: true
         });
@@ -228,16 +243,16 @@ const agentTools = {
     execute: async (args, context) => {
       console.log(`🔧 [Agent Tool] create_and_analyze called`);
       
+      let imageBuffer = null;
       try {
         const provider = args.provider || 'gemini';
+        const { geminiService, openaiService, grokService, fileDownloader } = getServices();
         
         // Step 1: Create image
         let imageResult;
         if (provider === 'openai') {
-          const openaiService = require('./openaiService');
           imageResult = await openaiService.generateImageForWhatsApp(args.prompt);
         } else if (provider === 'grok') {
-          const grokService = require('./grokService');
           imageResult = await grokService.generateImageForWhatsApp(args.prompt);
         } else {
           imageResult = await geminiService.generateImageForWhatsApp(args.prompt);
@@ -253,11 +268,11 @@ const agentTools = {
         console.log(`✅ Image created with ${provider}, analyzing...`);
         
         // Step 2: Download and analyze
-        const { downloadFile } = require('../utils/fileDownloader');
-        const imageBuffer = await downloadFile(imageResult.url);
+        imageBuffer = await fileDownloader.downloadFile(imageResult.url);
+        const analysisResult = await geminiService.analyzeImageWithText(args.analysis_question, imageBuffer);
         
-        const { analyzeImageWithText } = require('./geminiService');
-        const analysisResult = await analyzeImageWithText(args.analysis_question, imageBuffer);
+        // Free memory
+        imageBuffer = null;
         
         if (analysisResult.error) {
           return {
@@ -273,6 +288,8 @@ const agentTools = {
         };
       } catch (error) {
         console.error('❌ Error in create_and_analyze tool:', error);
+        // Free memory on error
+        imageBuffer = null;
         return {
           success: false,
           error: `שגיאה: ${error.message}`
@@ -308,6 +325,7 @@ const agentTools = {
     execute: async (args, context) => {
       console.log(`🔧 [Agent Tool] analyze_and_edit called`);
       
+      let imageBuffer = null;
       try {
         // Step 1: Get image from history
         const history = context.previousToolResults?.get_chat_history?.messages;
@@ -329,13 +347,13 @@ const agentTools = {
         }
         
         // Step 2: Analyze
-        const { downloadFile } = require('../utils/fileDownloader');
-        const imageBuffer = await downloadFile(imageUrl);
+        const { geminiService, fileDownloader } = getServices();
+        imageBuffer = await fileDownloader.downloadFile(imageUrl);
         
-        const { analyzeImageWithText } = require('./geminiService');
-        const analysisResult = await analyzeImageWithText(args.analysis_goal, imageBuffer);
+        const analysisResult = await geminiService.analyzeImageWithText(args.analysis_goal, imageBuffer);
         
         if (analysisResult.error) {
+          imageBuffer = null;
           return {
             success: false,
             error: `שגיאה בניתוח: ${analysisResult.error}`
@@ -347,6 +365,9 @@ const agentTools = {
         // Step 3: Edit based on analysis
         const editPrompt = `${args.edit_instruction}. בהתבסס על הניתוח: ${analysisResult.text}`;
         const editResult = await geminiService.editImageWithText(editPrompt, imageBuffer);
+        
+        // Free memory
+        imageBuffer = null;
         
         if (editResult.error) {
           return {
@@ -362,6 +383,8 @@ const agentTools = {
         };
       } catch (error) {
         console.error('❌ Error in analyze_and_edit tool:', error);
+        // Free memory on error
+        imageBuffer = null;
         return {
           success: false,
           error: `שגיאה: ${error.message}`
@@ -400,39 +423,45 @@ const agentTools = {
       
       try {
         const avoidProvider = args.avoid_provider || 'gemini';
+        const { geminiService, openaiService, grokService } = getServices();
         
         // Try providers in order, skipping the one that failed
         const providers = ['gemini', 'openai', 'grok'].filter(p => p !== avoidProvider);
+        const errors = [];
         
         for (const provider of providers) {
           console.log(`🔄 Trying provider: ${provider}`);
           
-          let imageResult;
-          if (provider === 'openai') {
-            const openaiService = require('./openaiService');
-            imageResult = await openaiService.generateImageForWhatsApp(args.original_prompt);
-          } else if (provider === 'grok') {
-            const grokService = require('./grokService');
-            imageResult = await grokService.generateImageForWhatsApp(args.original_prompt);
-          } else {
-            imageResult = await geminiService.generateImageForWhatsApp(args.original_prompt);
+          try {
+            let imageResult;
+            if (provider === 'openai') {
+              imageResult = await openaiService.generateImageForWhatsApp(args.original_prompt);
+            } else if (provider === 'grok') {
+              imageResult = await grokService.generateImageForWhatsApp(args.original_prompt);
+            } else {
+              imageResult = await geminiService.generateImageForWhatsApp(args.original_prompt);
+            }
+            
+            if (!imageResult.error) {
+              return {
+                success: true,
+                data: `ניסיתי עם ${provider} והצלחתי! הסיבה: ${args.reason}`,
+                imageUrl: imageResult.url,
+                provider: provider
+              };
+            }
+            
+            errors.push(`${provider}: ${imageResult.error}`);
+            console.log(`❌ ${provider} failed: ${imageResult.error}`);
+          } catch (providerError) {
+            errors.push(`${provider}: ${providerError.message}`);
+            console.error(`❌ ${provider} threw error:`, providerError);
           }
-          
-          if (!imageResult.error) {
-            return {
-              success: true,
-              data: `ניסיתי עם ${provider} והצלחתי! הסיבה: ${args.reason}`,
-              imageUrl: imageResult.url,
-              provider: provider
-            };
-          }
-          
-          console.log(`❌ ${provider} failed: ${imageResult.error}`);
         }
         
         return {
           success: false,
-          error: `כל הספקים נכשלו. נסה שוב מאוחר יותר.`
+          error: `כל הספקים נכשלו:\n${errors.join('\n')}`
         };
       } catch (error) {
         console.error('❌ Error in retry_with_different_provider tool:', error);
@@ -511,11 +540,11 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       };
     }
     
-    // Execute function calls
+    // Execute function calls (in parallel for better performance)
     console.log(`🔧 [Agent] Executing ${functionCalls.length} function call(s)`);
-    const functionResponses = [];
     
-    for (const call of functionCalls) {
+    // Execute all tools in parallel (they're independent)
+    const toolPromises = functionCalls.map(async (call) => {
       const toolName = call.name;
       const toolArgs = call.args;
       
@@ -524,27 +553,40 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       const tool = agentTools[toolName];
       if (!tool) {
         console.error(`❌ Unknown tool: ${toolName}`);
-        functionResponses.push({
+        return {
           name: toolName,
           response: {
             success: false,
             error: `Unknown tool: ${toolName}`
           }
-        });
-        continue;
+        };
       }
       
-      // Execute the tool
-      const toolResult = await tool.execute(toolArgs, context);
-      
-      // Save result for future tool calls
-      context.previousToolResults[toolName] = toolResult;
-      
-      functionResponses.push({
-        name: toolName,
-        response: toolResult
-      });
-    }
+      try {
+        // Execute the tool
+        const toolResult = await tool.execute(toolArgs, context);
+        
+        // Save result for future tool calls
+        context.previousToolResults[toolName] = toolResult;
+        
+        return {
+          name: toolName,
+          response: toolResult
+        };
+      } catch (error) {
+        console.error(`❌ Error executing tool ${toolName}:`, error);
+        return {
+          name: toolName,
+          response: {
+            success: false,
+            error: `Tool execution failed: ${error.message}`
+          }
+        };
+      }
+    });
+    
+    // Wait for all tools to complete
+    const functionResponses = await Promise.all(toolPromises);
     
     // Send function responses back to Gemini
     response = await chat.sendMessage(functionResponses);
