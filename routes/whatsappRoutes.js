@@ -1542,7 +1542,6 @@ async function handleIncomingMessage(webhookData) {
                   // Merge additional instructions with the original prompt if needed
                   // BUT: Remove provider names from the prompt to avoid "OpenAI" appearing in the image
                   if (lastCommand.args?.prompt) {
-                    const { cleanPromptFromProviders } = require('../utils/promptCleaner');
                     const cleanedInstructions = cleanPromptFromProviders(additionalInstructions);
                     
                     if (cleanedInstructions.trim()) {
@@ -3616,7 +3615,6 @@ async function handleOutgoingMessage(webhookData) {
                   // Merge additional instructions with the original prompt if needed
                   // BUT: Remove provider names from the prompt to avoid "OpenAI" appearing in the image
                   if (lastCommand.args?.prompt) {
-                    const { cleanPromptFromProviders } = require('../utils/promptCleaner');
                     const cleanedInstructions = cleanPromptFromProviders(additionalInstructions);
                     
                     if (cleanedInstructions.trim()) {
@@ -5501,77 +5499,7 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
   }
 }
 
-/**
- * Handle creative voice message processing - COMMENTED OUT FOR VOICE-TO-VOICE PROCESSING
- * Flow: Download → Creative Effects → Convert to Opus → Send
- */
-/*
-async function handleCreativeVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
-  console.log(`🎨 Processing creative voice request from ${senderName}`);
-  
-  try {
-    // Send immediate ACK
-    await sendAck(chatId, { type: 'creative_voice_processing' });
-    
-    // Step 1: Download audio file
-    console.log(`📥 Step 1: Downloading audio file...`);
-    const audioBuffer = await downloadFile(audioUrl);
-    console.log(`✅ Step 1 complete: Downloaded ${audioBuffer.length} bytes`);
-    
-    // Step 2: Apply creative effects
-    console.log(`🎨 Step 2: Applying creative effects...`);
-    const creativeResult = await creativeAudioService.processVoiceCreatively(audioBuffer, 'mp3');
-    
-    if (!creativeResult.success) {
-      console.error('❌ Creative processing failed:', creativeResult.error);
-      await sendTextMessage(chatId, `❌ סליחה, לא הצלחתי לעבד את ההקלטה: ${creativeResult.error}`);
-      return;
-    }
-    
-    console.log(`✅ Step 2 complete: Applied ${creativeResult.description}`);
-    
-    // Step 3: Convert to Opus and save
-    console.log(`🔄 Step 3: Converting to Opus format...`);
-    const conversionResult = await audioConverterService.convertAndSaveAsOpus(creativeResult.audioBuffer, 'mp3');
-    
-    if (!conversionResult.success) {
-      console.error('❌ Opus conversion failed:', conversionResult.error);
-      // Fallback: send as regular MP3
-      const fileName = `creative_${Date.now()}.mp3`;
-      const tempPath = path.join(__dirname, '..', 'public', 'tmp', fileName);
-      fs.writeFileSync(tempPath, creativeResult.audioBuffer);
-      const fullAudioUrl = getStaticFileUrl(fileName);
-      await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
-    } else {
-      // Send as voice note with Opus format
-      const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
-      
-      // Verify file exists before sending
-      const filePath = path.join(__dirname, '..', 'public', 'tmp', conversionResult.fileName);
-      if (!fs.existsSync(filePath)) {
-        console.error(`❌ Opus file not found: ${filePath}`);
-        await sendTextMessage(chatId, `❌ סליחה, קובץ האודיו לא נמצא. נסה שוב.`);
-        return;
-      }
-      
-      console.log(`📁 Opus file verified: ${filePath} (${fs.statSync(filePath).size} bytes)`);
-      console.log(`🔗 Full URL: ${fullAudioUrl}`);
-      
-      await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '');
-      console.log(`✅ Creative voice sent as voice note: ${conversionResult.fileName}`);
-    }
-    
-    // Send effect description
-    await sendTextMessage(chatId, `🎨 עיבוד יצירתי הושלם!\n\n${creativeResult.description}`);
-    
-    console.log(`✅ Creative voice processing complete for ${senderName}`);
-
-  } catch (error) {
-    console.error('❌ Error in creative voice processing:', error.message || error);
-    await sendTextMessage(chatId, `❌ שגיאה בעיבוד היצירתי של ההקלטה: ${error.message || error}`);
-  }
-}
-*/
+// ❌ REMOVED: handleCreativeVoiceMessage - no longer needed, voice-to-voice processing is used instead
 
 /**
  * Get audio duration in seconds using ffprobe
