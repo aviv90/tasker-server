@@ -1,5 +1,6 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const conversationManager = require('./conversationManager');
+const { cleanThinkingPatterns } = require('./geminiService');
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
@@ -782,6 +783,29 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   // System prompt for the agent
   const systemInstruction = `אתה עוזר AI אוטונומי וחכם עם יכולות מתקדמות. יש לך גישה לכלים שיכולים לעזור לך לענות על שאלות.
 
+🚫 **אסור בהחלט - כללי תשובה קריטיים:**
+1. **אסור לחלוטין** לכתוב את תהליך החשיבה שלך
+2. **אסור בהחלט** לכתוב: "My internal thoughts", "Got it. I need to", "I'll acknowledge"
+3. **אסור** לכתוב רשימות כמו: "- Acknowledge the user's request", "- Be friendly", "- Wait for"
+4. **אסור** לכתוב משפטים באנגלית על מה שאתה צריך לעשות
+5. **רק התשובה הסופית** - ללא הסברים על תהליך החשיבה
+
+✅ **כן - איך לענות:**
+- ענה ישירות למשתמש בעברית
+- אם אתה צריך לחשוב - תחשוב בשקט (אל תכתוב את זה!)
+- רק התוצאה הסופית
+
+❌ **דוגמה לתשובה אסורה:**
+"Got it. I need to pivot away from the topic.
+My internal thoughts:
+- Acknowledge the user's request
+- Be friendly"
+
+✅ **דוגמה לתשובה נכונה:**
+"הבנתי, אני מוכן לנושא הבא!"
+
+---
+
 כללי שימוש בכלים:
 
 📚 כלי מידע:
@@ -842,7 +866,11 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     
     if (!functionCalls || functionCalls.length === 0) {
       // No more function calls - we have a final answer
-      const text = result.text();
+      let text = result.text();
+      
+      // 🧹 CRITICAL: Clean thinking patterns before sending to user!
+      text = cleanThinkingPatterns(text);
+      
       console.log(`✅ [Agent] Completed in ${iterationCount} iterations`);
       
       return {

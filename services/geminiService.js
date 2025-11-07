@@ -1296,12 +1296,25 @@ function cleanThinkingPatterns(text) {
         /^I should (answer|respond|explain)[^.]*\.\s*/i,
         /^To answer (this|the question)[^.]*\.\s*/i,
         /^The (answer|response) (is|should be)[^.]*\.\s*/i,
-        /^Based on (the question|what you asked)[^.]*\.\s*/i
+        /^Based on (the question|what you asked)[^.]*\.\s*/i,
+        /^Got it\.\s+I need to[^.]*\.\s*/gi,
+        /^I need to (pivot|move|shift|change)[^.]*\.\s*/gi,
+        /^I'll (acknowledge|recognize|note|pivot)[^.]*\.\s*/gi
     ];
     
     for (const pattern of metaPhrases) {
         cleaned = cleaned.replace(pattern, '');
     }
+    
+    // 1.5. Remove "My internal thoughts:" sections (CRITICAL!)
+    // This is the most egregious violation - exposing internal reasoning
+    cleaned = cleaned.replace(/My internal thoughts?:[\s\S]*?(?=\n\n|\n[א-ת]|$)/gi, '');
+    cleaned = cleaned.replace(/Internal thoughts?:[\s\S]*?(?=\n\n|\n[א-ת]|$)/gi, '');
+    cleaned = cleaned.replace(/Thoughts?:[\s\S]*?(?=\n\n|\n[א-ת]|$)/gi, '');
+    cleaned = cleaned.replace(/\(thinking:[\s\S]*?\)/gi, '');
+    
+    // Remove bullet point thinking lists
+    cleaned = cleaned.replace(/^-\s+(Acknowledge|Be friendly|Do not|Wait for)[\s\S]*?(?=\n\n|$)/gmi, '');
     
     // 2. Remove parenthetical thinking/reasoning in English
     // Example: "(without asking for more context)" or "(as the rules state...)"
@@ -2676,5 +2689,6 @@ module.exports = {
     translateText,
     generateCreativePoll,
     getLocationInfo,
-    getLocationBounds
+    getLocationBounds,
+    cleanThinkingPatterns  // Export for use in other services
 };
