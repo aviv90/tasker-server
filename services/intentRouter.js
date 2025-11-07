@@ -109,6 +109,18 @@ async function routeIntent(input) {
     };
   }
   
+  // 🤖 AGENT MODE: Check if query needs autonomous agent with tools
+  // Agent can fetch history, analyze media, search web, etc.
+  const { shouldUseAgent } = require('./agentService');
+  if (shouldUseAgent(prompt, input)) {
+    console.log(`🤖 [Router] Detected complex query, routing to agent`);
+    return {
+      tool: 'agent_query',
+      args: { prompt },
+      reason: 'Complex query requiring autonomous agent with tools'
+    };
+  }
+  
   if (useLLM) {
     try {
       const llmDecision = await decideWithLLM(input);

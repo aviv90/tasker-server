@@ -1383,6 +1383,38 @@ async function handleIncomingMessage(webhookData) {
             }
           
           switch (decision.tool) {
+            // ═══════════════════ AGENT MODE ═══════════════════
+            case 'agent_query': {
+              // Autonomous agent that can use multiple tools
+              console.log(`🤖 [INCOMING] Agent query detected`);
+              saveLastCommand(chatId, decision, { normalized });
+              
+              const { executeAgentQuery } = require('../services/agentService');
+              
+              try {
+                const agentResult = await executeAgentQuery(prompt, chatId, {
+                  maxIterations: 5
+                });
+                
+                if (agentResult.success) {
+                  await sendTextMessage(chatId, agentResult.text);
+                  
+                  // Log tool usage
+                  if (agentResult.toolsUsed && agentResult.toolsUsed.length > 0) {
+                    console.log(`🔧 [Agent] Tools used: ${agentResult.toolsUsed.join(', ')}`);
+                  }
+                  console.log(`✅ [Agent] Completed in ${agentResult.iterations} iterations`);
+                } else {
+                  await sendTextMessage(chatId, `❌ ${agentResult.error}`);
+                }
+              } catch (error) {
+                console.error('❌ Error in agent execution:', error);
+                await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${error.message}`);
+              }
+              
+              return;
+            }
+            
             case 'retry_last_command': {
               // Extract any additional instructions after "נסה שוב"
               // Examples: "# נסה שוב, רק עם שיער ארוך", "# שוב אבל בלי משקפיים"
@@ -3432,6 +3464,38 @@ async function handleOutgoingMessage(webhookData) {
             }
           
           switch (decision.tool) {
+            // ═══════════════════ AGENT MODE ═══════════════════
+            case 'agent_query': {
+              // Autonomous agent that can use multiple tools
+              console.log(`🤖 [OUTGOING] Agent query detected`);
+              saveLastCommand(chatId, decision, { normalized });
+              
+              const { executeAgentQuery } = require('../services/agentService');
+              
+              try {
+                const agentResult = await executeAgentQuery(prompt, chatId, {
+                  maxIterations: 5
+                });
+                
+                if (agentResult.success) {
+                  await sendTextMessage(chatId, agentResult.text);
+                  
+                  // Log tool usage
+                  if (agentResult.toolsUsed && agentResult.toolsUsed.length > 0) {
+                    console.log(`🔧 [Agent] Tools used: ${agentResult.toolsUsed.join(', ')}`);
+                  }
+                  console.log(`✅ [Agent] Completed in ${agentResult.iterations} iterations`);
+                } else {
+                  await sendTextMessage(chatId, `❌ ${agentResult.error}`);
+                }
+              } catch (error) {
+                console.error('❌ Error in agent execution:', error);
+                await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${error.message}`);
+              }
+              
+              return;
+            }
+            
             case 'retry_last_command': {
               // Extract any additional instructions after "נסה שוב" (same logic as incoming)
               const additionalInstructions = basePrompt
