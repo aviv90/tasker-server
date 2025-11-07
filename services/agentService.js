@@ -196,6 +196,252 @@ const agentTools = {
         };
       }
     }
+  },
+
+  // ═══════════════════ META TOOLS (Stage 2) ═══════════════════
+
+  // Tool 4: Create and analyze (meta-tool)
+  create_and_analyze: {
+    declaration: {
+      name: 'create_and_analyze',
+      description: 'צור תמונה ומיד נתח אותה. שימושי כשאתה רוצה לוודא שהתמונה עומדת בדרישות מסוימות.',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: {
+            type: 'string',
+            description: 'תיאור התמונה ליצירה',
+          },
+          analysis_question: {
+            type: 'string',
+            description: 'מה לבדוק בתמונה (לדוגמה: "האם יש כלב בתמונה?")',
+          },
+          provider: {
+            type: 'string',
+            description: 'ספק ליצירה: gemini, openai, או grok (ברירת מחדל: gemini)',
+            enum: ['gemini', 'openai', 'grok']
+          }
+        },
+        required: ['prompt', 'analysis_question']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] create_and_analyze called`);
+      
+      try {
+        const provider = args.provider || 'gemini';
+        
+        // Step 1: Create image
+        let imageResult;
+        if (provider === 'openai') {
+          const openaiService = require('./openaiService');
+          imageResult = await openaiService.generateImageForWhatsApp(args.prompt);
+        } else if (provider === 'grok') {
+          const grokService = require('./grokService');
+          imageResult = await grokService.generateImageForWhatsApp(args.prompt);
+        } else {
+          imageResult = await geminiService.generateImageForWhatsApp(args.prompt);
+        }
+        
+        if (imageResult.error) {
+          return {
+            success: false,
+            error: `שגיאה ביצירת תמונה: ${imageResult.error}`
+          };
+        }
+        
+        console.log(`✅ Image created with ${provider}, analyzing...`);
+        
+        // Step 2: Download and analyze
+        const { downloadFile } = require('../utils/fileDownloader');
+        const imageBuffer = await downloadFile(imageResult.url);
+        
+        const { analyzeImageWithText } = require('./geminiService');
+        const analysisResult = await analyzeImageWithText(args.analysis_question, imageBuffer);
+        
+        if (analysisResult.error) {
+          return {
+            success: false,
+            error: `התמונה נוצרה אבל הניתוח נכשל: ${analysisResult.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: `התמונה נוצרה בהצלחה! ניתוח: ${analysisResult.text}`,
+          imageUrl: imageResult.url
+        };
+      } catch (error) {
+        console.error('❌ Error in create_and_analyze tool:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool 5: Analyze and edit (meta-tool)
+  analyze_and_edit: {
+    declaration: {
+      name: 'analyze_and_edit',
+      description: 'נתח תמונה מההיסטוריה ואז ערוך אותה בהתאם לממצאים. שימושי לשיפור תמונות אוטומטי.',
+      parameters: {
+        type: 'object',
+        properties: {
+          image_id: {
+            type: 'number',
+            description: 'מזהה התמונה מההיסטוריה',
+          },
+          analysis_goal: {
+            type: 'string',
+            description: 'מה לבדוק בתמונה (לדוגמה: "מה חסר בתמונה?")',
+          },
+          edit_instruction: {
+            type: 'string',
+            description: 'הוראות לעריכה (לדוגמה: "הוסף את מה שחסר")',
+          }
+        },
+        required: ['image_id', 'analysis_goal', 'edit_instruction']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] analyze_and_edit called`);
+      
+      try {
+        // Step 1: Get image from history
+        const history = context.previousToolResults?.get_chat_history?.messages;
+        if (!history || !history[args.image_id]) {
+          return {
+            success: false,
+            error: `לא נמצאה תמונה עם המזהה ${args.image_id}`
+          };
+        }
+        
+        const message = history[args.image_id];
+        const imageUrl = message.metadata?.imageUrl;
+        
+        if (!imageUrl) {
+          return {
+            success: false,
+            error: `ההודעה ${args.image_id} לא מכילה תמונה`
+          };
+        }
+        
+        // Step 2: Analyze
+        const { downloadFile } = require('../utils/fileDownloader');
+        const imageBuffer = await downloadFile(imageUrl);
+        
+        const { analyzeImageWithText } = require('./geminiService');
+        const analysisResult = await analyzeImageWithText(args.analysis_goal, imageBuffer);
+        
+        if (analysisResult.error) {
+          return {
+            success: false,
+            error: `שגיאה בניתוח: ${analysisResult.error}`
+          };
+        }
+        
+        console.log(`✅ Analysis complete: ${analysisResult.text.substring(0, 50)}...`);
+        
+        // Step 3: Edit based on analysis
+        const editPrompt = `${args.edit_instruction}. בהתבסס על הניתוח: ${analysisResult.text}`;
+        const editResult = await geminiService.editImageWithText(editPrompt, imageBuffer);
+        
+        if (editResult.error) {
+          return {
+            success: false,
+            error: `הניתוח הצליח אבל העריכה נכשלה: ${editResult.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: `ניתחתי את התמונה ועריכתי אותה! ממצאים: ${analysisResult.text}`,
+          imageUrl: editResult.url
+        };
+      } catch (error) {
+        console.error('❌ Error in analyze_and_edit tool:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool 6: Retry with different provider (meta-tool)
+  retry_with_different_provider: {
+    declaration: {
+      name: 'retry_with_different_provider',
+      description: 'נסה ליצור תמונה עם ספק אחר אם הראשון נכשל או לא טוב. אל תשתמש בכלי הזה לפני שניסית ליצור תמונה!',
+      parameters: {
+        type: 'object',
+        properties: {
+          original_prompt: {
+            type: 'string',
+            description: 'הפרומפט המקורי ליצירת התמונה',
+          },
+          reason: {
+            type: 'string',
+            description: 'למה לנסות ספק אחר (לדוגמה: "התמונה לא טובה")',
+          },
+          avoid_provider: {
+            type: 'string',
+            description: 'איזה ספק לא לנסות (gemini/openai/grok)',
+            enum: ['gemini', 'openai', 'grok']
+          }
+        },
+        required: ['original_prompt', 'reason']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] retry_with_different_provider called`);
+      
+      try {
+        const avoidProvider = args.avoid_provider || 'gemini';
+        
+        // Try providers in order, skipping the one that failed
+        const providers = ['gemini', 'openai', 'grok'].filter(p => p !== avoidProvider);
+        
+        for (const provider of providers) {
+          console.log(`🔄 Trying provider: ${provider}`);
+          
+          let imageResult;
+          if (provider === 'openai') {
+            const openaiService = require('./openaiService');
+            imageResult = await openaiService.generateImageForWhatsApp(args.original_prompt);
+          } else if (provider === 'grok') {
+            const grokService = require('./grokService');
+            imageResult = await grokService.generateImageForWhatsApp(args.original_prompt);
+          } else {
+            imageResult = await geminiService.generateImageForWhatsApp(args.original_prompt);
+          }
+          
+          if (!imageResult.error) {
+            return {
+              success: true,
+              data: `ניסיתי עם ${provider} והצלחתי! הסיבה: ${args.reason}`,
+              imageUrl: imageResult.url,
+              provider: provider
+            };
+          }
+          
+          console.log(`❌ ${provider} failed: ${imageResult.error}`);
+        }
+        
+        return {
+          success: false,
+          error: `כל הספקים נכשלו. נסה שוב מאוחר יותר.`
+        };
+      } catch (error) {
+        console.error('❌ Error in retry_with_different_provider tool:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
   }
 };
 
@@ -323,21 +569,33 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 function shouldUseAgent(prompt, input) {
   // Use agent if:
   // 1. Question refers to chat history/previous messages
-  // 2. Complex question that might need multiple steps
+  // 2. Complex multi-step requests (create + analyze, create + retry, etc.)
   // 3. Question about media in the conversation
+  // 4. Requests that need web search + something else
   
-  const historyPatterns = [
+  const agentPatterns = [
+    // History-related
     /מה\s+(אמרתי|אמרת|כתבתי|כתבת|שלחתי|שלחת|דיברתי|דיברת)\s+(קודם|לפני|בהודעה|בשיחה)?/i,
     /על\s+מה\s+(דיברנו|עסקנו|שוחחנו)/i,
-    /(ב|מ|על)(ה)?(תמונה|וידאו|הקלטה|הודעה|שיחה)\s+(האחרונה|הקודמת|שבהיסטוריה)/i,
+    /(ב|מ|על)(ה)?(תמונה|וידאו|הקלטה|הודעה|שיחה)\s+(האחרונה|הקודמת|שבהיסטוריה|מקודם)/i,
     /what\s+(did\s+)?(I|we|you)\s+(say|said|write|wrote|mention|talk|discuss)/i,
     /about\s+the\s+(image|video|audio|message|conversation)/i,
-    /in\s+the\s+(previous|last|recent)\s+(message|conversation)/i
+    /in\s+the\s+(previous|last|recent)\s+(message|conversation)/i,
+    
+    // Multi-step patterns (meta-tools)
+    /(צור|תצור).+(ו|אם|ואז).+(נתח|תנתח|בדוק|תבדוק|ערוך|תערוך)/i,  // "צור תמונה ובדוק אם היא טובה"
+    /(נתח|תנתח).+(ו|ואז).+(ערוך|תערוך|שפר|תשפר)/i,  // "נתח את התמונה ושפר אותה"
+    /(חפש|תחפש).+(ו|ואז).+(תן|תני|צור|תצור|ספר|ספרי)/i,  // "חפש מידע וצור תמונה"
+    /(אם|if).+(לא|not).+(נסה|try).+(אחר|different|other)/i,  // "אם זה לא טוב נסה ספק אחר"
+    /create.+(and|then).+(analyze|check|edit|improve)/i,
+    /analyze.+(and|then).+(edit|improve|enhance)/i,
+    /search.+(and|then).+(summarize|create|tell)/i,
+    /(if|when).+(not\s+good|fails?|doesn'?t\s+work).+(try|use).+(another|different|other)/i
   ];
   
-  for (const pattern of historyPatterns) {
+  for (const pattern of agentPatterns) {
     if (pattern.test(prompt)) {
-      console.log(`🤖 [Agent] Detected history-related query, will use agent`);
+      console.log(`🤖 [Agent] Detected agent-suitable query, will use agent`);
       return true;
     }
   }
