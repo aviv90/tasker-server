@@ -1390,18 +1390,6 @@ async function handleIncomingMessage(webhookData) {
                 .replace(/^(נסה\s*שוב|שוב|retry|try\s*again)\s*,?\s*/i, '')
                 .trim();
 
-              // Apply provider override if specified
-              const override = applyProviderOverride(additionalInstructions, decision, { hasImage, hasVideo });
-              if (override) {
-                console.log(`🔁 Retry override detected → tool: ${override.tool}, reason: ${override.reason}`);
-                Object.assign(decision, override);
-                if (override.args?.prompt) {
-                  prompt = override.args.prompt;
-                }
-                // Continue to execution of the overridden tool
-                continue;
-              }
-              
               // Check if there's a quoted message with a command
               // Use isActualQuote to avoid false positives from extendedTextMessage metadata
               if (isActualQuote && quotedMessage && quotedMessage.stanzaId) {
@@ -1483,25 +1471,12 @@ async function handleIncomingMessage(webhookData) {
                 
                 console.log(`🔄 Found last command: ${lastCommand.tool}`);
                 if (additionalInstructions) {
-                  console.log(`📝 Merging additional instructions: "${additionalInstructions}"`);
+                  console.log(`📝 Additional instructions: "${additionalInstructions}"`);
                 }
                 
-                // Merge additional instructions with the original prompt if provided
-                let mergedArgs = { ...lastCommand.args };
-                if (additionalInstructions && lastCommand.args?.prompt) {
-                  // Append additional instructions to the original prompt
-                  mergedArgs.prompt = `${lastCommand.args.prompt}, ${additionalInstructions}`;
-                  console.log(`✨ New merged prompt: "${mergedArgs.prompt}"`);
-                }
-                
-                // Re-assign decision to last command with merged args
-                Object.assign(decision, {
-                  tool: lastCommand.tool,
-                  args: mergedArgs,
-                  reason: 'Retry last command with modifications'
-                });
-                
-                // Restore media URLs if they exist
+                // ✨ CRITICAL: Check for provider override BEFORE merging prompts
+                // This allows "# נסה שוב עם OpenAI" to change gemini_image → openai_image
+                // Restore media URLs first so applyProviderOverride can see the context
                 if (lastCommand.imageUrl) {
                   imageUrl = lastCommand.imageUrl;
                   hasImage = true;
@@ -1513,6 +1488,55 @@ async function handleIncomingMessage(webhookData) {
                 if (lastCommand.audioUrl) {
                   audioUrl = lastCommand.audioUrl;
                   hasAudio = true;
+                }
+                
+                // Build a decision object from the last command to pass to applyProviderOverride
+                const lastCommandDecision = {
+                  tool: lastCommand.tool,
+                  args: lastCommand.args
+                };
+                
+                // Apply provider override if specified (e.g., "עם OpenAI", "with Grok")
+                const override = applyProviderOverride(additionalInstructions, lastCommandDecision, { hasImage, hasVideo });
+                if (override) {
+                  console.log(`🔁 Retry with provider override → tool: ${override.tool}, reason: ${override.reason}`);
+                  // Use the overridden tool and merge args
+                  Object.assign(decision, {
+                    tool: override.tool,
+                    args: override.args || lastCommand.args,
+                    reason: override.reason
+                  });
+                  
+                  // Merge additional instructions with the original prompt if needed
+                  // BUT: Remove provider names from the prompt to avoid "OpenAI" appearing in the image
+                  if (lastCommand.args?.prompt) {
+                    const { cleanPromptFromProviders } = require('../utils/promptCleaner');
+                    const cleanedInstructions = cleanPromptFromProviders(additionalInstructions);
+                    
+                    if (cleanedInstructions.trim()) {
+                      decision.args.prompt = `${lastCommand.args.prompt}, ${cleanedInstructions}`;
+                      console.log(`✨ Merged prompt (cleaned): "${decision.args.prompt}"`);
+                    } else {
+                      // No additional instructions after cleaning provider names
+                      decision.args.prompt = lastCommand.args.prompt;
+                      console.log(`✨ Using original prompt (no additional instructions after cleaning)`);
+                    }
+                  }
+                } else {
+                  // No provider override - just merge instructions normally
+                  let mergedArgs = { ...lastCommand.args };
+                  if (additionalInstructions && lastCommand.args?.prompt) {
+                    // Append additional instructions to the original prompt
+                    mergedArgs.prompt = `${lastCommand.args.prompt}, ${additionalInstructions}`;
+                    console.log(`✨ New merged prompt: "${mergedArgs.prompt}"`);
+                  }
+                  
+                  // Re-assign decision to last command with merged args
+                  Object.assign(decision, {
+                    tool: lastCommand.tool,
+                    args: mergedArgs,
+                    reason: 'Retry last command with modifications'
+                  });
                 }
                 
                 // No need to update timestamp - it's persisted in DB
@@ -3414,17 +3438,6 @@ async function handleOutgoingMessage(webhookData) {
                 .replace(/^(נסה\s*שוב|שוב|retry|try\s*again)\s*,?\s*/i, '')
                 .trim();
 
-              // Apply provider override if specified (outgoing)
-              const override = applyProviderOverride(additionalInstructions, decision, { hasImage, hasVideo });
-              if (override) {
-                console.log(`🔁 [Outgoing] Retry override detected → tool: ${override.tool}, reason: ${override.reason}`);
-                Object.assign(decision, override);
-                if (override.args?.prompt) {
-                  prompt = override.args.prompt;
-                }
-                continue;
-              }
-              
               // Check if there's a quoted message with a command
               // Use isActualQuote to avoid false positives from extendedTextMessage metadata
               if (isActualQuote && quotedMessage && quotedMessage.stanzaId) {
@@ -3500,24 +3513,12 @@ async function handleOutgoingMessage(webhookData) {
                 
                 console.log(`🔄 [Outgoing] Found last command: ${lastCommand.tool}`);
                 if (additionalInstructions) {
-                  console.log(`📝 [Outgoing] Merging additional instructions: "${additionalInstructions}"`);
+                  console.log(`📝 [Outgoing] Additional instructions: "${additionalInstructions}"`);
                 }
                 
-                // Merge additional instructions with the original prompt if provided
-                let mergedArgs = { ...lastCommand.args };
-                if (additionalInstructions && lastCommand.args?.prompt) {
-                  mergedArgs.prompt = `${lastCommand.args.prompt}, ${additionalInstructions}`;
-                  console.log(`✨ [Outgoing] New merged prompt: "${mergedArgs.prompt}"`);
-                }
-                
-                // Re-assign decision to last command with merged args
-                Object.assign(decision, {
-                  tool: lastCommand.tool,
-                  args: mergedArgs,
-                  reason: 'Retry last command with modifications (outgoing)'
-                });
-                
-                // Restore media URLs if they exist
+                // ✨ CRITICAL: Check for provider override BEFORE merging prompts
+                // This allows "# נסה שוב עם OpenAI" to change gemini_image → openai_image
+                // Restore media URLs first so applyProviderOverride can see the context
                 if (lastCommand.imageUrl) {
                   imageUrl = lastCommand.imageUrl;
                   hasImage = true;
@@ -3529,6 +3530,54 @@ async function handleOutgoingMessage(webhookData) {
                 if (lastCommand.audioUrl) {
                   audioUrl = lastCommand.audioUrl;
                   hasAudio = true;
+                }
+                
+                // Build a decision object from the last command to pass to applyProviderOverride
+                const lastCommandDecision = {
+                  tool: lastCommand.tool,
+                  args: lastCommand.args
+                };
+                
+                // Apply provider override if specified (e.g., "עם OpenAI", "with Grok")
+                const override = applyProviderOverride(additionalInstructions, lastCommandDecision, { hasImage, hasVideo });
+                if (override) {
+                  console.log(`🔁 [Outgoing] Retry with provider override → tool: ${override.tool}, reason: ${override.reason}`);
+                  // Use the overridden tool and merge args
+                  Object.assign(decision, {
+                    tool: override.tool,
+                    args: override.args || lastCommand.args,
+                    reason: override.reason
+                  });
+                  
+                  // Merge additional instructions with the original prompt if needed
+                  // BUT: Remove provider names from the prompt to avoid "OpenAI" appearing in the image
+                  if (lastCommand.args?.prompt) {
+                    const { cleanPromptFromProviders } = require('../utils/promptCleaner');
+                    const cleanedInstructions = cleanPromptFromProviders(additionalInstructions);
+                    
+                    if (cleanedInstructions.trim()) {
+                      decision.args.prompt = `${lastCommand.args.prompt}, ${cleanedInstructions}`;
+                      console.log(`✨ [Outgoing] Merged prompt (cleaned): "${decision.args.prompt}"`);
+                    } else {
+                      // No additional instructions after cleaning provider names
+                      decision.args.prompt = lastCommand.args.prompt;
+                      console.log(`✨ [Outgoing] Using original prompt (no additional instructions after cleaning)`);
+                    }
+                  }
+                } else {
+                  // No provider override - just merge instructions normally
+                  let mergedArgs = { ...lastCommand.args };
+                  if (additionalInstructions && lastCommand.args?.prompt) {
+                    mergedArgs.prompt = `${lastCommand.args.prompt}, ${additionalInstructions}`;
+                    console.log(`✨ [Outgoing] New merged prompt: "${mergedArgs.prompt}"`);
+                  }
+                  
+                  // Re-assign decision to last command with merged args
+                  Object.assign(decision, {
+                    tool: lastCommand.tool,
+                    args: mergedArgs,
+                    reason: 'Retry last command with modifications (outgoing)'
+                  });
                 }
                 
                 // No need to update timestamp - it's persisted in DB
