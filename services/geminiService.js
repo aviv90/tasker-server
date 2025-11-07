@@ -2498,10 +2498,9 @@ async function getLocationBounds(locationName) {
 - אם לא מצאת את המקום או יש אי-התאמה, החזר {"found": false}`;
 
         const result = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: geocodePrompt }] }],
-            tools: [{
-                googleMaps: {}
-            }]
+            contents: [{ role: "user", parts: [{ text: geocodePrompt }] }]
+            // Note: Using Gemini's general knowledge + Google Search grounding (automatic)
+            // Google Maps tool requires specific toolConfig which isn't suitable for geocoding by name
         });
         
         const response = result.response;
