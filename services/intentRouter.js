@@ -121,7 +121,7 @@ async function routeIntent(input) {
     }
   }
   const text = (input.userText || '').trim();
-  const prompt = text.replace(/^#\s+/, '').trim();
+  // Note: prompt already defined at line 100 for refinement check
 
   // Voice-only case: no text, only audio (subject to allow list)
   if (!text && input.hasAudio) {
