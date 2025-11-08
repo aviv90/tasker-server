@@ -14,6 +14,12 @@ const getServices = () => {
   return { geminiService, openaiService, grokService, fileDownloader };
 };
 
+// ═══════════════════ AGENT CONTEXT MEMORY (Persistent in DB) ═══════════════════
+// Agent context is now stored persistently in PostgreSQL database
+// No more in-memory cache or TTL - context persists indefinitely like ChatGPT
+// Access via conversationManager.saveAgentContext/getAgentContext/clearAgentContext
+// ═══════════════════════════════════════════════════════════════════════════════
+
 /**
  * Agent Service - Autonomous AI agent that can use tools dynamically
  * 
@@ -345,9 +351,86 @@ const agentTools = {
     }
   },
 
+  // Tool 4: Access long-term memory (summaries & preferences)
+  get_long_term_memory: {
+    declaration: {
+      name: 'get_long_term_memory',
+      description: 'גישה לזיכרון ארוך טווח - סיכומי שיחות קודמות והעדפות משתמש. שימושי כדי להבין הקשר רחב יותר או העדפות המשתמש.',
+      parameters: {
+        type: 'object',
+        properties: {
+          include_summaries: {
+            type: 'boolean',
+            description: 'האם לכלול סיכומי שיחות קודמות (ברירת מחדל: true)',
+          },
+          include_preferences: {
+            type: 'boolean',
+            description: 'האם לכלול העדפות משתמש (ברירת מחדל: true)',
+          }
+        },
+        required: []
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] get_long_term_memory called`);
+      
+      try {
+        const includeSummaries = args.include_summaries !== false;
+        const includePreferences = args.include_preferences !== false;
+        
+        let result = {
+          success: true,
+          data: ''
+        };
+        
+        // Get summaries
+        if (includeSummaries) {
+          const summaries = await conversationManager.getConversationSummaries(context.chatId, 5);
+          
+          if (summaries.length > 0) {
+            result.data += '📚 סיכומי שיחות קודמות:\n\n';
+            summaries.forEach((summary, idx) => {
+              result.data += `${idx + 1}. ${summary.summary}\n`;
+              if (summary.keyTopics && summary.keyTopics.length > 0) {
+                result.data += `   נושאים: ${summary.keyTopics.join(', ')}\n`;
+              }
+              result.data += '\n';
+            });
+            result.summaries = summaries;
+          } else {
+            result.data += '📚 אין סיכומי שיחות קודמות\n\n';
+          }
+        }
+        
+        // Get preferences
+        if (includePreferences) {
+          const preferences = await conversationManager.getUserPreferences(context.chatId);
+          
+          if (Object.keys(preferences).length > 0) {
+            result.data += '⚙️ העדפות משתמש:\n';
+            for (const [key, value] of Object.entries(preferences)) {
+              result.data += `   • ${key}: ${value}\n`;
+            }
+            result.preferences = preferences;
+          } else {
+            result.data += '⚙️ אין העדפות משתמש שמורות';
+          }
+        }
+        
+        return result;
+      } catch (error) {
+        console.error('❌ Error in get_long_term_memory tool:', error);
+        return {
+          success: false,
+          error: `שגיאה בגישה לזיכרון ארוך טווח: ${error.message}`
+        };
+      }
+    }
+  },
+
   // ═══════════════════ CREATION TOOLS (Basic) ═══════════════════
-  
-  // Tool 4: Create image (basic tool)
+
+  // Tool 5: Create image (basic tool)
   create_image: {
     declaration: {
       name: 'create_image',
@@ -633,7 +716,9 @@ const agentTools = {
           
           try {
             let result;
+            
             if (args.task_type === 'image_creation') {
+              // Image generation with different providers
               if (provider === 'openai') {
                 result = await openaiService.generateImageForWhatsApp(args.original_prompt);
               } else if (provider === 'grok') {
@@ -649,6 +734,42 @@ const agentTools = {
                   imageUrl: result.url,
                   strategy_used: 'different_provider',
                   provider: provider
+                };
+              }
+            } else if (args.task_type === 'video_creation') {
+              // Video generation with different providers
+              const replicateService = require('./replicateService');
+              
+              if (provider === 'openai') {
+                // Try Sora (OpenAI)
+                result = await openaiService.generateVideoForWhatsApp(args.original_prompt, { model: 'sora-2' });
+              } else {
+                // Try Kling (default for Gemini/others)
+                result = await replicateService.generateVideoForWhatsApp(args.original_prompt, { model: 'kling' });
+              }
+              
+              if (!result.error) {
+                return {
+                  success: true,
+                  data: `✅ הצלחתי ליצור וידאו עם ${provider === 'openai' ? 'Sora' : 'Kling'}! (אסטרטגיה: מודל חלופי)`,
+                  videoUrl: result.url,
+                  strategy_used: 'different_provider',
+                  provider: provider
+                };
+              }
+            } else if (args.task_type === 'audio_creation') {
+              // Audio/TTS - only one main provider (ElevenLabs)
+              // Strategy: Try with different voices or settings
+              const voiceService = require('./voiceService');
+              result = await voiceService.textToSpeechForBot(args.original_prompt);
+              
+              if (!result.error) {
+                return {
+                  success: true,
+                  data: `✅ הצלחתי ליצור אודיו! (אסטרטגיה: הגדרות משופרות)`,
+                  audioUrl: result.url,
+                  strategy_used: 'improved_settings',
+                  provider: 'elevenlabs'
                 };
               }
             }
@@ -667,6 +788,7 @@ const agentTools = {
           
           try {
             let result;
+            
             if (args.task_type === 'image_creation') {
               result = await geminiService.generateImageForWhatsApp(simplifiedPrompt);
               
@@ -675,6 +797,34 @@ const agentTools = {
                   success: true,
                   data: `✅ הצלחתי עם פרומפט פשוט יותר! (אסטרטגיה: פישוט)`,
                   imageUrl: result.url,
+                  strategy_used: 'simplified_prompt',
+                  original_prompt: args.original_prompt,
+                  simplified_prompt: simplifiedPrompt
+                };
+              }
+            } else if (args.task_type === 'video_creation') {
+              const replicateService = require('./replicateService');
+              result = await replicateService.generateVideoForWhatsApp(simplifiedPrompt, { model: 'kling' });
+              
+              if (!result.error) {
+                return {
+                  success: true,
+                  data: `✅ הצלחתי ליצור וידאו עם פרומפט פשוט יותר! (אסטרטגיה: פישוט)`,
+                  videoUrl: result.url,
+                  strategy_used: 'simplified_prompt',
+                  original_prompt: args.original_prompt,
+                  simplified_prompt: simplifiedPrompt
+                };
+              }
+            } else if (args.task_type === 'audio_creation') {
+              const voiceService = require('./voiceService');
+              result = await voiceService.textToSpeechForBot(simplifiedPrompt);
+              
+              if (!result.error) {
+                return {
+                  success: true,
+                  data: `✅ הצלחתי ליצור אודיו עם טקסט פשוט יותר! (אסטרטגיה: פישוט)`,
+                  audioUrl: result.url,
                   strategy_used: 'simplified_prompt',
                   original_prompt: args.original_prompt,
                   simplified_prompt: simplifiedPrompt
@@ -710,6 +860,7 @@ const agentTools = {
             console.log(`   → Generic version: "${genericPrompt}"`);
             
             let result;
+            
             if (args.task_type === 'image_creation') {
               result = await openaiService.generateImageForWhatsApp(genericPrompt);
               
@@ -718,6 +869,34 @@ const agentTools = {
                   success: true,
                   data: `✅ הצלחתי עם גרסה כללית יותר! (אסטרטגיה: הכללה)`,
                   imageUrl: result.url,
+                  strategy_used: 'generic_prompt',
+                  original_prompt: args.original_prompt,
+                  generic_prompt: genericPrompt
+                };
+              }
+            } else if (args.task_type === 'video_creation') {
+              const replicateService = require('./replicateService');
+              result = await replicateService.generateVideoForWhatsApp(genericPrompt, { model: 'kling' });
+              
+              if (!result.error) {
+                return {
+                  success: true,
+                  data: `✅ הצלחתי ליצור וידאו עם גרסה כללית יותר! (אסטרטגיה: הכללה)`,
+                  videoUrl: result.url,
+                  strategy_used: 'generic_prompt',
+                  original_prompt: args.original_prompt,
+                  generic_prompt: genericPrompt
+                };
+              }
+            } else if (args.task_type === 'audio_creation') {
+              const voiceService = require('./voiceService');
+              result = await voiceService.textToSpeechForBot(genericPrompt);
+              
+              if (!result.error) {
+                return {
+                  success: true,
+                  data: `✅ הצלחתי ליצור אודיו עם טקסט כללי יותר! (אסטרטגיה: הכללה)`,
+                  audioUrl: result.url,
                   strategy_used: 'generic_prompt',
                   original_prompt: args.original_prompt,
                   generic_prompt: genericPrompt
@@ -823,6 +1002,258 @@ const agentTools = {
         };
       }
     }
+  },
+
+  // ═══════════════════ OPTIMIZED META-TOOLS (Tool Chaining) ═══════════════════
+
+  // Tool 8: History-aware creation (creates based on chat history context)
+  history_aware_create: {
+    declaration: {
+      name: 'history_aware_create',
+      description: 'צור תמונה מבוססת על הקשר מההיסטוריה. מאחד 2 פעולות: שליפת היסטוריה + יצירה חכמה מבוססת context.',
+      parameters: {
+        type: 'object',
+        properties: {
+          user_request: {
+            type: 'string',
+            description: 'הבקשה של המשתמש (לדוגמה: "צור תמונה כמו בפעם הקודמת")',
+          },
+          provider: {
+            type: 'string',
+            description: 'ספק ליצירה (gemini/openai/grok)',
+            enum: ['gemini', 'openai', 'grok']
+          }
+        },
+        required: ['user_request']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] history_aware_create called`);
+      
+      try {
+        // Step 1: Get chat history
+        const history = await conversationManager.getChatHistory(context.chatId, 20);
+        
+        if (!history || history.length === 0) {
+          return {
+            success: false,
+            error: 'אין היסטוריה זמינה ליצירה מבוססת context'
+          };
+        }
+        
+        // Step 2: Build context-aware prompt
+        const recentMessages = history.slice(-10).map(msg => 
+          `${msg.role}: ${msg.content}`
+        ).join('\n');
+        
+        const enrichedPrompt = `בהתבסס על ההקשר הבא:\n${recentMessages}\n\nבקשה: ${args.user_request}`;
+        
+        console.log(`🎨 Creating with enriched prompt based on history...`);
+        
+        // Step 3: Create with the enriched prompt
+        const provider = args.provider || 'gemini';
+        const { geminiService, openaiService, grokService } = getServices();
+        
+        let result;
+        if (provider === 'openai') {
+          result = await openaiService.generateImageForWhatsApp(enrichedPrompt);
+        } else if (provider === 'grok') {
+          result = await grokService.generateImageForWhatsApp(enrichedPrompt);
+        } else {
+          result = await geminiService.generateImageForWhatsApp(enrichedPrompt);
+        }
+        
+        if (result.error) {
+          return {
+            success: false,
+            error: `יצירה נכשלה: ${result.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: `✅ יצרתי תמונה מבוססת על ההקשר מההיסטוריה!`,
+          imageUrl: result.url,
+          provider: provider,
+          usedHistory: true
+        };
+      } catch (error) {
+        console.error('❌ Error in history_aware_create:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool 9: Create with long-term memory (uses preferences and summaries)
+  create_with_memory: {
+    declaration: {
+      name: 'create_with_memory',
+      description: 'צור תמונה/תוכן מבוסס על העדפות המשתמש וזיכרון ארוך טווח. מאחד 2 פעולות: קריאת העדפות + יצירה מותאמת אישית.',
+      parameters: {
+        type: 'object',
+        properties: {
+          base_prompt: {
+            type: 'string',
+            description: 'הפרומפט הבסיסי ליצירה',
+          },
+          use_style_preferences: {
+            type: 'boolean',
+            description: 'האם להשתמש בהעדפות סגנון מהזיכרון (ברירת מחדל: true)',
+          },
+          provider: {
+            type: 'string',
+            description: 'ספק ליצירה',
+            enum: ['gemini', 'openai', 'grok']
+          }
+        },
+        required: ['base_prompt']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] create_with_memory called`);
+      
+      try {
+        const usePreferences = args.use_style_preferences !== false;
+        
+        let finalPrompt = args.base_prompt;
+        
+        // Step 1: Get user preferences if enabled
+        if (usePreferences) {
+          const preferences = await conversationManager.getUserPreferences(context.chatId);
+          
+          if (Object.keys(preferences).length > 0) {
+            console.log(`🧠 Applying user preferences:`, preferences);
+            
+            // Build preference string
+            const prefString = Object.entries(preferences)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join(', ');
+            
+            finalPrompt = `${args.base_prompt}\nהעדפות סגנון: ${prefString}`;
+          }
+        }
+        
+        // Step 2: Create with personalized prompt
+        const provider = args.provider || 'gemini';
+        const { geminiService, openaiService, grokService } = getServices();
+        
+        let result;
+        if (provider === 'openai') {
+          result = await openaiService.generateImageForWhatsApp(finalPrompt);
+        } else if (provider === 'grok') {
+          result = await grokService.generateImageForWhatsApp(finalPrompt);
+        } else {
+          result = await geminiService.generateImageForWhatsApp(finalPrompt);
+        }
+        
+        if (result.error) {
+          return {
+            success: false,
+            error: `יצירה נכשלה: ${result.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: `✅ יצרתי תמונה מותאמת אישית על בסיס ההעדפות שלך!`,
+          imageUrl: result.url,
+          provider: provider,
+          usedPreferences: usePreferences
+        };
+      } catch (error) {
+        console.error('❌ Error in create_with_memory:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool 10: Search and create (combines web search with image creation)
+  search_and_create: {
+    declaration: {
+      name: 'search_and_create',
+      description: 'חפש מידע באינטרנט ואז צור תמונה מבוססת על המידע. מאחד 2 פעולות: חיפוש + יצירה מושכלת.',
+      parameters: {
+        type: 'object',
+        properties: {
+          search_query: {
+            type: 'string',
+            description: 'מה לחפש באינטרנט',
+          },
+          creation_goal: {
+            type: 'string',
+            description: 'מה ליצור בהתבסס על תוצאות החיפוש',
+          },
+          provider: {
+            type: 'string',
+            description: 'ספק ליצירה',
+            enum: ['gemini', 'openai', 'grok']
+          }
+        },
+        required: ['search_query', 'creation_goal']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] search_and_create called`);
+      
+      try {
+        // Step 1: Search web
+        console.log(`🔍 Searching for: ${args.search_query}`);
+        const { geminiService } = getServices();
+        
+        const searchResult = await geminiService.searchWeb(args.search_query);
+        
+        if (!searchResult || searchResult.error) {
+          return {
+            success: false,
+            error: `חיפוש נכשל: ${searchResult?.error || 'Unknown error'}`
+          };
+        }
+        
+        // Step 2: Create image based on search results
+        const enrichedPrompt = `${args.creation_goal}\n\nמידע רלוונטי מהאינטרנט: ${searchResult.text?.substring(0, 500) || 'N/A'}`;
+        
+        console.log(`🎨 Creating based on search results...`);
+        
+        const provider = args.provider || 'gemini';
+        const { openaiService, grokService } = getServices();
+        
+        let result;
+        if (provider === 'openai') {
+          result = await openaiService.generateImageForWhatsApp(enrichedPrompt);
+        } else if (provider === 'grok') {
+          result = await grokService.generateImageForWhatsApp(enrichedPrompt);
+        } else {
+          result = await geminiService.generateImageForWhatsApp(enrichedPrompt);
+        }
+        
+        if (result.error) {
+          return {
+            success: false,
+            error: `יצירה נכשלה: ${result.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: `✅ חיפשתי באינטרנט ויצרתי תמונה מבוססת על המידע שמצאתי!`,
+          imageUrl: result.url,
+          provider: provider,
+          searchUsed: true
+        };
+      } catch (error) {
+        console.error('❌ Error in search_and_create:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
   }
 };
 
@@ -836,8 +1267,16 @@ const agentTools = {
 async function executeAgentQuery(prompt, chatId, options = {}) {
   console.log(`🤖 [Agent] Starting autonomous query: "${prompt.substring(0, 100)}..."`);
   
-  const maxIterations = options.maxIterations || 5;  // Prevent infinite loops
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  // ⚙️ Configuration: Load from env or use defaults
+  const agentConfig = {
+    model: process.env.AGENT_MODEL || 'gemini-2.5-flash',
+    maxIterations: Number(process.env.AGENT_MAX_ITERATIONS) || 5,
+    timeoutMs: Number(process.env.AGENT_TIMEOUT_MS) || 60000,
+    contextMemoryEnabled: String(process.env.AGENT_CONTEXT_MEMORY_ENABLED || 'false').toLowerCase() === 'true'
+  };
+  
+  const maxIterations = options.maxIterations || agentConfig.maxIterations;
+  const model = genAI.getGenerativeModel({ model: agentConfig.model });
   
   // Prepare tool declarations for Gemini
   const functionDeclarations = Object.values(agentTools).map(tool => tool.declaration);
@@ -874,19 +1313,28 @@ My internal thoughts:
 1. אם המשתמש שואל שאלה על תוכן השיחה או מתייחס להודעות קודמות - השתמש ב-get_chat_history
 2. אם בהיסטוריה יש תמונה רלוונטית לשאלה - השתמש ב-analyze_image_from_history
 3. אם אתה צריך מידע עדכני או מידע שאינו זמין לך - השתמש ב-search_web
+4. אם אתה צריך הקשר רחב יותר או להבין העדפות משתמש - השתמש ב-get_long_term_memory
+   - זיכרון זה כולל סיכומי שיחות קודמות והעדפות שנשמרו
+   - שימושי כשהמשתמש מתייחס ל"כמו בפעם הקודמת" או לעניינים שדובר עליהם לפני זמן רב
 
 🖼️ יצירת תמונות:
-4. אם צריך ליצור תמונה בסיסית - השתמש ב-create_image
+5. אם צריך ליצור תמונה בסיסית - השתמש ב-create_image
    - ברירת מחדל: gemini
    - אפשר לציין provider אחר (openai/grok)
 
-🎨 Meta-tools (משימות מורכבות):
-5. אם צריך ליצור תמונה ולנתח אותה מיד - השתמש ב-create_and_analyze
-6. אם צריך לנתח תמונה מההיסטוריה ואז לערוך אותה - השתמש ב-analyze_and_edit
-7. אם צריך לנסות ספק אחר - השתמש ב-retry_with_different_provider
+🎨 Meta-tools (משימות מורכבות - מהירות כפולה!):
+6. אם צריך ליצור תמונה ולנתח אותה מיד - השתמש ב-create_and_analyze
+7. אם צריך לנתח תמונה מההיסטוריה ואז לערוך אותה - השתמש ב-analyze_and_edit
+8. אם צריך לנסות ספק אחר - השתמש ב-retry_with_different_provider
+9. אם צריך ליצור מבוסס על היסטוריה ("כמו בפעם הקודמת") - השתמש ב-history_aware_create
+   - חוסך קריאות: history + creation במכה אחת!
+10. אם צריך ליצור מבוסס על העדפות משתמש - השתמש ב-create_with_memory
+   - חוסך קריאות: preferences + creation במכה אחת!
+11. אם צריך לחפש באינטרנט ואז ליצור - השתמש ב-search_and_create
+   - חוסך קריאות: search + creation במכה אחת!
 
 🧠 Smart Retry (Stage 3 - חדש!):
-8. אם משימה נכשלה או המשתמש לא מרוצה מהתוצאה - השתמש ב-smart_execute_with_fallback
+12. אם משימה נכשלה או המשתמש לא מרוצה מהתוצאה - השתמש ב-smart_execute_with_fallback
    הכלי הזה ינסה אוטומטית:
    - ספקים שונים (Gemini/OpenAI/Grok)
    - פישוט הפרומפט
@@ -900,7 +1348,7 @@ My internal thoughts:
    - "פשט את זה"
 
 🔄 Conditional Fallback (חדש!):
-9. **אם המשתמש מבקש fallback מראש** - בצע try-catch:
+13. **אם המשתמש מבקש fallback מראש** - בצע try-catch:
    דוגמאות:
    - "צור תמונה של X ואם נכשל צור עם OpenAI"
    - "create image and if fails use Grok"
@@ -917,11 +1365,32 @@ My internal thoughts:
 - אם אין צורך בכלים - פשוט ענה ישירות`;
 
 
-  // Context for tool execution
-  const context = {
+  // 🧠 Context for tool execution (load previous context if enabled)
+  let context = {
     chatId,
-    previousToolResults: {}
+    previousToolResults: {},
+    toolCalls: [],
+    generatedAssets: {
+      images: [],
+      videos: [],
+      audio: []
+    }
   };
+  
+  // Load previous context if context memory is enabled (from DB)
+  if (agentConfig.contextMemoryEnabled) {
+    const previousContext = await conversationManager.getAgentContext(chatId);
+    if (previousContext) {
+      console.log(`🧠 [Agent Context] Loaded previous context from DB with ${previousContext.toolCalls.length} tool calls`);
+      context = {
+        ...context,
+        toolCalls: previousContext.toolCalls || [],
+        generatedAssets: previousContext.generatedAssets || context.generatedAssets
+      };
+    } else {
+      console.log(`🧠 [Agent Context] No previous context found in DB (starting fresh)`);
+    }
+  }
   
   // Conversation history for the agent
   const chat = model.startChat({
@@ -930,11 +1399,13 @@ My internal thoughts:
     systemInstruction: systemInstruction
   });
   
-  let response = await chat.sendMessage(prompt);
-  let iterationCount = 0;
-  
-  // Agent loop - continue until we get a final text response
-  while (iterationCount < maxIterations) {
+  // ⏱️ Wrap entire agent execution with timeout
+  const agentExecution = async () => {
+    let response = await chat.sendMessage(prompt);
+    let iterationCount = 0;
+    
+    // Agent loop - continue until we get a final text response
+    while (iterationCount < maxIterations) {
     iterationCount++;
     console.log(`🔄 [Agent] Iteration ${iterationCount}/${maxIterations}`);
     
@@ -951,6 +1422,15 @@ My internal thoughts:
       text = cleanThinkingPatterns(text);
       
       console.log(`✅ [Agent] Completed in ${iterationCount} iterations`);
+      
+      // 🧠 Save context for future agent calls if enabled (to DB)
+      if (agentConfig.contextMemoryEnabled) {
+        await conversationManager.saveAgentContext(chatId, {
+          toolCalls: context.toolCalls,
+          generatedAssets: context.generatedAssets
+        });
+        console.log(`🧠 [Agent Context] Saved context to DB with ${context.toolCalls.length} tool calls`);
+      }
       
       return {
         success: true,
@@ -989,12 +1469,47 @@ My internal thoughts:
         // Save result for future tool calls
         context.previousToolResults[toolName] = toolResult;
         
+        // 🧠 Track tool call for context memory
+        context.toolCalls.push({
+          tool: toolName,
+          args: toolArgs,
+          success: toolResult.success !== false,
+          timestamp: Date.now()
+        });
+        
+        // 🧠 Track generated assets for context memory
+        if (toolResult.imageUrl) {
+          context.generatedAssets.images.push({
+            url: toolResult.imageUrl,
+            prompt: toolArgs.prompt,
+            provider: toolResult.provider || toolArgs.provider,
+            timestamp: Date.now()
+          });
+        }
+        if (toolResult.videoUrl) {
+          context.generatedAssets.videos.push({
+            url: toolResult.videoUrl,
+            prompt: toolArgs.prompt,
+            timestamp: Date.now()
+          });
+        }
+        
         return {
           name: toolName,
           response: toolResult
         };
       } catch (error) {
         console.error(`❌ Error executing tool ${toolName}:`, error);
+        
+        // 🧠 Track failed tool call
+        context.toolCalls.push({
+          tool: toolName,
+          args: toolArgs,
+          success: false,
+          error: error.message,
+          timestamp: Date.now()
+        });
+        
         return {
           name: toolName,
           response: {
@@ -1012,14 +1527,35 @@ My internal thoughts:
     response = await chat.sendMessage(functionResponses);
   }
   
-  // Max iterations reached
-  console.warn(`⚠️ [Agent] Max iterations (${maxIterations}) reached`);
-  return {
-    success: false,
-    error: 'הגעתי למספר המקסימלי של ניסיונות. נסה לנסח את השאלה אחרת.',
-    toolsUsed: Object.keys(context.previousToolResults),
-    iterations: iterationCount
+    // Max iterations reached
+    console.warn(`⚠️ [Agent] Max iterations (${maxIterations}) reached`);
+    return {
+      success: false,
+      error: 'הגעתי למספר המקסימלי של ניסיונות. נסה לנסח את השאלה אחרת.',
+      toolsUsed: Object.keys(context.previousToolResults),
+      iterations: iterationCount
+    };
   };
+  
+  // ⏱️ Execute agent with timeout
+  const timeoutPromise = new Promise((_, reject) => 
+    setTimeout(() => reject(new Error('Agent timeout')), agentConfig.timeoutMs)
+  );
+  
+  try {
+    return await Promise.race([agentExecution(), timeoutPromise]);
+  } catch (error) {
+    if (error.message === 'Agent timeout') {
+      console.error(`⏱️ [Agent] Timeout after ${agentConfig.timeoutMs}ms`);
+      return {
+        success: false,
+        error: `⏱️ הפעולה ארכה יותר מדי. נסה בקשה פשוטה יותר או נסה שוב מאוחר יותר.`,
+        toolsUsed: Object.keys(context.previousToolResults),
+        timeout: true
+      };
+    }
+    throw error;
+  }
 }
 
 /**

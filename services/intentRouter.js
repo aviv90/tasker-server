@@ -99,38 +99,56 @@ async function routeIntent(input) {
   // This allows users to refine previous commands without explicit "retry" keyword
   const prompt = (input.userText || '').trim().replace(/^#\s+/, '');
   
-  if (isRefinementRequest(prompt)) {
-    console.log(`🔄 Detected refinement request: "${prompt.substring(0, 50)}..."`);
-    // Mark as retry with modification - will be handled by retry_last_command logic
+  // ⚙️ Configuration: Should LLM detect refinement?
+  const llmRefinementEnabled = useLLM && 
+    String(process.env.INTENT_ROUTER_REFINEMENT_USE_LLM || 'true').toLowerCase() === 'true';
+  
+  // 🔄 REFINEMENT CHECK: If LLM is enabled for refinement, let it detect
+  // Otherwise, use heuristic patterns
+  if (!llmRefinementEnabled && isRefinementRequest(prompt)) {
+    console.log(`🔄 [Heuristic] Detected refinement request: "${prompt.substring(0, 50)}..."`);
     return {
       tool: 'retry_last_command',
       args: { prompt },
-      reason: 'Auto-detected refinement request'
+      reason: 'Auto-detected refinement request (heuristic)'
     };
   }
   
-  // 🤖 AGENT MODE: Check if query needs autonomous agent with tools
+  // 🤖 LLM ROUTING (PRIORITY): If enabled, let LLM decide everything
+  // (including agent routing AND refinement detection if enabled)
+  if (useLLM) {
+    try {
+      const llmDecision = await decideWithLLM(input, { checkRefinement: llmRefinementEnabled });
+      const validated = validateDecision(llmDecision);
+      if (validated) {
+        console.log(`🧠 [LLM Router] Decision: ${validated.tool} - ${validated.reason}`);
+        return validated;
+      }
+    } catch (err) {
+      console.log(`⚠️ [LLM Router] Failed (${err.message}), falling back to heuristic`);
+      // Fall back to heuristic refinement check if LLM failed
+      if (llmRefinementEnabled && isRefinementRequest(prompt)) {
+        console.log(`🔄 [Heuristic Fallback] Detected refinement request`);
+        return {
+          tool: 'retry_last_command',
+          args: { prompt },
+          reason: 'Auto-detected refinement request (fallback)'
+        };
+      }
+      // Fall back to heuristic routing
+    }
+  }
+  
+  // 🤖 HEURISTIC AGENT CHECK (FALLBACK): Only if LLM is off or failed
   // Agent can fetch history, analyze media, search web, etc.
   const { shouldUseAgent } = require('./agentService');
   if (shouldUseAgent(prompt, input)) {
-    console.log(`🤖 [Router] Detected complex query, routing to agent`);
+    console.log(`🤖 [Heuristic Router] Detected complex query, routing to agent`);
     return {
       tool: 'agent_query',
       args: { prompt },
       reason: 'Complex query requiring autonomous agent with tools'
     };
-  }
-  
-  if (useLLM) {
-    try {
-      const llmDecision = await decideWithLLM(input);
-      const validated = validateDecision(llmDecision);
-      if (validated) {
-        return validated;
-      }
-    } catch (err) {
-      // Fall back to heuristic silently
-    }
   }
   const text = (input.userText || '').trim();
   // Note: prompt already defined at line 100 for refinement check
@@ -564,6 +582,7 @@ function validateDecision(obj) {
   const args = obj.args || {};
   const reason = typeof obj.reason === 'string' ? obj.reason : '';
   const allowedTools = new Set([
+    'agent_query',  // 🤖 Autonomous agent for complex queries
     'gemini_image', 'openai_image', 'grok_image',
     'veo3_video', 'sora_video', 'kling_text_to_video', 'veo3_image_to_video', 'sora_image_to_video', 'kling_image_to_video', 'video_to_video',
     'image_edit', 'text_to_speech', 'gemini_chat', 'openai_chat', 'grok_chat',
@@ -573,11 +592,14 @@ function validateDecision(obj) {
   return { tool, args, reason };
 }
 
-async function decideWithLLM(input) {
-  const prompt = buildRouterPrompt(input);
-  // Use a faster model and a timeout fallback to heuristic
-  const llmPromise = geminiText(prompt, [], { model: 'gemini-2.5-flash' });
+async function decideWithLLM(input, options = {}) {
+  const prompt = buildRouterPrompt(input, options);
+  // ⚙️ Configuration: Load from env or use defaults
+  const routerModel = process.env.INTENT_ROUTER_MODEL || 'gemini-2.5-flash';
   const timeoutMs = Number(process.env.INTENT_ROUTER_LLM_TIMEOUT_MS || 2500);
+  
+  // Use a faster model and a timeout fallback to heuristic
+  const llmPromise = geminiText(prompt, [], { model: routerModel });
   const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('LLM timeout')), timeoutMs));
   const res = await Promise.race([llmPromise, timeoutPromise]);
   const raw = (res && res.text) ? res.text.trim() : '';
@@ -592,7 +614,7 @@ async function decideWithLLM(input) {
   return parsed;
 }
 
-function buildRouterPrompt(input) {
+function buildRouterPrompt(input, options = {}) {
   const safe = (v) => (v === null || v === undefined) ? null : v;
   
   const payload = {
@@ -609,6 +631,42 @@ function buildRouterPrompt(input) {
     }
   };
   
+  // 🔄 Add refinement detection instructions if enabled
+  const refinementSection = options.checkRefinement ? `
+  
+🔄 **REFINEMENT DETECTION** (HIGHEST PRIORITY - Check FIRST):
+
+Before routing to any tool, check if the user is expressing dissatisfaction or requesting improvement of a previous command.
+
+**Patterns indicating refinement/retry:**
+- ❌ Dissatisfaction: "לא יצא טוב", "לא נכון", "didn't work", "not good", "incorrect"
+- 🔧 Fix requests: "תקן את זה", "שפר", "שנה", "fix this", "improve", "change"
+- 📊 Comparative: "צריך להיות יותר גדול", "should be bigger", "with less detail"
+- 🔁 Implicit improvement: "אבל עם שיער ארוך", "but with blue eyes", "without glasses"
+- 🗣️ References to output: "התמונה לא יצאה", "הפיל לא טוב", "the image isn't right"
+- 🎯 Implicit but positive: "יפה! עכשיו רק תוסיף שמש" (sounds positive BUT requests change!)
+
+**Critical examples:**
+- "לא יצא טוב" → retry_last_command ✅
+- "תקן את זה" → retry_last_command ✅
+- "הפיל צריך להיות גדול יותר" → retry_last_command ✅
+- "יפה! עכשיו תוסיף כובע" → retry_last_command ✅ (improvement request!)
+- "זה קרוב, אבל שנה את הרקע" → retry_last_command ✅
+
+**NOT refinement:**
+- "צור תמונה חדשה" → new request ❌
+- "מה המזג אוויר?" → question ❌
+
+**If refinement detected:**
+{
+  "tool": "retry_last_command",
+  "args": { "prompt": "<user_text>" },
+  "reason": "Refinement request detected"
+}
+
+**If NOT refinement, continue to next checks ↓**
+` : '';
+  
   return `You are a smart intent router for a WhatsApp AI bot. 
 Your task: Analyze the user's request and return ONLY a valid JSON object.
 
@@ -623,8 +681,53 @@ Your task: Analyze the user's request and return ONLY a valid JSON object.
 
 🔍 INPUT CONTEXT:
 ${JSON.stringify(payload, null, 2)}
-
+${refinementSection}
 📋 DECISION LOGIC (follow this EXACT order):
+
+0️⃣ **COMPLEXITY CHECK - Autonomous Agent** (${options.checkRefinement ? 'SECOND PRIORITY' : 'HIGHEST PRIORITY'}):
+   
+   🤖 **When to use "agent_query":**
+   The agent has autonomous capabilities with multiple tools. Use it for COMPLEX requests that involve:
+   
+   A. **Chat History References:**
+      ✓ User asks about previous messages/conversation:
+        - "מה אמרתי קודם?", "מה דיברנו עליו?", "what did I say earlier?"
+        - "תזכיר לי מה אמרתי על...", "remind me what I said about..."
+        - "לפי השיחה שלנו", "according to our chat", "based on what we discussed"
+        - "כמו שהצגתי קודם", "as I showed before"
+        - Implicit references: "תמונה של הדבר שציינתי", "image of what I mentioned"
+      
+   B. **Multi-Step / Chained Operations:**
+      ✓ Requests that require multiple actions in sequence:
+        - "צור תמונה ואז נתח אותה", "create and then analyze"
+        - "בדוק את התמונה הקודמת ועדכן אותה", "check previous image and update it"
+        - "חפש באינטרנט ואז צור תמונה", "search web and create image"
+        - "נתח את מה שאמרתי ותן לי סיכום", "analyze what I said and summarize"
+      
+   C. **Conditional Fallback Logic:**
+      ✓ User explicitly requests fallback behavior:
+        - "צור תמונה ואם נכשל צור עם OpenAI", "create image and if fails use OpenAI"
+        - "נסה עם Gemini, ואם לא טוב תנסה Grok", "try Gemini, if not good try Grok"
+        - "אם זה לא עובד, נסה דרך אחרת", "if doesn't work, try another way"
+      
+   D. **Complex Analytical Requests:**
+      ✓ Requires analysis across multiple messages or deep reasoning:
+        - "מהי הנושא המרכזי בשיחה שלנו?", "what's the main theme of our chat?"
+        - "איזה תמונות שלחתי עד עכשיו?", "which images did I send so far?"
+        - "תשווה בין מה שאמרתי אתמול למה שאמרתי היום", "compare what I said yesterday to today"
+   
+   E. **Web Search + Action:**
+      ✓ Search online AND then do something with results:
+        - "חפש מידע על X וצור תמונה", "search info about X and create image"
+        - "תן לי לינקים ואז תסביר", "give me links and then explain"
+   
+   ⚠️ **When NOT to use agent (keep it simple):**
+      ❌ Single, direct actions: "צור תמונה", "נתח את התמונה הזו"
+      ❌ Basic chat: "מה המזג אוויר?", "ספר לי בדיחה"
+      ❌ Simple media operations: "ערוך את התמונה", "צור וידאו"
+   
+   → If complex: Return { "tool": "agent_query", "args": { "prompt": "<full_user_text>" }, "reason": "Complex query requiring autonomous agent" }
+   → If simple: Continue to next checks below ↓
 
 1️⃣ **IF hasImage=true** (user sent an image or sticker):
    💡 NOTE: Stickers (stickerMessage) are treated as images (webp format)

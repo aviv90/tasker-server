@@ -38,6 +38,9 @@ class ConversationManager {
       this.isInitialized = true;
       console.log('✅ Database initialization completed successfully');
       
+      // Start periodic cleanup task (monthly)
+      this.startPeriodicCleanup();
+      
     } catch (error) {
       console.error('❌ Database initialization failed:', error.message);
       // Retry with exponential backoff to avoid crashing the app on transient DB issues
@@ -153,6 +156,32 @@ class ConversationManager {
         )
       `);
 
+      // Create agent_context table for persistent agent memory
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS agent_context (
+          id SERIAL PRIMARY KEY,
+          chat_id VARCHAR(255) NOT NULL UNIQUE,
+          tool_calls JSONB DEFAULT '[]'::jsonb,
+          generated_assets JSONB DEFAULT '{"images":[],"videos":[],"audio":[]}'::jsonb,
+          last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create conversation_summaries table for long-term memory
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS conversation_summaries (
+          id SERIAL PRIMARY KEY,
+          chat_id VARCHAR(255) NOT NULL,
+          summary TEXT NOT NULL,
+          key_topics JSONB DEFAULT '[]'::jsonb,
+          user_preferences JSONB DEFAULT '{}'::jsonb,
+          message_count INTEGER DEFAULT 0,
+          summary_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
       // Create indexes for better performance
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_conversations_chat_id 
@@ -172,6 +201,26 @@ class ConversationManager {
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_contacts_type
         ON contacts(type)
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_agent_context_chat_id
+        ON agent_context(chat_id)
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_agent_context_last_updated
+        ON agent_context(last_updated DESC)
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_conversation_summaries_chat_id
+        ON conversation_summaries(chat_id)
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_conversation_summaries_date
+        ON conversation_summaries(summary_date DESC)
       `);
 
       console.log('✅ All database tables and indexes created successfully');
@@ -987,6 +1036,331 @@ class ConversationManager {
     } finally {
       client.release();
     }
+  }
+
+  // ═══════════════════ AGENT CONTEXT (Persistent) ═══════════════════
+
+  /**
+   * Save agent context to database (persistent storage)
+   */
+  async saveAgentContext(chatId, context) {
+    if (!this.isInitialized) {
+      console.warn('⚠️ Database not initialized, cannot save agent context');
+      return;
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      await client.query(`
+        INSERT INTO agent_context (chat_id, tool_calls, generated_assets, last_updated)
+        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+        ON CONFLICT (chat_id)
+        DO UPDATE SET
+          tool_calls = $2,
+          generated_assets = $3,
+          last_updated = CURRENT_TIMESTAMP
+      `, [
+        chatId,
+        JSON.stringify(context.toolCalls || []),
+        JSON.stringify(context.generatedAssets || { images: [], videos: [], audio: [] })
+      ]);
+
+      console.log(`💾 [Agent Context] Saved to DB for chat ${chatId}`);
+    } catch (error) {
+      console.error('❌ Error saving agent context:', error.message);
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get agent context from database
+   */
+  async getAgentContext(chatId) {
+    if (!this.isInitialized) {
+      console.warn('⚠️ Database not initialized, cannot get agent context');
+      return null;
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      const result = await client.query(`
+        SELECT tool_calls, generated_assets, last_updated
+        FROM agent_context
+        WHERE chat_id = $1
+      `, [chatId]);
+      
+      if (result.rows.length === 0) {
+        return null;
+      }
+      
+      const row = result.rows[0];
+      return {
+        toolCalls: row.tool_calls || [],
+        generatedAssets: row.generated_assets || { images: [], videos: [], audio: [] },
+        lastUpdated: row.last_updated
+      };
+    } catch (error) {
+      console.error('❌ Error getting agent context:', error.message);
+      return null;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Clear agent context for a chat
+   */
+  async clearAgentContext(chatId) {
+    if (!this.isInitialized) {
+      console.warn('⚠️ Database not initialized, cannot clear agent context');
+      return;
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      await client.query(`
+        DELETE FROM agent_context
+        WHERE chat_id = $1
+      `, [chatId]);
+
+      console.log(`🗑️ [Agent Context] Cleared for chat ${chatId}`);
+    } catch (error) {
+      console.error('❌ Error clearing agent context:', error.message);
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Clean up old agent context (older than specified days)
+   * @param {number} olderThanDays - Delete context older than X days (default: 30)
+   * @returns {number} - Number of rows deleted
+   */
+  async cleanupOldAgentContext(olderThanDays = 30) {
+    if (!this.isInitialized) {
+      console.warn('⚠️ Database not initialized, cannot cleanup agent context');
+      return 0;
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      const result = await client.query(`
+        DELETE FROM agent_context
+        WHERE last_updated < NOW() - INTERVAL '${olderThanDays} days'
+        RETURNING chat_id
+      `);
+
+      const deletedCount = result.rowCount || 0;
+      if (deletedCount > 0) {
+        console.log(`🧹 [Agent Context Cleanup] Deleted ${deletedCount} old context(s) (older than ${olderThanDays} days)`);
+      } else {
+        console.log(`✅ [Agent Context Cleanup] No old contexts found`);
+      }
+
+      return deletedCount;
+    } catch (error) {
+      console.error('❌ Error cleaning up old agent context:', error.message);
+      return 0;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Clean up old conversation summaries (keep only recent N per chat)
+   * @param {number} keepPerChat - Keep N most recent summaries per chat (default: 10)
+   * @returns {number} - Number of rows deleted
+   */
+  async cleanupOldSummaries(keepPerChat = 10) {
+    if (!this.isInitialized) {
+      console.warn('⚠️ Database not initialized, cannot cleanup summaries');
+      return 0;
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      // Delete summaries that are not in the top N for each chat_id
+      const result = await client.query(`
+        DELETE FROM conversation_summaries
+        WHERE id NOT IN (
+          SELECT id
+          FROM (
+            SELECT id, ROW_NUMBER() OVER (PARTITION BY chat_id ORDER BY summary_date DESC) as rn
+            FROM conversation_summaries
+          ) ranked
+          WHERE rn <= $1
+        )
+        RETURNING id
+      `, [keepPerChat]);
+
+      const deletedCount = result.rowCount || 0;
+      if (deletedCount > 0) {
+        console.log(`🧹 [Summary Cleanup] Deleted ${deletedCount} old summaries (kept ${keepPerChat} per chat)`);
+      } else {
+        console.log(`✅ [Summary Cleanup] No old summaries to delete`);
+      }
+
+      return deletedCount;
+    } catch (error) {
+      console.error('❌ Error cleaning up old summaries:', error.message);
+      return 0;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Run full cleanup (agent context + summaries)
+   * @returns {Object} - Cleanup stats
+   */
+  async runFullCleanup() {
+    console.log('🧹 Starting full cleanup...');
+    
+    const contextDeleted = await this.cleanupOldAgentContext(30);  // 30 days
+    const summariesDeleted = await this.cleanupOldSummaries(10);   // Keep 10 per chat
+    
+    const stats = {
+      contextDeleted,
+      summariesDeleted,
+      totalDeleted: contextDeleted + summariesDeleted,
+      timestamp: new Date().toISOString()
+    };
+    
+    console.log(`✅ Full cleanup completed:`, stats);
+    return stats;
+  }
+
+  // ═══════════════════ LONG-TERM MEMORY ═══════════════════
+
+  /**
+   * Save conversation summary for long-term memory
+   */
+  async saveConversationSummary(chatId, summary, keyTopics = [], userPreferences = {}, messageCount = 0) {
+    if (!this.isInitialized) {
+      console.warn('⚠️ Database not initialized, cannot save summary');
+      return;
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      await client.query(`
+        INSERT INTO conversation_summaries 
+        (chat_id, summary, key_topics, user_preferences, message_count, summary_date)
+        VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+      `, [
+        chatId,
+        summary,
+        JSON.stringify(keyTopics),
+        JSON.stringify(userPreferences),
+        messageCount
+      ]);
+
+      console.log(`📝 [Long-term Memory] Saved summary for chat ${chatId}`);
+    } catch (error) {
+      console.error('❌ Error saving conversation summary:', error.message);
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get recent conversation summaries for a chat
+   */
+  async getConversationSummaries(chatId, limit = 5) {
+    if (!this.isInitialized) {
+      console.warn('⚠️ Database not initialized, cannot get summaries');
+      return [];
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      const result = await client.query(`
+        SELECT summary, key_topics, user_preferences, message_count, summary_date
+        FROM conversation_summaries
+        WHERE chat_id = $1
+        ORDER BY summary_date DESC
+        LIMIT $2
+      `, [chatId, limit]);
+      
+      return result.rows.map(row => ({
+        summary: row.summary,
+        keyTopics: row.key_topics || [],
+        userPreferences: row.user_preferences || {},
+        messageCount: row.message_count,
+        summaryDate: row.summary_date
+      }));
+    } catch (error) {
+      console.error('❌ Error getting conversation summaries:', error.message);
+      return [];
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get aggregated user preferences from all summaries
+   */
+  async getUserPreferences(chatId) {
+    if (!this.isInitialized) {
+      console.warn('⚠️ Database not initialized, cannot get user preferences');
+      return {};
+    }
+
+    const client = await this.pool.connect();
+    
+    try {
+      const result = await client.query(`
+        SELECT user_preferences
+        FROM conversation_summaries
+        WHERE chat_id = $1
+        ORDER BY summary_date DESC
+        LIMIT 10
+      `, [chatId]);
+      
+      // Merge all preferences (most recent takes precedence)
+      const merged = {};
+      for (const row of result.rows.reverse()) {
+        Object.assign(merged, row.user_preferences || {});
+      }
+      
+      return merged;
+    } catch (error) {
+      console.error('❌ Error getting user preferences:', error.message);
+      return {};
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Start periodic cleanup task (runs monthly)
+   */
+  startPeriodicCleanup() {
+    // Run cleanup once per month (30 days)
+    const CLEANUP_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000;  // 30 days in milliseconds
+    
+    // Run first cleanup after 1 hour (to not impact startup)
+    setTimeout(async () => {
+      console.log('🧹 Running first scheduled cleanup...');
+      await this.runFullCleanup();
+      
+      // Then schedule monthly cleanups
+      setInterval(async () => {
+        console.log('🧹 Running monthly scheduled cleanup...');
+        await this.runFullCleanup();
+      }, CLEANUP_INTERVAL_MS);
+      
+    }, 60 * 60 * 1000);  // 1 hour delay
+    
+    console.log('✅ Periodic cleanup scheduled (monthly)');
   }
 
   /**
