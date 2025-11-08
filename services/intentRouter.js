@@ -631,58 +631,22 @@ function buildRouterPrompt(input, options = {}) {
     }
   };
   
-  // 🔄 Add refinement detection instructions if enabled
+  // Refinement detection (optimized)
   const refinementSection = options.checkRefinement ? `
-  
-🔄 **REFINEMENT DETECTION** (HIGHEST PRIORITY - Check FIRST):
-
-Before routing to any tool, check if the user is expressing dissatisfaction or requesting improvement of a previous command.
-
-**Patterns indicating refinement/retry:**
-- ❌ Dissatisfaction: "לא יצא טוב", "לא נכון", "didn't work", "not good", "incorrect"
-- 🔧 Fix requests: "תקן את זה", "שפר", "שנה", "fix this", "improve", "change"
-- 📊 Comparative: "צריך להיות יותר גדול", "should be bigger", "with less detail"
-- 🔁 Implicit improvement: "אבל עם שיער ארוך", "but with blue eyes", "without glasses"
-- 🗣️ References to output: "התמונה לא יצאה", "הפיל לא טוב", "the image isn't right"
-- 🎯 Implicit but positive: "יפה! עכשיו רק תוסיף שמש" (sounds positive BUT requests change!)
-
-**Critical examples:**
-- "לא יצא טוב" → retry_last_command ✅
-- "תקן את זה" → retry_last_command ✅
-- "הפיל צריך להיות גדול יותר" → retry_last_command ✅
-- "יפה! עכשיו תוסיף כובע" → retry_last_command ✅ (improvement request!)
-- "זה קרוב, אבל שנה את הרקע" → retry_last_command ✅
-
-**NOT refinement:**
-- "צור תמונה חדשה" → new request ❌
-- "מה המזג אוויר?" → question ❌
-
-**If refinement detected:**
-{
-  "tool": "retry_last_command",
-  "args": { "prompt": "<user_text>" },
-  "reason": "Refinement request detected"
-}
-
-**If NOT refinement, continue to next checks ↓**
+REFINEMENT CHECK (Priority 1):
+User expressing dissatisfaction/requesting improvement → "retry_last_command"
+Patterns: "not good", "fix", "improve", "change", "but with X", "should be bigger"
+NOT refinement: new requests ("create new image"), questions
 ` : '';
   
-  return `You are a smart intent router for a WhatsApp AI bot. 
-Your task: Analyze the user's request and return ONLY a valid JSON object.
+  return `Intent router for WhatsApp AI bot. Return JSON only.
 
-🌍 LANGUAGE SUPPORT: Both Hebrew and English (treat equally, case-insensitive)
-🔤 MATCHING RULES: 
-   - All keyword matching is case-insensitive (VEO = veo = Veo)
-   - Space-flexible (OpenAI = Open AI, ChatGPT = Chat GPT, veo3 = veo 3)
-   - WHOLE WORDS ONLY (realistic ≠ list, classroom ≠ room, musician ≠ music)
-   - **BE FORGIVING WITH TYPOS**: Accept common spelling errors and variations
-     • Hebrew: וידאו = וידיאו = וודאו = ווידאו; תמונה = תמונא; צור = צר; ציור = צייור
-     • English: video = vidio = vedio = vidoe; image = imge = imagee; create = creat
+RULES: Case-insensitive, space-flexible, whole words, accept typos.
 
-🔍 INPUT CONTEXT:
+INPUT:
 ${JSON.stringify(payload, null, 2)}
 ${refinementSection}
-📋 DECISION LOGIC (follow this EXACT order):
+ROUTING LOGIC (in order):
 
 0️⃣ **COMPLEXITY CHECK - Autonomous Agent** (${options.checkRefinement ? 'SECOND PRIORITY' : 'HIGHEST PRIORITY'}):
    
