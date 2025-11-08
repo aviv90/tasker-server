@@ -1395,15 +1395,14 @@ My internal thoughts:
   // Conversation history for the agent
   const chat = model.startChat({
     history: [],
-    tools: [{ functionDeclarations }],
-    systemInstruction: {
-      parts: [{ text: systemInstruction }]
-    }
+    tools: [{ functionDeclarations }]
   });
   
   // ⏱️ Wrap entire agent execution with timeout
   const agentExecution = async () => {
-    let response = await chat.sendMessage(prompt);
+    // Include system instruction in the first message
+    const fullPrompt = `${systemInstruction}\n\n---\n\nUser Request: ${prompt}`;
+    let response = await chat.sendMessage(fullPrompt);
     let iterationCount = 0;
     
     // Agent loop - continue until we get a final text response
