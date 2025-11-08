@@ -664,7 +664,7 @@ Video: creation verb + video noun → [provider]_video (veo3/sora/kling default)
 TTS: "read", "speech", "הקרא" → text_to_speech
 Summary: "summary", "סיכום" → chat_summary
 Retry: "again", "שוב" → retry_last_command
-Poll: "create poll", "צור סקר" (all conjugations) → create_poll
+Poll: "create poll", WITH ALL HEBREW CONJUGATIONS (male/female/plural) such as "צור סקר", "צרי סקר", "צרו סקר", "תצור סקר", "תצרי סקר", "תצרו סקר", "הכן סקר", "הכיני סקר", "הכינו סקר" → create_poll
 Location: "send location", "מיקום אקראי" → send_random_location
 Group: "create group", "צור קבוצה" (all conjugations, needs auth) → create_group
 Help: "commands", "פקודות" → show_help
