@@ -1748,7 +1748,7 @@ const agentTools = {
         
         return {
           success: true,
-          data: `✅ התמונה נערכה בהצלחה עם ${service}!`,
+          data: `✅ התמונה נערכה בהצלחה עם ${formatProviderName(service)}!`,
           imageUrl: result.url,
           service: service
         };
