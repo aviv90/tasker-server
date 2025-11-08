@@ -345,9 +345,71 @@ const agentTools = {
     }
   },
 
+  // ═══════════════════ CREATION TOOLS (Basic) ═══════════════════
+  
+  // Tool 4: Create image (basic tool)
+  create_image: {
+    declaration: {
+      name: 'create_image',
+      description: 'צור תמונה חדשה. ברירת מחדל: Gemini. אם תרצה ספק אחר, ציין בפרמטר provider.',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: {
+            type: 'string',
+            description: 'תיאור התמונה ליצירה',
+          },
+          provider: {
+            type: 'string',
+            description: 'ספק ליצירה: gemini (ברירת מחדל), openai, או grok',
+            enum: ['gemini', 'openai', 'grok']
+          }
+        },
+        required: ['prompt']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] create_image called`);
+      
+      try {
+        const provider = args.provider || 'gemini';
+        const { geminiService, openaiService, grokService } = getServices();
+        
+        let imageResult;
+        if (provider === 'openai') {
+          imageResult = await openaiService.generateImageForWhatsApp(args.prompt);
+        } else if (provider === 'grok') {
+          imageResult = await grokService.generateImageForWhatsApp(args.prompt);
+        } else {
+          imageResult = await geminiService.generateImageForWhatsApp(args.prompt);
+        }
+        
+        if (imageResult.error) {
+          return {
+            success: false,
+            error: `שגיאה ביצירת תמונה עם ${provider}: ${imageResult.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: `✅ תמונה נוצרה בהצלחה עם ${provider}!`,
+          imageUrl: imageResult.url,
+          provider: provider
+        };
+      } catch (error) {
+        console.error('❌ Error in create_image tool:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
   // ═══════════════════ META TOOLS (Stage 2) ═══════════════════
 
-  // Tool 4: Create and analyze (meta-tool)
+  // Tool 5: Create and analyze (meta-tool)
   create_and_analyze: {
     declaration: {
       name: 'create_and_analyze',
@@ -813,13 +875,18 @@ My internal thoughts:
 2. אם בהיסטוריה יש תמונה רלוונטית לשאלה - השתמש ב-analyze_image_from_history
 3. אם אתה צריך מידע עדכני או מידע שאינו זמין לך - השתמש ב-search_web
 
+🖼️ יצירת תמונות:
+4. אם צריך ליצור תמונה בסיסית - השתמש ב-create_image
+   - ברירת מחדל: gemini
+   - אפשר לציין provider אחר (openai/grok)
+
 🎨 Meta-tools (משימות מורכבות):
-4. אם צריך ליצור תמונה ולנתח אותה מיד - השתמש ב-create_and_analyze
-5. אם צריך לנתח תמונה מההיסטוריה ואז לערוך אותה - השתמש ב-analyze_and_edit
-6. אם צריך לנסות ספק אחר - השתמש ב-retry_with_different_provider
+5. אם צריך ליצור תמונה ולנתח אותה מיד - השתמש ב-create_and_analyze
+6. אם צריך לנתח תמונה מההיסטוריה ואז לערוך אותה - השתמש ב-analyze_and_edit
+7. אם צריך לנסות ספק אחר - השתמש ב-retry_with_different_provider
 
 🧠 Smart Retry (Stage 3 - חדש!):
-7. אם משימה נכשלה או המשתמש לא מרוצה מהתוצאה - השתמש ב-smart_execute_with_fallback
+8. אם משימה נכשלה או המשתמש לא מרוצה מהתוצאה - השתמש ב-smart_execute_with_fallback
    הכלי הזה ינסה אוטומטית:
    - ספקים שונים (Gemini/OpenAI/Grok)
    - פישוט הפרומפט
@@ -832,8 +899,20 @@ My internal thoughts:
    - "נסה שוב בצורה אחרת"
    - "פשט את זה"
 
+🔄 Conditional Fallback (חדש!):
+9. **אם המשתמש מבקש fallback מראש** - בצע try-catch:
+   דוגמאות:
+   - "צור תמונה של X ואם נכשל צור עם OpenAI"
+   - "create image and if fails use Grok"
+   
+   **תהליך:**
+   1. נסה ליצור עם ברירת מחדל (Gemini)
+   2. אם נכשל → קרא ל-smart_execute_with_fallback עם הספק המבוקש
+   3. אם הצליח → החזר תוצאה
+
 💡 חשוב: 
 - תמיד נסה תחילה את הכלי הרגיל, ורק אם נכשל השתמש ב-smart_execute_with_fallback
+- אם המשתמש ציין ספק ספציפי לfallback - העבר אותו ל-smart_execute_with_fallback
 - תשיב בעברית, באופן טבעי ונעים
 - אם אין צורך בכלים - פשוט ענה ישירות`;
 
@@ -969,7 +1048,12 @@ function shouldUseAgent(prompt, input) {
     /(צור|תצור).+(ו|אם|ואז).+(נתח|תנתח|בדוק|תבדוק|ערוך|תערוך)/i,  // "צור תמונה ובדוק אם היא טובה"
     /(נתח|תנתח).+(ו|ואז).+(ערוך|תערוך|שפר|תשפר)/i,  // "נתח את התמונה ושפר אותה"
     /(חפש|תחפש).+(ו|ואז).+(תן|תני|צור|תצור|ספר|ספרי)/i,  // "חפש מידע וצור תמונה"
+    
+    // Conditional fallback patterns - "if X fails, try Y"
+    /(אם|ו?אם).+(נכשל|לא\s+עבד|לא\s+הצליח|לא\s+יצא).+(נסה|תנסה|צור|תצור).+(עם|ב)\s+(OpenAI|Gemini|Grok)/i,  // "ואם נכשל צור עם OpenAI"
+    /(if|and\s+if).+(fails?|doesn'?t\s+work|error).+(try|create|use).+(with|using)?\s+(OpenAI|Gemini|Grok)/i,  // "and if fails create with OpenAI"
     /(אם|if).+(לא|not).+(נסה|try).+(אחר|different|other)/i,  // "אם זה לא טוב נסה ספק אחר"
+    
     /create.+(and|then).+(analyze|check|edit|improve)/i,
     /analyze.+(and|then).+(edit|improve|enhance)/i,
     /search.+(and|then).+(summarize|create|tell)/i,
