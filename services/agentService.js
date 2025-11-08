@@ -492,7 +492,7 @@ const agentTools = {
         return {
           success: true,
           data: `✅ תמונה נוצרה בהצלחה עם ${formatProviderName(provider)}!`,
-          imageUrl: imageResult.url,
+          imageUrl: imageResult.imageUrl,
           provider: provider
         };
       } catch (error) {
@@ -561,7 +561,7 @@ const agentTools = {
         
         // Step 2: Download and analyze
         const { greenApiService: greenApi2 } = getServices();
-        imageBuffer = await greenApi2.downloadFile(imageResult.url);
+        imageBuffer = await greenApi2.downloadFile(imageResult.imageUrl);
         const analysisResult = await geminiService.analyzeImageWithText(args.analysis_question, imageBuffer);
         
         // Free memory
@@ -577,7 +577,7 @@ const agentTools = {
         return {
           success: true,
           data: `התמונה נוצרה בהצלחה! ניתוח: ${analysisResult.text}`,
-          imageUrl: imageResult.url
+          imageUrl: imageResult.imageUrl
         };
       } catch (error) {
         console.error('❌ Error in create_and_analyze tool:', error);
@@ -747,7 +747,7 @@ const agentTools = {
                 return {
                   success: true,
                   data: `✅ הצלחתי עם ${formatProviderName(provider)}! (אסטרטגיה: ספק חלופי)`,
-                  imageUrl: result.url,
+                  imageUrl: result.imageUrl,
                   strategy_used: 'different_provider',
                   provider: provider
                 };
@@ -812,7 +812,7 @@ const agentTools = {
                 return {
                   success: true,
                   data: `✅ הצלחתי עם פרומפט פשוט יותר! (אסטרטגיה: פישוט)`,
-                  imageUrl: result.url,
+                  imageUrl: result.imageUrl,
                   strategy_used: 'simplified_prompt',
                   original_prompt: args.original_prompt,
                   simplified_prompt: simplifiedPrompt
@@ -884,7 +884,7 @@ const agentTools = {
                 return {
                   success: true,
                   data: `✅ הצלחתי עם גרסה כללית יותר! (אסטרטגיה: הכללה)`,
-                  imageUrl: result.url,
+                  imageUrl: result.imageUrl,
                   strategy_used: 'generic_prompt',
                   original_prompt: args.original_prompt,
                   generic_prompt: genericPrompt
@@ -993,7 +993,7 @@ const agentTools = {
               return {
                 success: true,
                 data: `✅ ניסיתי עם ${formatProviderName(provider)} והצלחתי! הסיבה: ${args.reason}`,
-                imageUrl: imageResult.url,
+                imageUrl: imageResult.imageUrl,
                 provider: provider
               };
             }
@@ -1089,7 +1089,7 @@ const agentTools = {
         return {
           success: true,
           data: `✅ יצרתי תמונה מבוססת על ההקשר מההיסטוריה!`,
-          imageUrl: result.url,
+          imageUrl: result.imageUrl,
           provider: provider,
           usedHistory: true
         };
@@ -1175,7 +1175,7 @@ const agentTools = {
         return {
           success: true,
           data: `✅ יצרתי תמונה מותאמת אישית על בסיס ההעדפות שלך!`,
-          imageUrl: result.url,
+          imageUrl: result.imageUrl,
           provider: provider,
           usedPreferences: usePreferences
         };
@@ -1258,7 +1258,7 @@ const agentTools = {
         return {
           success: true,
           data: `✅ חיפשתי באינטרנט ויצרתי תמונה מבוססת על המידע שמצאתי!`,
-          imageUrl: result.url,
+          imageUrl: result.imageUrl,
           provider: provider,
           searchUsed: true
         };
@@ -1749,7 +1749,7 @@ const agentTools = {
         return {
           success: true,
           data: `✅ התמונה נערכה בהצלחה עם ${formatProviderName(service)}!`,
-          imageUrl: result.url,
+          imageUrl: result.imageUrl,
           service: service
         };
       } catch (error) {
