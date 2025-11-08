@@ -813,6 +813,11 @@ async function sendAck(chatId, command) {
   let ackMessage = '';
   
   switch (command.type) {
+    // ═══════════════════ AGENT MODE ═══════════════════
+    case 'agent_query':
+      ackMessage = '🤖 קיבלתי! מעבד עם AI Agent מתקדם...';
+      break;
+      
     // ═══════════════════ CHAT ═══════════════════
     case 'gemini_chat':
       ackMessage = '💬 קיבלתי. מעבד עם Gemini...';
@@ -1388,6 +1393,7 @@ async function handleIncomingMessage(webhookData) {
               // Autonomous agent that can use multiple tools
               console.log(`🤖 [INCOMING] Agent query detected`);
               saveLastCommand(chatId, decision, { normalized });
+              await sendAck(chatId, { type: 'agent_query' });
               
               const { executeAgentQuery } = require('../services/agentService');
               
@@ -1797,6 +1803,10 @@ async function handleIncomingMessage(webhookData) {
                     'pl': /(ב?פולנית|\bpolish\b|\bin\s+polish\b)/i,
                     'nl': /(ב?הולנדית|\bdutch\b|\bin\s+dutch\b)/i,
                     'sv': /(ב?שוודית|\bswedish\b|\bin\s+swedish\b)/i,
+                    'fi': /(ב?פינית|\bfinnish\b|\bin\s+finnish\b)/i,
+                    'no': /(ב?נורווגית|\bnorwegian\b|\bin\s+norwegian\b)/i,
+                    'da': /(ב?דנית|\bdanish\b|\bin\s+danish\b)/i,
+                    'cs': /(ב?צ'כית|\bczech\b|\bin\s+czech\b)/i,
                     'he': /(ב?עברית|\bhebrew\b|\bin\s+hebrew\b)/i
                   };
                   
@@ -2201,6 +2211,10 @@ async function handleIncomingMessage(webhookData) {
                 'Polish': /(ל?פולנית|\bto\s+polish\b|\bpolish\b)/i,
                 'Dutch': /(ל?הולנדית|\bto\s+dutch\b|\bdutch\b)/i,
                 'Swedish': /(ל?שוודית|\bto\s+swedish\b|\bswedish\b)/i,
+                'Finnish': /(ל?פינית|\bto\s+finnish\b|\bfinnish\b)/i,
+                'Norwegian': /(ל?נורווגית|\bto\s+norwegian\b|\bnorwegian\b)/i,
+                'Danish': /(ל?דנית|\bto\s+danish\b|\bdanish\b)/i,
+                'Czech': /(ל?צ'כית|\bto\s+czech\b|\bczech\b)/i,
                 'Hebrew': /(ל?עברית|\bto\s+hebrew\b|\bhebrew\b)/i
               };
               
@@ -3468,6 +3482,7 @@ async function handleOutgoingMessage(webhookData) {
               // Autonomous agent that can use multiple tools
               console.log(`🤖 [OUTGOING] Agent query detected`);
               saveLastCommand(chatId, decision, { normalized });
+              await sendAck(chatId, { type: 'agent_query' });
               
               const { executeAgentQuery } = require('../services/agentService');
               
@@ -3848,6 +3863,10 @@ async function handleOutgoingMessage(webhookData) {
                     'pl': /(ב?פולנית|\bpolish\b|\bin\s+polish\b)/i,
                     'nl': /(ב?הולנדית|\bdutch\b|\bin\s+dutch\b)/i,
                     'sv': /(ב?שוודית|\bswedish\b|\bin\s+swedish\b)/i,
+                    'fi': /(ב?פינית|\bfinnish\b|\bin\s+finnish\b)/i,
+                    'no': /(ב?נורווגית|\bnorwegian\b|\bin\s+norwegian\b)/i,
+                    'da': /(ב?דנית|\bdanish\b|\bin\s+danish\b)/i,
+                    'cs': /(ב?צ'כית|\bczech\b|\bin\s+czech\b)/i,
                     'he': /(ב?עברית|\bhebrew\b|\bin\s+hebrew\b)/i
                   };
                   
@@ -4180,6 +4199,10 @@ async function handleOutgoingMessage(webhookData) {
                 'Polish': /(ל?פולנית|\bto\s+polish\b|\bpolish\b)/i,
                 'Dutch': /(ל?הולנדית|\bto\s+dutch\b|\bdutch\b)/i,
                 'Swedish': /(ל?שוודית|\bto\s+swedish\b|\bswedish\b)/i,
+                'Finnish': /(ל?פינית|\bto\s+finnish\b|\bfinnish\b)/i,
+                'Norwegian': /(ל?נורווגית|\bto\s+norwegian\b|\bnorwegian\b)/i,
+                'Danish': /(ל?דנית|\bto\s+danish\b|\bdanish\b)/i,
+                'Czech': /(ל?צ'כית|\bto\s+czech\b|\bczech\b)/i,
                 'Hebrew': /(ל?עברית|\bto\s+hebrew\b|\bhebrew\b)/i
               };
               
