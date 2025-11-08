@@ -2278,6 +2278,9 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         // Execute the tool
         const toolResult = await tool.execute(toolArgs, context);
         
+        // DEBUG: Log what the tool returned
+        console.log(`🔍 [Agent] ${toolName} returned:`, JSON.stringify(toolResult, null, 2));
+        
         // Save result for future tool calls
         context.previousToolResults[toolName] = toolResult;
         
@@ -2291,12 +2294,15 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         
         // 🧠 Track generated assets for context memory
         if (toolResult.imageUrl) {
+          console.log(`✅ [Agent] Tracking image: ${toolResult.imageUrl}`);
           context.generatedAssets.images.push({
             url: toolResult.imageUrl,
             prompt: toolArgs.prompt,
             provider: toolResult.provider || toolArgs.provider,
             timestamp: Date.now()
           });
+        } else {
+          console.log(`⚠️ [Agent] No imageUrl in toolResult for ${toolName}`);
         }
         if (toolResult.videoUrl) {
           context.generatedAssets.videos.push({
