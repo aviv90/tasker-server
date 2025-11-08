@@ -51,6 +51,23 @@ const JUST_TRANSCRIPTION_PATTERN = /^(תמלל|תמליל|transcribe|transcript)
 // Minimum audio duration required for voice cloning (ElevenLabs requirement)
 const MIN_DURATION_FOR_CLONING = 4.6; // seconds
 
+// ElevenLabs TTS default settings
+const ELEVENLABS_TTS_DEFAULTS = {
+  model_id: 'eleven_v3',
+  optimize_streaming_latency: 0,
+  output_format: 'mp3_44100_128'
+};
+
+// Speech-to-text transcription default settings
+const TRANSCRIPTION_DEFAULTS = {
+  model: 'scribe_v1_experimental', // Excellent multilingual support
+  language: null, // Auto-detect (Hebrew, English, Spanish, etc.)
+  removeNoise: true,
+  removeFiller: true,
+  optimizeLatency: 0,
+  format: 'ogg' // WhatsApp audio format
+};
+
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
@@ -1771,14 +1788,7 @@ async function handleIncomingMessage(webhookData) {
                   console.log('🔄 Transcribing audio...');
                   const audioBuffer = await downloadFile(finalAudioUrl);
                   
-                  const transcriptionOptions = {
-                    model: 'scribe_v1_experimental', // Use experimental model - excellent multilingual support
-                    language: null, // Auto-detect (Hebrew, English, Spanish, etc.)
-                    removeNoise: true,
-                    removeFiller: true,
-                    optimizeLatency: 0,
-                    format: 'ogg'
-                  };
+                  const transcriptionOptions = TRANSCRIPTION_DEFAULTS;
                   
                   const transcriptionResult = await speechService.speechToText(audioBuffer, transcriptionOptions);
                   
@@ -1912,11 +1922,7 @@ async function handleIncomingMessage(webhookData) {
                     }
                     
                     // Generate speech with cloned or random voice
-                    const ttsResult = await voiceService.textToSpeech(quotedVoiceId, translatedText, {
-                      model_id: 'eleven_v3',
-                      optimize_streaming_latency: 0,
-                      output_format: 'mp3_44100_128'
-                    });
+                    const ttsResult = await voiceService.textToSpeech(quotedVoiceId, translatedText, ELEVENLABS_TTS_DEFAULTS);
                     
                     if (!ttsResult.error && ttsResult.audioBuffer) {
                       const conversionResult = await audioConverterService.convertAndSaveAsOpus(ttsResult.audioBuffer, 'mp3');
@@ -3136,14 +3142,7 @@ async function handleIncomingMessage(webhookData) {
         console.log(`🔄 Step 1: Transcribing to detect intent...`);
         const audioBuffer = await downloadFile(audioData.downloadUrl);
         
-        const transcriptionResult = await speechService.speechToText(audioBuffer, {
-          model: 'scribe_v1_experimental', // Use experimental model - excellent multilingual support
-          language: null, // Auto-detect (Hebrew, English, Spanish, etc.)
-          removeNoise: true,
-          removeFiller: true,
-          optimizeLatency: 0,
-          format: 'ogg'
-        });
+        const transcriptionResult = await speechService.speechToText(audioBuffer, TRANSCRIPTION_DEFAULTS);
         
         if (transcriptionResult.error) {
           console.error('❌ Transcription failed:', transcriptionResult.error);
@@ -3837,14 +3836,7 @@ async function handleOutgoingMessage(webhookData) {
                   console.log('🔄 [Outgoing] Transcribing audio...');
                   const audioBuffer = await downloadFile(finalAudioUrl);
                   
-                  const transcriptionOptions = {
-                    model: 'scribe_v1_experimental', // Use experimental model - excellent multilingual support
-                    language: null, // Auto-detect (Hebrew, English, Spanish, etc.)
-                    removeNoise: true,
-                    removeFiller: true,
-                    optimizeLatency: 0,
-                    format: 'ogg'
-                  };
+                  const transcriptionOptions = TRANSCRIPTION_DEFAULTS;
                   
                   const transcriptionResult = await speechService.speechToText(audioBuffer, transcriptionOptions);
                   
@@ -3968,11 +3960,7 @@ async function handleOutgoingMessage(webhookData) {
                     }
                     
                     // Generate speech with cloned or random voice
-                    const ttsResult = await voiceService.textToSpeech(quotedVoiceId, translatedText, {
-                      model_id: 'eleven_v3',
-                      optimize_streaming_latency: 0,
-                      output_format: 'mp3_44100_128'
-                    });
+                    const ttsResult = await voiceService.textToSpeech(quotedVoiceId, translatedText, ELEVENLABS_TTS_DEFAULTS);
                     
                     if (!ttsResult.error && ttsResult.audioBuffer) {
                       const conversionResult = await audioConverterService.convertAndSaveAsOpus(ttsResult.audioBuffer, 'mp3');
@@ -5605,14 +5593,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     
     // Step 2: Speech-to-Text transcription
     console.log(`🔄 Step 1: Transcribing speech...`);
-    const transcriptionOptions = {
-      model: 'scribe_v1_experimental', // Use experimental model - excellent multilingual support
-      language: null, // Auto-detect (Hebrew, English, Spanish, etc.)
-      removeNoise: true,
-      removeFiller: true,
-      optimizeLatency: 0,
-      format: 'ogg' // WhatsApp audio format
-    };
+    const transcriptionOptions = TRANSCRIPTION_DEFAULTS;
     
     const transcriptionResult = await speechService.speechToText(audioBuffer, transcriptionOptions);
     
