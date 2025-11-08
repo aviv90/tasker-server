@@ -2,7 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const conversationManager = require('./conversationManager');
 const { cleanThinkingPatterns } = require('./geminiService');
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Lazy-loaded services to avoid circular dependencies and improve startup time
 let geminiService, openaiService, grokService, fileDownloader;
