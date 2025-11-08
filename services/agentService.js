@@ -1800,7 +1800,7 @@ const agentTools = {
         return {
           success: true,
           data: `✅ הוידאו נערך בהצלחה!`,
-          videoUrl: result.url
+          videoUrl: result.videoUrl
         };
       } catch (error) {
         console.error('❌ Error in edit_video:', error);
