@@ -27,6 +27,32 @@ const CHAT_HISTORY_LIMIT = 30;
 
 // Voice transcription and media authorization are managed through PostgreSQL database
 
+// ════════════════════ SHARED REGEX PATTERNS (Avoid Duplication) ════════════════════
+
+// Image edit detection patterns (Hebrew + English with ALL conjugations)
+const IMAGE_EDIT_PATTERN = /שנה|תשנה|תשני|שני|ערוך|תערוך|ערכי|עדכן|תעדכן|תקן|תתקן|סדר|תסדר|סדרי|תסדרי|הוסף|תוסיף|תוסיפי|הוסיפי|מחק|תמחק|מחקי|תמחקי|הורד|תוריד|הורידי|תורידי|סיר|תסיר|סירי|תסירי|צייר|תצייר|ציירי|תצרי|הפוך|תהפוך|המר|תהמר|שפר|תשפר|שפרי|תשפרי|תחליף|החלף|החליפי|תחליפי|צור|תצור|צורי|תצרי|edit|change|modify|update|fix|correct|add|remove|delete|draw|paint|replace|swap|improve|enhance|create|make|transform/i;
+
+// Implicit edit pattern (wearing/dressed patterns)
+const IMAGE_IMPLICIT_EDIT_PATTERN = /^(לבוש|לבושה|לובש|לובשת|עם|כ(?!מה)|בתור)|^\b(wearing|dressed|with\s+a|as\s+a|in\s+a)\b/i;
+
+// TTS keywords pattern (for detecting voice output requests)
+const TTS_KEYWORDS_PATTERN = /אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו|הקרא|הקראי|הקראו|תקרא|תקראי|תקראו|הקריא|הקריאי|הקריאו|תקריא|תקריאי|תקריאו|דבר|דברי|דברו|תדבר|תדברי|תדברו|בקול|קולית|\b(say|speak|tell|voice|read\s+aloud)\b/i;
+
+// Translation keywords pattern (for detecting text-only translation)
+const TRANSLATE_KEYWORDS_PATTERN = /תרגם|תרגמי|תרגמו|תתרגם|תתרגמי|תתרגמו|תרגום|\b(translate|translation)\b/i;
+
+// Just transcription pattern (no other processing requested)
+const JUST_TRANSCRIPTION_PATTERN = /^(תמלל|תמליל|transcribe|transcript)$/i;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ════════════════════ CONSTANTS ════════════════════
+
+// Minimum audio duration required for voice cloning (ElevenLabs requirement)
+const MIN_DURATION_FOR_CLONING = 4.6; // seconds
+
+// ═══════════════════════════════════════════════════════════════════════════════
+
 /**
  * Clean sensitive/large data from objects for logging
  * Removes base64 thumbnails and truncates long strings
@@ -1619,8 +1645,8 @@ async function handleIncomingMessage(webhookData) {
                   // Check if this is an edit request vs analysis request
                   // Edit requests: שנה/תשנה/ערוך/תערוך/תסדר/סדר/הוסף/תוסיף/מחק/תמחק/צייר/תצייר...
                   // Implicit edit: לבוש/dressed/wearing/כ.../בתור...
-                  const isEditRequest = /שנה|תשנה|תשני|שני|ערוך|תערוך|ערכי|עדכן|תעדכן|תקן|תתקן|סדר|תסדר|סדרי|תסדרי|הוסף|תוסיף|תוסיפי|הוסיפי|מחק|תמחק|מחקי|תמחקי|הורד|תוריד|הורידי|תורידי|סיר|תסיר|סירי|תסירי|צייר|תצייר|ציירי|תצרי|הפוך|תהפוך|המר|תהמר|שפר|תשפר|שפרי|תשפרי|תחליף|החלף|החליפי|תחליפי|צור|תצור|צורי|תצרי|edit|change|modify|update|fix|correct|add|remove|delete|draw|paint|replace|swap|improve|enhance|create|make|transform/i.test(prompt);
-                  const isImplicitEdit = /^(לבוש|לבושה|לובש|לובשת|עם|כ(?!מה)|בתור)|^\b(wearing|dressed|with\s+a|as\s+a|in\s+a)\b/i.test(prompt);
+                  const isEditRequest = IMAGE_EDIT_PATTERN.test(prompt);
+                  const isImplicitEdit = IMAGE_IMPLICIT_EDIT_PATTERN.test(prompt);
                   
                   if (isEditRequest || isImplicitEdit) {
                     // This is image EDITING - use editImageForWhatsApp
@@ -1769,7 +1795,7 @@ async function handleIncomingMessage(webhookData) {
                   const promptLower = prompt.toLowerCase();
                   
                   // Case 1: Just transcription - send transcribed text
-                  const isJustTranscription = /^(תמלל|תמליל|transcribe|transcript)$/i.test(prompt.trim());
+                  const isJustTranscription = JUST_TRANSCRIPTION_PATTERN.test(prompt.trim());
                   if (isJustTranscription) {
                     console.log('📝 Just transcription requested');
                     await sendTextMessage(chatId, `📝 תמלול:\n\n${transcribedText}`);
@@ -1778,8 +1804,8 @@ async function handleIncomingMessage(webhookData) {
                   
                   // Case 2: Translation request with TTS - detect target language and voice keywords
                   // Support ALL Hebrew conjugations (male/female/plural) per rule 7
-                  const hasTTSKeywords = /אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו|הקרא|הקראי|הקראו|תקרא|תקראי|תקראו|הקריא|הקריאי|הקריאו|תקריא|תקריאי|תקריאו|דבר|דברי|דברו|תדבר|תדברי|תדברו|בקול|קולית|\b(say|speak|tell|voice|read\s+aloud)\b/i.test(prompt);
-                  const hasTextKeywords = /תרגם|תרגמי|תרגמו|תתרגם|תתרגמי|תתרגמו|תרגום|\b(translate|translation)\b/i.test(prompt) && !hasTTSKeywords;
+                  const hasTTSKeywords = TTS_KEYWORDS_PATTERN.test(prompt);
+                  const hasTextKeywords = TRANSLATE_KEYWORDS_PATTERN.test(prompt) && !hasTTSKeywords;
                   
                   console.log(`🔍 Audio processing intent detection - TTS keywords: ${hasTTSKeywords}, Text keywords: ${hasTextKeywords}`);
                   
@@ -1841,7 +1867,6 @@ async function handleIncomingMessage(webhookData) {
                     // ✨ VOICE CLONING: Try to clone the voice from the quoted audio
                     // Check audio duration and decide whether to clone voice
                     const audioDuration = await getAudioDuration(audioBuffer);
-                    const MIN_DURATION_FOR_CLONING = 4.6; // ElevenLabs minimum requirement
                     let quotedVoiceId = null;
                     let shouldCloneQuotedVoice = audioDuration >= MIN_DURATION_FOR_CLONING;
                     
@@ -3686,8 +3711,8 @@ async function handleOutgoingMessage(webhookData) {
                   const base64Image = downloadedBuffer.toString('base64');
                   
                   // Check if this is an edit request vs analysis request
-                  const isEditRequest = /שנה|תשנה|תשני|שני|ערוך|תערוך|ערכי|עדכן|תעדכן|תקן|תתקן|סדר|תסדר|סדרי|תסדרי|הוסף|תוסיף|תוסיפי|הוסיפי|מחק|תמחק|מחקי|תמחקי|הורד|תוריד|הורידי|תורידי|סיר|תסיר|סירי|תסירי|צייר|תצייר|ציירי|תצרי|הפוך|תהפוך|המר|תהמר|שפר|תשפר|שפרי|תשפרי|תחליף|החלף|החליפי|תחליפי|צור|תצור|צורי|תצרי|edit|change|modify|update|fix|correct|add|remove|delete|draw|paint|replace|swap|improve|enhance|create|make|transform/i.test(prompt);
-                  const isImplicitEdit = /^(לבוש|לבושה|לובש|לובשת|עם|כ(?!מה)|בתור)|^\b(wearing|dressed|with\s+a|as\s+a|in\s+a)\b/i.test(prompt);
+                  const isEditRequest = IMAGE_EDIT_PATTERN.test(prompt);
+                  const isImplicitEdit = IMAGE_IMPLICIT_EDIT_PATTERN.test(prompt);
                   
                   if (isEditRequest || isImplicitEdit) {
                     // This is image EDITING - use editImageForWhatsApp
@@ -3833,7 +3858,7 @@ async function handleOutgoingMessage(webhookData) {
                   console.log(`✅ [Outgoing] Transcription complete: ${transcribedText.length} chars, language: ${detectedLanguage}`);
                   
                   // Step 2: Detect what user wants to do with the transcription
-                  const isJustTranscription = /^(תמלל|תמליל|transcribe|transcript)$/i.test(prompt.trim());
+                  const isJustTranscription = JUST_TRANSCRIPTION_PATTERN.test(prompt.trim());
                   if (isJustTranscription) {
                     console.log('📝 [Outgoing] Just transcription requested');
                     await sendTextMessage(chatId, `📝 תמלול:\n\n${transcribedText}`);
@@ -3841,8 +3866,8 @@ async function handleOutgoingMessage(webhookData) {
                   }
                   
                   // Support ALL Hebrew conjugations (male/female/plural) per rule 7
-                  const hasTTSKeywords = /אמור|אמרי|אמרו|תאמר|תאמרי|תאמרו|הקרא|הקראי|הקראו|תקרא|תקראי|תקראו|הקריא|הקריאי|הקריאו|תקריא|תקריאי|תקריאו|דבר|דברי|דברו|תדבר|תדברי|תדברו|בקול|קולית|\b(say|speak|tell|voice|read\s+aloud)\b/i.test(prompt);
-                  const hasTextKeywords = /תרגם|תרגמי|תרגמו|תתרגם|תתרגמי|תתרגמו|תרגום|\b(translate|translation)\b/i.test(prompt) && !hasTTSKeywords;
+                  const hasTTSKeywords = TTS_KEYWORDS_PATTERN.test(prompt);
+                  const hasTextKeywords = TRANSLATE_KEYWORDS_PATTERN.test(prompt) && !hasTTSKeywords;
                   
                   // Detect target language
                   // NOTE: Don't use \b before Hebrew words - it doesn't work in JavaScript
@@ -3899,7 +3924,6 @@ async function handleOutgoingMessage(webhookData) {
                     
                     // Check audio duration and decide whether to clone voice
                     const audioDuration = await getAudioDuration(audioBuffer);
-                    const MIN_DURATION_FOR_CLONING = 4.6; // ElevenLabs minimum requirement
                     let quotedVoiceId = null;
                     let shouldCloneQuotedVoice = audioDuration >= MIN_DURATION_FOR_CLONING;
                     
@@ -5611,7 +5635,6 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 
     // Step 2: Check audio duration and decide whether to clone voice
     const audioDuration = await getAudioDuration(audioBuffer);
-    const MIN_DURATION_FOR_CLONING = 4.6; // ElevenLabs minimum requirement
     let voiceId = null;
     let shouldCloneVoice = audioDuration >= MIN_DURATION_FOR_CLONING;
     
