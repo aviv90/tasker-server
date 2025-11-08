@@ -5,13 +5,13 @@ const { cleanThinkingPatterns } = require('./geminiService');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Lazy-loaded services to avoid circular dependencies and improve startup time
-let geminiService, openaiService, grokService, fileDownloader;
+let geminiService, openaiService, grokService, greenApiService;
 const getServices = () => {
   if (!geminiService) geminiService = require('./geminiService');
   if (!openaiService) openaiService = require('./openaiService');
   if (!grokService) grokService = require('./grokService');
-  if (!fileDownloader) fileDownloader = require('../utils/fileDownloader');
-  return { geminiService, openaiService, grokService, fileDownloader };
+  if (!greenApiService) greenApiService = require('./greenApiService');
+  return { geminiService, openaiService, grokService, greenApiService };
 };
 
 // ═══════════════════ AGENT CONTEXT MEMORY (Persistent in DB) ═══════════════════
@@ -273,8 +273,8 @@ const agentTools = {
         }
         
         // Download and analyze the image
-        const { geminiService, fileDownloader } = getServices();
-        imageBuffer = await fileDownloader.downloadFile(imageUrl);
+        const { geminiService, greenApiService } = getServices();
+        imageBuffer = await greenApiService.downloadFile(imageUrl);
         
         const result = await geminiService.analyzeImageWithText(args.question, imageBuffer);
         
@@ -545,7 +545,8 @@ const agentTools = {
         console.log(`✅ Image created with ${provider}, analyzing...`);
         
         // Step 2: Download and analyze
-        imageBuffer = await fileDownloader.downloadFile(imageResult.url);
+        const { greenApiService: greenApi2 } = getServices();
+        imageBuffer = await greenApi2.downloadFile(imageResult.url);
         const analysisResult = await geminiService.analyzeImageWithText(args.analysis_question, imageBuffer);
         
         // Free memory
@@ -624,8 +625,8 @@ const agentTools = {
         }
         
         // Step 2: Analyze
-        const { geminiService, fileDownloader } = getServices();
-        imageBuffer = await fileDownloader.downloadFile(imageUrl);
+        const { geminiService, greenApiService } = getServices();
+        imageBuffer = await greenApiService.downloadFile(imageUrl);
         
         const analysisResult = await geminiService.analyzeImageWithText(args.analysis_goal, imageBuffer);
         
@@ -1825,10 +1826,10 @@ const agentTools = {
       
       try {
         const { voiceService } = require('./voiceService');
-        const { fileDownloader } = getServices();
+        const { greenApiService } = getServices();
         
         // Download audio for cloning
-        const audioBuffer = await fileDownloader.downloadFile(args.audio_url);
+        const audioBuffer = await greenApiService.downloadFile(args.audio_url);
         
         // Clone voice
         const voiceCloneOptions = {
@@ -1907,10 +1908,10 @@ const agentTools = {
       
       try {
         const { creativeAudioService } = require('./creativeAudioService');
-        const { fileDownloader } = getServices();
+        const { greenApiService } = getServices();
         
         // Download audio
-        const audioBuffer = await fileDownloader.downloadFile(args.audio_url);
+        const audioBuffer = await greenApiService.downloadFile(args.audio_url);
         
         // Create creative mix
         const result = await creativeAudioService.createCreativeMix(audioBuffer, {
