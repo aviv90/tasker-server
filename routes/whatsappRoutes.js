@@ -14,10 +14,15 @@ const { audioConverterService } = require('../services/audioConverterService');
 const { creativeAudioService } = require('../services/creativeAudioService');
 const conversationManager = require('../services/conversationManager');
 const { routeIntent } = require('../services/intentRouter');
+const { executeAgentQuery } = require('../services/agentService');
 const authStore = require('../store/authStore');
 const groupAuthStore = require('../store/groupAuthStore');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
 
 // Message deduplication cache - prevent processing duplicate messages
 const processedMessages = new Set();
@@ -1437,8 +1442,6 @@ async function handleIncomingMessage(webhookData) {
               console.log(`🤖 [INCOMING] Agent query detected`);
               saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'agent_query' });
-              
-              const { executeAgentQuery } = require('../services/agentService');
               
               try {
                 const agentResult = await executeAgentQuery(prompt, chatId, {
@@ -3508,8 +3511,6 @@ async function handleOutgoingMessage(webhookData) {
               saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'agent_query' });
               
-              const { executeAgentQuery } = require('../services/agentService');
-              
               try {
                 const agentResult = await executeAgentQuery(prompt, chatId, {
                   maxIterations: 5
@@ -5543,13 +5544,6 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
  */
 async function getAudioDuration(audioBuffer) {
   try {
-    const { exec } = require('child_process');
-    const { promisify } = require('util');
-    const execAsync = promisify(exec);
-    const fs = require('fs');
-    const path = require('path');
-    const os = require('os');
-    
     // Write buffer to temp file
     const tempFilePath = path.join(os.tmpdir(), `audio_check_${Date.now()}.ogg`);
     fs.writeFileSync(tempFilePath, audioBuffer);
