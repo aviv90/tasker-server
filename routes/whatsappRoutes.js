@@ -1449,9 +1449,6 @@ async function handleIncomingMessage(webhookData) {
                 });
                 
                 if (agentResult.success) {
-                  // DEBUG: Log full agentResult to see what we got
-                  console.log(`🔍 [Agent DEBUG] agentResult:`, JSON.stringify(agentResult, null, 2));
-                  
                   // Send text response
                   if (agentResult.text) {
                     await sendTextMessage(chatId, agentResult.text);
@@ -1461,8 +1458,6 @@ async function handleIncomingMessage(webhookData) {
                   if (agentResult.imageUrl) {
                     console.log(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}`);
                     await sendFileByUrl(chatId, agentResult.imageUrl, null, '');
-                  } else {
-                    console.log(`⚠️ [Agent DEBUG] No imageUrl found in agentResult`);
                   }
                   if (agentResult.videoUrl) {
                     console.log(`🎬 [Agent] Sending generated video: ${agentResult.videoUrl}`);

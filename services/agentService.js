@@ -2089,7 +2089,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   const agentConfig = {
     model: process.env.AGENT_MODEL || 'gemini-2.5-flash',
     maxIterations: Number(process.env.AGENT_MAX_ITERATIONS) || 5,
-    timeoutMs: Number(process.env.AGENT_TIMEOUT_MS) || 60000,
+    timeoutMs: Number(process.env.AGENT_TIMEOUT_MS) || 180000, // 3 minutes for complex multi-step tasks
     contextMemoryEnabled: String(process.env.AGENT_CONTEXT_MEMORY_ENABLED || 'false').toLowerCase() === 'true'
   };
   
