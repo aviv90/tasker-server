@@ -1287,7 +1287,7 @@ class ConversationManager {
       ).join('\n');
 
       // Generate summary using Gemini
-      const { geminiText } = require('./geminiService');
+      const { generateTextResponse: geminiText } = require('./geminiService');
       
       const summaryPrompt = `נתח את השיחה הבאה וצור סיכום מובנה:
 
