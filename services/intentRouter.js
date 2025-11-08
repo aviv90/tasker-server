@@ -11,6 +11,22 @@
 const crypto = require('crypto');
 const { generateTextResponse: geminiText } = require('./geminiService');
 
+// ════════════════════ SHARED REGEX PATTERNS (Avoid Duplication) ════════════════════
+
+// Edit verbs (English + Hebrew with ALL conjugations)
+const EDIT_PATTERN = /\b(add|remove|delete|change|replace|modify|edit|make|create|draw|paint|color|set|put|insert|erase|fix|adjust|enhance|improve|transform|convert)\b|הוסף|תוסיפ|סיר|תסיר|הסר|תסירי|תסירו|מחק|מחקי|מחקו|תמחק|תמחקי|תמחקו|הורד|הורידי|הורידו|תוריד|תורידי|תורידו|שנה|שני|תשנה|תשני|תשנו|החלף|תחליף|תחליפי|תחליפו|ערוך|ערכי|תערוך|תערכי|תערכו|צור|צרי|תצור|תצרי|תצרו|צייר|צירי|תצייר|תצירי|תצירו|צבע|צבעי|תצבע|תצבעי|תצבעו|הכנס|תכניס|תכניסי|תכניסו|תקן|תקני|תתקן|תתקני|תתקנו|שפר|שפרי|תשפר|תשפרי|תשפרו|המר|תמיר|תמירי|תמירו|הפוך(?!.*וידאו)|עשה|עשי|תעשה|תעשי|תעשו|תן/i;
+
+// Analysis/question patterns (English + Hebrew)
+const ANALYSIS_PATTERN = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|מסוכן|בטוח)|^\b(identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous)\b/i;
+
+// Google Search patterns (English + Hebrew)
+const GOOGLE_SEARCH_PATTERN = /חפש\s+(באינטרנט|ברשת|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i;
+
+// Video keywords (English + Hebrew with typos)
+const VIDEO_PATTERN = /\b(video|vidio|vedio|vidoe|animate|motion|clip)\b|וידאו|וידיאו|וודאו|ווידאו|וידיו|סרט|אנימציה|הנפש|להנפיש|תזיז|קליפ/i;
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+
 // Helper: pick a random element from array
 function pickRandom(options) {
   if (!options || options.length === 0) return null;
@@ -173,8 +189,7 @@ async function routeIntent(input) {
   // If there is an attached image with text prompt → decide between image edit vs image→video vs analysis
   if (input.hasImage && prompt) {
     // First priority: Check if it's a video generation request
-    // Includes common typos: וידיאו, וודאו, ווידאו (Hebrew); vidio, vedio, vidoe (English)
-    const isVideoLike = /\b(video|vidio|vedio|vidoe|animate|motion|clip)\b|וידאו|וידיאו|וודאו|ווידאו|וידיו|סרט|אנימציה|הנפש|להנפיש|תזיז|קליפ/i.test(prompt);
+    const isVideoLike = VIDEO_PATTERN.test(prompt);
     if (isVideoLike) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'image_to_video' }, reason: 'No media creation authorization' };
@@ -207,9 +222,7 @@ async function routeIntent(input) {
     
     // Second priority: Check if it's an edit command (requires authorization)
     // IMPORTANT: Check edit BEFORE analysis to catch edit imperatives like "תוריד", "תסיר"
-    // Edit keywords: add, remove, change, make, create, replace, etc.
-    // Hebrew imperatives with ALL conjugations (male/female/plural): תוריד/תורידי/תורידו, מחק/מחקי/מחקו...
-    const isEditRequest = /\b(add|remove|delete|change|replace|modify|edit|make|create|draw|paint|color|set|put|insert|erase|fix|adjust|enhance|improve|transform|convert)\b|הוסף|הוסיפ|תוסיפ|סיר|תסיר|הסר|תסירי|תסירו|מחק|מחקי|מחקו|תמחק|תמחקי|תמחקו|הורד|הורידי|הורידו|תוריד|תורידי|תורידו|שנה|שני|תשנה|תשני|תשנו|החלף|החליפ|תחליף|תחליפי|תחליפו|ערוך|ערכי|תערוך|תערכי|תערכו|צור|צרי|תצור|תצרי|תצרו|צייר|צירי|תצייר|תצירי|תצירו|צבע|צבעי|תצבע|תצבעי|תצבעו|הכנס|הכניס|תכניס|תכניסי|תכניסו|תקן|תקני|תתקן|תתקני|תתקנו|שפר|שפרי|תשפר|תשפרי|תשפרו|המר|המירי|תמיר|תמירי|תמירו|הפוך(?!.*וידאו)|עשה|עשי|תעשה|תעשי|תעשו|תן/i.test(prompt);
+    const isEditRequest = EDIT_PATTERN.test(prompt);
     
     // Implicit edit: If prompt describes a state/appearance without being a question
     // Examples: "לבוש בקימונו", "wearing a hat", "with glasses", "as a superhero"
@@ -230,57 +243,40 @@ async function routeIntent(input) {
     }
     
     // Third priority: Check if user wants image analysis/questions (text-only response)
-    // Expanded to include more question patterns and info requests
-    // Note: Don't use \b after Hebrew words - it doesn't work in JavaScript
-    const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|מסוכן|בטוח)|^\b(identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous)\b/i.test(prompt);
+    const isAnalysisRequest = ANALYSIS_PATTERN.test(prompt);
     if (isAnalysisRequest) {
-      // Note: needsChatHistory removed - agent handles history automatically
-      // Check for Google Search request
-      const needsGoogleSearch = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
-      return { tool: 'gemini_chat', args: { prompt, useGoogleSearch: needsGoogleSearch }, reason: 'Image analysis/question' };
+      const needsGoogleSearch = GOOGLE_SEARCH_PATTERN.test(prompt);
+      return { tool: 'gemini_chat', args: { prompt, useGoogleSearch }, reason: 'Image analysis/question' };
     }
     
     // Default: If no clear pattern detected, treat as analysis/question
-    // This is safer than defaulting to edit
-    // Note: needsChatHistory removed - agent handles history automatically
-    // Check for Google Search request
-    const needsGoogleSearchDefault = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
-    return { tool: 'gemini_chat', args: { prompt, useGoogleSearch: needsGoogleSearchDefault }, reason: 'Image-related request (default to analysis)' };
+    const needsGoogleSearch = GOOGLE_SEARCH_PATTERN.test(prompt);
+    return { tool: 'gemini_chat', args: { prompt, useGoogleSearch }, reason: 'Image-related request (default to analysis)' };
   }
 
   // If there is an attached video with text prompt → decide between video analysis vs video-to-video
   if (input.hasVideo && prompt) {
     // First priority: Check if user wants video analysis/questions (text-only response)
     // IMPORTANT: Check analysis BEFORE edit - questions like "האם גמד מעורב?" should be analysis, not edit
-    // Same pattern as image analysis
-    // Note: Don't use \b after Hebrew words - it doesn't work in JavaScript
-    const isAnalysisRequest = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|מסוכן|בטוח)|^\b(identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous)\b/i.test(prompt);
+    const isAnalysisRequest = ANALYSIS_PATTERN.test(prompt);
     if (isAnalysisRequest) {
-      // Note: needsChatHistory removed - agent handles history automatically
-      // Check for Google Search request
-      const needsGoogleSearch = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
-      return { tool: 'gemini_chat', args: { prompt, useGoogleSearch: needsGoogleSearch }, reason: 'Video analysis/question' };
+      const needsGoogleSearch = GOOGLE_SEARCH_PATTERN.test(prompt);
+      return { tool: 'gemini_chat', args: { prompt, useGoogleSearch }, reason: 'Video analysis/question' };
     }
     
     // Second priority: Video-to-video editing (requires authorization)
-    // Edit keywords: add, remove, change, make, create, replace, etc.
-    // Hebrew imperatives with ALL conjugations (male/female/plural): תוריד/תורידי/תורידו, מחק/מחקי/מחקו...
-    const isEditRequest = /\b(add|remove|delete|change|replace|modify|edit|make|create|draw|paint|color|set|put|insert|erase|fix|adjust|enhance|improve|transform|convert)\b|הוסף|הוסיפ|תוסיפ|סיר|תסיר|הסר|תסירי|תסירו|מחק|מחקי|מחקו|תמחק|תמחקי|תמחקו|הורד|הורידי|הורידו|תוריד|תורידי|תורידו|שנה|שני|תשנה|תשני|תשנו|החלף|החליפ|תחליף|תחליפי|תחליפו|ערוך|ערכי|תערוך|תערכי|תערכו|צור|צרי|תצור|תצרי|תצרו|צייר|צירי|תצייר|תצירי|תצירו|צבע|צבעי|תצבע|תצבעי|תצבעו|הכנס|הכניס|תכניס|תכניסי|תכניסו|תקן|תקני|תתקן|תתקני|תתקנו|שפר|שפרי|תשפר|תשפרי|תשפרו|המר|המירי|תמיר|תמירי|תמירו|הפוך(?!.*וידאו)|עשה|עשי|תעשה|תעשי|תעשו|תן/i.test(prompt);
+    const isEditRequest = EDIT_PATTERN.test(prompt);
     if (isEditRequest) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'video_to_video' }, reason: 'No media creation authorization' };
       }
-      // Only Runway for video editing
       const service = 'runway';
       return { tool: 'video_to_video', args: { service, prompt }, reason: 'Video edit request' };
     }
     
     // Default: If no clear pattern detected, treat as analysis/question
-    // This is safer than defaulting to edit
-    // Note: needsChatHistory removed - agent handles history automatically
-    // Check for Google Search request
-    const needsGoogleSearchVideoDefault = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
-    return { tool: 'gemini_chat', args: { prompt, useGoogleSearch: needsGoogleSearchVideoDefault }, reason: 'Video-related request (default to analysis)' };
+    const needsGoogleSearch = GOOGLE_SEARCH_PATTERN.test(prompt);
+    return { tool: 'gemini_chat', args: { prompt, useGoogleSearch }, reason: 'Video-related request (default to analysis)' };
   }
 
   // If there is an attached audio/voice note with text prompt → decide between creative mix, voice response, or general request
@@ -313,11 +309,8 @@ async function routeIntent(input) {
     }
     
     // Third priority: General requests (transcription, translation, etc.) - route to gemini_chat
-    // These will need transcription first, then processing
-    // Note: needsChatHistory removed - agent handles history automatically
-    // Check for Google Search request
-    const needsGoogleSearchAudio = /חפש\s+(באינטרנט|ברשת|בגוגל|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i.test(prompt);
-    return { tool: 'gemini_chat', args: { prompt, needsTranscription: true, useGoogleSearch: needsGoogleSearchAudio }, reason: 'Audio with general request (transcribe + process)' };
+    const needsGoogleSearch = GOOGLE_SEARCH_PATTERN.test(prompt);
+    return { tool: 'gemini_chat', args: { prompt, needsTranscription: true, useGoogleSearch }, reason: 'Audio with general request (transcribe + process)' };
   }
 
   // If there is an attached image WITHOUT prompt → ignore (no automatic analysis)
@@ -490,9 +483,6 @@ async function routeIntent(input) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'image_generation' }, reason: 'No media creation authorization' };
       }
-      // Check for explicit provider requests (case-insensitive, space-flexible, including Hebrew)
-      // Supports provider name anywhere in the prompt, not just at the end
-      // Note: Using \b only for English words; for Hebrew, check without word boundaries
       const wantsOpenAI = /\b(open\s*ai|gpt|chat\s*gpt|dall[\s-]*e)\b|דאל[\s-]*אי|צ'אט\s*ג'יפיטי|צ׳אט\s*ג׳יפיטי/i.test(prompt);
       const wantsGrok = /\bgrok\b|\bx\s*ai\b|גרוק/i.test(prompt);
       const wantsGemini = /\bgemini\b|ג'מיני|ג׳מיני|ג׳ימיני|ג'ימיני/i.test(prompt);
@@ -506,7 +496,6 @@ async function routeIntent(input) {
       if (wantsGemini) {
         return { tool: 'gemini_image', args: { prompt }, reason: 'Image-like request, user requested Gemini' };
       }
-      // Default to Gemini
       return { tool: 'gemini_image', args: { prompt }, reason: 'Image-like request' };
     }
 
@@ -514,13 +503,8 @@ async function routeIntent(input) {
       if (!input.authorizations?.media_creation) {
         return { tool: 'deny_unauthorized', args: { feature: 'video_generation' }, reason: 'No media creation authorization' };
       }
-      // Check for explicit model requests (case-insensitive, with or without space, including Hebrew)
-      // Supports model name anywhere in the prompt, not just at the end
-      // Note: Using \b only for English words; for Hebrew, check without word boundaries
-      // Supports both "veo 3" and "veo 3.1" (same for Hebrew)
       const wantsVeo3 = /\bveo\s*3(\.1)?\b|ויאו\s*3(\.1)?|וו[יא]ו\s*3(\.1)?/i.test(prompt);
       const wantsKling = /\bkling\b|קלינג/i.test(prompt);
-      // Check for Sora 2 Pro first (more specific), then regular Sora 2
       const wantsSoraPro = /\bsora\s*2?\s*pro\b|סורה\s*2?\s*פרו|סורה\s*2?\s*pro/i.test(prompt);
       const wantsSora = /\bsora\s*2?\b|סורה\s*2?/i.test(prompt);
       
@@ -536,7 +520,6 @@ async function routeIntent(input) {
       if (wantsKling) {
         return { tool: 'kling_text_to_video', args: { prompt }, reason: 'Video-like request, user requested Kling' };
       }
-      // Default to Kling for text-to-video
       return { tool: 'kling_text_to_video', args: { prompt }, reason: 'Video-like request' };
     }
 

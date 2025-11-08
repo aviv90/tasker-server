@@ -1519,49 +1519,29 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
  * @returns {boolean} - True if should use agent
  */
 function shouldUseAgent(prompt, input) {
-  // Use agent if:
-  // 1. Question refers to chat history/previous messages
-  // 2. Complex multi-step requests (create + analyze, create + retry, etc.)
-  // 3. Question about media in the conversation
-  // 4. Requests that need web search + something else
+  // Use agent for:
+  // • Chat history/previous messages
+  // • Multi-step requests (create + analyze)
+  // • Conditional fallback ("if fails, try X")
+  // • Complex retry requests
   
   const agentPatterns = [
-    // History-related
-    /מה\s+(אמרתי|אמרת|כתבתי|כתבת|שלחתי|שלחת|דיברתי|דיברת)\s+(קודם|לפני|בהודעה|בשיחה)?/i,
-    /על\s+מה\s+(דיברנו|עסקנו|שוחחנו)/i,
-    /(ב|מ|על)(ה)?(תמונה|וידאו|הקלטה|הודעה|שיחה)\s+(האחרונה|הקודמת|שבהיסטוריה|מקודם)/i,
-    /(אילו|איזה|אלו|מה|כמה)\s+(תמונות|תמונה|וידאו|וידאואים|הקלטות|הקלטה|הודעות|הודעה)\s+(היו|היה|נשלחו|נשלח|שלחתי|שלחת|כאן|פה|בשיחה|בצ׳אט)?/i,  // "אילו תמונות נשלחו כאן?"
-    /(תראה|תראי|תציג|הראה|הראי)\s+(לי)?\s+(מה|את)\s+(שלחתי|שלחת|היה|נשלח)/i,  // "תראה לי מה שלחתי"
-    /מה\s+(היה|קרה|עבר)\s+(כאן|פה|בשיחה|בצ׳אט)/i,  // "מה היה כאן?"
-    /what\s+(did\s+)?(I|we|you)\s+(say|said|write|wrote|mention|talk|discuss)/i,
-    /what\s+(images?|videos?|media|messages?)\s+(were|was)?\s+(sent|shared|posted|here)?/i,  // "what images were sent here?"
-    /(show|display)\s+me\s+what\s+(I|we|you)\s+(sent|shared)/i,  // "show me what I sent"
-    /about\s+the\s+(image|video|audio|message|conversation)/i,
-    /in\s+the\s+(previous|last|recent)\s+(message|conversation)/i,
+    // History (Hebrew + English)
+    /מה\s+(אמרתי|אמרת|כתבתי|כתבת|שלחתי|שלחת|דיברתי|דיברת)|על\s+מה\s+(דיברנו|עסקנו|שוחחנו)|(אילו|איזה|מה|כמה)\s+(תמונות|וידאו|הודעות)\s+(היו|נשלחו|כאן|פה)?|(תראה|הראה)\s+(לי)?\s+מה\s+(שלחתי|היה)|מה\s+(היה|קרה|עבר)\s+(כאן|פה|בשיחה)/i,
+    /(ב|מ|על)(ה)?(תמונה|וידאו|הקלטה|הודעה|שיחה)\s+(האחרונה|הקודמת|מקודם)/i,
+    /what\s+(did\s+)?(I|we|you)\s+(say|write|mention|talk|discuss)|what\s+(images?|videos?|messages?)\s+(were|was)?\s+(sent|shared|here)?|(show|display)\s+me\s+what\s+(I|we|you)\s+(sent|shared)|about\s+the\s+(image|video|audio|message|conversation)|in\s+the\s+(previous|last|recent)\s+(message|conversation)/i,
     
-    // Multi-step patterns (meta-tools)
-    /(צור|תצור).+(ו|אם|ואז).+(נתח|תנתח|בדוק|תבדוק|ערוך|תערוך)/i,  // "צור תמונה ובדוק אם היא טובה"
-    /(נתח|תנתח).+(ו|ואז).+(ערוך|תערוך|שפר|תשפר)/i,  // "נתח את התמונה ושפר אותה"
-    /(חפש|תחפש).+(ו|ואז).+(תן|תני|צור|תצור|ספר|ספרי)/i,  // "חפש מידע וצור תמונה"
+    // Multi-step (Hebrew + English)
+    /(צור|נתח|חפש).+(ו|אם|ואז).+(נתח|בדוק|ערוך|שפר|תן|צור|ספר)/i,
+    /create.+(and|then).+(analyze|check|edit|improve)|analyze.+(and|then).+(edit|improve|enhance)|search.+(and|then).+(summarize|create|tell)/i,
     
-    // Conditional fallback patterns - "if X fails, try Y"
-    /(אם|ו?אם).+(נכשל|לא\s+עבד|לא\s+הצליח|לא\s+יצא).+(נסה|תנסה|צור|תצור).+(עם|ב)\s+(OpenAI|Gemini|Grok)/i,  // "ואם נכשל צור עם OpenAI"
-    /(if|and\s+if).+(fails?|doesn'?t\s+work|error).+(try|create|use).+(with|using)?\s+(OpenAI|Gemini|Grok)/i,  // "and if fails create with OpenAI"
-    /(אם|if).+(לא|not).+(נסה|try).+(אחר|different|other)/i,  // "אם זה לא טוב נסה ספק אחר"
+    // Conditional fallback (Hebrew + English)
+    /(אם|ו?אם).+(נכשל|לא\s+עבד|לא\s+הצליח).+(נסה|צור).+(עם|ב)\s+(OpenAI|Gemini|Grok)|(אם|if).+(לא|not).+(נסה|try).+(אחר|different|other)/i,
+    /(if|and\s+if|when).+(fails?|doesn'?t\s+work|error|not\s+good).+(try|create|use).+(with|using|another|different|other)\s*(OpenAI|Gemini|Grok)?/i,
     
-    /create.+(and|then).+(analyze|check|edit|improve)/i,
-    /analyze.+(and|then).+(edit|improve|enhance)/i,
-    /search.+(and|then).+(summarize|create|tell)/i,
-    /(if|when).+(not\s+good|fails?|doesn'?t\s+work).+(try|use).+(another|different|other)/i,
-    
-    // Smart retry patterns (Stage 3) - requests that imply need for fallback strategies
-    /(זה|ה\w+)\s+(לא\s+)?(עבד|עובד|הצליח|יוצא|יצא)\s+(כמו\s+שצריך|טוב|נכון|כראוי)?/i,  // "זה לא עבד", "התמונה לא יצאה טוב"
-    /(נסה|תנסה)\s+(שוב|עוד פעם)\s+(עם|ב|אבל|רק).+/i,  // "נסה שוב עם פישוט", "נסה עוד פעם אבל בפשטות"
-    /(this|it)\s+(didn'?t|doesn'?t)\s+(work|come\s+out|turn\s+out)/i,  // "it didn't work well"
-    /try\s+(again|once\s+more)\s+(with|but|using).+/i,  // "try again with simplification"
-    /(פשט|פשטו|תפשט)\s+(את\s+)?(זה|הפרומפט|הבקשה)/i,  // "פשט את זה"
-    /(simplify|make\s+it\s+simpler)/i,  // "simplify the request"
-    /too\s+(complex|complicated|detailed)/i  // "too complex"
+    // Smart retry (Hebrew + English)
+    /(זה|ה\w+)\s+(לא\s+)?(עבד|עובד|הצליח|יוצא|יצא)\s+(כמו\s+שצריך|טוב|נכון)?|(נסה|תנסה)\s+(שוב|עוד פעם)\s+(עם|ב|אבל|רק).+|(פשט|תפשט)\s+(את\s+)?(זה|הפרומפט|הבקשה)/i,
+    /(this|it)\s+(didn'?t|doesn'?t)\s+(work|come\s+out|turn\s+out)|try\s+(again|once\s+more)\s+(with|but|using).+|(simplify|make\s+it\s+simpler)|too\s+(complex|complicated|detailed)/i
   ];
   
   for (const pattern of agentPatterns) {
