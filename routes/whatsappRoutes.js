@@ -1457,15 +1457,15 @@ async function handleIncomingMessage(webhookData) {
                   // Send any generated media (image/video/audio)
                   if (agentResult.imageUrl) {
                     console.log(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}`);
-                    await sendFileByUrl(chatId, agentResult.imageUrl, null, '');
+                    await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, '');
                   }
                   if (agentResult.videoUrl) {
                     console.log(`🎬 [Agent] Sending generated video: ${agentResult.videoUrl}`);
-                    await sendFileByUrl(chatId, agentResult.videoUrl, null, '');
+                    await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '');
                   }
                   if (agentResult.audioUrl) {
                     console.log(`🎤 [Agent] Sending generated audio: ${agentResult.audioUrl}`);
-                    await sendFileByUrl(chatId, agentResult.audioUrl, null, '');
+                    await sendFileByUrl(chatId, agentResult.audioUrl, `agent_audio_${Date.now()}.mp3`, '');
                   }
                   
                   // Log tool usage
@@ -3542,15 +3542,15 @@ async function handleOutgoingMessage(webhookData) {
                   // Send any generated media (image/video/audio)
                   if (agentResult.imageUrl) {
                     console.log(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}`);
-                    await sendFileByUrl(chatId, agentResult.imageUrl, null, '');
+                    await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, '');
                   }
                   if (agentResult.videoUrl) {
                     console.log(`🎬 [Agent] Sending generated video: ${agentResult.videoUrl}`);
-                    await sendFileByUrl(chatId, agentResult.videoUrl, null, '');
+                    await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '');
                   }
                   if (agentResult.audioUrl) {
                     console.log(`🎤 [Agent] Sending generated audio: ${agentResult.audioUrl}`);
-                    await sendFileByUrl(chatId, agentResult.audioUrl, null, '');
+                    await sendFileByUrl(chatId, agentResult.audioUrl, `agent_audio_${Date.now()}.mp3`, '');
                   }
                   
                   // Log tool usage
