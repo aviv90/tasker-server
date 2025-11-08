@@ -1583,7 +1583,12 @@ function shouldUseAgent(prompt, input) {
     /מה\s+(אמרתי|אמרת|כתבתי|כתבת|שלחתי|שלחת|דיברתי|דיברת)\s+(קודם|לפני|בהודעה|בשיחה)?/i,
     /על\s+מה\s+(דיברנו|עסקנו|שוחחנו)/i,
     /(ב|מ|על)(ה)?(תמונה|וידאו|הקלטה|הודעה|שיחה)\s+(האחרונה|הקודמת|שבהיסטוריה|מקודם)/i,
+    /(אילו|איזה|אלו|מה|כמה)\s+(תמונות|תמונה|וידאו|וידאואים|הקלטות|הקלטה|הודעות|הודעה)\s+(היו|היה|נשלחו|נשלח|שלחתי|שלחת|כאן|פה|בשיחה|בצ׳אט)?/i,  // "אילו תמונות נשלחו כאן?"
+    /(תראה|תראי|תציג|הראה|הראי)\s+(לי)?\s+(מה|את)\s+(שלחתי|שלחת|היה|נשלח)/i,  // "תראה לי מה שלחתי"
+    /מה\s+(היה|קרה|עבר)\s+(כאן|פה|בשיחה|בצ׳אט)/i,  // "מה היה כאן?"
     /what\s+(did\s+)?(I|we|you)\s+(say|said|write|wrote|mention|talk|discuss)/i,
+    /what\s+(images?|videos?|media|messages?)\s+(were|was)?\s+(sent|shared|posted|here)?/i,  // "what images were sent here?"
+    /(show|display)\s+me\s+what\s+(I|we|you)\s+(sent|shared)/i,  // "show me what I sent"
     /about\s+the\s+(image|video|audio|message|conversation)/i,
     /in\s+the\s+(previous|last|recent)\s+(message|conversation)/i,
     
