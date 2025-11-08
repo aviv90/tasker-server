@@ -657,17 +657,30 @@ A. Mix keywords ("mix", "remix", "creative") → "creative_voice_processing" (ne
 B. Voice response ("reply with voice", "ענה בקול") → "voice_cloning_response" (needs auth)
 C. Default → "gemini_chat" (needsTranscription=true)
 
-4️⃣ text only:
-Music: "write song" → gemini_chat | "create song" or "suno" → music_generation
-Image: creation verb + image noun → [provider]_image (openai/grok/gemini default), avoid false positives
-Video: creation verb + video noun → [provider]_video (veo3/sora/kling default), avoid false positives
-TTS: "read", "speech", "הקרא" → text_to_speech
-Summary: "summary", "סיכום" → chat_summary
-Retry: "again", "שוב" → retry_last_command
-Poll: "create poll", WITH ALL HEBREW CONJUGATIONS (male/female/plural) such as "צור סקר", "צרי סקר", "צרו סקר", "תצור סקר", "תצרי סקר", "תצרו סקר", "הכן סקר", "הכיני סקר", "הכינו סקר" → create_poll
-Location: "send location", "מיקום אקראי" → send_random_location
-Group: "create group", "צור קבוצה" (all conjugations, needs auth) → create_group
-Help: "commands", "פקודות" → show_help
+4️⃣ text only (PRIORITY ORDER - check these BEFORE defaulting to chat):
+
+⚠️ CRITICAL COMMANDS (check first, never default to chat):
+1. Poll: ANY variation of "create/make poll" OR "צור/הכן/תכין סקר" (all conjugations) → create_poll
+   Examples: "צור סקר בנושא", "create poll about", "הכן סקר על", "תכיני סקר"
+   
+2. Location: "send/random location" OR "שלח מיקום" OR "מיקום אקראי" → send_random_location
+
+3. Group: "create/open group" OR "צור/פתח/הקם קבוצה" (needs auth) → create_group
+
+4. Help: "commands/help" OR "פקודות/עזרה" → show_help
+
+5. Summary: "summary/summarize" OR "סכם/סיכום" → chat_summary
+
+6. Retry: "again/try again" OR "שוב/נסה שוב" → retry_last_command
+
+7. TTS: "read/speech" OR "הקרא/דיבור/הפוך לדיבור" → text_to_speech
+
+8. Music: "create song/with melody" OR "צור שיר/עם מנגינה" → music_generation
+   BUT: "write song/lyrics" → gemini_chat
+
+9. Image: creation verb + image keyword → [provider]_image (openai/grok/gemini)
+
+10. Video: creation verb + video keyword → [provider]_video (veo3/sora/kling)
 
 
 DEFAULT: No keywords → check provider (openai/grok/gemini default)

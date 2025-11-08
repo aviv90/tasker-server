@@ -2360,6 +2360,9 @@ function shouldUseAgent(prompt, input) {
     /what\s+(did\s+)?(I|we|you)\s+(say|write|mention|talk|discuss)|what\s+(images?|videos?|messages?)\s+(were|was)?\s+(sent|shared|here)?|(show|display)\s+me\s+what\s+(I|we|you)\s+(sent|shared)|about\s+the\s+(image|video|audio|message|conversation)|in\s+the\s+(previous|last|recent)\s+(message|conversation)/i,
     
     // Multi-step (Hebrew + English)
+    // ⚠️ IMPORTANT: Exclude simple "צור" verbs without multi-step indicators (e.g., "צור סקר" alone)
+    // Only match patterns with explicit multi-step indicators: "ו" (and), "אם" (if), "ואז" (then)
+    // This prevents single "צור X" commands from being caught by this pattern
     /(צור|נתח|חפש).+(ו|אם|ואז).+(נתח|בדוק|ערוך|שפר|תן|צור|ספר)/i,
     /create.+(and|then).+(analyze|check|edit|improve)|analyze.+(and|then).+(edit|improve|enhance)|search.+(and|then).+(summarize|create|tell)/i,
     
