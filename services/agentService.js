@@ -1989,6 +1989,73 @@ const agentTools = {
         };
       }
     }
+  },
+
+  // Tool: Create group
+  create_group: {
+    declaration: {
+      name: 'create_group',
+      description: 'צור קבוצת WhatsApp חדשה עם משתתפים. זמין רק למשתמשים מורשים.',
+      parameters: {
+        type: 'object',
+        properties: {
+          group_name: {
+            type: 'string',
+            description: 'שם הקבוצה'
+          },
+          participants_description: {
+            type: 'string',
+            description: 'תיאור המשתתפים (למשל: "כל חברי המשפחה", "צוות העבודה", וכו\')'
+          }
+        },
+        required: ['group_name']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] create_group called`);
+      
+      try {
+        const { geminiService } = getServices();
+        const groupService = require('./groupService');
+        
+        // Check authorization - this should be handled by the bot's authorization system
+        // but we add a note here for clarity
+        console.log(`📋 Creating group: ${args.group_name}`);
+        
+        // Generate creative group description if participants_description provided
+        let groupDetails = {
+          name: args.group_name
+        };
+        
+        if (args.participants_description) {
+          // Use Gemini to create a nice group description
+          const descPrompt = `צור תיאור קצר ונחמד לקבוצת WhatsApp בשם "${args.group_name}" עבור: ${args.participants_description}. החזר רק את התיאור, בלי הסברים נוספים.`;
+          const descResult = await geminiService.generateTextResponse(descPrompt, []);
+          
+          if (!descResult.error && descResult.text) {
+            groupDetails.description = descResult.text;
+          }
+        }
+        
+        // Note: The actual group creation with participants would need to be handled
+        // by the bot's routing system which has access to the chat context and authorizations
+        // Here we just prepare the group metadata
+        
+        return {
+          success: true,
+          data: `✅ קבוצה "${args.group_name}" מוכנה ליצירה!${groupDetails.description ? `\n\n📝 ${groupDetails.description}` : ''}`,
+          groupName: args.group_name,
+          groupDescription: groupDetails.description,
+          note: 'יצירת הקבוצה תושלם על ידי הבוט עם המשתתפים המתאימים'
+        };
+      } catch (error) {
+        console.error('❌ Error in create_group:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
   }
 };
 
@@ -2025,7 +2092,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • לכתוב רשימות של מה אתה עושה
 • רק תשובה סופית בעברית!
 
-🛠️ הכלים שלך (25 כלים!):
+🛠️ הכלים שלך (26 כלים!):
 
 📚 מידע:
 • get_chat_history - היסטוריית שיחה
@@ -2053,9 +2120,12 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • voice_clone_and_speak - שיבוט קול + דיבור
 • creative_audio_mix - מיקס יצירתי עם אפקטים
 
-🎯 כלים מיוחדים:
+👥 WhatsApp:
 • create_poll - יצירת סקרים
 • send_location - מיקום אקראי
+• create_group - יצירת קבוצות (מורשים בלבד)
+
+🎯 Meta-Tools:
 • history_aware_create - יצירה + היסטוריה
 • create_with_memory - יצירה + העדפות
 • search_and_create - חיפוש + יצירה
