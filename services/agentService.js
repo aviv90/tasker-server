@@ -1254,6 +1254,432 @@ const agentTools = {
         };
       }
     }
+  },
+
+  // ═══════════════════ NEW TOOLS: Video, Music, Audio, Utilities ═══════════════════
+
+  // Tool: Create video from text
+  create_video: {
+    declaration: {
+      name: 'create_video',
+      description: 'צור סרטון וידאו מטקסט. תומך ב-Veo3 (Google), Sora (OpenAI), Kling (ברירת מחדל).',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: {
+            type: 'string',
+            description: 'תיאור הסרטון המבוקש'
+          },
+          provider: {
+            type: 'string',
+            description: 'ספק ליצירת הוידאו',
+            enum: ['veo3', 'sora', 'sora-pro', 'kling']
+          }
+        },
+        required: ['prompt']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] create_video called with provider: ${args.provider || 'kling'}`);
+      
+      try {
+        const { geminiService, openaiService } = getServices();
+        const replicateService = require('./replicateService');
+        const provider = args.provider || 'kling';
+        
+        let result;
+        if (provider === 'veo3') {
+          result = await geminiService.generateVideoForWhatsApp(args.prompt);
+        } else if (provider === 'sora' || provider === 'sora-pro') {
+          const model = provider === 'sora-pro' ? 'sora-2-pro' : 'sora-2';
+          result = await openaiService.generateVideoWithSoraForWhatsApp(args.prompt, model);
+        } else {
+          result = await replicateService.generateVideoWithTextForWhatsApp(args.prompt);
+        }
+        
+        if (result.error) {
+          return {
+            success: false,
+            error: `יצירת וידאו נכשלה: ${result.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: `✅ הוידאו נוצר בהצלחה עם ${provider}!`,
+          videoUrl: result.url,
+          provider: provider
+        };
+      } catch (error) {
+        console.error('❌ Error in create_video:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool: Convert image to video
+  image_to_video: {
+    declaration: {
+      name: 'image_to_video',
+      description: 'המר תמונה מההיסטוריה לסרטון וידאו מונפש. צריך לקרוא קודם ל-get_chat_history לקבל URL של תמונה.',
+      parameters: {
+        type: 'object',
+        properties: {
+          image_url: {
+            type: 'string',
+            description: 'URL של התמונה להמרה'
+          },
+          prompt: {
+            type: 'string',
+            description: 'הנחיות לאנימציה'
+          },
+          provider: {
+            type: 'string',
+            description: 'ספק להמרה',
+            enum: ['veo3', 'sora', 'sora-pro', 'kling']
+          }
+        },
+        required: ['image_url', 'prompt']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] image_to_video called`);
+      
+      try {
+        const { geminiService, openaiService } = getServices();
+        const replicateService = require('./replicateService');
+        const provider = args.provider || 'kling';
+        
+        let result;
+        if (provider === 'veo3') {
+          result = await geminiService.generateVideoFromImageForWhatsApp(args.image_url, args.prompt);
+        } else if (provider === 'sora' || provider === 'sora-pro') {
+          const model = provider === 'sora-pro' ? 'sora-2-pro' : 'sora-2';
+          result = await openaiService.generateVideoWithSoraFromImageForWhatsApp(args.image_url, args.prompt, model);
+        } else {
+          result = await replicateService.generateVideoFromImageForWhatsApp(args.image_url, args.prompt);
+        }
+        
+        if (result.error) {
+          return {
+            success: false,
+            error: `המרה לוידאו נכשלה: ${result.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: `✅ התמונה הומרה לוידאו בהצלחה עם ${provider}!`,
+          videoUrl: result.url,
+          provider: provider
+        };
+      } catch (error) {
+        console.error('❌ Error in image_to_video:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool: Analyze video
+  analyze_video: {
+    declaration: {
+      name: 'analyze_video',
+      description: 'נתח סרטון וידאו מההיסטוריה. צריך לקרוא קודם ל-get_chat_history לקבל URL של וידאו.',
+      parameters: {
+        type: 'object',
+        properties: {
+          video_url: {
+            type: 'string',
+            description: 'URL של הוידאו לניתוח'
+          },
+          question: {
+            type: 'string',
+            description: 'מה לנתח/לשאול על הוידאו'
+          }
+        },
+        required: ['video_url', 'question']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] analyze_video called`);
+      
+      try {
+        const { geminiService } = getServices();
+        
+        const result = await geminiService.analyzeVideoWithText(args.video_url, args.question);
+        
+        if (result.error) {
+          return {
+            success: false,
+            error: `ניתוח וידאו נכשל: ${result.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: result.text || 'ניתוח הושלם',
+          analysis: result.text
+        };
+      } catch (error) {
+        console.error('❌ Error in analyze_video:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool: Create music
+  create_music: {
+    declaration: {
+      name: 'create_music',
+      description: 'צור שיר/מוזיקה עם מילים. משתמש ב-Suno AI.',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: {
+            type: 'string',
+            description: 'תיאור השיר, סגנון, נושא, או מילים'
+          }
+        },
+        required: ['prompt']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] create_music called`);
+      
+      try {
+        const { generateMusicWithLyrics } = require('./musicService');
+        
+        const result = await generateMusicWithLyrics(args.prompt);
+        
+        if (result.error) {
+          return {
+            success: false,
+            error: `יצירת מוזיקה נכשלה: ${result.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: `✅ השיר נוצר בהצלחה!`,
+          audioUrl: result.url,
+          lyrics: result.lyrics
+        };
+      } catch (error) {
+        console.error('❌ Error in create_music:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool: Text to speech
+  text_to_speech: {
+    declaration: {
+      name: 'text_to_speech',
+      description: 'המר טקסט לדיבור. משתמש ב-ElevenLabs.',
+      parameters: {
+        type: 'object',
+        properties: {
+          text: {
+            type: 'string',
+            description: 'הטקסט להקראה'
+          },
+          language: {
+            type: 'string',
+            description: 'שפה להקראה (en, he, es, fr, etc.)'
+          }
+        },
+        required: ['text']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] text_to_speech called`);
+      
+      try {
+        const { voiceService } = require('./voiceService');
+        
+        const language = args.language || 'he';
+        const voiceResult = await voiceService.getVoiceForLanguage(language);
+        
+        if (voiceResult.error) {
+          return {
+            success: false,
+            error: `לא נמצא קול לשפה: ${voiceResult.error}`
+          };
+        }
+        
+        const ttsResult = await voiceService.textToSpeech(voiceResult.voiceId, args.text, {
+          model_id: 'eleven_v3',
+          optimize_streaming_latency: 0,
+          output_format: 'mp3_44100_128'
+        });
+        
+        if (ttsResult.error) {
+          return {
+            success: false,
+            error: `TTS נכשל: ${ttsResult.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: `✅ הטקסט הומר לדיבור!`,
+          audioUrl: ttsResult.url
+        };
+      } catch (error) {
+        console.error('❌ Error in text_to_speech:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool: Chat summary
+  chat_summary: {
+    declaration: {
+      name: 'chat_summary',
+      description: 'צור סיכום של השיחה הנוכחית. שימושי למשתמש שרוצה סיכום מהיר.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: []
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] chat_summary called`);
+      
+      try {
+        const { geminiService } = getServices();
+        
+        const history = await conversationManager.getConversationHistory(context.chatId);
+        
+        if (!history || history.length === 0) {
+          return {
+            success: false,
+            error: 'אין מספיק הודעות לסיכום'
+          };
+        }
+        
+        const summary = await geminiService.generateChatSummary(history);
+        
+        if (summary.error) {
+          return {
+            success: false,
+            error: `יצירת סיכום נכשלה: ${summary.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: summary.text || summary,
+          summary: summary.text || summary
+        };
+      } catch (error) {
+        console.error('❌ Error in chat_summary:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool: Create poll
+  create_poll: {
+    declaration: {
+      name: 'create_poll',
+      description: 'צור סקר עם שאלה ותשובות יצירתיות.',
+      parameters: {
+        type: 'object',
+        properties: {
+          topic: {
+            type: 'string',
+            description: 'נושא הסקר'
+          }
+        },
+        required: ['topic']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] create_poll called`);
+      
+      try {
+        const { geminiService } = getServices();
+        
+        const pollData = await geminiService.generateCreativePoll(args.topic);
+        
+        if (pollData.error) {
+          return {
+            success: false,
+            error: `יצירת סקר נכשלה: ${pollData.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: `✅ הסקר נוצר!`,
+          poll: pollData
+        };
+      } catch (error) {
+        console.error('❌ Error in create_poll:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool: Send random location
+  send_location: {
+    declaration: {
+      name: 'send_location',
+      description: 'שלח מיקום אקראי מהעולם עם מידע על המקום.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: []
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] send_location called`);
+      
+      try {
+        // Generate random coordinates
+        const lat = (Math.random() * 180 - 90).toFixed(6);
+        const lng = (Math.random() * 360 - 180).toFixed(6);
+        
+        const { geminiService } = getServices();
+        const locationInfo = await geminiService.getLocationInfo(lat, lng);
+        
+        return {
+          success: true,
+          data: `📍 מיקום אקראי: ${lat}, ${lng}\n${locationInfo.text || ''}`,
+          latitude: lat,
+          longitude: lng,
+          locationInfo: locationInfo.text
+        };
+      } catch (error) {
+        console.error('❌ Error in send_location:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
   }
 };
 
@@ -1292,24 +1718,35 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 
 🛠️ הכלים שלך:
 
-מידע:
-• get_chat_history - שאלות על השיחה/הודעות קודמות
-• get_long_term_memory - העדפות משתמש או "כמו בפעם הקודמת"
-• search_web - מידע עדכני מהאינטרנט
+📚 מידע:
+• get_chat_history - היסטוריית שיחה
+• get_long_term_memory - העדפות משתמש
+• search_web - מידע מהאינטרנט
+• chat_summary - סיכום השיחה
 
-יצירה:
-• create_image - יצירת תמונה (gemini/openai/grok)
+🎨 יצירה:
+• create_image - תמונות (gemini/openai/grok)
+• create_video - וידאו (veo3/sora/kling)
+• image_to_video - תמונה→וידאו מונפש
+• create_music - שירים/מוזיקה
+• text_to_speech - טקסט→דיבור
 
-משימות מורכבות (מהר יותר):
+🔍 ניתוח:
+• analyze_image_from_history - ניתוח תמונות
+• analyze_video - ניתוח וידאו
+
+🎯 כלים מיוחדים:
+• create_poll - יצירת סקרים
+• send_location - מיקום אקראי
 • history_aware_create - יצירה מבוססת היסטוריה
 • create_with_memory - יצירה מבוססת העדפות
 • search_and_create - חיפוש + יצירה
-• smart_execute_with_fallback - כשמשהו נכשל (מנסה ספקים שונים אוטומטית)
+• smart_execute_with_fallback - ניסיון חוזר חכם
 
 💡 כללים:
 • תשיב בעברית, טבעי ונעים
 • השתמש בכלים רק כשצריך
-• אם משהו נכשל - השתמש ב-smart_execute_with_fallback`;
+• אם משהו נכשל - נסה smart_execute_with_fallback`;
 
 
   // 🧠 Context for tool execution (load previous context if enabled)
