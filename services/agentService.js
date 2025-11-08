@@ -493,6 +493,7 @@ const agentTools = {
           success: true,
           data: `✅ תמונה נוצרה בהצלחה עם ${formatProviderName(provider)}!`,
           imageUrl: imageResult.imageUrl,
+          caption: imageResult.description || '',
           provider: provider
         };
       } catch (error) {
@@ -577,7 +578,8 @@ const agentTools = {
         return {
           success: true,
           data: `התמונה נוצרה בהצלחה! ניתוח: ${analysisResult.text}`,
-          imageUrl: imageResult.imageUrl
+          imageUrl: imageResult.imageUrl,
+          caption: imageResult.description || ''
         };
       } catch (error) {
         console.error('❌ Error in create_and_analyze tool:', error);
@@ -748,6 +750,7 @@ const agentTools = {
                   success: true,
                   data: `✅ הצלחתי עם ${formatProviderName(provider)}! (אסטרטגיה: ספק חלופי)`,
                   imageUrl: result.imageUrl,
+                  caption: result.description || '',
                   strategy_used: 'different_provider',
                   provider: provider
                 };
@@ -813,6 +816,7 @@ const agentTools = {
                   success: true,
                   data: `✅ הצלחתי עם פרומפט פשוט יותר! (אסטרטגיה: פישוט)`,
                   imageUrl: result.imageUrl,
+                  caption: result.description || '',
                   strategy_used: 'simplified_prompt',
                   original_prompt: args.original_prompt,
                   simplified_prompt: simplifiedPrompt
@@ -885,6 +889,7 @@ const agentTools = {
                   success: true,
                   data: `✅ הצלחתי עם גרסה כללית יותר! (אסטרטגיה: הכללה)`,
                   imageUrl: result.imageUrl,
+                  caption: result.description || '',
                   strategy_used: 'generic_prompt',
                   original_prompt: args.original_prompt,
                   generic_prompt: genericPrompt
@@ -994,6 +999,7 @@ const agentTools = {
                 success: true,
                 data: `✅ ניסיתי עם ${formatProviderName(provider)} והצלחתי! הסיבה: ${args.reason}`,
                 imageUrl: imageResult.imageUrl,
+                caption: imageResult.description || '',
                 provider: provider
               };
             }
@@ -1090,6 +1096,7 @@ const agentTools = {
           success: true,
           data: `✅ יצרתי תמונה מבוססת על ההקשר מההיסטוריה!`,
           imageUrl: result.imageUrl,
+          caption: result.description || '',
           provider: provider,
           usedHistory: true
         };
@@ -1176,6 +1183,7 @@ const agentTools = {
           success: true,
           data: `✅ יצרתי תמונה מותאמת אישית על בסיס ההעדפות שלך!`,
           imageUrl: result.imageUrl,
+          caption: result.description || '',
           provider: provider,
           usedPreferences: usePreferences
         };
@@ -1259,6 +1267,7 @@ const agentTools = {
           success: true,
           data: `✅ חיפשתי באינטרנט ויצרתי תמונה מבוססת על המידע שמצאתי!`,
           imageUrl: result.imageUrl,
+          caption: result.description || '',
           provider: provider,
           searchUsed: true
         };
@@ -1750,6 +1759,7 @@ const agentTools = {
           success: true,
           data: `✅ התמונה נערכה בהצלחה עם ${formatProviderName(service)}!`,
           imageUrl: result.imageUrl,
+          caption: result.description || '',
           service: service
         };
       } catch (error) {
@@ -2224,27 +2234,28 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         console.log(`🧠 [Agent Context] Saved context to DB with ${context.toolCalls.length} tool calls`);
       }
       
-      // 🎨 Extract latest generated media URLs to send to user
+      // 🎨 Extract latest generated media to send to user
       console.log(`🔍 [Agent] context.generatedAssets:`, JSON.stringify(context.generatedAssets, null, 2));
       
-      const latestImage = context.generatedAssets.images.length > 0 
-        ? context.generatedAssets.images[context.generatedAssets.images.length - 1].url 
+      const latestImageAsset = context.generatedAssets.images.length > 0 
+        ? context.generatedAssets.images[context.generatedAssets.images.length - 1]
         : null;
-      const latestVideo = context.generatedAssets.videos.length > 0 
-        ? context.generatedAssets.videos[context.generatedAssets.videos.length - 1].url 
+      const latestVideoAsset = context.generatedAssets.videos.length > 0 
+        ? context.generatedAssets.videos[context.generatedAssets.videos.length - 1]
         : null;
-      const latestAudio = context.generatedAssets.audio && context.generatedAssets.audio.length > 0 
-        ? context.generatedAssets.audio[context.generatedAssets.audio.length - 1].url 
+      const latestAudioAsset = context.generatedAssets.audio && context.generatedAssets.audio.length > 0 
+        ? context.generatedAssets.audio[context.generatedAssets.audio.length - 1]
         : null;
       
-      console.log(`🔍 [Agent] Extracted URLs - Image: ${latestImage}, Video: ${latestVideo}, Audio: ${latestAudio}`);
+      console.log(`🔍 [Agent] Extracted assets - Image: ${latestImageAsset?.url}, Video: ${latestVideoAsset?.url}, Audio: ${latestAudioAsset?.url}`);
       
       return {
         success: true,
         text: text,
-        imageUrl: latestImage,
-        videoUrl: latestVideo,
-        audioUrl: latestAudio,
+        imageUrl: latestImageAsset?.url || null,
+        imageCaption: latestImageAsset?.caption || '',
+        videoUrl: latestVideoAsset?.url || null,
+        audioUrl: latestAudioAsset?.url || null,
         toolsUsed: Object.keys(context.previousToolResults),
         iterations: iterationCount
       };
@@ -2294,9 +2305,10 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         
         // 🧠 Track generated assets for context memory
         if (toolResult.imageUrl) {
-          console.log(`✅ [Agent] Tracking image: ${toolResult.imageUrl}`);
+          console.log(`✅ [Agent] Tracking image: ${toolResult.imageUrl}, caption: ${toolResult.caption || '(none)'}`);
           context.generatedAssets.images.push({
             url: toolResult.imageUrl,
+            caption: toolResult.caption || '',
             prompt: toolArgs.prompt,
             provider: toolResult.provider || toolArgs.provider,
             timestamp: Date.now()

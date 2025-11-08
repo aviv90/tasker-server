@@ -1449,15 +1449,11 @@ async function handleIncomingMessage(webhookData) {
                 });
                 
                 if (agentResult.success) {
-                  // Send text response
-                  if (agentResult.text) {
-                    await sendTextMessage(chatId, agentResult.text);
-                  }
-                  
-                  // Send any generated media (image/video/audio)
+                  // Send any generated media (image/video/audio) with captions
                   if (agentResult.imageUrl) {
-                    console.log(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}`);
-                    await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, '');
+                    console.log(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}, caption: ${agentResult.imageCaption || '(none)'}`);
+                    const caption = agentResult.imageCaption || '';
+                    await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption);
                   }
                   if (agentResult.videoUrl) {
                     console.log(`🎬 [Agent] Sending generated video: ${agentResult.videoUrl}`);
@@ -1466,6 +1462,11 @@ async function handleIncomingMessage(webhookData) {
                   if (agentResult.audioUrl) {
                     console.log(`🎤 [Agent] Sending generated audio: ${agentResult.audioUrl}`);
                     await sendFileByUrl(chatId, agentResult.audioUrl, `agent_audio_${Date.now()}.mp3`, '');
+                  }
+                  
+                  // Send text response ONLY if no media was generated
+                  if (!agentResult.imageUrl && !agentResult.videoUrl && !agentResult.audioUrl && agentResult.text) {
+                    await sendTextMessage(chatId, agentResult.text);
                   }
                   
                   // Log tool usage
@@ -3534,15 +3535,11 @@ async function handleOutgoingMessage(webhookData) {
                 });
                 
                 if (agentResult.success) {
-                  // Send text response
-                  if (agentResult.text) {
-                    await sendTextMessage(chatId, agentResult.text);
-                  }
-                  
-                  // Send any generated media (image/video/audio)
+                  // Send any generated media (image/video/audio) with captions
                   if (agentResult.imageUrl) {
-                    console.log(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}`);
-                    await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, '');
+                    console.log(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}, caption: ${agentResult.imageCaption || '(none)'}`);
+                    const caption = agentResult.imageCaption || '';
+                    await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption);
                   }
                   if (agentResult.videoUrl) {
                     console.log(`🎬 [Agent] Sending generated video: ${agentResult.videoUrl}`);
@@ -3551,6 +3548,11 @@ async function handleOutgoingMessage(webhookData) {
                   if (agentResult.audioUrl) {
                     console.log(`🎤 [Agent] Sending generated audio: ${agentResult.audioUrl}`);
                     await sendFileByUrl(chatId, agentResult.audioUrl, `agent_audio_${Date.now()}.mp3`, '');
+                  }
+                  
+                  // Send text response ONLY if no media was generated
+                  if (!agentResult.imageUrl && !agentResult.videoUrl && !agentResult.audioUrl && agentResult.text) {
+                    await sendTextMessage(chatId, agentResult.text);
                   }
                   
                   // Log tool usage
