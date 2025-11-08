@@ -186,7 +186,7 @@ const agentTools = {
       console.log(`🔧 [Agent Tool] get_chat_history called with limit: ${limit}`);
       
       try {
-        const history = await conversationManager.getChatHistory(context.chatId, limit);
+        const history = await conversationManager.getConversationHistory(context.chatId);
         
         if (!history || history.length === 0) {
           return {
@@ -1455,10 +1455,12 @@ My internal thoughts:
       if (!tool) {
         console.error(`❌ Unknown tool: ${toolName}`);
         return {
-          name: toolName,
-          response: {
-            success: false,
-            error: `Unknown tool: ${toolName}`
+          functionResponse: {
+            name: toolName,
+            response: {
+              success: false,
+              error: `Unknown tool: ${toolName}`
+            }
           }
         };
       }
@@ -1496,8 +1498,10 @@ My internal thoughts:
         }
         
         return {
-          name: toolName,
-          response: toolResult
+          functionResponse: {
+            name: toolName,
+            response: toolResult
+          }
         };
       } catch (error) {
         console.error(`❌ Error executing tool ${toolName}:`, error);
@@ -1512,10 +1516,12 @@ My internal thoughts:
         });
         
         return {
-          name: toolName,
-          response: {
-            success: false,
-            error: `Tool execution failed: ${error.message}`
+          functionResponse: {
+            name: toolName,
+            response: {
+              success: false,
+              error: `Tool execution failed: ${error.message}`
+            }
           }
         };
       }
