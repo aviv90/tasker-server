@@ -4,6 +4,21 @@ const { cleanThinkingPatterns } = require('./geminiService');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+// Helper function to format provider names nicely
+const formatProviderName = (provider) => {
+  const providerNames = {
+    'gemini': 'Gemini',
+    'openai': 'OpenAI',
+    'grok': 'Grok',
+    'veo3': 'Veo3',
+    'sora': 'Sora',
+    'kling': 'Kling',
+    'runway': 'Runway',
+    'suno': 'Suno'
+  };
+  return providerNames[provider?.toLowerCase()] || provider;
+};
+
 // Lazy-loaded services to avoid circular dependencies and improve startup time
 let geminiService, openaiService, grokService, greenApiService;
 const getServices = () => {
@@ -476,7 +491,7 @@ const agentTools = {
         
         return {
           success: true,
-          data: `✅ תמונה נוצרה בהצלחה עם ${provider}!`,
+          data: `✅ תמונה נוצרה בהצלחה עם ${formatProviderName(provider)}!`,
           imageUrl: imageResult.url,
           provider: provider
         };
@@ -731,7 +746,7 @@ const agentTools = {
               if (!result.error) {
                 return {
                   success: true,
-                  data: `✅ הצלחתי עם ${provider}! (אסטרטגיה: ספק חלופי)`,
+                  data: `✅ הצלחתי עם ${formatProviderName(provider)}! (אסטרטגיה: ספק חלופי)`,
                   imageUrl: result.url,
                   strategy_used: 'different_provider',
                   provider: provider
@@ -752,7 +767,7 @@ const agentTools = {
               if (!result.error) {
                 return {
                   success: true,
-                  data: `✅ הצלחתי ליצור וידאו עם ${provider === 'openai' ? 'Sora' : 'Kling'}! (אסטרטגיה: מודל חלופי)`,
+                  data: `✅ הצלחתי ליצור וידאו עם ${formatProviderName(provider === 'openai' ? 'sora' : 'kling')}! (אסטרטגיה: מודל חלופי)`,
                   videoUrl: result.url,
                   strategy_used: 'different_provider',
                   provider: provider
@@ -977,7 +992,7 @@ const agentTools = {
             if (!imageResult.error) {
               return {
                 success: true,
-                data: `ניסיתי עם ${provider} והצלחתי! הסיבה: ${args.reason}`,
+                data: `✅ ניסיתי עם ${formatProviderName(provider)} והצלחתי! הסיבה: ${args.reason}`,
                 imageUrl: imageResult.url,
                 provider: provider
               };
@@ -1307,7 +1322,7 @@ const agentTools = {
         
         return {
           success: true,
-          data: `✅ הוידאו נוצר בהצלחה עם ${provider}!`,
+          data: `✅ הוידאו נוצר בהצלחה עם ${formatProviderName(provider)}!`,
           videoUrl: result.url,
           provider: provider
         };
@@ -1373,7 +1388,7 @@ const agentTools = {
         
         return {
           success: true,
-          data: `✅ התמונה הומרה לוידאו בהצלחה עם ${provider}!`,
+          data: `✅ התמונה הומרה לוידאו בהצלחה עם ${formatProviderName(provider)}!`,
           videoUrl: result.url,
           provider: provider
         };
@@ -2209,9 +2224,23 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         console.log(`🧠 [Agent Context] Saved context to DB with ${context.toolCalls.length} tool calls`);
       }
       
+      // 🎨 Extract latest generated media URLs to send to user
+      const latestImage = context.generatedAssets.images.length > 0 
+        ? context.generatedAssets.images[context.generatedAssets.images.length - 1].url 
+        : null;
+      const latestVideo = context.generatedAssets.videos.length > 0 
+        ? context.generatedAssets.videos[context.generatedAssets.videos.length - 1].url 
+        : null;
+      const latestAudio = context.generatedAssets.audio && context.generatedAssets.audio.length > 0 
+        ? context.generatedAssets.audio[context.generatedAssets.audio.length - 1].url 
+        : null;
+      
       return {
         success: true,
         text: text,
+        imageUrl: latestImage,
+        videoUrl: latestVideo,
+        audioUrl: latestAudio,
         toolsUsed: Object.keys(context.previousToolResults),
         iterations: iterationCount
       };
@@ -2269,6 +2298,14 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           context.generatedAssets.videos.push({
             url: toolResult.videoUrl,
             prompt: toolArgs.prompt,
+            timestamp: Date.now()
+          });
+        }
+        if (toolResult.audioUrl) {
+          if (!context.generatedAssets.audio) context.generatedAssets.audio = [];
+          context.generatedAssets.audio.push({
+            url: toolResult.audioUrl,
+            prompt: toolArgs.prompt || toolArgs.text_to_speak || toolArgs.text,
             timestamp: Date.now()
           });
         }

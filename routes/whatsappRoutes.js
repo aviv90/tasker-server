@@ -1449,7 +1449,24 @@ async function handleIncomingMessage(webhookData) {
                 });
                 
                 if (agentResult.success) {
-                  await sendTextMessage(chatId, agentResult.text);
+                  // Send text response
+                  if (agentResult.text) {
+                    await sendTextMessage(chatId, agentResult.text);
+                  }
+                  
+                  // Send any generated media (image/video/audio)
+                  if (agentResult.imageUrl) {
+                    console.log(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}`);
+                    await sendFileByUrl(chatId, agentResult.imageUrl, null, '');
+                  }
+                  if (agentResult.videoUrl) {
+                    console.log(`🎬 [Agent] Sending generated video: ${agentResult.videoUrl}`);
+                    await sendFileByUrl(chatId, agentResult.videoUrl, null, '');
+                  }
+                  if (agentResult.audioUrl) {
+                    console.log(`🎤 [Agent] Sending generated audio: ${agentResult.audioUrl}`);
+                    await sendFileByUrl(chatId, agentResult.audioUrl, null, '');
+                  }
                   
                   // Log tool usage
                   if (agentResult.toolsUsed && agentResult.toolsUsed.length > 0) {
@@ -3517,7 +3534,24 @@ async function handleOutgoingMessage(webhookData) {
                 });
                 
                 if (agentResult.success) {
-                  await sendTextMessage(chatId, agentResult.text);
+                  // Send text response
+                  if (agentResult.text) {
+                    await sendTextMessage(chatId, agentResult.text);
+                  }
+                  
+                  // Send any generated media (image/video/audio)
+                  if (agentResult.imageUrl) {
+                    console.log(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}`);
+                    await sendFileByUrl(chatId, agentResult.imageUrl, null, '');
+                  }
+                  if (agentResult.videoUrl) {
+                    console.log(`🎬 [Agent] Sending generated video: ${agentResult.videoUrl}`);
+                    await sendFileByUrl(chatId, agentResult.videoUrl, null, '');
+                  }
+                  if (agentResult.audioUrl) {
+                    console.log(`🎤 [Agent] Sending generated audio: ${agentResult.audioUrl}`);
+                    await sendFileByUrl(chatId, agentResult.audioUrl, null, '');
+                  }
                   
                   // Log tool usage
                   if (agentResult.toolsUsed && agentResult.toolsUsed.length > 0) {
