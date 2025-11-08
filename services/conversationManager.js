@@ -281,6 +281,29 @@ class ConversationManager {
         // Keep only the last N messages for this chat
       await this.trimMessagesForChat(chatId);
       
+      // 🤖 Automatic Summary Generation Trigger
+      // Every X messages, generate a summary asynchronously (don't await - run in background)
+      const SUMMARY_TRIGGER_INTERVAL = Number(process.env.AUTO_SUMMARY_INTERVAL) || 100;
+      
+      // Get message count for this chat
+      const countResult = await client.query(`
+        SELECT COUNT(*) as count
+        FROM conversations
+        WHERE chat_id = $1
+      `, [chatId]);
+      
+      const messageCount = parseInt(countResult.rows[0].count);
+      
+      // Trigger summary every SUMMARY_TRIGGER_INTERVAL messages
+      if (messageCount % SUMMARY_TRIGGER_INTERVAL === 0 && messageCount > 0) {
+        console.log(`📊 [Auto-Summary] Triggering summary generation for chat ${chatId} (${messageCount} messages)`);
+        
+        // Run in background (don't await)
+        this.generateAutomaticSummary(chatId).catch(error => {
+          console.error(`❌ [Auto-Summary] Failed for chat ${chatId}:`, error.message);
+        });
+      }
+      
       return messageId;
     } finally {
       client.release();
@@ -1237,6 +1260,102 @@ class ConversationManager {
   }
 
   // ═══════════════════ LONG-TERM MEMORY ═══════════════════
+
+  /**
+   * Generate automatic summary using Gemini AI
+   * @param {string} chatId - Chat ID
+   * @returns {Object} - Generated summary or error
+   */
+  async generateAutomaticSummary(chatId) {
+    if (!this.isInitialized) {
+      console.warn('⚠️ Database not initialized, cannot generate summary');
+      return { error: 'Database not initialized' };
+    }
+
+    try {
+      // Get recent chat history (more than usual for good summary)
+      const history = await this.getChatHistory(chatId, 100);
+      
+      if (!history || history.length < 10) {
+        console.log(`⏭️ [Auto-Summary] Not enough messages (${history?.length || 0}) for chat ${chatId}`);
+        return { error: 'Not enough messages for summary' };
+      }
+
+      // Format history for Gemini
+      const conversationText = history.map(msg => 
+        `${msg.role === 'user' ? 'User' : 'Bot'}: ${msg.content}`
+      ).join('\n');
+
+      // Generate summary using Gemini
+      const { geminiText } = require('./geminiService');
+      
+      const summaryPrompt = `נתח את השיחה הבאה וצור סיכום מובנה:
+
+${conversationText}
+
+החזר JSON בפורמט הבא (רק JSON, ללא טקסט נוסף):
+{
+  "summary": "סיכום קצר של השיחה (2-3 משפטים)",
+  "keyTopics": ["נושא 1", "נושא 2", "נושא 3"],
+  "userPreferences": {
+    "key": "value"
+  }
+}
+
+הערות:
+- summary: תאר את מה שדובר בשיחה באופן תמציתי
+- keyTopics: 3-5 נושאים מרכזיים שדובר עליהם
+- userPreferences: זהה העדפות משתמש (סגנון, ספקים מועדפים, נושאים שחוזרים)
+- אם אין העדפות ברורות, החזר אובייקט ריק {}`;
+
+      const result = await geminiText(summaryPrompt);
+      
+      if (result.error) {
+        console.error('❌ Failed to generate summary:', result.error);
+        return { error: result.error };
+      }
+
+      // Parse JSON response
+      let summaryData;
+      try {
+        // Try to extract JSON from response
+        const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          summaryData = JSON.parse(jsonMatch[0]);
+        } else {
+          summaryData = JSON.parse(result.text);
+        }
+      } catch (parseError) {
+        console.error('❌ Failed to parse summary JSON:', parseError);
+        // Fallback: create basic summary
+        summaryData = {
+          summary: result.text.substring(0, 500),
+          keyTopics: [],
+          userPreferences: {}
+        };
+      }
+
+      // Save to database
+      await this.saveConversationSummary(
+        chatId,
+        summaryData.summary,
+        summaryData.keyTopics || [],
+        summaryData.userPreferences || {},
+        history.length
+      );
+
+      console.log(`✅ [Auto-Summary] Generated and saved summary for chat ${chatId}`);
+      return {
+        success: true,
+        summary: summaryData.summary,
+        keyTopics: summaryData.keyTopics,
+        userPreferences: summaryData.userPreferences
+      };
+    } catch (error) {
+      console.error('❌ Error generating automatic summary:', error.message);
+      return { error: error.message };
+    }
+  }
 
   /**
    * Save conversation summary for long-term memory
