@@ -1396,7 +1396,9 @@ My internal thoughts:
   const chat = model.startChat({
     history: [],
     tools: [{ functionDeclarations }],
-    systemInstruction: systemInstruction
+    systemInstruction: {
+      parts: [{ text: systemInstruction }]
+    }
   });
   
   // ⏱️ Wrap entire agent execution with timeout
