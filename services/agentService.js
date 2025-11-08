@@ -2225,6 +2225,8 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       }
       
       // 🎨 Extract latest generated media URLs to send to user
+      console.log(`🔍 [Agent] context.generatedAssets:`, JSON.stringify(context.generatedAssets, null, 2));
+      
       const latestImage = context.generatedAssets.images.length > 0 
         ? context.generatedAssets.images[context.generatedAssets.images.length - 1].url 
         : null;
@@ -2234,6 +2236,8 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       const latestAudio = context.generatedAssets.audio && context.generatedAssets.audio.length > 0 
         ? context.generatedAssets.audio[context.generatedAssets.audio.length - 1].url 
         : null;
+      
+      console.log(`🔍 [Agent] Extracted URLs - Image: ${latestImage}, Video: ${latestVideo}, Audio: ${latestAudio}`);
       
       return {
         success: true,
