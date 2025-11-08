@@ -1680,6 +1680,315 @@ const agentTools = {
         };
       }
     }
+  },
+
+  // ═══════════════════ ADVANCED TOOLS: Editing, Audio, Translation ═══════════════════
+
+  // Tool: Edit image
+  edit_image: {
+    declaration: {
+      name: 'edit_image',
+      description: 'ערוך תמונה קיימת מההיסטוריה. צריך לקרוא קודם ל-get_chat_history לקבל URL של תמונה.',
+      parameters: {
+        type: 'object',
+        properties: {
+          image_url: {
+            type: 'string',
+            description: 'URL של התמונה לעריכה'
+          },
+          edit_instruction: {
+            type: 'string',
+            description: 'מה לערוך בתמונה (הוסף, הסר, שנה, etc.)'
+          },
+          service: {
+            type: 'string',
+            description: 'ספק לעריכה',
+            enum: ['openai', 'gemini']
+          }
+        },
+        required: ['image_url', 'edit_instruction']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] edit_image called`);
+      
+      try {
+        const { openaiService, geminiService } = getServices();
+        const service = args.service || 'openai'; // OpenAI is better for editing
+        
+        let result;
+        if (service === 'openai') {
+          result = await openaiService.editImageForWhatsApp(args.image_url, args.edit_instruction);
+        } else {
+          result = await geminiService.editImageForWhatsApp(args.image_url, args.edit_instruction);
+        }
+        
+        if (result.error) {
+          return {
+            success: false,
+            error: `עריכת תמונה נכשלה: ${result.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: `✅ התמונה נערכה בהצלחה עם ${service}!`,
+          imageUrl: result.url,
+          service: service
+        };
+      } catch (error) {
+        console.error('❌ Error in edit_image:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool: Edit video
+  edit_video: {
+    declaration: {
+      name: 'edit_video',
+      description: 'ערוך סרטון וידאו קיים מההיסטוריה. צריך לקרוא קודם ל-get_chat_history לקבל URL של וידאו.',
+      parameters: {
+        type: 'object',
+        properties: {
+          video_url: {
+            type: 'string',
+            description: 'URL של הוידאו לעריכה'
+          },
+          edit_instruction: {
+            type: 'string',
+            description: 'מה לערוך בווידאו'
+          }
+        },
+        required: ['video_url', 'edit_instruction']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] edit_video called`);
+      
+      try {
+        const replicateService = require('./replicateService');
+        
+        const result = await replicateService.generateVideoFromVideoForWhatsApp(args.video_url, args.edit_instruction);
+        
+        if (result.error) {
+          return {
+            success: false,
+            error: `עריכת וידאו נכשלה: ${result.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: `✅ הוידאו נערך בהצלחה!`,
+          videoUrl: result.url
+        };
+      } catch (error) {
+        console.error('❌ Error in edit_video:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool: Voice clone and speak
+  voice_clone_and_speak: {
+    declaration: {
+      name: 'voice_clone_and_speak',
+      description: 'שבט קול מהקלטה קיימת והשתמש בו כדי לדבר טקסט חדש. צריך URL של הקלטה (מ-get_chat_history).',
+      parameters: {
+        type: 'object',
+        properties: {
+          audio_url: {
+            type: 'string',
+            description: 'URL של ההקלטה לשיבוט הקול'
+          },
+          text_to_speak: {
+            type: 'string',
+            description: 'הטקסט שהקול המשובט ידבר'
+          },
+          language: {
+            type: 'string',
+            description: 'שפת הדיבור (he, en, es, etc.)'
+          }
+        },
+        required: ['audio_url', 'text_to_speak']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] voice_clone_and_speak called`);
+      
+      try {
+        const { voiceService } = require('./voiceService');
+        const { fileDownloader } = getServices();
+        
+        // Download audio for cloning
+        const audioBuffer = await fileDownloader.downloadFile(args.audio_url);
+        
+        // Clone voice
+        const voiceCloneOptions = {
+          name: `Agent Voice Clone ${Date.now()}`,
+          description: `Voice clone from agent tool`,
+          removeBackgroundNoise: true,
+          labels: JSON.stringify({
+            accent: 'natural',
+            use_case: 'conversational',
+            quality: 'high',
+            language: args.language || 'he'
+          })
+        };
+        
+        const cloneResult = await voiceService.createInstantVoiceClone(audioBuffer, voiceCloneOptions);
+        
+        if (cloneResult.error) {
+          return {
+            success: false,
+            error: `שיבוט קול נכשל: ${cloneResult.error}`
+          };
+        }
+        
+        // Use cloned voice to speak text
+        const ttsResult = await voiceService.textToSpeech(cloneResult.voiceId, args.text_to_speak, {
+          model_id: 'eleven_v3',
+          optimize_streaming_latency: 0,
+          output_format: 'mp3_44100_128'
+        });
+        
+        if (ttsResult.error) {
+          return {
+            success: false,
+            error: `דיבור עם קול משובט נכשל: ${ttsResult.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: `✅ שיבטתי את הקול והוא מדבר את הטקסט שביקשת!`,
+          audioUrl: ttsResult.url,
+          voiceId: cloneResult.voiceId
+        };
+      } catch (error) {
+        console.error('❌ Error in voice_clone_and_speak:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool: Creative audio mix
+  creative_audio_mix: {
+    declaration: {
+      name: 'creative_audio_mix',
+      description: 'צור מיקס אודיו יצירתי עם אפקטים ומוזיקה מהקלטה קיימת. צריך URL של הקלטה.',
+      parameters: {
+        type: 'object',
+        properties: {
+          audio_url: {
+            type: 'string',
+            description: 'URL של ההקלטה למיקס'
+          },
+          style: {
+            type: 'string',
+            description: 'סגנון המיקס (אפשרויות: creative, remix, enhance)'
+          }
+        },
+        required: ['audio_url']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] creative_audio_mix called`);
+      
+      try {
+        const { creativeAudioService } = require('./creativeAudioService');
+        const { fileDownloader } = getServices();
+        
+        // Download audio
+        const audioBuffer = await fileDownloader.downloadFile(args.audio_url);
+        
+        // Create creative mix
+        const result = await creativeAudioService.createCreativeMix(audioBuffer, {
+          style: args.style || 'creative',
+          addMusic: true,
+          addEffects: true
+        });
+        
+        if (result.error) {
+          return {
+            success: false,
+            error: `מיקס יצירתי נכשל: ${result.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: `✅ המיקס היצירתי נוצר בהצלחה!`,
+          audioUrl: result.url
+        };
+      } catch (error) {
+        console.error('❌ Error in creative_audio_mix:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool: Translate text
+  translate_text: {
+    declaration: {
+      name: 'translate_text',
+      description: 'תרגם טקסט לשפה אחרת. תומך ב-20+ שפות.',
+      parameters: {
+        type: 'object',
+        properties: {
+          text: {
+            type: 'string',
+            description: 'הטקסט לתרגום'
+          },
+          target_language: {
+            type: 'string',
+            description: 'שפת יעד (English, Hebrew, Spanish, French, German, Italian, Portuguese, Russian, Chinese, Japanese, Korean, Arabic, Hindi, Turkish, Polish, Dutch, Swedish, Finnish, Norwegian, Danish, Czech)'
+          }
+        },
+        required: ['text', 'target_language']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] translate_text called`);
+      
+      try {
+        const { geminiService } = getServices();
+        
+        const result = await geminiService.translateText(args.text, args.target_language);
+        
+        if (result.error) {
+          return {
+            success: false,
+            error: `תרגום נכשל: ${result.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: result.text || result,
+          translation: result.text || result
+        };
+      } catch (error) {
+        console.error('❌ Error in translate_text:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
   }
 };
 
@@ -1716,32 +2025,44 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • לכתוב רשימות של מה אתה עושה
 • רק תשובה סופית בעברית!
 
-🛠️ הכלים שלך:
+🛠️ הכלים שלך (25 כלים!):
 
 📚 מידע:
 • get_chat_history - היסטוריית שיחה
 • get_long_term_memory - העדפות משתמש
 • search_web - מידע מהאינטרנט
 • chat_summary - סיכום השיחה
+• translate_text - תרגום (22 שפות)
 
 🎨 יצירה:
 • create_image - תמונות (gemini/openai/grok)
 • create_video - וידאו (veo3/sora/kling)
 • image_to_video - תמונה→וידאו מונפש
-• create_music - שירים/מוזיקה
-• text_to_speech - טקסט→דיבור
+• create_music - שירים/מוזיקה (Suno)
+• text_to_speech - טקסט→דיבור (22 שפות)
 
 🔍 ניתוח:
 • analyze_image_from_history - ניתוח תמונות
 • analyze_video - ניתוח וידאו
 
+✏️ עריכה:
+• edit_image - עריכת תמונות (openai/gemini)
+• edit_video - עריכת וידאו (runway)
+
+🎤 אודיו מתקדם:
+• voice_clone_and_speak - שיבוט קול + דיבור
+• creative_audio_mix - מיקס יצירתי עם אפקטים
+
 🎯 כלים מיוחדים:
 • create_poll - יצירת סקרים
 • send_location - מיקום אקראי
-• history_aware_create - יצירה מבוססת היסטוריה
-• create_with_memory - יצירה מבוססת העדפות
+• history_aware_create - יצירה + היסטוריה
+• create_with_memory - יצירה + העדפות
 • search_and_create - חיפוש + יצירה
-• smart_execute_with_fallback - ניסיון חוזר חכם
+• create_and_analyze - יצירה + ניתוח
+• analyze_and_edit - ניתוח + עריכה
+• smart_execute_with_fallback - fallback חכם
+• retry_with_different_provider - ניסיון חוזר
 
 💡 כללים:
 • תשיב בעברית, טבעי ונעים
