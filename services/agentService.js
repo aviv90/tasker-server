@@ -2018,7 +2018,7 @@ const agentTools = {
   translate_text: {
     declaration: {
       name: 'translate_text',
-      description: 'תרגם טקסט לשפה אחרת. תומך ב-20+ שפות.',
+      description: 'תרגם טקסט לשפה אחרת (מחזיר טקסט בלבד). אם המשתמש אומר "אמור ביפנית" או "תרגם ואמור" - השתמש ב-translate_and_speak במקום! תומך ב-20+ שפות.',
       parameters: {
         type: 'object',
         properties: {
@@ -2056,6 +2056,117 @@ const agentTools = {
         };
       } catch (error) {
         console.error('❌ Error in translate_text:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
+  // Tool: Translate and speak
+  translate_and_speak: {
+    declaration: {
+      name: 'translate_and_speak',
+      description: 'תרגם טקסט לשפה אחרת והמר אותו לדיבור (מחזיר הודעה קולית). השתמש כשהמשתמש אומר "אמור X ביפנית", "תרגם ל-Y ואמור", "קרא בצרפתית" וכד\'.',
+      parameters: {
+        type: 'object',
+        properties: {
+          text: {
+            type: 'string',
+            description: 'הטקסט לתרגום'
+          },
+          target_language: {
+            type: 'string',
+            description: 'שפת יעד (English, Hebrew, Spanish, French, German, Italian, Portuguese, Russian, Chinese, Japanese, Korean, Arabic, Hindi, Turkish, Polish, Dutch, Swedish, Finnish, Norwegian, Danish, Czech)'
+          }
+        },
+        required: ['text', 'target_language']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] translate_and_speak called: "${args.text}" -> ${args.target_language}`);
+      
+      try {
+        const { geminiService } = getServices();
+        const { voiceService } = require('./voiceService');
+        
+        // Step 1: Translate the text
+        console.log(`🌐 Translating to ${args.target_language}...`);
+        const translationResult = await geminiService.translateText(args.text, args.target_language);
+        
+        if (translationResult.error) {
+          return {
+            success: false,
+            error: `תרגום נכשל: ${translationResult.error}`
+          };
+        }
+        
+        const translatedText = translationResult.text || translationResult;
+        console.log(`✅ Translated: "${translatedText}"`);
+        
+        // Step 2: Get language code for voice selection
+        const languageCodeMap = {
+          'english': 'en',
+          'hebrew': 'he',
+          'spanish': 'es',
+          'french': 'fr',
+          'german': 'de',
+          'italian': 'it',
+          'portuguese': 'pt',
+          'russian': 'ru',
+          'chinese': 'zh',
+          'japanese': 'ja',
+          'korean': 'ko',
+          'arabic': 'ar',
+          'hindi': 'hi',
+          'turkish': 'tr',
+          'polish': 'pl',
+          'dutch': 'nl',
+          'swedish': 'sv',
+          'finnish': 'fi',
+          'norwegian': 'no',
+          'danish': 'da',
+          'czech': 'cs'
+        };
+        
+        const targetLanguageCode = languageCodeMap[args.target_language.toLowerCase()] || 'en';
+        
+        // Step 3: Get appropriate voice for target language
+        console.log(`🎤 Getting voice for language: ${targetLanguageCode}...`);
+        const voiceResult = await voiceService.getVoiceForLanguage(targetLanguageCode);
+        
+        if (voiceResult.error) {
+          return {
+            success: false,
+            error: `לא נמצא קול לשפה: ${voiceResult.error}`
+          };
+        }
+        
+        // Step 4: Convert to speech
+        console.log(`🗣️ Converting to speech with voice ${voiceResult.voiceId}...`);
+        const ttsResult = await voiceService.textToSpeech(voiceResult.voiceId, translatedText, {
+          model_id: 'eleven_v3',
+          optimize_streaming_latency: 0,
+          output_format: 'mp3_44100_128',
+          language_code: targetLanguageCode
+        });
+        
+        if (ttsResult.error) {
+          return {
+            success: false,
+            error: `TTS נכשל: ${ttsResult.error}`
+          };
+        }
+        
+        return {
+          success: true,
+          data: `✅ תורגם ל-${args.target_language} והומר לדיבור!`,
+          audioUrl: ttsResult.url,
+          translatedText: translatedText
+        };
+      } catch (error) {
+        console.error('❌ Error in translate_and_speak:', error);
         return {
           success: false,
           error: `שגיאה: ${error.message}`
@@ -2292,6 +2403,7 @@ const TOOL_ACK_MESSAGES = {
   'get_chat_history': 'שולף היסטוריה... 📜',
   'get_long_term_memory': 'בודק העדפות... 💾',
   'translate_text': 'מתרגם... 🌐',
+  'translate_and_speak': 'מתרגם והופך לדיבור... 🌐🗣️',
   'chat_summary': 'מסכם שיחה... 📝',
   
   // WhatsApp tools
@@ -2426,7 +2538,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • לכתוב רשימות של מה אתה עושה
 • רק תשובה סופית בעברית!
 
-🛠️ הכלים שלך (28 כלים!):
+🛠️ הכלים שלך (29 כלים!):
 
 📚 מידע:
 • get_chat_history - היסטוריית שיחה (חובה לשאלות context!)
@@ -2434,7 +2546,8 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • get_long_term_memory - קרא העדפות משתמש
 • search_web - מידע מהאינטרנט
 • chat_summary - סיכום השיחה
-• translate_text - תרגום (22 שפות)
+• translate_text - תרגום (22 שפות) → מחזיר טקסט בלבד!
+• translate_and_speak - תרגום + דיבור → מחזיר הודעה קולית!
 
 🎨 יצירה:
 • create_image - תמונות (gemini/openai/grok)
@@ -2484,6 +2597,13 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • "תמיד צור עם X" / "אני מעדיף Y" → save_user_preference
 • "זכור ש..." / "בפעם הבאה" → save_user_preference
 • "אני לא אוהב X" / "אני אוהב Y" → save_user_preference
+
+🗣️ **מתי להשתמש ב-translate_and_speak (CRITICAL!):**
+• "אמור X ביפנית" / "אמור X ב-Y" → translate_and_speak (לא translate_text!)
+• "תרגם ל-X ואמור" / "קרא ביפנית" → translate_and_speak
+• "הקרא את זה בערבית" / "say in English" → translate_and_speak
+• **אם המשתמש אומר "אמור" עם שפה - זה תמיד הודעה קולית!**
+• **translate_text מחזיר רק טקסט. translate_and_speak מחזיר אודיו.**
 
 🔁 **מתי להשתמש ב-retry:**
 • "נסה שוב" / "שוב" / "עוד פעם" → retry_last_command
