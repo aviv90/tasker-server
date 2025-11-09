@@ -1507,7 +1507,10 @@ async function handleIncomingMessage(webhookData) {
               if (agentResult.audioUrl) {
                 console.log(`🎵 [Pilot Agent] Sending generated audio: ${agentResult.audioUrl}`);
                 // Audio doesn't support captions - send as file, text separately
-                await sendFileByUrl(chatId, agentResult.audioUrl, `agent_audio_${Date.now()}.mp3`, '');
+                const fullAudioUrl = agentResult.audioUrl.startsWith('http') 
+                  ? agentResult.audioUrl 
+                  : getStaticFileUrl(agentResult.audioUrl.replace('/static/', ''));
+                await sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '');
                 mediaSent = true;
                 
                 // If there's meaningful text, send it separately
@@ -1602,7 +1605,10 @@ async function handleIncomingMessage(webhookData) {
                   }
                   if (agentResult.audioUrl) {
                     console.log(`🎤 [Agent] Sending generated audio: ${agentResult.audioUrl}`);
-                    await sendFileByUrl(chatId, agentResult.audioUrl, `agent_audio_${Date.now()}.mp3`, '');
+                    const fullAudioUrl = agentResult.audioUrl.startsWith('http') 
+                      ? agentResult.audioUrl 
+                      : getStaticFileUrl(agentResult.audioUrl.replace('/static/', ''));
+                    await sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '');
                   }
                   
                   // Send text response ONLY if no media was generated
@@ -3818,7 +3824,10 @@ async function handleOutgoingMessage(webhookData) {
                   }
                   if (agentResult.audioUrl) {
                     console.log(`🎤 [Agent] Sending generated audio: ${agentResult.audioUrl}`);
-                    await sendFileByUrl(chatId, agentResult.audioUrl, `agent_audio_${Date.now()}.mp3`, '');
+                    const fullAudioUrl = agentResult.audioUrl.startsWith('http') 
+                      ? agentResult.audioUrl 
+                      : getStaticFileUrl(agentResult.audioUrl.replace('/static/', ''));
+                    await sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '');
                   }
                   
                   // Send text response ONLY if no media was generated
@@ -5683,8 +5692,8 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
   try {
     // Send immediate ACK
     const ackMessage = service === 'gemini' 
-      ? '🎨 קיבלתי את התמונה. מיד מעבד אותה עם Gemini...'
-      : '🖼️ קיבלתי את התמונה. מיד מעבד אותה עם OpenAI...';
+      ? '🎨 מעבד באמצעות Gemini...'
+      : '🖼️ מעבד באמצעות OpenAI...';
     await sendTextMessage(chatId, ackMessage);
     
     // Note: Image editing commands do NOT add to conversation history
