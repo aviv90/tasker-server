@@ -34,6 +34,8 @@ async function routeToAgent(input, chatId) {
       contextualPrompt = `[הודעה מצוטטת: תמונה]\n${input.quotedContext.text || '(תמונה)'}\n\n[בקשה נוכחית:]\n${userText}`;
     } else if (input.quotedContext.hasVideo) {
       contextualPrompt = `[הודעה מצוטטת: וידאו]\n${input.quotedContext.text || '(וידאו)'}\n\n[בקשה נוכחית:]\n${userText}`;
+    } else if (input.quotedContext.hasAudio) {
+      contextualPrompt = `[הודעה מצוטטת: הקלטה קולית - audioUrl: ${input.quotedContext.audioUrl || 'לא זמין'}]\n${input.quotedContext.text || '(הקלטה)'}\n\n[בקשה נוכחית:]\n${userText}`;
     }
   }
   
