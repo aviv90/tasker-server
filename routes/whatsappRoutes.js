@@ -1441,6 +1441,53 @@ async function handleIncomingMessage(webhookData) {
           senderData: { senderContactName, chatName, senderName, chatId }
         };
 
+        // ═══════════════════ PILOT: AGENT-ONLY MODE ═══════════════════
+        // If PILOT_AGENT_ONLY is enabled, bypass intentRouter and go straight to Agent
+        const PILOT_AGENT_ONLY = String(process.env.PILOT_AGENT_ONLY || 'false').toLowerCase() === 'true';
+        
+        if (PILOT_AGENT_ONLY) {
+          console.log('🚀 [PILOT MODE] Bypassing intentRouter, routing directly to Agent');
+          
+          const { routeToAgent } = require('../services/agentPilot');
+          
+          try {
+            const agentResult = await routeToAgent(normalized, chatId);
+            
+            if (agentResult.success) {
+              // Send any generated media (image/video/audio) with captions
+              if (agentResult.imageUrl) {
+                console.log(`📸 [Pilot Agent] Sending generated image: ${agentResult.imageUrl}`);
+                const caption = agentResult.imageCaption || '';
+                await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption);
+              }
+              if (agentResult.videoUrl) {
+                console.log(`🎬 [Pilot Agent] Sending generated video: ${agentResult.videoUrl}`);
+                await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '');
+              }
+              if (agentResult.audioUrl) {
+                console.log(`🎵 [Pilot Agent] Sending generated audio: ${agentResult.audioUrl}`);
+                await sendFileByUrl(chatId, agentResult.audioUrl, `agent_audio_${Date.now()}.mp3`, '');
+              }
+              
+              // Send text response if exists
+              if (agentResult.text && agentResult.text.trim()) {
+                await sendTextMessage(chatId, agentResult.text);
+              }
+              
+              console.log(`✅ [Pilot Agent] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
+            } else {
+              await sendTextMessage(chatId, `❌ שגיאה: ${agentResult.error || 'לא הצלחתי לעבד את הבקשה'}`);
+            }
+            return; // Exit early - no need for regular flow
+            
+          } catch (agentError) {
+            console.error('❌ [Pilot Agent] Error:', agentError);
+            await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${agentError.message}`);
+            return;
+          }
+        }
+        
+        // ═══════════════════ REGULAR FLOW (intentRouter) ═══════════════════
         const decision = await routeIntent(normalized);
 
         // Router-based direct execution - call services directly
@@ -3543,6 +3590,53 @@ async function handleOutgoingMessage(webhookData) {
           }
         };
 
+        // ═══════════════════ PILOT: AGENT-ONLY MODE (OUTGOING) ═══════════════════
+        // If PILOT_AGENT_ONLY is enabled, bypass intentRouter and go straight to Agent
+        const PILOT_AGENT_ONLY = String(process.env.PILOT_AGENT_ONLY || 'false').toLowerCase() === 'true';
+        
+        if (PILOT_AGENT_ONLY) {
+          console.log('🚀 [PILOT MODE - OUTGOING] Bypassing intentRouter, routing directly to Agent');
+          
+          const { routeToAgent } = require('../services/agentPilot');
+          
+          try {
+            const agentResult = await routeToAgent(normalized, chatId);
+            
+            if (agentResult.success) {
+              // Send any generated media (image/video/audio) with captions
+              if (agentResult.imageUrl) {
+                console.log(`📸 [Pilot Agent - Outgoing] Sending generated image: ${agentResult.imageUrl}`);
+                const caption = agentResult.imageCaption || '';
+                await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption);
+              }
+              if (agentResult.videoUrl) {
+                console.log(`🎬 [Pilot Agent - Outgoing] Sending generated video: ${agentResult.videoUrl}`);
+                await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '');
+              }
+              if (agentResult.audioUrl) {
+                console.log(`🎵 [Pilot Agent - Outgoing] Sending generated audio: ${agentResult.audioUrl}`);
+                await sendFileByUrl(chatId, agentResult.audioUrl, `agent_audio_${Date.now()}.mp3`, '');
+              }
+              
+              // Send text response if exists
+              if (agentResult.text && agentResult.text.trim()) {
+                await sendTextMessage(chatId, agentResult.text);
+              }
+              
+              console.log(`✅ [Pilot Agent - Outgoing] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
+            } else {
+              await sendTextMessage(chatId, `❌ שגיאה: ${agentResult.error || 'לא הצלחתי לעבד את הבקשה'}`);
+            }
+            return; // Exit early - no need for regular flow
+            
+          } catch (agentError) {
+            console.error('❌ [Pilot Agent - Outgoing] Error:', agentError);
+            await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${agentError.message}`);
+            return;
+          }
+        }
+        
+        // ═══════════════════ REGULAR FLOW (intentRouter) ═══════════════════
         const decision = await routeIntent(normalized);
         const rawPrompt = decision.args?.prompt || finalPrompt;
         // Clean prompt from provider mentions before sending to services
