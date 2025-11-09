@@ -2496,11 +2496,13 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • בשאלות מורכבות - פצל למספר שלבים קטנים
 
 🚨 **טיפול בשגיאות (CRITICAL!):**
-• אם tool נכשל - **ספר למשתמש מה השגיאה** לפני שמנסה fallback!
-• דוגמה: "Gemini נכשל בשגיאה: [השגיאה]. מנסה עם OpenAI..."
+• אם tool נכשל - **אל תקרא לאותו tool שוב!** במקום זאת:
+  - אם זו בעיית ספק: השתמש ב-retry_with_different_provider
+  - אם זו בעיה כללית: השתמש ב-smart_execute_with_fallback
+• **ספר תמיד למשתמש מה השגיאה** וכיצד אתה מנסה לפתור!
+• דוגמה: "❌ Gemini נכשל: [השגיאה]. מנסה עם OpenAI..."
 • **אל תסתיר שגיאות** - המשתמש צריך לדעת מה קרה!
-• אם כל הניסיונות נכשלו - הסבר למשתמש מה ניסית ולמה זה לא עבד
-• אם משהו נכשל - אפשר לנסות smart_execute_with_fallback אבל **תמיד תסביר** למשתמש`;
+• אם כל הניסיונות נכשלו - הסבר למשתמש מה ניסית ולמה זה לא עבד`;
 
 
   // 🧠 Context for tool execution (load previous context if enabled)

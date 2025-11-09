@@ -1474,7 +1474,16 @@ async function handleIncomingMessage(webhookData) {
               if (agentResult.imageUrl) {
                 console.log(`📸 [Pilot Agent] Sending generated image: ${agentResult.imageUrl}`);
                 // Images support captions - use them!
-                const caption = agentResult.imageCaption || agentResult.text || '';
+                // Clean the caption: remove URLs and markdown links
+                let caption = agentResult.imageCaption || agentResult.text || '';
+                caption = caption
+                  .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
+                  .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
+                  .replace(/התמונה.*?נוצרה בהצלחה!/gi, '') // Remove success messages
+                  .replace(/הוידאו.*?נוצר בהצלחה!/gi, '')
+                  .replace(/✅/g, '')
+                  .trim();
+                
                 await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption);
                 mediaSent = true;
               }
@@ -3663,7 +3672,16 @@ async function handleOutgoingMessage(webhookData) {
               if (agentResult.imageUrl) {
                 console.log(`📸 [Pilot Agent - Outgoing] Sending generated image: ${agentResult.imageUrl}`);
                 // Images support captions - use them!
-                const caption = agentResult.imageCaption || agentResult.text || '';
+                // Clean the caption: remove URLs and markdown links
+                let caption = agentResult.imageCaption || agentResult.text || '';
+                caption = caption
+                  .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
+                  .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
+                  .replace(/התמונה.*?נוצרה בהצלחה!/gi, '') // Remove success messages
+                  .replace(/הוידאו.*?נוצר בהצלחה!/gi, '')
+                  .replace(/✅/g, '')
+                  .trim();
+                
                 await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption);
                 mediaSent = true;
               }
