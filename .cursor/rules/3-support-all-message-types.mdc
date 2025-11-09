@@ -1,157 +1,158 @@
 ---
-description: When adding a new bot command, always support incoming, outgoing, and quoted messages
+description: Support all message and media types in conversation history and quoted messages
 globs:
   - "routes/whatsappRoutes.js"
+  - "services/agentService.js"
+  - "services/agentPilot.js"
 ---
 
-# New Commands: Support All Message Types
+# Support All Message & Media Types
 
 ## Core Requirement
 
-**When implementing a new bot command, it MUST work in all three scenarios:**
+**The Agent must understand and process all types of messages and media:**
 
-1. ✅ **Incoming messages** (from other users)
-2. ✅ **Outgoing messages** (messages you send starting with `#`)
-3. ✅ **Quoted/replied messages** (when replying to media with a command)
+1. ✅ **All media types** in conversation history (images, videos, audio, polls)
+2. ✅ **Quoted/replied messages** with proper context passing
+3. ✅ **Both incoming and outgoing** message flows
 
-## Implementation Checklist
+---
 
-When adding a new command type to `intentRouter.js`:
+## 1️⃣ Media Types in Conversation History
 
-- [ ] Add tool name to `allowedTools` in `validateDecision()`
-- [ ] Implement in `handleIncomingMessage()` switch statement
-- [ ] Implement in `handleOutgoingMessage()` switch statement  
-- [ ] Support quoted messages (merge prompt with quoted content)
-- [ ] Add ACK message in `sendAck()` if needed
-- [ ] Test with incoming message
-- [ ] Test with outgoing message (# prefix)
-- [ ] Test with quoted message (reply to image/video/text)
-
-## Code Pattern
-
-### 1. Add to intentRouter allowedTools
+When saving messages to history, always include media indicators:
 
 ```javascript
-const allowedTools = new Set([
-  'gemini_image', 'openai_image', 'grok_image',
-  'veo3_video', 'kling_text_to_video',
-  'music_generation', // ← Your new command
-  'gemini_chat', 'openai_chat'
-]);
+// ✅ Correct - in routes/whatsappRoutes.js
+if (hasImage) {
+  botMessageContent = `[תמונה מצורפת]\n${botResponse}`;
+} else if (hasVideo) {
+  botMessageContent = `[וידאו מצורף]\n${botResponse}`;
+} else if (hasAudio) {
+  botMessageContent = `[הקלטה קולית]`;
+}
 ```
 
-### 2. Implement in Both Message Handlers
+**Supported media types:**
+- 🖼️ Images: `[תמונה מצורפת]`
+- 🎬 Videos: `[וידאו מצורף]`
+- 🎤 Audio: `[הקלטה קולית]`
+- 📊 Polls: `[סקר]`
+- 📍 Location: `[מיקום]`
 
-The code should be **identical** in both places:
+---
 
-#### handleIncomingMessage() - Line ~800
+## 2️⃣ Quoted Messages Support
+
+Quoted messages must pass full context to the Agent:
+
 ```javascript
-case 'music_generation': {
-  const musicParsing = await parseMusicRequest(prompt);
-  const cleanMusicPrompt = musicParsing.cleanPrompt || prompt;
-  const wantsVideo = musicParsing.wantsVideo || false;
-  
-  const ackMsg = wantsVideo 
-    ? '🎵🎬 קיבלתי! מתחיל יצירת שיר עם קליפ/וידאו...'
-    : '🎵 קיבלתי! מתחיל יצירת שיר עם Suno AI... 🎶';
-  await sendTextMessage(chatId, ackMsg);
-  
-  const musicResult = await generateMusicWithLyrics(cleanMusicPrompt, {
-    whatsappContext: { chatId, senderId, senderName },
-    makeVideo: wantsVideo
-  });
-  
-  if (musicResult.error) {
-    await sendTextMessage(chatId, `❌ ${musicResult.error}`);
+// ✅ Correct - in routes/whatsappRoutes.js
+let quotedContext = null;
+if (isActualQuote && quotedMessage) {
+  quotedContext = {
+    type: quotedMessage.typeMessage || 'unknown',
+    text: quotedMessage.textMessage || quotedMessage.caption || '',
+    hasImage: quotedMessage.typeMessage === 'imageMessage',
+    hasVideo: quotedMessage.typeMessage === 'videoMessage',
+    hasAudio: quotedMessage.typeMessage === 'audioMessage',
+    stanzaId: quotedMessage.stanzaId
+  };
+}
+
+const normalized = {
+  userText: `# ${finalPrompt}`,
+  quotedContext: quotedContext, // ← Pass to Agent
+  // ...
+};
+```
+
+**Then in agentPilot.js:**
+```javascript
+if (input.quotedContext) {
+  contextualPrompt = `[הודעה מצוטטת: ${input.quotedContext.type}]\n${input.quotedContext.text}\n\n[בקשה נוכחית:]\n${userText}`;
+}
+```
+
+---
+
+## 3️⃣ Agent Tools Must Handle Media
+
+When creating tools in `agentService.js`, consider media context:
+
+```javascript
+// Example: analyze_image_from_history tool
+analyze_image_from_history: {
+  declaration: {
+    name: 'analyze_image_from_history',
+    description: 'נתח תמונה שהמשתמש שלח קודם (מההיסטוריה)'
+    // ...
+  },
+  execute: async (args, context) => {
+    // Get history first
+    const history = context.previousToolResults?.get_chat_history?.messages;
+    // Find image by ID
+    const imageMsg = history[args.image_id];
+    // Download and analyze
+    // ...
   }
-  return;
 }
 ```
 
-#### handleOutgoingMessage() - Line ~1600
+---
+
+## 4️⃣ Testing Checklist
+
+When adding media support or quoted message handling:
+
+- [ ] Test with image attachment
+- [ ] Test with video attachment
+- [ ] Test with audio message
+- [ ] Test with quoted text message
+- [ ] Test with quoted image
+- [ ] Test with quoted video
+- [ ] Verify media appears in conversation history correctly
+- [ ] Verify Agent can access media from history
+
+---
+
+## Examples
+
+### ✅ Correct: Media in History
 ```javascript
-// EXACT SAME CODE as above
-case 'music_generation': {
-  // ... identical implementation
+await conversationManager.addMessage(chatId, 'assistant', botMessageContent, {
+  hasImage: !!imageUrl,
+  hasVideo: !!videoUrl,
+  hasAudio: !!audioUrl,
+  imageUrl: imageUrl,
+  videoUrl: videoUrl
+});
+```
+
+### ✅ Correct: Quoted Context Passing
+```javascript
+// routes/whatsappRoutes.js
+const normalized = {
+  userText: prompt,
+  quotedContext: {
+    type: 'imageMessage',
+    text: 'תמונת חתול',
+    hasImage: true,
+    stanzaId: 'ABC123'
+  }
+};
+
+// agentPilot.js receives and uses it
+if (input.quotedContext?.hasImage) {
+  contextualPrompt = `[הודעה מצוטטת: תמונה]\n...\n\n[בקשה:]\n${userText}`;
 }
 ```
 
-### 3. Support Quoted Messages
-
-Both handlers already have quoted message support:
-
-```javascript
-// Check if this is a quoted/replied message
-const quotedMessage = messageData.quotedMessage;
-let finalPrompt = basePrompt;
-let hasImage = false;
-let hasVideo = false;
-
-if (quotedMessage && quotedMessage.stanzaId) {
-  const quotedResult = await handleQuotedMessage(quotedMessage, basePrompt, chatId);
-  finalPrompt = quotedResult.prompt;
-  hasImage = quotedResult.hasImage;
-  hasVideo = quotedResult.hasVideo;
-}
-```
-
-This means your command automatically works with:
-- Text reply: `# generate music` (reply to previous song request)
-- Image reply: `# make this into a poster` (reply to photo)
-- Video reply: `# analyze this` (reply to video)
-
-## Real Example: Music with Video
-
-### Works in all scenarios:
-
-1. **Incoming**: Friend sends `# צור שיר על דובי כולל וידאו`
-2. **Outgoing**: You send `# צור שיר על דובי כולל וידאו`
-3. **Quoted**: Reply to an image with `# create a song about this, with video`
-
-All three trigger the same `music_generation` flow.
-
-## Testing New Commands
-
-```javascript
-// Test 1: Incoming (from someone else)
-// Have someone send: "# your new command"
-
-// Test 2: Outgoing (you send)
-// Send yourself: "# your new command"
-
-// Test 3: Quoted - Reply to an image/video/text
-// Reply to any message with: "# your new command"
-```
-
-## Anti-Pattern: Don't Do This
-
-❌ **Implementing only in one handler:**
-```javascript
-// Only in handleIncomingMessage
-case 'new_command': { ... }
-
-// Missing from handleOutgoingMessage!
-// Result: Command only works for others, not for you
-```
-
-❌ **Different implementations:**
-```javascript
-// handleIncomingMessage
-case 'new_command': {
-  const result = await doSomething(prompt);
-  // ...
-}
-
-// handleOutgoingMessage  
-case 'new_command': {
-  const result = await doSomethingElse(prompt); // Different!
-  // ...
-}
-```
+---
 
 ## Remember
 
-- **DRY violation is acceptable here** - the code is duplicated for a reason (separation of incoming/outgoing flows)
-- **Copy-paste is your friend** - when adding a new command, copy an existing similar one
-- **Test all three scenarios** - don't assume it works, verify it
-- **Quoted messages are powerful** - they let users interact with previous media/text
+- **All media types** must be logged in history
+- **Quoted messages** need full context (type, text, media flags)
+- **Agent tools** should be able to access historical media
+- **Test thoroughly** - media handling is critical for user experience

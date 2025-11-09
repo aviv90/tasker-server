@@ -2333,8 +2333,22 @@ async function sendToolAckMessage(chatId, functionCalls) {
       const toolName = call.name;
       let baseMessage = TOOL_ACK_MESSAGES[toolName] || `מבצע: ${toolName}... ⚙️`;
       
-      // Check if this tool uses a provider
-      const provider = call.args?.provider;
+      // Check if this tool uses a provider (direct or nested in fallback_providers)
+      let provider = call.args?.provider;
+      
+      // For smart_execute_with_fallback - extract the first fallback provider
+      if (!provider && toolName === 'smart_execute_with_fallback') {
+        const fallbackProviders = call.args?.fallback_providers;
+        if (fallbackProviders && fallbackProviders.length > 0) {
+          provider = fallbackProviders[0]; // Show first provider that will be tried
+        }
+      }
+      
+      // For retry_with_different_provider - extract the new provider
+      if (!provider && toolName === 'retry_with_different_provider') {
+        provider = call.args?.new_provider;
+      }
+      
       if (provider) {
         const providerName = formatProviderName(provider);
         // Replace "..." with provider name
@@ -2461,6 +2475,17 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • "נסה שוב" / "שוב" / "עוד פעם" → retry_last_command
 • "עם OpenAI" / "עם Gemini" → retry_last_command (עם provider_override)
 • "אבל עם X" / "תקן ל-Y" → retry_last_command (עם modifications)
+
+🎯 **בחירת ספק (CRITICAL!):**
+• **תמיד** ציין provider כשקורא ל-create_image/create_video/edit_image/edit_video!
+• אם המשתמש לא ציין ספק - תבחר בעצמך:
+  - תמונות: provider='gemini' (ברירת מחדל)
+  - וידאו: provider='kling' (ברירת מחדל)
+  - עריכת תמונות: provider='openai' (ברירת מחדל)
+• דוגמאות:
+  ✅ create_image({prompt: "חתול", provider: "gemini"})
+  ✅ create_video({prompt: "נחשול", provider: "kling"})
+  ❌ create_image({prompt: "חתול"}) ← חסר provider!
 
 ⚙️ **כללים כלליים:**
 • תשיב בעברית, טבעי ונעים

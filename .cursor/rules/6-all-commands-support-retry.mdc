@@ -1,128 +1,157 @@
 ---
-description: כל פקודה חדשה חייבת לתמוך ב-retry עם אפשרות לשינויים
+description: The Agent must support retry functionality with modifications
+globs:
+  - "services/agentService.js"
+  - "services/agentPilot.js"
 ---
 
-# All Commands Must Support Retry with Modifications
+# Agent Retry Support
 
-כל פקודה חדשה שמתווספת לבוט **חייבת** לתמוך במנגנון ה-**retry**.
+The Agent must support **retry functionality** - allowing users to retry previous commands with optional modifications.
 
 ---
 
-## 📋 **דרישות יישום:**
+## 📋 Core Requirements
 
-### 1️⃣ **קריאה ל-saveLastCommand**
+### 1️⃣ **Automatic Command Saving**
 
-כל `case` בבלוק ה-`switch` (גם incoming וגם outgoing) חייב לקרוא ל:
+`agentPilot.js` must automatically save successful commands:
 
 ```javascript
-saveLastCommand(chatId, decision, { 
-  imageUrl,      // אם יש תמונה מצורפת
-  videoUrl,      // אם יש וידאו מצורף
-  audioUrl,      // אם יש אודיו מצורף
-  normalized 
-});
-```
-
-**איפה?** מיד **לפני** ביצוע הפקודה (לפני `await sendAck` או לפני הלוגיקה העיקרית).
-
----
-
-### 2️⃣ **שמירת Media URLs**
-
-אם הפקודה עובדת עם מדיה (תמונה/וידאו/אודיו):
-- ✅ העבר את ה-URL המתאים ל-`saveLastCommand`
-- ✅ וודא שה-URL שמור ב-cache
-- ✅ ה-retry ישתמש באותה מדיה
-
----
-
-### 3️⃣ **תמיכה בשינויים**
-
-המנגנון **כבר תומך** בשינויים אוטומטית:
-
-#### **תרחיש A: Retry עם ציטוט + שינויים**
-```
-[הודעה מקורית]: # ערוך התמונה כברבי
-→ [לא הצליח]
-[ציטוט]: # נסה שוב, רק עם שיער ארוך
-→ ✅ הבוט יריץ: "ערוך התמונה כברבי, רק עם שיער ארוך"
-```
-
-#### **תרחיש B: Retry ללא ציטוט + שינויים**
-```
-[הודעה אחרונה]: # צור תמונה של דוב
-→ [לא הצליח]
-[הודעה חדשה]: # שוב אבל בצבעים חמים
-→ ✅ הבוט יריץ: "צור תמונה של דוב, אבל בצבעים חמים"
-```
-
-#### **תרחיש C: Retry רגיל (ללא שינויים)**
-```
-[הודעה אחרונה]: # צור וידאו של חתול
-→ [לא הצליח]
-[הודעה חדשה]: # נסה שוב
-→ ✅ הבוט יריץ שוב את אותה פקודה
-```
-
----
-
-## 4️⃣ **תמיכה בשני הכיוונים**
-
-- ✅ **Incoming** (מלקוחות) - חובה
-- ✅ **Outgoing** (ממך) - חובה
-
-**שני הכיוונים צריכים אותה לוגיקה!**
-
----
-
-## ✅ **דוגמה לקוד נכון:**
-
-```javascript
-// ✅ INCOMING
-case 'new_command': {
-  saveLastCommand(chatId, decision, { imageUrl, videoUrl, audioUrl, normalized }); // ← חובה!
-  await sendAck(chatId, { type: 'new_command' });
+// ✅ Correct - in services/agentPilot.js
+if (agentResult.success && agentResult.toolsUsed && agentResult.toolsUsed.length > 0) {
+  const primaryTool = agentResult.toolsUsed[0];
   
-  // ... לוגיקת הפקודה
+  await conversationManager.saveLastCommand(chatId, primaryTool, {
+    prompt: userText,
+  }, {
+    normalized: input
+  });
   
-  return;
+  console.log(`💾 [PILOT] Saved last command for retry: ${primaryTool}`);
 }
+```
 
-// ✅ OUTGOING
-case 'new_command': {
-  saveLastCommand(chatId, decision, { imageUrl, videoUrl, audioUrl, normalized }); // ← חובה!
-  await sendAck(chatId, { type: 'new_command' });
-  
-  // ... לוגיקת הפקודה
-  
-  return;
+**When?** After every successful Agent execution.
+
+---
+
+### 2️⃣ **retry_last_command Tool**
+
+The Agent must have a `retry_last_command` tool that:
+
+```javascript
+// ✅ Correct - in services/agentService.js
+retry_last_command: {
+  declaration: {
+    name: 'retry_last_command',
+    description: 'חזור על הפקודה האחרונה, עם אפשרות לשנות ספק או פרמטרים',
+    parameters: {
+      provider_override: 'gemini|openai|grok|...',
+      modifications: 'שינויים נוספים'
+    }
+  },
+  execute: async (args, context) => {
+    // Get last command from DB
+    const lastCommand = await conversationManager.getLastCommand(chatId);
+    
+    // Apply modifications
+    let modifiedPrompt = originalArgs.prompt;
+    if (args.modifications) {
+      modifiedPrompt = `${originalArgs.prompt}, ${args.modifications}`;
+    }
+    
+    // Retry with new provider if specified
+    const provider = args.provider_override || originalArgs.provider;
+    // ...
+  }
 }
 ```
 
 ---
 
-## ❌ **דוגמה לקוד שגוי:**
+### 3️⃣ **Support for Modifications**
 
-```javascript
-// ❌ BAD - חסר saveLastCommand
-case 'new_command': {
-  await sendAck(chatId, { type: 'new_command' });
-  
-  // ... לוגיקת הפקודה
-  
-  return;
-}
+The `retry_last_command` tool supports several scenarios:
+
+#### **Scenario A: Simple Retry**
+```
+User: # צור תמונה של חתול
+→ [fails]
+User: # נסה שוב
+→ ✅ Agent calls retry_last_command() → retries same command
 ```
 
-**בלי `saveLastCommand`, הפקודה לא תתמוך ב-retry!**
+#### **Scenario B: Retry with Provider Change**
+```
+User: # צור תמונה של דוב
+→ [created with Gemini]
+User: # שוב עם OpenAI
+→ ✅ Agent calls retry_last_command(provider_override='openai')
+```
+
+#### **Scenario C: Retry with Modifications**
+```
+User: # צור תמונה של כלב
+→ [success]
+User: # נסה שוב, אבל עם שיער ארוך
+→ ✅ Agent calls retry_last_command(modifications='עם שיער ארוך')
+→ Executes: "צור תמונה של כלב, עם שיער ארוך"
+```
 
 ---
 
-## 🎯 **מטרה:**
+## 4️⃣ **System Prompt Must Guide Retry Usage**
 
-חוויית משתמש כמו **ChatGPT/Claude** - תמיד אפשר לבקש:
-- "נסה שוב"
-- "שוב אבל עם X"
-- "retry with Y"
+The Agent's system prompt must include clear instructions:
 
-זה מאפשר למשתמשים **לשפר** תוצאות בקלות! 🚀
+```
+🔁 **מתי להשתמש ב-retry:**
+• "נסה שוב" / "שוב" / "עוד פעם" → retry_last_command
+• "עם OpenAI" / "עם Gemini" → retry_last_command (עם provider_override)
+• "אבל עם X" / "תקן ל-Y" → retry_last_command (עם modifications)
+```
+
+This ensures the Agent knows when to use the retry tool.
+
+---
+
+## ✅ Implementation Checklist
+
+When working with retry functionality:
+
+- [ ] `agentPilot.js` saves commands after successful execution
+- [ ] `retry_last_command` tool exists in `agentService.js`
+- [ ] Tool supports `provider_override` parameter
+- [ ] Tool supports `modifications` parameter
+- [ ] System prompt guides Agent on when to use retry
+- [ ] Test: Simple retry ("נסה שוב")
+- [ ] Test: Retry with provider change ("עם OpenAI")
+- [ ] Test: Retry with modifications ("אבל עם X")
+
+---
+
+## 🎯 Goal
+
+Provide a user experience similar to **ChatGPT/Claude** where users can always:
+- "נסה שוב" (try again)
+- "שוב אבל עם X" (again but with X)
+- "עם ספק אחר" (with different provider)
+
+This allows users to **iterate and improve** results easily! 🚀
+
+---
+
+## Key Differences from Old Architecture
+
+### Old (Switch Cases):
+- Manual `saveLastCommand()` call in every case
+- Duplicated across incoming/outgoing handlers
+- Easy to forget
+
+### New (Agent):
+- Automatic saving in `agentPilot.js`
+- Single point of implementation
+- Hard to forget - it's centralized
+
+The Agent architecture makes retry support **more reliable** and **easier to maintain**.
