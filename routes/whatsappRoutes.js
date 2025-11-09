@@ -388,6 +388,32 @@ async function extractRequestedRegion(prompt) {
     'pakistan': 'Pakistan & Afghanistan',
     'אפגניסטן': 'Pakistan & Afghanistan',
     'afghanistan': 'Pakistan & Afghanistan',
+    'קזחסטן': 'Pakistan & Afghanistan',
+    'kazakhstan': 'Pakistan & Afghanistan',
+    'קירגיזסטן': 'Pakistan & Afghanistan',
+    'kyrgyzstan': 'Pakistan & Afghanistan',
+    'טג׳יקיסטן': 'Pakistan & Afghanistan',
+    'tajikistan': 'Pakistan & Afghanistan',
+    'אוזבקיסטן': 'Pakistan & Afghanistan',
+    'uzbekistan': 'Pakistan & Afghanistan',
+    'טורקמניסטן': 'Pakistan & Afghanistan',
+    'turkmenistan': 'Pakistan & Afghanistan',
+    'מונגוליה': 'China Mainland',
+    'mongolia': 'China Mainland',
+    'נפאל': 'India',
+    'nepal': 'India',
+    'בנגלדש': 'India',
+    'bangladesh': 'India',
+    'סרי לנקה': 'India',
+    'sri lanka': 'India',
+    'מיאנמר': 'Mainland Southeast Asia',
+    'myanmar': 'Mainland Southeast Asia',
+    'בורמה': 'Mainland Southeast Asia',
+    'burma': 'Mainland Southeast Asia',
+    'לאוס': 'Mainland Southeast Asia',
+    'laos': 'Mainland Southeast Asia',
+    'קמבודיה': 'Mainland Southeast Asia',
+    'cambodia': 'Mainland Southeast Asia',
     
     // Middle East
     'ישראל': 'Levant & Turkey',
@@ -2452,7 +2478,7 @@ async function handleIncomingMessage(webhookData) {
               const isCity = requestedRegion ? requestedRegion.isCity : false;
               console.log(`📍 [INCOMING] Extracted region: ${displayName ? `${displayName}${requestedRegionName ? ` (${requestedRegionName})` : isCity ? ' (עיר)' : ''}` : 'none'}`);
               const ackMessage = displayName 
-                ? `🌍 קיבלתי! בוחר מיקום אקראי ${isCity ? 'בעיר' : 'באזור'} ${displayName}...`
+                ? `🌍 קיבלתי! בוחר מיקום אקראי באזור ${displayName}...`
                 : '🌍 קיבלתי! בוחר מיקום אקראי על כדור הארץ...';
               await sendTextMessage(chatId, ackMessage);
               
@@ -4450,7 +4476,7 @@ async function handleOutgoingMessage(webhookData) {
               const isCity = requestedRegion ? requestedRegion.isCity : false;
               console.log(`📍 [OUTGOING] Extracted region: ${displayName ? `${displayName}${requestedRegionName ? ` (${requestedRegionName})` : isCity ? ' (עיר)' : ''}` : 'none'}`);
               const ackMessage = displayName 
-                ? `🌍 קיבלתי! בוחר מיקום אקראי ${isCity ? 'בעיר' : 'באזור'} ${displayName}...`
+                ? `🌍 קיבלתי! בוחר מיקום אקראי באזור ${displayName}...`
                 : '🌍 קיבלתי! בוחר מיקום אקראי על כדור הארץ...';
               await sendTextMessage(chatId, ackMessage);
               
