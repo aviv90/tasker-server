@@ -1506,20 +1506,15 @@ async function handleIncomingMessage(webhookData) {
               
               if (agentResult.audioUrl) {
                 console.log(`🎵 [Pilot Agent] Sending generated audio: ${agentResult.audioUrl}`);
-                // Audio doesn't support captions - send as file, text separately
+                // Audio doesn't support captions - send as file only
                 const fullAudioUrl = agentResult.audioUrl.startsWith('http') 
                   ? agentResult.audioUrl 
                   : getStaticFileUrl(agentResult.audioUrl.replace('/static/', ''));
                 await sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '');
                 mediaSent = true;
                 
-                // If there's meaningful text, send it separately
-                if (agentResult.text && agentResult.text.trim()) {
-                  let audioDescription = agentResult.text.replace(/https?:\/\/[^\s]+/gi, '').trim();
-                  if (audioDescription && audioDescription.length > 2) {
-                    await sendTextMessage(chatId, audioDescription);
-                  }
-                }
+                // For audio files (TTS/translate_and_speak), don't send text - the audio IS the response
+                // No need for textual descriptions like "הנה הקלטה קולית..."
               }
               
               if (agentResult.poll) {
@@ -3729,17 +3724,15 @@ async function handleOutgoingMessage(webhookData) {
               
               if (agentResult.audioUrl) {
                 console.log(`🎵 [Pilot Agent - Outgoing] Sending generated audio: ${agentResult.audioUrl}`);
-                // Audio doesn't support captions - send as file, text separately
-                await sendFileByUrl(chatId, agentResult.audioUrl, `agent_audio_${Date.now()}.mp3`, '');
+                // Audio doesn't support captions - send as file only
+                const fullAudioUrl = agentResult.audioUrl.startsWith('http') 
+                  ? agentResult.audioUrl 
+                  : getStaticFileUrl(agentResult.audioUrl.replace('/static/', ''));
+                await sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '');
                 mediaSent = true;
                 
-                // If there's meaningful text, send it separately
-                if (agentResult.text && agentResult.text.trim()) {
-                  let audioDescription = agentResult.text.replace(/https?:\/\/[^\s]+/gi, '').trim();
-                  if (audioDescription && audioDescription.length > 2) {
-                    await sendTextMessage(chatId, audioDescription);
-                  }
-                }
+                // For audio files (TTS/translate_and_speak), don't send text - the audio IS the response
+                // No need for textual descriptions like "הנה הקלטה קולית..."
               }
               
               if (agentResult.poll) {
