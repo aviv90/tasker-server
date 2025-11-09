@@ -1,6 +1,13 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { promisify } = require('util');
+const { exec } = require('child_process');
 const conversationManager = require('./conversationManager');
 const { cleanThinkingPatterns } = require('./geminiService');
+
+const execAsync = promisify(exec);
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -26,6 +33,33 @@ const getServices = () => {
   if (!openaiService) openaiService = require('./openaiService');
   if (!grokService) grokService = require('./grokService');
   if (!greenApiService) greenApiService = require('./greenApiService');
+// Utility: get audio duration via ffprobe (mirrors whatsappRoutes implementation)
+const getAudioDuration = async (audioBuffer) => {
+  try {
+    const tempFilePath = path.join(os.tmpdir(), `agent_audio_check_${Date.now()}.ogg`);
+    fs.writeFileSync(tempFilePath, audioBuffer);
+
+    try {
+      const { stdout } = await execAsync(
+        `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${tempFilePath}"`
+      );
+      const duration = parseFloat(stdout.trim());
+      fs.unlinkSync(tempFilePath);
+      console.log(`⏱️ [Agent] Audio duration: ${duration.toFixed(2)} seconds`);
+      return duration;
+    } catch (err) {
+      if (fs.existsSync(tempFilePath)) {
+        fs.unlinkSync(tempFilePath);
+      }
+      console.error(`❌ [Agent] Could not get audio duration: ${err.message}`);
+      return 0;
+    }
+  } catch (err) {
+    console.error(`❌ [Agent] Error in getAudioDuration: ${err.message}`);
+    return 0;
+  }
+};
+
   return { geminiService, openaiService, grokService, greenApiService };
 };
 
@@ -2165,7 +2199,6 @@ const agentTools = {
       try {
         const { geminiService } = getServices();
         const { voiceService } = require('./voiceService');
-        const { getAudioDuration } = require('./audioConverterService');
         const axios = require('axios');
         
         const MIN_DURATION_FOR_CLONING = 4.6; // seconds
