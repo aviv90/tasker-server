@@ -2348,9 +2348,19 @@ async function sendToolAckMessage(chatId, functionCalls) {
         }
       }
       
-      // For retry_with_different_provider - extract the new provider
+      // For retry_with_different_provider - determine next provider based on avoid_provider
       if (!provider && toolName === 'retry_with_different_provider') {
-        provider = call.args?.new_provider;
+        const avoidProvider = call.args?.avoid_provider;
+        // Determine next provider based on the order: gemini -> openai -> grok
+        if (avoidProvider === 'gemini') {
+          provider = 'openai';
+        } else if (avoidProvider === 'openai') {
+          provider = 'grok';
+        } else if (avoidProvider === 'grok') {
+          provider = 'gemini';
+        } else {
+          provider = 'openai'; // default if avoid_provider not specified
+        }
       }
       
       if (provider && !baseMessage.includes(formatProviderName(provider))) {
