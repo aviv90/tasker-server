@@ -1379,7 +1379,7 @@ const agentTools = {
         return {
           success: true,
           data: `✅ הוידאו נוצר בהצלחה עם ${formatProviderName(provider)}!`,
-          videoUrl: result.url,
+          videoUrl: result.videoUrl || result.url,
           provider: provider
         };
       } catch (error) {

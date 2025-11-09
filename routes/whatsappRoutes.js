@@ -928,19 +928,19 @@ async function sendAck(chatId, command) {
       ackMessage = '🎬 קיבלתי! יוצר וידאו עם Kling AI...';
       break;
     case 'veo3_image_to_video':
-      ackMessage = '🎬 קיבלתי את התמונה! יוצר וידאו עם Veo 3...';
+      ackMessage = '🎬 יוצר וידאו עם Veo 3...';
       break;
     case 'sora_image_to_video':
       // Check if using Pro model from command.model
       ackMessage = command.model === 'sora-2-pro' 
-        ? '🎬 קיבלתי את התמונה! יוצר וידאו עם Sora 2 Pro...' 
-        : '🎬 קיבלתי את התמונה! יוצר וידאו עם Sora 2...';
+        ? '🎬 יוצר וידאו עם Sora 2 Pro...' 
+        : '🎬 יוצר וידאו עם Sora 2...';
       break;
     case 'kling_image_to_video':
-      ackMessage = '🎬 קיבלתי את התמונה! יוצר וידאו עם Kling AI...';
+      ackMessage = '🎬 יוצר וידאו עם Kling AI...';
       break;
     case 'runway_video_to_video':
-      ackMessage = '🎬 קיבלתי את הווידאו! עובד עליו עם RunwayML Gen4...';
+      ackMessage = '🎬 עובד על הווידאו עם RunwayML Gen4...';
       break;
       
     // ═══════════════════ AUDIO & VOICE ═══════════════════
@@ -951,13 +951,13 @@ async function sendAck(chatId, command) {
       ackMessage = '🗣️ קיבלתי! מתרגם ומייצר דיבור עם ElevenLabs...';
       break;
     case 'voice_processing':
-      ackMessage = '🎤 קיבלתי את ההקלטה! מעבד ומכין תשובה...';
+      ackMessage = '🎤 מעבד ומכין תשובה...';
       break;
     case 'voice_generation':
       ackMessage = '🎤 קיבלתי! מייצר קול עם ElevenLabs...';
       break;
     case 'creative_voice_processing':
-      ackMessage = '🎨 קיבלתי את ההקלטה! מתחיל עיבוד יצירתי עם אפקטים ומוזיקה...';
+      ackMessage = '🎨 מתחיל עיבוד יצירתי עם אפקטים ומוזיקה...';
       break;
     case 'voice_cloning_response':
       ackMessage = '🎤 קיבלתי! מתחיל שיבוט קול ויצירת תגובה...';
@@ -5772,13 +5772,13 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
     // Send immediate ACK
     let ackMessage;
     if (service === 'veo3') {
-      ackMessage = '🎬 קיבלתי את התמונה! יוצר וידאו עם Veo 3...';
+      ackMessage = '🎬 יוצר וידאו עם Veo 3...';
     } else if (service === 'sora') {
       ackMessage = model === 'sora-2-pro' 
-        ? '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Sora 2 Pro...'
-        : '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Sora 2...';
+        ? '🎬 יוצר וידאו עם Sora 2 Pro...'
+        : '🎬 יוצר וידאו עם Sora 2...';
     } else {
-      ackMessage = '🎬 קיבלתי את התמונה. מיד יוצר וידאו עם Kling 2.1...';
+      ackMessage = '🎬 יוצר וידאו עם Kling 2.1...';
     }
     await sendTextMessage(chatId, ackMessage);
     
