@@ -1742,8 +1742,13 @@ async function handleIncomingMessage(webhookData) {
                       }
                     }
                     
+                    // Save user message with image marker for conversation history
+                    const userMessageWithImage = `[תמונה מצורפת] ${prompt || 'ניתוח תמונה'}`;
+                    await conversationManager.addMessage(chatId, 'user', userMessageWithImage);
+                    
                     const result = await analyzeImageWithText(finalPrompt, base64Image);
                     if (result.success) {
+                      await conversationManager.addMessage(chatId, 'assistant', result.text);
                       await sendTextMessage(chatId, result.text);
                     } else {
                       await sendTextMessage(chatId, `❌ ${result.error}`);
@@ -3034,8 +3039,13 @@ async function handleIncomingMessage(webhookData) {
                 const imageBuffer = await downloadFile(imageData.downloadUrl);
                 const base64Image = imageBuffer.toString('base64');
                 
+                // Save user message with image marker for conversation history
+                const userMessageWithImage = `[תמונה מצורפת] ${prompt || 'ניתוח תמונה'}`;
+                await conversationManager.addMessage(chatId, 'user', userMessageWithImage);
+                
                 const result = await analyzeImageWithText(prompt, base64Image);
                 if (result.success) {
+                  await conversationManager.addMessage(chatId, 'assistant', result.text);
                   await sendTextMessage(chatId, result.text);
                 } else {
                   await sendTextMessage(chatId, `❌ ${result.error}`);
@@ -3102,8 +3112,13 @@ async function handleIncomingMessage(webhookData) {
                 // Download video buffer
                 const videoBuffer = await downloadFile(videoData.downloadUrl);
                 
+                // Save user message with video marker for conversation history
+                const userMessageWithVideo = `[וידאו מצורף] ${prompt || 'ניתוח וידאו'}`;
+                await conversationManager.addMessage(chatId, 'user', userMessageWithVideo);
+                
                 const result = await analyzeVideoWithText(prompt, videoBuffer);
                 if (result.success) {
+                  await conversationManager.addMessage(chatId, 'assistant', result.text);
                   await sendTextMessage(chatId, result.text);
                 } else {
                   await sendTextMessage(chatId, `❌ ${result.error}`);
@@ -3806,8 +3821,13 @@ async function handleOutgoingMessage(webhookData) {
                       }
                     }
                     
+                    // Save user message with image marker for conversation history
+                    const userMessageWithImage = `[תמונה מצורפת] ${prompt || 'ניתוח תמונה'}`;
+                    await conversationManager.addMessage(chatId, 'user', userMessageWithImage);
+                    
                     const result = await analyzeImageWithText(finalPromptOutgoingImage, base64Image);
                     if (result.success) {
+                      await conversationManager.addMessage(chatId, 'assistant', result.text);
                       await sendTextMessage(chatId, result.text);
                     } else {
                       await sendTextMessage(chatId, `❌ ${result.error}`);
@@ -5025,8 +5045,13 @@ async function handleOutgoingMessage(webhookData) {
                 const imageBuffer = await downloadFile(imageUrl);
                 const base64Image = imageBuffer.toString('base64');
                 
+                // Save user message with image marker for conversation history
+                const userMessageWithImage = `[תמונה מצורפת] ${prompt || 'ניתוח תמונה'}`;
+                await conversationManager.addMessage(chatId, 'user', userMessageWithImage);
+                
                 const result = await analyzeImageWithText(prompt, base64Image);
                 if (result.success) {
+                  await conversationManager.addMessage(chatId, 'assistant', result.text);
                   await sendTextMessage(chatId, result.text);
                 } else {
                   await sendTextMessage(chatId, `❌ ${result.error}`);
@@ -5123,8 +5148,13 @@ async function handleOutgoingMessage(webhookData) {
                 // Download the video from URL
                 const videoBuffer = await downloadFile(videoUrl);
                 
+                // Save user message with video marker for conversation history
+                const userMessageWithVideo = `[וידאו מצורף] ${prompt || 'ניתוח וידאו'}`;
+                await conversationManager.addMessage(chatId, 'user', userMessageWithVideo);
+                
                 const result = await analyzeVideoWithText(prompt, videoBuffer);
                 if (result.success) {
+                  await conversationManager.addMessage(chatId, 'assistant', result.text);
                   await sendTextMessage(chatId, result.text);
                 } else {
                   await sendTextMessage(chatId, `❌ ${result.error}`);

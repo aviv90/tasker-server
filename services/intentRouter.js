@@ -614,95 +614,30 @@ function buildRouterPrompt(input, options = {}) {
     }
   };
   
-  // Refinement detection (optimized)
+  // Refinement check - OPTIMIZED
   const refinementSection = options.checkRefinement ? `
-REFINEMENT CHECK (Priority 1):
-User expressing dissatisfaction/requesting improvement → "retry_last_command"
-Patterns: "not good", "fix", "improve", "change", "but with X", "should be bigger"
-NOT refinement: new requests ("create new image"), questions
+Refinement? "not good"/"fix"/"change" → retry_last_command
 ` : '';
   
-  return `Intent router for WhatsApp AI bot. Return JSON only.
+  return `Route WhatsApp AI request. Return JSON only.
 
-RULES: Case-insensitive, space-flexible, whole words, accept typos.
-
-INPUT:
-${JSON.stringify(payload, null, 2)}
+INPUT: ${JSON.stringify(payload)}
 ${refinementSection}
-ROUTING LOGIC (in order):
+LOGIC:
+• Complex/history refs → agent_query
+• hasImage + "video" → image_to_video
+• hasImage + question → gemini_chat  
+• hasImage + edit → image_edit
+• hasVideo + question → gemini_chat
+• hasVideo + edit → video_to_video
+• hasAudio + "mix" → creative_voice_processing
+• Text: poll/location/group/help/summary/retry/tts/music/image/video → specific tool
+• Default → gemini_chat (+ useGoogleSearch if "link"/"search")
 
-0️⃣ AGENT (use for complex queries):
-Use "agent_query" for:
-• History refs: "what did I say", "show me images from chat"
-• Multi-step: "create and analyze", "search then create"
-• Conditional: "if fails use OpenAI"
-• NOT for: single actions, basic questions
+OUTPUT (JSON only):
+{"tool": "tool_name", "args": {"prompt": "text"}, "reason": "brief"}
 
-→ Complex? { "tool": "agent_query", "args": { "prompt": "<text>" }, "reason": "..." }
-→ Simple? Continue ↓
-
-1️⃣ hasImage=true:
-A. Video keywords + service mention → [service]_image_to_video (veo3/sora/kling)
-B. Questions ("what", "how", "is this") → "gemini_chat"
-C. Edit verbs (all conjugations: remove/change/edit/create/draw/add) → "image_edit" (needs auth, check OpenAI/Gemini pref)
-D. Default unclear → "gemini_chat"
-
-2️⃣ hasVideo=true:
-A. Questions ("what", "describe") → "gemini_chat"
-B. Edit verbs → "video_to_video" (needs auth)
-C. Default → "gemini_chat"
-
-3️⃣ hasAudio=true:
-A. Mix keywords ("mix", "remix", "creative") → "creative_voice_processing" (needs auth)
-B. Voice response ("reply with voice", "ענה בקול") → "voice_cloning_response" (needs auth)
-C. Default → "gemini_chat" (needsTranscription=true)
-
-4️⃣ text only (PRIORITY ORDER - check these BEFORE defaulting to chat):
-
-⚠️ CRITICAL COMMANDS (check first, never default to chat):
-1. Poll: ANY variation of "create/make poll" OR "צור/הכן/תכין סקר" (all conjugations) → create_poll
-   Examples: "צור סקר בנושא", "create poll about", "הכן סקר על", "תכיני סקר"
-   
-2. Location: "send/random location" OR "שלח מיקום" OR "מיקום אקראי" → send_random_location
-
-3. Group: "create/open group" OR "צור/פתח/הקם קבוצה" (needs auth) → create_group
-
-4. Help: "commands/help" OR "פקודות/עזרה" → show_help
-
-5. Summary: "summary/summarize" OR "סכם/סיכום" → chat_summary
-
-6. Retry: "again/try again" OR "שוב/נסה שוב" → retry_last_command
-
-7. TTS: "read/speech" OR "הקרא/דיבור/הפוך לדיבור" → text_to_speech
-
-8. Music: "create song/with melody" OR "צור שיר/עם מנגינה" → music_generation
-   BUT: "write song/lyrics" → gemini_chat
-
-9. Image: creation verb + image keyword → [provider]_image (openai/grok/gemini)
-
-10. Video: creation verb + video keyword → [provider]_video (veo3/sora/kling)
-
-
-DEFAULT: No keywords → check provider (openai/grok/gemini default)
-Auto-set needsChatHistory=true for history refs ("what did I say", "based on messages")
-Auto-set useGoogleSearch=true for web search requests ("search web", "give me links")
-
-
-
-8️⃣ **OUTPUT FORMAT:**
-   - Return ONLY valid JSON
-   - NO markdown, NO code fences, NO extra text
-   - Always include "tool", "args" with "prompt", and "reason"
-
-📤 OUTPUT SCHEMA:
-{
-  "tool": "tool_name",
-  "args": {"prompt": "full original user text without # prefix"},
-  "reason": "brief 1-2 word explanation"
-}
-
-⚙️ AVAILABLE TOOLS:
-gemini_chat, openai_chat, grok_chat, gemini_image, openai_image, grok_image, kling_text_to_video, veo3_video, kling_image_to_video, veo3_image_to_video, video_to_video, image_edit, text_to_speech, music_generation, chat_summary, create_poll, retry_last_command, creative_voice_processing, voice_cloning_response, deny_unauthorized, ask_clarification, show_help`;
+TOOLS: gemini_chat, openai_chat, grok_chat, gemini_image, openai_image, grok_image, veo3_video, sora_video, kling_text_to_video, image_edit, video_to_video, text_to_speech, music_generation, chat_summary, create_poll, send_random_location, retry_last_command, agent_query, show_help`;
 }
 
 

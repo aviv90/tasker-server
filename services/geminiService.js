@@ -1290,6 +1290,7 @@ const META_PHRASE_PATTERNS = [
 ];
 
 const THINKING_SECTION_PATTERNS = [
+    /My thought process:[\s\S]*?(?=\n\n|\n[א-ת]|$)/gi,
     /My internal thoughts?:[\s\S]*?(?=\n\n|\n[א-ת]|$)/gi,
     /Internal thoughts?:[\s\S]*?(?=\n\n|\n[א-ת]|$)/gi,
     /Thoughts?:[\s\S]*?(?=\n\n|\n[א-ת]|$)/gi,
@@ -1430,58 +1431,24 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         // Build conversation contents for Gemini
         const contents = [];
 
-        // Build system prompt - add Google Search instructions if enabled
-        let systemPrompt = `אתה עוזר AI ידידותי, אדיב ונעים. תן תשובות טבעיות ונעימות.
+        // Build system prompt - OPTIMIZED for clarity and brevity
+        let systemPrompt = `אתה עוזר AI ידידותי. תן תשובות ישירות וטבעיות.
 
-חשוב מאוד - כללי תשובה:
-1. תשיב ישירות עם התשובה הסופית בלבד - ללא הסברים על תהליך החשיבה שלך
-2. אסור לכתוב: "As an AI, I should:", "My response should:", "Let's break down", "translates to", "refers to", "In the context of", או כל ניתוח מטא אחר
-3. אסור להסביר את המילים או לתרגם אותן - המשתמש כבר יודע עברית
-4. אסור לכתוב רשימות של "what I should do" - פשוט תעשה את זה
-5. תמיד תשיב באותה שפה שבה המשתמש שואל`;
+כללי תשובה:
+• תשיב ישירות בלבד - ללא הסברים על תהליך החשיבה
+• אסור: "As an AI", "My thought process", "Let's break down", "translates to", "I should"
+• תמיד תשיב באותה שפה שבה המשתמש שואל`;
 
-        // Add Google Search specific instructions if enabled
+        // Add Google Search specific instructions if enabled - SIMPLIFIED
         if (useGoogleSearch) {
             systemPrompt += `
 
-🔍 חשוב ביותר - שימוש ב-Google Search (חובה מוחלטת!):
-6. **אתה לא יכול לענות ללא Google Search!** - כל בקשת קישור דורשת חיפוש אמיתי
-7. **אסור בהחלט** לשלוח קישור שלא מצאת ב-Google Search **ברגע זה**
-8. **אסור לחלוטין** להשתמש בידע מהאימון שלך - רק מה שמצאת ב-Google Search **עכשיו**
-9. אם Google Search לא החזיר תוצאות: "לא מצאתי קישור זמין כרגע" - **אסור להמציא!**
-10. **חשוב ביותר**: הזיכרון שלך מ-2023 - הקישורים ישנים! חפש מחדש **תמיד**!
-
-⚠️ **דוגמה למה שאסור לעשות:**
-משתמש: "שלח קישור ל-Love Story של טיילור"
-אתה: "הנה: https://youtube.com/watch?v=eK6F13e0n5Y" ← **אסור!** זה מהזיכרון!
-✅ נכון: תחפש ב-Google Search → תמצא קישור עדכני → תשלח
-
-❌ **דוגמאות לקישורים אסורים (מומצאים):**
-- https://youtube.com/watch?v=xxx123 ← נראה מומצא
-- https://youtube.com/watch?v=abc123 ← נראה מומצא
-- https://youtube.com/watch?v=example ← כללי מדי
-- כל קישור שלא הופיע בפועל ב-Google Search שלך ברגע זה
-
-✅ **התהליך הנכון - חובה לעקוב:**
-משתמש: "שלח לינק לשיר Love Story של טיילור סוויפט"
-1. **חפש ממש ב-Google Search** (לא מהזיכרון שלך!)
-2. אם מצאת תוצאה: שלח את הקישור המדויק מהחיפוש
-3. אם לא מצאת: "לא הצלחתי למצוא קישור, נסה לחפש ביוטיוב" - **אל תמציא קישור!**
-
-❌ **אסור לחלוטין לעשות:**
-משתמש: "שלח לינק לשיר X"
-אתה: "הנה הקישור: https://youtube.com/watch?v=eK6F13e0n5Y" ← אסור! אם לא חיפשת עכשיו ב-Google Search`;
+🔍 Google Search (חובה!):
+• חפש ב-Google Search לפני כל קישור - אסור להשתמש בזיכרון!
+• אם לא מצאת: "לא מצאתי קישור זמין" - אל תמציא קישורים!
+• דוגמה נכונה: חפש → מצא → שלח קישור אמיתי
+• דוגמה שגויה: שלח קישור מהזיכרון`;
         }
-
-        systemPrompt += `
-
-דוגמה לתשובה נכונה:
-משתמש: "בחר בין A ל-B"
-אתה: "אני מעדיף את A כי..."  ← ישיר, ללא ניתוח
-
-דוגמה לתשובה שגויה:
-משתמש: "בחר בין A ל-B"
-אתה: "A translates to... B refers to... As an AI, I should: 1. Acknowledge... 2. Avoid..."  ← אסור!`;
 
         // Add system prompt as first user message (Gemini format)
         contents.push({
@@ -1489,11 +1456,11 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
             parts: [{ text: systemPrompt }]
         });
         
-        // Add system prompt response
-        let modelResponse = 'הבנתי לחלוטין. אשיב ישירות ללא תהליך חשיבה, ניתוח, תרגומים או רשימות של "מה אני צריך לעשות". רק התשובה הסופית, באותה שפה שבה נשאלת השאלה.';
+        // Add system prompt response - OPTIMIZED
+        let modelResponse = 'הבנתי. אשיב ישירות ללא תהליך חשיבה.';
         
         if (useGoogleSearch) {
-            modelResponse += ' כאשר נדרש קישור - אחפש **רק** ב-Google Search **עכשיו** (לא מהזיכרון). אם Google Search לא מחזיר תוצאות - אודיע "לא מצאתי". אסור להשתמש בקישורים מהאימון שלי מ-2023.';
+            modelResponse += ' לקישורים - אחפש רק ב-Google Search (לא מזיכרון).';
         }
         
         contents.push({

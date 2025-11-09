@@ -33,11 +33,11 @@ class GrokService {
       // Sanitize prompt
       const cleanPrompt = sanitizeText(prompt);
 
-      // Build messages array with system prompt + conversation history + current message
+      // Build messages array - OPTIMIZED
       const messages = [
         {
           role: 'system',
-          content: 'אתה Grok - עוזר AI ידידותי, אדיב ונעים של x.ai. תן תשובות טבעיות ונעימות באופן שיחתי. היה חם, מקשיב ומעט הומוריסטי כמו שמתאים לאופי של Grok.'
+          content: 'אתה Grok - עוזר AI ידידותי. תן תשובות ישירות וטבעיות.'
         }
       ];
 

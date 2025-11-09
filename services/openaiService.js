@@ -116,19 +116,11 @@ async function generateTextResponse(prompt, conversationHistory = []) {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Build messages array with system prompt + conversation history + current message
+    // Build messages array - OPTIMIZED
     const messages = [
       {
         role: 'system',
-        content: 'אתה עוזר AI ידידותי, אדיב ונעים. תן תשובות טבעיות ונעימות באופן שיחתי. היה חם ומקשיב.'
-      },
-      {
-        role: 'user',
-        content: 'היי, איך אתה?'
-      },
-      {
-        role: 'assistant',
-        content: 'שלום! אני כאן ושמח לעזור לך. מה מעניין אותך היום?'
+        content: 'אתה עוזר AI ידידותי. תן תשובות ישירות וטבעיות.'
       }
     ];
 
