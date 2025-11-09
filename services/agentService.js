@@ -2269,6 +2269,103 @@ const agentTools = {
 };
 
 /**
+ * Map tool names to Hebrew Ack messages
+ */
+const TOOL_ACK_MESSAGES = {
+  // Creation tools
+  'create_image': 'יוצר תמונה... 🎨',
+  'create_video': 'יוצר וידאו... 🎬',
+  'image_to_video': 'ממיר תמונה לוידאו מונפש... 🎞️',
+  'create_music': 'יוצר מוזיקה... 🎵',
+  'text_to_speech': 'ממיר לדיבור... 🎤',
+  
+  // Analysis tools
+  'analyze_image_from_history': 'מנתח תמונה... 🔍',
+  'analyze_video': 'מנתח וידאו... 🎥',
+  
+  // Edit tools
+  'edit_image': 'עורך תמונה... ✏️',
+  'edit_video': 'עורך וידאו... 🎞️',
+  
+  // Info tools
+  'search_web': 'מחפש באינטרנט... 🔎',
+  'get_chat_history': 'שולף היסטוריה... 📜',
+  'get_long_term_memory': 'בודק העדפות... 💾',
+  'translate_text': 'מתרגם... 🌐',
+  'chat_summary': 'מסכם שיחה... 📝',
+  
+  // WhatsApp tools
+  'create_poll': 'יוצר סקר... 📊',
+  'send_location': 'שולח מיקום... 📍',
+  'create_group': 'יוצר קבוצה... 👥',
+  
+  // Audio tools
+  'voice_clone_and_speak': 'משכפל קול... 🎙️',
+  'creative_audio_mix': 'מערבב אודיו... 🎧',
+  
+  // Meta-tools
+  'history_aware_create': 'יוצר עם context... 🧠',
+  'create_with_memory': 'יוצר לפי העדפות... 💡',
+  'search_and_create': 'מחפש ויוצר... 🔍➡️🎨',
+  'create_and_analyze': 'יוצר ומנתח... 🎨➡️🔍',
+  'analyze_and_edit': 'מנתח ועורך... 🔍➡️✏️',
+  'smart_execute_with_fallback': 'מנסה עם fallback... 🔄',
+  'retry_with_different_provider': 'מנסה עם ספק אחר... 🔁',
+  'retry_last_command': 'חוזר על פקודה קודמת... ↩️',
+  
+  // Preferences
+  'save_user_preference': 'שומר העדפה... 💾'
+};
+
+/**
+ * Send Ack message to user based on tools being executed
+ * @param {string} chatId - Chat ID
+ * @param {Array} functionCalls - Array of function calls (with name and args)
+ */
+async function sendToolAckMessage(chatId, functionCalls) {
+  if (!chatId || !functionCalls || functionCalls.length === 0) return;
+  
+  try {
+    let ackMessage = '';
+    
+    // Helper to build Ack message for a single tool
+    const buildSingleAck = (call) => {
+      const toolName = call.name;
+      let baseMessage = TOOL_ACK_MESSAGES[toolName] || `מבצע: ${toolName}... ⚙️`;
+      
+      // Check if this tool uses a provider
+      const provider = call.args?.provider;
+      if (provider) {
+        const providerName = formatProviderName(provider);
+        // Replace "..." with provider name
+        baseMessage = baseMessage.replace('...', ` עם ${providerName}...`);
+      }
+      
+      return baseMessage;
+    };
+    
+    if (functionCalls.length === 1) {
+      // Single tool - send specific Ack with provider
+      ackMessage = buildSingleAck(functionCalls[0]);
+    } else if (functionCalls.length === 2) {
+      // Two tools - list both with providers
+      const acks = functionCalls.map(buildSingleAck);
+      ackMessage = `מבצע:\n• ${acks.join('\n• ')}`;
+    } else {
+      // Multiple tools - generic message
+      ackMessage = `מבצע ${functionCalls.length} פעולות... ⚙️`;
+    }
+    
+    console.log(`📢 [ACK] Sending acknowledgment: "${ackMessage}"`);
+    const { greenApiService } = getServices();
+    await greenApiService.sendTextMessage(chatId, ackMessage);
+  } catch (error) {
+    console.error('❌ [ACK] Failed to send acknowledgment:', error.message);
+    // Don't throw - Ack failure shouldn't break the agent
+  }
+}
+
+/**
  * Execute an agent query with autonomous tool usage
  * @param {string} prompt - User's question/request
  * @param {string} chatId - Chat ID for context
@@ -2468,6 +2565,9 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     
     // Execute function calls (in parallel for better performance)
     console.log(`🔧 [Agent] Executing ${functionCalls.length} function call(s)`);
+    
+    // 📢 Send Ack message to user before executing tools (includes provider info)
+    await sendToolAckMessage(chatId, functionCalls);
     
     // Execute all tools in parallel (they're independent)
     const toolPromises = functionCalls.map(async (call) => {
