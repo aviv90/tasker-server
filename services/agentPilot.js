@@ -10,6 +10,99 @@
 const { executeAgentQuery } = require('./agentService');
 const conversationManager = require('./conversationManager');
 
+const NON_PERSISTED_TOOLS = new Set([
+  'retry_last_command',
+  'get_chat_history',
+  'save_user_preference',
+  'get_long_term_memory',
+  'transcribe_audio'
+]);
+
+const SUMMARY_MAX_LENGTH = 90;
+
+function truncate(text, maxLength = SUMMARY_MAX_LENGTH) {
+  if (!text || typeof text !== 'string') return '';
+  return text.length > maxLength ? `${text.substring(0, maxLength)}…` : text;
+}
+
+function parseJSONSafe(value) {
+  if (!value) return null;
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch (err) {
+    return null;
+  }
+}
+
+function sanitizeToolResult(result) {
+  if (!result || typeof result !== 'object') return result;
+  const allowedKeys = [
+    'success',
+    'data',
+    'error',
+    'imageUrl',
+    'imageCaption',
+    'videoUrl',
+    'audioUrl',
+    'translation',
+    'translatedText',
+    'provider',
+    'strategy_used',
+    'poll',
+    'latitude',
+    'longitude',
+    'locationInfo',
+    'text',
+    'prompt'
+  ];
+  return allowedKeys.reduce((acc, key) => {
+    if (result[key] !== undefined) {
+      acc[key] = result[key];
+    }
+    return acc;
+  }, {});
+}
+
+function summarizeLastCommand(lastCommand) {
+  if (!lastCommand) return '';
+  const { tool } = lastCommand;
+  const argsWrapper = lastCommand.args || {};
+  const toolArgs = argsWrapper.toolArgs || argsWrapper;
+  const result = argsWrapper.result || {};
+  
+  const parts = [`כלי: ${tool}`];
+  
+  if (toolArgs.prompt) {
+    parts.push(`פרומפט: ${truncate(toolArgs.prompt)}`);
+  } else if (toolArgs.text) {
+    parts.push(`טקסט: ${truncate(toolArgs.text)}`);
+  }
+  
+  if (toolArgs.target_language || toolArgs.language) {
+    parts.push(`שפה: ${toolArgs.target_language || toolArgs.language}`);
+  }
+  
+  if (result.translation || result.translatedText) {
+    parts.push(`תרגום: ${truncate(result.translation || result.translatedText)}`);
+  }
+  
+  if (result.imageUrl) {
+    parts.push('תמונה: ✅');
+  }
+  if (result.videoUrl) {
+    parts.push('וידאו: ✅');
+  }
+  if (result.audioUrl) {
+    parts.push('אודיו: ✅');
+  }
+  if (result.provider || toolArgs.provider) {
+    parts.push(`ספק: ${result.provider || toolArgs.provider}`);
+  }
+  
+  return parts.join(' | ');
+}
+
 /**
  * Route incoming request directly to Agent
  * @param {Object} input - Normalized input from webhook
@@ -21,6 +114,17 @@ async function routeToAgent(input, chatId) {
   
   // Extract the user's prompt/request
   const userText = input.userText || '';
+  
+  // Fetch last command for context-aware behaviour
+  const lastCommandRaw = await conversationManager.getLastCommand(chatId);
+  let parsedLastCommand = null;
+  if (lastCommandRaw) {
+    parsedLastCommand = {
+      ...lastCommandRaw,
+      args: parseJSONSafe(lastCommandRaw.args),
+      normalized: parseJSONSafe(lastCommandRaw.normalized)
+    };
+  }
   
   // Build context for the agent
   let contextualPrompt = userText;
@@ -63,28 +167,59 @@ async function routeToAgent(input, chatId) {
   if (authContext.length > 0) {
     contextualPrompt += `\n\n[הרשאות: ${authContext.join(', ')}]`;
   }
+
+  if (parsedLastCommand) {
+    const summary = summarizeLastCommand(parsedLastCommand);
+    if (summary) {
+      contextualPrompt += `\n\n[פקודה קודמת]: ${summary}`;
+    }
+  }
   
   console.log(`🤖 [PILOT] Sending to Agent: "${contextualPrompt.substring(0, 100)}..."`);
   
   // Execute agent query
   const agentResult = await executeAgentQuery(contextualPrompt, chatId, {
     maxIterations: 5,
-    input: input // Pass full input for agent tools to access
+    input: {
+      ...input,
+      lastCommand: parsedLastCommand
+    },
+    lastCommand: parsedLastCommand
   });
   
   // Save the last successful command for retry functionality
-  if (agentResult.success && agentResult.toolsUsed && agentResult.toolsUsed.length > 0) {
-    // Save the primary tool that was used (usually the first one)
-    const primaryTool = agentResult.toolsUsed[0];
+  if (agentResult.success && agentResult.toolCalls && agentResult.toolCalls.length > 0) {
+    const toolResults = agentResult.toolResults || {};
+    let commandToSave = null;
     
-    await conversationManager.saveLastCommand(chatId, primaryTool, {
-      prompt: userText,
-      // Additional context can be added here
-    }, {
-      normalized: input
-    });
+    for (let i = agentResult.toolCalls.length - 1; i >= 0; i--) {
+      const call = agentResult.toolCalls[i];
+      if (!call.success) continue;
+      if (NON_PERSISTED_TOOLS.has(call.tool)) continue;
+      commandToSave = call;
+      break;
+    }
     
-    console.log(`💾 [PILOT] Saved last command for retry: ${primaryTool}`);
+    if (commandToSave) {
+      const primaryTool = commandToSave.tool;
+      const sanitizedResult = sanitizeToolResult(toolResults[primaryTool]);
+      const argsToStore = {
+        toolArgs: commandToSave.args || {},
+        result: sanitizedResult || null,
+        prompt: userText
+      };
+      
+      await conversationManager.saveLastCommand(chatId, primaryTool, argsToStore, {
+        normalized: input,
+        imageUrl: sanitizedResult?.imageUrl || agentResult.imageUrl || null,
+        videoUrl: sanitizedResult?.videoUrl || agentResult.videoUrl || null,
+        audioUrl: sanitizedResult?.audioUrl || agentResult.audioUrl || null
+      });
+      
+      console.log(`💾 [PILOT] Saved last command for retry: ${primaryTool}`);
+    } else {
+      console.log('ℹ️ [PILOT] No eligible tool call to save as last command');
+    }
   }
   
   return agentResult;

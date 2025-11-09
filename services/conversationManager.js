@@ -968,8 +968,8 @@ class ConversationManager {
       const row = result.rows[0];
       return {
         tool: row.tool,
-        args: row.args,
-        normalized: row.normalized,
+        args: parseJSON(row.args),
+        normalized: parseJSON(row.normalized),
         imageUrl: row.image_url,
         videoUrl: row.video_url,
         audioUrl: row.audio_url,
@@ -1490,6 +1490,23 @@ ${conversationText}
       await this.pool.end();
       console.log('🔌 PostgreSQL connection pool closed');
     }
+  }
+}
+
+function parseJSON(value) {
+  if (!value) {
+    return null;
+  }
+  
+  if (typeof value === 'object') {
+    return value;
+  }
+  
+  try {
+    return JSON.parse(value);
+  } catch (err) {
+    console.warn(`⚠️ Failed to parse JSON value: ${err.message}`);
+    return null;
   }
 }
 

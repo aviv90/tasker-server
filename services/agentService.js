@@ -2156,8 +2156,10 @@ const agentTools = {
         
         return {
           success: true,
-          data: result.text || result,
-          translation: result.text || result
+          data: result.translatedText,
+          translation: result.translatedText,
+          translatedText: result.translatedText,
+          provider: result.provider || 'gemini'
         };
       } catch (error) {
         console.error('❌ Error in translate_text:', error);
@@ -2451,13 +2453,20 @@ const agentTools = {
         
         // Map tool names to appropriate retry function
         const tool = lastCommand.tool;
-        const originalArgs = lastCommand.args || {};
+        const storedWrapper = lastCommand.args || {};
+        const originalArgs = (storedWrapper && storedWrapper.toolArgs)
+          ? storedWrapper.toolArgs
+          : storedWrapper || {};
+        const storedResult = (storedWrapper && storedWrapper.result) ? storedWrapper.result : {};
         
         // Build modified prompt if needed
-        let modifiedPrompt = originalArgs.prompt || '';
+        let modifiedPrompt = originalArgs.prompt || originalArgs.text || storedResult.translation || storedResult.translatedText || '';
         if (args.modifications && args.modifications.trim()) {
-          modifiedPrompt = `${originalArgs.prompt}, ${args.modifications}`;
+          modifiedPrompt = modifiedPrompt
+            ? `${modifiedPrompt} ${args.modifications}`
+            : args.modifications;
         }
+        modifiedPrompt = (modifiedPrompt || '').toString().trim();
         
         // Determine provider override
         let provider = args.provider_override;
@@ -2469,8 +2478,16 @@ const agentTools = {
         // Route to appropriate tool based on last command
         if (tool === 'gemini_image' || tool === 'openai_image' || tool === 'grok_image' || tool === 'create_image') {
           // Image generation retry
+          const promptToUse = modifiedPrompt || originalArgs.prompt || originalArgs.text || storedResult.prompt || '';
+          if (!promptToUse) {
+            return {
+              success: false,
+              error: 'לא הצלחתי לשחזר את הפרומפט של הפקודה הקודמת.'
+            };
+          }
+          
           const imageArgs = {
-            prompt: modifiedPrompt,
+            prompt: promptToUse,
             provider: provider || 'gemini'
           };
           
@@ -2479,8 +2496,16 @@ const agentTools = {
           
         } else if (tool === 'veo3_video' || tool === 'sora_video' || tool === 'kling_text_to_video' || tool === 'create_video') {
           // Video generation retry
+          const promptToUse = modifiedPrompt || originalArgs.prompt || originalArgs.text || storedResult.prompt || '';
+          if (!promptToUse) {
+            return {
+              success: false,
+              error: 'לא הצלחתי לשחזר את הפרומפט של הפקודה הקודמת לוידאו.'
+            };
+          }
+          
           const videoArgs = {
-            prompt: modifiedPrompt,
+            prompt: promptToUse,
             provider: provider || 'kling'
           };
           
@@ -2511,21 +2536,57 @@ const agentTools = {
           
         } else if (tool === 'text_to_speech') {
           // TTS retry
+          const textToSpeak = modifiedPrompt || originalArgs.text || storedResult.translation || storedResult.translatedText;
+          if (!textToSpeak) {
+            return {
+              success: false,
+              error: 'לא הצלחתי לשחזר את הטקסט להמרה לדיבור.'
+            };
+          }
           return await agentTools.text_to_speech.execute({
-            text: modifiedPrompt,
+            text: textToSpeak,
             target_language: originalArgs.target_language || originalArgs.language || 'he'
           }, context);
           
         } else if (tool === 'music_generation' || tool === 'create_music') {
           // Music retry
+          const promptToUse = modifiedPrompt || originalArgs.prompt || storedResult.prompt || originalArgs.text || '';
+          if (!promptToUse) {
+            return {
+              success: false,
+              error: 'לא הצלחתי לשחזר את הפרומפט ליצירת המוזיקה.'
+            };
+          }
           return await agentTools.create_music.execute({
-            prompt: modifiedPrompt
+            prompt: promptToUse
           }, context);
+          
+        } else if (tool === 'translate_text') {
+          const translationArgs = {
+            text: originalArgs.text || storedResult.originalText || originalArgs.prompt || '',
+            target_language: originalArgs.target_language || originalArgs.language || storedResult.target_language || storedResult.language || 'he'
+          };
+          
+          if (!translationArgs.text || !translationArgs.target_language) {
+            return {
+              success: false,
+              error: 'לא הצלחתי לאחזר את הטקסט או את שפת היעד של הפקודה הקודמת.'
+            };
+          }
+          
+          return await agentTools.translate_text.execute(translationArgs, context);
           
         } else if (tool === 'create_poll') {
           // Poll retry
+          const topicToUse = modifiedPrompt || originalArgs.topic || originalArgs.prompt || '';
+          if (!topicToUse) {
+            return {
+              success: false,
+              error: 'לא הצלחתי לשחזר את נושא הסקר הקודם.'
+            };
+          }
           return await agentTools.create_poll.execute({
-            topic: modifiedPrompt
+            topic: topicToUse
           }, context);
           
         } else {
@@ -2783,6 +2844,12 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • "עם OpenAI" / "עם Gemini" → retry_last_command (עם provider_override)
 • "אבל עם X" / "תקן ל-Y" → retry_last_command (עם modifications)
 
+🧠 **פקודה אחרונה זמינה עבורך:**
+• בכל פנייה חדשה מוצגת "[פקודה קודמת]" עם הפרטים הקריטיים (פרומפט, תרגום, ספק, תוצאות).
+• השתמש בזה כדי לענות טבעי להמשך שיחה ("ועכשיו בקול", "הפעם בתמונה", "עם ספק אחר").
+• בקשות כמו "תגיד את זה בקול", "ועכשיו בקול", "תשמיע לי" → נצל את המידע הקודם והפעל translate_and_speak או text_to_speech בהתאם.
+• אל תשמור retry_last_command כפקודה האחרונה – הפקודה המקורית נשמרת אוטומטית.
+
 🎯 **בחירת ספק (CRITICAL!):**
 • **תמיד** ציין provider כשקורא ל-create_image/create_video/edit_image/edit_video!
 • אם המשתמש לא ציין ספק - תבחר בעצמך:
@@ -2828,7 +2895,9 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       videos: [],
       audio: [],
       polls: []
-    }
+    },
+    lastCommand: options.lastCommand || null,
+    originalInput: options.input || null
   };
   
   // Load previous context if context memory is enabled (from DB)
@@ -2923,7 +2992,9 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         longitude: longitude,
         locationInfo: locationInfo,
         toolsUsed: Object.keys(context.previousToolResults),
-        iterations: iterationCount
+        iterations: iterationCount,
+        toolCalls: context.toolCalls,
+        toolResults: context.previousToolResults
       };
     }
     
@@ -3053,7 +3124,9 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       success: false,
       error: 'הגעתי למספר המקסימלי של ניסיונות. נסה לנסח את השאלה אחרת.',
       toolsUsed: Object.keys(context.previousToolResults),
-      iterations: iterationCount
+      iterations: iterationCount,
+      toolCalls: context.toolCalls,
+      toolResults: context.previousToolResults
     };
   };
   
@@ -3071,7 +3144,9 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         success: false,
         error: `⏱️ הפעולה ארכה יותר מדי. נסה בקשה פשוטה יותר או נסה שוב מאוחר יותר.`,
         toolsUsed: Object.keys(context.previousToolResults),
-        timeout: true
+        timeout: true,
+        toolCalls: context.toolCalls,
+        toolResults: context.previousToolResults
       };
     }
     throw error;
