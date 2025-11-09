@@ -1678,7 +1678,7 @@ const agentTools = {
         return {
           success: true,
           data: `✅ הטקסט הומר לדיבור!`,
-          audioUrl: ttsResult.url
+          audioUrl: ttsResult.audioUrl
         };
       } catch (error) {
         console.error('❌ Error in text_to_speech:', error);
@@ -2013,7 +2013,7 @@ const agentTools = {
         return {
           success: true,
           data: `✅ שיבטתי את הקול והוא מדבר את הטקסט שביקשת!`,
-          audioUrl: ttsResult.url,
+          audioUrl: ttsResult.audioUrl,
           voiceId: cloneResult.voiceId
         };
       } catch (error) {
@@ -2173,14 +2173,14 @@ const agentTools = {
         console.log(`🌐 Translating to ${args.target_language}...`);
         const translationResult = await geminiService.translateText(args.text, args.target_language);
         
-        if (translationResult.error) {
+        if (translationResult.error || !translationResult.success) {
           return {
             success: false,
-            error: `תרגום נכשל: ${translationResult.error}`
+            error: `תרגום נכשל: ${translationResult.error || 'Unknown error'}`
           };
         }
         
-        const translatedText = translationResult.text || translationResult;
+        const translatedText = translationResult.translatedText;
         console.log(`✅ Translated: "${translatedText}"`);
         
         // Step 2: Get language code for voice selection
@@ -2291,7 +2291,7 @@ const agentTools = {
         return {
           success: true,
           data: `✅ תורגם ל-${args.target_language} והומר לדיבור!`,
-          audioUrl: ttsResult.url,
+          audioUrl: ttsResult.audioUrl,
           translatedText: translatedText
         };
       } catch (error) {
@@ -2735,6 +2735,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • "הקרא את זה בערבית" / "say in English" → translate_and_speak
 • **אם המשתמש אומר "אמור" עם שפה - זה תמיד הודעה קולית!**
 • **translate_text מחזיר רק טקסט. translate_and_speak מחזיר אודיו.**
+• **אל תפצל translate_and_speak ל-translate_text + text_to_speech!** זה כלי אחד שעושה הכל.
 
 🔁 **מתי להשתמש ב-retry:**
 • "נסה שוב" / "שוב" / "עוד פעם" → retry_last_command
@@ -2758,6 +2759,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 
 🚨 **טיפול בשגיאות (CRITICAL!):**
 • אם tool נכשל - **אל תקרא לאותו tool שוב בשום מקרה!**
+• **אל תפצל tool כושל למספר tools אחרים!** (למשל: אם translate_and_speak נכשל → אסור translate_text + text_to_speech)
 • **במקום לקרוא שוב ל-tool הכושל, עשה כך:**
   ✅ אם זו בעיית ספק (create_image/create_video/edit_image נכשל):
      → השתמש ב-retry_with_different_provider(original_tool_name, new_provider, args)
