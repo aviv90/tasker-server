@@ -2496,11 +2496,20 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • בשאלות מורכבות - פצל למספר שלבים קטנים
 
 🚨 **טיפול בשגיאות (CRITICAL!):**
-• אם tool נכשל - **אל תקרא לאותו tool שוב!** במקום זאת:
-  - אם זו בעיית ספק: השתמש ב-retry_with_different_provider
-  - אם זו בעיה כללית: השתמש ב-smart_execute_with_fallback
-• **ספר תמיד למשתמש מה השגיאה** וכיצד אתה מנסה לפתור!
-• דוגמה: "❌ Gemini נכשל: [השגיאה]. מנסה עם OpenAI..."
+• אם tool נכשל - **אל תקרא לאותו tool שוב בשום מקרה!**
+• **במקום לקרוא שוב ל-tool הכושל, עשה כך:**
+  ✅ אם זו בעיית ספק (create_image/create_video/edit_image נכשל):
+     → השתמש ב-retry_with_different_provider(original_tool_name, new_provider, args)
+  ✅ אם זו בעיה כללית או אתה לא בטוח:
+     → השתמש ב-smart_execute_with_fallback(original_tool_name, args, failed_providers)
+• **דוגמה לא נכונה:**
+  ❌ create_image({prompt: "...", provider: "gemini"}) נכשל
+  ❌ [קורא שוב] create_image({prompt: "...", provider: "openai"})
+• **דוגמה נכונה:**
+  ✅ create_image({prompt: "...", provider: "gemini"}) נכשל
+  ✅ [קורא] retry_with_different_provider({original_tool_name: "create_image", new_provider: "openai", args: {...}})
+• **ספר תמיד למשתמש מה השגיאה** לפני שאתה מנסה fallback!
+• דוגמה: "❌ Gemini נכשל: [השגיאה]." ← תמיד שלח את זה למשתמש!
 • **אל תסתיר שגיאות** - המשתמש צריך לדעת מה קרה!
 • אם כל הניסיונות נכשלו - הסבר למשתמש מה ניסית ולמה זה לא עבד`;
 
