@@ -1526,6 +1526,16 @@ async function handleIncomingMessage(webhookData) {
                 mediaSent = true;
               }
               
+              if (agentResult.latitude && agentResult.longitude) {
+                console.log(`📍 [Pilot Agent] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
+                await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '');
+                mediaSent = true;
+                // Send location info as separate text message
+                if (agentResult.locationInfo && agentResult.locationInfo.trim()) {
+                  await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`);
+                }
+              }
+              
               // If no media was sent, send text response (if exists)
               if (!mediaSent && agentResult.text && agentResult.text.trim()) {
                 await sendTextMessage(chatId, agentResult.text);
@@ -3730,6 +3740,16 @@ async function handleOutgoingMessage(webhookData) {
                 const pollOptions = agentResult.poll.options.map(opt => ({ optionName: opt }));
                 await sendPoll(chatId, agentResult.poll.question, pollOptions, false);
                 mediaSent = true;
+              }
+              
+              if (agentResult.latitude && agentResult.longitude) {
+                console.log(`📍 [Pilot Agent - Outgoing] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
+                await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '');
+                mediaSent = true;
+                // Send location info as separate text message
+                if (agentResult.locationInfo && agentResult.locationInfo.trim()) {
+                  await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`);
+                }
               }
               
               // If no media was sent, send text response (if exists)

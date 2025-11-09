@@ -2609,7 +2609,13 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         ? context.generatedAssets.polls[context.generatedAssets.polls.length - 1]
         : null;
       
-      console.log(`🔍 [Agent] Extracted assets - Image: ${latestImageAsset?.url}, Video: ${latestVideoAsset?.url}, Audio: ${latestAudioAsset?.url}, Poll: ${latestPollAsset?.question}`);
+      // Check if send_location was called - extract latitude/longitude from tool result
+      const locationResult = context.previousToolResults['send_location'];
+      const latitude = locationResult?.latitude || null;
+      const longitude = locationResult?.longitude || null;
+      const locationInfo = locationResult?.locationInfo || locationResult?.data || null;
+      
+      console.log(`🔍 [Agent] Extracted assets - Image: ${latestImageAsset?.url}, Video: ${latestVideoAsset?.url}, Audio: ${latestAudioAsset?.url}, Poll: ${latestPollAsset?.question}, Location: ${latitude}, ${longitude}`);
       
       return {
         success: true,
@@ -2619,6 +2625,9 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         videoUrl: latestVideoAsset?.url || null,
         audioUrl: latestAudioAsset?.url || null,
         poll: latestPollAsset || null,
+        latitude: latitude,
+        longitude: longitude,
+        locationInfo: locationInfo,
         toolsUsed: Object.keys(context.previousToolResults),
         iterations: iterationCount
       };
