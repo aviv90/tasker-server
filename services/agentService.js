@@ -1576,7 +1576,7 @@ const agentTools = {
       
       try {
         const axios = require('axios');
-        const { speechService } = require('./speechService');
+        const speechService = require('./speechService');
         const { voiceService } = require('./voiceService');
         
         if (!args.audio_url) {
@@ -2165,6 +2165,7 @@ const agentTools = {
       try {
         const { geminiService } = getServices();
         const { voiceService } = require('./voiceService');
+        const { getAudioDuration } = require('./audioConverterService');
         const axios = require('axios');
         
         const MIN_DURATION_FOR_CLONING = 4.6; // seconds
@@ -2182,6 +2183,14 @@ const agentTools = {
         
         const translatedText = translationResult.translatedText;
         console.log(`✅ Translated: "${translatedText}"`);
+        
+        // Validate that translated text is not empty
+        if (!translatedText || translatedText.trim().length === 0) {
+          return {
+            success: false,
+            error: 'התרגום החזיר טקסט ריק. אנא ספק טקסט תקין לתרגום.'
+          };
+        }
         
         // Step 2: Get language code for voice selection
         const languageCodeMap = {
@@ -2223,7 +2232,6 @@ const agentTools = {
             const audioBuffer = Buffer.from(audioResponse.data);
             
             // Get audio duration
-            const { getAudioDuration } = require('./audioConverterService');
             const audioDuration = await getAudioDuration(audioBuffer);
             
             console.log(`🎵 Audio duration: ${audioDuration.toFixed(2)}s (minimum for cloning: ${MIN_DURATION_FOR_CLONING}s)`);
