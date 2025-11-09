@@ -1555,6 +1555,77 @@ const agentTools = {
     }
   },
 
+  // Tool: Transcribe audio
+  transcribe_audio: {
+    declaration: {
+      name: 'transcribe_audio',
+      description: 'תמלל הקלטה קולית לטקסט (STT). השתמש כשהמשתמש מבקש "מה נאמר בהקלטה?", "תמלל את זה", "מה כתוב?" וכו\'. נדרש audioUrl בהודעה המצוטטת.',
+      parameters: {
+        type: 'object',
+        properties: {
+          audio_url: {
+            type: 'string',
+            description: 'URL של ההקלטה לתמלול. חלץ מהמבנה "[audioUrl: URL]" ב-prompt.'
+          }
+        },
+        required: ['audio_url']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] transcribe_audio called`);
+      
+      try {
+        const axios = require('axios');
+        const { speechService } = require('./speechService');
+        const { voiceService } = require('./voiceService');
+        
+        if (!args.audio_url) {
+          return {
+            success: false,
+            error: 'לא נמצא URL של הקלטה. צטט הודעה קולית ונסה שוב.'
+          };
+        }
+        
+        // Download audio file
+        console.log(`📥 Downloading audio: ${args.audio_url}`);
+        const audioResponse = await axios.get(args.audio_url, { responseType: 'arraybuffer' });
+        const audioBuffer = Buffer.from(audioResponse.data);
+        
+        // Transcribe
+        console.log(`🎤 Transcribing audio...`);
+        const transcriptionResult = await speechService.speechToText(audioBuffer, {
+          response_format: 'verbose_json',
+          timestamp_granularities: ['word']
+        });
+        
+        if (transcriptionResult.error) {
+          return {
+            success: false,
+            error: `תמלול נכשל: ${transcriptionResult.error}`
+          };
+        }
+        
+        const transcribedText = transcriptionResult.text || '';
+        const detectedLanguage = transcriptionResult.detectedLanguage || voiceService.detectLanguage(transcribedText);
+        
+        console.log(`✅ Transcribed: "${transcribedText}" (${detectedLanguage})`);
+        
+        return {
+          success: true,
+          data: `📝 תמלול:\n\n"${transcribedText}"`,
+          transcription: transcribedText,
+          language: detectedLanguage
+        };
+      } catch (error) {
+        console.error('❌ Error in transcribe_audio:', error);
+        return {
+          success: false,
+          error: `שגיאה: ${error.message}`
+        };
+      }
+    }
+  },
+
   // Tool: Text to speech
   text_to_speech: {
     declaration: {
@@ -2462,6 +2533,7 @@ const TOOL_ACK_MESSAGES = {
   'get_long_term_memory': 'בודק העדפות... 💾',
   'translate_text': 'מתרגם... 🌐',
   'translate_and_speak': 'מתרגם והופך לדיבור... 🌐🗣️',
+  'transcribe_audio': 'מתמלל הקלטה... 🎤📝',
   'chat_summary': 'מסכם שיחה... 📝',
   
   // WhatsApp tools
@@ -2596,7 +2668,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • לכתוב רשימות של מה אתה עושה
 • רק תשובה סופית בעברית!
 
-🛠️ הכלים שלך (29 כלים!):
+🛠️ הכלים שלך (30 כלים!):
 
 📚 מידע:
 • get_chat_history - היסטוריית שיחה (חובה לשאלות context!)
@@ -2606,6 +2678,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • chat_summary - סיכום השיחה
 • translate_text - תרגום (22 שפות) → מחזיר טקסט בלבד!
 • translate_and_speak - תרגום + דיבור → מחזיר הודעה קולית!
+• transcribe_audio - תמלול אודיו לטקסט (STT) → מצוטט הקלטה
 
 🎨 יצירה:
 • create_image - תמונות (gemini/openai/grok)
