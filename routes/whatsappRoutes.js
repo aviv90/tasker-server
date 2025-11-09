@@ -1469,41 +1469,49 @@ async function handleIncomingMessage(webhookData) {
             
             if (agentResult.success) {
               // Send any generated media (image/video/audio) with captions
+              let mediaSent = false;
+              
               if (agentResult.imageUrl) {
                 console.log(`📸 [Pilot Agent] Sending generated image: ${agentResult.imageUrl}`);
-                const caption = agentResult.imageCaption || '';
+                // Images support captions - use them!
+                const caption = agentResult.imageCaption || agentResult.text || '';
                 await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption);
-              }
-              if (agentResult.videoUrl) {
-                console.log(`🎬 [Pilot Agent] Sending generated video: ${agentResult.videoUrl}`);
-                await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '');
-              }
-              if (agentResult.audioUrl) {
-                console.log(`🎵 [Pilot Agent] Sending generated audio: ${agentResult.audioUrl}`);
-                await sendFileByUrl(chatId, agentResult.audioUrl, `agent_audio_${Date.now()}.mp3`, '');
+                mediaSent = true;
               }
               
-              // Send text response only if it has meaningful content (not just URLs)
-              if (agentResult.text && agentResult.text.trim()) {
-                let textToSend = agentResult.text;
+              if (agentResult.videoUrl) {
+                console.log(`🎬 [Pilot Agent] Sending generated video: ${agentResult.videoUrl}`);
+                // Videos don't support captions well - send as file, text separately
+                await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '');
+                mediaSent = true;
                 
-                // If media was sent, remove any URLs from the text (they're redundant)
-                if (agentResult.imageUrl || agentResult.videoUrl || agentResult.audioUrl) {
-                  // Remove all URLs
-                  textToSend = textToSend.replace(/https?:\/\/[^\s]+/gi, '').trim();
-                  
-                  // Remove common filler phrases that are now redundant
-                  textToSend = textToSend
-                    .replace(/הנה\s*(התמונה|הוידאו|הקובץ|השיר|המוזיקה)/gi, '')
-                    .replace(/כאן\s*(התמונה|הוידאו|הקובץ)/gi, '')
-                    .replace(/here is the (image|video|file|song)/gi, '')
-                    .trim();
+                // If there's meaningful text (description/revised prompt), send it separately
+                if (agentResult.text && agentResult.text.trim()) {
+                  let videoDescription = agentResult.text.replace(/https?:\/\/[^\s]+/gi, '').trim();
+                  if (videoDescription && videoDescription.length > 2) {
+                    await sendTextMessage(chatId, videoDescription);
+                  }
                 }
+              }
+              
+              if (agentResult.audioUrl) {
+                console.log(`🎵 [Pilot Agent] Sending generated audio: ${agentResult.audioUrl}`);
+                // Audio doesn't support captions - send as file, text separately
+                await sendFileByUrl(chatId, agentResult.audioUrl, `agent_audio_${Date.now()}.mp3`, '');
+                mediaSent = true;
                 
-                // Only send if there's meaningful text left (more than just punctuation)
-                if (textToSend && textToSend.length > 2) {
-                  await sendTextMessage(chatId, textToSend);
+                // If there's meaningful text, send it separately
+                if (agentResult.text && agentResult.text.trim()) {
+                  let audioDescription = agentResult.text.replace(/https?:\/\/[^\s]+/gi, '').trim();
+                  if (audioDescription && audioDescription.length > 2) {
+                    await sendTextMessage(chatId, audioDescription);
+                  }
                 }
+              }
+              
+              // If no media was sent, send text response (if exists)
+              if (!mediaSent && agentResult.text && agentResult.text.trim()) {
+                await sendTextMessage(chatId, agentResult.text);
               }
               
               console.log(`✅ [Pilot Agent] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
@@ -3650,41 +3658,49 @@ async function handleOutgoingMessage(webhookData) {
             
             if (agentResult.success) {
               // Send any generated media (image/video/audio) with captions
+              let mediaSent = false;
+              
               if (agentResult.imageUrl) {
                 console.log(`📸 [Pilot Agent - Outgoing] Sending generated image: ${agentResult.imageUrl}`);
-                const caption = agentResult.imageCaption || '';
+                // Images support captions - use them!
+                const caption = agentResult.imageCaption || agentResult.text || '';
                 await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption);
-              }
-              if (agentResult.videoUrl) {
-                console.log(`🎬 [Pilot Agent - Outgoing] Sending generated video: ${agentResult.videoUrl}`);
-                await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '');
-              }
-              if (agentResult.audioUrl) {
-                console.log(`🎵 [Pilot Agent - Outgoing] Sending generated audio: ${agentResult.audioUrl}`);
-                await sendFileByUrl(chatId, agentResult.audioUrl, `agent_audio_${Date.now()}.mp3`, '');
+                mediaSent = true;
               }
               
-              // Send text response only if it has meaningful content (not just URLs)
-              if (agentResult.text && agentResult.text.trim()) {
-                let textToSend = agentResult.text;
+              if (agentResult.videoUrl) {
+                console.log(`🎬 [Pilot Agent - Outgoing] Sending generated video: ${agentResult.videoUrl}`);
+                // Videos don't support captions well - send as file, text separately
+                await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '');
+                mediaSent = true;
                 
-                // If media was sent, remove any URLs from the text (they're redundant)
-                if (agentResult.imageUrl || agentResult.videoUrl || agentResult.audioUrl) {
-                  // Remove all URLs
-                  textToSend = textToSend.replace(/https?:\/\/[^\s]+/gi, '').trim();
-                  
-                  // Remove common filler phrases that are now redundant
-                  textToSend = textToSend
-                    .replace(/הנה\s*(התמונה|הוידאו|הקובץ|השיר|המוזיקה)/gi, '')
-                    .replace(/כאן\s*(התמונה|הוידאו|הקובץ)/gi, '')
-                    .replace(/here is the (image|video|file|song)/gi, '')
-                    .trim();
+                // If there's meaningful text (description/revised prompt), send it separately
+                if (agentResult.text && agentResult.text.trim()) {
+                  let videoDescription = agentResult.text.replace(/https?:\/\/[^\s]+/gi, '').trim();
+                  if (videoDescription && videoDescription.length > 2) {
+                    await sendTextMessage(chatId, videoDescription);
+                  }
                 }
+              }
+              
+              if (agentResult.audioUrl) {
+                console.log(`🎵 [Pilot Agent - Outgoing] Sending generated audio: ${agentResult.audioUrl}`);
+                // Audio doesn't support captions - send as file, text separately
+                await sendFileByUrl(chatId, agentResult.audioUrl, `agent_audio_${Date.now()}.mp3`, '');
+                mediaSent = true;
                 
-                // Only send if there's meaningful text left (more than just punctuation)
-                if (textToSend && textToSend.length > 2) {
-                  await sendTextMessage(chatId, textToSend);
+                // If there's meaningful text, send it separately
+                if (agentResult.text && agentResult.text.trim()) {
+                  let audioDescription = agentResult.text.replace(/https?:\/\/[^\s]+/gi, '').trim();
+                  if (audioDescription && audioDescription.length > 2) {
+                    await sendTextMessage(chatId, audioDescription);
+                  }
                 }
+              }
+              
+              // If no media was sent, send text response (if exists)
+              if (!mediaSent && agentResult.text && agentResult.text.trim()) {
+                await sendTextMessage(chatId, agentResult.text);
               }
               
               console.log(`✅ [Pilot Agent - Outgoing] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);

@@ -538,9 +538,9 @@ const agentTools = {
         
         return {
           success: true,
-          data: `✅ תמונה נוצרה בהצלחה עם ${formatProviderName(provider)}!`,
+          data: `✅ תמונה נוצרה בהצלחה!`,
           imageUrl: imageResult.imageUrl,
-          caption: imageResult.description || '',
+          imageCaption: imageResult.description || imageResult.revisedPrompt || '',
           provider: provider
         };
       } catch (error) {
@@ -795,9 +795,9 @@ const agentTools = {
               if (!result.error) {
                 return {
                   success: true,
-                  data: `✅ הצלחתי עם ${formatProviderName(provider)}! (אסטרטגיה: ספק חלופי)`,
+                  data: `✅ הצלחתי עם ${formatProviderName(provider)}!`,
                   imageUrl: result.imageUrl,
-                  caption: result.description || '',
+                  imageCaption: result.description || result.revisedPrompt || '',
                   strategy_used: 'different_provider',
                   provider: provider
                 };
@@ -2333,14 +2333,18 @@ async function sendToolAckMessage(chatId, functionCalls) {
       const toolName = call.name;
       let baseMessage = TOOL_ACK_MESSAGES[toolName] || `מבצע: ${toolName}... ⚙️`;
       
-      // Check if this tool uses a provider (direct or nested in fallback_providers)
+      // Check if this tool uses a provider (direct or nested)
       let provider = call.args?.provider;
       
-      // For smart_execute_with_fallback - extract the first fallback provider
+      // For smart_execute_with_fallback - figure out which provider will be tried
       if (!provider && toolName === 'smart_execute_with_fallback') {
-        const fallbackProviders = call.args?.fallback_providers;
-        if (fallbackProviders && fallbackProviders.length > 0) {
-          provider = fallbackProviders[0]; // Show first provider that will be tried
+        const providerTried = call.args?.provider_tried;
+        // Will try the other providers (exclude the one already tried)
+        const allProviders = ['gemini', 'openai', 'grok'];
+        const availableProviders = allProviders.filter(p => p !== providerTried);
+        if (availableProviders.length > 0) {
+          provider = availableProviders[0]; // Show first provider that will be tried
+          baseMessage = `מנסה עם ${formatProviderName(provider)}... 🔄`;
         }
       }
       
@@ -2349,7 +2353,7 @@ async function sendToolAckMessage(chatId, functionCalls) {
         provider = call.args?.new_provider;
       }
       
-      if (provider) {
+      if (provider && !baseMessage.includes(formatProviderName(provider))) {
         const providerName = formatProviderName(provider);
         // Replace "..." with provider name
         baseMessage = baseMessage.replace('...', ` עם ${providerName}...`);
