@@ -1424,11 +1424,25 @@ async function handleIncomingMessage(webhookData) {
           }
         }
         
+        // Prepare quoted context for Agent (if quoted message exists)
+        let quotedContext = null;
+        if (isActualQuote && quotedMessage) {
+          quotedContext = {
+            type: quotedMessage.typeMessage || 'unknown',
+            text: quotedMessage.textMessage || quotedMessage.caption || '',
+            hasImage: quotedMessage.typeMessage === 'imageMessage' || quotedMessage.typeMessage === 'stickerMessage',
+            hasVideo: quotedMessage.typeMessage === 'videoMessage',
+            hasAudio: quotedMessage.typeMessage === 'audioMessage',
+            stanzaId: quotedMessage.stanzaId
+          };
+        }
+        
         const normalized = {
           userText: `# ${finalPrompt}`, // Add back the # prefix for router
           hasImage: hasImage,
           hasVideo: hasVideo,
           hasAudio: hasAudio,
+          quotedContext: quotedContext, // 🆕 Quoted message info for Agent
           chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
           language: 'he',
           authorizations: {
@@ -3575,11 +3589,25 @@ async function handleOutgoingMessage(webhookData) {
           }
         }
 
+        // Prepare quoted context for Agent (if quoted message exists) - Outgoing
+        let quotedContext = null;
+        if (isActualQuote && quotedMessage) {
+          quotedContext = {
+            type: quotedMessage.typeMessage || 'unknown',
+            text: quotedMessage.textMessage || quotedMessage.caption || '',
+            hasImage: quotedMessage.typeMessage === 'imageMessage' || quotedMessage.typeMessage === 'stickerMessage',
+            hasVideo: quotedMessage.typeMessage === 'videoMessage',
+            hasAudio: quotedMessage.typeMessage === 'audioMessage',
+            stanzaId: quotedMessage.stanzaId
+          };
+        }
+
         const normalized = {
           userText: `# ${finalPrompt}`, // Add back the # prefix for router
           hasImage: hasImage,
           hasVideo: hasVideo,
           hasAudio: hasAudio,
+          quotedContext: quotedContext, // 🆕 Quoted message info for Agent
           chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
           language: 'he',
           authorizations: {

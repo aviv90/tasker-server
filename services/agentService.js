@@ -367,10 +367,57 @@ const agentTools = {
   },
 
   // Tool 4: Access long-term memory (summaries & preferences)
+  save_user_preference: {
+    declaration: {
+      name: 'save_user_preference',
+      description: 'שמור העדפת משתמש לטווח ארוך. השתמש כשמשתמש אומר "תמיד...", "אני מעדיף...", "בפעם הבאה...", "זכור ש...". דוגמאות: "תמיד צור תמונות עם OpenAI", "אני מעדיף וידאו קצרים", "זכור שאני לא אוהב חתולים".',
+      parameters: {
+        type: 'object',
+        properties: {
+          preference_key: {
+            type: 'string',
+            description: 'מפתח ההעדפה (למשל: "preferred_image_provider", "video_style", "dislikes")'
+          },
+          preference_value: {
+            type: 'string',
+            description: 'ערך ההעדפה'
+          },
+          description: {
+            type: 'string',
+            description: 'תיאור קצר של ההעדפה (אופציונלי)'
+          }
+        },
+        required: ['preference_key', 'preference_value']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] save_user_preference called: ${args.preference_key} = ${args.preference_value}`);
+      
+      try {
+        await conversationManager.saveUserPreference(
+          context.chatId, 
+          args.preference_key, 
+          args.preference_value
+        );
+        
+        return {
+          success: true,
+          data: `✅ שמרתי את ההעדפה: ${args.preference_key} = ${args.preference_value}`
+        };
+      } catch (error) {
+        console.error('❌ Error in save_user_preference tool:', error);
+        return {
+          success: false,
+          error: `שגיאה בשמירת העדפה: ${error.message}`
+        };
+      }
+    }
+  },
+  
   get_long_term_memory: {
     declaration: {
       name: 'get_long_term_memory',
-      description: 'גישה לזיכרון ארוך טווח - סיכומי שיחות קודמות והעדפות משתמש. שימושי כדי להבין הקשר רחב יותר או העדפות המשתמש.',
+      description: 'קרא זיכרון ארוך טווח - סיכומי שיחות קודמות והעדפות משתמש. השתמש כשצריך להבין הקשר רחב יותר או לבדוק מה המשתמש אוהב/לא אוהב.',
       parameters: {
         type: 'object',
         properties: {
@@ -2082,6 +2129,142 @@ const agentTools = {
         };
       }
     }
+  },
+  
+  // Tool 27: Retry last command
+  retry_last_command: {
+    declaration: {
+      name: 'retry_last_command',
+      description: 'חזור על הפקודה האחרונה של המשתמש, עם אפשרות לשנות ספק או פרמטרים. השתמש כשהמשתמש אומר "נסה שוב", "שוב", "עם OpenAI", "עם Gemini", "תקן", וכו\'.',
+      parameters: {
+        type: 'object',
+        properties: {
+          provider_override: {
+            type: 'string',
+            enum: ['gemini', 'openai', 'grok', 'sora', 'veo3', 'kling', 'runway', 'none'],
+            description: 'ספק חלופי להשתמש (אם המשתמש ביקש). none = אין שינוי'
+          },
+          modifications: {
+            type: 'string',
+            description: 'שינויים או הוראות נוספות מהמשתמש (למשל: "עם שיער ארוך", "בלי משקפיים")'
+          }
+        },
+        required: []
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] retry_last_command called with provider: ${args.provider_override || 'none'}`);
+      
+      try {
+        // Get last command from DB
+        const lastCommand = await conversationManager.getLastCommand(context.chatId);
+        
+        if (!lastCommand) {
+          return {
+            success: false,
+            error: 'אין פקודה קודמת לחזור עליה. זו הפעם הראשונה שאתה מבקש משהו.'
+          };
+        }
+        
+        console.log(`🔄 Last command: ${lastCommand.tool} with args:`, lastCommand.args);
+        
+        // Map tool names to appropriate retry function
+        const tool = lastCommand.tool;
+        const originalArgs = lastCommand.args || {};
+        
+        // Build modified prompt if needed
+        let modifiedPrompt = originalArgs.prompt || '';
+        if (args.modifications && args.modifications.trim()) {
+          modifiedPrompt = `${originalArgs.prompt}, ${args.modifications}`;
+        }
+        
+        // Determine provider override
+        let provider = args.provider_override;
+        if (provider === 'none' || !provider) {
+          // Keep original provider if exists
+          provider = originalArgs.provider || originalArgs.service;
+        }
+        
+        // Route to appropriate tool based on last command
+        if (tool === 'gemini_image' || tool === 'openai_image' || tool === 'grok_image' || tool === 'create_image') {
+          // Image generation retry
+          const imageArgs = {
+            prompt: modifiedPrompt,
+            provider: provider || 'gemini'
+          };
+          
+          console.log(`🎨 Retrying image generation with:`, imageArgs);
+          return await agentTools.create_image.execute(imageArgs, context);
+          
+        } else if (tool === 'veo3_video' || tool === 'sora_video' || tool === 'kling_text_to_video' || tool === 'create_video') {
+          // Video generation retry
+          const videoArgs = {
+            prompt: modifiedPrompt,
+            provider: provider || 'kling'
+          };
+          
+          console.log(`🎬 Retrying video generation with:`, videoArgs);
+          return await agentTools.create_video.execute(videoArgs, context);
+          
+        } else if (tool === 'gemini_chat' || tool === 'openai_chat' || tool === 'grok_chat') {
+          // Chat retry
+          const chatProvider = provider || (tool.includes('openai') ? 'openai' : tool.includes('grok') ? 'grok' : 'gemini');
+          
+          // For chat, we need to use the appropriate service directly
+          const { geminiService, openaiService, grokService } = getServices();
+          
+          let result;
+          if (chatProvider === 'openai') {
+            result = await openaiService.generateTextResponse(modifiedPrompt, []);
+          } else if (chatProvider === 'grok') {
+            result = await grokService.generateTextResponse(modifiedPrompt, []);
+          } else {
+            result = await geminiService.generateTextResponse(modifiedPrompt, []);
+          }
+          
+          return {
+            success: !result.error,
+            data: result.text || result.error,
+            error: result.error
+          };
+          
+        } else if (tool === 'text_to_speech') {
+          // TTS retry
+          return await agentTools.text_to_speech.execute({
+            text: modifiedPrompt,
+            target_language: originalArgs.target_language || originalArgs.language || 'he'
+          }, context);
+          
+        } else if (tool === 'music_generation' || tool === 'create_music') {
+          // Music retry
+          return await agentTools.create_music.execute({
+            prompt: modifiedPrompt
+          }, context);
+          
+        } else if (tool === 'create_poll') {
+          // Poll retry
+          return await agentTools.create_poll.execute({
+            topic: modifiedPrompt
+          }, context);
+          
+        } else {
+          // Generic retry - just return info about what was done
+          return {
+            success: true,
+            data: `הפקודה האחרונה הייתה: ${tool}\n\nלא יכול לחזור עליה אוטומטית, אבל אתה יכול לבקש אותה שוב ישירות.`,
+            lastTool: tool,
+            lastArgs: originalArgs
+          };
+        }
+        
+      } catch (error) {
+        console.error('❌ Error in retry_last_command:', error);
+        return {
+          success: false,
+          error: `שגיאה בביצוע חוזר: ${error.message}`
+        };
+      }
+    }
   }
 };
 
@@ -2118,11 +2301,12 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • לכתוב רשימות של מה אתה עושה
 • רק תשובה סופית בעברית!
 
-🛠️ הכלים שלך (26 כלים!):
+🛠️ הכלים שלך (28 כלים!):
 
 📚 מידע:
-• get_chat_history - היסטוריית שיחה
-• get_long_term_memory - העדפות משתמש
+• get_chat_history - היסטוריית שיחה (חובה לשאלות context!)
+• save_user_preference - שמור העדפות משתמש
+• get_long_term_memory - קרא העדפות משתמש
 • search_web - מידע מהאינטרנט
 • chat_summary - סיכום השיחה
 • translate_text - תרגום (22 שפות)
@@ -2160,10 +2344,31 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • smart_execute_with_fallback - fallback חכם
 • retry_with_different_provider - ניסיון חוזר
 
-💡 כללים:
+🔄 Retry:
+• retry_last_command - חזור על פקודה קודמת (עם אפשרות לשנות ספק)
+
+💡 כללים קריטיים:
+
+📜 **מתי לגשת להיסטוריה (חובה!):**
+• "מה אמרתי קודם" / "על מה דיברנו" → get_chat_history
+• "לפי התמונה שהעליתי" / "כמו בהודעה הקודמת" → get_chat_history
+• "בהמשך לשיחה" / "כפי שכתבתי" → get_chat_history
+• כל שאלה שדורשת context קודם → **תמיד** קרא get_chat_history תחילה!
+
+💾 **מתי לשמור העדפות:**
+• "תמיד צור עם X" / "אני מעדיף Y" → save_user_preference
+• "זכור ש..." / "בפעם הבאה" → save_user_preference
+• "אני לא אוהב X" / "אני אוהב Y" → save_user_preference
+
+🔁 **מתי להשתמש ב-retry:**
+• "נסה שוב" / "שוב" / "עוד פעם" → retry_last_command
+• "עם OpenAI" / "עם Gemini" → retry_last_command (עם provider_override)
+• "אבל עם X" / "תקן ל-Y" → retry_last_command (עם modifications)
+
+⚙️ **כללים כלליים:**
 • תשיב בעברית, טבעי ונעים
-• השתמש בכלים רק כשצריך
-• אם משהו נכשל - נסה smart_execute_with_fallback`;
+• אם משהו נכשל - נסה smart_execute_with_fallback
+• בשאלות מורכבות - פצל למספר שלבים קטנים`;
 
 
   // 🧠 Context for tool execution (load previous context if enabled)

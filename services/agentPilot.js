@@ -8,6 +8,7 @@
  */
 
 const { executeAgentQuery } = require('./agentService');
+const conversationManager = require('./conversationManager');
 
 /**
  * Route incoming request directly to Agent
@@ -24,12 +25,24 @@ async function routeToAgent(input, chatId) {
   // Build context for the agent
   let contextualPrompt = userText;
   
-  // Add media context if present
-  if (input.hasImage) {
+  // Add quoted message context if present (super important for retry/edit workflows!)
+  if (input.quotedContext) {
+    contextualPrompt = `[הודעה מצוטטת: ${input.quotedContext.type}]\n${input.quotedContext.text || ''}\n\n[בקשה נוכחית:]\n${userText}`;
+    
+    // If quoted message has media, note it
+    if (input.quotedContext.hasImage) {
+      contextualPrompt = `[הודעה מצוטטת: תמונה]\n${input.quotedContext.text || '(תמונה)'}\n\n[בקשה נוכחית:]\n${userText}`;
+    } else if (input.quotedContext.hasVideo) {
+      contextualPrompt = `[הודעה מצוטטת: וידאו]\n${input.quotedContext.text || '(וידאו)'}\n\n[בקשה נוכחית:]\n${userText}`;
+    }
+  }
+  
+  // Add current media context if present
+  if (input.hasImage && !input.quotedContext) {
     contextualPrompt = `[המשתמש שלח תמונה] ${userText}`;
-  } else if (input.hasVideo) {
+  } else if (input.hasVideo && !input.quotedContext) {
     contextualPrompt = `[המשתמש שלח וידאו] ${userText}`;
-  } else if (input.hasAudio) {
+  } else if (input.hasAudio && !input.quotedContext) {
     contextualPrompt = `[המשתמש שלח הקלטה קולית] ${userText}`;
   }
   
@@ -56,6 +69,21 @@ async function routeToAgent(input, chatId) {
     maxIterations: 5,
     input: input // Pass full input for agent tools to access
   });
+  
+  // Save the last successful command for retry functionality
+  if (agentResult.success && agentResult.toolsUsed && agentResult.toolsUsed.length > 0) {
+    // Save the primary tool that was used (usually the first one)
+    const primaryTool = agentResult.toolsUsed[0];
+    
+    await conversationManager.saveLastCommand(chatId, primaryTool, {
+      prompt: userText,
+      // Additional context can be added here
+    }, {
+      normalized: input
+    });
+    
+    console.log(`💾 [PILOT] Saved last command for retry: ${primaryTool}`);
+  }
   
   return agentResult;
 }
