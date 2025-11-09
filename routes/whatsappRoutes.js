@@ -5735,7 +5735,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     const geminiResult = await generateGeminiResponse(geminiPrompt, []);
     
     // Add user message to conversation AFTER getting Gemini response to avoid duplication
-    await conversationManager.addMessage(chatId, 'user', `הקלטה קולית: ${transcribedText}`);
+    await conversationManager.addMessage(chatId, 'user', `[הקלטה קולית] ${transcribedText}`);
     
     if (geminiResult.error) {
       console.error('❌ Gemini generation failed:', geminiResult.error);

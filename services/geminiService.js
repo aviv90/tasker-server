@@ -1431,7 +1431,7 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         // Build conversation contents for Gemini
         const contents = [];
 
-        // Build system prompt - OPTIMIZED for clarity and brevity
+        // Build system prompt - optimized but detailed for Google Search
         let systemPrompt = `אתה עוזר AI ידידותי. תן תשובות ישירות וטבעיות.
 
 כללי תשובה:
@@ -1439,15 +1439,28 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
 • אסור: "As an AI", "My thought process", "Let's break down", "translates to", "I should"
 • תמיד תשיב באותה שפה שבה המשתמש שואל`;
 
-        // Add Google Search specific instructions if enabled - SIMPLIFIED
+        // Add Google Search specific instructions - MUST BE DETAILED
         if (useGoogleSearch) {
             systemPrompt += `
 
-🔍 Google Search (חובה!):
-• חפש ב-Google Search לפני כל קישור - אסור להשתמש בזיכרון!
-• אם לא מצאת: "לא מצאתי קישור זמין" - אל תמציא קישורים!
-• דוגמה נכונה: חפש → מצא → שלח קישור אמיתי
-• דוגמה שגויה: שלח קישור מהזיכרון`;
+🔍 **כלי Google Search מופעל עבורך - חובה להשתמש בו!**
+
+**הוראות קריטיות:**
+1. ✅ יש לך גישה לכלי Google Search - **השתמש בו לכל בקשת קישור!**
+2. ❌ **אסור מוחלט** לענות מהזיכרון שלך (אימון 2023) - הקישורים ישנים ושבורים
+3. ❌ **אסור להמציא קישורים** - אם Google Search לא מצא, תגיד "לא מצאתי קישור זמין"
+4. ⚠️ הזיכרון שלך מ-2023 - קישורי YouTube/חדשות/אתרים כבר לא עובדים!
+
+**תהליך נכון (חובה!):**
+משתמש מבקש קישור → השתמש בכלי Google Search → העתק קישור מהתוצאות → שלח למשתמש
+
+**דוגמה למה שאסור:**
+❌ "אין לי אפשרות לשלוח קישורים" - **שקר! יש לך Google Search!**
+❌ "הנה קישור: youtube.com/watch?v=abc123" - **מומצא! חפש ב-Google Search!**
+
+**דוגמה נכונה:**
+✅ [משתמש ב-Google Search tool] → "הנה קישור מאתר ynet: [קישור אמיתי מהחיפוש]"
+✅ אם החיפוש לא הצליח: "לא מצאתי קישור זמין, נסה לחפש ב-Google בעצמך"`;
         }
 
         // Add system prompt as first user message (Gemini format)
@@ -1456,17 +1469,30 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
             parts: [{ text: systemPrompt }]
         });
         
-        // Add system prompt response - OPTIMIZED
+        // Add system prompt response
         let modelResponse = 'הבנתי. אשיב ישירות ללא תהליך חשיבה.';
         
         if (useGoogleSearch) {
-            modelResponse += ' לקישורים - אחפש רק ב-Google Search (לא מזיכרון).';
+            modelResponse += ' **כלי Google Search זמין לי ואני חייב להשתמש בו לכל בקשת קישור.** אסור לי לענות מהזיכרון (2023) או להמציא קישורים. אם החיפוש לא מצא תוצאות - אודיע "לא מצאתי קישור זמין".';
         }
         
         contents.push({
             role: 'model',
             parts: [{ text: modelResponse }]
         });
+        
+        // Add example of Google Search usage ONLY when Google Search is enabled
+        // This helps Gemini understand it MUST use the tool
+        if (useGoogleSearch) {
+            contents.push({
+                role: 'user',
+                parts: [{ text: 'שלח לי קישור למזג האוויר בתל אביב' }]
+            });
+            contents.push({
+                role: 'model',
+                parts: [{ text: '[משתמש בכלי Google Search לחיפוש "מזג אוויר תל אביב"]\n\nהנה קישור לתחזית מזג האוויר בתל אביב: https://www.ims.gov.il/he/cities/2423' }]
+            });
+        }
 
         // Normalize conversation history to an array to avoid undefined lengths
         if (!Array.isArray(conversationHistory)) {
@@ -1496,8 +1522,15 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         console.log(`🔮 Gemini processing (${Array.isArray(conversationHistory) ? conversationHistory.length : 0} context messages)`);
 
         // Build generation config
+        // Lower temperature for Google Search to get more deterministic/factual responses
         const generateConfig = {
-            contents
+            contents,
+            generationConfig: {
+                temperature: useGoogleSearch ? 0.3 : 0.7,
+                topP: 0.95,
+                topK: 40,
+                maxOutputTokens: 2048
+            }
         };
         
         // Add Google Search tool if requested
@@ -1505,7 +1538,8 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
             generateConfig.tools = [{
                 googleSearch: {}
             }];
-            console.log('🔍 Adding Google Search tool to Gemini API call');
+            console.log('🔍 Google Search tool added to config');
+            console.log('📋 Full config:', JSON.stringify(generateConfig.tools, null, 2));
         }
         
         // Generate response with history (and optionally Google Search)
@@ -1515,10 +1549,19 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         // Log if Google Search was actually used
         if (useGoogleSearch) {
             const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
+            const searchQueries = response.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent;
+            
             if (groundingMetadata) {
-                console.log('✅ Google Search was USED by Gemini:', JSON.stringify(groundingMetadata, null, 2));
+                console.log('✅ Google Search WAS USED by Gemini');
+                console.log('🔍 Grounding Metadata:', JSON.stringify(groundingMetadata, null, 2));
+                
+                if (searchQueries) {
+                    console.log('🔎 Search Queries:', searchQueries);
+                }
             } else {
-                console.warn('⚠️ Google Search was enabled but NOT used by Gemini (it may have answered from memory)');
+                console.warn('⚠️ WARNING: Google Search tool was enabled but Gemini did NOT use it!');
+                console.warn('   Gemini likely answered from its training data (2023) instead of searching.');
+                console.warn('   User may receive old/broken links.');
             }
         }
         

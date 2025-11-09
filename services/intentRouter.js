@@ -19,8 +19,8 @@ const EDIT_PATTERN = /\b(add|remove|delete|change|replace|modify|edit|make|creat
 // Analysis/question patterns (English + Hebrew)
 const ANALYSIS_PATTERN = /^(מה|איך|למה|האם|תאר|ספר|הסבר|זהה|בדוק|אמור|כמה|מתי|איפה|מי|אילו|האם.*זה|זה.*מה|יש.*ב|נמצא.*ב|רואים.*ב|מופיע.*ב|זיהוי|מסוכן|בטוח)|^\b(identify|explain|tell|is\s+(this|it|he|she|that)|are\s+(these|they|those)|does|can|could|would|should|what|how|why|when|where|who|which|describe|analyze|analysis|detect|recognize|find|show|list|count|safe|dangerous)\b/i;
 
-// Google Search patterns (English + Hebrew)
-const GOOGLE_SEARCH_PATTERN = /חפש\s+(באינטרנט|ברשת|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+לינק|שלח\s+לינק|לינקים\s+ל|links?\s+to|give\s+me\s+links?|send\s+(me\s+)?links?/i;
+// Google Search patterns (English + Hebrew) - EXPANDED for better detection
+const GOOGLE_SEARCH_PATTERN = /חפש\s+(באינטרנט|ברשת|בגוגל|ב-google)|עשה\s+חיפוש|תחפש\s+(באינטרנט|ברשת|בגוגל)|search\s+(the\s+)?(web|internet|online|google)|google\s+(search|this)|תן\s+לי\s+(לינק|קישור)|שלח\s+(לי\s+)?(לינק|קישור|לינקים|קישורים)|לינקים?\s+ל|קישורים?\s+ל|links?\s+to|give\s+me\s+(a\s+)?links?|send\s+(me\s+)?(a\s+)?links?|מצא\s+לי\s+(לינק|קישור)|find\s+(me\s+)?(a\s+)?link/i;
 
 // Video keywords (English + Hebrew with typos)
 const VIDEO_PATTERN = /\b(video|vidio|vedio|vidoe|animate|motion|clip)\b|וידאו|וידיאו|וודאו|ווידאו|וידיו|סרט|אנימציה|הנפש|להנפיש|תזיז|קליפ/i;
@@ -632,10 +632,11 @@ LOGIC:
 • hasVideo + edit → video_to_video
 • hasAudio + "mix" → creative_voice_processing
 • Text: poll/location/group/help/summary/retry/tts/music/image/video → specific tool
-• Default → gemini_chat (+ useGoogleSearch if "link"/"search")
+• Text: "link"/"search"/"חפש באינטרנט"/"שלח לינק"/"קישור ל" → gemini_chat with useGoogleSearch:true
+• Default → gemini_chat
 
 OUTPUT (JSON only):
-{"tool": "tool_name", "args": {"prompt": "text"}, "reason": "brief"}
+{"tool": "tool_name", "args": {"prompt": "text", "useGoogleSearch": true/false}, "reason": "brief"}
 
 TOOLS: gemini_chat, openai_chat, grok_chat, gemini_image, openai_image, grok_image, veo3_video, sora_video, kling_text_to_video, image_edit, video_to_video, text_to_speech, music_generation, chat_summary, create_poll, send_random_location, retry_last_command, agent_query, show_help`;
 }
