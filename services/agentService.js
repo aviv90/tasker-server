@@ -2532,7 +2532,8 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     generatedAssets: {
       images: [],
       videos: [],
-      audio: []
+      audio: [],
+      polls: []
     }
   };
   
@@ -2604,8 +2605,11 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       const latestAudioAsset = context.generatedAssets.audio && context.generatedAssets.audio.length > 0 
         ? context.generatedAssets.audio[context.generatedAssets.audio.length - 1]
         : null;
+      const latestPollAsset = context.generatedAssets.polls && context.generatedAssets.polls.length > 0 
+        ? context.generatedAssets.polls[context.generatedAssets.polls.length - 1]
+        : null;
       
-      console.log(`🔍 [Agent] Extracted assets - Image: ${latestImageAsset?.url}, Video: ${latestVideoAsset?.url}, Audio: ${latestAudioAsset?.url}`);
+      console.log(`🔍 [Agent] Extracted assets - Image: ${latestImageAsset?.url}, Video: ${latestVideoAsset?.url}, Audio: ${latestAudioAsset?.url}, Poll: ${latestPollAsset?.question}`);
       
       return {
         success: true,
@@ -2614,6 +2618,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         imageCaption: latestImageAsset?.caption || '',
         videoUrl: latestVideoAsset?.url || null,
         audioUrl: latestAudioAsset?.url || null,
+        poll: latestPollAsset || null,
         toolsUsed: Object.keys(context.previousToolResults),
         iterations: iterationCount
       };
@@ -2689,6 +2694,15 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           context.generatedAssets.audio.push({
             url: toolResult.audioUrl,
             prompt: toolArgs.prompt || toolArgs.text_to_speak || toolArgs.text,
+            timestamp: Date.now()
+          });
+        }
+        if (toolResult.poll) {
+          if (!context.generatedAssets.polls) context.generatedAssets.polls = [];
+          context.generatedAssets.polls.push({
+            question: toolResult.poll.question,
+            options: toolResult.poll.options,
+            topic: toolArgs.topic,
             timestamp: Date.now()
           });
         }

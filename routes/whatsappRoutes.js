@@ -1468,7 +1468,7 @@ async function handleIncomingMessage(webhookData) {
             const agentResult = await routeToAgent(normalized, chatId);
             
             if (agentResult.success) {
-              // Send any generated media (image/video/audio) with captions
+              // Send any generated media (image/video/audio/poll) with captions
               let mediaSent = false;
               
               if (agentResult.imageUrl) {
@@ -1516,6 +1516,14 @@ async function handleIncomingMessage(webhookData) {
                     await sendTextMessage(chatId, audioDescription);
                   }
                 }
+              }
+              
+              if (agentResult.poll) {
+                console.log(`📊 [Pilot Agent] Sending poll: ${agentResult.poll.question}`);
+                // Convert options to Green API format
+                const pollOptions = agentResult.poll.options.map(opt => ({ optionName: opt }));
+                await sendPoll(chatId, agentResult.poll.question, pollOptions, false);
+                mediaSent = true;
               }
               
               // If no media was sent, send text response (if exists)
@@ -3666,7 +3674,7 @@ async function handleOutgoingMessage(webhookData) {
             const agentResult = await routeToAgent(normalized, chatId);
             
             if (agentResult.success) {
-              // Send any generated media (image/video/audio) with captions
+              // Send any generated media (image/video/audio/poll) with captions
               let mediaSent = false;
               
               if (agentResult.imageUrl) {
@@ -3714,6 +3722,14 @@ async function handleOutgoingMessage(webhookData) {
                     await sendTextMessage(chatId, audioDescription);
                   }
                 }
+              }
+              
+              if (agentResult.poll) {
+                console.log(`📊 [Pilot Agent - Outgoing] Sending poll: ${agentResult.poll.question}`);
+                // Convert options to Green API format
+                const pollOptions = agentResult.poll.options.map(opt => ({ optionName: opt }));
+                await sendPoll(chatId, agentResult.poll.question, pollOptions, false);
+                mediaSent = true;
               }
               
               // If no media was sent, send text response (if exists)
