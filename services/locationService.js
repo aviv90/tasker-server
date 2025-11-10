@@ -362,13 +362,33 @@ async function extractRequestedRegion(prompt) {
         console.log(`✅ Found city/location bounds for "${locationName}"`);
         return {
           continentName: null,
-          displayName: locationName,
+          displayName: bounds.foundName || locationName,
           bounds,
-          isCity: true
+          isCity: (bounds.type || '').toLowerCase().includes('city')
         };
       }
     } catch (err) {
       console.warn(`⚠️ Error geocoding "${locationName}":`, err.message);
+    }
+  }
+
+  // Final fallback: try entire prompt (covers countries/regions not in static datasets)
+  if (prompt && prompt.trim()) {
+    const trimmedPrompt = prompt.trim();
+    console.log(`🌍 Final geocode attempt for prompt: "${trimmedPrompt}"`);
+    try {
+      const bounds = await getLocationBounds(trimmedPrompt);
+      if (bounds) {
+        console.log(`✅ Found bounds for prompt "${trimmedPrompt}" via geocode`);
+        return {
+          continentName: null,
+          displayName: bounds.foundName || trimmedPrompt,
+          bounds,
+          isCity: (bounds.type || '').toLowerCase().includes('city')
+        };
+      }
+    } catch (err) {
+      console.warn(`⚠️ Final geocode attempt failed for "${trimmedPrompt}":`, err.message);
     }
   }
 

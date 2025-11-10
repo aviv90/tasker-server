@@ -18,8 +18,14 @@ const formatProviderName = (provider) => {
     'gemini': 'Gemini',
     'openai': 'OpenAI',
     'grok': 'Grok',
-    'veo3': 'Veo3',
-    'sora': 'Sora',
+    'veo3': 'Veo 3',
+    'veo-3': 'Veo 3',
+    'veo': 'Veo 3',
+    'sora': 'Sora 2',
+    'sora-2': 'Sora 2',
+    'sora2': 'Sora 2',
+    'sora-pro': 'Sora 2 Pro',
+    'sora-2-pro': 'Sora 2 Pro',
     'kling': 'Kling',
     'runway': 'Runway',
     'suno': 'Suno'
@@ -552,6 +558,13 @@ const agentTools = {
       console.log(`🔧 [Agent Tool] create_image called`);
       
       try {
+        if (context?.expectedMediaType === 'video') {
+          return {
+            success: false,
+            error: 'התבקשת ליצור וידאו, לא תמונה. בחר ספק וידאו מתאים או נסה שוב.'
+          };
+        }
+
         const provider = args.provider || 'gemini';
         const { geminiService, openaiService, grokService } = getServices();
         
@@ -805,6 +818,9 @@ const agentTools = {
       
       try {
         const { geminiService, openaiService, grokService } = getServices();
+        if (args.task_type === 'video_creation') {
+          context.expectedMediaType = 'video';
+        }
         
         // Strategy 1: Try different provider
         console.log(`📊 Strategy 1: Trying different provider...`);
@@ -879,6 +895,9 @@ const agentTools = {
               }
               
               if (!result.error) {
+                if (args.task_type === 'video_creation') {
+                  context.expectedMediaType = null;
+                }
                 const providerLabel = videoProviderLabelMap[provider] || provider;
                 return {
                   success: true,
@@ -939,6 +958,9 @@ const agentTools = {
               result = await replicateService.generateVideoForWhatsApp(simplifiedPrompt, { model: 'kling' });
               
               if (!result.error) {
+                if (args.task_type === 'video_creation') {
+                  context.expectedMediaType = null;
+                }
                 return {
                   success: true,
                   data: `✅ הצלחתי ליצור וידאו עם פרומפט פשוט יותר! (אסטרטגיה: פישוט)`,
@@ -1012,6 +1034,9 @@ const agentTools = {
               result = await replicateService.generateVideoForWhatsApp(genericPrompt, { model: 'kling' });
               
               if (!result.error) {
+                if (args.task_type === 'video_creation') {
+                  context.expectedMediaType = null;
+                }
                 return {
                   success: true,
                   data: `✅ הצלחתי ליצור וידאו עם גרסה כללית יותר! (אסטרטגיה: הכללה)`,
@@ -1042,9 +1067,13 @@ const agentTools = {
         }
         
         // All strategies failed
+        const failureBase = `כל האסטרטגיות נכשלו:\n1. ספקים שונים ✗\n2. פישוט פרומפט ✗\n3. פרמטרים כלליים ✗`;
+        const additionalHint = args.task_type === 'video_creation'
+          ? '\n\nהבקשה המקורית דורשת וידאו, לא תמונה. נסה לנסח מחדש או לציין סגנון אחר לוידאו.'
+          : '\n\nאולי תנסה לנסח את הבקשה אחרת?';
         return {
           success: false,
-          error: `כל האסטרטגיות נכשלו:\n1. ספקים שונים ✗\n2. פישוט פרומפט ✗\n3. פרמטרים כלליים ✗\n\nאולי תנסה לנסח את הבקשה אחרת?`
+          error: `${failureBase}${additionalHint}`
         };
         
       } catch (error) {
@@ -1423,6 +1452,7 @@ const agentTools = {
         const { geminiService, openaiService } = getServices();
         const replicateService = require('./replicateService');
         const provider = args.provider || 'kling';
+        context.expectedMediaType = 'video';
         
         let result;
         if (provider === 'veo3') {
@@ -1441,12 +1471,14 @@ const agentTools = {
           };
         }
         
-        return {
+        const payload = {
           success: true,
           data: `✅ הוידאו נוצר בהצלחה עם ${formatProviderName(provider)}!`,
           videoUrl: result.videoUrl || result.url,
           provider: provider
         };
+        context.expectedMediaType = null;
+        return payload;
       } catch (error) {
         console.error('❌ Error in create_video:', error);
         return {
@@ -2853,6 +2885,11 @@ const TOOL_ACK_MESSAGES = {
 };
 
 const VIDEO_PROVIDER_FALLBACK_ORDER = ['grok', 'gemini', 'openai'];
+const VIDEO_PROVIDER_DISPLAY_MAP = {
+  grok: 'kling',
+  gemini: 'veo3',
+  openai: 'sora-2'
+};
 
 const normalizeProviderKey = (provider) => {
   if (!provider) return null;
@@ -2935,9 +2972,14 @@ async function sendToolAckMessage(chatId, functionCalls) {
       }
       
       let providerDisplayKey = providerRaw || provider;
-      if (!providerRaw && toolName === 'smart_execute_with_fallback' && call.args?.task_type === 'video_creation') {
-        const videoLabelMap = { gemini: 'veo3', openai: 'sora', grok: 'kling' };
-        providerDisplayKey = videoLabelMap[provider] || provider;
+      const isVideoTask = call.args?.task_type === 'video_creation' || toolName === 'create_video';
+      if (isVideoTask) {
+        const normalizedKey = normalizeProviderKey(providerDisplayKey);
+        if (normalizedKey && VIDEO_PROVIDER_DISPLAY_MAP[normalizedKey]) {
+          providerDisplayKey = VIDEO_PROVIDER_DISPLAY_MAP[normalizedKey];
+        } else if (!providerRaw && provider && VIDEO_PROVIDER_DISPLAY_MAP[provider]) {
+          providerDisplayKey = VIDEO_PROVIDER_DISPLAY_MAP[provider];
+        }
       }
       
       const providerName = providerDisplayKey ? formatProviderName(providerDisplayKey) : null;
@@ -3128,7 +3170,8 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     },
     lastCommand: options.lastCommand || null,
     originalInput: options.input || null,
-    suppressFinalResponse: false
+    suppressFinalResponse: false,
+    expectedMediaType: null
   };
   
   // Load previous context if context memory is enabled (from DB)
