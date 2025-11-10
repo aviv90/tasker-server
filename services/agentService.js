@@ -903,9 +903,9 @@ const agentTools = {
                 result = await openaiService.generateVideoWithSoraForWhatsApp(args.original_prompt, null, { model: 'sora-2' });
               } else if (provider === 'grok') {
                 // Fallback to Kling via Replicate
-                result = await replicateService.generateVideoForWhatsApp(args.original_prompt, { model: 'kling' });
+                result = await replicateService.generateVideoWithTextForWhatsApp(args.original_prompt);
               } else {
-                result = await replicateService.generateVideoForWhatsApp(args.original_prompt, { model: 'kling' });
+                result = await replicateService.generateVideoWithTextForWhatsApp(args.original_prompt);
               }
               
               if (!result.error) {
@@ -969,7 +969,7 @@ const agentTools = {
               }
             } else if (args.task_type === 'video_creation') {
               const replicateService = require('./replicateService');
-              result = await replicateService.generateVideoForWhatsApp(simplifiedPrompt, { model: 'kling' });
+              result = await replicateService.generateVideoWithTextForWhatsApp(simplifiedPrompt);
               
               if (!result.error) {
                 if (args.task_type === 'video_creation') {
@@ -1045,7 +1045,7 @@ const agentTools = {
               }
             } else if (args.task_type === 'video_creation') {
               const replicateService = require('./replicateService');
-              result = await replicateService.generateVideoForWhatsApp(genericPrompt, { model: 'kling' });
+              result = await replicateService.generateVideoWithTextForWhatsApp(genericPrompt);
               
               if (!result.error) {
                 if (args.task_type === 'video_creation') {
@@ -2004,20 +2004,26 @@ const agentTools = {
   send_location: {
     declaration: {
       name: 'send_location',
-      description: 'שלח מיקום אקראי מהעולם עם מידע על המקום.',
+      description: 'שלח מיקום אקראי מהעולם עם מידע על המקום. אפשר לציין אזור ספציפי (עיר, מדינה, יבשת).',
       parameters: {
         type: 'object',
-        properties: {},
+        properties: {
+          region: {
+            type: 'string',
+            description: 'אזור אופציונלי לבחירת מיקום (למשל: "תל אביב", "ניו יורק", "יפן", "אירופה", "אסיה", וכו\'). אם לא מצוין - מיקום אקראי מהעולם.'
+          }
+        },
         required: []
       }
     },
     execute: async (args, context) => {
-      console.log(`🔧 [Agent Tool] send_location called`);
+      console.log(`🔧 [Agent Tool] send_location called with region: ${args.region || 'none'}`);
       const { greenApiService } = getServices();
 
       try {
-        const userPrompt = context?.originalInput?.userText || context?.normalized?.text || '';
-        const requestedRegion = await locationService.extractRequestedRegion(userPrompt);
+        // Use region from args if provided, otherwise try to extract from user prompt
+        const regionToSearch = args.region || context?.originalInput?.userText || context?.normalized?.text || '';
+        const requestedRegion = await locationService.extractRequestedRegion(regionToSearch);
         const regionAckMessage = locationService.buildLocationAckMessage(requestedRegion);
 
         if (regionAckMessage && context?.chatId) {
@@ -3167,7 +3173,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 
 👥 WhatsApp:
 • create_poll - יצירת סקרים
-• send_location - מיקום אקראי
+• send_location - מיקום אקראי (תומך באזורים: ערים, מדינות, יבשות!)
 • create_group - יצירת קבוצות (מורשים בלבד)
 
 🎯 Meta-Tools:
@@ -3203,10 +3209,13 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • **translate_text מחזיר רק טקסט. translate_and_speak מחזיר אודיו.**
 • **אל תפצל translate_and_speak ל-translate_text + text_to_speech!** זה כלי אחד שעושה הכל.
 
-🔁 **מתי להשתמש ב-retry:**
+🔁 **מתי להשתמש ב-retry וב-fallback:**
 • "נסה שוב" / "שוב" / "עוד פעם" → retry_last_command
 • "עם OpenAI" / "עם Gemini" → retry_last_command (עם provider_override)
 • "אבל עם X" / "תקן ל-Y" → retry_last_command (עם modifications)
+• **אם create_video נכשל עם Kling** → retry_with_different_provider (task_type: 'video', avoid_provider: 'kling')
+• **אם create_image נכשל** → retry_with_different_provider או smart_execute_with_fallback
+• **סדר fallback לוידאו: Kling → Veo3 → Sora2** (אל תשתמש ב-Gemini לוידאו!)
 
 🧠 **פקודה אחרונה זמינה עבורך:**
 • בכל פנייה חדשה מוצגת "[פקודה קודמת]" עם הפרטים הקריטיים (פרומפט, תרגום, ספק, תוצאות).
