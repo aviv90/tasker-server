@@ -258,12 +258,51 @@ async function extractRequestedRegion(prompt) {
 
   if (countryBoundsData) {
     for (const countryKey of Object.keys(countryBoundsData)) {
-      const regex = new RegExp(`\b${countryKey}\b`, 'i');
-      if (regex.test(promptLower)) {
+      const countryInfo = countryBoundsData[countryKey];
+      if (!countryInfo || typeof countryInfo !== 'object') {
+        continue;
+      }
+
+      const escapedCountryKey = countryKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const countryPatterns = [
+        new RegExp(`(?:^|[\\s,\\.\\-\\(\\)\\[\\{])(${escapedCountryKey})(?=$|[\\s,\\.\\-\\)\\]\\}])`, 'i'),
+        new RegExp(`באזור\\s*(${escapedCountryKey})`, 'i'),
+        new RegExp(`ב-?(${escapedCountryKey})(?=$|[^\\p{L}\\p{N}])`, 'iu')
+      ];
+
+      let matchValue = null;
+      for (const pattern of countryPatterns) {
+        const match = pattern.exec(prompt);
+        if (match && match[1]) {
+          matchValue = match[1];
+          break;
+        }
+      }
+
+      if (!matchValue) {
+        continue;
+      }
+
+      const boundsSource = countryInfo.bounds && typeof countryInfo.bounds === 'object'
+        ? countryInfo.bounds
+        : countryInfo;
+
+      if (
+        typeof boundsSource.minLat === 'number' &&
+        typeof boundsSource.maxLat === 'number' &&
+        typeof boundsSource.minLng === 'number' &&
+        typeof boundsSource.maxLng === 'number'
+      ) {
+        const regionMeta = regionMap[countryKey] || regionMap[countryKey.toLowerCase()] || null;
         return {
-          continentName: regionMap[countryKey]?.continent || null,
-          displayName: countryBoundsData[countryKey].display || countryBoundsData[countryKey].name || countryKey,
-          bounds: countryBoundsData[countryKey].bounds || null,
+          continentName: (regionMeta && regionMeta.continent) || null,
+          displayName: matchValue || countryKey,
+          bounds: {
+            minLat: boundsSource.minLat,
+            maxLat: boundsSource.maxLat,
+            minLng: boundsSource.minLng,
+            maxLng: boundsSource.maxLng
+          },
           isCity: false
         };
       }

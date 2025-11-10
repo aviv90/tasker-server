@@ -1939,13 +1939,6 @@ const agentTools = {
           throw new Error('Invalid coordinates returned from location service');
         }
 
-        if (context?.chatId) {
-          await greenApiService.sendLocation(context.chatId, latitude, longitude, '', '');
-          if (locationResult.description) {
-            await greenApiService.sendTextMessage(context.chatId, `📍 ${locationResult.description}`);
-          }
-        }
-
         return {
           success: true,
           latitude,
