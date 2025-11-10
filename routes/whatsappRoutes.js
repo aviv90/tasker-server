@@ -1948,6 +1948,9 @@ async function handleOutgoingMessage(webhookData) {
             await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${agentError.message}`);
             return;
           }
+  } catch (error) {
+    console.error('❌ Error handling outgoing message:', error.message || error);
+  }
 }
 
 module.exports = router;
