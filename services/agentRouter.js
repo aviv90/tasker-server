@@ -1,10 +1,10 @@
 /**
- * Agent Pilot - Direct routing to Agent (bypassing intentRouter)
+ * Agent Router - Direct routing to Agent for intelligent tool selection
  * 
- * This is a pilot implementation that sends ALL requests directly to the Agent,
- * skipping both Regex heuristics and LLM Router prompt.
+ * All requests are sent directly to the Agent (Gemini Function Calling),
+ * which handles ALL intent detection and tool routing intelligently.
  * 
- * The Agent (via Gemini Functions API) will handle ALL intent detection and routing.
+ * This is the main routing mechanism - no regex or manual intent detection required.
  */
 
 const { executeAgentQuery } = require('./agentService');
@@ -110,7 +110,7 @@ function summarizeLastCommand(lastCommand) {
  * @returns {Promise<Object>} - Agent execution result
  */
 async function routeToAgent(input, chatId) {
-  console.log('🚀 [PILOT] Routing directly to Agent (bypassing intentRouter)');
+  console.log('🚀 [AGENT ROUTER] Routing to Agent for intelligent tool selection');
   
   // Extract the user's prompt/request
   const userText = input.userText || '';
@@ -141,11 +141,11 @@ async function routeToAgent(input, chatId) {
       
       if (formattedHistory) {
         conversationHistory = `\n\n[היסטוריית שיחה אחרונה]:\n${formattedHistory}\n`;
-        console.log(`🧠 [PILOT] Loaded ${recentHistory.length} recent messages for context`);
+        console.log(`🧠 [AGENT ROUTER] Loaded ${recentHistory.length} recent messages for context`);
       }
     }
   } catch (err) {
-    console.warn(`⚠️ [PILOT] Failed to load conversation history:`, err.message);
+    console.warn(`⚠️ [AGENT ROUTER] Failed to load conversation history:`, err.message);
     // Continue without history if it fails
   }
   
@@ -203,7 +203,7 @@ async function routeToAgent(input, chatId) {
     contextualPrompt += conversationHistory;
   }
   
-  console.log(`🤖 [PILOT] Sending to Agent: "${contextualPrompt.substring(0, 150)}..."`);
+  console.log(`🤖 [AGENT ROUTER] Sending to Agent: "${contextualPrompt.substring(0, 150)}..."`);
   
   // Execute agent query
   const agentResult = await executeAgentQuery(contextualPrompt, chatId, {
@@ -244,9 +244,9 @@ async function routeToAgent(input, chatId) {
         audioUrl: sanitizedResult?.audioUrl || agentResult.audioUrl || null
       });
       
-      console.log(`💾 [PILOT] Saved last command for retry: ${primaryTool}`);
+      console.log(`💾 [AGENT ROUTER] Saved last command for retry: ${primaryTool}`);
     } else {
-      console.log('ℹ️ [PILOT] No eligible tool call to save as last command');
+      console.log('ℹ️ [AGENT ROUTER] No eligible tool call to save as last command');
     }
   }
   
