@@ -1444,20 +1444,17 @@ async function handleIncomingMessage(webhookData) {
           senderData: { senderContactName, chatName, senderName, chatId, senderId }
         };
 
-        // ═══════════════════ PILOT: AGENT-ONLY MODE ═══════════════════
-        // If PILOT_AGENT_ONLY is enabled, bypass intentRouter and go straight to Agent
-        const PILOT_AGENT_ONLY = String(process.env.PILOT_AGENT_ONLY || 'false').toLowerCase() === 'true';
+        // ═══════════════════ AGENT MODE (Gemini Function Calling) ═══════════════════
+        // All requests are routed directly to the Agent for intelligent tool selection
+        console.log('🤖 [AGENT] Processing request with Gemini Function Calling');
         
-        if (PILOT_AGENT_ONLY) {
-          console.log('🚀 [PILOT MODE] Bypassing intentRouter, routing directly to Agent');
-          
-          const { routeToAgent } = require('../services/agentRouter');
-          
-          try {
+        const { routeToAgent } = require('../services/agentRouter');
+        
+        try {
             // 🧠 CRITICAL: Save user message to conversation history BEFORE processing
             // This ensures continuity and allows the bot to see the full conversation
             await conversationManager.addMessage(chatId, 'user', normalized.text || userText);
-            console.log(`💾 [Pilot Agent] Saved user message to conversation history`);
+            console.log(`💾 [Agent] Saved user message to conversation history`);
             
             const agentResult = await routeToAgent(normalized, chatId);
             
@@ -1466,7 +1463,7 @@ async function handleIncomingMessage(webhookData) {
               let mediaSent = false;
               
               if (agentResult.imageUrl) {
-                console.log(`📸 [Pilot Agent] Sending generated image: ${agentResult.imageUrl}`);
+                console.log(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}`);
                 // Images support captions - use them!
                 // Clean the caption: remove URLs, markdown links, and technical markers
                 let caption = agentResult.imageCaption || agentResult.text || '';
@@ -1489,7 +1486,7 @@ async function handleIncomingMessage(webhookData) {
               }
               
               if (agentResult.videoUrl) {
-                console.log(`🎬 [Pilot Agent] Sending generated video: ${agentResult.videoUrl}`);
+                console.log(`🎬 [Agent] Sending generated video: ${agentResult.videoUrl}`);
                 // Videos don't support captions well - send as file, text separately
                 await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '');
                 mediaSent = true;
@@ -1512,7 +1509,7 @@ async function handleIncomingMessage(webhookData) {
               }
               
               if (agentResult.audioUrl) {
-                console.log(`🎵 [Pilot Agent] Sending generated audio: ${agentResult.audioUrl}`);
+                console.log(`🎵 [Agent] Sending generated audio: ${agentResult.audioUrl}`);
                 // Audio doesn't support captions - send as file only
                 const fullAudioUrl = agentResult.audioUrl.startsWith('http') 
                   ? agentResult.audioUrl 
@@ -1525,7 +1522,7 @@ async function handleIncomingMessage(webhookData) {
               }
               
               if (agentResult.poll) {
-                console.log(`📊 [Pilot Agent] Sending poll: ${agentResult.poll.question}`);
+                console.log(`📊 [Agent] Sending poll: ${agentResult.poll.question}`);
                 // Convert options to Green API format
                 const pollOptions = agentResult.poll.options.map(opt => ({ optionName: opt }));
                 await sendPoll(chatId, agentResult.poll.question, pollOptions, false);
@@ -1533,7 +1530,7 @@ async function handleIncomingMessage(webhookData) {
               }
               
               if (agentResult.latitude && agentResult.longitude) {
-                console.log(`📍 [Pilot Agent] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
+                console.log(`📍 [Agent] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
                 await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '');
                 mediaSent = true;
                 // Send location info as separate text message
@@ -1562,21 +1559,21 @@ async function handleIncomingMessage(webhookData) {
               // This allows the bot to see its own previous responses in future requests
               if (agentResult.text && agentResult.text.trim()) {
                 await conversationManager.addMessage(chatId, 'assistant', agentResult.text);
-                console.log(`💾 [Pilot Agent] Saved bot response to conversation history`);
+                console.log(`💾 [Agent] Saved bot response to conversation history`);
               }
               
-              console.log(`✅ [Pilot Agent] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
+              console.log(`✅ [Agent] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
             } else {
               await sendTextMessage(chatId, `❌ שגיאה: ${agentResult.error || 'לא הצלחתי לעבד את הבקשה'}`);
             }
             return; // Exit early - no need for regular flow
             
           } catch (agentError) {
-            console.error('❌ [Pilot Agent] Error:', agentError);
+            console.error('❌ [Agent] Error:', agentError);
             await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${agentError.message}`);
             return;
           }
-        }
+        
         // ═══════════════════ REGULAR FLOW (intentRouter) ═══════════════════
         const decision = await routeIntent(normalized);
         // Router-based direct execution - call services directly
@@ -3512,20 +3509,17 @@ async function handleOutgoingMessage(webhookData) {
           }
         };
 
-        // ═══════════════════ PILOT: AGENT-ONLY MODE (OUTGOING) ═══════════════════
-        // If PILOT_AGENT_ONLY is enabled, bypass intentRouter and go straight to Agent
-        const PILOT_AGENT_ONLY = String(process.env.PILOT_AGENT_ONLY || 'false').toLowerCase() === 'true';
+        // ═══════════════════ AGENT MODE (Gemini Function Calling - OUTGOING) ═══════════════════
+        // All outgoing requests are routed directly to the Agent for intelligent tool selection
+        console.log('🤖 [AGENT - OUTGOING] Processing request with Gemini Function Calling');
         
-        if (PILOT_AGENT_ONLY) {
-          console.log('🚀 [PILOT MODE - OUTGOING] Bypassing intentRouter, routing directly to Agent');
-          
-          const { routeToAgent } = require('../services/agentRouter');
-          
-          try {
+        const { routeToAgent } = require('../services/agentRouter');
+        
+        try {
             // 🧠 CRITICAL: Save user message to conversation history BEFORE processing
             // This ensures continuity and allows the bot to see the full conversation
             await conversationManager.addMessage(chatId, 'user', normalized.text || finalPrompt);
-            console.log(`💾 [Pilot Agent - Outgoing] Saved user message to conversation history`);
+            console.log(`💾 [Agent - Outgoing] Saved user message to conversation history`);
             
             const agentResult = await routeToAgent(normalized, chatId);
             
@@ -3534,7 +3528,7 @@ async function handleOutgoingMessage(webhookData) {
               let mediaSent = false;
               
               if (agentResult.imageUrl) {
-                console.log(`📸 [Pilot Agent - Outgoing] Sending generated image: ${agentResult.imageUrl}`);
+                console.log(`📸 [Agent - Outgoing] Sending generated image: ${agentResult.imageUrl}`);
                 // Images support captions - use them!
                 // Clean the caption: remove URLs, markdown links, and technical markers
                 let caption = agentResult.imageCaption || agentResult.text || '';
@@ -3557,7 +3551,7 @@ async function handleOutgoingMessage(webhookData) {
               }
               
               if (agentResult.videoUrl) {
-                console.log(`🎬 [Pilot Agent - Outgoing] Sending generated video: ${agentResult.videoUrl}`);
+                console.log(`🎬 [Agent - Outgoing] Sending generated video: ${agentResult.videoUrl}`);
                 // Videos don't support captions well - send as file, text separately
                 await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '');
                 mediaSent = true;
@@ -3580,7 +3574,7 @@ async function handleOutgoingMessage(webhookData) {
               }
               
               if (agentResult.audioUrl) {
-                console.log(`🎵 [Pilot Agent - Outgoing] Sending generated audio: ${agentResult.audioUrl}`);
+                console.log(`🎵 [Agent - Outgoing] Sending generated audio: ${agentResult.audioUrl}`);
                 // Audio doesn't support captions - send as file only
                 const fullAudioUrl = agentResult.audioUrl.startsWith('http') 
                   ? agentResult.audioUrl 
@@ -3593,7 +3587,7 @@ async function handleOutgoingMessage(webhookData) {
               }
               
               if (agentResult.poll) {
-                console.log(`📊 [Pilot Agent - Outgoing] Sending poll: ${agentResult.poll.question}`);
+                console.log(`📊 [Agent - Outgoing] Sending poll: ${agentResult.poll.question}`);
                 // Convert options to Green API format
                 const pollOptions = agentResult.poll.options.map(opt => ({ optionName: opt }));
                 await sendPoll(chatId, agentResult.poll.question, pollOptions, false);
@@ -3601,7 +3595,7 @@ async function handleOutgoingMessage(webhookData) {
               }
               
               if (agentResult.latitude && agentResult.longitude) {
-                console.log(`📍 [Pilot Agent - Outgoing] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
+                console.log(`📍 [Agent - Outgoing] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
                 await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '');
                 mediaSent = true;
                 // Send location info as separate text message
@@ -3630,21 +3624,21 @@ async function handleOutgoingMessage(webhookData) {
               // This allows the bot to see its own previous responses in future requests
               if (agentResult.text && agentResult.text.trim()) {
                 await conversationManager.addMessage(chatId, 'assistant', agentResult.text);
-                console.log(`💾 [Pilot Agent - Outgoing] Saved bot response to conversation history`);
+                console.log(`💾 [Agent - Outgoing] Saved bot response to conversation history`);
               }
               
-              console.log(`✅ [Pilot Agent - Outgoing] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
+              console.log(`✅ [Agent - Outgoing] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
             } else {
               await sendTextMessage(chatId, `❌ שגיאה: ${agentResult.error || 'לא הצלחתי לעבד את הבקשה'}`);
             }
             return; // Exit early - no need for regular flow
             
           } catch (agentError) {
-            console.error('❌ [Pilot Agent - Outgoing] Error:', agentError);
+            console.error('❌ [Agent - Outgoing] Error:', agentError);
             await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${agentError.message}`);
             return;
           }
-        }
+        
         // ═══════════════════ REGULAR FLOW (intentRouter) ═══════════════════
         const decision = await routeIntent(normalized);
         const rawPrompt = decision.args?.prompt || finalPrompt;
