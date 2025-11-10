@@ -1465,8 +1465,21 @@ async function handleIncomingMessage(webhookData) {
               if (agentResult.imageUrl) {
                 console.log(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}`);
                 // Images support captions - use them!
+                // CRITICAL: If multiple tools were used, don't mix outputs!
+                // Only use imageCaption (specific) or text if it's the ONLY output
+                const multipleTools = (agentResult.toolsUsed && agentResult.toolsUsed.length > 1);
+                let caption = '';
+                
+                if (multipleTools) {
+                  // Multiple tools → use ONLY imageCaption (specific to this image)
+                  caption = agentResult.imageCaption || '';
+                  console.log(`ℹ️ Multiple tools detected - using imageCaption only to avoid mixing outputs`);
+                } else {
+                  // Single tool → can use general text as fallback
+                  caption = agentResult.imageCaption || agentResult.text || '';
+                }
+                
                 // Clean the caption: remove URLs, markdown links, and technical markers
-                let caption = agentResult.imageCaption || agentResult.text || '';
                 caption = caption
                   .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
                   .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
@@ -1540,18 +1553,26 @@ async function handleIncomingMessage(webhookData) {
               }
               
               // If no media was sent, send text response (if exists)
+              // BUT: If multiple tools were used, only send text if it's specifically needed
+              // (to avoid sending mixed output descriptions)
               if (!mediaSent && agentResult.text && agentResult.text.trim()) {
-                // Clean technical markers from text responses too
-                let cleanText = agentResult.text
-                  .replace(/\[image\]/gi, '')
-                  .replace(/\[video\]/gi, '')
-                  .replace(/\[audio\]/gi, '')
-                  .replace(/\[תמונה\]/gi, '')
-                  .replace(/\[וידאו\]/gi, '')
-                  .replace(/\[אודיו\]/gi, '')
-                  .trim();
-                if (cleanText) {
-                  await sendTextMessage(chatId, cleanText);
+                const multipleTools = (agentResult.toolsUsed && agentResult.toolsUsed.length > 1);
+                
+                if (!multipleTools) {
+                  // Single tool → safe to send text
+                  let cleanText = agentResult.text
+                    .replace(/\[image\]/gi, '')
+                    .replace(/\[video\]/gi, '')
+                    .replace(/\[audio\]/gi, '')
+                    .replace(/\[תמונה\]/gi, '')
+                    .replace(/\[וידאו\]/gi, '')
+                    .replace(/\[אודיו\]/gi, '')
+                    .trim();
+                  if (cleanText) {
+                    await sendTextMessage(chatId, cleanText);
+                  }
+                } else {
+                  console.log(`ℹ️ Multiple tools detected - skipping general text to avoid mixing outputs`);
                 }
               }
               
@@ -1842,8 +1863,21 @@ async function handleOutgoingMessage(webhookData) {
               if (agentResult.imageUrl) {
                 console.log(`📸 [Agent - Outgoing] Sending generated image: ${agentResult.imageUrl}`);
                 // Images support captions - use them!
+                // CRITICAL: If multiple tools were used, don't mix outputs!
+                // Only use imageCaption (specific) or text if it's the ONLY output
+                const multipleTools = (agentResult.toolsUsed && agentResult.toolsUsed.length > 1);
+                let caption = '';
+                
+                if (multipleTools) {
+                  // Multiple tools → use ONLY imageCaption (specific to this image)
+                  caption = agentResult.imageCaption || '';
+                  console.log(`ℹ️ Multiple tools detected - using imageCaption only to avoid mixing outputs`);
+                } else {
+                  // Single tool → can use general text as fallback
+                  caption = agentResult.imageCaption || agentResult.text || '';
+                }
+                
                 // Clean the caption: remove URLs, markdown links, and technical markers
-                let caption = agentResult.imageCaption || agentResult.text || '';
                 caption = caption
                   .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
                   .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
@@ -1917,18 +1951,26 @@ async function handleOutgoingMessage(webhookData) {
               }
               
               // If no media was sent, send text response (if exists)
+              // BUT: If multiple tools were used, only send text if it's specifically needed
+              // (to avoid sending mixed output descriptions)
               if (!mediaSent && agentResult.text && agentResult.text.trim()) {
-                // Clean technical markers from text responses too
-                let cleanText = agentResult.text
-                  .replace(/\[image\]/gi, '')
-                  .replace(/\[video\]/gi, '')
-                  .replace(/\[audio\]/gi, '')
-                  .replace(/\[תמונה\]/gi, '')
-                  .replace(/\[וידאו\]/gi, '')
-                  .replace(/\[אודיו\]/gi, '')
-                  .trim();
-                if (cleanText) {
-                  await sendTextMessage(chatId, cleanText);
+                const multipleTools = (agentResult.toolsUsed && agentResult.toolsUsed.length > 1);
+                
+                if (!multipleTools) {
+                  // Single tool → safe to send text
+                  let cleanText = agentResult.text
+                    .replace(/\[image\]/gi, '')
+                    .replace(/\[video\]/gi, '')
+                    .replace(/\[audio\]/gi, '')
+                    .replace(/\[תמונה\]/gi, '')
+                    .replace(/\[וידאו\]/gi, '')
+                    .replace(/\[אודיו\]/gi, '')
+                    .trim();
+                  if (cleanText) {
+                    await sendTextMessage(chatId, cleanText);
+                  }
+                } else {
+                  console.log(`ℹ️ Multiple tools detected - skipping general text to avoid mixing outputs`);
                 }
               }
               
