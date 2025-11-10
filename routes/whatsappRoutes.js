@@ -1453,7 +1453,7 @@ async function handleIncomingMessage(webhookData) {
             voice_allowed: null
           },
           // Pass sender data for lazy authorization checks
-          senderData: { senderContactName, chatName, senderName, chatId }
+          senderData: { senderContactName, chatName, senderName, chatId, senderId }
         };
 
         // ═══════════════════ PILOT: AGENT-ONLY MODE ═══════════════════
@@ -1678,7 +1678,7 @@ async function handleIncomingMessage(webhookData) {
                       group_creation: null,
                       voice_allowed: null
                     },
-                    senderData: { senderContactName, chatName, senderName, chatId }
+                  senderData: { senderContactName, chatName, senderName, chatId, senderId }
                   };
                   
                   console.log(`🔄 [Retry] Routing with merged prompt | Image:${retryNormalized.hasImage} Video:${retryNormalized.hasVideo}`);
@@ -3120,7 +3120,7 @@ async function handleIncomingMessage(webhookData) {
               voice_allowed: false
             },
             // Pass sender data for lazy authorization checks
-            senderData: { senderContactName, chatName, senderName, chatId }
+            senderData: { senderContactName, chatName, senderName, chatId, senderId }
           };
 
           const decision = await routeIntent(normalized);
@@ -3233,7 +3233,7 @@ async function handleIncomingMessage(webhookData) {
               voice_allowed: false
             },
             // Pass sender data for lazy authorization checks
-            senderData: { senderContactName, chatName, senderName, chatId }
+            senderData: { senderContactName, chatName, senderName, chatId, senderId }
           };
 
           const decision = await routeIntent(normalized);
@@ -3349,7 +3349,7 @@ async function handleIncomingMessage(webhookData) {
               hasAudio: false,
               chatType: 'private',
               language: null,
-              senderData: { senderContactName, chatName, senderName, chatId },
+              senderData: { senderContactName, chatName, senderName, chatId, senderId },
               authorizations: {
                 media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
                 voice_allowed: true

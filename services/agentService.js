@@ -852,7 +852,7 @@ const agentTools = {
                 return {
                   success: true,
                   data: `✅ הצלחתי ליצור וידאו עם ${formatProviderName(provider === 'openai' ? 'sora' : 'kling')}! (אסטרטגיה: מודל חלופי)`,
-                  videoUrl: result.url,
+                  videoUrl: result.videoUrl || result.url,
                   strategy_used: 'different_provider',
                   provider: provider
                 };
@@ -911,7 +911,7 @@ const agentTools = {
                 return {
                   success: true,
                   data: `✅ הצלחתי ליצור וידאו עם פרומפט פשוט יותר! (אסטרטגיה: פישוט)`,
-                  videoUrl: result.url,
+                  videoUrl: result.videoUrl || result.url,
                   strategy_used: 'simplified_prompt',
                   original_prompt: args.original_prompt,
                   simplified_prompt: simplifiedPrompt
@@ -984,7 +984,7 @@ const agentTools = {
                 return {
                   success: true,
                   data: `✅ הצלחתי ליצור וידאו עם גרסה כללית יותר! (אסטרטגיה: הכללה)`,
-                  videoUrl: result.url,
+                  videoUrl: result.videoUrl || result.url,
                   strategy_used: 'generic_prompt',
                   original_prompt: args.original_prompt,
                   generic_prompt: genericPrompt
@@ -1479,7 +1479,7 @@ const agentTools = {
         return {
           success: true,
           data: `✅ התמונה הומרה לוידאו בהצלחה עם ${formatProviderName(provider)}!`,
-          videoUrl: result.url,
+          videoUrl: result.videoUrl || result.url,
           provider: provider
         };
       } catch (error) {
@@ -1553,6 +1553,10 @@ const agentTools = {
           prompt: {
             type: 'string',
             description: 'תיאור השיר, סגנון, נושא, או מילים'
+          },
+          make_video: {
+            type: 'boolean',
+            description: 'האם ליצור גם וידאו/קליפ לשיר (אם המשתמש ביקש)'
           }
         },
         required: ['prompt']
@@ -1563,8 +1567,40 @@ const agentTools = {
       
       try {
         const { generateMusicWithLyrics } = require('./musicService');
+        const { parseMusicRequest } = require('./geminiService');
+        const { sendTextMessage } = require('./greenApiService');
         
-        const result = await generateMusicWithLyrics(args.prompt);
+        const originalUserText = context.originalInput?.userText || args.prompt;
+        const cleanedOriginal = originalUserText ? String(originalUserText).replace(/^#\s*/, '').trim() : args.prompt;
+        
+        let cleanPrompt = args.prompt;
+        let wantsVideo = Boolean(args.make_video);
+        
+        try {
+          const parsingResult = await parseMusicRequest(cleanedOriginal || args.prompt);
+          if (parsingResult?.cleanPrompt) {
+            cleanPrompt = parsingResult.cleanPrompt.trim() || cleanPrompt;
+          }
+          if (parsingResult?.wantsVideo) {
+            wantsVideo = true;
+          }
+        } catch (parseError) {
+          console.warn('⚠️ create_music: Failed to parse music request for video detection:', parseError.message);
+        }
+        
+        const senderData = context.originalInput?.senderData || {};
+        const whatsappContext = context.chatId ? {
+          chatId: context.chatId,
+          senderId: senderData.senderId || senderData.sender || null,
+          senderName: senderData.senderName || senderData.senderContactName || '',
+          senderContactName: senderData.senderContactName || '',
+          chatName: senderData.chatName || ''
+        } : null;
+        
+        const result = await generateMusicWithLyrics(cleanPrompt, {
+          whatsappContext,
+          makeVideo: wantsVideo
+        });
         
         if (result.error) {
           return {
@@ -1573,10 +1609,28 @@ const agentTools = {
           };
         }
         
+        if (result.message && whatsappContext?.chatId) {
+          try {
+            await sendTextMessage(whatsappContext.chatId, result.message);
+          } catch (sendErr) {
+            console.warn('⚠️ Failed to send music status message:', sendErr.message);
+          }
+        }
+        
+        if (result.status === 'pending') {
+          return {
+            success: true,
+            data: result.message || '🎵 יצירת השיר בעיצומה! אשלח אותו מיד כשהוא יהיה מוכן.',
+            status: 'pending',
+            taskId: result.taskId || null,
+            makeVideo: wantsVideo
+          };
+        }
+        
         return {
           success: true,
           data: `✅ השיר נוצר בהצלחה!`,
-          audioUrl: result.url,
+          audioUrl: result.result || result.url,
           lyrics: result.lyrics
         };
       } catch (error) {
@@ -2371,38 +2425,126 @@ const agentTools = {
       console.log(`🔧 [Agent Tool] create_group called`);
       
       try {
-        const { geminiService } = getServices();
-        const groupService = require('./groupService');
+        const chatId = context.chatId;
+        if (!chatId) {
+          return {
+            success: false,
+            error: 'לא נמצא chatId עבור יצירת הקבוצה'
+          };
+        }
         
-        // Check authorization - this should be handled by the bot's authorization system
-        // but we add a note here for clarity
-        console.log(`📋 Creating group: ${args.group_name}`);
+        const senderData = context.originalInput?.senderData || {};
+        const senderId = senderData.senderId || senderData.sender;
+        const senderName = senderData.senderName || senderData.senderContactName || senderId || 'המשתמש';
         
-        // Generate creative group description if participants_description provided
-        let groupDetails = {
-          name: args.group_name
-        };
+        const { parseGroupCreationPrompt, resolveParticipants } = require('./groupService');
+        const { createGroup, setGroupPicture, sendTextMessage } = require('./greenApiService');
+        const { generateImageForWhatsApp } = require('./geminiService');
+        const fs = require('fs');
+        const path = require('path');
         
-        if (args.participants_description) {
-          // Use Gemini to create a nice group description
-          const descPrompt = `צור תיאור קצר ונחמד לקבוצת WhatsApp בשם "${args.group_name}" עבור: ${args.participants_description}. החזר רק את התיאור, בלי הסברים נוספים.`;
-          const descResult = await geminiService.generateTextResponse(descPrompt, []);
+        // Use the original user request to extract group details (falls back to args.group_name)
+        const rawPrompt = (context.originalInput?.userText || args.group_name || '').replace(/^#\s*/, '').trim();
+        const promptForParsing = rawPrompt || args.participants_description || args.group_name;
+        
+        console.log(`📋 Parsing group creation request from: "${promptForParsing}"`);
+        
+        await sendTextMessage(chatId, '👥 מתחיל יצירת קבוצה...');
+        await sendTextMessage(chatId, '🔍 מנתח את הבקשה...');
+        
+        const parsed = await parseGroupCreationPrompt(promptForParsing);
+        
+        let statusMsg = `📋 שם הקבוצה: "${parsed.groupName}"\n👥 מחפש ${parsed.participants.length} משתתפים...`;
+        if (parsed.groupPicture) {
+          statusMsg += `\n🎨 תמונה: ${parsed.groupPicture}`;
+        }
+        await sendTextMessage(chatId, statusMsg);
+        
+        const resolution = await resolveParticipants(parsed.participants);
+        
+        if (resolution.notFound.length > 0) {
+          let errorMsg = `⚠️ לא מצאתי את המשתתפים הבאים:\n`;
+          resolution.notFound.forEach(name => {
+            errorMsg += `• ${name}\n`;
+          });
+          errorMsg += `\n💡 טיפ: וודא שהשמות נכונים או הרץ "עדכן אנשי קשר" לסנכרון אנשי קשר`;
           
-          if (!descResult.error && descResult.text) {
-            groupDetails.description = descResult.text;
+          if (resolution.resolved.length === 0) {
+            await sendTextMessage(chatId, errorMsg + '\n\n❌ לא נמצאו משתתפים - ביטול יצירת קבוצה');
+            return {
+              success: false,
+              error: 'לא נמצאו משתתפים תואמים ליצירת הקבוצה'
+            };
+          }
+          
+          await sendTextMessage(chatId, errorMsg);
+        }
+        
+        if (resolution.resolved.length > 0) {
+          let foundMsg = `✅ נמצאו ${resolution.resolved.length} משתתפים:\n`;
+          resolution.resolved.forEach(p => {
+            foundMsg += `• ${p.searchName} → ${p.contactName}\n`;
+          });
+          await sendTextMessage(chatId, foundMsg);
+        }
+        
+        await sendTextMessage(chatId, '🔨 יוצר את הקבוצה...');
+        
+        const participantIds = resolution.resolved
+          .map(p => p.contactId)
+          .filter(id => id && id !== senderId);
+        
+        if (participantIds.length === 0) {
+          await sendTextMessage(chatId, '⚠️ לא נמצאו משתתפים נוספים (חוץ ממך). צריך לפחות משתתף אחד נוסף ליצירת קבוצה.');
+          return {
+            success: false,
+            error: 'לא נמצאו משתתפים נוספים ליצירת הקבוצה'
+          };
+        }
+        
+        const groupResult = await createGroup(parsed.groupName, participantIds);
+        await sendTextMessage(chatId, `✅ הקבוצה "${parsed.groupName}" נוצרה בהצלחה!`);
+        
+        if (parsed.groupPicture && groupResult.chatId) {
+          try {
+            await sendTextMessage(chatId, `🎨 יוצר תמונת פרופיל לקבוצה...\n"${parsed.groupPicture}"`);
+            
+            const imageResult = await generateImageForWhatsApp(parsed.groupPicture);
+            
+            if (imageResult.success && imageResult.fileName) {
+              const imagePath = path.join(__dirname, '..', 'public', 'tmp', imageResult.fileName);
+              
+              if (fs.existsSync(imagePath)) {
+                const imageBuffer = fs.readFileSync(imagePath);
+                await sendTextMessage(chatId, '🖼️ מעלה תמונה לקבוצה...');
+                await setGroupPicture(groupResult.chatId, imageBuffer);
+                await sendTextMessage(chatId, '✅ תמונת הקבוצה עודכנה בהצלחה!');
+              } else {
+                console.warn(`⚠️ Generated group image not found at ${imagePath}`);
+              }
+            } else if (imageResult.error) {
+              await sendTextMessage(chatId, `⚠️ הקבוצה נוצרה, אבל הייתה בעיה ביצירת התמונה: ${imageResult.error}`);
+            }
+          } catch (pictureError) {
+            console.error('❌ Failed to set group picture:', pictureError);
+            await sendTextMessage(chatId, `⚠️ הקבוצה נוצרה, אבל לא הצלחתי להעלות תמונה: ${pictureError.message}`);
           }
         }
         
-        // Note: The actual group creation with participants would need to be handled
-        // by the bot's routing system which has access to the chat context and authorizations
-        // Here we just prepare the group metadata
+        const summaryLines = [
+          `✅ הקבוצה "${parsed.groupName}" מוכנה!`,
+          `👤 יוצר: ${senderName}`,
+          `👥 משתתפים: ${resolution.resolved.length}`,
+          groupResult.chatId ? `🆔 מזהה קבוצה: ${groupResult.chatId}` : null,
+          groupResult.groupInviteLink ? `🔗 לינק הזמנה: ${groupResult.groupInviteLink}` : null
+        ].filter(Boolean);
         
         return {
           success: true,
-          data: `✅ קבוצה "${args.group_name}" מוכנה ליצירה!${groupDetails.description ? `\n\n📝 ${groupDetails.description}` : ''}`,
-          groupName: args.group_name,
-          groupDescription: groupDetails.description,
-          note: 'יצירת הקבוצה תושלם על ידי הבוט עם המשתתפים המתאימים'
+          data: summaryLines.join('\n'),
+          groupId: groupResult.chatId || null,
+          groupInviteLink: groupResult.groupInviteLink || null,
+          participantsAdded: resolution.resolved.length
         };
       } catch (error) {
         console.error('❌ Error in create_group:', error);
