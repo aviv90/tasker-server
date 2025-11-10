@@ -43,6 +43,7 @@ async function extractRequestedRegion(prompt) {
 
   const promptLower = prompt.toLowerCase();
   console.log(`🔍 extractRequestedRegion called with: "${prompt}"`);
+  console.log(`📍 Prompt lowercase: "${promptLower}"`);
 
   const cityKeywords = {
     'תל אביב': true, 'tel aviv': true, 'תל-אביב': true,
@@ -105,12 +106,14 @@ async function extractRequestedRegion(prompt) {
 
   let detectedCity = null;
   for (const cityName in cityKeywords) {
-    const escapedCityName = cityName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const cityNameLower = cityName.toLowerCase();
+    const escapedCityName = cityNameLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const cityPatterns = [
       new RegExp(`\\b${escapedCityName}\\b`, 'i'),
       new RegExp(`ב-?${escapedCityName}(?:[^א-תa-z]|$)`, 'i'),
       new RegExp(`באזור\\s*${escapedCityName}`, 'i'),
-      new RegExp(`in\\s+${escapedCityName}`, 'i')
+      new RegExp(`in\\s+${escapedCityName}`, 'i'),
+      new RegExp(`${escapedCityName}`, 'i') // Fallback: just match the city name anywhere
     ];
 
     if (cityPatterns.some(pattern => pattern.test(promptLower))) {

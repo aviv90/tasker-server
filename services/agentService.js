@@ -2004,13 +2004,13 @@ const agentTools = {
   send_location: {
     declaration: {
       name: 'send_location',
-      description: 'שלח מיקום אקראי מהעולם עם מידע על המקום. תומך באזורים ספציפיים: ערים (תל אביב, ניו יורק), מדינות (ישראל, יפן), יבשות (אירופה, אסיה).',
+      description: 'שלח מיקום אקראי. תומך ב-100+ ערים/מדינות/יבשות!',
       parameters: {
         type: 'object',
         properties: {
           region: {
             type: 'string',
-            description: 'שם האזור לשליחת מיקום (חובה לחלץ מהבקשה!). דוגמאות: "תל אביב" אם נאמר "באזור תל אביב", "יפן" אם נאמר "ביפן", "אירופה" אם נאמר "באירופה". אם לא צוין אזור בבקשה - השאר ריק למיקום אקראי גלובלי.'
+            description: 'אזור לשליחת מיקום - חובה לציין אם המשתמש ביקש אזור ספציפי! דוגמאות: "שלח מיקום באזור תל אביב" → region="תל אביב" | "מיקום ביפן" → region="יפן" | "מיקום באירופה" → region="אירופה" | "מיקום אקראי" → אל תציין region (ריק)'
           }
         },
         required: []
@@ -2021,8 +2021,14 @@ const agentTools = {
       const { greenApiService } = getServices();
 
       try {
-        // Use region from args if provided, otherwise try to extract from user prompt
-        const regionToSearch = args.region || context?.originalInput?.userText || context?.normalized?.text || '';
+        // Build a comprehensive search string from all available sources
+        const userText = context?.originalInput?.userText || context?.normalized?.text || '';
+        const regionParam = args.region || '';
+        
+        // Combine region parameter with user text for better matching
+        const regionToSearch = regionParam ? regionParam : userText;
+        
+        console.log(`📍 [Location] Searching for region: "${regionToSearch}"`);
         const requestedRegion = await locationService.extractRequestedRegion(regionToSearch);
         const regionAckMessage = locationService.buildLocationAckMessage(requestedRegion);
 
@@ -3176,7 +3182,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 
 👥 WhatsApp:
 • create_poll - יצירת סקרים
-• send_location - מיקום אקראי (תומך באזורים: ערים, מדינות, יבשות!)
+• send_location - מיקום אקראי (חובה לציין region אם יש אזור בבקשה!)
 • create_group - יצירת קבוצות (מורשים בלבד)
 
 🎯 Meta-Tools:
@@ -3226,16 +3232,23 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • בקשות כמו "תגיד את זה בקול", "ועכשיו בקול", "תשמיע לי" → נצל את המידע הקודם והפעל translate_and_speak או text_to_speech בהתאם.
 • אל תשמור retry_last_command כפקודה האחרונה – הפקודה המקורית נשמרת אוטומטית.
 
-🎯 **בחירת ספק (CRITICAL!):**
+🎯 **בחירת ספק וניתוב (CRITICAL!):**
 • **תמיד** ציין provider כשקורא ל-create_image/create_video/edit_image/edit_video!
 • אם המשתמש לא ציין ספק - תבחר בעצמך:
   - תמונות: provider='gemini' (ברירת מחדל)
   - וידאו: provider='kling' (ברירת מחדל)
   - עריכת תמונות: provider='openai' (ברירת מחדל)
+• **מיקומים (send_location) - CRITICAL:**
+  - "מיקום באזור תל אביב" → send_location({region: "תל אביב"})
+  - "מיקום ביפן" → send_location({region: "יפן"})
+  - "מיקום אקראי" → send_location({})
+  - **חובה לחלץ את שם האזור מהבקשה!**
 • דוגמאות:
   ✅ create_image({prompt: "חתול", provider: "gemini"})
   ✅ create_video({prompt: "נחשול", provider: "kling"})
+  ✅ send_location({region: "תל אביב"})
   ❌ create_image({prompt: "חתול"}) ← חסר provider!
+  ❌ send_location({}) כש"באזור תל אביב" בבקשה ← חסר region!
 
 ⚙️ **כללים כלליים:**
 • תשיב בעברית, טבעי ונעים

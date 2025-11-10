@@ -185,6 +185,19 @@ class ConversationManager {
         )
       `);
 
+      // Add metadata column if it doesn't exist (for existing databases)
+      await client.query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='conversations' AND column_name='metadata'
+          ) THEN
+            ALTER TABLE conversations ADD COLUMN metadata JSONB DEFAULT '{}'::jsonb;
+          END IF;
+        END $$;
+      `);
+
       // Create indexes for better performance
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_conversations_chat_id 
