@@ -839,22 +839,32 @@ const agentTools = {
             } else if (args.task_type === 'video_creation') {
               // Video generation with different providers
               const replicateService = require('./replicateService');
+              const videoProviderLabelMap = {
+                gemini: 'veo3',
+                openai: 'sora',
+                grok: 'kling'
+              };
               
-              if (provider === 'openai') {
+              if (provider === 'gemini') {
+                result = await geminiService.generateVideoForWhatsApp(args.original_prompt);
+              } else if (provider === 'openai') {
                 // Try Sora (OpenAI)
                 result = await openaiService.generateVideoForWhatsApp(args.original_prompt, { model: 'sora-2' });
+              } else if (provider === 'grok') {
+                // Fallback to Kling via Replicate
+                result = await replicateService.generateVideoForWhatsApp(args.original_prompt, { model: 'kling' });
               } else {
-                // Try Kling (default for Gemini/others)
                 result = await replicateService.generateVideoForWhatsApp(args.original_prompt, { model: 'kling' });
               }
               
               if (!result.error) {
+                const providerLabel = videoProviderLabelMap[provider] || provider;
                 return {
                   success: true,
-                  data: `✅ הצלחתי ליצור וידאו עם ${formatProviderName(provider === 'openai' ? 'sora' : 'kling')}! (אסטרטגיה: מודל חלופי)`,
+                  data: `✅ הצלחתי ליצור וידאו עם ${formatProviderName(providerLabel)}! (אסטרטגיה: מודל חלופי)`,
                   videoUrl: result.videoUrl || result.url,
                   strategy_used: 'different_provider',
-                  provider: provider
+                  provider: providerLabel
                 };
               }
             } else if (args.task_type === 'audio_creation') {
@@ -1568,7 +1578,6 @@ const agentTools = {
       try {
         const { generateMusicWithLyrics } = require('./musicService');
         const { parseMusicRequest } = require('./geminiService');
-        const { sendTextMessage } = require('./greenApiService');
         
         const originalUserText = context.originalInput?.userText || args.prompt;
         const cleanedOriginal = originalUserText ? String(originalUserText).replace(/^#\s*/, '').trim() : args.prompt;
@@ -1607,14 +1616,6 @@ const agentTools = {
             success: false,
             error: `יצירת מוזיקה נכשלה: ${result.error}`
           };
-        }
-        
-        if (result.message && whatsappContext?.chatId) {
-          try {
-            await sendTextMessage(whatsappContext.chatId, result.message);
-          } catch (sendErr) {
-            console.warn('⚠️ Failed to send music status message:', sendErr.message);
-          }
         }
         
         if (result.status === 'pending') {
@@ -2541,10 +2542,11 @@ const agentTools = {
         
         return {
           success: true,
-          data: summaryLines.join('\n'),
+          data: '',
           groupId: groupResult.chatId || null,
           groupInviteLink: groupResult.groupInviteLink || null,
-          participantsAdded: resolution.resolved.length
+          participantsAdded: resolution.resolved.length,
+          suppressFinalResponse: true
         };
       } catch (error) {
         console.error('❌ Error in create_group:', error);
@@ -3039,7 +3041,8 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       polls: []
     },
     lastCommand: options.lastCommand || null,
-    originalInput: options.input || null
+    originalInput: options.input || null,
+    suppressFinalResponse: false
   };
   
   // Load previous context if context memory is enabled (from DB)
@@ -3122,9 +3125,11 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       
       console.log(`🔍 [Agent] Extracted assets - Image: ${latestImageAsset?.url}, Video: ${latestVideoAsset?.url}, Audio: ${latestAudioAsset?.url}, Poll: ${latestPollAsset?.question}, Location: ${latitude}, ${longitude}`);
       
+      const finalText = context.suppressFinalResponse ? '' : text;
+      
       return {
         success: true,
-        text: text,
+        text: finalText,
         imageUrl: latestImageAsset?.url || null,
         imageCaption: latestImageAsset?.caption || '',
         videoUrl: latestVideoAsset?.url || null,
@@ -3176,6 +3181,23 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         
         // Save result for future tool calls
         context.previousToolResults[toolName] = toolResult;
+        
+        // Immediately surface raw errors to the user (as-is), even if fallback will follow
+        if (toolResult && toolResult.error && context.chatId) {
+          try {
+            const { greenApiService } = getServices();
+            const errorMessage = toolResult.error.startsWith('❌')
+              ? toolResult.error
+              : `❌ ${toolResult.error}`;
+            await greenApiService.sendTextMessage(context.chatId, errorMessage);
+          } catch (notifyError) {
+            console.error(`❌ Failed to notify user about error: ${notifyError.message}`);
+          }
+        }
+        
+        if (toolResult && toolResult.suppressFinalResponse) {
+          context.suppressFinalResponse = true;
+        }
         
         // 🧠 Track tool call for context memory
         context.toolCalls.push({
