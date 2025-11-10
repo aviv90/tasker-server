@@ -70,7 +70,8 @@ class ConversationManager {
           id SERIAL PRIMARY KEY,
           chat_id VARCHAR(255) NOT NULL,
           role VARCHAR(50) NOT NULL,
-            content TEXT NOT NULL,
+          content TEXT NOT NULL,
+          metadata JSONB DEFAULT '{}'::jsonb,
           timestamp BIGINT NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
           )
@@ -259,8 +260,12 @@ class ConversationManager {
 
   /**
    * Add a message to user's conversation history
+   * @param {string} chatId - Chat ID
+   * @param {string} role - Role (user/model)
+   * @param {string} content - Message content
+   * @param {Object} metadata - Optional metadata (imageUrl, videoUrl, audioUrl, etc.)
    */
-  async addMessage(chatId, role, content) {
+  async addMessage(chatId, role, content, metadata = {}) {
     if (!this.isInitialized) {
       throw new Error('Database not initialized');
     }
@@ -272,10 +277,10 @@ class ConversationManager {
       
       // Insert the new message
       const result = await client.query(`
-        INSERT INTO conversations (chat_id, role, content, timestamp)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO conversations (chat_id, role, content, metadata, timestamp)
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING id
-      `, [chatId, role, content, timestamp]);
+      `, [chatId, role, content, JSON.stringify(metadata), timestamp]);
       
       const messageId = result.rows[0].id;
       console.log(`💬 Added ${role} message to ${chatId} (ID: ${messageId})`);
@@ -351,13 +356,18 @@ class ConversationManager {
     
     try {
       const result = await client.query(`
-        SELECT role, content, timestamp
+        SELECT role, content, metadata, timestamp
         FROM conversations 
         WHERE chat_id = $1 
         ORDER BY timestamp ASC
       `, [chatId]);
       
-      return result.rows;
+      return result.rows.map(row => ({
+        role: row.role,
+        content: row.content,
+        metadata: row.metadata || {},
+        timestamp: row.timestamp
+      }));
     } finally {
       client.release();
     }

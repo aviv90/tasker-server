@@ -256,14 +256,28 @@ const agentTools = {
         const formattedHistory = history.map((msg, idx) => {
           let content = `${msg.role === 'user' ? 'משתמש' : 'בוט'}: ${msg.content}`;
           
-          // Add media indicators
+          // Add media indicators with URLs
           if (msg.metadata) {
-            if (msg.metadata.hasImage) content += ' [יש תמונה מצורפת]';
-            if (msg.metadata.hasVideo) content += ' [יש וידאו מצורף]';
-            if (msg.metadata.hasAudio) content += ' [יש אודיו מצורף]';
-            if (msg.metadata.imageUrl) content += ` [image_id: ${idx}]`;
-            if (msg.metadata.videoUrl) content += ` [video_id: ${idx}]`;
-            if (msg.metadata.audioUrl) content += ` [audio_id: ${idx}]`;
+            if (msg.metadata.hasImage && msg.metadata.imageUrl) {
+              content += ` [תמונה: image_id=${idx}, url=${msg.metadata.imageUrl}]`;
+            } else if (msg.metadata.hasImage) {
+              content += ' [תמונה מצורפת]';
+            }
+            
+            if (msg.metadata.hasVideo && msg.metadata.videoUrl) {
+              content += ` [וידאו: video_id=${idx}, url=${msg.metadata.videoUrl}]`;
+            } else if (msg.metadata.hasVideo) {
+              content += ' [וידאו מצורף]';
+            }
+            
+            if (msg.metadata.hasAudio && msg.metadata.audioUrl) {
+              content += ` [אודיו: audio_id=${idx}, url=${msg.metadata.audioUrl}]`;
+              if (msg.metadata.transcribedText) {
+                content += ` [תמלול: "${msg.metadata.transcribedText}"]`;
+              }
+            } else if (msg.metadata.hasAudio) {
+              content += ' [הקלטה קולית]';
+            }
           }
           
           return content;
@@ -1090,73 +1104,131 @@ const agentTools = {
   retry_with_different_provider: {
     declaration: {
       name: 'retry_with_different_provider',
-      description: 'נסה ליצור תמונה עם ספק אחר אם הראשון נכשל או לא טוב. אל תשתמש בכלי הזה לפני שניסית ליצור תמונה!',
+      description: 'נסה ליצור תמונה או וידאו עם ספק אחר אם הראשון נכשל או לא טוב. אל תשתמש בכלי הזה לפני שניסית ליצור!',
       parameters: {
         type: 'object',
         properties: {
           original_prompt: {
             type: 'string',
-            description: 'הפרומפט המקורי ליצירת התמונה',
+            description: 'הפרומפט המקורי ליצירה',
           },
           reason: {
             type: 'string',
             description: 'למה לנסות ספק אחר (לדוגמה: "התמונה לא טובה")',
           },
+          task_type: {
+            type: 'string',
+            description: 'סוג המשימה: image או video',
+            enum: ['image', 'video']
+          },
           avoid_provider: {
             type: 'string',
-            description: 'איזה ספק לא לנסות (gemini/openai/grok)',
-            enum: ['gemini', 'openai', 'grok']
+            description: 'איזה ספק לא לנסות (למשל: kling, veo3, sora, gemini, openai, grok)',
           }
         },
         required: ['original_prompt', 'reason']
       }
     },
     execute: async (args, context) => {
-      console.log(`🔧 [Agent Tool] retry_with_different_provider called`);
+      console.log(`🔧 [Agent Tool] retry_with_different_provider called for ${args.task_type || 'image'}`);
       
       try {
-        const avoidProvider = args.avoid_provider || 'gemini';
+        const taskType = args.task_type || 'image';
+        const avoidProviderRaw = args.avoid_provider;
+        const avoidProvider = normalizeProviderKey(avoidProviderRaw);
+        
         const { geminiService, openaiService, grokService } = getServices();
+        const replicateService = require('./replicateService');
         
-        // Try providers in order, skipping the one that failed
-        const providers = ['gemini', 'openai', 'grok'].filter(p => p !== avoidProvider);
-        const errors = [];
+        let providers, displayProviders;
         
-        for (const provider of providers) {
-          console.log(`🔄 Trying provider: ${provider}`);
+        if (taskType === 'video') {
+          // Video: kling (grok) → veo3 (gemini) → sora (openai)
+          context.expectedMediaType = 'video';
+          providers = VIDEO_PROVIDER_FALLBACK_ORDER.filter(p => p !== avoidProvider);
+          displayProviders = providers.map(p => VIDEO_PROVIDER_DISPLAY_MAP[p] || p);
           
-          try {
-            let imageResult;
-            if (provider === 'openai') {
-              imageResult = await openaiService.generateImageForWhatsApp(args.original_prompt);
-            } else if (provider === 'grok') {
-              imageResult = await grokService.generateImageForWhatsApp(args.original_prompt);
-            } else {
-              imageResult = await geminiService.generateImageForWhatsApp(args.original_prompt);
-            }
+          const errors = [];
+          
+          for (let i = 0; i < providers.length; i++) {
+            const provider = providers[i];
+            const displayProvider = displayProviders[i];
+            console.log(`🔄 Trying video provider: ${displayProvider} (${provider})`);
             
-            if (!imageResult.error) {
-              return {
-                success: true,
-                data: `✅ ניסיתי עם ${formatProviderName(provider)} והצלחתי! הסיבה: ${args.reason}`,
-                imageUrl: imageResult.imageUrl,
-                caption: imageResult.description || '',
-                provider: provider
-              };
+            try {
+              let result;
+              if (provider === 'grok') {
+                result = await replicateService.generateVideoWithTextForWhatsApp(args.original_prompt);
+              } else if (provider === 'gemini') {
+                result = await geminiService.generateVideoForWhatsApp(args.original_prompt);
+              } else if (provider === 'openai') {
+                result = await openaiService.generateVideoWithSoraForWhatsApp(args.original_prompt);
+              }
+              
+              if (result && !result.error) {
+                return {
+                  success: true,
+                  data: `✅ ניסיתי עם ${formatProviderName(displayProvider)} והצלחתי!`,
+                  videoUrl: result.videoUrl || result.url,
+                  caption: result.description || '',
+                  provider: displayProvider
+                };
+              }
+              
+              errors.push(`${displayProvider}: ${result?.error || 'Unknown error'}`);
+              console.log(`❌ ${displayProvider} failed: ${result?.error}`);
+            } catch (providerError) {
+              errors.push(`${displayProvider}: ${providerError.message}`);
+              console.error(`❌ ${displayProvider} threw error:`, providerError);
             }
-            
-            errors.push(`${provider}: ${imageResult.error}`);
-            console.log(`❌ ${provider} failed: ${imageResult.error}`);
-          } catch (providerError) {
-            errors.push(`${provider}: ${providerError.message}`);
-            console.error(`❌ ${provider} threw error:`, providerError);
           }
+          
+          return {
+            success: false,
+            error: `כל הספקים נכשלו:\n${errors.join('\n')}`
+          };
+          
+        } else {
+          // Image: try providers in order, skipping the one that failed
+          const providers = ['gemini', 'openai', 'grok'].filter(p => p !== avoidProvider);
+          const errors = [];
+          
+          for (const provider of providers) {
+            console.log(`🔄 Trying image provider: ${provider}`);
+            
+            try {
+              let imageResult;
+              if (provider === 'openai') {
+                imageResult = await openaiService.generateImageForWhatsApp(args.original_prompt);
+              } else if (provider === 'grok') {
+                imageResult = await grokService.generateImageForWhatsApp(args.original_prompt);
+              } else {
+                imageResult = await geminiService.generateImageForWhatsApp(args.original_prompt);
+              }
+              
+              if (!imageResult.error) {
+                return {
+                  success: true,
+                  data: `✅ ניסיתי עם ${formatProviderName(provider)} והצלחתי!`,
+                  imageUrl: imageResult.imageUrl,
+                  caption: imageResult.description || '',
+                  provider: provider
+                };
+              }
+              
+              errors.push(`${provider}: ${imageResult.error}`);
+              console.log(`❌ ${provider} failed: ${imageResult.error}`);
+            } catch (providerError) {
+              errors.push(`${provider}: ${providerError.message}`);
+              console.error(`❌ ${provider} threw error:`, providerError);
+            }
+          }
+          
+          return {
+            success: false,
+            error: `כל הספקים נכשלו:\n${errors.join('\n')}`
+          };
         }
-        
-        return {
-          success: false,
-          error: `כל הספקים נכשלו:\n${errors.join('\n')}`
-        };
       } catch (error) {
         console.error('❌ Error in retry_with_different_provider tool:', error);
         return {
@@ -2863,7 +2935,7 @@ const TOOL_ACK_MESSAGES = {
   
   // WhatsApp tools
   'create_poll': 'יוצר סקר... 📊',
-  'send_location': 'שולח מיקום... 📍',
+  'send_location': '',
   'create_group': 'יוצר קבוצה... 👥',
   
   // Audio tools
@@ -2940,6 +3012,9 @@ async function sendToolAckMessage(chatId, functionCalls) {
     // Helper to build Ack message for a single tool
     const buildSingleAck = (call) => {
       const toolName = call.name;
+      if (toolName === 'send_location') {
+        return '';
+      }
       let baseMessage = TOOL_ACK_MESSAGES[toolName] || `מבצע: ${toolName}... ⚙️`;
       
       // Check if this tool uses a provider (direct or nested)
@@ -2989,15 +3064,32 @@ async function sendToolAckMessage(chatId, functionCalls) {
     };
     
     if (functionCalls.length === 1) {
-      // Single tool - send specific Ack with provider
-      ackMessage = buildSingleAck(functionCalls[0]);
+      const singleAck = buildSingleAck(functionCalls[0]);
+      if (!singleAck || !singleAck.trim()) {
+        return;
+      }
+      ackMessage = singleAck;
     } else if (functionCalls.length === 2) {
-      // Two tools - list both with providers
-      const acks = functionCalls.map(buildSingleAck);
+      const acks = functionCalls
+        .map(buildSingleAck)
+        .filter(msg => msg && msg.trim());
+      if (acks.length === 0) {
+        return;
+      }
       ackMessage = `מבצע:\n• ${acks.join('\n• ')}`;
     } else {
       // Multiple tools - generic message
-      ackMessage = `מבצע ${functionCalls.length} פעולות... ⚙️`;
+      const acks = functionCalls
+        .map(buildSingleAck)
+        .filter(msg => msg && msg.trim());
+      if (acks.length === 0) {
+        return;
+      }
+      ackMessage = `מבצע ${acks.length} פעולות... ⚙️`;
+    }
+    
+    if (!ackMessage || !ackMessage.trim()) {
+      return;
     }
     
     console.log(`📢 [ACK] Sending acknowledgment: "${ackMessage}"`);

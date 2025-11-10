@@ -2990,7 +2990,10 @@ async function handleIncomingMessage(webhookData) {
                 
                 // Save user message with image marker for conversation history
                 const userMessageWithImage = `[תמונה מצורפת] ${prompt || 'ניתוח תמונה'}`;
-                await conversationManager.addMessage(chatId, 'user', userMessageWithImage);
+                await conversationManager.addMessage(chatId, 'user', userMessageWithImage, {
+                  hasImage: true,
+                  imageUrl: imageData.downloadUrl
+                });
                 
                 const result = await analyzeImageWithText(prompt, base64Image);
                 if (result.success) {
@@ -3063,7 +3066,10 @@ async function handleIncomingMessage(webhookData) {
                 
                 // Save user message with video marker for conversation history
                 const userMessageWithVideo = `[וידאו מצורף] ${prompt || 'ניתוח וידאו'}`;
-                await conversationManager.addMessage(chatId, 'user', userMessageWithVideo);
+                await conversationManager.addMessage(chatId, 'user', userMessageWithVideo, {
+                  hasVideo: true,
+                  videoUrl: videoData.downloadUrl
+                });
                 
                 const result = await analyzeVideoWithText(prompt, videoBuffer);
                 if (result.success) {
@@ -4919,7 +4925,10 @@ async function handleOutgoingMessage(webhookData) {
                 
                 // Save user message with image marker for conversation history
                 const userMessageWithImage = `[תמונה מצורפת] ${prompt || 'ניתוח תמונה'}`;
-                await conversationManager.addMessage(chatId, 'user', userMessageWithImage);
+                await conversationManager.addMessage(chatId, 'user', userMessageWithImage, {
+                  hasImage: true,
+                  imageUrl: imageUrl
+                });
                 
                 const result = await analyzeImageWithText(prompt, base64Image);
                 if (result.success) {
@@ -5022,7 +5031,10 @@ async function handleOutgoingMessage(webhookData) {
                 
                 // Save user message with video marker for conversation history
                 const userMessageWithVideo = `[וידאו מצורף] ${prompt || 'ניתוח וידאו'}`;
-                await conversationManager.addMessage(chatId, 'user', userMessageWithVideo);
+                await conversationManager.addMessage(chatId, 'user', userMessageWithVideo, {
+                  hasVideo: true,
+                  videoUrl: videoUrl
+                });
                 
                 const result = await analyzeVideoWithText(prompt, videoBuffer);
                 if (result.success) {
@@ -5587,7 +5599,11 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     const geminiResult = await generateGeminiResponse(geminiPrompt, []);
     
     // Add user message to conversation AFTER getting Gemini response to avoid duplication
-    await conversationManager.addMessage(chatId, 'user', `[הקלטה קולית] ${transcribedText}`);
+    await conversationManager.addMessage(chatId, 'user', `[הקלטה קולית] ${transcribedText}`, {
+      hasAudio: true,
+      audioUrl: finalAudioUrl,
+      transcribedText: transcribedText
+    });
     
     if (geminiResult.error) {
       console.error('❌ Gemini generation failed:', geminiResult.error);

@@ -120,13 +120,34 @@ async function extractRequestedRegion(prompt) {
     }
   }
 
-  if (detectedCity && cityBoundsData && cityBoundsData[detectedCity]) {
-    return {
-      continentName: null,
-      displayName: detectedCity,
-      bounds: cityBoundsData[detectedCity],
-      isCity: true
-    };
+  if (detectedCity) {
+    // Try static data first
+    if (cityBoundsData && cityBoundsData[detectedCity]) {
+      return {
+        continentName: null,
+        displayName: detectedCity,
+        bounds: cityBoundsData[detectedCity],
+        isCity: true
+      };
+    }
+    
+    // If not in static data, try geocoding
+    console.log(`🌍 City "${detectedCity}" not in static data, trying geocoding...`);
+    try {
+      const bounds = await getLocationBounds(detectedCity);
+      if (bounds) {
+        console.log(`✅ Found city bounds for "${detectedCity}" via geocoding`);
+        return {
+          continentName: null,
+          displayName: bounds.foundName || detectedCity,
+          bounds,
+          isCity: true
+        };
+      }
+    } catch (err) {
+      console.warn(`⚠️ Error geocoding city "${detectedCity}":`, err.message);
+      // Continue to other methods if geocoding fails
+    }
   }
 
   const regionMap = {
@@ -433,9 +454,9 @@ const continents = [
 
 function buildLocationAckMessage(requestedRegion) {
   if (requestedRegion && requestedRegion.displayName) {
-    return `🌍 קיבלתי! בוחר מיקום אקראי באזור ${requestedRegion.displayName}...`;
+    return `🌍 שולח מיקום באזור ${requestedRegion.displayName}...`;
   }
-  return '🌍 קיבלתי! בוחר מיקום אקראי על כדור הארץ...';
+  return '🌍 שולח מיקום אקראי...';
 }
 
 async function findRandomLocation({ requestedRegion, maxAttempts = 15 }) {
