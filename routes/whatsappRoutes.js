@@ -1474,11 +1474,17 @@ async function handleIncomingMessage(webhookData) {
               if (agentResult.imageUrl) {
                 console.log(`📸 [Pilot Agent] Sending generated image: ${agentResult.imageUrl}`);
                 // Images support captions - use them!
-                // Clean the caption: remove URLs and markdown links
+                // Clean the caption: remove URLs, markdown links, and technical markers
                 let caption = agentResult.imageCaption || agentResult.text || '';
                 caption = caption
                   .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
                   .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
+                  .replace(/\[image\]/gi, '') // Remove [image] markers
+                  .replace(/\[video\]/gi, '') // Remove [video] markers
+                  .replace(/\[audio\]/gi, '') // Remove [audio] markers
+                  .replace(/\[תמונה\]/gi, '') // Remove [תמונה] markers
+                  .replace(/\[וידאו\]/gi, '') // Remove [וידאו] markers
+                  .replace(/\[אודיו\]/gi, '') // Remove [אודיו] markers
                   .replace(/התמונה.*?נוצרה בהצלחה!/gi, '') // Remove success messages
                   .replace(/הוידאו.*?נוצר בהצלחה!/gi, '')
                   .replace(/✅/g, '')
@@ -1496,7 +1502,15 @@ async function handleIncomingMessage(webhookData) {
                 
                 // If there's meaningful text (description/revised prompt), send it separately
                 if (agentResult.text && agentResult.text.trim()) {
-                  let videoDescription = agentResult.text.replace(/https?:\/\/[^\s]+/gi, '').trim();
+                  let videoDescription = agentResult.text
+                    .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs
+                    .replace(/\[image\]/gi, '') // Remove [image] markers
+                    .replace(/\[video\]/gi, '') // Remove [video] markers
+                    .replace(/\[audio\]/gi, '') // Remove [audio] markers
+                    .replace(/\[תמונה\]/gi, '') // Remove [תמונה] markers
+                    .replace(/\[וידאו\]/gi, '') // Remove [וידאו] markers
+                    .replace(/\[אודיו\]/gi, '') // Remove [אודיו] markers
+                    .trim();
                   if (videoDescription && videoDescription.length > 2) {
                     await sendTextMessage(chatId, videoDescription);
                   }
@@ -1536,7 +1550,18 @@ async function handleIncomingMessage(webhookData) {
               
               // If no media was sent, send text response (if exists)
               if (!mediaSent && agentResult.text && agentResult.text.trim()) {
-                await sendTextMessage(chatId, agentResult.text);
+                // Clean technical markers from text responses too
+                let cleanText = agentResult.text
+                  .replace(/\[image\]/gi, '')
+                  .replace(/\[video\]/gi, '')
+                  .replace(/\[audio\]/gi, '')
+                  .replace(/\[תמונה\]/gi, '')
+                  .replace(/\[וידאו\]/gi, '')
+                  .replace(/\[אודיו\]/gi, '')
+                  .trim();
+                if (cleanText) {
+                  await sendTextMessage(chatId, cleanText);
+                }
               }
               
               console.log(`✅ [Pilot Agent] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
@@ -3505,11 +3530,17 @@ async function handleOutgoingMessage(webhookData) {
               if (agentResult.imageUrl) {
                 console.log(`📸 [Pilot Agent - Outgoing] Sending generated image: ${agentResult.imageUrl}`);
                 // Images support captions - use them!
-                // Clean the caption: remove URLs and markdown links
+                // Clean the caption: remove URLs, markdown links, and technical markers
                 let caption = agentResult.imageCaption || agentResult.text || '';
                 caption = caption
                   .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
                   .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
+                  .replace(/\[image\]/gi, '') // Remove [image] markers
+                  .replace(/\[video\]/gi, '') // Remove [video] markers
+                  .replace(/\[audio\]/gi, '') // Remove [audio] markers
+                  .replace(/\[תמונה\]/gi, '') // Remove [תמונה] markers
+                  .replace(/\[וידאו\]/gi, '') // Remove [וידאו] markers
+                  .replace(/\[אודיו\]/gi, '') // Remove [אודיו] markers
                   .replace(/התמונה.*?נוצרה בהצלחה!/gi, '') // Remove success messages
                   .replace(/הוידאו.*?נוצר בהצלחה!/gi, '')
                   .replace(/✅/g, '')
@@ -3527,7 +3558,15 @@ async function handleOutgoingMessage(webhookData) {
                 
                 // If there's meaningful text (description/revised prompt), send it separately
                 if (agentResult.text && agentResult.text.trim()) {
-                  let videoDescription = agentResult.text.replace(/https?:\/\/[^\s]+/gi, '').trim();
+                  let videoDescription = agentResult.text
+                    .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs
+                    .replace(/\[image\]/gi, '') // Remove [image] markers
+                    .replace(/\[video\]/gi, '') // Remove [video] markers
+                    .replace(/\[audio\]/gi, '') // Remove [audio] markers
+                    .replace(/\[תמונה\]/gi, '') // Remove [תמונה] markers
+                    .replace(/\[וידאו\]/gi, '') // Remove [וידאו] markers
+                    .replace(/\[אודיו\]/gi, '') // Remove [אודיו] markers
+                    .trim();
                   if (videoDescription && videoDescription.length > 2) {
                     await sendTextMessage(chatId, videoDescription);
                   }
@@ -3567,7 +3606,18 @@ async function handleOutgoingMessage(webhookData) {
               
               // If no media was sent, send text response (if exists)
               if (!mediaSent && agentResult.text && agentResult.text.trim()) {
-                await sendTextMessage(chatId, agentResult.text);
+                // Clean technical markers from text responses too
+                let cleanText = agentResult.text
+                  .replace(/\[image\]/gi, '')
+                  .replace(/\[video\]/gi, '')
+                  .replace(/\[audio\]/gi, '')
+                  .replace(/\[תמונה\]/gi, '')
+                  .replace(/\[וידאו\]/gi, '')
+                  .replace(/\[אודיו\]/gi, '')
+                  .trim();
+                if (cleanText) {
+                  await sendTextMessage(chatId, cleanText);
+                }
               }
               
               console.log(`✅ [Pilot Agent - Outgoing] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);

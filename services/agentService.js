@@ -3117,6 +3117,47 @@ async function sendToolAckMessage(chatId, functionCalls) {
 }
 
 /**
+ * Detect the language of the user's message
+ */
+function detectLanguage(text) {
+  if (!text || text.trim().length === 0) return 'he'; // Default to Hebrew
+  
+  // Hebrew detection
+  const hebrewChars = (text.match(/[\u0590-\u05FF]/g) || []).length;
+  // English detection
+  const englishChars = (text.match(/[a-zA-Z]/g) || []).length;
+  // Arabic detection
+  const arabicChars = (text.match(/[\u0600-\u06FF]/g) || []).length;
+  // Russian detection
+  const russianChars = (text.match(/[\u0400-\u04FF]/g) || []).length;
+  
+  const total = hebrewChars + englishChars + arabicChars + russianChars;
+  if (total === 0) return 'he'; // Default to Hebrew if no recognizable chars
+  
+  // Return the language with the highest character count
+  const max = Math.max(hebrewChars, englishChars, arabicChars, russianChars);
+  if (max === hebrewChars) return 'he';
+  if (max === englishChars) return 'en';
+  if (max === arabicChars) return 'ar';
+  if (max === russianChars) return 'ru';
+  
+  return 'he'; // Default fallback
+}
+
+/**
+ * Get language instruction for system prompt
+ */
+function getLanguageInstruction(langCode) {
+  const instructions = {
+    'he': 'תשיב בעברית בלבד!',
+    'en': 'Respond in English only!',
+    'ar': 'أجب باللغة العربية فقط!',
+    'ru': 'Отвечай только на русском!',
+  };
+  return instructions[langCode] || instructions['he'];
+}
+
+/**
  * Execute an agent query with autonomous tool usage
  * @param {string} prompt - User's question/request
  * @param {string} chatId - Chat ID for context
@@ -3125,6 +3166,11 @@ async function sendToolAckMessage(chatId, functionCalls) {
  */
 async function executeAgentQuery(prompt, chatId, options = {}) {
   console.log(`🤖 [Agent] Starting autonomous query: "${prompt.substring(0, 100)}..."`);
+  
+  // Detect user's language
+  const userLanguage = detectLanguage(prompt);
+  const languageInstruction = getLanguageInstruction(userLanguage);
+  console.log(`🌐 [Agent] Detected language: ${userLanguage} - Instruction: ${languageInstruction}`);
   
   // ⚙️ Configuration: Load from env or use defaults
   const agentConfig = {
@@ -3140,14 +3186,16 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   // Prepare tool declarations for Gemini
   const functionDeclarations = Object.values(agentTools).map(tool => tool.declaration);
   
-  // System prompt for the agent (Hebrew - optimized and consistent)
+  // System prompt for the agent (Hebrew base with dynamic language instruction)
   const systemInstruction = `אתה עוזר AI אוטונומי עם גישה לכלים מתקדמים.
+
+**🌐 CRITICAL - Language Requirement:** ${languageInstruction}
 
 🚫 אסור לחלוטין:
 • לכתוב את תהליך החשיבה שלך
-• לכתוב באנגלית ("My thoughts", "I need to", "Let me")
+• לכתוב באנגלית כשהמשתמש כותב בעברית ("My thoughts", "I need to", "Let me")
 • לכתוב רשימות של מה אתה עושה
-• רק תשובה סופית בעברית!
+• לשנות שפה - תשיב בשפה שבה המשתמש כתב!
 
 🛠️ הכלים שלך (30 כלים!):
 
@@ -3251,7 +3299,12 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   ❌ send_location({}) כש"באזור תל אביב" בבקשה ← חסר region!
 
 ⚙️ **כללים כלליים:**
-• תשיב בעברית, טבעי ונעים
+• **שמור על שפת המשתמש!** אם כתב בעברית - ענה בעברית. אם באנגלית - ענה באנגלית. וכן הלאה לכל שפה.
+• **שמור רציפות והקשר בשיחה:**
+  - "עם יותר רגש" / "אבל יותר קצר" / "בלי X" → הבן שהמשתמש מבקש לשפר/לשנות את הפקודה הקודמת
+  - השתמש ב-retry_last_command עם modifications להוסיף את השינוי המבוקש
+  - דוגמה: "כתוב ברכה למארק" → [מחזיר ברכה] → משתמש: "עם יותר רגש" → retry_last_command({modifications: "עם יותר רגש"})
+• תשיב בצורה טבעית ונעימה
 • בשאלות מורכבות - פצל למספר שלבים קטנים
 
 🚨 **טיפול בשגיאות (CRITICAL!):**
