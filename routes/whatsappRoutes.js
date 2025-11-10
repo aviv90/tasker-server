@@ -1465,6 +1465,11 @@ async function handleIncomingMessage(webhookData) {
           const { routeToAgent } = require('../services/agentPilot');
           
           try {
+            // 🧠 CRITICAL: Save user message to conversation history BEFORE processing
+            // This ensures continuity and allows the bot to see the full conversation
+            await conversationManager.addMessage(chatId, 'user', normalized.text || userText);
+            console.log(`💾 [Pilot Agent] Saved user message to conversation history`);
+            
             const agentResult = await routeToAgent(normalized, chatId);
             
             if (agentResult.success) {
@@ -1562,6 +1567,13 @@ async function handleIncomingMessage(webhookData) {
                 if (cleanText) {
                   await sendTextMessage(chatId, cleanText);
                 }
+              }
+              
+              // 🧠 CRITICAL: Save bot's response to conversation history for continuity!
+              // This allows the bot to see its own previous responses in future requests
+              if (agentResult.text && agentResult.text.trim()) {
+                await conversationManager.addMessage(chatId, 'assistant', agentResult.text);
+                console.log(`💾 [Pilot Agent] Saved bot response to conversation history`);
               }
               
               console.log(`✅ [Pilot Agent] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
@@ -3521,6 +3533,11 @@ async function handleOutgoingMessage(webhookData) {
           const { routeToAgent } = require('../services/agentPilot');
           
           try {
+            // 🧠 CRITICAL: Save user message to conversation history BEFORE processing
+            // This ensures continuity and allows the bot to see the full conversation
+            await conversationManager.addMessage(chatId, 'user', normalized.text || finalPrompt);
+            console.log(`💾 [Pilot Agent - Outgoing] Saved user message to conversation history`);
+            
             const agentResult = await routeToAgent(normalized, chatId);
             
             if (agentResult.success) {
@@ -3618,6 +3635,13 @@ async function handleOutgoingMessage(webhookData) {
                 if (cleanText) {
                   await sendTextMessage(chatId, cleanText);
                 }
+              }
+              
+              // 🧠 CRITICAL: Save bot's response to conversation history for continuity!
+              // This allows the bot to see its own previous responses in future requests
+              if (agentResult.text && agentResult.text.trim()) {
+                await conversationManager.addMessage(chatId, 'assistant', agentResult.text);
+                console.log(`💾 [Pilot Agent - Outgoing] Saved bot response to conversation history`);
               }
               
               console.log(`✅ [Pilot Agent - Outgoing] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);

@@ -1958,25 +1958,32 @@ const agentTools = {
   create_poll: {
     declaration: {
       name: 'create_poll',
-      description: 'צור סקר עם שאלה ותשובות יצירתיות.',
+      description: 'צור סקר עם שאלה ותשובות יצירתיות. תומך בסקרים עם או בלי חרוזים!',
       parameters: {
         type: 'object',
         properties: {
           topic: {
             type: 'string',
             description: 'נושא הסקר'
+          },
+          with_rhyme: {
+            type: 'boolean',
+            description: 'האם לייצר תשובות בחרוז? true = עם חרוזים (ברירת מחדל), false = בלי חרוזים. אם המשתמש אומר "בלי חרוזים" או "without rhyme" - שלח false!'
           }
         },
         required: ['topic']
       }
     },
     execute: async (args, context) => {
-      console.log(`🔧 [Agent Tool] create_poll called`);
+      console.log(`🔧 [Agent Tool] create_poll called with topic: ${args.topic}, with_rhyme: ${args.with_rhyme !== false}`);
       
       try {
         const { geminiService } = getServices();
         
-        const pollData = await geminiService.generateCreativePoll(args.topic);
+        // Default to true (with rhyme) if not specified
+        const withRhyme = args.with_rhyme !== false;
+        
+        const pollData = await geminiService.generateCreativePoll(args.topic, withRhyme);
         
         if (pollData.error) {
           return {
@@ -1987,7 +1994,7 @@ const agentTools = {
         
         return {
           success: true,
-          data: `✅ הסקר נוצר!`,
+          data: `✅ הסקר נוצר${withRhyme ? ' עם חרוזים' : ' בלי חרוזים'}!`,
           poll: pollData
         };
       } catch (error) {
@@ -3300,7 +3307,10 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 
 ⚙️ **כללים כלליים:**
 • **שמור על שפת המשתמש!** אם כתב בעברית - ענה בעברית. אם באנגלית - ענה באנגלית. וכן הלאה לכל שפה.
-• **שמור רציפות והקשר בשיחה:**
+• **שמור רציפות והקשר בשיחה - CRITICAL!**
+  - **תמיד קרא את [היסטוריית שיחה אחרונה] שמופיעה בסוף כל בקשה!**
+  - אם **שאלת** שאלה למשתמש (כמו "איזה סקר תרצה?", "תרצה לנתח את התמונה?") → **התשובה הבאה של המשתמש היא תשובה לשאלה שלך!**
+  - דוגמה: בוט שואל "איזה סקר תרצה ליצור?" → משתמש: "פיצה" → זו **תשובה לשאלה**, לא בקשה חדשה! → הפעל create_poll({topic: "פיצה"})
   - "עם יותר רגש" / "אבל יותר קצר" / "בלי X" → הבן שהמשתמש מבקש לשפר/לשנות את הפקודה הקודמת
   - השתמש ב-retry_last_command עם modifications להוסיף את השינוי המבוקש
   - דוגמה: "כתוב ברכה למארק" → [מחזיר ברכה] → משתמש: "עם יותר רגש" → retry_last_command({modifications: "עם יותר רגש"})

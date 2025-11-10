@@ -126,6 +126,29 @@ async function routeToAgent(input, chatId) {
     };
   }
   
+  // 🧠 CRITICAL: Load conversation history to maintain context and continuity
+  // This allows the bot to see its own previous responses and the user's replies
+  let conversationHistory = '';
+  try {
+    const history = await conversationManager.getConversationHistory(chatId);
+    if (history && history.length > 0) {
+      // Take last 10 messages for context (5 exchanges)
+      const recentHistory = history.slice(-10);
+      const formattedHistory = recentHistory.map(msg => {
+        const role = msg.role === 'user' ? 'משתמש' : 'בוט';
+        return `${role}: ${msg.content}`;
+      }).join('\n');
+      
+      if (formattedHistory) {
+        conversationHistory = `\n\n[היסטוריית שיחה אחרונה]:\n${formattedHistory}\n`;
+        console.log(`🧠 [PILOT] Loaded ${recentHistory.length} recent messages for context`);
+      }
+    }
+  } catch (err) {
+    console.warn(`⚠️ [PILOT] Failed to load conversation history:`, err.message);
+    // Continue without history if it fails
+  }
+  
   // Build context for the agent
   let contextualPrompt = userText;
   
@@ -175,7 +198,12 @@ async function routeToAgent(input, chatId) {
     }
   }
   
-  console.log(`🤖 [PILOT] Sending to Agent: "${contextualPrompt.substring(0, 100)}..."`);
+  // Add conversation history at the end (CRITICAL for continuity!)
+  if (conversationHistory) {
+    contextualPrompt += conversationHistory;
+  }
+  
+  console.log(`🤖 [PILOT] Sending to Agent: "${contextualPrompt.substring(0, 150)}..."`);
   
   // Execute agent query
   const agentResult = await executeAgentQuery(contextualPrompt, chatId, {
