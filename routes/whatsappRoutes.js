@@ -1462,7 +1462,7 @@ async function handleIncomingMessage(webhookData) {
         if (PILOT_AGENT_ONLY) {
           console.log('🚀 [PILOT MODE] Bypassing intentRouter, routing directly to Agent');
           
-          const { routeToAgent } = require('../services/agentPilot');
+          const { routeToAgent } = require('../services/agentRouter');
           
           try {
             // 🧠 CRITICAL: Save user message to conversation history BEFORE processing
@@ -3530,7 +3530,7 @@ async function handleOutgoingMessage(webhookData) {
         if (PILOT_AGENT_ONLY) {
           console.log('🚀 [PILOT MODE - OUTGOING] Bypassing intentRouter, routing directly to Agent');
           
-          const { routeToAgent } = require('../services/agentPilot');
+          const { routeToAgent } = require('../services/agentRouter');
           
           try {
             // 🧠 CRITICAL: Save user message to conversation history BEFORE processing
