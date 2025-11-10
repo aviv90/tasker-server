@@ -2004,13 +2004,13 @@ const agentTools = {
   send_location: {
     declaration: {
       name: 'send_location',
-      description: 'שלח מיקום אקראי מהעולם עם מידע על המקום. אפשר לציין אזור ספציפי (עיר, מדינה, יבשת).',
+      description: 'שלח מיקום אקראי מהעולם עם מידע על המקום. תומך באזורים ספציפיים: ערים (תל אביב, ניו יורק), מדינות (ישראל, יפן), יבשות (אירופה, אסיה).',
       parameters: {
         type: 'object',
         properties: {
           region: {
             type: 'string',
-            description: 'אזור אופציונלי לבחירת מיקום (למשל: "תל אביב", "ניו יורק", "יפן", "אירופה", "אסיה", וכו\'). אם לא מצוין - מיקום אקראי מהעולם.'
+            description: 'שם האזור לשליחת מיקום (חובה לחלץ מהבקשה!). דוגמאות: "תל אביב" אם נאמר "באזור תל אביב", "יפן" אם נאמר "ביפן", "אירופה" אם נאמר "באירופה". אם לא צוין אזור בבקשה - השאר ריק למיקום אקראי גלובלי.'
           }
         },
         required: []
@@ -3053,7 +3053,10 @@ async function sendToolAckMessage(chatId, functionCalls) {
       }
       
       let providerDisplayKey = providerRaw || provider;
-      const isVideoTask = call.args?.task_type === 'video_creation' || toolName === 'create_video';
+      const isVideoTask = call.args?.task_type === 'video_creation' 
+                       || call.args?.task_type === 'video'
+                       || toolName === 'create_video'
+                       || toolName === 'retry_with_different_provider' && call.args?.task_type === 'video';
       if (isVideoTask) {
         const normalizedKey = normalizeProviderKey(providerDisplayKey);
         if (normalizedKey && VIDEO_PROVIDER_DISPLAY_MAP[normalizedKey]) {
