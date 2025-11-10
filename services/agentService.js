@@ -808,8 +808,28 @@ const agentTools = {
         
         // Strategy 1: Try different provider
         console.log(`📊 Strategy 1: Trying different provider...`);
-        const providersTried = args.provider_tried ? [args.provider_tried] : [];
-        const providers = ['gemini', 'openai', 'grok'].filter(p => !providersTried.includes(p));
+        const providersTriedRaw = [];
+        if (Array.isArray(args.providers_tried)) {
+          providersTriedRaw.push(...args.providers_tried);
+        }
+        if (args.provider_tried) {
+          providersTriedRaw.push(args.provider_tried);
+        }
+        const providersTried = providersTriedRaw.map(normalizeProviderKey).filter(Boolean);
+        const providerOrder = VIDEO_PROVIDER_FALLBACK_ORDER;
+        const lastTried = providersTried.length > 0 ? providersTried[providersTried.length - 1] : null;
+        let startIndex = providerOrder.indexOf(lastTried);
+        if (startIndex === -1) {
+          startIndex = null;
+        }
+        const providers = [];
+        for (let i = 0; i < providerOrder.length; i++) {
+          const index = startIndex === null ? i : (startIndex + 1 + i) % providerOrder.length;
+          const candidate = providerOrder[index];
+          if (!providersTried.includes(candidate) && !providers.includes(candidate)) {
+            providers.push(candidate);
+          }
+        }
         
         for (const provider of providers) {
           console.log(`   → Attempting with ${provider}...`);
@@ -850,7 +870,7 @@ const agentTools = {
                 result = await geminiService.generateVideoForWhatsApp(args.original_prompt);
               } else if (provider === 'openai') {
                 // Try Sora (OpenAI)
-                result = await openaiService.generateVideoForWhatsApp(args.original_prompt, { model: 'sora-2' });
+                result = await openaiService.generateVideoWithSoraForWhatsApp(args.original_prompt, null, { model: 'sora-2' });
               } else if (provider === 'grok') {
                 // Fallback to Kling via Replicate
                 result = await replicateService.generateVideoForWhatsApp(args.original_prompt, { model: 'kling' });
@@ -1409,7 +1429,7 @@ const agentTools = {
           result = await geminiService.generateVideoForWhatsApp(args.prompt);
         } else if (provider === 'sora' || provider === 'sora-pro') {
           const model = provider === 'sora-pro' ? 'sora-2-pro' : 'sora-2';
-          result = await openaiService.generateVideoWithSoraForWhatsApp(args.prompt, model);
+          result = await openaiService.generateVideoWithSoraForWhatsApp(args.prompt, null, { model });
         } else {
           result = await replicateService.generateVideoWithTextForWhatsApp(args.prompt);
         }
@@ -2831,12 +2851,49 @@ const TOOL_ACK_MESSAGES = {
   'search_and_create': 'מחפש ויוצר... 🔍➡️🎨',
   'create_and_analyze': 'יוצר ומנתח... 🎨➡️🔍',
   'analyze_and_edit': 'מנתח ועורך... 🔍➡️✏️',
-  'smart_execute_with_fallback': 'מנסה עם fallback... 🔄',
-  'retry_with_different_provider': 'מנסה עם ספק אחר... 🔁',
+  'smart_execute_with_fallback': 'מנסה עם __PROVIDER__... 🔄',
+  'retry_with_different_provider': 'מנסה עם __PROVIDER__... 🔁',
   'retry_last_command': 'חוזר על פקודה קודמת... ↩️',
   
   // Preferences
   'save_user_preference': 'שומר העדפה... 💾'
+};
+
+const VIDEO_PROVIDER_FALLBACK_ORDER = ['grok', 'gemini', 'openai'];
+
+const normalizeProviderKey = (provider) => {
+  if (!provider) return null;
+  const key = String(provider).toLowerCase();
+  const mapping = {
+    kling: 'grok',
+    'kling-text-to-video': 'grok',
+    grok: 'grok',
+    veo3: 'gemini',
+    veo: 'gemini',
+    gemini: 'gemini',
+    google: 'gemini',
+    'google-veo3': 'gemini',
+    sora: 'openai',
+    'sora-2': 'openai',
+    'sora2': 'openai',
+    'sora-2-pro': 'openai',
+    'sora-pro': 'openai',
+    openai: 'openai'
+  };
+  return mapping[key] || key;
+};
+
+const applyProviderToMessage = (message, providerName) => {
+  if (message.includes('__PROVIDER__')) {
+    return message.replace('__PROVIDER__', providerName || 'ספק אחר');
+  }
+  if (providerName) {
+    if (message.includes('...')) {
+      return message.replace('...', ` עם ${providerName}...`).replace('  ', ' ');
+    }
+    return `${message} (${providerName})`;
+  }
+  return message;
 };
 
 /**
@@ -2856,40 +2913,42 @@ async function sendToolAckMessage(chatId, functionCalls) {
       let baseMessage = TOOL_ACK_MESSAGES[toolName] || `מבצע: ${toolName}... ⚙️`;
       
       // Check if this tool uses a provider (direct or nested)
-      let provider = call.args?.provider;
+      const providerRaw = call.args?.provider;
+      let provider = normalizeProviderKey(providerRaw);
       
-      // For smart_execute_with_fallback - figure out which provider will be tried
       if (!provider && toolName === 'smart_execute_with_fallback') {
-        const providerTried = call.args?.provider_tried;
-        // Will try the other providers (exclude the one already tried)
-        const allProviders = ['gemini', 'openai', 'grok'];
-        const availableProviders = allProviders.filter(p => p !== providerTried);
-        if (availableProviders.length > 0) {
-          provider = availableProviders[0]; // Show first provider that will be tried
-          baseMessage = `מנסה עם ${formatProviderName(provider)}... 🔄`;
+        const providersTriedRaw = [];
+        if (Array.isArray(call.args?.providers_tried)) {
+          providersTriedRaw.push(...call.args.providers_tried);
         }
+        if (call.args?.provider_tried) {
+          providersTriedRaw.push(call.args.provider_tried);
+        }
+        const providersTried = providersTriedRaw.map(normalizeProviderKey).filter(Boolean);
+        const availableProviders = VIDEO_PROVIDER_FALLBACK_ORDER.filter(p => !providersTried.includes(p));
+        provider = availableProviders[0] || null;
       }
       
-      // For retry_with_different_provider - determine next provider based on avoid_provider
       if (!provider && toolName === 'retry_with_different_provider') {
-        const avoidProvider = call.args?.avoid_provider;
-        // Determine next provider based on the order: gemini -> openai -> grok
-        if (avoidProvider === 'gemini') {
-          provider = 'openai';
-        } else if (avoidProvider === 'openai') {
-          provider = 'grok';
-        } else if (avoidProvider === 'grok') {
-          provider = 'gemini';
+        const avoidRaw = call.args?.avoid_provider;
+        const avoidProvider = normalizeProviderKey(avoidRaw) || 'gemini';
+        const providerSequence = VIDEO_PROVIDER_FALLBACK_ORDER;
+        const avoidIndex = providerSequence.indexOf(avoidProvider);
+        if (avoidIndex === -1) {
+          provider = providerSequence[0];
         } else {
-          provider = 'openai'; // default if avoid_provider not specified
+          provider = providerSequence[(avoidIndex + 1) % providerSequence.length];
         }
       }
       
-      if (provider && !baseMessage.includes(formatProviderName(provider))) {
-        const providerName = formatProviderName(provider);
-        // Replace "..." with provider name
-        baseMessage = baseMessage.replace('...', ` עם ${providerName}...`);
+      let providerDisplayKey = providerRaw || provider;
+      if (!providerRaw && toolName === 'smart_execute_with_fallback' && call.args?.task_type === 'video_creation') {
+        const videoLabelMap = { gemini: 'veo3', openai: 'sora', grok: 'kling' };
+        providerDisplayKey = videoLabelMap[provider] || provider;
       }
+      
+      const providerName = providerDisplayKey ? formatProviderName(providerDisplayKey) : null;
+      baseMessage = applyProviderToMessage(baseMessage, providerName);
       
       return baseMessage;
     };
