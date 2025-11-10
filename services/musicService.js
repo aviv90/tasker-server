@@ -2,7 +2,8 @@ const { sanitizeText } = require('../utils/textSanitizer');
 const { getApiUrl, getStaticFileUrl } = require('../utils/urlUtils');
 const fs = require('fs');
 const path = require('path');
-const { v4: uuidv4 } = require('uuid'); // Test
+const { v4: uuidv4 } = require('uuid');
+const { execSync } = require('child_process');
 
 class MusicService {
     constructor() {
@@ -12,6 +13,47 @@ class MusicService {
             'Authorization': `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json'
         };
+    }
+
+    /**
+     * Convert video to WhatsApp-compatible format using FFmpeg
+     * @param {string} inputPath - Input video file path
+     * @param {string} outputPath - Output video file path
+     * @returns {Promise<boolean>} - Success status
+     */
+    async convertVideoForWhatsApp(inputPath, outputPath) {
+        try {
+            console.log(`🔄 Converting video to WhatsApp format...`);
+            console.log(`   Input: ${inputPath}`);
+            console.log(`   Output: ${outputPath}`);
+            
+            // FFmpeg command for WhatsApp-compatible MP4:
+            // - H.264 video codec (baseline profile for maximum compatibility)
+            // - AAC audio codec
+            // - MP4 container with faststart for streaming
+            // - Maximum bitrate: 2000k (WhatsApp recommendation)
+            const ffmpegCommand = `ffmpeg -i "${inputPath}" \
+                -c:v libx264 -profile:v baseline -level 3.0 -pix_fmt yuv420p \
+                -c:a aac -b:a 128k -ar 44100 \
+                -movflags +faststart \
+                -b:v 2000k -maxrate 2000k -bufsize 4000k \
+                -y "${outputPath}"`;
+            
+            execSync(ffmpegCommand, { stdio: 'pipe' });
+            
+            // Verify output file exists
+            if (!fs.existsSync(outputPath)) {
+                throw new Error('FFmpeg conversion failed - output file not created');
+            }
+            
+            const outputSize = fs.statSync(outputPath).size;
+            console.log(`✅ Video converted successfully (${(outputSize / 1024 / 1024).toFixed(2)} MB)`);
+            
+            return true;
+        } catch (error) {
+            console.error(`❌ FFmpeg conversion error:`, error.message);
+            return false;
+        }
     }
 
     async generateMusicWithLyrics(prompt, options = {}) {
@@ -726,18 +768,40 @@ class MusicService {
                     
                     const videoBuffer = Buffer.from(await videoResponse.arrayBuffer());
                     
-                    // Save video to temp file
-                    const tempVideoFileName = `music_video_${uuidv4()}.mp4`;
-                    const tempVideoFilePath = path.join(__dirname, '..', 'public', 'tmp', tempVideoFileName);
-                    fs.writeFileSync(tempVideoFilePath, videoBuffer);
+                    // Save original video to temp file
+                    const originalVideoFileName = `music_video_original_${uuidv4()}.mp4`;
+                    const originalVideoFilePath = path.join(__dirname, '..', 'public', 'tmp', originalVideoFileName);
+                    fs.writeFileSync(originalVideoFilePath, videoBuffer);
                     
-                    // Verify file
+                    // Verify original file
                     await new Promise(resolve => setTimeout(resolve, 500));
-                    if (!fs.existsSync(tempVideoFilePath) || fs.statSync(tempVideoFilePath).size < 10000) {
-                        throw new Error('Video file was not downloaded successfully');
+                    if (!fs.existsSync(originalVideoFilePath) || fs.statSync(originalVideoFilePath).size < 10000) {
+                        throw new Error('Original video file was not downloaded successfully');
                     }
                     
-                    console.log(`✅ Video saved: ${tempVideoFileName}`);
+                    console.log(`✅ Original video saved: ${originalVideoFileName}`);
+                    
+                    // Convert to WhatsApp-compatible format
+                    const tempVideoFileName = `music_video_${uuidv4()}.mp4`;
+                    const tempVideoFilePath = path.join(__dirname, '..', 'public', 'tmp', tempVideoFileName);
+                    
+                    const conversionSuccess = await this.convertVideoForWhatsApp(originalVideoFilePath, tempVideoFilePath);
+                    
+                    if (!conversionSuccess) {
+                        console.warn(`⚠️ FFmpeg conversion failed, using original video`);
+                        // If conversion fails, use original file
+                        fs.copyFileSync(originalVideoFilePath, tempVideoFilePath);
+                    } else {
+                        console.log(`✅ Video converted to WhatsApp format: ${tempVideoFileName}`);
+                    }
+                    
+                    // Delete original file to save space
+                    try {
+                        fs.unlinkSync(originalVideoFilePath);
+                        console.log(`🗑️ Deleted original video file`);
+                    } catch (deleteError) {
+                        console.warn(`⚠️ Could not delete original file:`, deleteError.message);
+                    }
                     
                     // If WhatsApp context exists, send video
                     if (videoTaskInfo.whatsappContext) {
