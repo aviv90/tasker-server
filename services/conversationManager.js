@@ -5,6 +5,8 @@ class ConversationManager {
     this.maxMessages = 50; // Keep last 50 messages per chat
     this.pool = null;
     this.isInitialized = false;
+    this.cleanupTimeoutHandle = null;
+    this.cleanupIntervalHandle = null;
     
     console.log('💭 ConversationManager initializing with PostgreSQL...');
     this.initializeDatabase();
@@ -1463,23 +1465,36 @@ ${conversationText}
    * Start periodic cleanup task (runs monthly)
    */
   startPeriodicCleanup() {
+    if (this.cleanupTimeoutHandle || this.cleanupIntervalHandle) {
+      console.log('ℹ️ Periodic cleanup already scheduled - skipping duplicate setup');
+      return;
+    }
+    
     // Run cleanup once per month (30 days)
-    const CLEANUP_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000;  // 30 days in milliseconds
+    const MAX_INTERVAL_MS = 2147483647; // ~24.8 days - Node.js timer limit
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const CLEANUP_INTERVAL_MS = Math.min(THIRTY_DAYS_MS, MAX_INTERVAL_MS);
     
     // Run first cleanup after 1 hour (to not impact startup)
-    setTimeout(async () => {
+    this.cleanupTimeoutHandle = setTimeout(async () => {
+      this.cleanupTimeoutHandle = null;
       console.log('🧹 Running first scheduled cleanup...');
       await this.runFullCleanup();
       
       // Then schedule monthly cleanups
-      setInterval(async () => {
-        console.log('🧹 Running monthly scheduled cleanup...');
-        await this.runFullCleanup();
+      this.cleanupIntervalHandle = setInterval(async () => {
+        console.log('🧹 Running scheduled cleanup...');
+        try {
+          await this.runFullCleanup();
+        } catch (err) {
+          console.error('❌ Error during scheduled cleanup:', err.message);
+        }
       }, CLEANUP_INTERVAL_MS);
       
     }, 60 * 60 * 1000);  // 1 hour delay
     
-    console.log('✅ Periodic cleanup scheduled (monthly)');
+    const intervalDays = Math.round(CLEANUP_INTERVAL_MS / (24 * 60 * 60 * 1000));
+    console.log(`✅ Periodic cleanup scheduled (~every ${intervalDays} days)`);
   }
 
   /**
@@ -1489,6 +1504,14 @@ ${conversationText}
     if (this.pool) {
       await this.pool.end();
       console.log('🔌 PostgreSQL connection pool closed');
+    }
+    if (this.cleanupTimeoutHandle) {
+      clearTimeout(this.cleanupTimeoutHandle);
+      this.cleanupTimeoutHandle = null;
+    }
+    if (this.cleanupIntervalHandle) {
+      clearInterval(this.cleanupIntervalHandle);
+      this.cleanupIntervalHandle = null;
     }
   }
 }
