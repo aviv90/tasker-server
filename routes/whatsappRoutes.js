@@ -12,6 +12,7 @@ const speechService = require('../services/speechService');
 const { voiceService } = require('../services/voiceService');
 const { audioConverterService } = require('../services/audioConverterService');
 const { creativeAudioService } = require('../services/creativeAudioService');
+const locationService = require('../services/locationService');
 const conversationManager = require('../services/conversationManager');
 const { routeIntent } = require('../services/intentRouter');
 const { executeAgentQuery } = require('../services/agentService');
@@ -639,7 +640,6 @@ async function extractRequestedRegion(prompt) {
   console.log(`❌ No region/city found in prompt: "${prompt}"`);
   return null; // No region found
 }
-
 /**
  * Save last executed command for retry functionality (persisted to DB)
  * @param {string} chatId - Chat ID
@@ -1224,7 +1224,6 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
     };
   }
 }
-
 /**
  * Handle incoming WhatsApp message
  */
@@ -1552,10 +1551,8 @@ async function handleIncomingMessage(webhookData) {
             return;
           }
         }
-        
         // ═══════════════════ REGULAR FLOW (intentRouter) ═══════════════════
         const decision = await routeIntent(normalized);
-
         // Router-based direct execution - call services directly
         const rawPrompt = decision.args?.prompt || finalPrompt;
         // Clean prompt from provider mentions before sending to services
@@ -2196,10 +2193,10 @@ async function handleIncomingMessage(webhookData) {
               }
               return;
             }
-            
             case 'grok_chat': {
               saveLastCommand(chatId, decision, { normalized });
               await sendAck(chatId, { type: 'grok_chat' });
+              
               // Note: Grok doesn't use conversation history (causes issues)
               await conversationManager.addMessage(chatId, 'user', prompt);
               const result = await generateGrokResponse(prompt, []);
@@ -2584,215 +2581,26 @@ async function handleIncomingMessage(webhookData) {
             // ═══════════════════ RANDOM LOCATION ═══════════════════
             case 'send_random_location': {
               saveLastCommand(chatId, decision, { normalized });
-              
-              // Check if user requested a specific region
-              // Use the prompt text (not normalized object) to extract region
+
               console.log(`📍 [INCOMING] Extracting region from prompt: "${prompt}"`);
-              const requestedRegion = await extractRequestedRegion(prompt);
-              const requestedRegionName = requestedRegion ? requestedRegion.continentName : null;
-              const displayName = requestedRegion ? requestedRegion.displayName : null;
-              const isCity = requestedRegion ? requestedRegion.isCity : false;
-              console.log(`📍 [INCOMING] Extracted region: ${displayName ? `${displayName}${requestedRegionName ? ` (${requestedRegionName})` : isCity ? ' (עיר)' : ''}` : 'none'}`);
-              const ackMessage = displayName 
-                ? `🌍 קיבלתי! בוחר מיקום אקראי באזור ${displayName}...`
-                : '🌍 קיבלתי! בוחר מיקום אקראי על כדור הארץ...';
+              const requestedRegion = await locationService.extractRequestedRegion(prompt);
+              const ackMessage = locationService.buildLocationAckMessage(requestedRegion);
               await sendTextMessage(chatId, ackMessage);
-              
-              // Generate truly random coordinates within populated land areas
-              // Using tighter bounding boxes to avoid oceans/seas - subdivided into smaller regions
-              // Will retry up to 15 times if location falls in water
-              let locationInfo = null;
-              let attempts = 0;
-              const maxAttempts = 15;
-              
-              const continents = [
-                // EUROPE - subdivided to avoid Mediterranean/Atlantic/Black Sea
-                { name: 'Western Europe', minLat: 42, maxLat: 60, minLng: -5, maxLng: 15, weight: 2 },
-                { name: 'Eastern Europe', minLat: 44, maxLat: 60, minLng: 15, maxLng: 40, weight: 2 },
-                { name: 'Southern Europe', minLat: 36, maxLat: 46, minLng: -9, maxLng: 28, weight: 2 },
-                { name: 'Scandinavia', minLat: 55, maxLat: 71, minLng: 5, maxLng: 31, weight: 1 },
-                { name: 'UK & Ireland', minLat: 50, maxLat: 60, minLng: -10, maxLng: 2, weight: 1 },
-                
-                // ASIA - East Asia (subdivided)
-                { name: 'China Mainland', minLat: 18, maxLat: 53, minLng: 73, maxLng: 135, weight: 3 },
-                { name: 'Japan', minLat: 30, maxLat: 46, minLng: 129, maxLng: 146, weight: 1 },
-                { name: 'Korea', minLat: 33, maxLat: 43, minLng: 124, maxLng: 131, weight: 1 },
-                
-                // ASIA - Southeast Asia (subdivided to avoid Pacific Ocean)
-                { name: 'Mainland Southeast Asia', minLat: 5, maxLat: 28, minLng: 92, maxLng: 109, weight: 2 },
-                { name: 'Indonesia West', minLat: -11, maxLat: 6, minLng: 95, maxLng: 120, weight: 1 },
-                { name: 'Philippines', minLat: 5, maxLat: 19, minLng: 117, maxLng: 127, weight: 1 },
-                
-                // ASIA - South Asia (tightened to avoid Indian Ocean)
-                { name: 'India', minLat: 8, maxLat: 35, minLng: 68, maxLng: 97, weight: 2 },
-                { name: 'Pakistan & Afghanistan', minLat: 24, maxLat: 38, minLng: 60, maxLng: 75, weight: 1 },
-                
-                // MIDDLE EAST (subdivided)
-                { name: 'Levant & Turkey', minLat: 31, maxLat: 42, minLng: 26, maxLng: 45, weight: 1 },
-                { name: 'Arabian Peninsula', minLat: 12, maxLat: 32, minLng: 34, maxLng: 60, weight: 1 },
-                { name: 'Iran', minLat: 25, maxLat: 40, minLng: 44, maxLng: 63, weight: 1 },
-                
-                // NORTH AMERICA (subdivided to avoid Atlantic/Pacific)
-                { name: 'Eastern USA', minLat: 25, maxLat: 50, minLng: -98, maxLng: -67, weight: 2 },
-                { name: 'Western USA', minLat: 31, maxLat: 49, minLng: -125, maxLng: -102, weight: 2 },
-                { name: 'Eastern Canada', minLat: 43, maxLat: 62, minLng: -95, maxLng: -52, weight: 1 },
-                { name: 'Western Canada', minLat: 49, maxLat: 62, minLng: -140, maxLng: -95, weight: 1 },
-                
-                // CENTRAL AMERICA & MEXICO (tightened)
-                { name: 'Mexico', minLat: 14, maxLat: 32, minLng: -118, maxLng: -86, weight: 1 },
-                { name: 'Central America', minLat: 7, maxLat: 18, minLng: -93, maxLng: -77, weight: 1 },
-                
-                // SOUTH AMERICA (subdivided)
-                { name: 'Brazil North', minLat: -10, maxLat: 5, minLng: -74, maxLng: -35, weight: 2 },
-                { name: 'Brazil South', minLat: -34, maxLat: -10, minLng: -58, maxLng: -35, weight: 1 },
-                { name: 'Andean Countries', minLat: -18, maxLat: 12, minLng: -81, maxLng: -66, weight: 1 },
-                { name: 'Chile & Argentina', minLat: -55, maxLat: -22, minLng: -75, maxLng: -53, weight: 1 },
-                
-                // AFRICA (subdivided)
-                { name: 'North Africa', minLat: 15, maxLat: 37, minLng: -17, maxLng: 52, weight: 2 },
-                { name: 'West Africa', minLat: 4, maxLat: 20, minLng: -17, maxLng: 16, weight: 1 },
-                { name: 'East Africa', minLat: -12, maxLat: 16, minLng: 22, maxLng: 51, weight: 1 },
-                { name: 'Southern Africa', minLat: -35, maxLat: -15, minLng: 11, maxLng: 42, weight: 1 },
-                
-                // OCEANIA (tightened)
-                { name: 'Australia', minLat: -44, maxLat: -10, minLng: 113, maxLng: 154, weight: 2 },
-                { name: 'New Zealand', minLat: -47, maxLat: -34, minLng: 166, maxLng: 179, weight: 1 }
-              ];
-              
-              // Check if specific country/city bounds are available (more precise than continent)
-              const hasSpecificBounds = requestedRegion && requestedRegion.bounds;
-              const isCityLocation = requestedRegion && requestedRegion.isCity === true;
-              
-              // Filter continents if specific region requested (but use country/city bounds if available)
-              let availableContinents = continents;
-              
-              // Check if this is a multi-region request (e.g., "Europe", "Asia")
-              const hasMultiRegions = requestedRegion && requestedRegion.multiRegions && Array.isArray(requestedRegion.multiRegions);
-              
-              if (requestedRegionName && !hasSpecificBounds) {
-                if (hasMultiRegions) {
-                  // Multi-region: filter to multiple specific continents
-                  console.log(`🎯 [INCOMING] Multi-region request: "${displayName}" includes ${requestedRegion.multiRegions.length} regions`);
-                  availableContinents = continents.filter(c => requestedRegion.multiRegions.includes(c.name));
-                  console.log(`🎯 [INCOMING] Filtered to ${availableContinents.length} continents: ${availableContinents.map(c => c.name).join(', ')}`);
-                  
-                  if (availableContinents.length === 0) {
-                    console.log(`⚠️ [INCOMING] No continents found for multi-region "${displayName}", falling back to all regions`);
-                    await sendTextMessage(chatId, `❌ לא מצאתי אזורים עבור "${displayName}". בוחר מיקום אקראי בכל העולם...`);
-                    availableContinents = continents; // Fallback to all regions
-                  } else {
-                    console.log(`✅ [INCOMING] Multi-region filtered successfully: ${displayName} (${availableContinents.length} regions)`);
-                  }
-                } else {
-                  // Single region/continent
-                  console.log(`🎯 [INCOMING] Filtering continents to region: "${requestedRegionName}"`);
-                  console.log(`🎯 [INCOMING] Available continent names: ${continents.map(c => c.name).join(', ')}`);
-                  availableContinents = continents.filter(c => c.name === requestedRegionName);
-                  console.log(`🎯 [INCOMING] Filtered continents count: ${availableContinents.length}`);
-                  if (availableContinents.length === 0) {
-                    console.log(`⚠️ [INCOMING] No continent found matching "${requestedRegionName}", falling back to all regions`);
-                    await sendTextMessage(chatId, `❌ לא מצאתי אזור בשם "${requestedRegionName}". בוחר מיקום אקראי בכל העולם...`);
-                    availableContinents = continents; // Fallback to all regions
-                  } else {
-                    console.log(`✅ [INCOMING] Filtered to region: ${requestedRegionName} (${availableContinents.length} continent(s))`);
-                  }
-                }
-              } else if (hasSpecificBounds) {
-                if (isCityLocation) {
-                  console.log(`🎯 [INCOMING] Using specific city bounds for ${displayName}: lat ${requestedRegion.bounds.minLat}-${requestedRegion.bounds.maxLat}, lng ${requestedRegion.bounds.minLng}-${requestedRegion.bounds.maxLng}`);
-                } else {
-                  console.log(`🎯 [INCOMING] Using specific country bounds for ${displayName}: lat ${requestedRegion.bounds.minLat}-${requestedRegion.bounds.maxLat}, lng ${requestedRegion.bounds.minLng}-${requestedRegion.bounds.maxLng}`);
-                }
-              } else {
-                console.log(`🌍 [INCOMING] No region filter - using all continents`);
-              }
-              
-              // Retry loop to avoid water locations
-              // Track if we should use bounds or fallback to continent
-              let useBoundsForGeneration = hasSpecificBounds;
-              
-              while (attempts < maxAttempts && !locationInfo) {
-                attempts++;
-                console.log(`🎲 [INCOMING] Attempt ${attempts}/${maxAttempts} to find land location...`);
-                
-                let latitude, longitude, regionName;
-                
-                if (useBoundsForGeneration && requestedRegion && requestedRegion.bounds) {
-                  // Use specific country/city bounds with validation
-                  const bounds = requestedRegion.bounds;
-                  
-                  // Validate bounds before using
-                  if (bounds && 
-                      typeof bounds.minLat === 'number' && typeof bounds.maxLat === 'number' &&
-                      typeof bounds.minLng === 'number' && typeof bounds.maxLng === 'number' &&
-                      bounds.minLat < bounds.maxLat && bounds.minLng < bounds.maxLng &&
-                      bounds.minLat >= -90 && bounds.maxLat <= 90 &&
-                      bounds.minLng >= -180 && bounds.maxLng <= 180) {
-                    latitude = (Math.random() * (bounds.maxLat - bounds.minLat) + bounds.minLat).toFixed(6);
-                    longitude = (Math.random() * (bounds.maxLng - bounds.minLng) + bounds.minLng).toFixed(6);
-                    regionName = displayName;
-                  } else {
-                    console.warn(`⚠️ [INCOMING] Invalid bounds detected, falling back to continent-based generation`);
-                    useBoundsForGeneration = false; // Fallback to continent-based
-                    // Will continue to else block below
-                  }
-                }
-                
-                // If bounds were invalid or not available, use continent-based generation
-                if (!useBoundsForGeneration || !latitude || !longitude) {
-                  // Weighted random selection from continents (some regions more populous than others)
-                  const totalWeight = availableContinents.reduce((sum, c) => sum + c.weight, 0);
-                  if (totalWeight === 0) {
-                    console.error(`❌ [INCOMING] No available continents, using first continent as fallback`);
-                    availableContinents = [continents[0]];
-                  }
-                  
-                  let randomWeight = Math.random() * availableContinents.reduce((sum, c) => sum + c.weight, 0);
-                  let selectedContinent = availableContinents[0];
-                  
-                  for (const continent of availableContinents) {
-                    randomWeight -= continent.weight;
-                    if (randomWeight <= 0) {
-                      selectedContinent = continent;
-                      break;
-                    }
-                  }
-                  
-                  // Generate random coordinates within the selected region
-                  latitude = (Math.random() * (selectedContinent.maxLat - selectedContinent.minLat) + selectedContinent.minLat).toFixed(6);
-                  longitude = (Math.random() * (selectedContinent.maxLng - selectedContinent.minLng) + selectedContinent.minLng).toFixed(6);
-                  regionName = selectedContinent.name;
-                }
-                
-                console.log(`🌍 [INCOMING] Generated random location in ${regionName}: ${latitude}, ${longitude}`);
-                
-                // Get location information from Gemini with Google Maps grounding
-                const tempLocationInfo = await getLocationInfo(parseFloat(latitude), parseFloat(longitude));
-                
-                // Check if location is valid (not in water/ocean)
-                if (tempLocationInfo.success && tempLocationInfo.description) {
-                  if (isLandLocation(tempLocationInfo.description)) {
-                    // Valid land location found!
-                    locationInfo = { ...tempLocationInfo, latitude, longitude };
-                    console.log(`✅ Found valid land location on attempt ${attempts}`);
-                  } else {
-                    console.log(`⚠️ Location is in open water, retrying... (${tempLocationInfo.description.substring(0, 80)})`);
-                  }
-                } else {
-                  console.log(`⚠️ Location info failed, retrying...`);
-                }
-              }
-              
-              // If no valid location found after max attempts, use last one anyway
-              if (!locationInfo) {
-                await sendTextMessage(chatId, `❌ לא הצלחתי למצוא מיקום תקין אחרי ${maxAttempts} ניסיונות`);
+
+              const locationResult = await locationService.findRandomLocation({ requestedRegion });
+              if (!locationResult.success) {
+                await sendTextMessage(chatId, `❌ ${locationResult.error}`);
                 return;
               }
-              
-              // Send the location with description
+
+              const latitude = parseFloat(locationResult.latitude);
+              const longitude = parseFloat(locationResult.longitude);
+
               try {
-                await sendLocation(chatId, parseFloat(locationInfo.latitude), parseFloat(locationInfo.longitude), '', '');
-                await sendTextMessage(chatId, `📍 ${locationInfo.description}`);
+                await sendLocation(chatId, latitude, longitude, '', '');
+                if (locationResult.description) {
+                  await sendTextMessage(chatId, `📍 ${locationResult.description}`);
+                }
                 console.log(`✅ Random location sent to ${chatId}`);
               } catch (locationError) {
                 console.error('❌ Error sending location:', locationError);
@@ -2845,7 +2653,6 @@ async function handleIncomingMessage(webhookData) {
 • הודעה קולית מצוטטת + # אמור ביפנית - תמלול + תרגום + TTS
 • וידאו + # ערוך... - עריכת וידאו
 • הודעה קולית - תמלול ותשובה קולית
-
 **פקודות ניהול:**
 • הצג היסטוריה - הצגת היסטוריית השיחה
 • סטטוס יצירה - הרשאות יצירת מדיה
@@ -3436,7 +3243,6 @@ async function handleIncomingMessage(webhookData) {
     console.error('❌ Error handling incoming message:', error.message || error);
   }
 }
-
 /**
  * Handle outgoing WhatsApp message (commands sent by you)
  */
@@ -3770,13 +3576,11 @@ async function handleOutgoingMessage(webhookData) {
             return;
           }
         }
-        
         // ═══════════════════ REGULAR FLOW (intentRouter) ═══════════════════
         const decision = await routeIntent(normalized);
         const rawPrompt = decision.args?.prompt || finalPrompt;
         // Clean prompt from provider mentions before sending to services
         let prompt = cleanPromptFromProviders(rawPrompt);
-
         // Router-based direct execution for outgoing messages (same as incoming)
         try {
           // Execute command - loop allows retry to re-execute with updated decision
@@ -4698,215 +4502,26 @@ async function handleOutgoingMessage(webhookData) {
             // ═══════════════════ RANDOM LOCATION ═══════════════════
             case 'send_random_location': {
               saveLastCommand(chatId, decision, { normalized });
-              
-              // Check if user requested a specific region
-              // Use the prompt text (not normalized object) to extract region
+
               console.log(`📍 [OUTGOING] Extracting region from prompt: "${prompt}"`);
-              const requestedRegion = await extractRequestedRegion(prompt);
-              const requestedRegionName = requestedRegion ? requestedRegion.continentName : null;
-              const displayName = requestedRegion ? requestedRegion.displayName : null;
-              const isCity = requestedRegion ? requestedRegion.isCity : false;
-              console.log(`📍 [OUTGOING] Extracted region: ${displayName ? `${displayName}${requestedRegionName ? ` (${requestedRegionName})` : isCity ? ' (עיר)' : ''}` : 'none'}`);
-              const ackMessage = displayName 
-                ? `🌍 קיבלתי! בוחר מיקום אקראי באזור ${displayName}...`
-                : '🌍 קיבלתי! בוחר מיקום אקראי על כדור הארץ...';
+              const requestedRegion = await locationService.extractRequestedRegion(prompt);
+              const ackMessage = locationService.buildLocationAckMessage(requestedRegion);
               await sendTextMessage(chatId, ackMessage);
-              
-              // Generate truly random coordinates within populated land areas
-              // Using tighter bounding boxes to avoid oceans/seas - subdivided into smaller regions
-              // Will retry up to 15 times if location falls in water
-              let locationInfo = null;
-              let attempts = 0;
-              const maxAttempts = 15;
-              
-              const continents = [
-                // EUROPE - subdivided to avoid Mediterranean/Atlantic/Black Sea
-                { name: 'Western Europe', minLat: 42, maxLat: 60, minLng: -5, maxLng: 15, weight: 2 },
-                { name: 'Eastern Europe', minLat: 44, maxLat: 60, minLng: 15, maxLng: 40, weight: 2 },
-                { name: 'Southern Europe', minLat: 36, maxLat: 46, minLng: -9, maxLng: 28, weight: 2 },
-                { name: 'Scandinavia', minLat: 55, maxLat: 71, minLng: 5, maxLng: 31, weight: 1 },
-                { name: 'UK & Ireland', minLat: 50, maxLat: 60, minLng: -10, maxLng: 2, weight: 1 },
-                
-                // ASIA - East Asia (subdivided)
-                { name: 'China Mainland', minLat: 18, maxLat: 53, minLng: 73, maxLng: 135, weight: 3 },
-                { name: 'Japan', minLat: 30, maxLat: 46, minLng: 129, maxLng: 146, weight: 1 },
-                { name: 'Korea', minLat: 33, maxLat: 43, minLng: 124, maxLng: 131, weight: 1 },
-                
-                // ASIA - Southeast Asia (subdivided to avoid Pacific Ocean)
-                { name: 'Mainland Southeast Asia', minLat: 5, maxLat: 28, minLng: 92, maxLng: 109, weight: 2 },
-                { name: 'Indonesia West', minLat: -11, maxLat: 6, minLng: 95, maxLng: 120, weight: 1 },
-                { name: 'Philippines', minLat: 5, maxLat: 19, minLng: 117, maxLng: 127, weight: 1 },
-                
-                // ASIA - South Asia (tightened to avoid Indian Ocean)
-                { name: 'India', minLat: 8, maxLat: 35, minLng: 68, maxLng: 97, weight: 2 },
-                { name: 'Pakistan & Afghanistan', minLat: 24, maxLat: 38, minLng: 60, maxLng: 75, weight: 1 },
-                
-                // MIDDLE EAST (subdivided)
-                { name: 'Levant & Turkey', minLat: 31, maxLat: 42, minLng: 26, maxLng: 45, weight: 1 },
-                { name: 'Arabian Peninsula', minLat: 12, maxLat: 32, minLng: 34, maxLng: 60, weight: 1 },
-                { name: 'Iran', minLat: 25, maxLat: 40, minLng: 44, maxLng: 63, weight: 1 },
-                
-                // NORTH AMERICA (subdivided to avoid Atlantic/Pacific)
-                { name: 'Eastern USA', minLat: 25, maxLat: 50, minLng: -98, maxLng: -67, weight: 2 },
-                { name: 'Western USA', minLat: 31, maxLat: 49, minLng: -125, maxLng: -102, weight: 2 },
-                { name: 'Eastern Canada', minLat: 43, maxLat: 62, minLng: -95, maxLng: -52, weight: 1 },
-                { name: 'Western Canada', minLat: 49, maxLat: 62, minLng: -140, maxLng: -95, weight: 1 },
-                
-                // CENTRAL AMERICA & MEXICO (tightened)
-                { name: 'Mexico', minLat: 14, maxLat: 32, minLng: -118, maxLng: -86, weight: 1 },
-                { name: 'Central America', minLat: 7, maxLat: 18, minLng: -93, maxLng: -77, weight: 1 },
-                
-                // SOUTH AMERICA (subdivided)
-                { name: 'Brazil North', minLat: -10, maxLat: 5, minLng: -74, maxLng: -35, weight: 2 },
-                { name: 'Brazil South', minLat: -34, maxLat: -10, minLng: -58, maxLng: -35, weight: 1 },
-                { name: 'Andean Countries', minLat: -18, maxLat: 12, minLng: -81, maxLng: -66, weight: 1 },
-                { name: 'Chile & Argentina', minLat: -55, maxLat: -22, minLng: -75, maxLng: -53, weight: 1 },
-                
-                // AFRICA (subdivided)
-                { name: 'North Africa', minLat: 15, maxLat: 37, minLng: -17, maxLng: 52, weight: 2 },
-                { name: 'West Africa', minLat: 4, maxLat: 20, minLng: -17, maxLng: 16, weight: 1 },
-                { name: 'East Africa', minLat: -12, maxLat: 16, minLng: 22, maxLng: 51, weight: 1 },
-                { name: 'Southern Africa', minLat: -35, maxLat: -15, minLng: 11, maxLng: 42, weight: 1 },
-                
-                // OCEANIA (tightened)
-                { name: 'Australia', minLat: -44, maxLat: -10, minLng: 113, maxLng: 154, weight: 2 },
-                { name: 'New Zealand', minLat: -47, maxLat: -34, minLng: 166, maxLng: 179, weight: 1 }
-              ];
-              
-              // Check if specific country/city bounds are available (more precise than continent)
-              const hasSpecificBounds = requestedRegion && requestedRegion.bounds;
-              const isCityLocation = requestedRegion && requestedRegion.isCity === true;
-              
-              // Filter continents if specific region requested (but use country/city bounds if available)
-              let availableContinents = continents;
-              
-              // Check if this is a multi-region request (e.g., "Europe", "Asia")
-              const hasMultiRegions = requestedRegion && requestedRegion.multiRegions && Array.isArray(requestedRegion.multiRegions);
-              
-              if (requestedRegionName && !hasSpecificBounds) {
-                if (hasMultiRegions) {
-                  // Multi-region: filter to multiple specific continents
-                  console.log(`🎯 [OUTGOING] Multi-region request: "${displayName}" includes ${requestedRegion.multiRegions.length} regions`);
-                  availableContinents = continents.filter(c => requestedRegion.multiRegions.includes(c.name));
-                  console.log(`🎯 [OUTGOING] Filtered to ${availableContinents.length} continents: ${availableContinents.map(c => c.name).join(', ')}`);
-                  
-                  if (availableContinents.length === 0) {
-                    console.log(`⚠️ [OUTGOING] No continents found for multi-region "${displayName}", falling back to all regions`);
-                    await sendTextMessage(chatId, `❌ לא מצאתי אזורים עבור "${displayName}". בוחר מיקום אקראי בכל העולם...`);
-                    availableContinents = continents; // Fallback to all regions
-                  } else {
-                    console.log(`✅ [OUTGOING] Multi-region filtered successfully: ${displayName} (${availableContinents.length} regions)`);
-                  }
-                } else {
-                  // Single region/continent
-                  console.log(`🎯 [OUTGOING] Filtering continents to region: "${requestedRegionName}"`);
-                  console.log(`🎯 [OUTGOING] Available continent names: ${continents.map(c => c.name).join(', ')}`);
-                  availableContinents = continents.filter(c => c.name === requestedRegionName);
-                  console.log(`🎯 [OUTGOING] Filtered continents count: ${availableContinents.length}`);
-                  if (availableContinents.length === 0) {
-                    console.log(`⚠️ [OUTGOING] No continent found matching "${requestedRegionName}", falling back to all regions`);
-                    await sendTextMessage(chatId, `❌ לא מצאתי אזור בשם "${requestedRegionName}". בוחר מיקום אקראי בכל העולם...`);
-                    availableContinents = continents; // Fallback to all regions
-                  } else {
-                    console.log(`✅ [OUTGOING] Filtered to region: ${requestedRegionName} (${availableContinents.length} continent(s))`);
-                  }
-                }
-              } else if (hasSpecificBounds) {
-                if (isCityLocation) {
-                  console.log(`🎯 [OUTGOING] Using specific city bounds for ${displayName}: lat ${requestedRegion.bounds.minLat}-${requestedRegion.bounds.maxLat}, lng ${requestedRegion.bounds.minLng}-${requestedRegion.bounds.maxLng}`);
-                } else {
-                  console.log(`🎯 [OUTGOING] Using specific country bounds for ${displayName}: lat ${requestedRegion.bounds.minLat}-${requestedRegion.bounds.maxLat}, lng ${requestedRegion.bounds.minLng}-${requestedRegion.bounds.maxLng}`);
-                }
-              } else {
-                console.log(`🌍 [OUTGOING] No region filter - using all continents`);
-              }
-              
-              // Retry loop to avoid water locations
-              // Track if we should use bounds or fallback to continent
-              let useBoundsForGeneration = hasSpecificBounds;
-              
-              while (attempts < maxAttempts && !locationInfo) {
-                attempts++;
-                console.log(`🎲 [OUTGOING] Attempt ${attempts}/${maxAttempts} to find land location...`);
-                
-                let latitude, longitude, regionName;
-                
-                if (useBoundsForGeneration && requestedRegion && requestedRegion.bounds) {
-                  // Use specific country/city bounds with validation
-                  const bounds = requestedRegion.bounds;
-                  
-                  // Validate bounds before using
-                  if (bounds && 
-                      typeof bounds.minLat === 'number' && typeof bounds.maxLat === 'number' &&
-                      typeof bounds.minLng === 'number' && typeof bounds.maxLng === 'number' &&
-                      bounds.minLat < bounds.maxLat && bounds.minLng < bounds.maxLng &&
-                      bounds.minLat >= -90 && bounds.maxLat <= 90 &&
-                      bounds.minLng >= -180 && bounds.maxLng <= 180) {
-                    latitude = (Math.random() * (bounds.maxLat - bounds.minLat) + bounds.minLat).toFixed(6);
-                    longitude = (Math.random() * (bounds.maxLng - bounds.minLng) + bounds.minLng).toFixed(6);
-                    regionName = displayName;
-                  } else {
-                    console.warn(`⚠️ [OUTGOING] Invalid bounds detected, falling back to continent-based generation`);
-                    useBoundsForGeneration = false; // Fallback to continent-based
-                    // Will continue to else block below
-                  }
-                }
-                
-                // If bounds were invalid or not available, use continent-based generation
-                if (!useBoundsForGeneration || !latitude || !longitude) {
-                  // Weighted random selection from continents (some regions more populous than others)
-                  const totalWeight = availableContinents.reduce((sum, c) => sum + c.weight, 0);
-                  if (totalWeight === 0) {
-                    console.error(`❌ [OUTGOING] No available continents, using first continent as fallback`);
-                    availableContinents = [continents[0]];
-                  }
-                  
-                  let randomWeight = Math.random() * availableContinents.reduce((sum, c) => sum + c.weight, 0);
-                  let selectedContinent = availableContinents[0];
-                  
-                  for (const continent of availableContinents) {
-                    randomWeight -= continent.weight;
-                    if (randomWeight <= 0) {
-                      selectedContinent = continent;
-                      break;
-                    }
-                  }
-                  
-                  // Generate random coordinates within the selected region
-                  latitude = (Math.random() * (selectedContinent.maxLat - selectedContinent.minLat) + selectedContinent.minLat).toFixed(6);
-                  longitude = (Math.random() * (selectedContinent.maxLng - selectedContinent.minLng) + selectedContinent.minLng).toFixed(6);
-                  regionName = selectedContinent.name;
-                }
-                
-                console.log(`🌍 [OUTGOING] Generated random location in ${regionName}: ${latitude}, ${longitude}`);
-                
-                // Get location information from Gemini with Google Maps grounding
-                const tempLocationInfo = await getLocationInfo(parseFloat(latitude), parseFloat(longitude));
-                
-                // Check if location is valid (not in water/ocean)
-                if (tempLocationInfo.success && tempLocationInfo.description) {
-                  if (isLandLocation(tempLocationInfo.description)) {
-                    // Valid land location found!
-                    locationInfo = { ...tempLocationInfo, latitude, longitude };
-                    console.log(`✅ Found valid land location on attempt ${attempts}`);
-                  } else {
-                    console.log(`⚠️ Location is in open water, retrying... (${tempLocationInfo.description.substring(0, 80)})`);
-                  }
-                } else {
-                  console.log(`⚠️ Location info failed, retrying...`);
-                }
-              }
-              
-              // If no valid location found after max attempts, use last one anyway
-              if (!locationInfo) {
-                await sendTextMessage(chatId, `❌ לא הצלחתי למצוא מיקום תקין אחרי ${maxAttempts} ניסיונות`);
+
+              const locationResult = await locationService.findRandomLocation({ requestedRegion });
+              if (!locationResult.success) {
+                await sendTextMessage(chatId, `❌ ${locationResult.error}`);
                 return;
               }
-              
-              // Send the location with description
+
+              const latitude = parseFloat(locationResult.latitude);
+              const longitude = parseFloat(locationResult.longitude);
+
               try {
-                await sendLocation(chatId, parseFloat(locationInfo.latitude), parseFloat(locationInfo.longitude), '', '');
-                await sendTextMessage(chatId, `📍 ${locationInfo.description}`);
+                await sendLocation(chatId, latitude, longitude, '', '');
+                if (locationResult.description) {
+                  await sendTextMessage(chatId, `📍 ${locationResult.description}`);
+                }
                 console.log(`✅ Random location sent to ${chatId}`);
               } catch (locationError) {
                 console.error('❌ Error sending location:', locationError);
@@ -4955,7 +4570,6 @@ async function handleOutgoingMessage(webhookData) {
 • הודעה קולית מצוטטת + # אמור ביפנית - תמלול + תרגום + TTS
 • וידאו + # ערוך... - עריכת וידאו
 • הודעה קולית - תמלול ותשובה קולית
-
 **פקודות ניהול:**
 • הצג היסטוריה - הצגת היסטוריית השיחה
 • סטטוס יצירה - הרשאות יצירת מדיה
@@ -5418,7 +5032,7 @@ async function handleOutgoingMessage(webhookData) {
                   await sendTextMessage(chatId, `❌ ${result.error}`);
                 }
               } catch (error) {
-                await sendTextMessage(chatId, `❌ שגיאה בניתוח הוידאו: ${error.message}`);
+                await sendTextMessage(chatId, `❌ שגיאה בניתוח הווידאו: ${error.message}`);
               }
               return;
             }
@@ -5603,7 +5217,6 @@ async function handleOutgoingMessage(webhookData) {
     console.error('❌ Error handling outgoing message:', error.message || error);
   }
 }
-
 /**
  * Process image edit message asynchronously (no await from webhook)
  */
@@ -5633,23 +5246,6 @@ function processImageToVideoAsync(imageData) {
     }
   });
 }
-
-/**
- * Process creative voice message asynchronously (no await from webhook) - COMMENTED OUT FOR VOICE-TO-VOICE PROCESSING
- */
-/*
-function processCreativeVoiceAsync(voiceData) {
-  // Run in background without blocking webhook response
-  handleCreativeVoiceMessage(voiceData).catch(async error => {
-    console.error('❌ Error in async creative voice processing:', error.message || error);
-    try {
-      await sendTextMessage(voiceData.chatId, `❌ שגיאה בעיבוד ההקלטה: ${error.message || error}`);
-    } catch (sendError) {
-      console.error('❌ Failed to send error message to user:', sendError);
-    }
-  });
-}
-*/
 
 /**
  * Process voice message asynchronously (no await from webhook)
@@ -5858,8 +5454,6 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
     await sendTextMessage(chatId, `❌ שגיאה בעיבוד הווידאו: ${error.message || error}`);
   }
 }
-
-// ❌ REMOVED: handleCreativeVoiceMessage - no longer needed, voice-to-voice processing is used instead
 
 /**
  * Get audio duration in seconds using ffprobe
@@ -6106,137 +5700,6 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     await sendTextMessage(chatId, `❌ שגיאה בעיבוד ההקלטה הקולית: ${error.message || error}`);
   }
 }
-
-// ════════════════════════════════════════════════════════════════
-// LEGACY FUNCTION handleTextMessage - REMOVED
-// All functionality moved to router-based direct execution (lines 279-510)
-// Management commands handled in handleOutgoingMessage (lines 1022+)
-// ════════════════════════════════════════════════════════════════
-
-/**
- * Parse text message to extract MANAGEMENT COMMANDS ONLY
- * All AI commands (chat, image, video, music, TTS) now go through router with "# " prefix
- */
-function parseTextCommand(text) {
-  if (!text || typeof text !== 'string') {
-    return null;
-  }
-
-  text = text.trim();
-
-  // ═══════════════════ MANAGEMENT COMMANDS ONLY ═══════════════════
-  // All AI commands (chat, image, video, music, TTS) now go through router with "# " prefix
-  
-  // Clear conversation history (admin command)
-  if (text === 'נקה היסטוריה') {
-    return { type: 'clear_all_conversations' };
-  }
-
-  // Show history
-  if (text === 'הצג היסטוריה') {
-    return { type: 'show_history' };
-  }
-
-  // Media creation status
-  if (text === 'סטטוס יצירה') {
-    return { type: 'media_creation_status' };
-  }
-
-  // Voice transcription controls
-  if (text === 'סטטוס תמלול') {
-    return { type: 'voice_transcription_status' };
-  }
-
-  // Group creation status
-  if (text === 'סטטוס קבוצות') {
-    return { type: 'group_creation_status' };
-  }
-
-  // Sync contacts from Green API
-  if (text === 'עדכן אנשי קשר') {
-    return { type: 'sync_contacts' };
-  }
-
-  // Media creation authorization commands
-  if (text.startsWith('הוסף ליצירה ')) {
-    const contactName = text.substring('הוסף ליצירה '.length).trim();
-    if (contactName) {
-      return { 
-        type: 'add_media_authorization', 
-        contactName: contactName,
-        originalMessage: text 
-      };
-    }
-  }
-
-  if (text.startsWith('הסר מיצירה ')) {
-    const contactName = text.substring('הסר מיצירה '.length).trim();
-    if (contactName) {
-      return { 
-        type: 'remove_media_authorization', 
-        contactName: contactName,
-        originalMessage: text 
-      };
-    }
-  }
-
-  // Group creation authorization commands
-  if (text.startsWith('הוסף לקבוצות ')) {
-    const contactName = text.substring('הוסף לקבוצות '.length).trim();
-    if (contactName) {
-      return { 
-        type: 'add_group_authorization', 
-        contactName: contactName,
-        originalMessage: text 
-      };
-    }
-  }
-
-  if (text.startsWith('הסר מקבוצות ')) {
-    const contactName = text.substring('הסר מקבוצות '.length).trim();
-    if (contactName) {
-      return { 
-        type: 'remove_group_authorization', 
-        contactName: contactName,
-        originalMessage: text 
-      };
-    }
-  }
-
-  // Shortcut: "הוסף לקבוצות" without name - infer from current chat
-  if (text === 'הוסף לקבוצות') {
-    return { 
-      type: 'add_group_authorization_current',
-      originalMessage: text 
-    };
-  }
-
-  // Voice transcription exclude list management
-  if (text.startsWith('הסר מתמלול ')) {
-    const contactName = text.substring('הסר מתמלול '.length).trim();
-    if (contactName) {
-      return { 
-        type: 'exclude_from_transcription', 
-        contactName: contactName,
-        originalMessage: text 
-      };
-    }
-  }
-
-  if (text.startsWith('הוסף לתמלול ')) {
-    const contactName = text.substring('הוסף לתמלול '.length).trim();
-    if (contactName) {
-      return { 
-        type: 'include_in_transcription', 
-        contactName: contactName,
-        originalMessage: text 
-      };
-    }
-  }
-
-  return null;
-}
-
 /**
  * Handle management commands (non-AI commands that don't go through router)
  */
@@ -6324,12 +5787,10 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           const syncResult = await conversationManager.syncContacts(contacts);
           
           const resultMessage = `✅ עדכון אנשי קשר הושלם!
-
 📊 סטטיסטיקה:
 • חדשים: ${syncResult.inserted}
 • עודכנו: ${syncResult.updated}  
 • סה"כ: ${syncResult.total}
-
 💾 כל אנשי הקשר נשמרו במסד הנתונים`;
           
           await sendTextMessage(chatId, resultMessage);

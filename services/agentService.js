@@ -6,6 +6,7 @@ const { promisify } = require('util');
 const { exec } = require('child_process');
 const conversationManager = require('./conversationManager');
 const { cleanThinkingPatterns } = require('./geminiService');
+const locationService = require('./locationService');
 
 const execAsync = promisify(exec);
 
@@ -1888,27 +1889,60 @@ const agentTools = {
     },
     execute: async (args, context) => {
       console.log(`🔧 [Agent Tool] send_location called`);
-      
+      const { greenApiService } = getServices();
+
       try {
-        // Generate random coordinates
-        const lat = (Math.random() * 180 - 90).toFixed(6);
-        const lng = (Math.random() * 360 - 180).toFixed(6);
-        
-        const { geminiService } = getServices();
-        const locationInfo = await geminiService.getLocationInfo(lat, lng);
-        
+        const userPrompt = context?.originalInput?.userText || context?.normalized?.text || '';
+        const requestedRegion = await locationService.extractRequestedRegion(userPrompt);
+        const regionAckMessage = locationService.buildLocationAckMessage(requestedRegion);
+
+        if (regionAckMessage && context?.chatId) {
+          await greenApiService.sendTextMessage(context.chatId, regionAckMessage);
+        }
+
+        const locationResult = await locationService.findRandomLocation({ requestedRegion });
+        if (!locationResult.success) {
+          const errorMessage = locationResult.error || 'לא הצלחתי למצוא מיקום תקין';
+          if (context?.chatId) {
+            await greenApiService.sendTextMessage(context.chatId, `❌ ${errorMessage}`);
+          }
+          return {
+            success: false,
+            error: errorMessage
+          };
+        }
+
+        const latitude = parseFloat(locationResult.latitude);
+        const longitude = parseFloat(locationResult.longitude);
+
+        if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+          throw new Error('Invalid coordinates returned from location service');
+        }
+
+        if (context?.chatId) {
+          await greenApiService.sendLocation(context.chatId, latitude, longitude, '', '');
+          if (locationResult.description) {
+            await greenApiService.sendTextMessage(context.chatId, `📍 ${locationResult.description}`);
+          }
+        }
+
         return {
           success: true,
-          data: `📍 מיקום אקראי: ${lat}, ${lng}\n${locationInfo.text || ''}`,
-          latitude: lat,
-          longitude: lng,
-          locationInfo: locationInfo.text
+          latitude,
+          longitude,
+          locationInfo: locationResult.description || '',
+          data: locationResult.description || '',
+          suppressFinalResponse: true
         };
       } catch (error) {
         console.error('❌ Error in send_location:', error);
+        const errorMessage = error?.message || 'שגיאה לא ידועה בשליחת המיקום';
+        if (context?.chatId) {
+          await greenApiService.sendTextMessage(context.chatId, `❌ ${errorMessage}`);
+        }
         return {
           success: false,
-          error: `שגיאה: ${error.message}`
+          error: errorMessage
         };
       }
     }
