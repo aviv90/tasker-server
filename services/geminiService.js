@@ -1546,9 +1546,10 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         const result = await model.generateContent(generateConfig);
         const response = result.response;
         
-        // Log if Google Search was actually used
+        // Log if Google Search was actually used and extract grounding metadata
+        let groundingMetadata = null;
         if (useGoogleSearch) {
-            const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
+            groundingMetadata = response.candidates?.[0]?.groundingMetadata;
             const searchQueries = response.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent;
             
             if (groundingMetadata) {
@@ -1584,6 +1585,54 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         // Remove meta-linguistic reasoning and English thinking patterns
         // Sometimes Gemini ignores the system prompt and adds reasoning anyway
         text = cleanThinkingPatterns(text);
+        
+        // CRITICAL FIX: Replace hallucinated URLs with real grounding URLs
+        // When Google Search is used, Gemini generates fake URLs in the text but provides
+        // the real URLs in groundingMetadata. We need to replace the fake URLs with real ones.
+        if (useGoogleSearch && groundingMetadata?.groundingChunks?.length > 0) {
+            console.log('🔗 Replacing hallucinated URLs with real grounding URLs...');
+            
+            // Extract real URLs from groundingMetadata
+            const realUrls = groundingMetadata.groundingChunks
+                .filter(chunk => chunk.web?.uri)
+                .map(chunk => chunk.web.uri);
+            
+            if (realUrls.length > 0) {
+                console.log(`✅ Found ${realUrls.length} real URLs from Google Search:`, realUrls);
+                
+                // Find all fake URLs in the text and replace them with real ones
+                // Regex to match URLs (both http and https)
+                const urlRegex = /(https?:\/\/[^\s)<]+)/g;
+                const foundUrls = text.match(urlRegex) || [];
+                
+                console.log(`🔍 Found ${foundUrls.length} URLs in generated text:`, foundUrls);
+                
+                // Replace each fake URL with a real one (in order)
+                let urlIndex = 0;
+                text = text.replace(urlRegex, (match) => {
+                    // Skip if this is already a grounding URL
+                    if (match.includes('vertexaisearch.cloud.google.com')) {
+                        console.log(`✓ Keeping existing grounding URL: ${match.substring(0, 50)}...`);
+                        return match;
+                    }
+                    
+                    // Replace with real URL if we have more
+                    if (urlIndex < realUrls.length) {
+                        const realUrl = realUrls[urlIndex];
+                        console.log(`🔄 Replacing fake URL: ${match.substring(0, 80)}...`);
+                        console.log(`   ↳ With real URL: ${realUrl.substring(0, 80)}...`);
+                        urlIndex++;
+                        return realUrl;
+                    }
+                    
+                    // If we ran out of real URLs, keep the fake one (but log warning)
+                    console.warn(`⚠️ No more real URLs available, keeping fake URL: ${match}`);
+                    return match;
+                });
+                
+                console.log(`✅ Replaced ${urlIndex} fake URLs with real grounding URLs`);
+            }
+        }
         
         // Fix URLs with parentheses - Gemini sometimes wraps URLs in parentheses
         // or uses Markdown link syntax [text](url)
