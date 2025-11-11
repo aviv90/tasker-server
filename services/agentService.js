@@ -3189,12 +3189,12 @@ function detectLanguage(text) {
  */
 function getLanguageInstruction(langCode) {
   const instructions = {
-    'he': 'תשיב בעברית בלבד!',
-    'en': 'Respond in English only!',
-    'ar': 'أجب باللغة العربية فقط!',
-    'ru': 'Отвечай только на русском!',
+    'he': 'תשיב בעברית',
+    'en': 'Respond in English',
+    'ar': 'أجب بالعربية',
+    'ru': 'Отвечай по-русски',
   };
-  return instructions[langCode] || instructions['he'];
+  return instructions[langCode] || 'תשיב בעברית';
 }
 
 /**
