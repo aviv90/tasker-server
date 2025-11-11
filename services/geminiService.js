@@ -1538,8 +1538,7 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
             generateConfig.tools = [{
                 googleSearch: {}
             }];
-            console.log('🔍 Google Search tool added to config');
-            console.log('📋 Full config:', JSON.stringify(generateConfig.tools, null, 2));
+            console.log('🔍 Google Search tool enabled');
         }
         
         // Generate response with history (and optionally Google Search)
@@ -1553,11 +1552,12 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
             const searchQueries = response.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent;
             
             if (groundingMetadata) {
-                console.log('✅ Google Search WAS USED by Gemini');
-                console.log('🔍 Grounding Metadata:', JSON.stringify(groundingMetadata, null, 2));
+                console.log('✅ Google Search was used by Gemini');
+                const chunksCount = groundingMetadata.groundingChunks?.length || 0;
+                console.log(`🔍 Found ${chunksCount} grounding chunks`);
                 
                 if (searchQueries) {
-                    console.log('🔎 Search Queries:', searchQueries);
+                    console.log('🔎 Search query executed');
                 }
             } else {
                 console.warn('⚠️ WARNING: Google Search tool was enabled but Gemini did NOT use it!');
@@ -1607,26 +1607,30 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
                 
                 console.log(`🔍 Found ${foundUrls.length} URLs in generated text:`, foundUrls);
                 
-                // Replace each fake URL with a real one (in order)
+                // Replace each URL with a real one (in order)
                 let urlIndex = 0;
                 text = text.replace(urlRegex, (match) => {
-                    // Skip if this is already a grounding URL
+                    // If this is a vertexaisearch URL, replace it with the real URL
                     if (match.includes('vertexaisearch.cloud.google.com')) {
-                        console.log(`✓ Keeping existing grounding URL: ${match.substring(0, 50)}...`);
-                        return match;
+                        if (urlIndex < realUrls.length) {
+                            const realUrl = realUrls[urlIndex];
+                            console.log(`🔄 Replacing Google redirect URL with real URL`);
+                            console.log(`   ↳ Real URL: ${realUrl.substring(0, 80)}...`);
+                            urlIndex++;
+                            return realUrl;
+                        }
                     }
                     
-                    // Replace with real URL if we have more
+                    // Replace fake/hallucinated URLs with real ones if we have more
                     if (urlIndex < realUrls.length) {
                         const realUrl = realUrls[urlIndex];
-                        console.log(`🔄 Replacing fake URL: ${match.substring(0, 80)}...`);
-                        console.log(`   ↳ With real URL: ${realUrl.substring(0, 80)}...`);
+                        console.log(`🔄 Replacing URL: ${match.substring(0, 50)}...`);
+                        console.log(`   ↳ With: ${realUrl.substring(0, 50)}...`);
                         urlIndex++;
                         return realUrl;
                     }
                     
-                    // If we ran out of real URLs, keep the fake one (but log warning)
-                    console.warn(`⚠️ No more real URLs available, keeping fake URL: ${match}`);
+                    // If we ran out of real URLs, keep the existing one
                     return match;
                 });
                 

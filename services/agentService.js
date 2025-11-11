@@ -3466,7 +3466,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       }
       
       // 🎨 Extract latest generated media to send to user
-      console.log(`🔍 [Agent] context.generatedAssets:`, JSON.stringify(context.generatedAssets, null, 2));
+      console.log(`🔍 [Agent] Assets: ${context.generatedAssets.images.length} images, ${context.generatedAssets.videos.length} videos, ${context.generatedAssets.audio.length} audio`);
       
       const latestImageAsset = context.generatedAssets.images.length > 0 
         ? context.generatedAssets.images[context.generatedAssets.images.length - 1]
@@ -3539,9 +3539,6 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       try {
         // Execute the tool
         const toolResult = await tool.execute(toolArgs, context);
-        
-        // DEBUG: Log what the tool returned
-        console.log(`🔍 [Agent] ${toolName} returned:`, JSON.stringify(toolResult, null, 2));
         
         // Save result for future tool calls
         context.previousToolResults[toolName] = toolResult;
