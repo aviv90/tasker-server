@@ -1453,7 +1453,7 @@ async function handleIncomingMessage(webhookData) {
         try {
             // 🧠 CRITICAL: Save user message to conversation history BEFORE processing
             // This ensures continuity and allows the bot to see the full conversation
-            await conversationManager.addMessage(chatId, 'user', normalized.text || userText);
+            await conversationManager.addMessage(chatId, 'user', normalized.userText);
             console.log(`💾 [Agent] Saved user message to conversation history`);
             
             const agentResult = await routeToAgent(normalized, chatId);
@@ -1851,7 +1851,7 @@ async function handleOutgoingMessage(webhookData) {
         try {
             // 🧠 CRITICAL: Save user message to conversation history BEFORE processing
             // This ensures continuity and allows the bot to see the full conversation
-            await conversationManager.addMessage(chatId, 'user', normalized.text || finalPrompt);
+            await conversationManager.addMessage(chatId, 'user', normalized.userText);
             console.log(`💾 [Agent - Outgoing] Saved user message to conversation history`);
             
             const agentResult = await routeToAgent(normalized, chatId);
