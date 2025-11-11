@@ -1565,7 +1565,7 @@ const agentTools = {
   image_to_video: {
     declaration: {
       name: 'image_to_video',
-      description: 'המר תמונה לסרטון וידאו מונפש. CRITICAL: אם בפרומפט יש "Use this image_url parameter directly", קח את ה-URL משם ישירות ואל תקרא ל-get_chat_history! רק אם אין URL בפרומפט, קרא ל-get_chat_history תחילה.',
+      description: 'המר תמונה לסרטון וידאו מונפש. USE THIS TOOL when user says: "הפוך/המר לווידאו", "תמונה לוידאו", "הנפש", "image to video", "animate", or specifies provider like "עם Veo 3/Sora 2/Kling". CRITICAL: אם בפרומפט יש "Use this image_url parameter directly", קח את ה-URL משם ישירות ואל תקרא ל-get_chat_history! רק אם אין URL בפרומפט, קרא ל-get_chat_history תחילה.',
       parameters: {
         type: 'object',
         properties: {
@@ -1575,11 +1575,11 @@ const agentTools = {
           },
           prompt: {
             type: 'string',
-            description: 'הנחיות לאנימציה'
+            description: 'הנחיות לאנימציה - מה יקרה בסרטון (תנועה, פעולה, אפקטים)'
           },
           provider: {
             type: 'string',
-            description: 'ספק להמרה',
+            description: 'ספק להמרה: veo3 (Gemini Veo 3 - best quality), sora/sora-pro (OpenAI Sora 2 - cinematic), kling (Replicate Kling - fast). אם המשתמש מציין ספק ספציפי, השתמש בו!',
             enum: ['veo3', 'sora', 'sora-pro', 'kling']
           }
         },
@@ -1594,20 +1594,19 @@ const agentTools = {
         const replicateService = require('./replicateService');
         const provider = args.provider || 'kling';
         
+        // CRITICAL: All providers need imageBuffer (not URL)!
+        // Download the image once, then pass to provider
+        const imageBuffer = await greenApiService.downloadFile(args.image_url);
+        
         let result;
         if (provider === 'veo3') {
-          // CRITICAL FIX: Veo 3 needs imageBuffer, not imageUrl!
-          // Download the image first
-          const imageBuffer = await greenApiService.downloadFile(args.image_url);
           result = await geminiService.generateVideoFromImageForWhatsApp(args.prompt, imageBuffer);
         } else if (provider === 'sora' || provider === 'sora-pro') {
-          // CRITICAL FIX: Sora 2 also needs imageBuffer!
-          const imageBuffer = await greenApiService.downloadFile(args.image_url);
           const model = provider === 'sora-pro' ? 'sora-2-pro' : 'sora-2';
           result = await openaiService.generateVideoWithSoraFromImageForWhatsApp(args.prompt, imageBuffer, { model });
         } else {
-          // Kling uses URL directly
-          result = await replicateService.generateVideoFromImageForWhatsApp(args.image_url, args.prompt);
+          // Kling also needs imageBuffer
+          result = await replicateService.generateVideoFromImageForWhatsApp(imageBuffer, args.prompt);
         }
         
         if (result.error) {
@@ -1657,9 +1656,12 @@ const agentTools = {
       console.log(`🔧 [Agent Tool] analyze_video called`);
       
       try {
-        const { geminiService } = getServices();
+        const { geminiService, greenApiService } = getServices();
         
-        const result = await geminiService.analyzeVideoWithText(args.video_url, args.question);
+        // CRITICAL: analyze_video needs videoBuffer, not URL!
+        // Download the video first
+        const videoBuffer = await greenApiService.downloadFile(args.video_url);
+        const result = await geminiService.analyzeVideoWithText(args.question, videoBuffer);
         
         if (result.error) {
           return {
@@ -2138,14 +2140,19 @@ const agentTools = {
       console.log(`🔧 [Agent Tool] edit_image called`);
       
       try {
-        const { openaiService, geminiService } = getServices();
+        const { openaiService, geminiService, greenApiService } = getServices();
         const service = args.service || 'openai'; // OpenAI is better for editing
+        
+        // CRITICAL: edit_image needs base64 image, not URL!
+        // Download the image first and convert to base64
+        const imageBuffer = await greenApiService.downloadFile(args.image_url);
+        const base64Image = imageBuffer.toString('base64');
         
         let result;
         if (service === 'openai') {
-          result = await openaiService.editImageForWhatsApp(args.image_url, args.edit_instruction);
+          result = await openaiService.editImageForWhatsApp(args.edit_instruction, base64Image);
         } else {
-          result = await geminiService.editImageForWhatsApp(args.image_url, args.edit_instruction);
+          result = await geminiService.editImageForWhatsApp(args.edit_instruction, base64Image);
         }
         
         if (result.error) {
@@ -2196,9 +2203,13 @@ const agentTools = {
       console.log(`🔧 [Agent Tool] edit_video called`);
       
       try {
+        const { greenApiService } = getServices();
         const replicateService = require('./replicateService');
         
-        const result = await replicateService.generateVideoFromVideoForWhatsApp(args.video_url, args.edit_instruction);
+        // CRITICAL: edit_video needs videoBuffer, not URL!
+        // Download the video first
+        const videoBuffer = await greenApiService.downloadFile(args.video_url);
+        const result = await replicateService.generateVideoFromVideoForWhatsApp(videoBuffer, args.edit_instruction);
         
         if (result.error) {
           return {
