@@ -1266,6 +1266,15 @@ async function handleIncomingMessage(webhookData) {
       // Handle edited messages - treat them as regular messages
       messageText = messageData.editedMessageData?.textMessage;
       console.log(`✏️ Edited message detected: "${messageText}"`);
+    } else if (messageData.typeMessage === 'imageMessage') {
+      // 🆕 Extract caption from image messages
+      messageText = messageData.fileMessageData?.caption || messageData.imageMessageData?.caption;
+    } else if (messageData.typeMessage === 'videoMessage') {
+      // 🆕 Extract caption from video messages
+      messageText = messageData.fileMessageData?.caption || messageData.videoMessageData?.caption;
+    } else if (messageData.typeMessage === 'stickerMessage') {
+      // 🆕 Extract caption from sticker messages (rare but possible)
+      messageText = messageData.fileMessageData?.caption || messageData.stickerMessageData?.caption;
     }
     
     // Enhanced logging for incoming messages
@@ -1658,6 +1667,15 @@ async function handleOutgoingMessage(webhookData) {
       // Handle edited messages - treat them as regular messages
       messageText = messageData.editedMessageData?.textMessage;
       console.log(`✏️ Edited message detected (outgoing): "${messageText}"`);
+    } else if (messageData.typeMessage === 'imageMessage') {
+      // 🆕 Extract caption from image messages
+      messageText = messageData.fileMessageData?.caption || messageData.imageMessageData?.caption;
+    } else if (messageData.typeMessage === 'videoMessage') {
+      // 🆕 Extract caption from video messages
+      messageText = messageData.fileMessageData?.caption || messageData.videoMessageData?.caption;
+    } else if (messageData.typeMessage === 'stickerMessage') {
+      // 🆕 Extract caption from sticker messages (rare but possible)
+      messageText = messageData.fileMessageData?.caption || messageData.stickerMessageData?.caption;
     }
     
     // Enhanced logging for outgoing messages
