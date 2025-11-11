@@ -1143,7 +1143,7 @@ const agentTools = {
         let providers, displayProviders;
         
         if (taskType === 'video') {
-          // Video: kling (grok) → veo3 (gemini) → sora (openai)
+          // Video fallback order: Sora 2 (openai) → Veo 3 (gemini) → Kling (grok)
           context.expectedMediaType = 'video';
           providers = VIDEO_PROVIDER_FALLBACK_ORDER.filter(p => p !== avoidProvider);
           displayProviders = providers.map(p => VIDEO_PROVIDER_DISPLAY_MAP[p] || p);
@@ -1590,17 +1590,23 @@ const agentTools = {
       console.log(`🔧 [Agent Tool] image_to_video called`);
       
       try {
-        const { geminiService, openaiService } = getServices();
+        const { geminiService, openaiService, greenApiService } = getServices();
         const replicateService = require('./replicateService');
         const provider = args.provider || 'kling';
         
         let result;
         if (provider === 'veo3') {
-          result = await geminiService.generateVideoFromImageForWhatsApp(args.image_url, args.prompt);
+          // CRITICAL FIX: Veo 3 needs imageBuffer, not imageUrl!
+          // Download the image first
+          const imageBuffer = await greenApiService.downloadFile(args.image_url);
+          result = await geminiService.generateVideoFromImageForWhatsApp(args.prompt, imageBuffer);
         } else if (provider === 'sora' || provider === 'sora-pro') {
+          // CRITICAL FIX: Sora 2 also needs imageBuffer!
+          const imageBuffer = await greenApiService.downloadFile(args.image_url);
           const model = provider === 'sora-pro' ? 'sora-2-pro' : 'sora-2';
-          result = await openaiService.generateVideoWithSoraFromImageForWhatsApp(args.image_url, args.prompt, model);
+          result = await openaiService.generateVideoWithSoraFromImageForWhatsApp(args.prompt, imageBuffer, { model });
         } else {
+          // Kling uses URL directly
           result = await replicateService.generateVideoFromImageForWhatsApp(args.image_url, args.prompt);
         }
         
@@ -2992,7 +2998,8 @@ const TOOL_ACK_MESSAGES = {
   'save_user_preference': 'שומר העדפה... 💾'
 };
 
-const VIDEO_PROVIDER_FALLBACK_ORDER = ['grok', 'gemini', 'openai'];
+// CRITICAL: Order matters! After Veo 3 fails, try Sora 2 next (not Kling)
+const VIDEO_PROVIDER_FALLBACK_ORDER = ['openai', 'gemini', 'grok'];
 const VIDEO_PROVIDER_DISPLAY_MAP = {
   grok: 'kling',
   gemini: 'veo3',
@@ -3074,12 +3081,10 @@ async function sendToolAckMessage(chatId, functionCalls) {
         const avoidRaw = call.args?.avoid_provider;
         const avoidProvider = normalizeProviderKey(avoidRaw) || 'gemini';
         const providerSequence = VIDEO_PROVIDER_FALLBACK_ORDER;
-        const avoidIndex = providerSequence.indexOf(avoidProvider);
-        if (avoidIndex === -1) {
-          provider = providerSequence[0];
-        } else {
-          provider = providerSequence[(avoidIndex + 1) % providerSequence.length];
-        }
+        // CRITICAL FIX: Show the FIRST provider that will actually be tried (after filtering)
+        // Not the "next" one in the sequence!
+        const remainingProviders = providerSequence.filter(p => p !== avoidProvider);
+        provider = remainingProviders[0] || providerSequence[0];
       }
       
       let providerDisplayKey = providerRaw || provider;
