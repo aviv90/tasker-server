@@ -166,13 +166,25 @@ async function routeToAgent(input, chatId) {
     }
   }
   
-  // Add current media context if present
+  // Add current media context if present (WITH URLs!)
   if (input.hasImage && !input.quotedContext) {
-    contextualPrompt = `[המשתמש שלח תמונה] ${userText}`;
+    if (input.imageUrl) {
+      contextualPrompt = `[המשתמש שלח תמונה: image_url="${input.imageUrl}"] ${userText}`;
+    } else {
+      contextualPrompt = `[המשתמש שלח תמונה] ${userText}`;
+    }
   } else if (input.hasVideo && !input.quotedContext) {
-    contextualPrompt = `[המשתמש שלח וידאו] ${userText}`;
+    if (input.videoUrl) {
+      contextualPrompt = `[המשתמש שלח וידאו: video_url="${input.videoUrl}"] ${userText}`;
+    } else {
+      contextualPrompt = `[המשתמש שלח וידאו] ${userText}`;
+    }
   } else if (input.hasAudio && !input.quotedContext) {
-    contextualPrompt = `[המשתמש שלח הקלטה קולית] ${userText}`;
+    if (input.audioUrl) {
+      contextualPrompt = `[המשתמש שלח הקלטה קולית: audio_url="${input.audioUrl}"] ${userText}`;
+    } else {
+      contextualPrompt = `[המשתמש שלח הקלטה קולית] ${userText}`;
+    }
   }
   
   // Add authorization context (important for agent to know what tools it can use)

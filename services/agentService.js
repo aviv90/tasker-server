@@ -1565,13 +1565,13 @@ const agentTools = {
   image_to_video: {
     declaration: {
       name: 'image_to_video',
-      description: 'המר תמונה מההיסטוריה לסרטון וידאו מונפש. צריך לקרוא קודם ל-get_chat_history לקבל URL של תמונה.',
+      description: 'המר תמונה לסרטון וידאו מונפש. אם המשתמש שלח תמונה עם ההודעה, ה-image_url זמין בפרומפט עצמו (במידע על ההודעה). אם התמונה בהיסטוריה, צריך לקרוא קודם ל-get_chat_history לקבל URL.',
       parameters: {
         type: 'object',
         properties: {
           image_url: {
             type: 'string',
-            description: 'URL של התמונה להמרה'
+            description: 'URL של התמונה להמרה (זמין בפרומפט אם המשתמש שלח תמונה עכשיו)'
           },
           prompt: {
             type: 'string',

@@ -1459,6 +1459,9 @@ async function handleIncomingMessage(webhookData) {
           hasImage: hasImage,
           hasVideo: hasVideo,
           hasAudio: hasAudio,
+          imageUrl: imageUrl, // 🆕 Pass media URLs to Agent
+          videoUrl: videoUrl, // 🆕 Pass media URLs to Agent
+          audioUrl: audioUrl, // 🆕 Pass media URLs to Agent
           quotedContext: quotedContext, // 🆕 Quoted message info for Agent
           chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
           language: 'he',
@@ -1887,6 +1890,9 @@ async function handleOutgoingMessage(webhookData) {
           hasImage: hasImage,
           hasVideo: hasVideo,
           hasAudio: hasAudio,
+          imageUrl: imageUrl, // 🆕 Pass media URLs to Agent
+          videoUrl: videoUrl, // 🆕 Pass media URLs to Agent
+          audioUrl: audioUrl, // 🆕 Pass media URLs to Agent
           quotedContext: quotedContext, // 🆕 Quoted message info for Agent
           chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
           language: 'he',
