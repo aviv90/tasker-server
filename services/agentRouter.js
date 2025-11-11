@@ -126,27 +126,38 @@ async function routeToAgent(input, chatId) {
     };
   }
   
-  // 🧠 CRITICAL: Load conversation history to maintain context and continuity
-  // This allows the bot to see its own previous responses and the user's replies
+  // 🧠 Detect if this is a media creation request (no history needed for these!)
+  const isMediaCreationRequest = 
+    input.hasImage || 
+    input.hasVideo || 
+    input.hasAudio ||
+    /צור|תן|הפוך|המר|ליצור|create|generate|make|convert|animate/i.test(userText);
+  
+  // CRITICAL: Load conversation history to maintain context and continuity
+  // BUT NOT for media creation requests (like old mechanism)!
   let conversationHistory = '';
-  try {
-    const history = await conversationManager.getConversationHistory(chatId);
-    if (history && history.length > 0) {
-      // Take last 10 messages for context (5 exchanges)
-      const recentHistory = history.slice(-10);
-      const formattedHistory = recentHistory.map(msg => {
-        const role = msg.role === 'user' ? 'משתמש' : 'בוט';
-        return `${role}: ${msg.content}`;
-      }).join('\n');
-      
-      if (formattedHistory) {
-        conversationHistory = `\n\n[היסטוריית שיחה אחרונה]:\n${formattedHistory}\n`;
-        console.log(`🧠 [AGENT ROUTER] Loaded ${recentHistory.length} recent messages for context`);
+  if (!isMediaCreationRequest) {
+    try {
+      const history = await conversationManager.getConversationHistory(chatId);
+      if (history && history.length > 0) {
+        // Take last 10 messages for context (5 exchanges)
+        const recentHistory = history.slice(-10);
+        const formattedHistory = recentHistory.map(msg => {
+          const role = msg.role === 'user' ? 'משתמש' : 'בוט';
+          return `${role}: ${msg.content}`;
+        }).join('\n');
+        
+        if (formattedHistory) {
+          conversationHistory = `\n\n[היסטוריית שיחה אחרונה]:\n${formattedHistory}\n`;
+          console.log(`🧠 [AGENT ROUTER] Loaded ${recentHistory.length} recent messages for context`);
+        }
       }
+    } catch (err) {
+      console.warn(`⚠️ [AGENT ROUTER] Failed to load conversation history:`, err.message);
+      // Continue without history if it fails
     }
-  } catch (err) {
-    console.warn(`⚠️ [AGENT ROUTER] Failed to load conversation history:`, err.message);
-    // Continue without history if it fails
+  } else {
+    console.log(`🎨 [AGENT ROUTER] Skipping history for media creation request`);
   }
   
   // Build context for the agent
