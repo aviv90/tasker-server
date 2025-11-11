@@ -1343,6 +1343,25 @@ async function handleIncomingMessage(webhookData) {
         let videoUrl = null;
         let audioUrl = null;
         
+        // 🆕 Extract URLs for direct media messages (imageMessage/videoMessage/audioMessage)
+        if (messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage') {
+          imageUrl = messageData.downloadUrl || 
+                    messageData.fileMessageData?.downloadUrl || 
+                    messageData.imageMessageData?.downloadUrl ||
+                    messageData.stickerMessageData?.downloadUrl;
+          console.log(`📸 Incoming: Direct image message, downloadUrl: ${imageUrl ? 'found' : 'NOT FOUND'}`);
+        } else if (messageData.typeMessage === 'videoMessage') {
+          videoUrl = messageData.downloadUrl || 
+                    messageData.fileMessageData?.downloadUrl || 
+                    messageData.videoMessageData?.downloadUrl;
+          console.log(`🎥 Incoming: Direct video message, downloadUrl: ${videoUrl ? 'found' : 'NOT FOUND'}`);
+        } else if (messageData.typeMessage === 'audioMessage') {
+          audioUrl = messageData.downloadUrl || 
+                    messageData.fileMessageData?.downloadUrl || 
+                    messageData.audioMessageData?.downloadUrl;
+          console.log(`🎵 Incoming: Direct audio message, downloadUrl: ${audioUrl ? 'found' : 'NOT FOUND'}`);
+        }
+        
         if (isActualQuote) {
           console.log(`🔗 Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
           
@@ -1751,6 +1770,25 @@ async function handleOutgoingMessage(webhookData) {
         let imageUrl = null;
         let videoUrl = null;
         let audioUrl = null;
+        
+        // 🆕 Extract URLs for direct media messages (imageMessage/videoMessage/audioMessage)
+        if (messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage') {
+          imageUrl = messageData.downloadUrl || 
+                    messageData.fileMessageData?.downloadUrl || 
+                    messageData.imageMessageData?.downloadUrl ||
+                    messageData.stickerMessageData?.downloadUrl;
+          console.log(`📸 Outgoing: Direct image message, downloadUrl: ${imageUrl ? 'found' : 'NOT FOUND'}`);
+        } else if (messageData.typeMessage === 'videoMessage') {
+          videoUrl = messageData.downloadUrl || 
+                    messageData.fileMessageData?.downloadUrl || 
+                    messageData.videoMessageData?.downloadUrl;
+          console.log(`🎥 Outgoing: Direct video message, downloadUrl: ${videoUrl ? 'found' : 'NOT FOUND'}`);
+        } else if (messageData.typeMessage === 'audioMessage') {
+          audioUrl = messageData.downloadUrl || 
+                    messageData.fileMessageData?.downloadUrl || 
+                    messageData.audioMessageData?.downloadUrl;
+          console.log(`🎵 Outgoing: Direct audio message, downloadUrl: ${audioUrl ? 'found' : 'NOT FOUND'}`);
+        }
         
         if (isActualQuote) {
           console.log(`🔗 Outgoing: Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
