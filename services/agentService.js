@@ -1631,13 +1631,13 @@ const agentTools = {
   analyze_video: {
     declaration: {
       name: 'analyze_video',
-      description: 'נתח סרטון וידאו מההיסטוריה. צריך לקרוא קודם ל-get_chat_history לקבל URL של וידאו.',
+      description: 'נתח סרטון וידאו. CRITICAL: אם בפרומפט יש "Use this video_url parameter directly", קח את ה-URL משם ישירות ואל תקרא ל-get_chat_history! רק אם אין URL בפרומפט, קרא ל-get_chat_history תחילה.',
       parameters: {
         type: 'object',
         properties: {
           video_url: {
             type: 'string',
-            description: 'URL של הוידאו לניתוח'
+            description: 'URL של הוידאו לניתוח. אם זמין בפרומפט (בשורה "Use this video_url parameter directly"), קח אותו משם.'
           },
           question: {
             type: 'string',
@@ -1773,13 +1773,13 @@ const agentTools = {
   transcribe_audio: {
     declaration: {
       name: 'transcribe_audio',
-      description: 'תמלל הקלטה קולית לטקסט (STT). השתמש כשהמשתמש מבקש "מה נאמר בהקלטה?", "תמלל את זה", "מה כתוב?" וכו\'. נדרש audioUrl בהודעה המצוטטת.',
+      description: 'תמלל הקלטה קולית לטקסט (STT). CRITICAL: אם בפרומפט יש "Use this audio_url parameter directly", קח את ה-URL משם ישירות! אם לא, חלץ מהמבנה "[audioUrl: URL]" בפרומפט.',
       parameters: {
         type: 'object',
         properties: {
           audio_url: {
             type: 'string',
-            description: 'URL של ההקלטה לתמלול. חלץ מהמבנה "[audioUrl: URL]" ב-prompt.'
+            description: 'URL של ההקלטה לתמלול. אם זמין בפרומפט (בשורה "Use this audio_url parameter directly"), קח אותו משם.'
           }
         },
         required: ['audio_url']
@@ -2107,13 +2107,13 @@ const agentTools = {
   edit_image: {
     declaration: {
       name: 'edit_image',
-      description: 'ערוך תמונה קיימת מההיסטוריה. צריך לקרוא קודם ל-get_chat_history לקבל URL של תמונה.',
+      description: 'ערוך תמונה קיימת. CRITICAL: אם בפרומפט יש "Use this image_url parameter directly", קח את ה-URL משם ישירות ואל תקרא ל-get_chat_history! רק אם אין URL בפרומפט, קרא ל-get_chat_history תחילה.',
       parameters: {
         type: 'object',
         properties: {
           image_url: {
             type: 'string',
-            description: 'URL של התמונה לעריכה'
+            description: 'URL של התמונה לעריכה. אם זמין בפרומפט (בשורה "Use this image_url parameter directly"), קח אותו משם.'
           },
           edit_instruction: {
             type: 'string',
@@ -2170,13 +2170,13 @@ const agentTools = {
   edit_video: {
     declaration: {
       name: 'edit_video',
-      description: 'ערוך סרטון וידאו קיים מההיסטוריה. צריך לקרוא קודם ל-get_chat_history לקבל URL של וידאו.',
+      description: 'ערוך סרטון וידאו קיים. CRITICAL: אם בפרומפט יש "Use this video_url parameter directly", קח את ה-URL משם ישירות ואל תקרא ל-get_chat_history! רק אם אין URL בפרומפט, קרא ל-get_chat_history תחילה.',
       parameters: {
         type: 'object',
         properties: {
           video_url: {
             type: 'string',
-            description: 'URL של הוידאו לעריכה'
+            description: 'URL של הוידאו לעריכה. אם זמין בפרומפט (בשורה "Use this video_url parameter directly"), קח אותו משם.'
           },
           edit_instruction: {
             type: 'string',
@@ -2220,13 +2220,13 @@ const agentTools = {
   voice_clone_and_speak: {
     declaration: {
       name: 'voice_clone_and_speak',
-      description: 'שבט קול מהקלטה קיימת והשתמש בו כדי לדבר טקסט חדש. צריך URL של הקלטה (מ-get_chat_history).',
+      description: 'שבט קול מהקלטה קיימת והשתמש בו כדי לדבר טקסט חדש. CRITICAL: אם בפרומפט יש "Use this audio_url parameter directly", קח את ה-URL משם ישירות ואל תקרא ל-get_chat_history! רק אם אין URL, קרא ל-get_chat_history.',
       parameters: {
         type: 'object',
         properties: {
           audio_url: {
             type: 'string',
-            description: 'URL של ההקלטה לשיבוט הקול'
+            description: 'URL של ההקלטה לשיבוט הקול. אם זמין בפרומפט (בשורה "Use this audio_url parameter directly"), קח אותו משם.'
           },
           text_to_speak: {
             type: 'string',
@@ -2306,13 +2306,13 @@ const agentTools = {
   creative_audio_mix: {
     declaration: {
       name: 'creative_audio_mix',
-      description: 'צור מיקס אודיו יצירתי עם אפקטים ומוזיקה מהקלטה קיימת. צריך URL של הקלטה.',
+      description: 'צור מיקס אודיו יצירתי עם אפקטים ומוזיקה מהקלטה. CRITICAL: אם בפרומפט יש "Use this audio_url parameter directly", קח את ה-URL משם ישירות ואל תקרא ל-get_chat_history! רק אם אין URL, קרא להיסטוריה.',
       parameters: {
         type: 'object',
         properties: {
           audio_url: {
             type: 'string',
-            description: 'URL של ההקלטה למיקס'
+            description: 'URL של ההקלטה למיקס. אם זמין בפרומפט (בשורה "Use this audio_url parameter directly"), קח אותו משם.'
           },
           style: {
             type: 'string',
