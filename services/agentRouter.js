@@ -166,22 +166,23 @@ async function routeToAgent(input, chatId) {
     }
   }
   
-  // Add current media context if present (WITH URLs!)
+  // Add current media context if present (WITH URLs!) - CRITICAL FORMAT for Agent to use directly
   if (input.hasImage && !input.quotedContext) {
     if (input.imageUrl) {
-      contextualPrompt = `[המשתמש שלח תמונה: image_url="${input.imageUrl}"] ${userText}`;
+      // CRITICAL: Agent must use this URL DIRECTLY without calling get_chat_history!
+      contextualPrompt = `${userText}\n\n**IMPORTANT: User attached an image. Use this image_url parameter directly: "${input.imageUrl}"**`;
     } else {
       contextualPrompt = `[המשתמש שלח תמונה] ${userText}`;
     }
   } else if (input.hasVideo && !input.quotedContext) {
     if (input.videoUrl) {
-      contextualPrompt = `[המשתמש שלח וידאו: video_url="${input.videoUrl}"] ${userText}`;
+      contextualPrompt = `${userText}\n\n**IMPORTANT: User attached a video. Use this video_url parameter directly: "${input.videoUrl}"**`;
     } else {
       contextualPrompt = `[המשתמש שלח וידאו] ${userText}`;
     }
   } else if (input.hasAudio && !input.quotedContext) {
     if (input.audioUrl) {
-      contextualPrompt = `[המשתמש שלח הקלטה קולית: audio_url="${input.audioUrl}"] ${userText}`;
+      contextualPrompt = `${userText}\n\n**IMPORTANT: User attached audio. Use this audio_url parameter directly: "${input.audioUrl}"**`;
     } else {
       contextualPrompt = `[המשתמש שלח הקלטה קולית] ${userText}`;
     }

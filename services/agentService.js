@@ -1565,13 +1565,13 @@ const agentTools = {
   image_to_video: {
     declaration: {
       name: 'image_to_video',
-      description: 'המר תמונה לסרטון וידאו מונפש. אם המשתמש שלח תמונה עם ההודעה, ה-image_url זמין בפרומפט עצמו (במידע על ההודעה). אם התמונה בהיסטוריה, צריך לקרוא קודם ל-get_chat_history לקבל URL.',
+      description: 'המר תמונה לסרטון וידאו מונפש. CRITICAL: אם בפרומפט יש "Use this image_url parameter directly", קח את ה-URL משם ישירות ואל תקרא ל-get_chat_history! רק אם אין URL בפרומפט, קרא ל-get_chat_history תחילה.',
       parameters: {
         type: 'object',
         properties: {
           image_url: {
             type: 'string',
-            description: 'URL של התמונה להמרה (זמין בפרומפט אם המשתמש שלח תמונה עכשיו)'
+            description: 'URL של התמונה להמרה. אם זמין בפרומפט (בשורה "Use this image_url parameter directly"), קח אותו משם.'
           },
           prompt: {
             type: 'string',
@@ -3271,11 +3271,19 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 
 💡 כללים קריטיים:
 
+🖼️ **CRITICAL - מדיה מצורפת:**
+• אם image_url/video_url/audio_url מופיע בפרומפט → השתמש בו ישירות!
+• אל תקרא ל-get_chat_history אם image_url כבר זמין!
+• דוגמה: "**IMPORTANT: User attached an image. Use this image_url parameter directly: "https://..."**"
+  → קח את ה-URL הזה ושלח אותו ישירות ל-image_to_video
+  → אל תקרא ל-get_chat_history!
+
 📜 **מתי לגשת להיסטוריה (חובה!):**
 • "מה אמרתי קודם" / "על מה דיברנו" → get_chat_history
 • "לפי התמונה שהעליתי" / "כמו בהודעה הקודמת" → get_chat_history
 • "בהמשך לשיחה" / "כפי שכתבתי" → get_chat_history
 • כל שאלה שדורשת context קודם → **תמיד** קרא get_chat_history תחילה!
+• **אבל:** אם image_url/video_url כבר בפרומפט → אל תקרא get_chat_history!
 
 💾 **מתי לשמור העדפות:**
 • "תמיד צור עם X" / "אני מעדיף Y" → save_user_preference
