@@ -1590,51 +1590,58 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         // When Google Search is used, Gemini generates fake URLs in the text but provides
         // the real URLs in groundingMetadata. We need to replace the fake URLs with real ones.
         if (useGoogleSearch && groundingMetadata?.groundingChunks?.length > 0) {
-            console.log('🔗 Replacing hallucinated URLs with real grounding URLs...');
+            console.log('🔗 Processing grounding metadata...');
             
-            // Extract real URLs from groundingMetadata
+            // DEBUG: Log the full structure of grounding chunks to understand what's available
+            console.log('🔍 Grounding chunks structure:', JSON.stringify(groundingMetadata.groundingChunks, null, 2));
+            
+            // Extract URLs from groundingMetadata - try multiple possible fields
             const realUrls = groundingMetadata.groundingChunks
                 .filter(chunk => chunk.web?.uri)
-                .map(chunk => chunk.web.uri);
+                .map(chunk => {
+                    // Check if there's a title and uri - we can construct a better response
+                    return {
+                        uri: chunk.web.uri,
+                        title: chunk.web.title || null,
+                        // Some chunks might have the actual URL in a different field
+                        retrievedContext: chunk.retrievedContext || null
+                    };
+                });
             
             if (realUrls.length > 0) {
-                console.log(`✅ Found ${realUrls.length} real URLs from Google Search:`, realUrls);
+                console.log(`✅ Found ${realUrls.length} grounding entries from Google Search`);
                 
-                // Find all fake URLs in the text and replace them with real ones
-                // Regex to match URLs (both http and https)
-                const urlRegex = /(https?:\/\/[^\s)<]+)/g;
-                const foundUrls = text.match(urlRegex) || [];
+                // IMPORTANT: The grounding metadata contains vertexaisearch redirect URLs
+                // We need to let Gemini generate the text WITHOUT these redirect URLs
+                // Instead, we'll append the sources at the end with titles
                 
-                console.log(`🔍 Found ${foundUrls.length} URLs in generated text:`, foundUrls);
+                // Build a sources section with titles and URLs
+                const sourcesText = realUrls
+                    .map((urlData, index) => {
+                        const title = urlData.title || `מקור ${index + 1}`;
+                        return `${index + 1}. ${title}\n${urlData.uri}`;
+                    })
+                    .join('\n\n');
                 
-                // Replace each URL with a real one (in order)
-                let urlIndex = 0;
-                text = text.replace(urlRegex, (match) => {
-                    // If this is a vertexaisearch URL, replace it with the real URL
-                    if (match.includes('vertexaisearch.cloud.google.com')) {
-                        if (urlIndex < realUrls.length) {
-                            const realUrl = realUrls[urlIndex];
-                            console.log(`🔄 Replacing Google redirect URL with real URL`);
-                            console.log(`   ↳ Real URL: ${realUrl.substring(0, 80)}...`);
-                            urlIndex++;
-                            return realUrl;
-                        }
-                    }
+                // Append sources to the response
+                if (!text.includes('vertexaisearch.cloud.google.com')) {
+                    // Only add sources if Gemini didn't include the redirect URLs
+                    text = `${text}\n\n📚 מקורות:\n${sourcesText}`;
+                    console.log(`✅ Appended ${realUrls.length} sources with titles`);
+                } else {
+                    // If Gemini included redirect URLs, replace them
+                    console.log(`⚠️ Text contains vertexaisearch URLs, attempting to clean...`);
                     
-                    // Replace fake/hallucinated URLs with real ones if we have more
-                    if (urlIndex < realUrls.length) {
-                        const realUrl = realUrls[urlIndex];
-                        console.log(`🔄 Replacing URL: ${match.substring(0, 50)}...`);
-                        console.log(`   ↳ With: ${realUrl.substring(0, 50)}...`);
-                        urlIndex++;
-                        return realUrl;
-                    }
+                    // Remove any vertexaisearch URLs from the text
+                    text = text.replace(/https:\/\/vertexaisearch\.cloud\.google\.com\/[^\s)]+/g, '');
                     
-                    // If we ran out of real URLs, keep the existing one
-                    return match;
-                });
-                
-                console.log(`✅ Replaced ${urlIndex} fake URLs with real grounding URLs`);
+                    // Clean up any double spaces or broken formatting
+                    text = text.replace(/\s+/g, ' ').trim();
+                    
+                    // Append clean sources
+                    text = `${text}\n\n📚 מקורות:\n${sourcesText}`;
+                    console.log(`✅ Cleaned redirect URLs and appended sources`);
+                }
             }
         }
         
