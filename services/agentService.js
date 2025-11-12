@@ -1104,26 +1104,30 @@ const agentTools = {
   retry_with_different_provider: {
     declaration: {
       name: 'retry_with_different_provider',
-      description: 'נסה ליצור תמונה או וידאו עם ספק אחר אם הראשון נכשל או לא טוב. אל תשתמש בכלי הזה לפני שניסית ליצור!',
+      description: 'נסה ליצור/לערוך תמונה או וידאו עם ספק אחר אם הראשון נכשל או לא טוב. תומך ביצירת תמונות, עריכת תמונות, ויצירת וידאו. אל תשתמש בכלי הזה לפני שניסית!',
       parameters: {
         type: 'object',
         properties: {
           original_prompt: {
             type: 'string',
-            description: 'הפרומפט המקורי ליצירה',
+            description: 'הפרומפט המקורי ליצירה/עריכה',
           },
           reason: {
             type: 'string',
-            description: 'למה לנסות ספק אחר (לדוגמה: "התמונה לא טובה")',
+            description: 'למה לנסות ספק אחר (לדוגמה: "התמונה לא טובה", "timeout")',
           },
           task_type: {
             type: 'string',
-            description: 'סוג המשימה: image או video',
-            enum: ['image', 'video']
+            description: 'סוג המשימה: image (יצירה), image_edit (עריכה), או video',
+            enum: ['image', 'image_edit', 'video']
           },
           avoid_provider: {
             type: 'string',
             description: 'איזה ספק לא לנסות (למשל: kling, veo3, sora, gemini, openai, grok)',
+          },
+          image_url: {
+            type: 'string',
+            description: 'URL של התמונה (רק לעריכה - task_type=image_edit)',
           }
         },
         required: ['original_prompt', 'reason']
@@ -1137,12 +1141,64 @@ const agentTools = {
         const avoidProviderRaw = args.avoid_provider;
         const avoidProvider = normalizeProviderKey(avoidProviderRaw);
         
-        const { geminiService, openaiService, grokService } = getServices();
+        const { geminiService, openaiService, grokService, greenApiService } = getServices();
         const replicateService = require('./replicateService');
         
         let providers, displayProviders;
         
-        if (taskType === 'video') {
+        if (taskType === 'image_edit') {
+          // Image editing fallback order: Gemini (default) → OpenAI (single fallback)
+          // CRITICAL: Never fallback to create_image! Only try the other supported editor!
+          // Note: Grok doesn't support image editing at all
+          const providers = ['gemini', 'openai'].filter(p => p !== avoidProvider);
+          const errors = [];
+          
+          if (!args.image_url) {
+            return {
+              success: false,
+              error: 'חסר image_url לעריכת תמונה. צריך לספק את ה-URL של התמונה לעריכה.'
+            };
+          }
+          
+          for (const provider of providers) {
+            console.log(`🔄 Trying image edit provider: ${provider}`);
+            
+            try {
+              // Download image and convert to base64
+              const imageBuffer = await greenApiService.downloadFile(args.image_url);
+              const base64Image = imageBuffer.toString('base64');
+              
+              let editResult;
+              if (provider === 'openai') {
+                editResult = await openaiService.editImageForWhatsApp(args.original_prompt, base64Image);
+              } else if (provider === 'gemini') {
+                editResult = await geminiService.editImageForWhatsApp(args.original_prompt, base64Image);
+              }
+              
+              if (editResult && !editResult.error) {
+                return {
+                  success: true,
+                  data: `✅ ניסיתי לערוך עם ${formatProviderName(provider)} והצלחתי!`,
+                  imageUrl: editResult.imageUrl,
+                  caption: editResult.description || '',
+                  provider: provider
+                };
+              }
+              
+              errors.push(`${provider}: ${editResult?.error || 'Unknown error'}`);
+              console.log(`❌ ${provider} edit failed: ${editResult?.error}`);
+            } catch (providerError) {
+              errors.push(`${provider}: ${providerError.message}`);
+              console.error(`❌ ${provider} edit threw error:`, providerError);
+            }
+          }
+          
+          return {
+            success: false,
+            error: `כל ספקי העריכה נכשלו:\n${errors.join('\n')}`
+          };
+          
+        } else if (taskType === 'video') {
           // Video fallback order: Sora 2 (openai) → Veo 3 (gemini) → Kling (grok)
           context.expectedMediaType = 'video';
           providers = VIDEO_PROVIDER_FALLBACK_ORDER.filter(p => p !== avoidProvider);
@@ -2141,7 +2197,7 @@ const agentTools = {
       
       try {
         const { openaiService, geminiService, greenApiService } = getServices();
-        const service = args.service || 'openai'; // OpenAI is better for editing
+        const service = args.service || 'gemini'; // Gemini is the default editor (OpenAI is fallback)
         
         // CRITICAL: edit_image needs base64 image, not URL!
         // Download the image first and convert to base64
@@ -2860,6 +2916,27 @@ const agentTools = {
           console.log(`🎬 Retrying video generation with:`, videoArgs);
           return await agentTools.create_video.execute(videoArgs, context);
           
+        } else if (tool === 'edit_image') {
+          // Image editing retry
+          const editInstruction = modifiedPrompt || originalArgs.edit_instruction || originalArgs.prompt || '';
+          const imageUrl = originalArgs.image_url || storedResult.imageUrl;
+          
+          if (!editInstruction || !imageUrl) {
+            return {
+              success: false,
+              error: 'לא הצלחתי לשחזר את הוראות העריכה או את כתובת התמונה.'
+            };
+          }
+          
+          const editArgs = {
+            image_url: imageUrl,
+            edit_instruction: editInstruction,
+            service: provider || originalArgs.service || 'openai'
+          };
+          
+          console.log(`✏️ Retrying image edit with:`, editArgs);
+          return await agentTools.edit_image.execute(editArgs, context);
+          
         } else if (tool === 'gemini_chat' || tool === 'openai_chat' || tool === 'grok_chat') {
           // Chat retry
           const chatProvider = provider || (tool.includes('openai') ? 'openai' : tool.includes('grok') ? 'grok' : 'gemini');
@@ -3294,6 +3371,16 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   → קח את ה-URL הזה ושלח אותו ישירות ל-image_to_video
   → אל תקרא ל-get_chat_history!
 
+📎 **CRITICAL - הודעות מצוטטות עם מדיה:**
+• **אם יש [הודעה מצוטטת: תמונה] + בקשת עריכה ("ערוך", "הסר", "תוסיף", "שנה") → זה edit_image (לא retry_last_command!)**
+• דוגמאות:
+  ✅ [הודעה מצוטטת: תמונה] + "תעלים את הצל" → edit_image (עם image_url מההודעה המצוטטת)
+  ✅ [הודעה מצוטטת: תמונה] + "הסר את הרקע" → edit_image
+  ✅ [הודעה מצוטטת: תמונה] + "שנה את הצבע ל-..." → edit_image
+  ❌ [הודעה מצוטטת: תמונה] + "תעלים את הצל" → retry_last_command (שגוי!)
+• **רק אם המשתמש אומר במפורש "נסה שוב" / "שוב" → אז זה retry_last_command**
+• **הכלל: הודעה מצוטטת עם מדיה + בקשה חדשה = פעולה על המדיה המצוטטת (לא retry!)**
+
 📜 **מתי לגשת להיסטוריה (חובה!):**
 • "מה אמרתי קודם" / "על מה דיברנו" → get_chat_history
 • "לפי התמונה שהעליתי" / "כמו בהודעה הקודמת" → get_chat_history
@@ -3334,7 +3421,9 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • "אבל עם X" / "תקן ל-Y" → retry_last_command (עם modifications)
 • **אם create_video נכשל עם Kling** → retry_with_different_provider (task_type: 'video', avoid_provider: 'kling')
 • **אם create_image נכשל** → retry_with_different_provider או smart_execute_with_fallback
+• **אם edit_image נכשל** → retry_with_different_provider (task_type: 'image_edit', image_url: [ה-URL של התמונה], avoid_provider: [הספק שנכשל])
 • **סדר fallback לוידאו: Kling → Veo3 → Sora2** (אל תשתמש ב-Gemini לוידאו!)
+• **סדר fallback לעריכת תמונות: Gemini (ברירת מחדל) → OpenAI** (רק 2 ספקים תומכים בעריכה. אין Grok, ואל תעבור ל-create_image!)
 
 🧠 **פקודה אחרונה זמינה עבורך:**
 • בכל פנייה חדשה מוצגת "[פקודה קודמת]" עם הפרטים הקריטיים (פרומפט, תרגום, ספק, תוצאות).
@@ -3343,11 +3432,11 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • אל תשמור retry_last_command כפקודה האחרונה – הפקודה המקורית נשמרת אוטומטית.
 
 🎯 **בחירת ספק וניתוב (CRITICAL!):**
-• **תמיד** ציין provider כשקורא ל-create_image/create_video/edit_image/edit_video!
+• **תמיד** ציין provider/service כשקורא ל-create_image/create_video/edit_image/edit_video!
 • אם המשתמש לא ציין ספק - תבחר בעצמך:
-  - תמונות: provider='gemini' (ברירת מחדל)
-  - וידאו: provider='kling' (ברירת מחדל)
-  - עריכת תמונות: provider='openai' (ברירת מחדל)
+  - תמונות (create_image): provider='gemini' (ברירת מחדל)
+  - וידאו (create_video): provider='kling' (ברירת מחדל)
+  - עריכת תמונות (edit_image): service='gemini' (ברירת מחדל, fallback יחיד = openai)
 • **מיקומים (send_location) - CRITICAL:**
   - "מיקום באזור תל אביב" → send_location({region: "תל אביב"})
   - "מיקום ביפן" → send_location({region: "יפן"})
@@ -3377,17 +3466,21 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • **אל תפצל tool כושל למספר tools אחרים!** (למשל: אם translate_and_speak נכשל → אסור translate_text + text_to_speech)
 • **במקום לקרוא שוב ל-tool הכושל, עשה כך:**
   ✅ אם זו בעיית ספק (create_image/create_video/edit_image נכשל):
-     → השתמש ב-retry_with_different_provider(original_tool_name, new_provider, args)
+     → השתמש ב-retry_with_different_provider עם task_type מתאים ו-avoid_provider
   ✅ אם זו בעיה כללית או אתה לא בטוח:
      → השתמש ב-smart_execute_with_fallback(original_tool_name, args, failed_providers)
-• **דוגמה לא נכונה:**
+• **דוגמאות לא נכונות:**
   ❌ create_image({prompt: "...", provider: "gemini"}) נכשל
   ❌ [קורא שוב] create_image({prompt: "...", provider: "openai"})
-• **דוגמה נכונה:**
+  ❌ edit_image({image_url: "...", edit_instruction: "..."}) נכשל
+  ❌ [קורא] create_image({prompt: "..."}) ← אסור! לא ליצור תמונה חדשה!
+• **דוגמאות נכונות:**
   ✅ create_image({prompt: "...", provider: "gemini"}) נכשל
-  ✅ [קורא] retry_with_different_provider({original_tool_name: "create_image", new_provider: "openai", args: {...}})
+  ✅ [קורא] retry_with_different_provider({task_type: "image", original_prompt: "...", reason: "...", avoid_provider: "gemini"})
+  ✅ edit_image({image_url: "...", edit_instruction: "...", service: "openai"}) נכשל
+  ✅ [קורא] retry_with_different_provider({task_type: "image_edit", original_prompt: "...", image_url: "...", reason: "...", avoid_provider: "openai"})
 • **ספר תמיד למשתמש מה השגיאה** לפני שאתה מנסה fallback!
-• דוגמה: "❌ Gemini נכשל: [השגיאה]." ← תמיד שלח את זה למשתמש!
+• דוגמה: "❌ OpenAI נכשל: [השגיאה]. מנסה עם Gemini..." ← תמיד שלח את זה למשתמש!
 • **אל תסתיר שגיאות** - המשתמש צריך לדעת מה קרה!
 • אם כל הניסיונות נכשלו - הסבר למשתמש מה ניסית ולמה זה לא עבד`;
 

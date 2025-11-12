@@ -167,11 +167,22 @@ async function routeToAgent(input, chatId) {
   if (input.quotedContext) {
     contextualPrompt = `[הודעה מצוטטת: ${input.quotedContext.type}]\n${input.quotedContext.text || ''}\n\n[בקשה נוכחית:]\n${userText}`;
     
-    // If quoted message has media, note it
+    // If quoted message has media, note it WITH URL for direct access
     if (input.quotedContext.hasImage) {
-      contextualPrompt = `[הודעה מצוטטת: תמונה]\n${input.quotedContext.text || '(תמונה)'}\n\n[בקשה נוכחית:]\n${userText}`;
+      const imageUrl = input.quotedContext.imageUrl;
+      if (imageUrl) {
+        // CRITICAL: Provide image URL directly so Agent can use it for edit_image without calling get_chat_history
+        contextualPrompt = `[הודעה מצוטטת: תמונה - image_url: ${imageUrl}]\n${input.quotedContext.text || '(תמונה)'}\n\n[בקשה נוכחית:]\n${userText}\n\n**IMPORTANT: User quoted an image. If this is an edit request (ערוך, הסר, הוסף, שנה, תעלים, etc.), use edit_image with the image_url above. DO NOT use retry_last_command unless user explicitly said "נסה שוב" or "שוב"!**`;
+      } else {
+        contextualPrompt = `[הודעה מצוטטת: תמונה]\n${input.quotedContext.text || '(תמונה)'}\n\n[בקשה נוכחית:]\n${userText}`;
+      }
     } else if (input.quotedContext.hasVideo) {
-      contextualPrompt = `[הודעה מצוטטת: וידאו]\n${input.quotedContext.text || '(וידאו)'}\n\n[בקשה נוכחית:]\n${userText}`;
+      const videoUrl = input.quotedContext.videoUrl;
+      if (videoUrl) {
+        contextualPrompt = `[הודעה מצוטטת: וידאו - video_url: ${videoUrl}]\n${input.quotedContext.text || '(וידאו)'}\n\n[בקשה נוכחית:]\n${userText}\n\n**IMPORTANT: User quoted a video. Use this video_url parameter directly if needed: "${videoUrl}"**`;
+      } else {
+        contextualPrompt = `[הודעה מצוטטת: וידאו]\n${input.quotedContext.text || '(וידאו)'}\n\n[בקשה נוכחית:]\n${userText}`;
+      }
     } else if (input.quotedContext.hasAudio) {
       contextualPrompt = `[הודעה מצוטטת: הקלטה קולית - audioUrl: ${input.quotedContext.audioUrl || 'לא זמין'}]\n${input.quotedContext.text || '(הקלטה)'}\n\n[בקשה נוכחית:]\n${userText}`;
     }
