@@ -1449,6 +1449,8 @@ async function handleIncomingMessage(webhookData) {
             hasImage: quotedMessage.typeMessage === 'imageMessage' || quotedMessage.typeMessage === 'stickerMessage',
             hasVideo: quotedMessage.typeMessage === 'videoMessage',
             hasAudio: quotedMessage.typeMessage === 'audioMessage',
+            imageUrl: imageUrl || null,
+            videoUrl: videoUrl || null,
             audioUrl: audioUrl || null, // Include audio URL if available
             stanzaId: quotedMessage.stanzaId
           };
@@ -1880,6 +1882,8 @@ async function handleOutgoingMessage(webhookData) {
             hasImage: quotedMessage.typeMessage === 'imageMessage' || quotedMessage.typeMessage === 'stickerMessage',
             hasVideo: quotedMessage.typeMessage === 'videoMessage',
             hasAudio: quotedMessage.typeMessage === 'audioMessage',
+            imageUrl: imageUrl || null,
+            videoUrl: videoUrl || null,
             audioUrl: audioUrl || null, // Include audio URL if available
             stanzaId: quotedMessage.stanzaId
           };
