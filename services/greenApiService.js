@@ -10,6 +10,8 @@ const path = require('path');
 const GREEN_API_ID_INSTANCE = process.env.GREEN_API_ID_INSTANCE || 'your_instance_id';
 const GREEN_API_API_TOKEN_INSTANCE = process.env.GREEN_API_API_TOKEN_INSTANCE || 'your_api_token';
 
+const STATIC_DIR = path.join(__dirname, '..', 'public', 'tmp');
+
 /**
  * Send text message via Green API
  */
@@ -74,11 +76,57 @@ async function sendFileByUrl(chatId, fileUrl, fileName, caption = '') {
   }
 }
 
+function resolveLocalStaticPath(downloadUrl) {
+  if (!downloadUrl || typeof downloadUrl !== 'string') {
+    return null;
+  }
+
+  const STATIC_PREFIX = '/static/';
+
+  try {
+    if (downloadUrl.startsWith(STATIC_PREFIX)) {
+      return path.join(STATIC_DIR, downloadUrl.slice(STATIC_PREFIX.length));
+    }
+
+    const parsed = new URL(downloadUrl);
+    if (parsed.pathname && parsed.pathname.startsWith(STATIC_PREFIX)) {
+      return path.join(STATIC_DIR, parsed.pathname.slice(STATIC_PREFIX.length));
+    }
+  } catch (parseError) {
+    // If URL constructor fails (e.g., missing scheme), fallback to substring detection
+    const index = downloadUrl.indexOf(STATIC_PREFIX);
+    if (index !== -1) {
+      return path.join(STATIC_DIR, downloadUrl.slice(index + STATIC_PREFIX.length));
+    }
+  }
+
+  return null;
+}
+
 /**
  * Download file from WhatsApp message and return as Buffer
  */
 async function downloadFile(downloadUrl, fileName = null) {
   try {
+    if (!downloadUrl || typeof downloadUrl !== 'string') {
+      throw new Error('Invalid download URL provided');
+    }
+
+    const localPath = resolveLocalStaticPath(downloadUrl);
+    if (localPath && fs.existsSync(localPath)) {
+      console.log(`📥 Loading file directly from local static path: ${localPath}`);
+      const buffer = fs.readFileSync(localPath);
+      console.log(`📥 File loaded locally: ${buffer.length} bytes`);
+
+      if (fileName) {
+        const filePath = path.join(STATIC_DIR, fileName);
+        fs.writeFileSync(filePath, buffer);
+        console.log(`📥 File also saved to: ${filePath}`);
+      }
+
+      return buffer;
+    }
+
     console.log(`📥 Downloading file from URL (${downloadUrl.length} chars)`);
     
     const response = await axios.get(downloadUrl, {
@@ -90,12 +138,11 @@ async function downloadFile(downloadUrl, fileName = null) {
     
     // If fileName is provided, also save to file (for backward compatibility)
     if (fileName) {
-      const tempDir = path.join(__dirname, '..', 'public', 'tmp');
-      if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
+      if (!fs.existsSync(STATIC_DIR)) {
+        fs.mkdirSync(STATIC_DIR, { recursive: true });
       }
 
-      const filePath = path.join(tempDir, fileName);
+      const filePath = path.join(STATIC_DIR, fileName);
       fs.writeFileSync(filePath, buffer);
       console.log(`📥 File also saved to: ${filePath}`);
     }
