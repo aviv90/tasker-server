@@ -126,17 +126,22 @@ async function routeToAgent(input, chatId) {
     };
   }
   
-  // 🧠 Detect if this is a media creation request (no history needed for these!)
-  const isMediaCreationRequest = 
+  // 🧠 Detect if we should skip loading conversation history
+  // Skip history for:
+  // 1. Media requests (image/video/audio attached) - all context is in the media itself
+  // 2. Quoted messages - all context is already in the quoted message
+  // 3. Media creation keywords - these are standalone requests
+  const shouldSkipHistory = 
     input.hasImage || 
     input.hasVideo || 
     input.hasAudio ||
+    input.quotedContext ||  // 🆕 Skip history for any quoted message
     /צור|תן|הפוך|המר|ליצור|create|generate|make|convert|animate/i.test(userText);
   
   // CRITICAL: Load conversation history to maintain context and continuity
-  // BUT NOT for media creation requests (like old mechanism)!
+  // BUT NOT for the cases above where we already have sufficient context!
   let conversationHistory = '';
-  if (!isMediaCreationRequest) {
+  if (!shouldSkipHistory) {
     try {
       const history = await conversationManager.getConversationHistory(chatId);
       if (history && history.length > 0) {
@@ -157,7 +162,10 @@ async function routeToAgent(input, chatId) {
       // Continue without history if it fails
     }
   } else {
-    console.log(`🎨 [AGENT ROUTER] Skipping history for media creation request`);
+    const reason = input.quotedContext ? 'quoted message (context already provided)' : 
+                   (input.hasImage || input.hasVideo || input.hasAudio) ? 'media attached' : 
+                   'media creation keywords';
+    console.log(`🎨 [AGENT ROUTER] Skipping history for: ${reason}`);
   }
   
   // Build context for the agent
@@ -171,20 +179,21 @@ async function routeToAgent(input, chatId) {
     if (input.quotedContext.hasImage) {
       const imageUrl = input.quotedContext.imageUrl;
       if (imageUrl) {
-        // CRITICAL: Provide image URL directly so Agent can use it for edit_image without calling get_chat_history
-        contextualPrompt = `[הודעה מצוטטת: תמונה - image_url: ${imageUrl}]\n${input.quotedContext.text || '(תמונה)'}\n\n[בקשה נוכחית:]\n${userText}\n\n**IMPORTANT: User quoted an image. If this is an edit request (ערוך, הסר, הוסף, שנה, תעלים, etc.), use edit_image with the image_url above. DO NOT use retry_last_command unless user explicitly said "נסה שוב" or "שוב"!**`;
+        // CRITICAL: Provide image URL directly so Agent can analyze or edit without calling get_chat_history
+        contextualPrompt = `[הודעה מצוטטת: תמונה - image_url: ${imageUrl}]\n${input.quotedContext.text || '(תמונה)'}\n\n[בקשה נוכחית:]\n${userText}\n\n**IMPORTANT: User quoted an image with image_url provided above. Based on the request:\n- For analysis/questions (מה זה, תאר, explain, analyze, describe, what is): use analyze_image with image_url: "${imageUrl}"\n- For edits (ערוך, שנה, הסר, הוסף, edit, change, remove, add): use edit_image with image_url: "${imageUrl}"\n- DO NOT use retry_last_command unless user explicitly said "נסה שוב" or "שוב"**`;
       } else {
         contextualPrompt = `[הודעה מצוטטת: תמונה]\n${input.quotedContext.text || '(תמונה)'}\n\n[בקשה נוכחית:]\n${userText}`;
       }
     } else if (input.quotedContext.hasVideo) {
       const videoUrl = input.quotedContext.videoUrl;
       if (videoUrl) {
-        contextualPrompt = `[הודעה מצוטטת: וידאו - video_url: ${videoUrl}]\n${input.quotedContext.text || '(וידאו)'}\n\n[בקשה נוכחית:]\n${userText}\n\n**IMPORTANT: User quoted a video. Use this video_url parameter directly if needed: "${videoUrl}"**`;
+        contextualPrompt = `[הודעה מצוטטת: וידאו - video_url: ${videoUrl}]\n${input.quotedContext.text || '(וידאו)'}\n\n[בקשה נוכחית:]\n${userText}\n\n**IMPORTANT: User quoted a video with video_url provided above. Use analyze_video with video_url: "${videoUrl}" and question parameter from the current request.**`;
       } else {
         contextualPrompt = `[הודעה מצוטטת: וידאו]\n${input.quotedContext.text || '(וידאו)'}\n\n[בקשה נוכחית:]\n${userText}`;
       }
     } else if (input.quotedContext.hasAudio) {
-      contextualPrompt = `[הודעה מצוטטת: הקלטה קולית - audioUrl: ${input.quotedContext.audioUrl || 'לא זמין'}]\n${input.quotedContext.text || '(הקלטה)'}\n\n[בקשה נוכחית:]\n${userText}`;
+      const audioUrl = input.quotedContext.audioUrl;
+      contextualPrompt = `[הודעה מצוטטת: הקלטה קולית - audio_url: ${audioUrl || 'לא זמין'}]\n${input.quotedContext.text || '(הקלטה)'}\n\n[בקשה נוכחית:]\n${userText}\n\n**IMPORTANT: User quoted audio. Use transcribe_audio with audio_url: "${audioUrl}" if available.**`;
     }
   }
   
@@ -192,19 +201,19 @@ async function routeToAgent(input, chatId) {
   if (input.hasImage && !input.quotedContext) {
     if (input.imageUrl) {
       // CRITICAL: Agent must use this URL DIRECTLY without calling get_chat_history!
-      contextualPrompt = `${userText}\n\n**IMPORTANT: User attached an image. Use this image_url parameter directly: "${input.imageUrl}"**`;
+      contextualPrompt = `${userText}\n\n**IMPORTANT: User attached an image. Based on the request:\n- For analysis/questions (מה זה, תאר, explain, analyze, describe): use analyze_image with image_url: "${input.imageUrl}"\n- For edits/generation with image (ערוך, שנה, הסר, הוסף, edit, change): use edit_image with image_url: "${input.imageUrl}"**`;
     } else {
       contextualPrompt = `[המשתמש שלח תמונה] ${userText}`;
     }
   } else if (input.hasVideo && !input.quotedContext) {
     if (input.videoUrl) {
-      contextualPrompt = `${userText}\n\n**IMPORTANT: User attached a video. Use this video_url parameter directly: "${input.videoUrl}"**`;
+      contextualPrompt = `${userText}\n\n**IMPORTANT: User attached a video. Use analyze_video with video_url: "${input.videoUrl}" and extract the question from the user's text above.**`;
     } else {
       contextualPrompt = `[המשתמש שלח וידאו] ${userText}`;
     }
   } else if (input.hasAudio && !input.quotedContext) {
     if (input.audioUrl) {
-      contextualPrompt = `${userText}\n\n**IMPORTANT: User attached audio. Use this audio_url parameter directly: "${input.audioUrl}"**`;
+      contextualPrompt = `${userText}\n\n**IMPORTANT: User attached audio. Use transcribe_audio with audio_url: "${input.audioUrl}" to transcribe it first.**`;
     } else {
       contextualPrompt = `[המשתמש שלח הקלטה קולית] ${userText}`;
     }
