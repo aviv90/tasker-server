@@ -410,7 +410,10 @@ const agentTools = {
         const { geminiService, greenApiService } = getServices();
         imageBuffer = await greenApiService.downloadFile(args.image_url);
         
-        const result = await geminiService.analyzeImageWithText(args.question, imageBuffer);
+        // Convert buffer to base64 string (geminiService expects base64, not Buffer)
+        const base64Image = imageBuffer.toString('base64');
+        
+        const result = await geminiService.analyzeImageWithText(args.question, base64Image);
         
         // Free memory
         imageBuffer = null;
@@ -3111,6 +3114,7 @@ const TOOL_ACK_MESSAGES = {
   'text_to_speech': 'ממיר לדיבור... 🎤',
   
   // Analysis tools
+  'analyze_image': 'מנתח תמונה... 🔍',
   'analyze_image_from_history': 'מנתח תמונה... 🔍',
   'analyze_video': 'מנתח וידאו... 🎥',
   
