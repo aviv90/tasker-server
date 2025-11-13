@@ -1070,69 +1070,104 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       };
     }
     
-    // For media messages (image/video/audio/sticker), fetch the original message to get downloadUrl
+    // For media messages (image/video/audio/sticker), try to get downloadUrl
     if (quotedType === 'imageMessage' || quotedType === 'videoMessage' || quotedType === 'audioMessage' || quotedType === 'stickerMessage') {
-      console.log(`📸 Quoted ${quotedType}, fetching original message...`);
+      console.log(`📸 Quoted ${quotedType}, attempting to extract media URL...`);
       
-      // getMessage returns the full message with proper downloadUrl
-      const originalMessage = await getMessage(chatId, quotedMessage.stanzaId);
-      
-      if (!originalMessage) {
-        throw new Error('Failed to fetch quoted message');
-      }
-      
-      // Extract download URL from the original message
-      // Try multiple possible locations in the response structure
       let downloadUrl = null;
       
+      // STEP 1: Try to get downloadUrl directly from quotedMessage (fastest path)
       if (quotedType === 'imageMessage' || quotedType === 'stickerMessage') {
-        downloadUrl = originalMessage.downloadUrl || 
-                     originalMessage.fileMessageData?.downloadUrl || 
-                     originalMessage.imageMessageData?.downloadUrl ||
-                     originalMessage.stickerMessageData?.downloadUrl ||
-                     originalMessage.messageData?.fileMessageData?.downloadUrl ||
-                     originalMessage.messageData?.imageMessageData?.downloadUrl ||
-                     originalMessage.messageData?.stickerMessageData?.downloadUrl;
+        downloadUrl = quotedMessage.downloadUrl || 
+                     quotedMessage.fileMessageData?.downloadUrl || 
+                     quotedMessage.imageMessageData?.downloadUrl ||
+                     quotedMessage.stickerMessageData?.downloadUrl;
       } else if (quotedType === 'videoMessage') {
-        downloadUrl = originalMessage.downloadUrl || 
-                     originalMessage.fileMessageData?.downloadUrl || 
-                     originalMessage.videoMessageData?.downloadUrl ||
-                     originalMessage.messageData?.fileMessageData?.downloadUrl ||
-                     originalMessage.messageData?.videoMessageData?.downloadUrl;
+        downloadUrl = quotedMessage.downloadUrl || 
+                     quotedMessage.fileMessageData?.downloadUrl || 
+                     quotedMessage.videoMessageData?.downloadUrl;
       } else if (quotedType === 'audioMessage') {
-        downloadUrl = originalMessage.downloadUrl || 
-                     originalMessage.fileMessageData?.downloadUrl || 
-                     originalMessage.audioMessageData?.downloadUrl ||
-                     originalMessage.messageData?.fileMessageData?.downloadUrl ||
-                     originalMessage.messageData?.audioMessageData?.downloadUrl;
+        downloadUrl = quotedMessage.downloadUrl || 
+                     quotedMessage.fileMessageData?.downloadUrl || 
+                     quotedMessage.audioMessageData?.downloadUrl;
       }
       
-      if (!downloadUrl) {
-        console.log('⚠️ No downloadUrl found in originalMessage structure, trying quotedMessage directly...');
-        // Fallback: try to get downloadUrl from quotedMessage itself (for outgoing messages)
-        if (quotedType === 'imageMessage' || quotedType === 'stickerMessage') {
-          downloadUrl = quotedMessage.downloadUrl || 
-                       quotedMessage.fileMessageData?.downloadUrl || 
-                       quotedMessage.imageMessageData?.downloadUrl ||
-                       quotedMessage.stickerMessageData?.downloadUrl;
-        } else if (quotedType === 'videoMessage') {
-          downloadUrl = quotedMessage.downloadUrl || 
-                       quotedMessage.fileMessageData?.downloadUrl || 
-                       quotedMessage.videoMessageData?.downloadUrl;
-        } else if (quotedType === 'audioMessage') {
-          downloadUrl = quotedMessage.downloadUrl || 
-                       quotedMessage.fileMessageData?.downloadUrl || 
-                       quotedMessage.audioMessageData?.downloadUrl;
+      // STEP 2: If downloadUrl is empty or not found, try getMessage API
+      if (!downloadUrl || downloadUrl === '') {
+        console.log(`📨 Fetching message ${quotedMessage.stanzaId} from chat ${chatId}`);
+        try {
+          const originalMessage = await getMessage(chatId, quotedMessage.stanzaId);
+          
+          if (originalMessage) {
+            if (quotedType === 'imageMessage' || quotedType === 'stickerMessage') {
+              downloadUrl = originalMessage.downloadUrl || 
+                           originalMessage.fileMessageData?.downloadUrl || 
+                           originalMessage.imageMessageData?.downloadUrl ||
+                           originalMessage.stickerMessageData?.downloadUrl ||
+                           originalMessage.messageData?.fileMessageData?.downloadUrl ||
+                           originalMessage.messageData?.imageMessageData?.downloadUrl ||
+                           originalMessage.messageData?.stickerMessageData?.downloadUrl;
+            } else if (quotedType === 'videoMessage') {
+              downloadUrl = originalMessage.downloadUrl || 
+                           originalMessage.fileMessageData?.downloadUrl || 
+                           originalMessage.videoMessageData?.downloadUrl ||
+                           originalMessage.messageData?.fileMessageData?.downloadUrl ||
+                           originalMessage.messageData?.videoMessageData?.downloadUrl;
+            } else if (quotedType === 'audioMessage') {
+              downloadUrl = originalMessage.downloadUrl || 
+                           originalMessage.fileMessageData?.downloadUrl || 
+                           originalMessage.audioMessageData?.downloadUrl ||
+                           originalMessage.messageData?.fileMessageData?.downloadUrl ||
+                           originalMessage.messageData?.audioMessageData?.downloadUrl;
+            }
+            
+            if (downloadUrl) {
+              console.log(`✅ Found downloadUrl via getMessage`);
+            }
+          }
+        } catch (getMessageError) {
+          console.log(`⚠️ getMessage failed: ${getMessageError.message}`);
+          // Continue to STEP 3 - try thumbnail
         }
-        
-        if (!downloadUrl) {
-          console.log(`⚠️ No downloadUrl found for quoted ${quotedType} in getMessage or quotedMessage`);
-          throw new Error(`No downloadUrl found for quoted ${quotedType}. Cannot process this quoted media.`);
-        }
-        console.log(`✅ Found downloadUrl in quotedMessage (fallback)`);
       }
       
-      console.log(`✅ Found downloadUrl for quoted ${quotedType}`);
+      // STEP 3: If still no downloadUrl and there's a thumbnail, use it (for images only)
+      if ((!downloadUrl || downloadUrl === '') && (quotedType === 'imageMessage' || quotedType === 'stickerMessage')) {
+        const thumbnail = quotedMessage.jpegThumbnail || quotedMessage.thumbnail;
+        if (thumbnail) {
+          console.log(`🖼️ No downloadUrl found, converting jpegThumbnail to temporary image...`);
+          try {
+            // Decode base64 thumbnail to buffer
+            const thumbnailBuffer = Buffer.from(thumbnail, 'base64');
+            // Save to temporary file
+            const tempFileName = `quoted_image_${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
+            const tempFilePath = path.join(os.tmpdir(), tempFileName);
+            fs.writeFileSync(tempFilePath, thumbnailBuffer);
+            
+            // Move to public/tmp for web access
+            const publicTmpDir = path.join(__dirname, '..', 'public', 'tmp');
+            if (!fs.existsSync(publicTmpDir)) {
+              fs.mkdirSync(publicTmpDir, { recursive: true });
+            }
+            const publicFilePath = path.join(publicTmpDir, tempFileName);
+            fs.renameSync(tempFilePath, publicFilePath);
+            
+            // Generate public URL
+            downloadUrl = getStaticFileUrl(`/tmp/${tempFileName}`);
+            console.log(`✅ Created temporary image from thumbnail: ${downloadUrl}`);
+          } catch (thumbnailError) {
+            console.error(`❌ Failed to process thumbnail: ${thumbnailError.message}`);
+          }
+        }
+      }
+      
+      // STEP 4: If still no downloadUrl, throw error
+      if (!downloadUrl || downloadUrl === '') {
+        console.log(`❌ No downloadUrl or thumbnail found for quoted ${quotedType}`);
+        throw new Error(`לא הצלחתי לגשת ל${quotedType === 'imageMessage' ? 'תמונה' : quotedType === 'videoMessage' ? 'וידאו' : 'מדיה'} המצוטטת. ייתכן שהיא נמחקה או ממספר אחר.`);
+      }
+      
+      console.log(`✅ Successfully extracted downloadUrl for quoted ${quotedType}`);
       
       // Extract caption from media message (if exists)
       // Caption can be directly on quotedMessage or nested in fileMessageData/imageMessageData
@@ -1201,7 +1236,21 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       };
     }
     
-    // For other errors, fallback to current prompt only
+    // If it's our custom error message (inaccessible media), return it to user
+    if (error.message.includes('לא הצלחתי לגשת ל')) {
+      return {
+        hasImage: false,
+        hasVideo: false,
+        hasAudio: false,
+        prompt: currentPrompt,
+        imageUrl: null,
+        videoUrl: null,
+        audioUrl: null,
+        error: `⚠️ ${error.message}`
+      };
+    }
+    
+    // For other errors, fallback to current prompt only (don't show error to user)
     return {
       hasImage: false,
       hasVideo: false,
