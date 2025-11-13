@@ -374,6 +374,70 @@ const agentTools = {
     }
   },
 
+  // Tool: Analyze image (direct URL)
+  analyze_image: {
+    declaration: {
+      name: 'analyze_image',
+      description: 'נתח תמונה ישירות מ-URL. CRITICAL: אם בפרומפט יש "Use this image_url parameter directly" או "image_url:" - קח את ה-URL משם ישירות! השתמש בכלי הזה כשיש URL זמין (תמונה מצורפת או מצוטטת), ובלי URL השתמש ב-analyze_image_from_history.',
+      parameters: {
+        type: 'object',
+        properties: {
+          image_url: {
+            type: 'string',
+            description: 'URL של התמונה לניתוח. אם זמין בפרומפט (בשורה "image_url:" או "Use this image_url parameter directly"), קח אותו משם.'
+          },
+          question: {
+            type: 'string',
+            description: 'השאלה או הבקשה לגבי התמונה (מה זה, תאר, explain, וכו\')'
+          }
+        },
+        required: ['image_url', 'question']
+      }
+    },
+    execute: async (args, context) => {
+      console.log(`🔧 [Agent Tool] analyze_image called with image_url: ${args.image_url?.substring(0, 60)}...`);
+      
+      let imageBuffer = null;
+      try {
+        if (!args.image_url) {
+          return {
+            success: false,
+            error: 'חסר image_url לניתוח התמונה.'
+          };
+        }
+        
+        // Download and analyze the image
+        const { geminiService, greenApiService } = getServices();
+        imageBuffer = await greenApiService.downloadFile(args.image_url);
+        
+        const result = await geminiService.analyzeImageWithText(args.question, imageBuffer);
+        
+        // Free memory
+        imageBuffer = null;
+        
+        if (result.success) {
+          return {
+            success: true,
+            data: result.text
+          };
+        } else {
+          return {
+            success: false,
+            error: result.error || 'שגיאה בניתוח התמונה'
+          };
+        }
+      } catch (error) {
+        console.error('❌ Error in analyze_image tool:', error);
+        // Free memory on error
+        imageBuffer = null;
+        return {
+          success: false,
+          error: `שגיאה בניתוח התמונה: ${error.message}`
+        };
+      }
+    }
+  },
+
   // Tool 3: Search web
   search_web: {
     declaration: {
@@ -3334,7 +3398,8 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • text_to_speech - טקסט→דיבור (22 שפות)
 
 🔍 ניתוח:
-• analyze_image_from_history - ניתוח תמונות
+• analyze_image - ניתוח תמונות ישירות (עם URL)
+• analyze_image_from_history - ניתוח תמונות מהיסטוריה
 • analyze_video - ניתוח וידאו
 
 ✏️ עריכה:
@@ -3367,14 +3432,18 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 🖼️ **CRITICAL - מדיה מצורפת:**
 • אם image_url/video_url/audio_url מופיע בפרומפט → השתמש בו ישירות!
 • אל תקרא ל-get_chat_history אם image_url כבר זמין!
-• דוגמה: "**IMPORTANT: User attached an image. Use this image_url parameter directly: "https://..."**"
-  → קח את ה-URL הזה ושלח אותו ישירות ל-image_to_video
+• דוגמאות:
+  ✅ "**IMPORTANT: User attached an image. Use this image_url: "https://..."**" + "מה זה" → analyze_image
+  ✅ "**IMPORTANT: User attached an image. Use this image_url: "https://..."**" + "הפוך לוידאו" → image_to_video
+  → קח את ה-URL מהפרומפט ושלח אותו ישירות ל-tool המתאים
   → אל תקרא ל-get_chat_history!
 
 📎 **CRITICAL - הודעות מצוטטות עם מדיה:**
-• **אם יש [הודעה מצוטטת: תמונה] + בקשת עריכה ("ערוך", "הסר", "תוסיף", "שנה") → זה edit_image (לא retry_last_command!)**
+• **אם יש image_url בפרומפט + שאלה/ניתוח ("מה זה", "תאר", "explain") → analyze_image**
+• **אם יש image_url בפרומפט + בקשת עריכה ("ערוך", "הסר", "תוסיף", "שנה") → edit_image (לא retry_last_command!)**
 • דוגמאות:
-  ✅ [הודעה מצוטטת: תמונה] + "תעלים את הצל" → edit_image (עם image_url מההודעה המצוטטת)
+  ✅ [הודעה מצוטטת: תמונה - image_url: ...] + "מה זה" → analyze_image (עם ה-URL מהפרומפט)
+  ✅ [הודעה מצוטטת: תמונה - image_url: ...] + "תעלים את הצל" → edit_image (עם image_url מהפרומפט)
   ✅ [הודעה מצוטטת: תמונה] + "הסר את הרקע" → edit_image
   ✅ [הודעה מצוטטת: תמונה] + "שנה את הצבע ל-..." → edit_image
   ❌ [הודעה מצוטטת: תמונה] + "תעלים את הצל" → retry_last_command (שגוי!)
