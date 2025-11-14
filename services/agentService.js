@@ -3676,8 +3676,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • send_location: חובה region אם יש אזור בבקשה!
 • אם tool נכשל → retry_with_different_provider (אל תקרא לאותו tool שוב!)
 • שמור רציפות: קרא [היסטוריית שיחה] בסוף כל בקשה
-• Multi-step: אם רואה "Step X/Y" → התמקד רק בשלב הזה
-
+• Multi-step: אם רואה "Step X/Y" → התמקד רק בשלב הזה`;
 
   // 🧠 Context for tool execution (load previous context if enabled)
   let context = {
@@ -3714,15 +3713,17 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   // Conversation history for the agent
   const chat = model.startChat({
     history: [],
-    tools: [{ functionDeclarations }]
+    tools: [{ functionDeclarations }],
+    systemInstruction: {
+      role: 'system',
+      parts: [{ text: systemInstruction }]
+    }
   });
   
   // ⏱️ Wrap entire agent execution with timeout
   const agentExecution = async () => {
     // Single-step execution (multi-step is handled above with executeSingleStep loop)
-    const fullPrompt = `${systemInstruction}\n\n---\n\n${prompt}`;
-    
-    let response = await chat.sendMessage(fullPrompt);
+    let response = await chat.sendMessage(prompt);
     let iterationCount = 0;
     
     // Agent loop - continue until we get a final text response
