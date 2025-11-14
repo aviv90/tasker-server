@@ -3444,6 +3444,11 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • אם image_url/video_url בפרומפט → השתמש בו ישירות (אל תקרא get_chat_history!)
 • הודעות מצוטטות + מדיה: שאלה → analyze_image, עריכה → edit_image (לא retry!)
 • לינקים/קישורים → search_web (לא create_music!)
+• **אודיו/קול - CRITICAL: אל תיצור אודיו/קול אלא אם כן המשתמש מבקש במפורש!**
+  - "ספר בדיחה" / "tell joke" → טקסט בלבד (לא text_to_speech!)
+  - "תרגם ל-X ואמור" / "say in English" / "אמור ב-Y" → translate_and_speak (כן!)
+  - "תשמיע לי" / "תקרא בקול" / "voice" → text_to_speech או translate_and_speak (כן!)
+  - **אם המשתמש לא אמר "אמור", "תשמיע", "voice", "say" - אל תיצור אודיו!**
 • "אמור X ב-Y" → translate_and_speak (לא translate_text!)
 • תמיד ציין provider: create_image({provider: "gemini"}), create_video({provider: "kling"})
 • send_location: חובה region אם יש אזור בבקשה!

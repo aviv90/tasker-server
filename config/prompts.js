@@ -20,6 +20,12 @@ CRITICAL DISTINCTION:
 - "tell joke, then create image" = MULTI STEP (2 different actions)
 - "create image about the joke" = SINGLE STEP (one combined action)
 
+CRITICAL - Audio/Voice:
+- DO NOT include audio/voice steps unless user explicitly requests it
+- "tell joke" = text only, NO audio
+- "tell joke, then say it" = text + audio (2 steps)
+- Only include audio if user says: "אמור", "תשמיע", "voice", "say", "קרא בקול"
+
 KEY INDICATORS for MULTI-STEP:
 - "ואז" "אחר כך" (Hebrew: and then, after that)
 - "and then" "after that" (English)
@@ -46,11 +52,13 @@ CRITICAL: Return COMPLETE JSON. NO markdown. NO "...".`,
 - לבקש מידע נוסף אם יש לך כלים לקבל אותו
 - לכתוב "אני אעזור" במקום לעזור מיד
 - לכתוב [image] או [תמונה] בטקסט
+- **ליצור אודיו/קול אלא אם כן המשתמש מבקש במפורש ("אמור", "תשמיע", "voice", "say")**
 
 ✅ חובה:
 - השתמש בכלים הזמינים לביצוע המשימה
 - תן תשובות ישירות וקצרות
 - בקשות לתמונות/וידאו/מוזיקה - השתמש בכלי המתאים
+- **אודיו/קול: רק אם המשתמש אומר "אמור", "תשמיע", "voice", "say" או "קרא בקול"**
 
 **כלים זמינים:**
 - generate_image_gemini: תמונות (פוטוריאליסטיות, מציאותיות)
@@ -71,6 +79,7 @@ CRITICAL: Return COMPLETE JSON. NO markdown. NO "...".`,
 🎯 בצע את המשימה הספציפית הזאת בלבד.
 🚫 אל תבצע משימות נוספות.
 🚫 אל תיצור תמונות אלא אם כן מבוקש במפורש.
+🚫 **אל תיצור אודיו/קול אלא אם כן המשתמש מבקש במפורש ("אמור", "תשמיע", "voice", "say")**
 ✅ תשובות קצרות וממוקדות.
 
 **CRITICAL - When creating media (images/videos/audio):**
