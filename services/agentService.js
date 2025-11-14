@@ -199,33 +199,76 @@ function splitTaskIntoSteps(prompt) {
   
   const steps = [];
   
-  // Try to split by explicit connectors
-  const splitPatterns = [
-    /\s+(ואז|ואחר כך|ולאחר מכן|וגם)\s+/gi,
-    /\s+(and then|after that|afterwards|also)\s+/gi,
-    /\.\s+/g  // Split by sentences
-  ];
+  // 🎯 Enhanced splitting for Hebrew and English multi-step commands
   
-  let parts = [prompt];
+  // Pattern 1: "X, Y, ואז Z" or "X, Y, and then Z"
+  // Split by commas first, then by connectors
+  let parts = [];
   
-  for (const pattern of splitPatterns) {
-    if (pattern.test(prompt)) {
-      parts = prompt.split(pattern).filter(p => p.trim().length > 10);
-      break;
+  // Try splitting by explicit sequence connectors (strongest signal)
+  const strongConnectors = /\s+(ואז|ואחר כך|ולאחר מכן|אחר כך|לאחר מכן)\s+/gi;
+  if (strongConnectors.test(prompt)) {
+    parts = prompt.split(strongConnectors).filter(p => p && p.trim().length > 5);
+  } else {
+    // Try English connectors
+    const englishConnectors = /\s+(and then|after that|afterwards|then)\s+/gi;
+    if (englishConnectors.test(prompt)) {
+      parts = prompt.split(englishConnectors).filter(p => p && p.trim().length > 5);
+    } else {
+      // Try splitting by commas followed by action verbs
+      const commaWithAction = /,\s*(?=(ו)?(ספר|כתוב|צור|תצור|תרגם|אמור|נתח|ערוך|חפש|שלח|tell|write|create|translate|say|analyze|edit|search|send))/gi;
+      if (commaWithAction.test(prompt)) {
+        parts = prompt.split(',').filter(p => p && p.trim().length > 5);
+      }
     }
   }
   
-  // If we couldn't split intelligently, try to extract main concepts
-  if (parts.length === 1 && prompt.length > 150) {
-    // Extract main nouns/actions as separate steps
-    const mainConcepts = prompt.match(/\b(צור|תצור|ערוך|תערוך|נתח|תנתח|הוסף|תוסיף|create|edit|analyze|add)\s+[^,\.]+/gi);
+  // Clean up parts - remove connector words that might have been included
+  if (parts.length > 0) {
+    parts = parts.map(p => {
+      // Remove leading connectors
+      p = p.replace(/^(ו|and|then|also)\s+/gi, '').trim();
+      // Remove trailing punctuation
+      p = p.replace(/[,;]$/g, '').trim();
+      return p;
+    }).filter(p => {
+      // Filter out meaningless fragments like "שלח אותה", "send it", etc.
+      const isMeaninglessFragment = /^(שלח|תשלח|send)\s+(אותה?|אותם?|אותן|it|them)[\s\.,]*$/i.test(p);
+      return p.length > 5 && !isMeaninglessFragment;
+    });
     
-    if (mainConcepts && mainConcepts.length > 1) {
-      return mainConcepts.map(c => c.trim());
+    // Remove "send it" type phrases by merging with previous step
+    const cleanedParts = [];
+    for (let i = 0; i < parts.length; i++) {
+      const current = parts[i];
+      const isSendItType = /^(שלח|תשלח|send)\s+(אותה?|אותם?|אותן|it|them)/i.test(current);
+      
+      if (isSendItType && cleanedParts.length > 0) {
+        // Merge with previous step - "send it" is implied
+        cleanedParts[cleanedParts.length - 1] += ` (${current})`;
+      } else {
+        cleanedParts.push(current);
+      }
+    }
+    parts = cleanedParts;
+  }
+  
+  // If we still have only 1 part but the prompt is complex, try extracting by action verbs
+  if (parts.length <= 1 && prompt.length > 100) {
+    const actionMatches = prompt.match(/\b(ספר|כתוב|צור|תצור|תרגם|אמור|נתח|ערוך|חפש|שלח|tell|write|create|make|translate|say|analyze|edit|search|send)[^,\.]+/gi);
+    
+    if (actionMatches && actionMatches.length >= 2) {
+      parts = actionMatches.map(m => m.trim());
     }
   }
   
-  return parts.length > 1 ? parts.map(p => p.trim()) : [prompt];
+  // If we still couldn't split, return the original
+  if (parts.length === 0 || parts.length === 1) {
+    return [prompt];
+  }
+  
+  console.log(`🔪 [Task Split] Split into ${parts.length} steps:`, parts.map(p => p.substring(0, 50)));
+  return parts;
 }
 
 /**
@@ -3409,10 +3452,24 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   
   // 🔍 Detect if this is a multi-step request and adjust iterations accordingly
   const isMultiStepRequest = detectMultiStepRequest(prompt);
+  let steps = [prompt]; // By default, single step
+  
   if (isMultiStepRequest) {
-    console.log(`🎯 [Agent] Detected multi-step request - allowing more iterations`);
-    agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 10); // At least 10 iterations for multi-step
-    agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 300000); // 5 minutes for multi-step
+    console.log(`🎯 [Agent] Detected multi-step request`);
+    
+    // Try to split into steps
+    const splitSteps = splitTaskIntoSteps(prompt);
+    if (splitSteps.length > 1) {
+      steps = splitSteps;
+      console.log(`🔪 [Agent] Split into ${steps.length} sequential steps`);
+      agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 10); // At least 10 iterations for multi-step
+      agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 300000); // 5 minutes for multi-step
+    } else {
+      // Couldn't split - rely on system prompt
+      console.log(`⚠️ [Agent] Could not split multi-step request - relying on system prompt`);
+      agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 10);
+      agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 300000);
+    }
   }
   
   const maxIterations = options.maxIterations || agentConfig.maxIterations;
@@ -3584,45 +3641,12 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • תשיב בצורה טבעית ונעימה
 • בשאלות מורכבות - פצל למספר שלבים קטנים
 
-🎯 **פקודות מורכבות ורצף פעולות - CRITICAL FOR MULTI-STEP TASKS:**
-• **כשמבקשים מספר פעולות ברצף (למשל: "ספר בדיחה, שלח אותה, ואז צור תמונה") - חובה לבצע אותן בסדר צעד אחר צעד!**
-• **NEVER** try to execute multiple independent steps in one iteration - execute one step at a time!
-• **תהליך ביצוע נכון:**
-  1. זהה שיש כמה שלבים בבקשה ("ו", "ואז", "אחר כך", "לאחר מכן")
-  2. בצע את השלב הראשון בלבד
-  3. **החזר את התוצאה ל-Gemini** עם ציון מפורש: "✅ שלב 1 הושלם: [תוצאה]. כעת ממשיך לשלב 2..."
-  4. Gemini יקרא שוב עם התוצאה - כעת בצע את השלב הבא
-  5. חזור על זה עד סיום כל השלבים
-  
-• **🚨 CRITICAL - DON'T STOP AFTER FIRST STEP:**
-  - אם ביקשו "X ואז Y" → אחרי שעשית X, **חובה** לעשות Y!
-  - אל תסיים את התשובה אחרי X - המשתמש ביקש גם Y!
-  - אם לא קראת לשום tool בתשובה, אבל עדיין יש שלבים נוספים → **זה לא סיום! המשך!**
-  
-• **דוגמה נכונה - "ספר בדיחה, שלח אותה, ואז צור תמונה לפי הבדיחה":**
-  - **איטרציה 1 (NO TOOLS):** 
-    * כתוב את הבדיחה בטקסט חופשי
-    * **אבל לא תסיים כאן!**
-    * בסוף התשובה, הוסף: "עכשיו אצור תמונה שממחישה את הבדיחה..."
-    * **זה יגרום למערכת להמשיך לאיטרציה 2**
-  - **איטרציה 2 (WITH TOOL):** 
-    * קרא ל-create_image עם פרומפט מבוסס על הבדיחה
-  - **תוצאה סופית:** המשתמש מקבל גם את הבדיחה וגם את התמונה
-  
-• **דוגמה שגויה - אל תעשה ככה:**
-  ❌ איטרציה 1: כותב בדיחה → **מסיים את התשובה** (שכח את השלב של התמונה!)
-  ❌ קריאה ל-2-3 tools בבת אחת כשיש תלות ביניהם
-  ❌ קפיצה לשלב הסופי מבלי לעבור דרך השלבים הביניים
-  
-• **HOW TO SIGNAL "NOT DONE YET":**
-  - כשמסיים שלב ביניים (ללא tool calls), **חובה** לכתוב משהו כמו:
-    * "כעת אעבור לשלב הבא..."
-    * "עכשיו אצור תמונה..."
-    * "בואו ניצור את..."
-  - זה **מונע** מהמערכת לסיים את התשובה ומאפשר איטרציות נוספות!
-  
-• **REMEMBER:** אתה יכול לבצע מספר איטרציות! אין צורך לסיים הכל בקריאה אחת.
-• **תוצאות ביניות חשובות:** כל תוצאה שאתה מחזיר בטקסט חופשי (לא דרך tool) - המשתמש רואה אותה! אז אם ביקשו "ספר בדיחה" - תספר בטקסט חופשי תחילה.
+🎯 **פקודות מורכבות ורצף פעולות - CRITICAL:**
+• **Multi-step requests will be automatically broken down into separate steps by the system.**
+• **If you see "Step X/Y" in the request, focus ONLY on that step.**
+• **After completing each step, state: "✅ Step X completed. Proceeding to next step..."**
+• **Do NOT skip steps or try to complete multiple steps at once.**
+• **Each step will be executed in its own iteration with full context from previous steps.**
 
 🚨 **טיפול בשגיאות (CRITICAL!):**
 • אם tool נכשל - **אל תקרא לאותו tool שוב בשום מקרה!**
@@ -3688,8 +3712,26 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   
   // ⏱️ Wrap entire agent execution with timeout
   const agentExecution = async () => {
-    // Include system instruction in the first message
-    const fullPrompt = `${systemInstruction}\n\n---\n\nUser Request: ${prompt}`;
+    // Build enhanced prompt for multi-step requests
+    let fullPrompt;
+    if (steps.length > 1) {
+      // Multi-step: provide explicit breakdown
+      console.log(`📋 [Agent] Breaking down ${steps.length} steps for sequential execution`);
+      fullPrompt = `${systemInstruction}\n\n---\n\n🎯 **MULTI-STEP REQUEST DETECTED**\n\nThe user's request has ${steps.length} distinct steps. You MUST complete them in order:\n\n`;
+      steps.forEach((step, i) => {
+        fullPrompt += `**Step ${i + 1}:** ${step}\n`;
+      });
+      fullPrompt += `\n🚨 **EXECUTION RULES:**\n`;
+      fullPrompt += `1. Start with Step 1 ONLY - complete it fully before moving to Step 2\n`;
+      fullPrompt += `2. After completing each step, explicitly state: "✅ Step X completed. Now proceeding to Step Y..."\n`;
+      fullPrompt += `3. Continue with each subsequent step in order\n`;
+      fullPrompt += `4. Do NOT skip steps or combine them\n\n`;
+      fullPrompt += `Begin with Step 1 now.`;
+    } else {
+      // Single step: regular prompt
+      fullPrompt = `${systemInstruction}\n\n---\n\nUser Request: ${prompt}`;
+    }
+    
     let response = await chat.sendMessage(fullPrompt);
     let iterationCount = 0;
     
@@ -3722,43 +3764,8 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       // No more function calls in this iteration
       let text = result.text();
       
-      // 🧹 CRITICAL: Clean thinking patterns before checking if we should continue
+      // 🧹 CRITICAL: Clean thinking patterns before sending to user
       text = cleanThinkingPatterns(text);
-      
-      // 🎯 MULTI-STEP CONTINUATION CHECK
-      // For multi-step requests, check if we should continue even without function calls
-      if (isMultiStepRequest && iterationCount < 4) {
-        // Count how many tools we've executed so far
-        const toolsExecutedCount = Object.keys(context.previousToolResults).length;
-        
-        // Check if text suggests continuation
-        const hasContinuationSignal = text.includes('עכשיו') || 
-                                       text.includes('כעת') || 
-                                       text.includes('בואו') ||
-                                       text.includes('now') ||
-                                       text.includes('next') ||
-                                       text.includes('אצור') ||
-                                       text.includes('אעבור') ||
-                                       text.includes('ממשיך') ||
-                                       text.includes('יצירת') ||
-                                       text.includes('creating') ||
-                                       text.includes('ליצור');
-        
-        // If we're in iteration 1-2 and have executed < 2 tools, likely need to continue
-        const needsMoreSteps = (iterationCount <= 2 && toolsExecutedCount < 2) || hasContinuationSignal;
-        
-        if (needsMoreSteps) {
-          console.log(`🔄 [Agent] Multi-step request: Iteration ${iterationCount}, Tools executed: ${toolsExecutedCount}`);
-          console.log(`🔄 [Agent] Continuation signal: ${hasContinuationSignal ? 'YES' : 'NO'} - Prompting for next step`);
-          
-          // Send a continuation prompt to trigger the next step
-          const continuationPrompt = 'המשך עם השלב הבא של הבקשה. בצע את הפעולה הבאה שהמשתמש ביקש. (Continue with the next step that the user requested - execute the next action now)';
-          response = await chat.sendMessage(continuationPrompt);
-          continue; // Go to next iteration
-        } else {
-          console.log(`✅ [Agent] Multi-step request appears complete: ${toolsExecutedCount} tools executed`);
-        }
-      }
       
       // No continuation needed - this is the final answer
       console.log(`✅ [Agent] Completed in ${iterationCount} iterations`);
@@ -4058,4 +4065,5 @@ module.exports = {
   executeAgentQuery,
   shouldUseAgent
 };
+
 
