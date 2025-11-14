@@ -1574,26 +1574,14 @@ async function handleIncomingMessage(webhookData) {
                 
                 let caption = '';
                 
-                // Multi-step: Use imageCaption if exists and in correct language
+                // Multi-step: Use imageCaption if exists (LLM should return it in correct language)
                 if (agentResult.multiStep) {
-                  // For multi-step, use imageCaption if it exists and matches request language
-                  // (extracted from text description like "הנה התמונה שממחישה...")
-                  if (agentResult.imageCaption && agentResult.imageCaption.trim()) {
-                    // Check if caption is in Hebrew (most common case)
-                    const hebrewChars = (agentResult.imageCaption.match(/[\u0590-\u05FF]/g) || []).length;
-                    const englishChars = (agentResult.imageCaption.match(/[a-zA-Z]/g) || []).length;
-                    
-                    // Use caption only if it's primarily in Hebrew (or matches request language)
-                    if (hebrewChars > englishChars) {
-                      caption = agentResult.imageCaption.trim();
-                      console.log(`📤 [Multi-step] Image sent with Hebrew caption: "${caption.substring(0, 50)}..."`);
-                    } else {
-                      // English caption - ignore it (text already sent in Hebrew)
-                      caption = '';
-                      console.log(`📤 [Multi-step] Image sent without caption (English caption ignored)`);
-                    }
+                  // For multi-step, use imageCaption if it exists
+                  // LLM is responsible for returning caption in correct language
+                  caption = (agentResult.imageCaption && agentResult.imageCaption.trim()) || '';
+                  if (caption) {
+                    console.log(`📤 [Multi-step] Image sent with caption: "${caption.substring(0, 50)}..."`);
                   } else {
-                    caption = '';
                     console.log(`📤 [Multi-step] Image sent after text (no caption)`);
                   }
                 } else {
@@ -2102,26 +2090,14 @@ async function handleOutgoingMessage(webhookData) {
                 
                 let caption = '';
                 
-                // Multi-step: Use imageCaption if exists and in correct language
+                // Multi-step: Use imageCaption if exists (LLM should return it in correct language)
                 if (agentResult.multiStep) {
-                  // For multi-step, use imageCaption if it exists and matches request language
-                  // (extracted from text description like "הנה התמונה שממחישה...")
-                  if (agentResult.imageCaption && agentResult.imageCaption.trim()) {
-                    // Check if caption is in Hebrew (most common case)
-                    const hebrewChars = (agentResult.imageCaption.match(/[\u0590-\u05FF]/g) || []).length;
-                    const englishChars = (agentResult.imageCaption.match(/[a-zA-Z]/g) || []).length;
-                    
-                    // Use caption only if it's primarily in Hebrew (or matches request language)
-                    if (hebrewChars > englishChars) {
-                      caption = agentResult.imageCaption.trim();
-                      console.log(`📤 [Multi-step - Outgoing] Image sent with Hebrew caption: "${caption.substring(0, 50)}..."`);
-                    } else {
-                      // English caption - ignore it (text already sent in Hebrew)
-                      caption = '';
-                      console.log(`📤 [Multi-step - Outgoing] Image sent without caption (English caption ignored)`);
-                    }
+                  // For multi-step, use imageCaption if it exists
+                  // LLM is responsible for returning caption in correct language
+                  caption = (agentResult.imageCaption && agentResult.imageCaption.trim()) || '';
+                  if (caption) {
+                    console.log(`📤 [Multi-step - Outgoing] Image sent with caption: "${caption.substring(0, 50)}..."`);
                   } else {
-                    caption = '';
                     console.log(`📤 [Multi-step - Outgoing] Image sent after text (no caption)`);
                   }
                 } else {

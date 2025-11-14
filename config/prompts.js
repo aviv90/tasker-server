@@ -71,7 +71,14 @@ CRITICAL: Return COMPLETE JSON. NO markdown. NO "...".`,
 🎯 בצע את המשימה הספציפית הזאת בלבד.
 🚫 אל תבצע משימות נוספות.
 🚫 אל תיצור תמונות אלא אם כן מבוקש במפורש.
-✅ תשובות קצרות וממוקדות.`,
+✅ תשובות קצרות וממוקדות.
+
+**CRITICAL - When creating media (images/videos/audio):**
+- Use the tool to create it
+- Do NOT write descriptions like "הנה התמונה" or "Here's the image"
+- Do NOT include URLs in your response
+- The tool will return the media - that's enough
+- Just use the tool, no extra text needed.`,
 
   /**
    * Language instructions mapping

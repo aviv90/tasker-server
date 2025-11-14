@@ -3625,9 +3625,12 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           stepResults.push(stepResult);
           
           // Accumulate text (don't send yet)
-          if (stepResult.text && stepResult.text.trim()) {
+          // BUT: If step created media (image/video/audio), ignore its text - media is enough
+          if (stepResult.text && stepResult.text.trim() && !stepResult.imageUrl && !stepResult.videoUrl && !stepResult.audioUrl) {
             accumulatedText += (accumulatedText ? '\n\n' : '') + stepResult.text;
             console.log(`📝 [Agent] Step ${step.stepNumber} text accumulated (${stepResult.text.length} chars)`);
+          } else if (stepResult.imageUrl || stepResult.videoUrl || stepResult.audioUrl) {
+            console.log(`📝 [Agent] Step ${step.stepNumber} created media - ignoring text, media is enough`);
           }
           
           // Track assets (only last one of each type)
@@ -3657,10 +3660,10 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     // Clean and process final text for multi-step
     let finalText = accumulatedText.trim();
     
-    // Remove URLs (image URLs should not be in text)
+    // Basic cleanup: Remove URLs (just in case - should not happen with improved prompts)
     finalText = finalText.replace(/https?:\/\/[^\s]+/gi, '').trim();
     
-    // Remove duplicate lines (if Step 1 and Step 2 both returned the joke)
+    // Remove duplicate lines (if Step 1 and Step 2 both returned similar content)
     const lines = finalText.split('\n').filter(line => line.trim());
     const uniqueLines = [];
     const seen = new Set();
@@ -3672,39 +3675,6 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       }
     }
     finalText = uniqueLines.join('\n').trim();
-    
-    // If there's image description text (like "הנה התמונה שממחישה..."), extract it to caption
-    if (finalAssets.imageUrl && finalText) {
-      const imageDescriptionPatterns = [
-        /הנה (התמונה|התמונות|האיור|האיורים).*?$/im,
-        /Here'?s? (the|that|an?)? (image|picture|illustration|cartoon).*?$/im,
-        /מקווה.*?$/im,
-        /Hope.*?$/im,
-        /התמונה.*?ממחישה.*?$/im,
-        /האיור.*?ממחיש.*?$/im
-      ];
-      
-      let imageDescription = '';
-      let cleanedText = finalText;
-      
-      // Try to find image description (usually at the end)
-      for (const pattern of imageDescriptionPatterns) {
-        const match = cleanedText.match(pattern);
-        if (match) {
-          imageDescription = match[0].trim();
-          cleanedText = cleanedText.replace(pattern, '').trim();
-          break; // Take first match
-        }
-      }
-      
-      // If we found image description, use it as caption (if no caption exists)
-      if (imageDescription && !finalAssets.imageCaption) {
-        finalAssets.imageCaption = imageDescription;
-        console.log(`📝 [Agent] Extracted image description to caption: "${imageDescription.substring(0, 50)}..."`);
-      }
-      
-      finalText = cleanedText;
-    }
     
     console.log(`🏁 [Agent] Multi-step execution completed: ${stepResults.length}/${plan.steps.length} steps successful`);
     console.log(`📦 [Agent] Returning: ${finalText.length} chars text, image: ${!!finalAssets.imageUrl}, multiStep: true`);
