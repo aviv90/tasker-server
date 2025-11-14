@@ -3643,16 +3643,32 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         if (stepResult.success) {
           stepResults.push(stepResult);
           
-          // Accumulate text responses
-          if (stepResult.text) {
+          // Send text immediately if present
+          if (stepResult.text && stepResult.text.trim()) {
+            try {
+              const { sendTextMessage } = require('../services/greenApiService');
+              await sendTextMessage(chatId, stepResult.text.trim());
+              console.log(`📤 [Agent] Step ${step.stepNumber} text sent to user`);
+            } catch (sendError) {
+              console.error(`❌ Failed to send step ${step.stepNumber} text:`, sendError.message);
+            }
             accumulatedText += (accumulatedText ? '\n\n' : '') + stepResult.text;
           }
           
-          // Keep track of latest assets (images/videos/audio override previous ones)
+          // Send media immediately if present
           if (stepResult.imageUrl) {
+            try {
+              const { sendFileByUrl } = require('../services/greenApiService');
+              await sendFileByUrl(chatId, stepResult.imageUrl, `step${step.stepNumber}_image.png`, stepResult.imageCaption || '');
+              console.log(`📸 [Agent] Step ${step.stepNumber} image sent to user`);
+            } catch (sendError) {
+              console.error(`❌ Failed to send step ${step.stepNumber} image:`, sendError.message);
+            }
             finalAssets.imageUrl = stepResult.imageUrl;
             finalAssets.imageCaption = stepResult.imageCaption || '';
           }
+          
+          // Track other assets
           if (stepResult.videoUrl) finalAssets.videoUrl = stepResult.videoUrl;
           if (stepResult.audioUrl) finalAssets.audioUrl = stepResult.audioUrl;
           if (stepResult.poll) finalAssets.poll = stepResult.poll;
@@ -3671,17 +3687,18 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       }
     }
     
-    // Return combined results from all steps
+    // Return combined results from all steps (already sent to user)
     console.log(`🏁 [Agent] Multi-step execution completed: ${stepResults.length}/${plan.steps.length} steps successful`);
     return {
       success: true,
-      text: accumulatedText.trim(),
-      ...finalAssets,
+      text: '', // Already sent during steps
+      imageUrl: null, // Already sent during steps
       toolsUsed: stepResults.flatMap(r => r.toolsUsed || []),
-      iterations: stepResults.reduce((sum, r) => sum + (r.iterations || 0), 0),
+      iterations: stepResults.reduce((sum, r => sum + (r.iterations || 0), 0),
       multiStep: true,
       stepsCompleted: stepResults.length,
-      totalSteps: plan.steps.length
+      totalSteps: plan.steps.length,
+      alreadySent: true // Flag to prevent re-sending
     };
   }
   
