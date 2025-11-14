@@ -1551,6 +1551,7 @@ async function handleIncomingMessage(webhookData) {
               // Multi-step: Send text FIRST, then media
               if (agentResult.multiStep && agentResult.text && agentResult.text.trim()) {
                 let cleanText = agentResult.text
+                  .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs (image URLs should not be in text)
                   .replace(/\[image\]/gi, '')
                   .replace(/\[video\]/gi, '')
                   .replace(/\[audio\]/gi, '')
@@ -1573,12 +1574,28 @@ async function handleIncomingMessage(webhookData) {
                 
                 let caption = '';
                 
-                // Multi-step: Don't use text as caption - text already sent separately
+                // Multi-step: Use imageCaption if exists and in correct language
                 if (agentResult.multiStep) {
-                  // For multi-step, ignore imageCaption (it's often in English or redundant)
-                  // Text was already sent separately
-                  caption = '';
-                  console.log(`📤 [Multi-step] Image sent after text (empty caption - text already sent)`);
+                  // For multi-step, use imageCaption if it exists and matches request language
+                  // (extracted from text description like "הנה התמונה שממחישה...")
+                  if (agentResult.imageCaption && agentResult.imageCaption.trim()) {
+                    // Check if caption is in Hebrew (most common case)
+                    const hebrewChars = (agentResult.imageCaption.match(/[\u0590-\u05FF]/g) || []).length;
+                    const englishChars = (agentResult.imageCaption.match(/[a-zA-Z]/g) || []).length;
+                    
+                    // Use caption only if it's primarily in Hebrew (or matches request language)
+                    if (hebrewChars > englishChars) {
+                      caption = agentResult.imageCaption.trim();
+                      console.log(`📤 [Multi-step] Image sent with Hebrew caption: "${caption.substring(0, 50)}..."`);
+                    } else {
+                      // English caption - ignore it (text already sent in Hebrew)
+                      caption = '';
+                      console.log(`📤 [Multi-step] Image sent without caption (English caption ignored)`);
+                    }
+                  } else {
+                    caption = '';
+                    console.log(`📤 [Multi-step] Image sent after text (no caption)`);
+                  }
                 } else {
                   // Single-step: Images support captions - use them!
                   // CRITICAL: If multiple tools were used, don't mix outputs!
@@ -2062,6 +2079,7 @@ async function handleOutgoingMessage(webhookData) {
               // Multi-step: Send text FIRST, then media
               if (agentResult.multiStep && agentResult.text && agentResult.text.trim()) {
                 let cleanText = agentResult.text
+                  .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs (image URLs should not be in text)
                   .replace(/\[image\]/gi, '')
                   .replace(/\[video\]/gi, '')
                   .replace(/\[audio\]/gi, '')
@@ -2084,12 +2102,28 @@ async function handleOutgoingMessage(webhookData) {
                 
                 let caption = '';
                 
-                // Multi-step: Don't use text as caption - text already sent separately
+                // Multi-step: Use imageCaption if exists and in correct language
                 if (agentResult.multiStep) {
-                  // For multi-step, ignore imageCaption (it's often in English or redundant)
-                  // Text was already sent separately
-                  caption = '';
-                  console.log(`📤 [Multi-step - Outgoing] Image sent after text (empty caption - text already sent)`);
+                  // For multi-step, use imageCaption if it exists and matches request language
+                  // (extracted from text description like "הנה התמונה שממחישה...")
+                  if (agentResult.imageCaption && agentResult.imageCaption.trim()) {
+                    // Check if caption is in Hebrew (most common case)
+                    const hebrewChars = (agentResult.imageCaption.match(/[\u0590-\u05FF]/g) || []).length;
+                    const englishChars = (agentResult.imageCaption.match(/[a-zA-Z]/g) || []).length;
+                    
+                    // Use caption only if it's primarily in Hebrew (or matches request language)
+                    if (hebrewChars > englishChars) {
+                      caption = agentResult.imageCaption.trim();
+                      console.log(`📤 [Multi-step - Outgoing] Image sent with Hebrew caption: "${caption.substring(0, 50)}..."`);
+                    } else {
+                      // English caption - ignore it (text already sent in Hebrew)
+                      caption = '';
+                      console.log(`📤 [Multi-step - Outgoing] Image sent without caption (English caption ignored)`);
+                    }
+                  } else {
+                    caption = '';
+                    console.log(`📤 [Multi-step - Outgoing] Image sent after text (no caption)`);
+                  }
                 } else {
                   // Single-step: Images support captions - use them!
                   // CRITICAL: If multiple tools were used, don't mix outputs!

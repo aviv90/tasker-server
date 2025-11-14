@@ -3654,8 +3654,58 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       }
     }
     
-    // Return combined results from all steps
-    const finalText = accumulatedText.trim();
+    // Clean and process final text for multi-step
+    let finalText = accumulatedText.trim();
+    
+    // Remove URLs (image URLs should not be in text)
+    finalText = finalText.replace(/https?:\/\/[^\s]+/gi, '').trim();
+    
+    // Remove duplicate lines (if Step 1 and Step 2 both returned the joke)
+    const lines = finalText.split('\n').filter(line => line.trim());
+    const uniqueLines = [];
+    const seen = new Set();
+    for (const line of lines) {
+      const normalized = line.trim().toLowerCase();
+      if (!seen.has(normalized)) {
+        seen.add(normalized);
+        uniqueLines.push(line);
+      }
+    }
+    finalText = uniqueLines.join('\n').trim();
+    
+    // If there's image description text (like "הנה התמונה שממחישה..."), extract it to caption
+    if (finalAssets.imageUrl && finalText) {
+      const imageDescriptionPatterns = [
+        /הנה (התמונה|התמונות|האיור|האיורים).*?$/im,
+        /Here'?s? (the|that|an?)? (image|picture|illustration|cartoon).*?$/im,
+        /מקווה.*?$/im,
+        /Hope.*?$/im,
+        /התמונה.*?ממחישה.*?$/im,
+        /האיור.*?ממחיש.*?$/im
+      ];
+      
+      let imageDescription = '';
+      let cleanedText = finalText;
+      
+      // Try to find image description (usually at the end)
+      for (const pattern of imageDescriptionPatterns) {
+        const match = cleanedText.match(pattern);
+        if (match) {
+          imageDescription = match[0].trim();
+          cleanedText = cleanedText.replace(pattern, '').trim();
+          break; // Take first match
+        }
+      }
+      
+      // If we found image description, use it as caption (if no caption exists)
+      if (imageDescription && !finalAssets.imageCaption) {
+        finalAssets.imageCaption = imageDescription;
+        console.log(`📝 [Agent] Extracted image description to caption: "${imageDescription.substring(0, 50)}..."`);
+      }
+      
+      finalText = cleanedText;
+    }
+    
     console.log(`🏁 [Agent] Multi-step execution completed: ${stepResults.length}/${plan.steps.length} steps successful`);
     console.log(`📦 [Agent] Returning: ${finalText.length} chars text, image: ${!!finalAssets.imageUrl}, multiStep: true`);
     console.log(`📝 [Agent] Final text preview: "${finalText.substring(0, 100)}..."`);
