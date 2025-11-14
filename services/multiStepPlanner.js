@@ -26,18 +26,30 @@ async function planMultiStepExecution(userRequest) {
       return { isMultiStep: false, fallback: true };
     }
     
-    // Parse JSON from response
-    let jsonText = result.text.trim()
-      .replace(/```json\n?/g, '')
-      .replace(/```\n?/g, '');
+    // Parse JSON from response - clean and extract
+    let jsonText = result.text.trim();
     
+    // Remove markdown code blocks
+    jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    // Remove "..." truncation artifacts that Gemini sometimes adds
+    jsonText = jsonText.replace(/\.\.\./g, '');
+    
+    // Extract JSON object
     const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.warn(`⚠️ [Planner] No JSON found`);
+      console.warn(`⚠️ [Planner] No JSON found in response`);
       return { isMultiStep: false, fallback: true };
     }
     
-    const plan = JSON.parse(jsonMatch[0]);
+    let plan;
+    try {
+      plan = JSON.parse(jsonMatch[0]);
+    } catch (parseError) {
+      console.error(`❌ [Planner] JSON parse failed:`, parseError.message);
+      console.log(`   Raw JSON: ${jsonMatch[0].substring(0, 200)}`);
+      return { isMultiStep: false, fallback: true };
+    }
     
     if (plan.isMultiStep && Array.isArray(plan.steps) && plan.steps.length > 1) {
       console.log(`✅ [Planner] Multi-step: ${plan.steps.length} steps`);

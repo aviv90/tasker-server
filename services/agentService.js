@@ -3639,7 +3639,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   
   // Fallback: try heuristic detection if planner returned fallback flag
   if (plan.fallback) {
-    const isMultiStepHeuristic = detectMultiStepRequest(detectionText);
+    const isMultiStepHeuristic = detectMultiStepHeuristic(detectionText);
     if (isMultiStepHeuristic) {
       console.log(`⚠️ [Agent] Planner fallback - detected multi-step via heuristic`);
       agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 10);
@@ -4167,8 +4167,8 @@ function shouldUseAgent(prompt, input) {
   // • Conditional fallback ("if fails, try X")
   // • Complex retry requests
   
-  // 🎯 First check: Use detectMultiStepRequest for comprehensive multi-step detection
-  if (detectMultiStepRequest(prompt)) {
+  // 🎯 First check: Use heuristic for quick multi-step detection
+  if (detectMultiStepHeuristic(prompt)) {
     console.log(`🤖 [Agent] Detected multi-step request - using agent`);
     return true;
   }
