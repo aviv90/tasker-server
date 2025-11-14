@@ -32,22 +32,47 @@ async function planMultiStepExecution(userRequest) {
     // Remove markdown code blocks
     jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     
-    // Remove "..." truncation artifacts that Gemini sometimes adds
-    jsonText = jsonText.replace(/\.\.\./g, '');
-    
-    // Extract JSON object
+    // Extract JSON object (before removing ...)
     const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.warn(`⚠️ [Planner] No JSON found in response`);
       return { isMultiStep: false, fallback: true };
     }
     
+    let jsonStr = jsonMatch[0];
+    
+    // Try to fix truncated JSON by Gemini
+    // If JSON ends abruptly, try to complete it
+    if (jsonStr.includes('...') || !jsonStr.match(/\}\s*$/)) {
+      // Count open/close brackets
+      const openBraces = (jsonStr.match(/\{/g) || []).length;
+      const closeBraces = (jsonStr.match(/\}/g) || []).length;
+      const openBrackets = (jsonStr.match(/\[/g) || []).length;
+      const closeBrackets = (jsonStr.match(/\]/g) || []).length;
+      
+      // Close incomplete arrays
+      if (openBrackets > closeBrackets) {
+        jsonStr += ']';
+      }
+      
+      // Close incomplete objects
+      if (openBraces > closeBraces) {
+        jsonStr += '}';
+      }
+      
+      // Remove "..." artifacts
+      jsonStr = jsonStr.replace(/\.\.\./g, '').replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
+    } else {
+      // No truncation, just clean
+      jsonStr = jsonStr.replace(/\.\.\./g, '');
+    }
+    
     let plan;
     try {
-      plan = JSON.parse(jsonMatch[0]);
+      plan = JSON.parse(jsonStr);
     } catch (parseError) {
       console.error(`❌ [Planner] JSON parse failed:`, parseError.message);
-      console.log(`   Raw JSON: ${jsonMatch[0].substring(0, 200)}`);
+      console.log(`   Raw JSON (first 300 chars): ${jsonStr.substring(0, 300)}`);
       return { isMultiStep: false, fallback: true };
     }
     

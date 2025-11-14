@@ -1545,37 +1545,62 @@ async function handleIncomingMessage(webhookData) {
               // Send any generated media (image/video/audio/poll) with captions
               let mediaSent = false;
               
+              // Multi-step: Send text FIRST, then media
+              if (agentResult.multiStep && agentResult.text && agentResult.text.trim()) {
+                let cleanText = agentResult.text
+                  .replace(/\[image\]/gi, '')
+                  .replace(/\[video\]/gi, '')
+                  .replace(/\[audio\]/gi, '')
+                  .replace(/\[תמונה\]/gi, '')
+                  .replace(/\[וידאו\]/gi, '')
+                  .replace(/\[אודיו\]/gi, '')
+                  .trim();
+                if (cleanText) {
+                  await sendTextMessage(chatId, cleanText);
+                  console.log(`📤 [Multi-step] Text sent first (${cleanText.length} chars)`);
+                }
+              }
+              
               if (agentResult.imageUrl) {
                 console.log(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}`);
-                // Images support captions - use them!
-                // CRITICAL: If multiple tools were used, don't mix outputs!
-                // Only use imageCaption (specific) or text if it's the ONLY output
-                const multipleTools = (agentResult.toolsUsed && agentResult.toolsUsed.length > 1);
+                
                 let caption = '';
                 
-                if (multipleTools) {
-                  // Multiple tools → use ONLY imageCaption (specific to this image)
+                // Multi-step: Don't use text as caption - text already sent separately
+                if (agentResult.multiStep) {
+                  // For multi-step, only use imageCaption if exists, otherwise empty
                   caption = agentResult.imageCaption || '';
-                  console.log(`ℹ️ Multiple tools detected - using imageCaption only to avoid mixing outputs`);
+                  console.log(`📤 [Multi-step] Image sent after text (no text caption)`);
                 } else {
-                  // Single tool → can use general text as fallback
-                  caption = agentResult.imageCaption || agentResult.text || '';
+                  // Single-step: Images support captions - use them!
+                  // CRITICAL: If multiple tools were used, don't mix outputs!
+                  // Only use imageCaption (specific) or text if it's the ONLY output
+                  const multipleTools = (agentResult.toolsUsed && agentResult.toolsUsed.length > 1);
+                  
+                  if (multipleTools) {
+                    // Multiple tools → use ONLY imageCaption (specific to this image)
+                    caption = agentResult.imageCaption || '';
+                    console.log(`ℹ️ Multiple tools detected - using imageCaption only to avoid mixing outputs`);
+                  } else {
+                    // Single tool → can use general text as fallback
+                    caption = agentResult.imageCaption || agentResult.text || '';
+                  }
+                  
+                  // Clean the caption: remove URLs, markdown links, and technical markers
+                  caption = caption
+                    .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
+                    .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
+                    .replace(/\[image\]/gi, '') // Remove [image] markers
+                    .replace(/\[video\]/gi, '') // Remove [video] markers
+                    .replace(/\[audio\]/gi, '') // Remove [audio] markers
+                    .replace(/\[תמונה\]/gi, '') // Remove [תמונה] markers
+                    .replace(/\[וידאו\]/gi, '') // Remove [וידאו] markers
+                    .replace(/\[אודיו\]/gi, '') // Remove [אודיו] markers
+                    .replace(/התמונה.*?נוצרה בהצלחה!/gi, '') // Remove success messages
+                    .replace(/הוידאו.*?נוצר בהצלחה!/gi, '')
+                    .replace(/✅/g, '')
+                    .trim();
                 }
-                
-                // Clean the caption: remove URLs, markdown links, and technical markers
-                caption = caption
-                  .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
-                  .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
-                  .replace(/\[image\]/gi, '') // Remove [image] markers
-                  .replace(/\[video\]/gi, '') // Remove [video] markers
-                  .replace(/\[audio\]/gi, '') // Remove [audio] markers
-                  .replace(/\[תמונה\]/gi, '') // Remove [תמונה] markers
-                  .replace(/\[וידאו\]/gi, '') // Remove [וידאו] markers
-                  .replace(/\[אודיו\]/gi, '') // Remove [אודיו] markers
-                  .replace(/התמונה.*?נוצרה בהצלחה!/gi, '') // Remove success messages
-                  .replace(/הוידאו.*?נוצר בהצלחה!/gi, '')
-                  .replace(/✅/g, '')
-                  .trim();
                 
                 await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption);
                 mediaSent = true;
@@ -1635,9 +1660,9 @@ async function handleIncomingMessage(webhookData) {
                 }
               }
               
-              // If no media was sent, send text response (אם יש)
-              // במצב של כמה כלים, עדיין ניזהר מטקסט "מעורב"
-              if (!mediaSent && agentResult.text && agentResult.text.trim()) {
+              // Single-step: If no media was sent and it's not multi-step, send text response (אם יש)
+              // Multi-step text was already sent above
+              if (!agentResult.multiStep && !mediaSent && agentResult.text && agentResult.text.trim()) {
                 const multipleTools = (agentResult.toolsUsed && agentResult.toolsUsed.length > 1);
                 
                 if (!multipleTools) {
