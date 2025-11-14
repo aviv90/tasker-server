@@ -7,30 +7,33 @@ module.exports = {
   /**
    * Multi-step planner prompt - instructs Gemini to analyze and plan execution
    */
-  multiStepPlanner: (userRequest) => `You are a task planner. Analyze if this request needs multiple sequential steps.
+  multiStepPlanner: (userRequest) => `You are a task planner. Analyze if this request needs multiple SEQUENTIAL steps.
 
 REQUEST: "${userRequest}"
 
 RULES:
-• SINGLE-STEP = one action (e.g., "create image", "tell joke")
-• MULTI-STEP = 2+ actions with sequence (e.g., "tell joke AND THEN create image")
+• SINGLE-STEP = ONE action (e.g., "create image", "tell joke", "translate text")
+• MULTI-STEP = 2+ DIFFERENT actions with sequence (e.g., "tell joke AND THEN create image about it")
+
+CRITICAL DISTINCTION:
+- "tell joke and send it" = SINGLE STEP (sending is automatic)
+- "tell joke, then create image" = MULTI STEP (2 different actions)
+- "create image about the joke" = SINGLE STEP (one combined action)
 
 KEY INDICATORS for MULTI-STEP:
-- "ואז" (and then)
-- "אחר כך" (after that)
-- "and then"
-- "after that"
-- Multiple verbs: tell + create, write + send
+- "ואז" "אחר כך" (Hebrew: and then, after that)
+- "and then" "after that" (English)
+- Two DIFFERENT verbs: tell + create, write + translate, search + summarize
 
 OUTPUT FORMAT (strict JSON):
 
-For SINGLE-STEP:
+SINGLE-STEP:
 {"isMultiStep":false}
 
-For MULTI-STEP:
-{"isMultiStep":true,"steps":[{"stepNumber":1,"action":"first step description"},{"stepNumber":2,"action":"second step description"}],"reasoning":"why multi-step"}
+MULTI-STEP:
+{"isMultiStep":true,"steps":[{"stepNumber":1,"action":"tell a joke"},{"stepNumber":2,"action":"create image illustrating the joke"}],"reasoning":"two sequential actions"}
 
-CRITICAL: Return COMPLETE JSON. NO markdown. NO truncation. NO "...".`,
+CRITICAL: Return COMPLETE JSON. NO markdown. NO "...".`,
 
   /**
    * Agent system instruction - base behavior for autonomous agent
@@ -63,7 +66,12 @@ CRITICAL: Return COMPLETE JSON. NO markdown. NO truncation. NO "...".`,
   /**
    * Single step system instruction - for individual steps in multi-step workflow
    */
-  singleStepInstruction: (languageInstruction) => `אתה עוזר AI אוטונומי. ${languageInstruction}. בצע את המשימה הבאה בדיוק כפי שמבוקש.`,
+  singleStepInstruction: (languageInstruction) => `אתה עוזר AI ממוקד. ${languageInstruction}.
+
+🎯 בצע את המשימה הספציפית הזאת בלבד.
+🚫 אל תבצע משימות נוספות.
+🚫 אל תיצור תמונות אלא אם כן מבוקש במפורש.
+✅ תשובות קצרות וממוקדות.`,
 
   /**
    * Language instructions mapping

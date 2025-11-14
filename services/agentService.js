@@ -3379,28 +3379,9 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
   // Shorter system instruction for single steps
   const stepSystemInstructionText = systemInstruction || prompts.singleStepInstruction(languageInstruction);
   
-  // Load conversation history
-  let conversationHistory = [];
-  try {
-    conversationHistory = await conversationManager.getConversationHistory(chatId, 5); // Fewer messages for single steps
-  } catch (historyError) {
-    console.warn(`⚠️ [Agent Single Step] Failed to load history:`, historyError.message);
-  }
-  
-  let historyParts = conversationHistory
-    .filter(msg => msg.role && msg.content)
-    .map(msg => ({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }]
-    }));
-  
-  // Ensure history starts with 'user' role (Gemini requirement)
-  if (historyParts.length > 0 && historyParts[0].role === 'model') {
-    historyParts = historyParts.slice(1); // Remove first message if it's from model
-  }
-  
+  // NO HISTORY for single steps - each step is isolated and focused on its specific task only
   const chat = model.startChat({
-    history: historyParts,
+    history: [], // Empty history to prevent confusion between steps
     tools: [{ functionDeclarations }],
     systemInstruction: {
       role: 'system',
@@ -3643,32 +3624,18 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         if (stepResult.success) {
           stepResults.push(stepResult);
           
-          // Send text immediately if present
+          // Accumulate text (don't send yet)
           if (stepResult.text && stepResult.text.trim()) {
-            try {
-              const { sendTextMessage } = require('../services/greenApiService');
-              await sendTextMessage(chatId, stepResult.text.trim());
-              console.log(`📤 [Agent] Step ${step.stepNumber} text sent to user`);
-            } catch (sendError) {
-              console.error(`❌ Failed to send step ${step.stepNumber} text:`, sendError.message);
-            }
             accumulatedText += (accumulatedText ? '\n\n' : '') + stepResult.text;
+            console.log(`📝 [Agent] Step ${step.stepNumber} text accumulated (${stepResult.text.length} chars)`);
           }
           
-          // Send media immediately if present
+          // Track assets (only last one of each type)
           if (stepResult.imageUrl) {
-            try {
-              const { sendFileByUrl } = require('../services/greenApiService');
-              await sendFileByUrl(chatId, stepResult.imageUrl, `step${step.stepNumber}_image.png`, stepResult.imageCaption || '');
-              console.log(`📸 [Agent] Step ${step.stepNumber} image sent to user`);
-            } catch (sendError) {
-              console.error(`❌ Failed to send step ${step.stepNumber} image:`, sendError.message);
-            }
             finalAssets.imageUrl = stepResult.imageUrl;
             finalAssets.imageCaption = stepResult.imageCaption || '';
+            console.log(`🖼️ [Agent] Step ${step.stepNumber} image tracked`);
           }
-          
-          // Track other assets
           if (stepResult.videoUrl) finalAssets.videoUrl = stepResult.videoUrl;
           if (stepResult.audioUrl) finalAssets.audioUrl = stepResult.audioUrl;
           if (stepResult.poll) finalAssets.poll = stepResult.poll;
@@ -3687,18 +3654,19 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       }
     }
     
-    // Return combined results from all steps (already sent to user)
+    // Return combined results from all steps
     console.log(`🏁 [Agent] Multi-step execution completed: ${stepResults.length}/${plan.steps.length} steps successful`);
+    console.log(`📦 [Agent] Returning: ${accumulatedText.length} chars text, image: ${!!finalAssets.imageUrl}`);
+    
     return {
       success: true,
-      text: '', // Already sent during steps
-      imageUrl: null, // Already sent during steps
+      text: accumulatedText.trim(),
+      ...finalAssets,
       toolsUsed: stepResults.flatMap(r => r.toolsUsed || []),
       iterations: stepResults.reduce((sum, r) => sum + (r.iterations || 0), 0),
       multiStep: true,
       stepsCompleted: stepResults.length,
-      totalSteps: plan.steps.length,
-      alreadySent: true // Flag to prevent re-sending
+      totalSteps: plan.steps.length
     };
   }
   
