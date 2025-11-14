@@ -5,6 +5,7 @@ const { getStaticFileUrl } = require('../utils/urlUtils');
 const locationService = require('../services/locationService');
 const conversationManager = require('../services/conversationManager');
 const { routeToAgent } = require('../services/agentRouter');
+const { executeAgentQuery } = require('../services/agentService');
 const authStore = require('../store/authStore');
 const groupAuthStore = require('../store/groupAuthStore');
 const fs = require('fs');
@@ -1634,9 +1635,8 @@ async function handleIncomingMessage(webhookData) {
                 }
               }
               
-              // If no media was sent, send text response (if exists)
-              // BUT: If multiple tools were used, only send text if it's specifically needed
-              // (to avoid sending mixed output descriptions)
+              // If no media was sent, send text response (אם יש)
+              // במצב של כמה כלים, עדיין ניזהר מטקסט "מעורב"
               if (!mediaSent && agentResult.text && agentResult.text.trim()) {
                 const multipleTools = (agentResult.toolsUsed && agentResult.toolsUsed.length > 1);
                 
@@ -1656,6 +1656,54 @@ async function handleIncomingMessage(webhookData) {
                 } else {
                   console.log(`ℹ️ Multiple tools detected - skipping general text to avoid mixing outputs`);
                 }
+              }
+              
+              // 🔁 פוסט-עיבוד: אם המשתמש ביקש גם טקסט וגם תמונה, אבל האג'נט החזיר רק טקסט – ניצור תמונה משלימה
+              try {
+                const userText = normalized.userText || '';
+                
+                // זיהוי בקשה לטקסט (ספר/כתוב/תאר/תגיד/אמור/describe/tell/write)
+                const wantsText = /(ספר|תספר|כתוב|תכתוב|תכתבי|תכתבו|תאר|תארי|תארו|הסבר|תסביר|תסבירי|תגיד|תגידי|תאמר|תאמרי|ברכה|בדיחה|סיפור|טקסט|describe|tell|write|say|story|joke|text)/i.test(userText);
+                
+                // זיהוי בקשה לתמונה (תמונה/ציור/צייר/איור/image/picture/draw)
+                const wantsImage = /(תמונה|תמונות|ציור|ציורית|צייר|ציירי|ציירו|תצייר|תציירי|תציירו|אייר|איירי|איירו|איור|איורים|image|images|picture|pictures|photo|photos|drawing|draw|illustration|art|poster|thumbnail)/i.test(userText);
+                
+                const imageAlreadyGenerated = !!agentResult.imageUrl;
+                const hasTextResponse = agentResult.text && agentResult.text.trim().length > 0;
+                
+                if (wantsText && wantsImage && !imageAlreadyGenerated && hasTextResponse) {
+                  console.log('🎯 [Agent Post] Multi-step text+image request detected, but no image was generated. Creating image from text response...');
+                  
+                  // נבנה פרומפט לתמונה שמבוססת על הטקסט שהבוט כבר החזיר (למשל בדיחה)
+                  const baseText = agentResult.text.trim();
+                  const imagePrompt = `צור תמונה שממחישה בצורה ברורה ומצחיקה את הטקסט הבא (אל תכתוב טקסט בתמונה): """${baseText}"""`;
+                  
+                  // קריאה שנייה לאג'נט – הפעם בקשת תמונה פשוטה בלבד
+                  const imageResult = await executeAgentQuery(imagePrompt, chatId, {
+                    input: {
+                      ...normalized,
+                      userText: imagePrompt
+                    },
+                    lastCommand: null,
+                    maxIterations: 4
+                  });
+                  
+                  if (imageResult && imageResult.success && imageResult.imageUrl) {
+                    console.log(`📸 [Agent Post] Sending complementary image generated from text: ${imageResult.imageUrl}`);
+                    
+                    const caption = (imageResult.imageCaption || '').trim();
+                    await sendFileByUrl(
+                      chatId,
+                      imageResult.imageUrl,
+                      `agent_image_${Date.now()}.png`,
+                      caption
+                    );
+                  } else {
+                    console.warn('⚠️ [Agent Post] Failed to generate complementary image for text+image request');
+                  }
+                }
+              } catch (postError) {
+                console.error('❌ [Agent Post] Error while handling text+image multi-step fallback:', postError.message);
               }
               
               // 🧠 CRITICAL: Save bot's response to conversation history for continuity!
