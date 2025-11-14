@@ -3387,12 +3387,17 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
     console.warn(`⚠️ [Agent Single Step] Failed to load history:`, historyError.message);
   }
   
-  const historyParts = conversationHistory
+  let historyParts = conversationHistory
     .filter(msg => msg.role && msg.content)
     .map(msg => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.content }]
     }));
+  
+  // Ensure history starts with 'user' role (Gemini requirement)
+  if (historyParts.length > 0 && historyParts[0].role === 'model') {
+    historyParts = historyParts.slice(1); // Remove first message if it's from model
+  }
   
   const chat = model.startChat({
     history: historyParts,

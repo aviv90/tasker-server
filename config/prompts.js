@@ -7,32 +7,30 @@ module.exports = {
   /**
    * Multi-step planner prompt - instructs Gemini to analyze and plan execution
    */
-  multiStepPlanner: (userRequest) => `Analyze this user request and determine if it requires multiple sequential steps.
+  multiStepPlanner: (userRequest) => `You are a task planner. Analyze if this request needs multiple sequential steps.
 
-User Request: """${userRequest}"""
+REQUEST: "${userRequest}"
 
-Instructions:
-1. If this is a SINGLE-STEP request (one action only), return: {"isMultiStep": false}
-2. If this is a MULTI-STEP request (multiple actions in sequence), return:
-   {
-     "isMultiStep": true,
-     "steps": [
-       {"stepNumber": 1, "action": "exact description of first step in user's language"},
-       {"stepNumber": 2, "action": "exact description of second step in user's language"}
-     ],
-     "reasoning": "brief explanation"
-   }
+RULES:
+• SINGLE-STEP = one action (e.g., "create image", "tell joke")
+• MULTI-STEP = 2+ actions with sequence (e.g., "tell joke AND THEN create image")
 
-Multi-step indicators:
-- Sequential connectors: "ואז", "אחר כך", "and then", "after that"
-- Multiple distinct actions: "ספר בדיחה ואז צור תמונה"
-- Comma-separated actions: "do X, Y, and Z"
+KEY INDICATORS for MULTI-STEP:
+- "ואז" (and then)
+- "אחר כך" (after that)
+- "and then"
+- "after that"
+- Multiple verbs: tell + create, write + send
 
-Examples:
-❌ SINGLE: "צור תמונה של חתול" → one action
-✅ MULTI: "ספר בדיחה ואז צור תמונה" → 2 steps
+OUTPUT FORMAT (strict JSON):
 
-Return ONLY valid JSON, no markdown, no explanations.`,
+For SINGLE-STEP:
+{"isMultiStep":false}
+
+For MULTI-STEP:
+{"isMultiStep":true,"steps":[{"stepNumber":1,"action":"first step description"},{"stepNumber":2,"action":"second step description"}],"reasoning":"why multi-step"}
+
+CRITICAL: Return COMPLETE JSON. NO markdown. NO truncation. NO "...".`,
 
   /**
    * Agent system instruction - base behavior for autonomous agent
