@@ -3655,12 +3655,14 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     }
     
     // Return combined results from all steps
+    const finalText = accumulatedText.trim();
     console.log(`🏁 [Agent] Multi-step execution completed: ${stepResults.length}/${plan.steps.length} steps successful`);
-    console.log(`📦 [Agent] Returning: ${accumulatedText.length} chars text, image: ${!!finalAssets.imageUrl}`);
+    console.log(`📦 [Agent] Returning: ${finalText.length} chars text, image: ${!!finalAssets.imageUrl}, multiStep: true`);
+    console.log(`📝 [Agent] Final text preview: "${finalText.substring(0, 100)}..."`);
     
     return {
       success: true,
-      text: accumulatedText.trim(),
+      text: finalText,
       ...finalAssets,
       toolsUsed: stepResults.flatMap(r => r.toolsUsed || []),
       iterations: stepResults.reduce((sum, r) => sum + (r.iterations || 0), 0),

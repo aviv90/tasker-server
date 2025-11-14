@@ -1545,6 +1545,9 @@ async function handleIncomingMessage(webhookData) {
               // Send any generated media (image/video/audio/poll) with captions
               let mediaSent = false;
               
+              // Debug: Check multi-step status
+              console.log(`🔍 [Debug] multiStep: ${agentResult.multiStep}, text length: ${agentResult.text?.length || 0}, hasImage: ${!!agentResult.imageUrl}`);
+              
               // Multi-step: Send text FIRST, then media
               if (agentResult.multiStep && agentResult.text && agentResult.text.trim()) {
                 let cleanText = agentResult.text
@@ -1558,7 +1561,11 @@ async function handleIncomingMessage(webhookData) {
                 if (cleanText) {
                   await sendTextMessage(chatId, cleanText);
                   console.log(`📤 [Multi-step] Text sent first (${cleanText.length} chars)`);
+                } else {
+                  console.warn(`⚠️ [Multi-step] Text exists but cleanText is empty`);
                 }
+              } else {
+                console.warn(`⚠️ [Multi-step] Text not sent - multiStep: ${agentResult.multiStep}, text: ${!!agentResult.text}, trimmed: ${!!agentResult.text?.trim()}`);
               }
               
               if (agentResult.imageUrl) {
