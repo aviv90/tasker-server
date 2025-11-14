@@ -5,10 +5,8 @@ const path = require('path');
 const { promisify } = require('util');
 const { exec } = require('child_process');
 const conversationManager = require('./conversationManager');
+const { cleanThinkingPatterns } = require('./geminiService');
 const locationService = require('./locationService');
-const prompts = require('../config/prompts');
-const { detectLanguage, extractDetectionText, cleanThinkingPatterns } = require('../utils/agentHelpers');
-const { planMultiStepExecution, detectMultiStepHeuristic } = require('./multiStepPlanner');
 
 const execAsync = promisify(exec);
 
@@ -149,15 +147,145 @@ function shouldSplitTask(prompt) {
   return (hasMultipleRequests || hasConditional || hasSteps) && isTooLong;
 }
 
-// ✅ Moved to /services/multiStepPlanner.js and /utils/agentHelpers.js
-
-// ✅ splitTaskIntoSteps - removed (not needed with LLM-based planner)
+/**
+ * Detect if a request contains multiple steps/actions that need to be executed sequentially
+ * IMPORTANT: In Hebrew, DO NOT use \b (word boundaries) – they don't work well with Hebrew chars.
+ * @param {string} prompt - User's prompt (ideally just the user's text, without long history)
+ * @returns {boolean} - True if this is a multi-step request
+ */
+function detectMultiStepRequest(prompt) {
+  if (!prompt) return false;
+  
+  // Patterns that indicate multi-step requests:
+  
+  // 1. Sequential connectors (Hebrew) - no \b usage!
+  const hasHebrewSequence = /(ואז|ואחר כך|ולאחר מכן|אחר כך|לאחר מכן|קודם|אחר זה|בהמשך)/gi.test(prompt);
+  
+  // 2. Sequential connectors (English) - \b is fine for English
+  const hasEnglishSequence = /\b(and then|after that|afterwards|then|next|first.*then|later)\b/gi.test(prompt);
+  
+  // 3. Multiple action verbs (Hebrew) - at least 2 different actions (no \b)
+  const hebrewActionVerbs = prompt.match(/(ספר|כתוב|תכתוב|צור|תצור|תרגם|אמור|תאמר|נתח|תנתח|ערוך|תערוך|חפש|תחפש|שלח|תשלח|הראה|תראה)/gi);
+  const hasMultipleHebrewActions = hebrewActionVerbs && hebrewActionVerbs.length >= 2;
+  
+  // 4. Multiple action verbs (English) - at least 2 different actions
+  const englishActionVerbs = prompt.match(/\b(tell|write|create|make|translate|say|speak|analyze|edit|search|send|show|generate|produce)\b/gi);
+  const hasMultipleEnglishActions = englishActionVerbs && englishActionVerbs.length >= 2;
+  
+  // 5. Explicit multi-step indicators (Hebrew without \b, English with \b)
+  const hasExplicitHebrewSteps = /(שלב|שלבים|קודם|ראשון|שני|שלישי)/gi.test(prompt);
+  const hasExplicitEnglishSteps = /\b(step|steps|stage|stages|first|second|third)\b/gi.test(prompt);
+  
+  // 6. Combo patterns - action + connector + action (Hebrew without \b, English with \b)
+  const hasHebrewComboPattern = /(ספר|כתוב|צור|תרגם|אמור|נתח|ערוך|חפש).+(ו|ואז|אחר כך).+(ספר|כתוב|צור|תרגם|אמור|נתח|ערוך|חפש)/gi.test(prompt);
+  const hasEnglishComboPattern = /\b(tell|write|create|translate|say|analyze|edit|search).+(and|then|after).+(tell|write|create|translate|say|analyze|edit|search)\b/gi.test(prompt);
+  
+  const isMultiStep =
+    hasHebrewSequence ||
+    hasEnglishSequence ||
+    hasMultipleHebrewActions ||
+    hasMultipleEnglishActions ||
+    hasExplicitHebrewSteps ||
+    hasExplicitEnglishSteps ||
+    hasHebrewComboPattern ||
+    hasEnglishComboPattern;
+  
+  if (isMultiStep) {
+    console.log(`🔍 [Multi-Step Detection] Found multi-step indicators in user prompt`);
+  }
+  
+  return isMultiStep;
+}
 
 /**
- * DEPRECATED - Split a complex prompt into smaller subtasks
- * Kept for backwards compatibility but not used
+ * Use Gemini to intelligently plan multi-step execution (LLM-based planning)
+ * @param {string} prompt - User's full prompt
+ * @returns {Promise<Object>} - Planning result: {isMultiStep: boolean, steps: Array, reasoning: string}
  */
-function splitTaskIntoSteps_DEPRECATED(prompt) {
+async function planMultiStepExecution(prompt) {
+  try {
+    console.log(`🧠 [Planner] Analyzing request for multi-step execution...`);
+    
+    const planningPrompt = `Analyze this user request and determine if it requires multiple sequential steps.
+
+User Request: """${prompt}"""
+
+Instructions:
+1. If this is a SINGLE-STEP request (one action only), return: {"isMultiStep": false}
+2. If this is a MULTI-STEP request (multiple actions that should be done in sequence), return:
+   {
+     "isMultiStep": true,
+     "steps": [
+       {"stepNumber": 1, "action": "exact description of first step in user's language"},
+       {"stepNumber": 2, "action": "exact description of second step in user's language"},
+       ...
+     ],
+     "reasoning": "brief explanation why this is multi-step"
+   }
+
+Multi-step indicators:
+- Sequential connectors: "ואז", "אחר כך", "ולאחר מכן", "and then", "after that"
+- Multiple distinct actions: "ספר בדיחה ואז צור תמונה", "write story and then translate it"
+- Comma-separated actions: "do X, Y, and Z"
+- Numbered steps: "ראשון", "שני", "first", "second"
+
+Examples:
+❌ SINGLE: "צור תמונה של חתול" → only one action
+❌ SINGLE: "תרגם את זה לאנגלית" → only one action
+✅ MULTI: "ספר בדיחה ואז צור תמונה שממחישה אותה" → 2 steps: tell joke, then create image
+✅ MULTI: "תרגם ל-אנגלית ואמור בקול" → 2 steps: translate, then text-to-speech
+✅ MULTI: "חפש מידע על AI, סכם אותו, ואז צור תמונה" → 3 steps: search, summarize, create image
+
+CRITICAL: Return ONLY valid JSON, no other text. No markdown, no explanations.`;
+
+    const { generateTextResponse } = require('./geminiService');
+    const result = await generateTextResponse(planningPrompt, [], {
+      model: 'gemini-2.0-flash-exp' // Use fastest model for planning
+    });
+    
+    if (result.error) {
+      console.warn(`⚠️ [Planner] Failed to plan: ${result.error}, falling back to heuristic`);
+      return { isMultiStep: false, fallback: true };
+    }
+    
+    // Parse JSON from response
+    let jsonText = result.text.trim();
+    
+    // Remove markdown code blocks if present
+    jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.warn(`⚠️ [Planner] No JSON found in response, falling back to heuristic`);
+      return { isMultiStep: false, fallback: true };
+    }
+    
+    const plan = JSON.parse(jsonMatch[0]);
+    
+    if (plan.isMultiStep && plan.steps && Array.isArray(plan.steps) && plan.steps.length > 1) {
+      console.log(`✅ [Planner] Multi-step detected: ${plan.steps.length} steps`);
+      console.log(`📋 [Planner] Reasoning: ${plan.reasoning || 'N/A'}`);
+      plan.steps.forEach((step) => {
+        console.log(`   📍 Step ${step.stepNumber}: ${step.action.substring(0, 80)}...`);
+      });
+      return plan;
+    }
+    
+    console.log(`✅ [Planner] Single-step request detected`);
+    return { isMultiStep: false };
+    
+  } catch (error) {
+    console.error(`❌ [Planner] Error:`, error.message);
+    return { isMultiStep: false, fallback: true };
+  }
+}
+
+/**
+ * Split a complex prompt into smaller subtasks
+ * @param {string} prompt - Complex prompt
+ * @returns {string[]} - Array of subtasks
+ */
+function splitTaskIntoSteps(prompt) {
   if (!prompt) return [prompt];
   
   const steps = [];
@@ -3567,10 +3695,20 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     contextMemoryEnabled: String(process.env.AGENT_CONTEXT_MEMORY_ENABLED || 'false').toLowerCase() === 'true'
   };
   
-  // 🔍 Extract clean user text for multi-step detection (remove metadata)
-  const detectionText = extractDetectionText(prompt);
+  // 🔍 Detect if this is a multi-step request and adjust iterations accordingly
+  // IMPORTANT: Use only the user's main request text for detection (without long history/auth blocks)
+  // Heuristic: take everything before the first "[" (where we usually start metadata like [הרשאות], [פקודה קודמת], etc.)
+  const detectionText = (() => {
+    if (!prompt) return '';
+    const bracketIndex = prompt.indexOf('[');
+    if (bracketIndex > 0) {
+      return prompt.substring(0, bracketIndex).trim();
+    }
+    // Fallback: first line only
+    return prompt.split('\n')[0].trim();
+  })();
   
-  // 🧠 Use LLM-based planner to intelligently detect and plan multi-step execution
+  // 🧠 Use LLM-based planner to detect and plan multi-step execution
   const plan = await planMultiStepExecution(detectionText);
   
   if (plan.isMultiStep && plan.steps && plan.steps.length > 1) {
