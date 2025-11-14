@@ -198,6 +198,89 @@ function detectMultiStepRequest(prompt) {
 }
 
 /**
+ * Use Gemini to intelligently plan multi-step execution (LLM-based planning)
+ * @param {string} prompt - User's full prompt
+ * @returns {Promise<Object>} - Planning result: {isMultiStep: boolean, steps: Array, reasoning: string}
+ */
+async function planMultiStepExecution(prompt) {
+  try {
+    console.log(`🧠 [Planner] Analyzing request for multi-step execution...`);
+    
+    const planningPrompt = `Analyze this user request and determine if it requires multiple sequential steps.
+
+User Request: """${prompt}"""
+
+Instructions:
+1. If this is a SINGLE-STEP request (one action only), return: {"isMultiStep": false}
+2. If this is a MULTI-STEP request (multiple actions that should be done in sequence), return:
+   {
+     "isMultiStep": true,
+     "steps": [
+       {"stepNumber": 1, "action": "exact description of first step in user's language"},
+       {"stepNumber": 2, "action": "exact description of second step in user's language"},
+       ...
+     ],
+     "reasoning": "brief explanation why this is multi-step"
+   }
+
+Multi-step indicators:
+- Sequential connectors: "ואז", "אחר כך", "ולאחר מכן", "and then", "after that"
+- Multiple distinct actions: "ספר בדיחה ואז צור תמונה", "write story and then translate it"
+- Comma-separated actions: "do X, Y, and Z"
+- Numbered steps: "ראשון", "שני", "first", "second"
+
+Examples:
+❌ SINGLE: "צור תמונה של חתול" → only one action
+❌ SINGLE: "תרגם את זה לאנגלית" → only one action
+✅ MULTI: "ספר בדיחה ואז צור תמונה שממחישה אותה" → 2 steps: tell joke, then create image
+✅ MULTI: "תרגם ל-אנגלית ואמור בקול" → 2 steps: translate, then text-to-speech
+✅ MULTI: "חפש מידע על AI, סכם אותו, ואז צור תמונה" → 3 steps: search, summarize, create image
+
+CRITICAL: Return ONLY valid JSON, no other text. No markdown, no explanations.`;
+
+    const { generateTextResponse } = require('./geminiService');
+    const result = await generateTextResponse(planningPrompt, [], {
+      model: 'gemini-2.0-flash-exp' // Use fastest model for planning
+    });
+    
+    if (result.error) {
+      console.warn(`⚠️ [Planner] Failed to plan: ${result.error}, falling back to heuristic`);
+      return { isMultiStep: false, fallback: true };
+    }
+    
+    // Parse JSON from response
+    let jsonText = result.text.trim();
+    
+    // Remove markdown code blocks if present
+    jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.warn(`⚠️ [Planner] No JSON found in response, falling back to heuristic`);
+      return { isMultiStep: false, fallback: true };
+    }
+    
+    const plan = JSON.parse(jsonMatch[0]);
+    
+    if (plan.isMultiStep && plan.steps && Array.isArray(plan.steps) && plan.steps.length > 1) {
+      console.log(`✅ [Planner] Multi-step detected: ${plan.steps.length} steps`);
+      console.log(`📋 [Planner] Reasoning: ${plan.reasoning || 'N/A'}`);
+      plan.steps.forEach((step) => {
+        console.log(`   📍 Step ${step.stepNumber}: ${step.action.substring(0, 80)}...`);
+      });
+      return plan;
+    }
+    
+    console.log(`✅ [Planner] Single-step request detected`);
+    return { isMultiStep: false };
+    
+  } catch (error) {
+    console.error(`❌ [Planner] Error:`, error.message);
+    return { isMultiStep: false, fallback: true };
+  }
+}
+
+/**
  * Split a complex prompt into smaller subtasks
  * @param {string} prompt - Complex prompt
  * @returns {string[]} - Array of subtasks
@@ -3436,6 +3519,160 @@ function getLanguageInstruction(langCode) {
 }
 
 /**
+ * Execute a single step in a multi-step workflow
+ * @param {string} stepPrompt - Prompt for this specific step
+ * @param {string} chatId - Chat ID for context
+ * @param {Object} options - Configuration options
+ * @returns {Promise<Object>} - Step execution result
+ */
+async function executeSingleStep(stepPrompt, chatId, options = {}) {
+  const {
+    maxIterations = 5,
+    languageInstruction,
+    agentConfig,
+    functionDeclarations,
+    systemInstruction
+  } = options;
+  
+  const model = genAI.getGenerativeModel({ model: agentConfig.model });
+  
+  // Shorter system instruction for single steps
+  const stepSystemInstruction = systemInstruction || `אתה עוזר AI אוטונומי. ${languageInstruction}. בצע את המשימה הבאה בדיוק כפי שמבוקש.`;
+  
+  // Load conversation history
+  let conversationHistory = [];
+  try {
+    conversationHistory = await conversationManager.getConversationHistory(chatId, 5); // Fewer messages for single steps
+  } catch (historyError) {
+    console.warn(`⚠️ [Agent Single Step] Failed to load history:`, historyError.message);
+  }
+  
+  const historyParts = conversationHistory
+    .filter(msg => msg.role && msg.content)
+    .map(msg => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }]
+    }));
+  
+  const chat = model.startChat({
+    history: historyParts,
+    tools: [{ functionDeclarations }],
+    systemInstruction: stepSystemInstruction
+  });
+  
+  let iterations = 0;
+  let currentPrompt = stepPrompt;
+  const toolsUsed = [];
+  let textResponse = '';
+  const assets = {
+    imageUrl: null,
+    imageCaption: '',
+    videoUrl: null,
+    audioUrl: null,
+    poll: null,
+    latitude: null,
+    longitude: null,
+    locationInfo: null
+  };
+  
+  // Agent execution loop
+  while (iterations < maxIterations) {
+    iterations++;
+    console.log(`  🔄 [Step Iteration ${iterations}/${maxIterations}]`);
+    
+    try {
+      const result = await chat.sendMessage(currentPrompt);
+      const response = result.response;
+      
+      // Check for function calls
+      const functionCalls = response.functionCalls();
+      
+      if (!functionCalls || functionCalls.length === 0) {
+        // No more tool calls - get text response and finish
+        textResponse = response.text();
+        break;
+      }
+      
+      // Execute function calls
+      const functionResponses = [];
+      for (const call of functionCalls) {
+        const toolName = call.name;
+        const toolArgs = call.args;
+        
+        console.log(`  🔧 [Step Tool] ${toolName}(${JSON.stringify(toolArgs).substring(0, 100)}...)`);
+        toolsUsed.push(toolName);
+        
+        // Execute the tool
+        const toolFunction = agentTools[toolName];
+        if (!toolFunction) {
+          functionResponses.push({
+            name: toolName,
+            response: { error: `Tool ${toolName} not found` }
+          });
+          continue;
+        }
+        
+        const toolResult = await toolFunction.function(toolArgs);
+        functionResponses.push({
+          name: toolName,
+          response: toolResult
+        });
+        
+        // Extract assets from tool result
+        if (toolResult.imageUrl) {
+          assets.imageUrl = toolResult.imageUrl;
+          assets.imageCaption = toolResult.caption || toolResult.imageCaption || '';
+        }
+        if (toolResult.videoUrl) assets.videoUrl = toolResult.videoUrl;
+        if (toolResult.audioUrl) assets.audioUrl = toolResult.audioUrl;
+        if (toolResult.poll) assets.poll = toolResult.poll;
+        if (toolResult.latitude) assets.latitude = toolResult.latitude;
+        if (toolResult.longitude) assets.longitude = toolResult.longitude;
+        if (toolResult.locationInfo) assets.locationInfo = toolResult.locationInfo;
+      }
+      
+      // Send function results back to the model
+      const functionResponseParts = functionResponses.map(fr => ({
+        functionResponse: {
+          name: fr.name,
+          response: fr.response
+        }
+      }));
+      
+      const continueResult = await chat.sendMessage(functionResponseParts);
+      textResponse = continueResult.response.text();
+      
+      // Check if model wants to continue with more tools
+      if (!continueResult.response.functionCalls() || continueResult.response.functionCalls().length === 0) {
+        break;
+      }
+      
+    } catch (error) {
+      console.error(`  ❌ [Step Error]:`, error.message);
+      return {
+        success: false,
+        error: error.message,
+        iterations,
+        toolsUsed
+      };
+    }
+  }
+  
+  // Clean up text response
+  if (textResponse) {
+    textResponse = cleanThinkingPatterns(textResponse);
+  }
+  
+  return {
+    success: true,
+    text: textResponse,
+    ...assets,
+    toolsUsed,
+    iterations
+  };
+}
+
+/**
  * Execute an agent query with autonomous tool usage
  * @param {string} prompt - User's question/request
  * @param {string} chatId - Chat ID for context
@@ -3471,22 +3708,110 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     return prompt.split('\n')[0].trim();
   })();
   
-  const isMultiStepRequest = detectMultiStepRequest(detectionText);
-  let steps = [prompt]; // By default, single step
+  // 🧠 Use LLM-based planner to detect and plan multi-step execution
+  const plan = await planMultiStepExecution(detectionText);
   
-  if (isMultiStepRequest) {
-    console.log(`🎯 [Agent] Detected multi-step request (detection text: "${detectionText.substring(0, 120)}...")`);
+  if (plan.isMultiStep && plan.steps && plan.steps.length > 1) {
+    console.log(`🎯 [Agent] Multi-step execution planned: ${plan.steps.length} steps`);
+    agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 15); // More iterations for multi-step
+    agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 360000); // 6 minutes for multi-step
     
-    // Try to split into steps
-    const splitSteps = splitTaskIntoSteps(detectionText);
-    if (splitSteps.length > 1) {
-      steps = splitSteps;
-      console.log(`🔪 [Agent] Split into ${steps.length} sequential steps`);
-      agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 10); // At least 10 iterations for multi-step
-      agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 300000); // 5 minutes for multi-step
-    } else {
-      // Couldn't split - rely on system prompt
-      console.log(`⚠️ [Agent] Could not split multi-step request - relying on system prompt`);
+    // 🔄 Execute each step sequentially
+    const stepResults = [];
+    let accumulatedText = '';
+    let finalAssets = {
+      imageUrl: null,
+      imageCaption: '',
+      videoUrl: null,
+      audioUrl: null,
+      poll: null,
+      latitude: null,
+      longitude: null,
+      locationInfo: null
+    };
+    
+    for (let i = 0; i < plan.steps.length; i++) {
+      const step = plan.steps[i];
+      console.log(`\n🎬 [Agent] Executing Step ${step.stepNumber}/${plan.steps.length}: "${step.action.substring(0, 80)}..."`);
+      
+      // Build context-aware prompt for this step
+      let stepPrompt = step.action;
+      
+      // Add context from previous steps if available
+      if (stepResults.length > 0) {
+        const previousContext = stepResults.map((res, idx) => {
+          let summary = `Step ${idx + 1} result:`;
+          if (res.text) summary += ` ${res.text.substring(0, 150)}`;
+          if (res.imageUrl) summary += ` [Image created]`;
+          if (res.videoUrl) summary += ` [Video created]`;
+          if (res.audioUrl) summary += ` [Audio created]`;
+          return summary;
+        }).join('\n');
+        
+        stepPrompt = `Context from previous steps:\n${previousContext}\n\nCurrent step: ${step.action}`;
+      }
+      
+      // Execute this step
+      try {
+        const stepResult = await executeSingleStep(stepPrompt, chatId, {
+          ...options,
+          maxIterations: 5, // Limit iterations per step
+          languageInstruction,
+          agentConfig,
+          functionDeclarations,
+          systemInstruction: `אתה עוזר AI אוטונומי. ${languageInstruction}. בצע את המשימה הבאה בדיוק כפי שמבוקש.`
+        });
+        
+        if (stepResult.success) {
+          stepResults.push(stepResult);
+          
+          // Accumulate text responses
+          if (stepResult.text) {
+            accumulatedText += (accumulatedText ? '\n\n' : '') + stepResult.text;
+          }
+          
+          // Keep track of latest assets (images/videos/audio override previous ones)
+          if (stepResult.imageUrl) {
+            finalAssets.imageUrl = stepResult.imageUrl;
+            finalAssets.imageCaption = stepResult.imageCaption || '';
+          }
+          if (stepResult.videoUrl) finalAssets.videoUrl = stepResult.videoUrl;
+          if (stepResult.audioUrl) finalAssets.audioUrl = stepResult.audioUrl;
+          if (stepResult.poll) finalAssets.poll = stepResult.poll;
+          if (stepResult.latitude) finalAssets.latitude = stepResult.latitude;
+          if (stepResult.longitude) finalAssets.longitude = stepResult.longitude;
+          if (stepResult.locationInfo) finalAssets.locationInfo = stepResult.locationInfo;
+          
+          console.log(`✅ [Agent] Step ${step.stepNumber}/${plan.steps.length} completed successfully`);
+        } else {
+          console.error(`❌ [Agent] Step ${step.stepNumber}/${plan.steps.length} failed:`, stepResult.error);
+          // Continue with remaining steps even if one fails
+        }
+      } catch (stepError) {
+        console.error(`❌ [Agent] Error executing step ${step.stepNumber}:`, stepError.message);
+        // Continue with remaining steps
+      }
+    }
+    
+    // Return combined results from all steps
+    console.log(`🏁 [Agent] Multi-step execution completed: ${stepResults.length}/${plan.steps.length} steps successful`);
+    return {
+      success: true,
+      text: accumulatedText.trim(),
+      ...finalAssets,
+      toolsUsed: stepResults.flatMap(r => r.toolsUsed || []),
+      iterations: stepResults.reduce((sum, r) => sum + (r.iterations || 0), 0),
+      multiStep: true,
+      stepsCompleted: stepResults.length,
+      totalSteps: plan.steps.length
+    };
+  }
+  
+  // Fallback: try heuristic detection if planner returned fallback flag
+  if (plan.fallback) {
+    const isMultiStepHeuristic = detectMultiStepRequest(detectionText);
+    if (isMultiStepHeuristic) {
+      console.log(`⚠️ [Agent] Planner fallback - detected multi-step via heuristic`);
       agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 10);
       agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 300000);
     }
