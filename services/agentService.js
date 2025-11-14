@@ -14,63 +14,12 @@ const execAsync = promisify(exec);
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Helper function to format provider names nicely
-const formatProviderName = (provider) => {
-  const providerNames = {
-    'gemini': 'Gemini',
-    'openai': 'OpenAI',
-    'grok': 'Grok',
-    'veo3': 'Veo 3',
-    'veo-3': 'Veo 3',
-    'veo': 'Veo 3',
-    'sora': 'Sora 2',
-    'sora-2': 'Sora 2',
-    'sora2': 'Sora 2',
-    'sora-pro': 'Sora 2 Pro',
-    'sora-2-pro': 'Sora 2 Pro',
-    'kling': 'Kling',
-    'runway': 'Runway',
-    'suno': 'Suno'
-  };
-  return providerNames[provider?.toLowerCase()] || provider;
-};
-
-// Lazy-loaded services to avoid circular dependencies and improve startup time
-let geminiService, openaiService, grokService, greenApiService;
-const getServices = () => {
-  if (!geminiService) geminiService = require('./geminiService');
-  if (!openaiService) openaiService = require('./openaiService');
-  if (!grokService) grokService = require('./grokService');
-  if (!greenApiService) greenApiService = require('./greenApiService');
-// Utility: get audio duration via ffprobe (mirrors whatsappRoutes implementation)
-const getAudioDuration = async (audioBuffer) => {
-  try {
-    const tempFilePath = path.join(os.tmpdir(), `agent_audio_check_${Date.now()}.ogg`);
-    fs.writeFileSync(tempFilePath, audioBuffer);
-
-    try {
-      const { stdout } = await execAsync(
-        `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${tempFilePath}"`
-      );
-      const duration = parseFloat(stdout.trim());
-      fs.unlinkSync(tempFilePath);
-      console.log(`⏱️ [Agent] Audio duration: ${duration.toFixed(2)} seconds`);
-      return duration;
-    } catch (err) {
-      if (fs.existsSync(tempFilePath)) {
-        fs.unlinkSync(tempFilePath);
-      }
-      console.error(`❌ [Agent] Could not get audio duration: ${err.message}`);
-      return 0;
-    }
-  } catch (err) {
-    console.error(`❌ [Agent] Error in getAudioDuration: ${err.message}`);
-    return 0;
-  }
-};
-
-  return { geminiService, openaiService, grokService, greenApiService };
-};
+// Import utility functions from refactored modules
+const { formatProviderName, normalizeProviderKey, applyProviderToMessage } = require('./agent/utils/providerUtils');
+const { simplifyPrompt, shouldSplitTask, makePromptMoreGeneric } = require('./agent/utils/promptUtils');
+const { getServices } = require('./agent/utils/serviceLoader');
+const { getAudioDuration } = require('./agent/utils/audioUtils');
+const { TOOL_ACK_MESSAGES, VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP } = require('./agent/config/constants');
 
 // ═══════════════════ AGENT CONTEXT MEMORY (Persistent in DB) ═══════════════════
 // Agent context is now stored persistently in PostgreSQL database
@@ -92,62 +41,7 @@ const getAudioDuration = async (audioBuffer) => {
  * Utility functions for smart retry strategies
  */
 
-/**
- * Simplify a complex prompt by removing unnecessary details
- * @param {string} prompt - Original prompt
- * @returns {string} - Simplified prompt
- */
-function simplifyPrompt(prompt) {
-  if (!prompt) return prompt;
-  
-  // Remove excessive details, adjectives, and complex descriptions
-  let simplified = prompt;
-  
-  // Remove multiple adjectives (keep only core nouns/verbs)
-  // "beautiful, stunning, amazing cat" → "cat"
-  simplified = simplified.replace(/(\w+,\s*){2,}(\w+)\s+(\w+)/gi, '$3');
-  
-  // Remove very specific style requests
-  simplified = simplified.replace(/\b(in the style of|בסגנון|כמו|like)\s+.+?(,|\.|$)/gi, '');
-  
-  // Remove detailed background descriptions
-  simplified = simplified.replace(/\b(with (a |an )?background|ברקע|עם רקע)\s+.+?(,|\.|$)/gi, '');
-  
-  // Remove complex lighting/atmosphere descriptions
-  simplified = simplified.replace(/\b(lighting|תאורה|אווירה|atmosphere):?\s+.+?(,|\.|$)/gi, '');
-  
-  // Trim and clean up
-  simplified = simplified.trim().replace(/\s+/g, ' ');
-  
-  // If we removed too much, return original
-  if (simplified.length < 10) return prompt;
-  
-  return simplified;
-}
-
-/**
- * Check if a prompt is too complex and should be split
- * @param {string} prompt - Prompt to check
- * @returns {boolean} - True if should split
- */
-function shouldSplitTask(prompt) {
-  if (!prompt) return false;
-  
-  // Check for multiple independent requests
-  const hasMultipleRequests = /\bו(גם|אז|אחר כך|לאחר מכן)\b/gi.test(prompt) || 
-                              /\b(and then|after that|also|plus)\b/gi.test(prompt);
-  
-  // Check for conditional logic
-  const hasConditional = /\b(אם|if|when|כש|במידה)\b/gi.test(prompt);
-  
-  // Check for multiple steps explicitly mentioned
-  const hasSteps = /\b(קודם|ראשון|שני|שלישי|אחרון|first|second|third|last|step)\b/gi.test(prompt);
-  
-  // Check prompt length (very long prompts often need splitting)
-  const isTooLong = prompt.length > 200;
-  
-  return (hasMultipleRequests || hasConditional || hasSteps) && isTooLong;
-}
+// Prompt utility functions are now imported from ./agent/utils/promptUtils
 
 // ✅ Moved to /services/multiStepPlanner.js and /utils/agentHelpers.js
 
@@ -234,36 +128,7 @@ function splitTaskIntoSteps_DEPRECATED(prompt) {
   return parts;
 }
 
-/**
- * Make a prompt more generic by removing specific details
- * @param {string} prompt - Original prompt
- * @returns {string} - Generic version
- */
-function makePromptMoreGeneric(prompt) {
-  if (!prompt) return prompt;
-  
-  let generic = prompt;
-  
-  // Remove specific names/brands
-  generic = generic.replace(/\b(של|מבית|by|from)\s+[A-Z][a-z]+\b/g, '');
-  
-  // Remove specific years/dates
-  generic = generic.replace(/\b(מ?שנת|from|in)\s+(19|20)\d{2}\b/gi, '');
-  
-  // Remove very specific technical terms
-  generic = generic.replace(/\b(resolution|רזולוציה|quality|איכות):\s*\d+[a-z]*/gi, '');
-  
-  // Remove specific color codes
-  generic = generic.replace(/#[0-9A-Fa-f]{6}\b/g, 'color');
-  
-  // Simplify comparative language
-  generic = generic.replace(/\b(very|extremely|super|incredibly|מאוד|סופר|במיוחד)\s+/gi, '');
-  
-  // Trim
-  generic = generic.trim().replace(/\s+/g, ' ');
-  
-  return generic;
-}
+// makePromptMoreGeneric is now imported from ./agent/utils/promptUtils
 
 /**
  * Define available tools for the agent
@@ -1122,7 +987,7 @@ const agentTools = {
         // Strategy 3: Split into smaller tasks (for complex prompts)
         console.log(`📊 Strategy 3: Checking if task should be split...`);
         if (shouldSplitTask(args.original_prompt)) {
-          const subtasks = splitTaskIntoSteps(args.original_prompt);
+          const subtasks = splitTaskIntoSteps_DEPRECATED(args.original_prompt);
           console.log(`   → Split into ${subtasks.length} subtasks`);
           
           return {
@@ -3150,100 +3015,8 @@ const agentTools = {
   }
 };
 
-/**
- * Map tool names to Hebrew Ack messages
- */
-const TOOL_ACK_MESSAGES = {
-  // Creation tools
-  'create_image': 'יוצר תמונה... 🎨',
-  'create_video': 'יוצר וידאו... 🎬',
-  'image_to_video': 'ממיר תמונה לוידאו מונפש... 🎞️',
-  'create_music': 'יוצר מוזיקה... 🎵',
-  'text_to_speech': 'ממיר לדיבור... 🎤',
-  
-  // Analysis tools
-  'analyze_image': 'מנתח תמונה... 🔍',
-  'analyze_image_from_history': 'מנתח תמונה... 🔍',
-  'analyze_video': 'מנתח וידאו... 🎥',
-  
-  // Edit tools
-  'edit_image': 'עורך תמונה... ✏️',
-  'edit_video': 'עורך וידאו... 🎞️',
-  
-  // Info tools
-  'search_web': 'מחפש באינטרנט... 🔎',
-  'get_chat_history': 'שולף היסטוריה... 📜',
-  'get_long_term_memory': 'בודק העדפות... 💾',
-  'translate_text': 'מתרגם... 🌐',
-  'translate_and_speak': 'מתרגם והופך לדיבור... 🌐🗣️',
-  'transcribe_audio': 'מתמלל הקלטה... 🎤📝',
-  'chat_summary': 'מסכם שיחה... 📝',
-  
-  // WhatsApp tools
-  'create_poll': 'יוצר סקר... 📊',
-  'send_location': '',
-  'create_group': 'יוצר קבוצה... 👥',
-  
-  // Audio tools
-  'voice_clone_and_speak': 'משכפל קול... 🎙️',
-  'creative_audio_mix': 'מערבב אודיו... 🎧',
-  
-  // Meta-tools
-  'history_aware_create': 'יוצר עם context... 🧠',
-  'create_with_memory': 'יוצר לפי העדפות... 💡',
-  'search_and_create': 'מחפש ויוצר... 🔍➡️🎨',
-  'create_and_analyze': 'יוצר ומנתח... 🎨➡️🔍',
-  'analyze_and_edit': 'מנתח ועורך... 🔍➡️✏️',
-  'smart_execute_with_fallback': 'מנסה עם __PROVIDER__... 🔄',
-  'retry_with_different_provider': 'מנסה עם __PROVIDER__... 🔁',
-  'retry_last_command': 'חוזר על פקודה קודמת... ↩️',
-  
-  // Preferences
-  'save_user_preference': 'שומר העדפה... 💾'
-};
-
-// CRITICAL: Order matters! After Veo 3 fails, try Sora 2 next (not Kling)
-const VIDEO_PROVIDER_FALLBACK_ORDER = ['openai', 'gemini', 'grok'];
-const VIDEO_PROVIDER_DISPLAY_MAP = {
-  grok: 'kling',
-  gemini: 'veo3',
-  openai: 'sora-2'
-};
-
-const normalizeProviderKey = (provider) => {
-  if (!provider) return null;
-  const key = String(provider).toLowerCase();
-  const mapping = {
-    kling: 'grok',
-    'kling-text-to-video': 'grok',
-    grok: 'grok',
-    veo3: 'gemini',
-    veo: 'gemini',
-    gemini: 'gemini',
-    google: 'gemini',
-    'google-veo3': 'gemini',
-    sora: 'openai',
-    'sora-2': 'openai',
-    'sora2': 'openai',
-    'sora-2-pro': 'openai',
-    'sora-pro': 'openai',
-    openai: 'openai'
-  };
-  return mapping[key] || key;
-};
-
-const applyProviderToMessage = (message, providerName) => {
-  if (message.includes('__PROVIDER__')) {
-    return message.replace('__PROVIDER__', providerName || 'ספק אחר');
-  }
-  if (providerName) {
-    if (message.includes('...')) {
-      return message.replace('...', ` עם ${providerName}...`).replace('  ', ' ');
-    }
-    return `${message} (${providerName})`;
-  }
-  return message;
-};
+// TOOL_ACK_MESSAGES, VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP,
+// normalizeProviderKey, and applyProviderToMessage are now imported from refactored modules
 
 /**
  * Send Ack message to user based on tools being executed
