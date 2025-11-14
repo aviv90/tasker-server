@@ -149,7 +149,8 @@ function shouldSplitTask(prompt) {
 
 /**
  * Detect if a request contains multiple steps/actions that need to be executed sequentially
- * @param {string} prompt - User's prompt
+ * IMPORTANT: In Hebrew, DO NOT use \b (word boundaries) – they don't work well with Hebrew chars.
+ * @param {string} prompt - User's prompt (ideally just the user's text, without long history)
  * @returns {boolean} - True if this is a multi-step request
  */
 function detectMultiStepRequest(prompt) {
@@ -157,33 +158,40 @@ function detectMultiStepRequest(prompt) {
   
   // Patterns that indicate multi-step requests:
   
-  // 1. Sequential connectors (Hebrew)
-  const hasHebrewSequence = /\b(ואז|ואחר כך|ולאחר מכן|אחר כך|לאחר מכן|קודם|אחר זה|בהמשך)\b/gi.test(prompt);
+  // 1. Sequential connectors (Hebrew) - no \b usage!
+  const hasHebrewSequence = /(ואז|ואחר כך|ולאחר מכן|אחר כך|לאחר מכן|קודם|אחר זה|בהמשך)/gi.test(prompt);
   
-  // 2. Sequential connectors (English)
+  // 2. Sequential connectors (English) - \b is fine for English
   const hasEnglishSequence = /\b(and then|after that|afterwards|then|next|first.*then|later)\b/gi.test(prompt);
   
-  // 3. Multiple action verbs (Hebrew) - at least 2 different actions
-  const hebrewActionVerbs = prompt.match(/\b(ספר|כתוב|תכתוב|צור|תצור|תרגם|אמור|תאמר|נתח|תנתח|ערוך|תערוך|חפש|תחפש|שלח|תשלח|הראה|תראה)\b/gi);
+  // 3. Multiple action verbs (Hebrew) - at least 2 different actions (no \b)
+  const hebrewActionVerbs = prompt.match(/(ספר|כתוב|תכתוב|צור|תצור|תרגם|אמור|תאמר|נתח|תנתח|ערוך|תערוך|חפש|תחפש|שלח|תשלח|הראה|תראה)/gi);
   const hasMultipleHebrewActions = hebrewActionVerbs && hebrewActionVerbs.length >= 2;
   
   // 4. Multiple action verbs (English) - at least 2 different actions
   const englishActionVerbs = prompt.match(/\b(tell|write|create|make|translate|say|speak|analyze|edit|search|send|show|generate|produce)\b/gi);
   const hasMultipleEnglishActions = englishActionVerbs && englishActionVerbs.length >= 2;
   
-  // 5. Explicit multi-step indicators
-  const hasExplicitSteps = /\b(שלב|שלבים|step|steps|stage|stages|קודם|ראשון|שני|שלישי|first|second|third)\b/gi.test(prompt);
+  // 5. Explicit multi-step indicators (Hebrew without \b, English with \b)
+  const hasExplicitHebrewSteps = /(שלב|שלבים|קודם|ראשון|שני|שלישי)/gi.test(prompt);
+  const hasExplicitEnglishSteps = /\b(step|steps|stage|stages|first|second|third)\b/gi.test(prompt);
   
-  // 6. Combo patterns - action + connector + action
-  const hasComboPattern = /\b(ספר|כתוב|צור|תרגם|אמור|נתח|ערוך|חפש).+(ו|ואז|אחר כך).+(ספר|כתוב|צור|תרגם|אמור|נתח|ערוך|חפש)/gi.test(prompt) ||
-                          /\b(tell|write|create|translate|say|analyze|edit|search).+(and|then|after).+(tell|write|create|translate|say|analyze|edit|search)/gi.test(prompt);
+  // 6. Combo patterns - action + connector + action (Hebrew without \b, English with \b)
+  const hasHebrewComboPattern = /(ספר|כתוב|צור|תרגם|אמור|נתח|ערוך|חפש).+(ו|ואז|אחר כך).+(ספר|כתוב|צור|תרגם|אמור|נתח|ערוך|חפש)/gi.test(prompt);
+  const hasEnglishComboPattern = /\b(tell|write|create|translate|say|analyze|edit|search).+(and|then|after).+(tell|write|create|translate|say|analyze|edit|search)\b/gi.test(prompt);
   
-  const isMultiStep = hasHebrewSequence || hasEnglishSequence || 
-                      hasMultipleHebrewActions || hasMultipleEnglishActions || 
-                      hasExplicitSteps || hasComboPattern;
+  const isMultiStep =
+    hasHebrewSequence ||
+    hasEnglishSequence ||
+    hasMultipleHebrewActions ||
+    hasMultipleEnglishActions ||
+    hasExplicitHebrewSteps ||
+    hasExplicitEnglishSteps ||
+    hasHebrewComboPattern ||
+    hasEnglishComboPattern;
   
   if (isMultiStep) {
-    console.log(`🔍 [Multi-Step Detection] Found multi-step indicators in prompt`);
+    console.log(`🔍 [Multi-Step Detection] Found multi-step indicators in user prompt`);
   }
   
   return isMultiStep;
@@ -3451,14 +3459,26 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   };
   
   // 🔍 Detect if this is a multi-step request and adjust iterations accordingly
-  const isMultiStepRequest = detectMultiStepRequest(prompt);
+  // IMPORTANT: Use only the user's main request text for detection (without long history/auth blocks)
+  // Heuristic: take everything before the first "[" (where we usually start metadata like [הרשאות], [פקודה קודמת], etc.)
+  const detectionText = (() => {
+    if (!prompt) return '';
+    const bracketIndex = prompt.indexOf('[');
+    if (bracketIndex > 0) {
+      return prompt.substring(0, bracketIndex).trim();
+    }
+    // Fallback: first line only
+    return prompt.split('\n')[0].trim();
+  })();
+  
+  const isMultiStepRequest = detectMultiStepRequest(detectionText);
   let steps = [prompt]; // By default, single step
   
   if (isMultiStepRequest) {
-    console.log(`🎯 [Agent] Detected multi-step request`);
+    console.log(`🎯 [Agent] Detected multi-step request (detection text: "${detectionText.substring(0, 120)}...")`);
     
     // Try to split into steps
-    const splitSteps = splitTaskIntoSteps(prompt);
+    const splitSteps = splitTaskIntoSteps(detectionText);
     if (splitSteps.length > 1) {
       steps = splitSteps;
       console.log(`🔪 [Agent] Split into ${steps.length} sequential steps`);
@@ -3714,23 +3734,26 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   const agentExecution = async () => {
     // Build enhanced prompt for multi-step requests
     let fullPrompt;
-    if (steps.length > 1) {
-      // Multi-step: provide explicit breakdown
-      console.log(`📋 [Agent] Breaking down ${steps.length} steps for sequential execution`);
-      fullPrompt = `${systemInstruction}\n\n---\n\n🎯 **MULTI-STEP REQUEST DETECTED**\n\nThe user's request has ${steps.length} distinct steps. You MUST complete them in order:\n\n`;
-      steps.forEach((step, i) => {
-        fullPrompt += `**Step ${i + 1}:** ${step}\n`;
-      });
-      fullPrompt += `\n🚨 **EXECUTION RULES:**\n`;
-      fullPrompt += `1. Start with Step 1 ONLY - complete it fully before moving to Step 2\n`;
-      fullPrompt += `2. After completing each step, explicitly state: "✅ Step X completed. Now proceeding to Step Y..."\n`;
-      fullPrompt += `3. Continue with each subsequent step in order\n`;
-      fullPrompt += `4. Do NOT skip steps or combine them\n\n`;
-      fullPrompt += `Begin with Step 1 now.`;
-    } else {
-      // Single step: regular prompt
-      fullPrompt = `${systemInstruction}\n\n---\n\nUser Request: ${prompt}`;
-    }
+  if (steps.length > 1) {
+    // Multi-step: provide explicit breakdown, but keep original contextual prompt for full context
+    console.log(`📋 [Agent] Breaking down ${steps.length} steps for sequential execution`);
+    
+    fullPrompt = `${systemInstruction}\n\n---\n\n📜 Original context (including permissions & history):\n${prompt}\n\n---\n\n🎯 MULTI-STEP REQUEST DETECTED\n\nThe user's request has ${steps.length} distinct steps. You MUST complete them in order:\n\n`;
+    
+    steps.forEach((step, i) => {
+      fullPrompt += `Step ${i + 1}/${steps.length}: ${step}\n`;
+    });
+    
+    fullPrompt += `\n🚨 EXECUTION RULES:\n`;
+    fullPrompt += `1. Start with Step 1 ONLY – complete it fully before moving to Step 2.\n`;
+    fullPrompt += `2. After completing each step, explicitly state: "✅ Step X/${steps.length} completed. Now proceeding to Step Y/${steps.length}..." (in the user's language).\n`;
+    fullPrompt += `3. Continue with each subsequent step in order.\n`;
+    fullPrompt += `4. Do NOT skip steps or combine them.\n\n`;
+    fullPrompt += `Begin with Step 1 now.`;
+  } else {
+    // Single step: regular prompt with full context
+    fullPrompt = `${systemInstruction}\n\n---\n\n${prompt}`;
+  }
     
     let response = await chat.sendMessage(fullPrompt);
     let iterationCount = 0;
