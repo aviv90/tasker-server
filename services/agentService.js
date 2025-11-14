@@ -3407,7 +3407,6 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
   // Agent execution loop
   while (iterations < maxIterations) {
     iterations++;
-    console.log(`  🔄 [Step Iteration ${iterations}/${maxIterations}]`);
     
     try {
       const result = await chat.sendMessage(currentPrompt);
@@ -3428,7 +3427,6 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
         const toolName = call.name;
         const toolArgs = call.args;
         
-        console.log(`  🔧 [Step Tool] ${toolName}(${JSON.stringify(toolArgs).substring(0, 100)}...)`);
         toolsUsed.push(toolName);
         
         // Execute the tool
@@ -3510,12 +3508,9 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
  * @returns {Object} - Response with text and tool usage info
  */
 async function executeAgentQuery(prompt, chatId, options = {}) {
-  console.log(`🤖 [Agent] Starting autonomous query: "${prompt.substring(0, 100)}..."`);
-  
   // Detect user's language
   const userLanguage = detectLanguage(prompt);
   const languageInstruction = getLanguageInstruction(userLanguage);
-  console.log(`🌐 [Agent] Detected language: ${userLanguage} - Instruction: ${languageInstruction}`);
   
   // ⚙️ Configuration: Load from env or use defaults
   const agentConfig = {
@@ -3533,13 +3528,11 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   
   // If planner failed, treat as single-step (no heuristic fallback - rely on LLM only)
   if (plan.fallback) {
-    console.log(`⚠️ [Agent] Planner failed - treating as single-step (no heuristic fallback)`);
     plan = { isMultiStep: false };
   }
   
   // 🔄 Multi-step execution - execute each step sequentially
   if (plan.isMultiStep && plan.steps && plan.steps.length > 1) {
-    console.log(`🎯 [Agent] Multi-step execution planned: ${plan.steps.length} steps`);
     agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 15); // More iterations for multi-step
     agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 360000); // 6 minutes for multi-step
     
@@ -3563,7 +3556,6 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     
     for (let i = 0; i < plan.steps.length; i++) {
       const step = plan.steps[i];
-      console.log(`\n🎬 [Agent] Executing Step ${step.stepNumber}/${plan.steps.length}: "${step.action.substring(0, 80)}..."`);
       
       // Build context-aware prompt for this step
       let stepPrompt = step.action;
@@ -3590,7 +3582,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           languageInstruction,
           agentConfig,
           functionDeclarations,
-          systemInstruction: `אתה עוזר AI אוטונומי. ${languageInstruction}. בצע את המשימה הבאה בדיוק כפי שמבוקש.`
+          systemInstruction: prompts.singleStepInstruction(languageInstruction)
         });
         
         if (stepResult.success) {
@@ -3600,7 +3592,6 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           if (stepResult.imageUrl) {
             finalAssets.imageUrl = stepResult.imageUrl;
             finalAssets.imageCaption = stepResult.imageCaption || '';
-            console.log(`🖼️ [Agent] Step ${step.stepNumber} image tracked`);
           }
           if (stepResult.videoUrl) finalAssets.videoUrl = stepResult.videoUrl;
           if (stepResult.audioUrl) finalAssets.audioUrl = stepResult.audioUrl;
@@ -3616,12 +3607,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           const createdMedia = stepResult.imageUrl || stepResult.videoUrl || stepResult.audioUrl;
           if (stepResult.text && stepResult.text.trim() && !createdMedia) {
             accumulatedText += (accumulatedText ? '\n\n' : '') + stepResult.text;
-            console.log(`📝 [Agent] Step ${step.stepNumber} text accumulated (${stepResult.text.length} chars)`);
-          } else if (createdMedia) {
-            console.log(`📝 [Agent] Step ${step.stepNumber} created media - ignoring text (${stepResult.text?.length || 0} chars), media is enough`);
           }
-          
-          console.log(`✅ [Agent] Step ${step.stepNumber}/${plan.steps.length} completed successfully`);
         } else {
           console.error(`❌ [Agent] Step ${step.stepNumber}/${plan.steps.length} failed:`, stepResult.error);
           // Continue with remaining steps even if one fails
@@ -3677,195 +3663,20 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   // System prompt for the agent (Hebrew base with dynamic language instruction)
   const systemInstruction = `אתה עוזר AI אוטונומי עם גישה לכלים מתקדמים.
 
-**🌐 CRITICAL - Language Requirement:** ${languageInstruction}
+**🌐 Language:** ${languageInstruction} - תשיב בשפה שבה המשתמש כתב!
 
-🚫 אסור לחלוטין:
-• לכתוב את תהליך החשיבה שלך
-• לכתוב באנגלית כשהמשתמש כותב בעברית ("My thoughts", "I need to", "Let me")
-• לכתוב רשימות של מה אתה עושה
-• לשנות שפה - תשיב בשפה שבה המשתמש כתב!
+**כלים זמינים:** create_image, create_video, analyze_image, edit_image, create_music, text_to_speech, translate_and_speak, search_web, get_chat_history, retry_last_command, retry_with_different_provider, ועוד.
 
-🛠️ הכלים שלך (30 כלים!):
-
-📚 מידע:
-• get_chat_history - היסטוריית שיחה (חובה לשאלות context!)
-• save_user_preference - שמור העדפות משתמש
-• get_long_term_memory - קרא העדפות משתמש
-• search_web - מידע מהאינטרנט + **לינקים/קישורים** (חובה!)
-• chat_summary - סיכום השיחה
-• translate_text - תרגום (22 שפות) → מחזיר טקסט בלבד!
-• translate_and_speak - תרגום + דיבור → מחזיר הודעה קולית!
-• transcribe_audio - תמלול אודיו לטקסט (STT) → מצוטט הקלטה
-
-🎨 יצירה:
-• create_image - תמונות (gemini/openai/grok)
-• create_video - וידאו (veo3/sora/kling)
-• image_to_video - תמונה→וידאו מונפש
-• create_music - שירים/מוזיקה (Suno)
-• text_to_speech - טקסט→דיבור (22 שפות)
-
-🔍 ניתוח:
-• analyze_image - ניתוח תמונות ישירות (עם URL)
-• analyze_image_from_history - ניתוח תמונות מהיסטוריה
-• analyze_video - ניתוח וידאו
-
-✏️ עריכה:
-• edit_image - עריכת תמונות (openai/gemini)
-• edit_video - עריכת וידאו (runway)
-
-🎤 אודיו מתקדם:
-• voice_clone_and_speak - שיבוט קול + דיבור
-• creative_audio_mix - מיקס יצירתי עם אפקטים
-
-👥 WhatsApp:
-• create_poll - יצירת סקרים
-• send_location - מיקום אקראי (חובה לציין region אם יש אזור בבקשה!)
-• create_group - יצירת קבוצות (מורשים בלבד)
-
-🎯 Meta-Tools:
-• history_aware_create - יצירה + היסטוריה
-• create_with_memory - יצירה + העדפות
-• search_and_create - חיפוש + יצירה
-• create_and_analyze - יצירה + ניתוח
-• analyze_and_edit - ניתוח + עריכה
-• smart_execute_with_fallback - fallback חכם
-• retry_with_different_provider - ניסיון חוזר
-
-🔄 Retry:
-• retry_last_command - חזור על פקודה קודמת (עם אפשרות לשנות ספק)
-
-💡 כללים קריטיים:
-
-🖼️ **CRITICAL - מדיה מצורפת:**
-• אם image_url/video_url/audio_url מופיע בפרומפט → השתמש בו ישירות!
-• אל תקרא ל-get_chat_history אם image_url כבר זמין!
-• דוגמאות:
-  ✅ "**IMPORTANT: User attached an image. Use this image_url: "https://..."**" + "מה זה" → analyze_image
-  ✅ "**IMPORTANT: User attached an image. Use this image_url: "https://..."**" + "הפוך לוידאו" → image_to_video
-  → קח את ה-URL מהפרומפט ושלח אותו ישירות ל-tool המתאים
-  → אל תקרא ל-get_chat_history!
-
-📎 **CRITICAL - הודעות מצוטטות עם מדיה:**
-• **אם יש image_url בפרומפט + שאלה/ניתוח ("מה זה", "תאר", "explain") → analyze_image**
-• **אם יש image_url בפרומפט + בקשת עריכה ("ערוך", "הסר", "תוסיף", "שנה") → edit_image (לא retry_last_command!)**
-• דוגמאות:
-  ✅ [הודעה מצוטטת: תמונה - image_url: ...] + "מה זה" → analyze_image (עם ה-URL מהפרומפט)
-  ✅ [הודעה מצוטטת: תמונה - image_url: ...] + "תעלים את הצל" → edit_image (עם image_url מהפרומפט)
-  ✅ [הודעה מצוטטת: תמונה] + "הסר את הרקע" → edit_image
-  ✅ [הודעה מצוטטת: תמונה] + "שנה את הצבע ל-..." → edit_image
-  ❌ [הודעה מצוטטת: תמונה] + "תעלים את הצל" → retry_last_command (שגוי!)
-• **רק אם המשתמש אומר במפורש "נסה שוב" / "שוב" → אז זה retry_last_command**
-• **הכלל: הודעה מצוטטת עם מדיה + בקשה חדשה = פעולה על המדיה המצוטטת (לא retry!)**
-
-📜 **מתי לגשת להיסטוריה (חובה!):**
-• "מה אמרתי קודם" / "על מה דיברנו" → get_chat_history
-• "לפי התמונה שהעליתי" / "כמו בהודעה הקודמת" → get_chat_history
-• "בהמשך לשיחה" / "כפי שכתבתי" → get_chat_history
-• כל שאלה שדורשת context קודם → **תמיד** קרא get_chat_history תחילה!
-• **אבל:** אם image_url/video_url כבר בפרומפט → אל תקרא get_chat_history!
-
-💾 **מתי לשמור העדפות:**
-• "תמיד צור עם X" / "אני מעדיף Y" → save_user_preference
-• "זכור ש..." / "בפעם הבאה" → save_user_preference
-• "אני לא אוהב X" / "אני אוהב Y" → save_user_preference
-
-🔗 **מתי להשתמש ב-search_web (CRITICAL!):**
-• **כשמבקשים לינק/קישור/URL - זה תמיד search_web!**
-• "שלח לי לינק ל..." / "תן לי קישור ל..." → search_web
-• "send me a link to..." / "give me URL for..." → search_web
-• **דוגמאות מצבים שדורשים search_web:**
-  ✅ "שלח לינק לשיר של אריאל זילבר" → search_web (לא create_music!)
-  ✅ "תן לי קישור לספר הארי פוטר" → search_web
-  ✅ "send link to Python tutorial" → search_web
-  ✅ "מצא לי מתכון לפיצה" → search_web (יחזיר לינקים)
-• **דוגמאות מצבים שדורשים create_music (לא search_web):**
-  ✅ "צור שיר על אהבה" → create_music (יצירה חדשה)
-  ✅ "כתוב שיר עצוב" → create_music (יצירה חדשה)
-  ❌ "שלח לינק לשיר עצוב" → search_web (לא create_music!)
-
-🗣️ **מתי להשתמש ב-translate_and_speak (CRITICAL!):**
-• "אמור X ביפנית" / "אמור X ב-Y" → translate_and_speak (לא translate_text!)
-• "תרגם ל-X ואמור" / "קרא ביפנית" → translate_and_speak
-• "הקרא את זה בערבית" / "say in English" → translate_and_speak
-• **אם המשתמש אומר "אמור" עם שפה - זה תמיד הודעה קולית!**
-• **translate_text מחזיר רק טקסט. translate_and_speak מחזיר אודיו.**
-• **אל תפצל translate_and_speak ל-translate_text + text_to_speech!** זה כלי אחד שעושה הכל.
-
-🔁 **מתי להשתמש ב-retry וב-fallback:**
-• "נסה שוב" / "שוב" / "עוד פעם" → retry_last_command
-• "עם OpenAI" / "עם Gemini" → retry_last_command (עם provider_override)
-• "אבל עם X" / "תקן ל-Y" → retry_last_command (עם modifications)
-• **אם create_video נכשל עם Kling** → retry_with_different_provider (task_type: 'video', avoid_provider: 'kling')
-• **אם create_image נכשל** → retry_with_different_provider או smart_execute_with_fallback
-• **אם edit_image נכשל** → retry_with_different_provider (task_type: 'image_edit', image_url: [ה-URL של התמונה], avoid_provider: [הספק שנכשל])
-• **סדר fallback לוידאו: Kling → Veo3 → Sora2** (אל תשתמש ב-Gemini לוידאו!)
-• **סדר fallback לעריכת תמונות: Gemini (ברירת מחדל) → OpenAI** (רק 2 ספקים תומכים בעריכה. אין Grok, ואל תעבור ל-create_image!)
-
-🧠 **פקודה אחרונה זמינה עבורך:**
-• בכל פנייה חדשה מוצגת "[פקודה קודמת]" עם הפרטים הקריטיים (פרומפט, תרגום, ספק, תוצאות).
-• השתמש בזה כדי לענות טבעי להמשך שיחה ("ועכשיו בקול", "הפעם בתמונה", "עם ספק אחר").
-• בקשות כמו "תגיד את זה בקול", "ועכשיו בקול", "תשמיע לי" → נצל את המידע הקודם והפעל translate_and_speak או text_to_speech בהתאם.
-• אל תשמור retry_last_command כפקודה האחרונה – הפקודה המקורית נשמרת אוטומטית.
-
-🎯 **בחירת ספק וניתוב (CRITICAL!):**
-• **תמיד** ציין provider/service כשקורא ל-create_image/create_video/edit_image/edit_video!
-• אם המשתמש לא ציין ספק - תבחר בעצמך:
-  - תמונות (create_image): provider='gemini' (ברירת מחדל)
-  - וידאו (create_video): provider='kling' (ברירת מחדל)
-  - עריכת תמונות (edit_image): service='gemini' (ברירת מחדל, fallback יחיד = openai)
-• **מיקומים (send_location) - CRITICAL:**
-  - "מיקום באזור תל אביב" → send_location({region: "תל אביב"})
-  - "מיקום ביפן" → send_location({region: "יפן"})
-  - "מיקום אקראי" → send_location({})
-  - **חובה לחלץ את שם האזור מהבקשה!**
-• דוגמאות:
-  ✅ create_image({prompt: "חתול", provider: "gemini"})
-  ✅ create_video({prompt: "נחשול", provider: "kling"})
-  ✅ send_location({region: "תל אביב"})
-  ❌ create_image({prompt: "חתול"}) ← חסר provider!
-  ❌ send_location({}) כש"באזור תל אביב" בבקשה ← חסר region!
-
-⚙️ **כללים כלליים:**
-• **שמור על שפת המשתמש!** אם כתב בעברית - ענה בעברית. אם באנגלית - ענה באנגלית. וכן הלאה לכל שפה.
-• **שמור רציפות והקשר בשיחה - CRITICAL!**
-  - **תמיד קרא את [היסטוריית שיחה אחרונה] שמופיעה בסוף כל בקשה!**
-  - אם **שאלת** שאלה למשתמש (כמו "איזה סקר תרצה?", "תרצה לנתח את התמונה?") → **התשובה הבאה של המשתמש היא תשובה לשאלה שלך!**
-  - דוגמה: בוט שואל "איזה סקר תרצה ליצור?" → משתמש: "פיצה" → זו **תשובה לשאלה**, לא בקשה חדשה! → הפעל create_poll({topic: "פיצה"})
-  - "עם יותר רגש" / "אבל יותר קצר" / "בלי X" → הבן שהמשתמש מבקש לשפר/לשנות את הפקודה הקודמת
-  - השתמש ב-retry_last_command עם modifications להוסיף את השינוי המבוקש
-  - דוגמה: "כתוב ברכה למארק" → [מחזיר ברכה] → משתמש: "עם יותר רגש" → retry_last_command({modifications: "עם יותר רגש"})
-• תשיב בצורה טבעית ונעימה
-• בשאלות מורכבות - פצל למספר שלבים קטנים
-
-🎯 **פקודות מורכבות ורצף פעולות - CRITICAL:**
-• **Multi-step requests will be automatically broken down into separate steps by the system.**
-• **If you see "Step X/Y" in the request, focus ONLY on that step.**
-• **After completing each step, state: "✅ Step X completed. Proceeding to next step..."**
-• **Do NOT skip steps or try to complete multiple steps at once.**
-• **Each step will be executed in its own iteration with full context from previous steps.**
-
-🚨 **טיפול בשגיאות (CRITICAL!):**
-• אם tool נכשל - **אל תקרא לאותו tool שוב בשום מקרה!**
-• **אל תפצל tool כושל למספר tools אחרים!** (למשל: אם translate_and_speak נכשל → אסור translate_text + text_to_speech)
-• **במקום לקרוא שוב ל-tool הכושל, עשה כך:**
-  ✅ אם זו בעיית ספק (create_image/create_video/edit_image נכשל):
-     → השתמש ב-retry_with_different_provider עם task_type מתאים ו-avoid_provider
-  ✅ אם זו בעיה כללית או אתה לא בטוח:
-     → השתמש ב-smart_execute_with_fallback(original_tool_name, args, failed_providers)
-• **דוגמאות לא נכונות:**
-  ❌ create_image({prompt: "...", provider: "gemini"}) נכשל
-  ❌ [קורא שוב] create_image({prompt: "...", provider: "openai"})
-  ❌ edit_image({image_url: "...", edit_instruction: "..."}) נכשל
-  ❌ [קורא] create_image({prompt: "..."}) ← אסור! לא ליצור תמונה חדשה!
-• **דוגמאות נכונות:**
-  ✅ create_image({prompt: "...", provider: "gemini"}) נכשל
-  ✅ [קורא] retry_with_different_provider({task_type: "image", original_prompt: "...", reason: "...", avoid_provider: "gemini"})
-  ✅ edit_image({image_url: "...", edit_instruction: "...", service: "openai"}) נכשל
-  ✅ [קורא] retry_with_different_provider({task_type: "image_edit", original_prompt: "...", image_url: "...", reason: "...", avoid_provider: "openai"})
-• **ספר תמיד למשתמש מה השגיאה** לפני שאתה מנסה fallback!
-• דוגמה: "❌ OpenAI נכשל: [השגיאה]. מנסה עם Gemini..." ← תמיד שלח את זה למשתמש!
-• **אל תסתיר שגיאות** - המשתמש צריך לדעת מה קרה!
-• אם כל הניסיונות נכשלו - הסבר למשתמש מה ניסית ולמה זה לא עבד`;
+**כללים קריטיים:**
+• אם image_url/video_url בפרומפט → השתמש בו ישירות (אל תקרא get_chat_history!)
+• הודעות מצוטטות + מדיה: שאלה → analyze_image, עריכה → edit_image (לא retry!)
+• לינקים/קישורים → search_web (לא create_music!)
+• "אמור X ב-Y" → translate_and_speak (לא translate_text!)
+• תמיד ציין provider: create_image({provider: "gemini"}), create_video({provider: "kling"})
+• send_location: חובה region אם יש אזור בבקשה!
+• אם tool נכשל → retry_with_different_provider (אל תקרא לאותו tool שוב!)
+• שמור רציפות: קרא [היסטוריית שיחה] בסוף כל בקשה
+• Multi-step: אם רואה "Step X/Y" → התמקד רק בשלב הזה
 
 
   // 🧠 Context for tool execution (load previous context if enabled)

@@ -13,8 +13,6 @@ const { generateTextResponse } = require('./geminiService');
  */
 async function planMultiStepExecution(userRequest) {
   try {
-    console.log(`🧠 [Planner] Analyzing request...`);
-    
     const planningPrompt = prompts.multiStepPlanner(userRequest);
     
     const result = await generateTextResponse(planningPrompt, [], {
@@ -77,14 +75,9 @@ async function planMultiStepExecution(userRequest) {
     }
     
     if (plan.isMultiStep && Array.isArray(plan.steps) && plan.steps.length > 1) {
-      console.log(`✅ [Planner] Multi-step: ${plan.steps.length} steps`);
-      plan.steps.forEach((step) => {
-        console.log(`   📍 Step ${step.stepNumber}: ${step.action.substring(0, 60)}...`);
-      });
       return plan;
     }
     
-    console.log(`✅ [Planner] Single-step`);
     return { isMultiStep: false };
     
   } catch (error) {
