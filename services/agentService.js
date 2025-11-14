@@ -3349,45 +3349,13 @@ async function sendToolAckMessage(chatId, functionCalls) {
   }
 }
 
-/**
- * Detect the language of the user's message
- */
-function detectLanguage(text) {
-  if (!text || text.trim().length === 0) return 'he'; // Default to Hebrew
-  
-  // Hebrew detection
-  const hebrewChars = (text.match(/[\u0590-\u05FF]/g) || []).length;
-  // English detection
-  const englishChars = (text.match(/[a-zA-Z]/g) || []).length;
-  // Arabic detection
-  const arabicChars = (text.match(/[\u0600-\u06FF]/g) || []).length;
-  // Russian detection
-  const russianChars = (text.match(/[\u0400-\u04FF]/g) || []).length;
-  
-  const total = hebrewChars + englishChars + arabicChars + russianChars;
-  if (total === 0) return 'he'; // Default to Hebrew if no recognizable chars
-  
-  // Return the language with the highest character count
-  const max = Math.max(hebrewChars, englishChars, arabicChars, russianChars);
-  if (max === hebrewChars) return 'he';
-  if (max === englishChars) return 'en';
-  if (max === arabicChars) return 'ar';
-  if (max === russianChars) return 'ru';
-  
-  return 'he'; // Default fallback
-}
+// ✅ detectLanguage and getLanguageInstruction moved to /utils/agentHelpers.js and /config/prompts.js
 
 /**
- * Get language instruction for system prompt
+ * Get language instruction for system prompt (wrapper for prompts config)
  */
 function getLanguageInstruction(langCode) {
-  const instructions = {
-    'he': 'תשיב בעברית',
-    'en': 'Respond in English',
-    'ar': 'أجب بالعربية',
-    'ru': 'Отвечай по-русски',
-  };
-  return instructions[langCode] || 'תשיב בעברית';
+  return prompts.languageInstructions[langCode] || prompts.languageInstructions['he'];
 }
 
 /**
@@ -3919,28 +3887,8 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   
   // ⏱️ Wrap entire agent execution with timeout
   const agentExecution = async () => {
-    // Build enhanced prompt for multi-step requests
-    let fullPrompt;
-  if (steps.length > 1) {
-    // Multi-step: provide explicit breakdown, but keep original contextual prompt for full context
-    console.log(`📋 [Agent] Breaking down ${steps.length} steps for sequential execution`);
-    
-    fullPrompt = `${systemInstruction}\n\n---\n\n📜 Original context (including permissions & history):\n${prompt}\n\n---\n\n🎯 MULTI-STEP REQUEST DETECTED\n\nThe user's request has ${steps.length} distinct steps. You MUST complete them in order:\n\n`;
-    
-    steps.forEach((step, i) => {
-      fullPrompt += `Step ${i + 1}/${steps.length}: ${step}\n`;
-    });
-    
-    fullPrompt += `\n🚨 EXECUTION RULES:\n`;
-    fullPrompt += `1. Start with Step 1 ONLY – complete it fully before moving to Step 2.\n`;
-    fullPrompt += `2. After completing each step, explicitly state: "✅ Step X/${steps.length} completed. Now proceeding to Step Y/${steps.length}..." (in the user's language).\n`;
-    fullPrompt += `3. Continue with each subsequent step in order.\n`;
-    fullPrompt += `4. Do NOT skip steps or combine them.\n\n`;
-    fullPrompt += `Begin with Step 1 now.`;
-  } else {
-    // Single step: regular prompt with full context
-    fullPrompt = `${systemInstruction}\n\n---\n\n${prompt}`;
-  }
+    // Single-step execution (multi-step is handled above with executeSingleStep loop)
+    const fullPrompt = `${systemInstruction}\n\n---\n\n${prompt}`;
     
     let response = await chat.sendMessage(fullPrompt);
     let iterationCount = 0;
@@ -3949,21 +3897,6 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     while (iterationCount < maxIterations) {
     iterationCount++;
     console.log(`🔄 [Agent] Iteration ${iterationCount}/${maxIterations}`);
-    
-    // 📢 For multi-step requests, send progress updates to user
-    if (isMultiStepRequest && iterationCount > 1 && iterationCount < maxIterations) {
-      try {
-        const { greenApiService } = getServices();
-        const progressMessage = `🔄 ממשיך לשלב ${iterationCount} מתוך ${maxIterations}...`;
-        // Don't await - send asynchronously to not slow down the agent
-        greenApiService.sendTextMessage(chatId, progressMessage).catch(err => {
-          console.error(`❌ Failed to send progress message: ${err.message}`);
-        });
-      } catch (err) {
-        // Silently fail - progress messages are nice-to-have
-        console.error(`❌ Error sending progress message: ${err.message}`);
-      }
-    }
     
     const result = response.response;
     
@@ -4169,13 +4102,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       const result = fr.functionResponse.response;
       
       // Add step completion indicators to help Gemini track progress
-      if (result.success !== false) {
-        // Add a contextual note about multi-step execution
-        if (isMultiStepRequest && !result._enriched) {
-          result._enriched = true;
-          result._note = 'Step completed. If this is part of a multi-step request, proceed to the NEXT step. Use results from this step as input for subsequent steps.';
-        }
-      }
+      // Result processed successfully
       
       return fr;
     });
