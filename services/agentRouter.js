@@ -131,11 +131,15 @@ async function routeToAgent(input, chatId) {
   // 1. Media requests (image/video/audio attached) - all context is in the media itself
   // 2. Quoted messages - all context is already in the quoted message
   // 3. Media creation keywords - these are standalone requests
+  // 4. Multi-step requests - will be handled by planner with isolated steps
+  const isMultiStepRequest = /ואז|אחר כך|and then|after that/i.test(userText);
+  
   const shouldSkipHistory = 
     input.hasImage || 
     input.hasVideo || 
     input.hasAudio ||
     input.quotedContext ||  // 🆕 Skip history for any quoted message
+    isMultiStepRequest ||   // 🆕 Skip history for multi-step (planner handles it)
     /צור|תן|הפוך|המר|ליצור|create|generate|make|convert|animate/i.test(userText);
   
   // CRITICAL: Load conversation history to maintain context and continuity
@@ -164,6 +168,7 @@ async function routeToAgent(input, chatId) {
   } else {
     const reason = input.quotedContext ? 'quoted message (context already provided)' : 
                    (input.hasImage || input.hasVideo || input.hasAudio) ? 'media attached' : 
+                   isMultiStepRequest ? 'multi-step request (planner will handle)' :
                    'media creation keywords';
     console.log(`🎨 [AGENT ROUTER] Skipping history for: ${reason}`);
   }
