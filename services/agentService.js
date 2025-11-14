@@ -3377,7 +3377,7 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
   const model = genAI.getGenerativeModel({ model: agentConfig.model });
   
   // Shorter system instruction for single steps
-  const stepSystemInstruction = systemInstruction || `אתה עוזר AI אוטונומי. ${languageInstruction}. בצע את המשימה הבאה בדיוק כפי שמבוקש.`;
+  const stepSystemInstructionText = systemInstruction || prompts.singleStepInstruction(languageInstruction);
   
   // Load conversation history
   let conversationHistory = [];
@@ -3402,7 +3402,10 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
   const chat = model.startChat({
     history: historyParts,
     tools: [{ functionDeclarations }],
-    systemInstruction: stepSystemInstruction
+    systemInstruction: {
+      role: 'system',
+      parts: [{ text: stepSystemInstructionText }]
+    }
   });
   
   let iterations = 0;
