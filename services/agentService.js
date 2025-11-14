@@ -3452,15 +3452,16 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
         
         // Execute the tool
         const toolFunction = agentTools[toolName];
-        if (!toolFunction) {
+        if (!toolFunction || !toolFunction.execute) {
           functionResponses.push({
             name: toolName,
-            response: { error: `Tool ${toolName} not found` }
+            response: { error: `Tool ${toolName} not found or not executable` }
           });
           continue;
         }
         
-        const toolResult = await toolFunction.function(toolArgs);
+        // Execute with proper context (chatId needed for some tools)
+        const toolResult = await toolFunction.execute(toolArgs, { chatId });
         functionResponses.push({
           name: toolName,
           response: toolResult
