@@ -3694,7 +3694,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       text: '', // Already sent during steps
       imageUrl: null, // Already sent during steps
       toolsUsed: stepResults.flatMap(r => r.toolsUsed || []),
-      iterations: stepResults.reduce((sum, r => sum + (r.iterations || 0), 0),
+      iterations: stepResults.reduce((sum, r) => sum + (r.iterations || 0), 0),
       multiStep: true,
       stepsCompleted: stepResults.length,
       totalSteps: plan.steps.length,
