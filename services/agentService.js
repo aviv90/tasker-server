@@ -3539,8 +3539,43 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   const detectionText = extractDetectionText(prompt);
   
   // 🧠 Use LLM-based planner to intelligently detect and plan multi-step execution
-  const plan = await planMultiStepExecution(detectionText);
+  let plan = await planMultiStepExecution(detectionText);
   
+  // Fallback: if planner failed, try heuristic detection and build simple plan
+  if (plan.fallback) {
+    const isMultiStepHeuristic = detectMultiStepHeuristic(detectionText);
+    if (isMultiStepHeuristic) {
+      console.log(`⚠️ [Agent] Planner fallback - using heuristic to build simple plan`);
+      
+      // Build a simple 2-step plan by splitting on connectors
+      const splitPattern = /(ואז|ואחר כך|אחר כך|and then|after that)/gi;
+      const parts = detectionText.split(splitPattern).filter(p => p.trim() && !splitPattern.test(p));
+      
+      if (parts.length >= 2) {
+        console.log(`📋 [Agent] Heuristic split into ${parts.length} parts`);
+        
+        // Override plan with simple manual split
+        plan = {
+          isMultiStep: true,
+          steps: parts.map((part, idx) => ({
+            stepNumber: idx + 1,
+            action: part.trim()
+          })),
+          reasoning: 'Fallback heuristic split'
+        };
+        
+        console.log(`🔄 [Agent] Re-routing to multi-step execution with ${plan.steps.length} steps`);
+        agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 15);
+        agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 360000);
+      } else {
+        console.log(`⚠️ [Agent] Heuristic detected multi-step but couldn't split clearly`);
+        agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 10);
+        agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 300000);
+      }
+    }
+  }
+  
+  // 🔄 Multi-step execution - execute each step sequentially
   if (plan.isMultiStep && plan.steps && plan.steps.length > 1) {
     console.log(`🎯 [Agent] Multi-step execution planned: ${plan.steps.length} steps`);
     agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 15); // More iterations for multi-step
@@ -3637,16 +3672,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     };
   }
   
-  // Fallback: try heuristic detection if planner returned fallback flag
-  if (plan.fallback) {
-    const isMultiStepHeuristic = detectMultiStepHeuristic(detectionText);
-    if (isMultiStepHeuristic) {
-      console.log(`⚠️ [Agent] Planner fallback - detected multi-step via heuristic`);
-      agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 10);
-      agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 300000);
-    }
-  }
-  
+  // Continue with single-step execution if not multi-step
   const maxIterations = options.maxIterations || agentConfig.maxIterations;
   const model = genAI.getGenerativeModel({ model: agentConfig.model });
   
