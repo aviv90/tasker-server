@@ -148,6 +148,48 @@ function shouldSplitTask(prompt) {
 }
 
 /**
+ * Detect if a request contains multiple steps/actions that need to be executed sequentially
+ * @param {string} prompt - User's prompt
+ * @returns {boolean} - True if this is a multi-step request
+ */
+function detectMultiStepRequest(prompt) {
+  if (!prompt) return false;
+  
+  // Patterns that indicate multi-step requests:
+  
+  // 1. Sequential connectors (Hebrew)
+  const hasHebrewSequence = /\b(ואז|ואחר כך|ולאחר מכן|אחר כך|לאחר מכן|קודם|אחר זה|בהמשך)\b/gi.test(prompt);
+  
+  // 2. Sequential connectors (English)
+  const hasEnglishSequence = /\b(and then|after that|afterwards|then|next|first.*then|later)\b/gi.test(prompt);
+  
+  // 3. Multiple action verbs (Hebrew) - at least 2 different actions
+  const hebrewActionVerbs = prompt.match(/\b(ספר|כתוב|תכתוב|צור|תצור|תרגם|אמור|תאמר|נתח|תנתח|ערוך|תערוך|חפש|תחפש|שלח|תשלח|הראה|תראה)\b/gi);
+  const hasMultipleHebrewActions = hebrewActionVerbs && hebrewActionVerbs.length >= 2;
+  
+  // 4. Multiple action verbs (English) - at least 2 different actions
+  const englishActionVerbs = prompt.match(/\b(tell|write|create|make|translate|say|speak|analyze|edit|search|send|show|generate|produce)\b/gi);
+  const hasMultipleEnglishActions = englishActionVerbs && englishActionVerbs.length >= 2;
+  
+  // 5. Explicit multi-step indicators
+  const hasExplicitSteps = /\b(שלב|שלבים|step|steps|stage|stages|קודם|ראשון|שני|שלישי|first|second|third)\b/gi.test(prompt);
+  
+  // 6. Combo patterns - action + connector + action
+  const hasComboPattern = /\b(ספר|כתוב|צור|תרגם|אמור|נתח|ערוך|חפש).+(ו|ואז|אחר כך).+(ספר|כתוב|צור|תרגם|אמור|נתח|ערוך|חפש)/gi.test(prompt) ||
+                          /\b(tell|write|create|translate|say|analyze|edit|search).+(and|then|after).+(tell|write|create|translate|say|analyze|edit|search)/gi.test(prompt);
+  
+  const isMultiStep = hasHebrewSequence || hasEnglishSequence || 
+                      hasMultipleHebrewActions || hasMultipleEnglishActions || 
+                      hasExplicitSteps || hasComboPattern;
+  
+  if (isMultiStep) {
+    console.log(`🔍 [Multi-Step Detection] Found multi-step indicators in prompt`);
+  }
+  
+  return isMultiStep;
+}
+
+/**
  * Split a complex prompt into smaller subtasks
  * @param {string} prompt - Complex prompt
  * @returns {string[]} - Array of subtasks
@@ -3360,10 +3402,18 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   // ⚙️ Configuration: Load from env or use defaults
   const agentConfig = {
     model: process.env.AGENT_MODEL || 'gemini-2.5-flash',
-    maxIterations: Number(process.env.AGENT_MAX_ITERATIONS) || 5,
-    timeoutMs: Number(process.env.AGENT_TIMEOUT_MS) || 180000, // 3 minutes for complex multi-step tasks
+    maxIterations: Number(process.env.AGENT_MAX_ITERATIONS) || 8, // Increased from 5 to 8 for multi-step tasks
+    timeoutMs: Number(process.env.AGENT_TIMEOUT_MS) || 240000, // 4 minutes for complex multi-step tasks (increased from 3)
     contextMemoryEnabled: String(process.env.AGENT_CONTEXT_MEMORY_ENABLED || 'false').toLowerCase() === 'true'
   };
+  
+  // 🔍 Detect if this is a multi-step request and adjust iterations accordingly
+  const isMultiStepRequest = detectMultiStepRequest(prompt);
+  if (isMultiStepRequest) {
+    console.log(`🎯 [Agent] Detected multi-step request - allowing more iterations`);
+    agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 10); // At least 10 iterations for multi-step
+    agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 300000); // 5 minutes for multi-step
+  }
   
   const maxIterations = options.maxIterations || agentConfig.maxIterations;
   const model = genAI.getGenerativeModel({ model: agentConfig.model });
@@ -3534,6 +3584,32 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 • תשיב בצורה טבעית ונעימה
 • בשאלות מורכבות - פצל למספר שלבים קטנים
 
+🎯 **פקודות מורכבות ורצף פעולות - CRITICAL FOR MULTI-STEP TASKS:**
+• **כשמבקשים מספר פעולות ברצף (למשל: "ספר בדיחה, שלח אותה, ואז צור תמונה") - חובה לבצע אותן בסדר צעד אחר צעד!**
+• **NEVER** try to execute multiple independent steps in one iteration - execute one step at a time!
+• **תהליך ביצוע נכון:**
+  1. זהה שיש כמה שלבים בבקשה ("ו", "ואז", "אחר כך", "לאחר מכן")
+  2. בצע את השלב הראשון בלבד
+  3. **החזר את התוצאה ל-Gemini** עם ציון מפורש: "✅ שלב 1 הושלם: [תוצאה]. כעת ממשיך לשלב 2..."
+  4. Gemini יקרא שוב עם התוצאה - כעת בצע את השלב הבא
+  5. חזור על זה עד סיום כל השלבים
+• **דוגמה נכונה - "ספר בדיחה, שלח אותה, ואז צור תמונה לפי הבדיחה":**
+  - **איטרציה 1:** אין tool calls - פשוט כתוב את הבדיחה בטקסט חופשי
+  - **התוצאה שתחזיר:** "הנה בדיחה: [הבדיחה כאן]. עכשיו אצור תמונה לפי הבדיחה..."
+  - **איטרציה 2:** קרא ל-create_image עם פרומפט מבוסס על הבדיחה
+  - **תוצאה סופית:** התמונה + הבדיחה בטקסט
+• **דוגמה נכונה 2 - "תרגם ל-אנגלית 'שלום עולם' ואז אמור את זה בקול":**
+  - **איטרציה 1:** קרא ל-translate_text → מקבל "Hello World"
+  - **החזר:** "תרגמתי: Hello World. כעת אמר את זה בקול..."
+  - **איטרציה 2:** קרא ל-text_to_speech עם "Hello World"
+  - **תוצאה סופית:** הודעה קולית
+• **דוגמה שגויה - אל תעשה ככה:**
+  ❌ קריאה ל-2-3 tools בבת אחת כשיש תלות ביניהם
+  ❌ קפיצה לשלב הסופי מבלי לעבור דרך השלבים הביניים
+  ❌ דילוג על חלק מהבקשה (למשל: לא לספר את הבדיחה בטקסט לפני יצירת התמונה)
+• **REMEMBER:** אתה יכול לבצע מספר איטרציות! אין צורך לסיים הכל בקריאה אחת.
+• **תוצאות ביניות חשובות:** כל תוצאה שאתה מחזיר בטקסט חופשי (לא דרך tool) - המשתמש רואה אותה! אז אם ביקשו "ספר בדיחה" - תספר בטקסט חופשי תחילה.
+
 🚨 **טיפול בשגיאות (CRITICAL!):**
 • אם tool נכשל - **אל תקרא לאותו tool שוב בשום מקרה!**
 • **אל תפצל tool כושל למספר tools אחרים!** (למשל: אם translate_and_speak נכשל → אסור translate_text + text_to_speech)
@@ -3607,6 +3683,21 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     while (iterationCount < maxIterations) {
     iterationCount++;
     console.log(`🔄 [Agent] Iteration ${iterationCount}/${maxIterations}`);
+    
+    // 📢 For multi-step requests, send progress updates to user
+    if (isMultiStepRequest && iterationCount > 1 && iterationCount < maxIterations) {
+      try {
+        const { greenApiService } = getServices();
+        const progressMessage = `🔄 ממשיך לשלב ${iterationCount} מתוך ${maxIterations}...`;
+        // Don't await - send asynchronously to not slow down the agent
+        greenApiService.sendTextMessage(chatId, progressMessage).catch(err => {
+          console.error(`❌ Failed to send progress message: ${err.message}`);
+        });
+      } catch (err) {
+        // Silently fail - progress messages are nice-to-have
+        console.error(`❌ Error sending progress message: ${err.message}`);
+      }
+    }
     
     const result = response.response;
     
@@ -3805,8 +3896,71 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     // Wait for all tools to complete
     const functionResponses = await Promise.all(toolPromises);
     
-    // Send function responses back to Gemini
-    response = await chat.sendMessage(functionResponses);
+    // 🧠 Build enriched feedback for Gemini with clear context about what happened
+    // This helps Gemini understand the results and plan next steps correctly
+    let enrichedMessage = [...functionResponses];
+    
+    // Add context summary if multiple tools were called or if there are valuable results
+    if (functionResponses.length > 0) {
+      const successfulTools = functionResponses.filter(fr => fr.functionResponse.response.success !== false);
+      const failedTools = functionResponses.filter(fr => fr.functionResponse.response.success === false);
+      
+      let contextSummary = '\n\n📊 **Execution Summary:**\n';
+      
+      if (successfulTools.length > 0) {
+        contextSummary += `✅ ${successfulTools.length} tool(s) completed successfully:\n`;
+        successfulTools.forEach(fr => {
+          const toolName = fr.functionResponse.name;
+          const result = fr.functionResponse.response;
+          
+          // Extract key information from result
+          let resultInfo = '';
+          if (result.data) {
+            resultInfo = ` → Result: ${typeof result.data === 'string' ? result.data.substring(0, 200) : JSON.stringify(result.data).substring(0, 200)}`;
+          }
+          if (result.text) {
+            resultInfo = ` → Text: ${result.text.substring(0, 200)}`;
+          }
+          if (result.translation || result.translatedText) {
+            resultInfo = ` → Translation: ${result.translation || result.translatedText}`;
+          }
+          if (result.imageUrl) {
+            resultInfo = ` → Image created: ${result.imageUrl}`;
+          }
+          if (result.videoUrl) {
+            resultInfo = ` → Video created: ${result.videoUrl}`;
+          }
+          if (result.audioUrl) {
+            resultInfo = ` → Audio created: ${result.audioUrl}`;
+          }
+          
+          contextSummary += `  • ${toolName}${resultInfo}\n`;
+        });
+      }
+      
+      if (failedTools.length > 0) {
+        contextSummary += `\n❌ ${failedTools.length} tool(s) failed:\n`;
+        failedTools.forEach(fr => {
+          const toolName = fr.functionResponse.name;
+          const error = fr.functionResponse.response.error || 'Unknown error';
+          contextSummary += `  • ${toolName} → ${error}\n`;
+        });
+      }
+      
+      contextSummary += '\n💡 **Next Steps Guidance:**\n';
+      contextSummary += '- If this is a multi-step request, proceed to the NEXT step only (don\'t skip steps)\n';
+      contextSummary += '- Use the results above as input for subsequent steps\n';
+      contextSummary += '- If a step failed, use retry_with_different_provider or smart_execute_with_fallback\n';
+      contextSummary += '- Return text responses to user for steps that don\'t require tools\n';
+      
+      // Append as a text part (Gemini will see this)
+      enrichedMessage.push({
+        text: contextSummary
+      });
+    }
+    
+    // Send enriched function responses back to Gemini
+    response = await chat.sendMessage(enrichedMessage);
   }
   
     // Max iterations reached
@@ -3857,18 +4011,17 @@ function shouldUseAgent(prompt, input) {
   // • Conditional fallback ("if fails, try X")
   // • Complex retry requests
   
+  // 🎯 First check: Use detectMultiStepRequest for comprehensive multi-step detection
+  if (detectMultiStepRequest(prompt)) {
+    console.log(`🤖 [Agent] Detected multi-step request - using agent`);
+    return true;
+  }
+  
   const agentPatterns = [
     // History (Hebrew + English)
     /מה\s+(אמרתי|אמרת|כתבתי|כתבת|שלחתי|שלחת|דיברתי|דיברת)|על\s+מה\s+(דיברנו|עסקנו|שוחחנו)|(אילו|איזה|מה|כמה)\s+(תמונות|וידאו|הודעות)\s+(היו|נשלחו|כאן|פה)?|(תראה|הראה)\s+(לי)?\s+מה\s+(שלחתי|היה)|מה\s+(היה|קרה|עבר)\s+(כאן|פה|בשיחה)/i,
     /(ב|מ|על)(ה)?(תמונה|וידאו|הקלטה|הודעה|שיחה)\s+(האחרונה|הקודמת|מקודם)/i,
     /what\s+(did\s+)?(I|we|you)\s+(say|write|mention|talk|discuss)|what\s+(images?|videos?|messages?)\s+(were|was)?\s+(sent|shared|here)?|(show|display)\s+me\s+what\s+(I|we|you)\s+(sent|shared)|about\s+the\s+(image|video|audio|message|conversation)|in\s+the\s+(previous|last|recent)\s+(message|conversation)/i,
-    
-    // Multi-step (Hebrew + English)
-    // ⚠️ IMPORTANT: Exclude simple "צור" verbs without multi-step indicators (e.g., "צור סקר" alone)
-    // Only match patterns with explicit multi-step indicators: "ו" (and), "אם" (if), "ואז" (then)
-    // This prevents single "צור X" commands from being caught by this pattern
-    /(צור|נתח|חפש).+(ו|אם|ואז).+(נתח|בדוק|ערוך|שפר|תן|צור|ספר)/i,
-    /create.+(and|then).+(analyze|check|edit|improve)|analyze.+(and|then).+(edit|improve|enhance)|search.+(and|then).+(summarize|create|tell)/i,
     
     // Conditional fallback (Hebrew + English)
     /(אם|ו?אם).+(נכשל|לא\s+עבד|לא\s+הצליח).+(נסה|צור).+(עם|ב)\s+(OpenAI|Gemini|Grok)|(אם|if).+(לא|not).+(נסה|try).+(אחר|different|other)/i,
