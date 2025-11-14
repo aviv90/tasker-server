@@ -3581,6 +3581,10 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 15); // More iterations for multi-step
     agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 360000); // 6 minutes for multi-step
     
+    // Prepare tools for steps
+    const functionDeclarations = Object.values(agentTools).map(tool => tool.declaration);
+    const systemInstruction = prompts.agentSystemInstruction(languageInstruction);
+    
     // 🔄 Execute each step sequentially
     const stepResults = [];
     let accumulatedText = '';
