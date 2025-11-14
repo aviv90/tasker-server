@@ -3593,20 +3593,34 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   3. **החזר את התוצאה ל-Gemini** עם ציון מפורש: "✅ שלב 1 הושלם: [תוצאה]. כעת ממשיך לשלב 2..."
   4. Gemini יקרא שוב עם התוצאה - כעת בצע את השלב הבא
   5. חזור על זה עד סיום כל השלבים
+  
+• **🚨 CRITICAL - DON'T STOP AFTER FIRST STEP:**
+  - אם ביקשו "X ואז Y" → אחרי שעשית X, **חובה** לעשות Y!
+  - אל תסיים את התשובה אחרי X - המשתמש ביקש גם Y!
+  - אם לא קראת לשום tool בתשובה, אבל עדיין יש שלבים נוספים → **זה לא סיום! המשך!**
+  
 • **דוגמה נכונה - "ספר בדיחה, שלח אותה, ואז צור תמונה לפי הבדיחה":**
-  - **איטרציה 1:** אין tool calls - פשוט כתוב את הבדיחה בטקסט חופשי
-  - **התוצאה שתחזיר:** "הנה בדיחה: [הבדיחה כאן]. עכשיו אצור תמונה לפי הבדיחה..."
-  - **איטרציה 2:** קרא ל-create_image עם פרומפט מבוסס על הבדיחה
-  - **תוצאה סופית:** התמונה + הבדיחה בטקסט
-• **דוגמה נכונה 2 - "תרגם ל-אנגלית 'שלום עולם' ואז אמור את זה בקול":**
-  - **איטרציה 1:** קרא ל-translate_text → מקבל "Hello World"
-  - **החזר:** "תרגמתי: Hello World. כעת אמר את זה בקול..."
-  - **איטרציה 2:** קרא ל-text_to_speech עם "Hello World"
-  - **תוצאה סופית:** הודעה קולית
+  - **איטרציה 1 (NO TOOLS):** 
+    * כתוב את הבדיחה בטקסט חופשי
+    * **אבל לא תסיים כאן!**
+    * בסוף התשובה, הוסף: "עכשיו אצור תמונה שממחישה את הבדיחה..."
+    * **זה יגרום למערכת להמשיך לאיטרציה 2**
+  - **איטרציה 2 (WITH TOOL):** 
+    * קרא ל-create_image עם פרומפט מבוסס על הבדיחה
+  - **תוצאה סופית:** המשתמש מקבל גם את הבדיחה וגם את התמונה
+  
 • **דוגמה שגויה - אל תעשה ככה:**
+  ❌ איטרציה 1: כותב בדיחה → **מסיים את התשובה** (שכח את השלב של התמונה!)
   ❌ קריאה ל-2-3 tools בבת אחת כשיש תלות ביניהם
   ❌ קפיצה לשלב הסופי מבלי לעבור דרך השלבים הביניים
-  ❌ דילוג על חלק מהבקשה (למשל: לא לספר את הבדיחה בטקסט לפני יצירת התמונה)
+  
+• **HOW TO SIGNAL "NOT DONE YET":**
+  - כשמסיים שלב ביניים (ללא tool calls), **חובה** לכתוב משהו כמו:
+    * "כעת אעבור לשלב הבא..."
+    * "עכשיו אצור תמונה..."
+    * "בואו ניצור את..."
+  - זה **מונע** מהמערכת לסיים את התשובה ומאפשר איטרציות נוספות!
+  
 • **REMEMBER:** אתה יכול לבצע מספר איטרציות! אין צורך לסיים הכל בקריאה אחת.
 • **תוצאות ביניות חשובות:** כל תוצאה שאתה מחזיר בטקסט חופשי (לא דרך tool) - המשתמש רואה אותה! אז אם ביקשו "ספר בדיחה" - תספר בטקסט חופשי תחילה.
 
@@ -3705,12 +3719,48 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     const functionCalls = result.functionCalls();
     
     if (!functionCalls || functionCalls.length === 0) {
-      // No more function calls - we have a final answer
+      // No more function calls in this iteration
       let text = result.text();
       
-      // 🧹 CRITICAL: Clean thinking patterns before sending to user!
+      // 🧹 CRITICAL: Clean thinking patterns before checking if we should continue
       text = cleanThinkingPatterns(text);
       
+      // 🎯 MULTI-STEP CONTINUATION CHECK
+      // For multi-step requests, check if we should continue even without function calls
+      if (isMultiStepRequest && iterationCount < 4) {
+        // Count how many tools we've executed so far
+        const toolsExecutedCount = Object.keys(context.previousToolResults).length;
+        
+        // Check if text suggests continuation
+        const hasContinuationSignal = text.includes('עכשיו') || 
+                                       text.includes('כעת') || 
+                                       text.includes('בואו') ||
+                                       text.includes('now') ||
+                                       text.includes('next') ||
+                                       text.includes('אצור') ||
+                                       text.includes('אעבור') ||
+                                       text.includes('ממשיך') ||
+                                       text.includes('יצירת') ||
+                                       text.includes('creating') ||
+                                       text.includes('ליצור');
+        
+        // If we're in iteration 1-2 and have executed < 2 tools, likely need to continue
+        const needsMoreSteps = (iterationCount <= 2 && toolsExecutedCount < 2) || hasContinuationSignal;
+        
+        if (needsMoreSteps) {
+          console.log(`🔄 [Agent] Multi-step request: Iteration ${iterationCount}, Tools executed: ${toolsExecutedCount}`);
+          console.log(`🔄 [Agent] Continuation signal: ${hasContinuationSignal ? 'YES' : 'NO'} - Prompting for next step`);
+          
+          // Send a continuation prompt to trigger the next step
+          const continuationPrompt = 'המשך עם השלב הבא של הבקשה. בצע את הפעולה הבאה שהמשתמש ביקש. (Continue with the next step that the user requested - execute the next action now)';
+          response = await chat.sendMessage(continuationPrompt);
+          continue; // Go to next iteration
+        } else {
+          console.log(`✅ [Agent] Multi-step request appears complete: ${toolsExecutedCount} tools executed`);
+        }
+      }
+      
+      // No continuation needed - this is the final answer
       console.log(`✅ [Agent] Completed in ${iterationCount} iterations`);
       
       // 🧠 Save context for future agent calls if enabled (to DB)
@@ -3896,71 +3946,33 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     // Wait for all tools to complete
     const functionResponses = await Promise.all(toolPromises);
     
-    // 🧠 Build enriched feedback for Gemini with clear context about what happened
-    // This helps Gemini understand the results and plan next steps correctly
-    let enrichedMessage = [...functionResponses];
+    // 🧠 Enrich function responses with context for better multi-step handling
+    // Add execution context directly IN the response object (not as separate text - that causes Gemini errors)
+    const enrichedResponses = functionResponses.map(fr => {
+      const result = fr.functionResponse.response;
+      
+      // Add step completion indicators to help Gemini track progress
+      if (result.success !== false) {
+        // Add a contextual note about multi-step execution
+        if (isMultiStepRequest && !result._enriched) {
+          result._enriched = true;
+          result._note = 'Step completed. If this is part of a multi-step request, proceed to the NEXT step. Use results from this step as input for subsequent steps.';
+        }
+      }
+      
+      return fr;
+    });
     
-    // Add context summary if multiple tools were called or if there are valuable results
+    // Log execution summary for debugging
     if (functionResponses.length > 0) {
-      const successfulTools = functionResponses.filter(fr => fr.functionResponse.response.success !== false);
-      const failedTools = functionResponses.filter(fr => fr.functionResponse.response.success === false);
-      
-      let contextSummary = '\n\n📊 **Execution Summary:**\n';
-      
-      if (successfulTools.length > 0) {
-        contextSummary += `✅ ${successfulTools.length} tool(s) completed successfully:\n`;
-        successfulTools.forEach(fr => {
-          const toolName = fr.functionResponse.name;
-          const result = fr.functionResponse.response;
-          
-          // Extract key information from result
-          let resultInfo = '';
-          if (result.data) {
-            resultInfo = ` → Result: ${typeof result.data === 'string' ? result.data.substring(0, 200) : JSON.stringify(result.data).substring(0, 200)}`;
-          }
-          if (result.text) {
-            resultInfo = ` → Text: ${result.text.substring(0, 200)}`;
-          }
-          if (result.translation || result.translatedText) {
-            resultInfo = ` → Translation: ${result.translation || result.translatedText}`;
-          }
-          if (result.imageUrl) {
-            resultInfo = ` → Image created: ${result.imageUrl}`;
-          }
-          if (result.videoUrl) {
-            resultInfo = ` → Video created: ${result.videoUrl}`;
-          }
-          if (result.audioUrl) {
-            resultInfo = ` → Audio created: ${result.audioUrl}`;
-          }
-          
-          contextSummary += `  • ${toolName}${resultInfo}\n`;
-        });
-      }
-      
-      if (failedTools.length > 0) {
-        contextSummary += `\n❌ ${failedTools.length} tool(s) failed:\n`;
-        failedTools.forEach(fr => {
-          const toolName = fr.functionResponse.name;
-          const error = fr.functionResponse.response.error || 'Unknown error';
-          contextSummary += `  • ${toolName} → ${error}\n`;
-        });
-      }
-      
-      contextSummary += '\n💡 **Next Steps Guidance:**\n';
-      contextSummary += '- If this is a multi-step request, proceed to the NEXT step only (don\'t skip steps)\n';
-      contextSummary += '- Use the results above as input for subsequent steps\n';
-      contextSummary += '- If a step failed, use retry_with_different_provider or smart_execute_with_fallback\n';
-      contextSummary += '- Return text responses to user for steps that don\'t require tools\n';
-      
-      // Append as a text part (Gemini will see this)
-      enrichedMessage.push({
-        text: contextSummary
-      });
+      const successCount = functionResponses.filter(fr => fr.functionResponse.response.success !== false).length;
+      const failCount = functionResponses.length - successCount;
+      console.log(`📊 [Agent] Tool execution: ${successCount} succeeded, ${failCount} failed`);
     }
     
-    // Send enriched function responses back to Gemini
-    response = await chat.sendMessage(enrichedMessage);
+    // Send function responses back to Gemini
+    // CRITICAL: Do NOT add text parts here - Gemini doesn't allow mixing FunctionResponse with text
+    response = await chat.sendMessage(enrichedResponses);
   }
   
     // Max iterations reached

@@ -250,8 +250,10 @@ async function routeToAgent(input, chatId) {
   console.log(`🤖 [AGENT ROUTER] Sending to Agent: "${contextualPrompt.substring(0, 150)}..."`);
   
   // Execute agent query
+  // Note: maxIterations is auto-determined by agentService based on request complexity
+  // Multi-step requests get 10 iterations, regular requests get 8
   const agentResult = await executeAgentQuery(contextualPrompt, chatId, {
-    maxIterations: 5,
+    // Don't override maxIterations - let agentService decide based on request type
     input: {
       ...input,
       lastCommand: parsedLastCommand
