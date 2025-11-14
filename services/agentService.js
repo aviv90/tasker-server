@@ -8,7 +8,7 @@ const conversationManager = require('./conversationManager');
 const locationService = require('./locationService');
 const prompts = require('../config/prompts');
 const { detectLanguage, extractDetectionText, cleanThinkingPatterns } = require('../utils/agentHelpers');
-const { planMultiStepExecution, detectMultiStepHeuristic } = require('./multiStepPlanner');
+const { planMultiStepExecution } = require('./multiStepPlanner');
 
 const execAsync = promisify(exec);
 
@@ -3531,38 +3531,10 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   // 🧠 Use LLM-based planner to intelligently detect and plan multi-step execution
   let plan = await planMultiStepExecution(detectionText);
   
-  // Fallback: if planner failed, try heuristic detection and build simple plan
+  // If planner failed, treat as single-step (no heuristic fallback - rely on LLM only)
   if (plan.fallback) {
-    const isMultiStepHeuristic = detectMultiStepHeuristic(detectionText);
-    if (isMultiStepHeuristic) {
-      console.log(`⚠️ [Agent] Planner fallback - using heuristic to build simple plan`);
-      
-      // Build a simple 2-step plan by splitting on connectors
-      const splitPattern = /(ואז|ואחר כך|אחר כך|and then|after that)/gi;
-      const parts = detectionText.split(splitPattern).filter(p => p.trim() && !splitPattern.test(p));
-      
-      if (parts.length >= 2) {
-        console.log(`📋 [Agent] Heuristic split into ${parts.length} parts`);
-        
-        // Override plan with simple manual split
-        plan = {
-          isMultiStep: true,
-          steps: parts.map((part, idx) => ({
-            stepNumber: idx + 1,
-            action: part.trim()
-          })),
-          reasoning: 'Fallback heuristic split'
-        };
-        
-        console.log(`🔄 [Agent] Re-routing to multi-step execution with ${plan.steps.length} steps`);
-        agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 15);
-        agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 360000);
-      } else {
-        console.log(`⚠️ [Agent] Heuristic detected multi-step but couldn't split clearly`);
-        agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 10);
-        agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 300000);
-      }
-    }
+    console.log(`⚠️ [Agent] Planner failed - treating as single-step (no heuristic fallback)`);
+    plan = { isMultiStep: false };
   }
   
   // 🔄 Multi-step execution - execute each step sequentially
@@ -3624,16 +3596,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         if (stepResult.success) {
           stepResults.push(stepResult);
           
-          // Accumulate text (don't send yet)
-          // BUT: If step created media (image/video/audio), ignore its text - media is enough
-          if (stepResult.text && stepResult.text.trim() && !stepResult.imageUrl && !stepResult.videoUrl && !stepResult.audioUrl) {
-            accumulatedText += (accumulatedText ? '\n\n' : '') + stepResult.text;
-            console.log(`📝 [Agent] Step ${step.stepNumber} text accumulated (${stepResult.text.length} chars)`);
-          } else if (stepResult.imageUrl || stepResult.videoUrl || stepResult.audioUrl) {
-            console.log(`📝 [Agent] Step ${step.stepNumber} created media - ignoring text, media is enough`);
-          }
-          
-          // Track assets (only last one of each type)
+          // Track assets FIRST (only last one of each type)
           if (stepResult.imageUrl) {
             finalAssets.imageUrl = stepResult.imageUrl;
             finalAssets.imageCaption = stepResult.imageCaption || '';
@@ -3641,10 +3604,22 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           }
           if (stepResult.videoUrl) finalAssets.videoUrl = stepResult.videoUrl;
           if (stepResult.audioUrl) finalAssets.audioUrl = stepResult.audioUrl;
+          
+          // Track other assets
           if (stepResult.poll) finalAssets.poll = stepResult.poll;
           if (stepResult.latitude) finalAssets.latitude = stepResult.latitude;
           if (stepResult.longitude) finalAssets.longitude = stepResult.longitude;
           if (stepResult.locationInfo) finalAssets.locationInfo = stepResult.locationInfo;
+          
+          // Accumulate text ONLY if step did NOT create media
+          // If step created media, ignore its text - media is enough, text should not be in message
+          const createdMedia = stepResult.imageUrl || stepResult.videoUrl || stepResult.audioUrl;
+          if (stepResult.text && stepResult.text.trim() && !createdMedia) {
+            accumulatedText += (accumulatedText ? '\n\n' : '') + stepResult.text;
+            console.log(`📝 [Agent] Step ${step.stepNumber} text accumulated (${stepResult.text.length} chars)`);
+          } else if (createdMedia) {
+            console.log(`📝 [Agent] Step ${step.stepNumber} created media - ignoring text (${stepResult.text?.length || 0} chars), media is enough`);
+          }
           
           console.log(`✅ [Agent] Step ${step.stepNumber}/${plan.steps.length} completed successfully`);
         } else {
@@ -4209,15 +4184,11 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
 function shouldUseAgent(prompt, input) {
   // Use agent for:
   // • Chat history/previous messages
-  // • Multi-step requests (create + analyze)
+  // • Multi-step requests (create + analyze) - LLM Planner handles this
   // • Conditional fallback ("if fails, try X")
   // • Complex retry requests
   
-  // 🎯 First check: Use heuristic for quick multi-step detection
-  if (detectMultiStepHeuristic(prompt)) {
-    console.log(`🤖 [Agent] Detected multi-step request - using agent`);
-    return true;
-  }
+  // NOTE: Multi-step detection is handled by LLM Planner - no heuristic needed!
   
   const agentPatterns = [
     // History (Hebrew + English)

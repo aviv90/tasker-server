@@ -93,21 +93,7 @@ async function planMultiStepExecution(userRequest) {
   }
 }
 
-/**
- * Heuristic multi-step detection (fallback if planner fails)
- */
-function detectMultiStepHeuristic(prompt) {
-  if (!prompt) return false;
-  
-  const hasSequence = /(ואז|ואחר כך|אחר כך|and then|after that)/gi.test(prompt);
-  const actionVerbs = prompt.match(/(ספר|כתוב|צור|תרגם|אמור|tell|write|create|translate|say)/gi);
-  const hasMultipleActions = actionVerbs && actionVerbs.length >= 2;
-  
-  return hasSequence || hasMultipleActions;
-}
-
 module.exports = {
-  planMultiStepExecution,
-  detectMultiStepHeuristic
+  planMultiStepExecution
 };
 
