@@ -70,8 +70,21 @@ async function planMultiStepExecution(userRequest) {
       plan = JSON.parse(jsonStr);
     } catch (parseError) {
       console.error(`❌ [Planner] JSON parse failed:`, parseError.message);
-      console.log(`   Raw JSON (first 300 chars): ${jsonStr.substring(0, 300)}`);
-      return { isMultiStep: false, fallback: true };
+      console.log(`   Error position: ${parseError.message.match(/position (\d+)/)?.[1] || 'unknown'}`);
+      console.log(`   Raw JSON (first 500 chars): ${jsonStr.substring(0, 500)}`);
+      
+      // Try to fix common JSON issues
+      // Fix trailing commas in arrays/objects
+      jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
+      
+      // Try parsing again after fix
+      try {
+        plan = JSON.parse(jsonStr);
+        console.log(`✅ [Planner] JSON fixed and parsed successfully`);
+      } catch (retryError) {
+        console.error(`❌ [Planner] Still failed after fix:`, retryError.message);
+        return { isMultiStep: false, fallback: true };
+      }
     }
     
     if (plan.isMultiStep && Array.isArray(plan.steps) && plan.steps.length > 1) {
