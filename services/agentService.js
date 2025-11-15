@@ -3270,13 +3270,22 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   // 🧠 Use LLM-based planner to intelligently detect and plan multi-step execution
   let plan = await planMultiStepExecution(detectionText);
   
+  console.log(`🔍 [Planner] Plan result:`, JSON.stringify({
+    isMultiStep: plan.isMultiStep,
+    stepsLength: plan.steps?.length,
+    fallback: plan.fallback,
+    steps: plan.steps?.map(s => ({ stepNumber: s.stepNumber, tool: s.tool, action: s.action?.substring(0, 50) }))
+  }, null, 2));
+  
   // If planner failed, treat as single-step (no heuristic fallback - rely on LLM only)
   if (plan.fallback) {
+    console.log(`⚠️ [Planner] Planner failed, treating as single-step`);
     plan = { isMultiStep: false };
   }
   
   // 🔄 Multi-step execution - execute each step sequentially
   if (plan.isMultiStep && plan.steps && plan.steps.length > 1) {
+    console.log(`✅ [Planner] Entering multi-step execution with ${plan.steps.length} steps`);
     agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 15); // More iterations for multi-step
     agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 360000); // 6 minutes for multi-step
     
