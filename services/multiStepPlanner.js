@@ -75,7 +75,21 @@ async function planMultiStepExecution(userRequest) {
     }
     
     if (plan.isMultiStep && Array.isArray(plan.steps) && plan.steps.length > 1) {
-      return plan;
+      // Validate and normalize plan steps
+      const validatedSteps = plan.steps.map((step, index) => {
+        // Ensure step has required fields
+        return {
+          stepNumber: step.stepNumber || index + 1,
+          tool: step.tool || null, // null if text-only step
+          action: step.action || `Step ${index + 1}`,
+          parameters: step.parameters || {}
+        };
+      });
+      
+      return {
+        ...plan,
+        steps: validatedSteps
+      };
     }
     
     return { isMultiStep: false };

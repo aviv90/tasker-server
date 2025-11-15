@@ -19,6 +19,15 @@ MULTI-STEP INDICATORS:
 - Sequence words: "ואז", "אחר כך", "and then", "after that", "then"
 - Multiple different verbs requiring different tools
 
+AVAILABLE TOOLS:
+• send_location - Send location (region: optional - include only if specific location requested)
+• create_image - Create image (prompt: required, provider: optional)
+• create_video - Create video (prompt: required, provider: optional)
+• text_to_speech - Text to speech (text: required, voice: optional)
+• create_poll - Create poll (topic: required, numOptions: optional)
+• web_search - Web search (query: required)
+• translate_text - Translate text (text: required, target_language: required)
+
 AUDIO/VOICE:
 - Only include if user explicitly requests: "אמור", "תשמיע", "voice", "say", "קרא בקול"
 
@@ -26,7 +35,29 @@ OUTPUT (strict JSON only):
 
 SINGLE: {"isMultiStep":false}
 
-MULTI: {"isMultiStep":true,"steps":[{"stepNumber":1,"action":"action1"},{"stepNumber":2,"action":"action2"}],"reasoning":"brief explanation"}
+MULTI: {
+  "isMultiStep":true,
+  "steps":[
+    {
+      "stepNumber":1,
+      "tool":"send_location",
+      "action":"send location in Slovenia",
+      "parameters":{"region":"Slovenia"}
+    },
+    {
+      "stepNumber":2,
+      "tool":"create_image",
+      "action":"create image of lightning",
+      "parameters":{"prompt":"lightning","provider":"gemini"}
+    }
+  ],
+  "reasoning":"two sequential actions"
+}
+
+CRITICAL:
+- Each step MUST include: stepNumber, tool, action, parameters
+- Extract parameters from user request (e.g., "באזור סלובניה" → parameters: {"region":"Slovenia"})
+- If no tool needed (text response), use: {"tool":null,"action":"tell a joke","parameters":{}}
 
 Return COMPLETE JSON only. NO markdown. NO "...".`,
 

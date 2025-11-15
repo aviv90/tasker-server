@@ -3339,28 +3339,19 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     for (let i = 0; i < plan.steps.length; i++) {
       const step = plan.steps[i];
       
+      // Extract tool and parameters from plan (if provided by planner)
+      const toolName = step.tool || null;
+      const toolParams = step.parameters || {};
+      
       // 📢 Send Ack for FIRST step before execution starts
-      if (i === 0) {
-        const firstStepAction = step.action.toLowerCase();
-        let firstStepTool = null;
-        if (firstStepAction.includes('location') || firstStepAction.includes('מיקום')) {
-          firstStepTool = 'send_location';
-        } else if (firstStepAction.includes('image') || firstStepAction.includes('תמונה')) {
-          firstStepTool = 'create_image';
-        } else if (firstStepAction.includes('video') || firstStepAction.includes('וידאו')) {
-          firstStepTool = 'create_video';
-        }
-        
-        if (firstStepTool) {
-          await sendToolAckMessage(chatId, [{ name: firstStepTool, args: {} }]);
-        }
+      if (i === 0 && toolName) {
+        await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }]);
       }
       
-      // Build focused prompt for this step - keep it simple and clear
-      let stepPrompt = `${step.action}`;
+      // Build focused prompt for this step - use action from plan
+      let stepPrompt = step.action;
       
-      // Add minimal context from previous steps if needed for this step
-      // Only add context if step references previous results (e.g., "create image about it")
+      // Add minimal context from previous steps if step references previous results
       const stepLower = step.action.toLowerCase();
       const needsContext = stepLower.includes('it') || stepLower.includes('אתה') || 
                            stepLower.includes('about') || stepLower.includes('לפי') ||
@@ -3376,6 +3367,14 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         }).join(' | ');
         
         stepPrompt = `Previous: ${previousContext}\n\nCurrent: ${step.action}`;
+      }
+      
+      // If planner provided tool and parameters, add them to the prompt
+      if (toolName && Object.keys(toolParams).length > 0) {
+        const paramsStr = Object.entries(toolParams)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(', ');
+        stepPrompt = `${stepPrompt}\n\nTool: ${toolName}\nParameters: ${paramsStr}`;
       }
       
       // Execute this step
@@ -3437,19 +3436,11 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           // This ensures proper order: Step 1 results → Step 2 Ack → Step 2 execution
           if (i < plan.steps.length - 1) {
             const nextStep = plan.steps[i + 1];
-            // Determine what tool the next step will likely use based on action
-            const nextStepAction = nextStep.action.toLowerCase();
-            let nextStepTool = null;
-            if (nextStepAction.includes('location') || nextStepAction.includes('מיקום')) {
-              nextStepTool = 'send_location';
-            } else if (nextStepAction.includes('image') || nextStepAction.includes('תמונה')) {
-              nextStepTool = 'create_image';
-            } else if (nextStepAction.includes('video') || nextStepAction.includes('וידאו')) {
-              nextStepTool = 'create_video';
-            }
+            const nextStepTool = nextStep.tool || null;
+            const nextStepParams = nextStep.parameters || {};
             
             if (nextStepTool) {
-              await sendToolAckMessage(chatId, [{ name: nextStepTool, args: {} }]);
+              await sendToolAckMessage(chatId, [{ name: nextStepTool, args: nextStepParams }]);
             }
           }
           
