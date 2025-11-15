@@ -103,19 +103,42 @@ async function planMultiStepExecution(userRequest) {
       plan = JSON.parse(jsonStr);
     } catch (parseError) {
       console.error(`❌ [Planner] JSON parse failed:`, parseError.message);
-      console.log(`   Error position: ${parseError.message.match(/position (\d+)/)?.[1] || 'unknown'}`);
-      console.log(`   Raw JSON (first 500 chars): ${jsonStr.substring(0, 500)}`);
+      const errorPos = parseInt(parseError.message.match(/position (\d+)/)?.[1] || '0');
+      console.log(`   Error position: ${errorPos}`);
+      console.log(`   Raw JSON (full): ${jsonStr}`);
+      if (errorPos > 0) {
+        console.log(`   Context around error (position ${Math.max(0, errorPos-50)}-${errorPos+50}):`);
+        console.log(`   ${jsonStr.substring(Math.max(0, errorPos-50), errorPos+50)}`);
+      }
       
-      // Try to fix common JSON issues
-      // Fix trailing commas in arrays/objects
+      // Try more aggressive JSON fixes
+      // 1. Fix trailing commas
       jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
       
-      // Try parsing again after fix
+      // 2. Fix malformed steps array by wrapping each step in object
+      // Look for pattern: "steps": [\n    "stepNumber": 1,\n    ... (no { before)
+      jsonStr = jsonStr.replace(
+        /"steps"\s*:\s*\[\s*"stepNumber"\s*:/g,
+        '"steps": [\n    {\n      "stepNumber":'
+      );
+      
+      // 3. Close any unclosed objects before next stepNumber or end of array
+      jsonStr = jsonStr.replace(/([^}])\s*"stepNumber"\s*:/g, '$1\n    }\n    {\n      "stepNumber":');
+      jsonStr = jsonStr.replace(/"steps"\s*:\s*\[([^\]]+)\]/g, (match, content) => {
+        if (!content.includes('{') && content.includes('"stepNumber":')) {
+          // Wrap the entire content in object
+          return `"steps": [{\n${content.replace(/^/, '    ')}\n  }]`;
+        }
+        return match;
+      });
+      
+      // Try parsing again after fixes
       try {
         plan = JSON.parse(jsonStr);
         console.log(`✅ [Planner] JSON fixed and parsed successfully`);
       } catch (retryError) {
         console.error(`❌ [Planner] Still failed after fix:`, retryError.message);
+        console.log(`   Fixed JSON (first 1000 chars): ${jsonStr.substring(0, 1000)}`);
         return { isMultiStep: false, fallback: true };
       }
     }

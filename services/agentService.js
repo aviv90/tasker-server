@@ -1143,6 +1143,17 @@ const agentTools = {
           for (const provider of providers) {
             console.log(`🔄 Trying image provider: ${provider}`);
             
+            // Send Ack to user for retry attempt
+            if (context?.chatId) {
+              try {
+                const providerName = formatProviderName(provider);
+                await greenApiService.sendTextMessage(context.chatId, `מנסה עם ${providerName}... 🔁`);
+                console.log(`📢 [Retry] Sent Ack for ${providerName}`);
+              } catch (ackError) {
+                console.error(`❌ [Retry] Failed to send Ack:`, ackError.message);
+              }
+            }
+            
             try {
               let imageResult;
               if (provider === 'openai') {
@@ -1163,9 +1174,31 @@ const agentTools = {
                 };
               }
               
+              // Send error to user (as-is, as per rule #2)
+              if (context?.chatId && imageResult.error) {
+                try {
+                  const errorMsg = imageResult.error.toString();
+                  await greenApiService.sendTextMessage(context.chatId, `❌ שגיאה ביצירת תמונה עם ${formatProviderName(provider)}: ${errorMsg}`);
+                  console.log(`📤 [Retry] Sent error for ${provider}`);
+                } catch (errorSendError) {
+                  console.error(`❌ [Retry] Failed to send error:`, errorSendError.message);
+                }
+              }
+              
               errors.push(`${provider}: ${imageResult.error}`);
               console.log(`❌ ${provider} failed: ${imageResult.error}`);
             } catch (providerError) {
+              // Send error to user (as-is, as per rule #2)
+              if (context?.chatId) {
+                try {
+                  const errorMsg = providerError.message || providerError.toString();
+                  await greenApiService.sendTextMessage(context.chatId, `❌ שגיאה ביצירת תמונה עם ${formatProviderName(provider)}: ${errorMsg}`);
+                  console.log(`📤 [Retry] Sent error for ${provider}`);
+                } catch (errorSendError) {
+                  console.error(`❌ [Retry] Failed to send error:`, errorSendError.message);
+                }
+              }
+              
               errors.push(`${provider}: ${providerError.message}`);
               console.error(`❌ ${provider} threw error:`, providerError);
             }
@@ -3480,7 +3513,21 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           // At this point, all messages for this step have been sent to WhatsApp
           // The next iteration will start, and the Ack for the next step will be sent
         } else {
+          // ❌ Step failed - send error to user
           console.error(`❌ [Agent] Step ${step.stepNumber}/${plan.steps.length} failed:`, stepResult.error);
+          
+          if (stepResult.error) {
+            try {
+              const { greenApiService } = getServices();
+              // Send error message to user (as-is, as per rule #2)
+              const errorMessage = stepResult.error.toString();
+              await greenApiService.sendTextMessage(chatId, `❌ ${errorMessage}`);
+              console.log(`📤 [Multi-step] Step ${step.stepNumber}: Error sent to user`);
+            } catch (errorSendError) {
+              console.error(`❌ [Multi-step] Failed to send error message:`, errorSendError.message);
+            }
+          }
+          
           // Continue with remaining steps even if one fails
         }
       } catch (stepError) {
