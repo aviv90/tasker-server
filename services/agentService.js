@@ -16,7 +16,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Import utility functions from refactored modules
 const { formatProviderName, normalizeProviderKey, applyProviderToMessage } = require('./agent/utils/providerUtils');
-const { simplifyPrompt, shouldSplitTask, makePromptMoreGeneric } = require('./agent/utils/promptUtils');
+// promptUtils removed - using LLM-first approach only
 const { getServices } = require('./agent/utils/serviceLoader');
 const { getAudioDuration } = require('./agent/utils/audioUtils');
 const { TOOL_ACK_MESSAGES, VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP } = require('./agent/config/constants');
@@ -49,7 +49,7 @@ const { TOOL_ACK_MESSAGES, VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY
 
 // ✅ splitTaskIntoSteps_DEPRECATED removed - using LLM-based planner only (multiStepPlanner.js)
 
-// makePromptMoreGeneric is now imported from ./agent/utils/promptUtils
+// Prompt utility functions removed - using LLM-first approach only
 
 /**
  * Define available tools for the agent
