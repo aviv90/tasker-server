@@ -3356,59 +3356,86 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           stepResults.push(stepResult);
           const { greenApiService } = getServices();
           
-          // 🚀 CRITICAL: Send results immediately and in order
-          // Step results must be sent BEFORE Ack for next step
+          // 🚀 CRITICAL: Send ALL results immediately in order (location/poll/text/media)
+          // Each step's output must be sent before moving to next step
           
-          // Send location immediately (if exists)
+          // 1. Send location (if exists)
           if (stepResult.latitude && stepResult.longitude) {
             try {
-              console.log(`📍 [Multi-step] Sending location for step ${step.stepNumber}/${plan.steps.length}: ${stepResult.latitude}, ${stepResult.longitude}`);
+              console.log(`📍 [Multi-step] Sending location for step ${step.stepNumber}/${plan.steps.length}`);
               await greenApiService.sendLocation(chatId, parseFloat(stepResult.latitude), parseFloat(stepResult.longitude), '', '');
               if (stepResult.locationInfo && stepResult.locationInfo.trim()) {
                 await greenApiService.sendTextMessage(chatId, `📍 ${stepResult.locationInfo}`);
               }
-              console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length}: Location sent successfully`);
+              console.log(`✅ [Multi-step] Step ${step.stepNumber}: Location sent`);
             } catch (locationError) {
               console.error(`❌ [Multi-step] Failed to send location:`, locationError.message);
             }
-          } else {
-            console.log(`⚠️ [Multi-step] Step ${step.stepNumber}: No location to send (latitude: ${stepResult.latitude}, longitude: ${stepResult.longitude})`);
           }
           
-          // Send poll immediately (if exists)
+          // 2. Send poll (if exists)
           if (stepResult.poll) {
             try {
               const pollOptions = stepResult.poll.options.map(opt => ({ optionName: opt }));
               await greenApiService.sendPoll(chatId, stepResult.poll.question, pollOptions, false);
-              console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length}: Poll sent`);
+              console.log(`✅ [Multi-step] Step ${step.stepNumber}: Poll sent`);
             } catch (pollError) {
               console.error(`❌ [Multi-step] Failed to send poll:`, pollError.message);
             }
           }
           
-          // Send text immediately (only if no media)
+          // 3. Send image (if exists)
+          if (stepResult.imageUrl) {
+            try {
+              const fullImageUrl = stepResult.imageUrl.startsWith('http') 
+                ? stepResult.imageUrl 
+                : getStaticFileUrl(stepResult.imageUrl.replace('/static/', ''));
+              const caption = stepResult.imageCaption || '';
+              await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption);
+              console.log(`✅ [Multi-step] Step ${step.stepNumber}: Image sent`);
+            } catch (imageError) {
+              console.error(`❌ [Multi-step] Failed to send image:`, imageError.message);
+            }
+          }
+          
+          // 4. Send video (if exists)
+          if (stepResult.videoUrl) {
+            try {
+              const fullVideoUrl = stepResult.videoUrl.startsWith('http') 
+                ? stepResult.videoUrl 
+                : getStaticFileUrl(stepResult.videoUrl.replace('/static/', ''));
+              await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '');
+              console.log(`✅ [Multi-step] Step ${step.stepNumber}: Video sent`);
+            } catch (videoError) {
+              console.error(`❌ [Multi-step] Failed to send video:`, videoError.message);
+            }
+          }
+          
+          // 5. Send audio (if exists)
+          if (stepResult.audioUrl) {
+            try {
+              const fullAudioUrl = stepResult.audioUrl.startsWith('http') 
+                ? stepResult.audioUrl 
+                : getStaticFileUrl(stepResult.audioUrl.replace('/static/', ''));
+              await greenApiService.sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '');
+              console.log(`✅ [Multi-step] Step ${step.stepNumber}: Audio sent`);
+            } catch (audioError) {
+              console.error(`❌ [Multi-step] Failed to send audio:`, audioError.message);
+            }
+          }
+          
+          // 6. Send text (only if no media was sent)
           const createdMedia = stepResult.imageUrl || stepResult.videoUrl || stepResult.audioUrl;
           if (stepResult.text && stepResult.text.trim() && !createdMedia) {
             try {
               let cleanText = stepResult.text.trim().replace(/https?:\/\/[^\s]+/gi, '').trim();
               if (cleanText) {
                 await greenApiService.sendTextMessage(chatId, cleanText);
-                console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length}: Text sent`);
+                console.log(`✅ [Multi-step] Step ${step.stepNumber}: Text sent`);
               }
             } catch (textError) {
               console.error(`❌ [Multi-step] Failed to send text:`, textError.message);
             }
-          }
-          
-          // Track media for sending at end (location/poll/text already sent above)
-          if (stepResult.imageUrl) {
-            finalAssets.imageUrl = stepResult.imageUrl;
-            finalAssets.imageCaption = stepResult.imageCaption || '';
-          }
-          if (stepResult.videoUrl) finalAssets.videoUrl = stepResult.videoUrl;
-          if (stepResult.audioUrl) finalAssets.audioUrl = stepResult.audioUrl;
-          if (stepResult.text && stepResult.text.trim() && !createdMedia) {
-            accumulatedText += (accumulatedText ? '\n\n' : '') + stepResult.text;
           }
           
           console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed: ${stepResult.toolsUsed?.join(', ') || 'text only'}`);
@@ -3442,48 +3469,8 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     }
     finalText = uniqueLines.join('\n').trim();
     
-    // 🚀 CRITICAL: Send media (image/video/audio) at the end, after all text/location/poll
-    // Text, location, and poll are sent immediately after each step (see above)
-    // Media is sent at the end to maintain proper order
-    const { greenApiService } = getServices();
-    const { getStaticFileUrl } = require('../utils/urlUtils');
-    
-    if (finalAssets.imageUrl) {
-      try {
-        const fullImageUrl = finalAssets.imageUrl.startsWith('http') 
-          ? finalAssets.imageUrl 
-          : getStaticFileUrl(finalAssets.imageUrl.replace('/static/', ''));
-        const caption = (finalAssets.imageCaption && finalAssets.imageCaption.trim()) || '';
-        await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption);
-        console.log(`📸 [Multi-step] Image sent at end: ${finalAssets.imageUrl}`);
-      } catch (imageError) {
-        console.error(`❌ [Multi-step] Failed to send image at end:`, imageError.message);
-      }
-    }
-    
-    if (finalAssets.videoUrl) {
-      try {
-        const fullVideoUrl = finalAssets.videoUrl.startsWith('http') 
-          ? finalAssets.videoUrl 
-          : getStaticFileUrl(finalAssets.videoUrl.replace('/static/', ''));
-        await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '');
-        console.log(`🎬 [Multi-step] Video sent at end: ${finalAssets.videoUrl}`);
-      } catch (videoError) {
-        console.error(`❌ [Multi-step] Failed to send video at end:`, videoError.message);
-      }
-    }
-    
-    if (finalAssets.audioUrl) {
-      try {
-        const fullAudioUrl = finalAssets.audioUrl.startsWith('http') 
-          ? finalAssets.audioUrl 
-          : getStaticFileUrl(finalAssets.audioUrl.replace('/static/', ''));
-        await greenApiService.sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '');
-        console.log(`🎵 [Multi-step] Audio sent at end: ${finalAssets.audioUrl}`);
-      } catch (audioError) {
-        console.error(`❌ [Multi-step] Failed to send audio at end:`, audioError.message);
-      }
-    }
+    // ✅ All results (including media) were already sent immediately after each step
+    // No need to send anything at the end
     
     console.log(`🏁 [Agent] Multi-step execution completed: ${stepResults.length}/${plan.steps.length} steps successful`);
     console.log(`📦 [Agent] Returning: ${finalText.length} chars text, image: ${!!finalAssets.imageUrl}, multiStep: true`);
