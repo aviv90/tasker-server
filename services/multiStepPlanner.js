@@ -20,13 +20,8 @@ async function planMultiStepExecution(userRequest) {
       return { isMultiStep: false, fallback: true };
     }
     
-    if (result.error) {
-      console.warn(`⚠️ [Planner] Failed: ${result.error}`);
-      return { isMultiStep: false, fallback: true };
-    }
-    
     // Parse JSON from response - clean and extract
-    let jsonText = result.text.trim();
+    let jsonText = response.text().trim();
     
     // Remove markdown code blocks
     jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
