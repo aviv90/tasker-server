@@ -3200,10 +3200,7 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
         break;
       }
       
-      // 📢 Send Ack message to user before executing tools (for multi-step feedback)
-      await sendToolAckMessage(chatId, functionCalls);
-      
-      // Execute function calls
+      // Execute function calls FIRST (don't send Ack yet - wait until step completes)
       const functionResponses = [];
       for (const call of functionCalls) {
         const toolName = call.name;
@@ -3240,6 +3237,9 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
         if (toolResult.longitude) assets.longitude = toolResult.longitude;
         if (toolResult.locationInfo) assets.locationInfo = toolResult.locationInfo;
       }
+      
+      // Note: Ack messages are sent in executeAgentQuery after step results are sent
+      // This ensures proper order: Step 1 results → Step 2 Ack → Step 2 execution
       
       // Send function results back to the model
       const functionResponseParts = functionResponses.map(fr => ({
@@ -3339,6 +3339,23 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     for (let i = 0; i < plan.steps.length; i++) {
       const step = plan.steps[i];
       
+      // 📢 Send Ack for FIRST step before execution starts
+      if (i === 0) {
+        const firstStepAction = step.action.toLowerCase();
+        let firstStepTool = null;
+        if (firstStepAction.includes('location') || firstStepAction.includes('מיקום')) {
+          firstStepTool = 'send_location';
+        } else if (firstStepAction.includes('image') || firstStepAction.includes('תמונה')) {
+          firstStepTool = 'create_image';
+        } else if (firstStepAction.includes('video') || firstStepAction.includes('וידאו')) {
+          firstStepTool = 'create_video';
+        }
+        
+        if (firstStepTool) {
+          await sendToolAckMessage(chatId, [{ name: firstStepTool, args: {} }]);
+        }
+      }
+      
       // Build focused prompt for this step - keep it simple and clear
       let stepPrompt = `${step.action}`;
       
@@ -3409,9 +3426,30 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
               cleanText = cleanText.replace(/https?:\/\/[^\s]+/gi, '').trim();
               if (cleanText) {
                 await greenApiService.sendTextMessage(chatId, cleanText);
+                console.log(`✅ [Multi-step] Text sent for step ${step.stepNumber}/${plan.steps.length}`);
               }
             } catch (textError) {
               console.error(`❌ [Multi-step] Failed to send text after step ${step.stepNumber}:`, textError.message);
+            }
+          }
+          
+          // 📢 Send Ack for NEXT step (if exists) AFTER current step results are sent
+          // This ensures proper order: Step 1 results → Step 2 Ack → Step 2 execution
+          if (i < plan.steps.length - 1) {
+            const nextStep = plan.steps[i + 1];
+            // Determine what tool the next step will likely use based on action
+            const nextStepAction = nextStep.action.toLowerCase();
+            let nextStepTool = null;
+            if (nextStepAction.includes('location') || nextStepAction.includes('מיקום')) {
+              nextStepTool = 'send_location';
+            } else if (nextStepAction.includes('image') || nextStepAction.includes('תמונה')) {
+              nextStepTool = 'create_image';
+            } else if (nextStepAction.includes('video') || nextStepAction.includes('וידאו')) {
+              nextStepTool = 'create_video';
+            }
+            
+            if (nextStepTool) {
+              await sendToolAckMessage(chatId, [{ name: nextStepTool, args: {} }]);
             }
           }
           

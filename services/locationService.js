@@ -243,8 +243,9 @@ async function extractRequestedRegion(prompt) {
     'oceania': {continent: 'MULTI_OCEANIA', display: 'Oceania', multiRegions: ['Australia', 'New Zealand']}
   };
 
-  if (regionMap[promptLower]) {
-    const mapping = regionMap[promptLower];
+  // Check exact match first (for Hebrew, lowercase doesn't change the string)
+  if (regionMap[promptLower] || regionMap[prompt]) {
+    const mapping = regionMap[promptLower] || regionMap[prompt];
     if (typeof mapping === 'string') {
       return {
         continentName: mapping,
@@ -260,14 +261,17 @@ async function extractRequestedRegion(prompt) {
     };
   }
 
+  // Check word by word (for phrases like "באזור סלובניה")
   const words = promptLower.split(/[\s,]+/);
   for (const word of words) {
-    if (regionMap[word]) {
-      const mapping = regionMap[word];
+    // Also check original case for Hebrew
+    const originalWord = prompt.split(/[\s,]+/)[words.indexOf(word)];
+    if (regionMap[word] || regionMap[originalWord]) {
+      const mapping = regionMap[word] || regionMap[originalWord];
       if (typeof mapping === 'string') {
         return {
           continentName: mapping,
-          displayName: word
+          displayName: originalWord || word
         };
       }
       return {
