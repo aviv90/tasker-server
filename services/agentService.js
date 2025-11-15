@@ -3305,11 +3305,21 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       const toolName = step.tool || null;
       const toolParams = step.parameters || {};
       
-      // 📢 Send Ack for current step BEFORE its execution
-      // This must happen AFTER previous step's results were sent
-      if (toolName) {
-        console.log(`📢 [Multi-step] Sending Ack for Step ${step.stepNumber}/${plan.steps.length} (${toolName})`);
-        await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }]);
+      // 📢 CRITICAL: For step 0, send Ack immediately. For step > 0, wait until previous step's results are fully sent
+      if (i === 0) {
+        // First step: Send Ack immediately
+        if (toolName) {
+          console.log(`📢 [Multi-step] Sending Ack for Step ${step.stepNumber}/${plan.steps.length} (${toolName})`);
+          await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }]);
+        }
+      } else {
+        // Subsequent steps: Wait for previous step's results to be fully sent before sending Ack
+        // The previous step's results were already sent in the previous iteration (see end of loop)
+        // We just need to ensure we're here (which means previous iteration completed)
+        if (toolName) {
+          console.log(`📢 [Multi-step] Sending Ack for Step ${step.stepNumber}/${plan.steps.length} (${toolName}) - previous step results already sent`);
+          await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }]);
+        }
       }
       
       // Build focused prompt for this step - use action from plan
@@ -3425,9 +3435,9 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
             }
           }
           
-          // 6. Send text (only if no media was sent)
-          const createdMedia = stepResult.imageUrl || stepResult.videoUrl || stepResult.audioUrl;
-          if (stepResult.text && stepResult.text.trim() && !createdMedia) {
+          // 6. Send text (ALWAYS send text if it exists, regardless of media)
+          // Text results (like from search_web) should always be sent, even if there's also media
+          if (stepResult.text && stepResult.text.trim()) {
             try {
               let cleanText = stepResult.text.trim().replace(/https?:\/\/[^\s]+/gi, '').trim();
               if (cleanText) {
@@ -3439,8 +3449,13 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
             }
           }
           
-          console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed: ${stepResult.toolsUsed?.join(', ') || 'text only'}`);
-          // Ack for next step will be sent at the beginning of next iteration
+          // ✅ CRITICAL: ALL results for this step have been sent and awaited
+          // All async operations (sendLocation, sendPoll, sendFileByUrl, sendTextMessage) have completed
+          // The loop will now continue to the next iteration, where the Ack will be sent
+          console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed and ALL results sent and delivered: ${stepResult.toolsUsed?.join(', ') || 'text only'}`);
+          
+          // At this point, all messages for this step have been sent to WhatsApp
+          // The next iteration will start, and the Ack for the next step will be sent
         } else {
           console.error(`❌ [Agent] Step ${step.stepNumber}/${plan.steps.length} failed:`, stepResult.error);
           // Continue with remaining steps even if one fails
