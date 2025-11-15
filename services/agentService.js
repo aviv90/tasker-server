@@ -3531,7 +3531,19 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           // Continue with remaining steps even if one fails
         }
       } catch (stepError) {
+        // ❌ Step execution threw an exception - send error to user
         console.error(`❌ [Agent] Error executing step ${step.stepNumber}:`, stepError.message);
+        
+        try {
+          const { greenApiService } = getServices();
+          // Send error message to user (as-is, as per rule #2)
+          const errorMessage = stepError.message || stepError.toString();
+          await greenApiService.sendTextMessage(chatId, `❌ שגיאה בביצוע שלב ${step.stepNumber}: ${errorMessage}`);
+          console.log(`📤 [Multi-step] Step ${step.stepNumber}: Exception error sent to user`);
+        } catch (errorSendError) {
+          console.error(`❌ [Multi-step] Failed to send exception error:`, errorSendError.message);
+        }
+        
         // Continue with remaining steps
       }
     }
