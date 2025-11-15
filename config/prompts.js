@@ -23,12 +23,15 @@ AVAILABLE TOOLS (exact names):
 • send_location - Send location (region: optional)
 • create_image - Create image (prompt: required, provider: optional)
 • create_video - Create video (prompt: required, provider: optional)
+• create_music - Create NEW song/music with Suno AI (prompt: required, make_video: optional) - Use for: "צור שיר", "כתוב שיר", "create song", "make music"
 • text_to_speech - Text to speech (text: required, voice: optional)
 • create_poll - Create poll (topic: required, numOptions: optional)
-• search_web - Web search (query: required) [EXACT NAME: search_web NOT web_search]
+• search_web - Web search for EXISTING content (query: required) [Use ONLY for finding existing songs/content, NOT for creating new ones]
 • translate_text - Translate text (text: required, target_language: required)
 
-CRITICAL: Use EXACT tool names as listed above. "search_web" NOT "web_search"!
+CRITICAL: 
+• Use EXACT tool names as listed above. "search_web" NOT "web_search"!
+• Use create_music for NEW songs (creating), search_web for EXISTING content (finding/links)
 
 AUDIO/VOICE:
 - Only include if user explicitly requests: "אמור", "תשמיע", "voice", "say", "קרא בקול"
@@ -97,6 +100,7 @@ TOOLS: Use the appropriate tool based on step action:
 • "send location" / "שלח מיקום" → send_location (region optional - include only if specific location requested)
 • "create image" / "צור תמונה" → create_image
 • "create video" / "צור וידאו" → create_video
+• "create music" / "create song" / "צור שיר" / "כתוב שיר" / "תעשה שיר" → create_music
 • Text requests → respond with text (no tools)
 
 CRITICAL: Execute only the step's tool, then return. Do NOT call get_chat_history or other tools.
