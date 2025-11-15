@@ -1,0 +1,415 @@
+---
+description: Comprehensive code quality standards - clean, modular, optimal, following all best practices
+globs:
+  - "**/*.js"
+  - "services/**"
+  - "routes/**"
+  - "utils/**"
+  - "config/**"
+---
+
+# Code Quality Excellence
+
+## Core Philosophy
+
+**Every line of code must be clean, optimal, modular, and maintainable.**
+
+Code should be:
+- Easy to read and understand
+- Easy to modify and extend
+- Easy to test and debug
+- Performant and efficient
+- Following industry best practices
+
+---
+
+## SOLID Principles
+
+### 1. Single Responsibility Principle (SRP)
+**Each module/class/function does ONE thing only.**
+
+✅ **Good:**
+```javascript
+// services/imageService.js - handles ONLY image operations
+async function generateImage(prompt) { ... }
+async function editImage(imageUrl, prompt) { ... }
+
+// services/videoService.js - handles ONLY video operations
+async function generateVideo(prompt) { ... }
+```
+
+❌ **Bad:**
+```javascript
+// services/mediaService.js - handles too much!
+async function generateImage(prompt) { ... }
+async function generateVideo(prompt) { ... }
+async function transcribeAudio(audioUrl) { ... }
+async function translateText(text) { ... }
+```
+
+### 2. Open/Closed Principle
+**Open for extension, closed for modification.**
+
+✅ **Good:** Use strategy pattern
+```javascript
+const providers = {
+  gemini: () => generateWithGemini(prompt),
+  openai: () => generateWithOpenAI(prompt),
+  grok: () => generateWithGrok(prompt)
+};
+
+// Easy to add new provider without modifying existing code
+const result = await providers[provider]();
+```
+
+### 3. Dependency Inversion
+**Depend on abstractions, not concretions.**
+
+✅ **Good:**
+```javascript
+async function sendNotification(service, message) {
+  await service.send(message); // Depends on interface
+}
+```
+
+---
+
+## DRY (Don't Repeat Yourself)
+
+**Never duplicate code. Extract common logic into reusable functions.**
+
+❌ **Bad:** Repetition
+```javascript
+// In file A
+if (agentResult.multiStep && agentResult.alreadySent) {
+  console.log('Skipping...');
+  return;
+}
+
+// In file B - SAME CODE!
+if (agentResult.multiStep && agentResult.alreadySent) {
+  console.log('Skipping...');
+  return;
+}
+```
+
+✅ **Good:** Extracted utility
+```javascript
+// utils/agentUtils.js
+function shouldSkipSending(agentResult) {
+  return agentResult.multiStep && agentResult.alreadySent;
+}
+
+// Usage in both files
+if (shouldSkipSending(agentResult)) {
+  console.log('Skipping...');
+  return;
+}
+```
+
+---
+
+## Separation of Concerns
+
+**Each file/module handles ONE specific domain.**
+
+### File Organization Rules:
+
+1. **Services** (`services/`) - Business logic, external API calls
+2. **Routes** (`routes/`) - HTTP handlers, request/response only
+3. **Utils** (`utils/`) - Pure functions, no side effects
+4. **Config** (`config/`) - Configuration, constants, prompts
+5. **Models** (`models/`) - Data structures, database schemas
+
+❌ **Bad:** Mixed concerns
+```javascript
+// routes/whatsappRoutes.js
+// ❌ Business logic in route handler!
+router.post('/webhook', (req, res) => {
+  const imageUrl = await generateImageWithGemini(prompt); // ← Should be in service!
+  const text = translateText(imageUrl.caption, 'he'); // ← Should be in service!
+  await sendToWhatsApp(chatId, imageUrl);
+});
+```
+
+✅ **Good:** Clear separation
+```javascript
+// routes/whatsappRoutes.js - Only routing
+router.post('/webhook', async (req, res) => {
+  const result = await agentService.processRequest(req.body);
+  res.json(result);
+});
+
+// services/agentService.js - Business logic
+async function processRequest(data) {
+  const imageUrl = await imageService.generate(prompt);
+  const text = await translationService.translate(imageUrl.caption, 'he');
+  await whatsappService.send(chatId, imageUrl);
+}
+```
+
+---
+
+## Modularity & File Size
+
+### File Size Limits:
+- **Maximum 500 lines per file** (ideal: 200-300)
+- **Maximum 50 lines per function** (ideal: 10-20)
+- **Maximum 5 parameters per function** (use object for more)
+
+### When to Split a File:
+
+✅ **Split when:**
+- File exceeds 500 lines
+- Multiple unrelated responsibilities
+- Too many exports (>10)
+- Hard to navigate or find code
+
+**Example:** `agentService.js` is 3900+ lines → **MUST** be split:
+```
+services/agent/
+  ├── agentService.js        # Main orchestration (max 300 lines)
+  ├── tools/
+  │   ├── imageTools.js      # Image-related tools
+  │   ├── searchTools.js     # Search-related tools
+  │   └── locationTools.js   # Location-related tools
+  ├── execution/
+  │   ├── singleStep.js      # Single step execution
+  │   └── multiStep.js       # Multi-step execution
+  └── utils/
+      ├── ackMessages.js     # Ack message building
+      └── contextBuilder.js  # Context building
+```
+
+---
+
+## Code Complexity
+
+### Cyclomatic Complexity Limits:
+- **Maximum complexity: 10** per function
+- **Ideal complexity: 1-5**
+
+❌ **Bad:** Too complex (complexity > 15)
+```javascript
+function processRequest(data) {
+  if (data.type === 'text') {
+    if (data.multiStep) {
+      if (data.steps.length > 1) {
+        for (let step of data.steps) {
+          if (step.tool === 'image') {
+            if (step.provider === 'gemini') {
+              // ... 20 more nested ifs
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+✅ **Good:** Low complexity (complexity < 5)
+```javascript
+function processRequest(data) {
+  if (!isValid(data)) return handleError();
+  
+  return data.multiStep 
+    ? processMultiStep(data)
+    : processSingleStep(data);
+}
+
+function processMultiStep(data) {
+  return data.steps.map(executeStep);
+}
+```
+
+---
+
+## Naming Conventions
+
+### Variables & Functions:
+- **camelCase** for variables/functions: `getUserData`, `isValid`
+- **PascalCase** for classes: `UserService`, `ImageGenerator`
+- **UPPER_SNAKE_CASE** for constants: `MAX_RETRIES`, `API_KEY`
+
+### Naming Rules:
+1. **Descriptive, not cryptic**: `userData` not `ud`
+2. **Verbs for functions**: `generateImage`, `validateInput`
+3. **Nouns for variables**: `userList`, `imageUrl`
+4. **Boolean prefixes**: `isValid`, `hasError`, `shouldRetry`
+
+❌ **Bad:**
+```javascript
+function proc(d) {
+  const x = d.t;
+  const y = gen(x);
+  return y;
+}
+```
+
+✅ **Good:**
+```javascript
+function processUserRequest(data) {
+  const userText = data.text;
+  const response = generateResponse(userText);
+  return response;
+}
+```
+
+---
+
+## Error Handling
+
+### Always Handle Errors Gracefully:
+
+✅ **Good:**
+```javascript
+try {
+  const result = await riskyOperation();
+  return result;
+} catch (error) {
+  console.error('❌ Operation failed:', error.message);
+  // Send error to user (Rule 2)
+  await sendErrorToUser(chatId, error.message);
+  return { success: false, error: error.message };
+}
+```
+
+❌ **Bad:**
+```javascript
+const result = await riskyOperation(); // ← No error handling!
+```
+
+---
+
+## Performance Optimization
+
+### 1. Avoid Unnecessary Work:
+```javascript
+// ✅ Good: Early return
+if (!data) return;
+if (!isValid(data)) return;
+// ... expensive operations
+
+// ❌ Bad: Do work then check
+const result = expensiveOperation(data);
+if (!data) return;
+```
+
+### 2. Use Caching:
+```javascript
+// ✅ Good: Cache expensive results
+const cache = new Map();
+function getExpensiveData(key) {
+  if (cache.has(key)) return cache.get(key);
+  const data = computeExpensiveData(key);
+  cache.set(key, data);
+  return data;
+}
+```
+
+### 3. Parallelize Independent Operations:
+```javascript
+// ✅ Good: Parallel
+const [image, video, audio] = await Promise.all([
+  generateImage(prompt),
+  generateVideo(prompt),
+  generateAudio(prompt)
+]);
+
+// ❌ Bad: Sequential (3x slower!)
+const image = await generateImage(prompt);
+const video = await generateVideo(prompt);
+const audio = await generateAudio(prompt);
+```
+
+---
+
+## Code Comments
+
+### When to Comment:
+1. **Why**, not what: Explain reasoning, not obvious behavior
+2. **Complex algorithms**: Explain the approach
+3. **Workarounds**: Why you did something unusual
+4. **TODOs**: What needs to be done (with context)
+
+✅ **Good:**
+```javascript
+// CRITICAL: Must send Ack BEFORE execution to prevent race condition
+// where user sees output before knowing what's happening
+await sendAck(chatId, tool);
+await executeTool(tool);
+```
+
+❌ **Bad:**
+```javascript
+// Send ack
+await sendAck(chatId, tool); // ← Obvious!
+```
+
+---
+
+## Testing Mindset
+
+**Code should be written to be testable.**
+
+✅ **Testable:**
+```javascript
+// Pure function - easy to test
+function calculateTotal(items) {
+  return items.reduce((sum, item) => sum + item.price, 0);
+}
+```
+
+❌ **Hard to test:**
+```javascript
+// Side effects everywhere
+function processOrder() {
+  const items = getItemsFromDatabase(); // ← Hard to mock
+  const total = items.reduce((sum, item) => sum + item.price, 0);
+  saveToDatabase(total); // ← Side effect
+  sendEmail(user.email, total); // ← Side effect
+}
+```
+
+---
+
+## Refactoring Indicators
+
+**Refactor when you see:**
+
+1. 🚨 **God Objects** - File/class doing too much
+2. 🚨 **Code Duplication** - Same logic in multiple places
+3. 🚨 **Long Functions** - Functions > 50 lines
+4. 🚨 **Deep Nesting** - Indentation > 4 levels
+5. 🚨 **Magic Numbers** - Unexplained constants in code
+6. 🚨 **Long Parameter Lists** - Functions with > 5 parameters
+7. 🚨 **Unclear Names** - Variables like `x`, `temp`, `data`
+
+---
+
+## Summary Checklist
+
+Before committing, ask yourself:
+
+- [ ] Is each file under 500 lines?
+- [ ] Is each function under 50 lines?
+- [ ] Does each module have a single responsibility?
+- [ ] Is there any duplicated code?
+- [ ] Are all functions and variables named clearly?
+- [ ] Is error handling comprehensive?
+- [ ] Are concerns properly separated?
+- [ ] Is the code optimized (no unnecessary work)?
+- [ ] Would this be easy to test?
+- [ ] Would a new developer understand this code?
+
+**If any answer is "no", refactor before committing.**
+
+---
+
+## Further Reading
+
+- Clean Code by Robert C. Martin
+- Refactoring by Martin Fowler
+- Design Patterns by Gang of Four
+- JavaScript: The Good Parts by Douglas Crockford
