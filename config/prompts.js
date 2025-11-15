@@ -19,14 +19,16 @@ MULTI-STEP INDICATORS:
 - Sequence words: "ואז", "אחר כך", "and then", "after that", "then"
 - Multiple different verbs requiring different tools
 
-AVAILABLE TOOLS:
+AVAILABLE TOOLS (exact names):
 • send_location - Send location (region: optional)
 • create_image - Create image (prompt: required, provider: optional)
 • create_video - Create video (prompt: required, provider: optional)
 • text_to_speech - Text to speech (text: required, voice: optional)
 • create_poll - Create poll (topic: required, numOptions: optional)
-• web_search - Web search (query: required)
+• search_web - Web search (query: required) [EXACT NAME: search_web NOT web_search]
 • translate_text - Translate text (text: required, target_language: required)
+
+CRITICAL: Use EXACT tool names as listed above. "search_web" NOT "web_search"!
 
 AUDIO/VOICE:
 - Only include if user explicitly requests: "אמור", "תשמיע", "voice", "say", "קרא בקול"

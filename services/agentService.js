@@ -2952,7 +2952,8 @@ async function sendToolAckMessage(chatId, functionCalls) {
       if (toolName === 'send_location') {
         return '';
       }
-      let baseMessage = TOOL_ACK_MESSAGES[toolName] || `מבצע: ${toolName}... ⚙️`;
+      // CRITICAL: Never expose tool names to user - use generic message if undefined
+      let baseMessage = TOOL_ACK_MESSAGES[toolName] || 'מבצע פעולה... ⚙️';
       
       // Check if this tool uses a provider (direct or nested)
       const providerRaw = call.args?.provider;
