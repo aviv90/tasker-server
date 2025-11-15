@@ -9,6 +9,7 @@ const locationService = require('./locationService');
 const prompts = require('../config/prompts');
 const { detectLanguage, extractDetectionText, cleanThinkingPatterns } = require('../utils/agentHelpers');
 const { planMultiStepExecution } = require('./multiStepPlanner');
+const { getStaticFileUrl } = require('../utils/urlUtils');
 
 const execAsync = promisify(exec);
 
