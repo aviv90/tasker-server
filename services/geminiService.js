@@ -2589,11 +2589,62 @@ async function getLocationInfo(latitude, longitude) {
             };
         }
         
+        // CRITICAL: Clean JSON/snippets from response if Gemini accidentally returned structured data
+        // Sometimes Gemini returns JSON with "snippets" and "link" instead of plain text
+        text = text.trim();
+        
+        // Remove JSON blocks (```json ... ``` or naked JSON objects)
+        if (text.includes('"snippets"') || text.includes('"link"') || (text.startsWith('{') && text.endsWith('}'))) {
+            console.warn('⚠️ Detected JSON in location description, cleaning...');
+            
+            // Try to extract just the text content from JSON
+            try {
+                // Remove markdown code blocks
+                let cleanText = text.replace(/```json?\s*|\s*```/g, '');
+                
+                // Try to parse as JSON
+                const jsonData = JSON.parse(cleanText);
+                
+                // Extract meaningful text fields (not snippets or links)
+                if (jsonData.description) {
+                    text = jsonData.description;
+                } else if (jsonData.text) {
+                    text = jsonData.text;
+                } else if (jsonData.answer) {
+                    text = jsonData.answer;
+                } else {
+                    // Fallback: extract any long string values (likely the description)
+                    for (const key in jsonData) {
+                        if (typeof jsonData[key] === 'string' && jsonData[key].length > 30 && 
+                            key !== 'link' && key !== 'snippets') {
+                            text = jsonData[key];
+                            break;
+                        }
+                    }
+                }
+                
+                console.log(`✅ Cleaned JSON, extracted text: ${text.substring(0, 80)}...`);
+            } catch (err) {
+                // If JSON parsing fails, remove JSON-like patterns
+                console.warn(`⚠️ Could not parse JSON, removing patterns: ${err.message}`);
+                text = text
+                    .replace(/\{[^}]*"snippets"[^}]*\}/g, '')
+                    .replace(/\{[^}]*"link"[^}]*\}/g, '')
+                    .replace(/```json?\s*[\s\S]*?\s*```/g, '')
+                    .trim();
+            }
+        }
+        
+        // Final validation: ensure we still have meaningful text
+        if (!text || text.length < 10) {
+            text = `מיקום: קו רוחב ${latitude}°, קו אורך ${longitude}°`;
+        }
+        
         console.log(`✅ Location info retrieved (${usedMapsGrounding ? 'Maps Grounding' : 'General Knowledge'}): ${text.substring(0, 100)}...`);
         
         return {
             success: true,
-            description: text.trim(),
+            description: text,
             latitude: latitude,
             longitude: longitude,
             usedMapsGrounding: usedMapsGrounding

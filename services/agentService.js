@@ -280,13 +280,26 @@ const agentTools = {
   search_web: {
     declaration: {
       name: 'search_web',
-      description: 'חפש מידע או תוכן קיים באינטרנט. השתמש בכלי הזה כאשר: 1) המשתמש מבקש לינק/קישור/URL לתוכן קיים (שיר של זמר, סרטון, מאמר וכו\'), או 2) כשצריך מידע עדכני שאינו זמין בידע שלך. שים לב: אם המשתמש מבקש **ליצור** משהו חדש (שיר, תמונה, וידאו), אל תשתמש בכלי הזה - השתמש ב-create_music/create_image/create_video במקום!',
+      description: `חפש מידע או לינקים באינטרנט באמצעות Google Search. 
+
+**מתי להשתמש בכלי הזה:**
+1. המשתמש מבקש לינק/קישור/URL (דוגמאות: "שלח לי לינק לשיר של אריאל זילבר", "send link to news article", "קישור לתחזית מזג אוויר")
+2. צריך מידע עדכני שאינו בידע שלך (2023)
+3. חיפוש תוכן קיים (שירים, סרטונים, מאמרים)
+
+**חשוב מאוד:**
+- כלי זה מחובר ל-Google Search ויחזיר לינקים אמיתיים ועדכניים
+- אם המשתמש מבקש לינק - חובה להשתמש בכלי הזה!
+- אסור לומר "אין לי אפשרות לשלוח לינקים" - יש לך את הכלי הזה!
+
+**מתי לא להשתמש:**
+- אם המשתמש מבקש ליצור משהו חדש (שיר, תמונה, וידאו) → השתמש ב-create_music/create_image/create_video`,
       parameters: {
         type: 'object',
         properties: {
           query: {
             type: 'string',
-            description: 'שאילתת החיפוש (לדוגמה: "שיר של אריאל זילבר", "python tutorial", "best pizza recipe")',
+            description: 'שאילתת החיפוש (לדוגמה: "שיר של אריאל זילבר", "BBC news Israel", "Tel Aviv weather forecast")',
           }
         },
         required: ['query']
@@ -308,6 +321,9 @@ const agentTools = {
             error: result.error
           };
         }
+        
+        // Ensure links are included in the response
+        console.log(`✅ [search_web] Got result (${result.text.length} chars)`);
         
         return {
           success: true,
@@ -3565,28 +3581,31 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   // Prepare tool declarations for Gemini
   const functionDeclarations = Object.values(agentTools).map(tool => tool.declaration);
   
-  // System prompt for the agent (Hebrew base with dynamic language instruction)
-  const systemInstruction = `אתה עוזר AI אוטונומי עם גישה לכלים מתקדמים.
-
-**🌐 Language:** ${languageInstruction} - תשיב בשפה שבה המשתמש כתב!
-
-**כלים זמינים:** create_image, create_video, analyze_image, edit_image, create_music, text_to_speech, translate_and_speak, search_web, get_chat_history, retry_last_command, retry_with_different_provider, ועוד.
-
-**כללים קריטיים:**
-• אם image_url/video_url בפרומפט → השתמש בו ישירות (אל תקרא get_chat_history!)
-• הודעות מצוטטות + מדיה: שאלה → analyze_image, עריכה → edit_image (לא retry!)
-• לינקים/קישורים → search_web (לא create_music!)
-• **אודיו/קול - CRITICAL: אל תיצור אודיו/קול אלא אם כן המשתמש מבקש במפורש!**
-  - "ספר בדיחה" / "tell joke" → טקסט בלבד (לא text_to_speech!)
-  - "תרגם ל-X ואמור" / "say in English" / "אמור ב-Y" → translate_and_speak (כן!)
-  - "תשמיע לי" / "תקרא בקול" / "voice" → text_to_speech או translate_and_speak (כן!)
-  - **אם המשתמש לא אמר "אמור", "תשמיע", "voice", "say" - אל תיצור אודיו!**
-• "אמור X ב-Y" → translate_and_speak (לא translate_text!)
-• תמיד ציין provider: create_image({provider: "gemini"}), create_video({provider: "kling"})
-• send_location: region הוא **אופציונלי** - ציין רק אם יש אזור ספציפי ("שלח מיקום" = אקראי, "שלח מיקום בתל אביב" = region="תל אביב")
-• אם tool נכשל → retry_with_different_provider (אל תקרא לאותו tool שוב!)
-• שמור רציפות: קרא [היסטוריית שיחה] בסוף כל בקשה
-• Multi-step: אם רואה "Step X/Y" → התמקד רק בשלב הזה`;
+    // System prompt for the agent (Hebrew base with dynamic language instruction)
+    const systemInstruction = `אתה עוזר AI אוטונומי עם גישה לכלים מתקדמים.
+ 
+ **🌐 Language:** ${languageInstruction} - תשיב בשפה שבה המשתמש כתב!
+  
+ **כלים זמינים:** create_image, create_video, analyze_image, edit_image, create_music, text_to_speech, translate_and_speak, search_web (חיפוש ולינקים!), get_chat_history, retry_last_command, retry_with_different_provider, ועוד.
+  
+ **כללים קריטיים:**
+ • אם image_url/video_url בפרומפט → השתמש בו ישירות (אל תקרא get_chat_history!)
+ • הודעות מצוטטות + מדיה: שאלה → analyze_image, עריכה → edit_image (לא retry!)
+ • **לינקים/קישורים - חובה להשתמש ב-search_web!**
+   - "שלח לי לינק", "send me link", "קישור ל-X" → search_web (כלי מחובר ל-Google Search!)
+   - אסור לומר "אין לי אפשרות לשלוח לינקים" - יש לך search_web!
+   - search_web מחזיר לינקים אמיתיים ועדכניים מ-Google
+ • **אודיו/קול - CRITICAL: אל תיצור אודיו/קול אלא אם כן המשתמש מבקש במפורש!**
+   - "ספר בדיחה" / "tell joke" → טקסט בלבד (לא text_to_speech!)
+   - "תרגם ל-X ואמור" / "say in English" / "אמור ב-Y" → translate_and_speak (כן!)
+   - "תשמיע לי" / "תקרא בקול" / "voice" → text_to_speech או translate_and_speak (כן!)
+   - **אם המשתמש לא אמר "אמור", "תשמיע", "voice", "say" - אל תיצור אודיו!**
+ • "אמור X ב-Y" → translate_and_speak (לא translate_text!)
+ • תמיד ציין provider: create_image({provider: "gemini"}), create_video({provider: "kling"})
+ • send_location: region הוא **אופציונלי** - ציין רק אם יש אזור ספציפי ("שלח מיקום" = אקראי, "שלח מיקום בתל אביב" = region="תל אביב")
+ • אם tool נכשל → retry_with_different_provider (אל תקרא לאותו tool שוב!)
+ • שמור רציפות: קרא [היסטוריית שיחה] בסוף כל בקשה
+ • Multi-step: אם רואה "Step X/Y" → התמקד רק בשלב הזה`;
 
   // 🧠 Context for tool execution (load previous context if enabled)
   let context = {
