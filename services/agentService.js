@@ -3305,21 +3305,13 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       const toolName = step.tool || null;
       const toolParams = step.parameters || {};
       
-      // 📢 CRITICAL: For step 0, send Ack immediately. For step > 0, wait until previous step's results are fully sent
-      if (i === 0) {
-        // First step: Send Ack immediately
-        if (toolName) {
-          console.log(`📢 [Multi-step] Sending Ack for Step ${step.stepNumber}/${plan.steps.length} (${toolName})`);
-          await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }]);
-        }
-      } else {
-        // Subsequent steps: Wait for previous step's results to be fully sent before sending Ack
-        // The previous step's results were already sent in the previous iteration (see end of loop)
-        // We just need to ensure we're here (which means previous iteration completed)
-        if (toolName) {
-          console.log(`📢 [Multi-step] Sending Ack for Step ${step.stepNumber}/${plan.steps.length} (${toolName}) - previous step results already sent`);
-          await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }]);
-        }
+      // 📢 CRITICAL: Send Ack BEFORE executing the step
+      // For first step: Send Ack immediately
+      // For subsequent steps: Previous step's results were already sent in previous iteration (all awaits completed)
+      // So we can safely send Ack for current step
+      if (toolName) {
+        console.log(`📢 [Multi-step] Sending Ack for Step ${step.stepNumber}/${plan.steps.length} (${toolName}) BEFORE execution`);
+        await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }]);
       }
       
       // Build focused prompt for this step - use action from plan
