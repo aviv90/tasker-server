@@ -42,29 +42,45 @@ async function planMultiStepExecution(userRequest) {
     // Fix common JSON issues from LLM responses
     // Fix malformed array elements (when LLM doesn't use proper object syntax)
     // Pattern: "steps": [\n  "stepNumber": 1, ...  should be: "steps": [\n  { "stepNumber": 1, ...
-    const stepsMatch = jsonStr.match(/"steps"\s*:\s*\[\s*([^\]]+)\]/);
+    const stepsMatch = jsonStr.match(/"steps"\s*:\s*\[\s*([^\]]+)\]/s);
     if (stepsMatch) {
       const stepsContent = stepsMatch[1];
+      console.log(`🔍 [Planner] Steps content preview: ${stepsContent.substring(0, 200)}...`);
+      
       // Check if steps array has malformed content (properties without object wrapper)
-      if (stepsContent.includes('"stepNumber":') && !stepsContent.match(/\{\s*"stepNumber":/)) {
-        console.log(`🔧 [Planner] Fixing malformed steps array - wrapping in objects`);
-        // Split by step patterns and wrap each in {}
-        const stepParts = stepsContent.split(/"stepNumber"\s*:/);
-        if (stepParts.length > 1) {
-          const fixedSteps = stepParts.slice(1).map((part, idx) => {
-            // Find the end of this step (next stepNumber or end of array)
-            const nextStep = part.match(/(.*?)(?:\s*"stepNumber"\s*:|$)/s);
-            let stepContent = nextStep ? nextStep[1] : part;
-            // Clean up trailing commas
-            stepContent = stepContent.replace(/,\s*$/, '').trim();
-            // Wrap in object
-            return `  {\n    "stepNumber":${stepContent}\n  }`;
-          }).join(',\n');
+      // Look for pattern like: "stepNumber": 1,\n    "tool": ... (no { before)
+      if (stepsContent.includes('"stepNumber":') && !stepsContent.match(/^\s*\{/)) {
+        console.log(`🔧 [Planner] Fixing malformed steps array - properties without object wrapper`);
+        
+        // Find all stepNumber occurrences
+        const stepNumberMatches = [...stepsContent.matchAll(/"stepNumber"\s*:\s*(\d+)/g)];
+        if (stepNumberMatches.length > 0) {
+          const fixedSteps = [];
           
+          for (let i = 0; i < stepNumberMatches.length; i++) {
+            const match = stepNumberMatches[i];
+            const startPos = match.index;
+            const endPos = i < stepNumberMatches.length - 1 
+              ? stepNumberMatches[i + 1].index 
+              : stepsContent.length;
+            
+            // Extract content for this step
+            let stepContent = stepsContent.substring(startPos, endPos).trim();
+            
+            // Remove trailing comma if exists
+            stepContent = stepContent.replace(/,\s*$/, '');
+            
+            // Wrap in object
+            fixedSteps.push(`  {\n    ${stepContent}\n  }`);
+          }
+          
+          // Replace the malformed steps array
           jsonStr = jsonStr.replace(
-            /"steps"\s*:\s*\[\s*[^\]]+\]/,
-            `"steps": [\n${fixedSteps}\n  ]`
+            /"steps"\s*:\s*\[\s*[^\]]+\]/s,
+            `"steps": [\n${fixedSteps.join(',\n')}\n  ]`
           );
+          
+          console.log(`✅ [Planner] Fixed steps array - wrapped ${fixedSteps.length} steps in objects`);
         }
       }
     }
