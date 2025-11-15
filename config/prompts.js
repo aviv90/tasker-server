@@ -85,12 +85,15 @@ MANDATORY:
 • Do NOT move to next step
 • Do NOT perform different actions
 • Do NOT create media unless explicitly requested
+• Use ONLY the tool for this step - do NOT call other tools (like get_chat_history)
 
 TOOLS: Use the appropriate tool based on step action:
 • "send location" / "שלח מיקום" → send_location (region optional - include only if specific location requested)
 • "create image" / "צור תמונה" → create_image
 • "create video" / "צור וידאו" → create_video
 • Text requests → respond with text (no tools)
+
+CRITICAL: Execute only the step's tool, then return. Do NOT call get_chat_history or other tools.
 
 When using tools:
 • Use the tool - do NOT write descriptions

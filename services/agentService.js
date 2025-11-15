@@ -3150,7 +3150,8 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
     languageInstruction,
     agentConfig,
     functionDeclarations,
-    systemInstruction
+    systemInstruction,
+    expectedTool = null  // In multi-step, restrict execution to this tool only
   } = options;
   
   const model = genAI.getGenerativeModel({ model: agentConfig.model });
@@ -3202,9 +3203,31 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
       
       // Execute function calls FIRST (don't send Ack yet - wait until step completes)
       const functionResponses = [];
+      let targetToolExecuted = false;
+      
       for (const call of functionCalls) {
         const toolName = call.name;
         const toolArgs = call.args;
+        
+        // CRITICAL: In multi-step execution, only execute the target tool for this step
+        // Prevent calling additional tools like get_chat_history that are not in the plan
+        if (expectedTool && toolName !== expectedTool) {
+          console.log(`⚠️ [Multi-step] Blocking unexpected tool call: ${toolName} (expected: ${expectedTool})`);
+          functionResponses.push({
+            name: toolName,
+            response: { 
+              error: `This tool is not part of the current step. Please execute only: ${expectedTool}`,
+              blocked: true
+            }
+          });
+          continue;
+        }
+        
+        // If we already executed the target tool, stop (prevent multiple calls)
+        if (expectedTool && targetToolExecuted && toolName === expectedTool) {
+          console.log(`⚠️ [Multi-step] Target tool ${expectedTool} already executed, stopping`);
+          break;
+        }
         
         toolsUsed.push(toolName);
         
@@ -3225,6 +3248,11 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
           response: toolResult
         });
         
+        // Mark target tool as executed
+        if (expectedTool && toolName === expectedTool) {
+          targetToolExecuted = true;
+        }
+        
         // Extract assets from tool result
         if (toolResult.imageUrl) {
           assets.imageUrl = toolResult.imageUrl;
@@ -3238,16 +3266,39 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
         if (toolResult.locationInfo) assets.locationInfo = toolResult.locationInfo;
       }
       
-      // Note: Ack messages are sent in executeAgentQuery after step results are sent
-      // This ensures proper order: Step 1 results → Step 2 Ack → Step 2 execution
-      
-      // Send function results back to the model
-      const functionResponseParts = functionResponses.map(fr => ({
-        functionResponse: {
-          name: fr.name,
-          response: fr.response
+      // If target tool executed, get final text response and stop (don't continue with more tools)
+      if (expectedTool && targetToolExecuted) {
+        // Send function results back to get final text response
+        const functionResponseParts = functionResponses
+          .filter(fr => !fr.response.blocked)
+          .map(fr => ({
+            functionResponse: {
+              name: fr.name,
+              response: fr.response
+            }
+          }));
+        
+        if (functionResponseParts.length > 0) {
+          const finalResult = await chat.sendMessage(functionResponseParts);
+          textResponse = finalResult.response.text() || textResponse;
         }
-      }));
+        break; // Stop here - target tool executed, no need for more iterations
+      }
+      
+      // Send function results back to the model (for non-multi-step or when no expected tool)
+      const functionResponseParts = functionResponses
+        .filter(fr => !fr.response.blocked)
+        .map(fr => ({
+          functionResponse: {
+            name: fr.name,
+            response: fr.response
+          }
+        }));
+      
+      if (functionResponseParts.length === 0) {
+        // All tools were blocked, stop
+        break;
+      }
       
       const continueResult = await chat.sendMessage(functionResponseParts);
       textResponse = continueResult.response.text();
@@ -3386,7 +3437,8 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           languageInstruction,
           agentConfig,
           functionDeclarations,
-          systemInstruction: prompts.singleStepInstruction(languageInstruction)
+          systemInstruction: prompts.singleStepInstruction(languageInstruction),
+          expectedTool: toolName  // Restrict execution to this tool only
         });
         
         if (stepResult.success) {
