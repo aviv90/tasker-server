@@ -1677,22 +1677,16 @@ async function handleIncomingMessage(webhookData) {
                 mediaSent = true;
               }
               
-              // CRITICAL: For multi-step, location is already sent in agentService
-              // Skip here to avoid duplicate and maintain proper order
+              // For multi-step, location is already sent in agentService - skip here
               if (agentResult.multiStep && agentResult.alreadySent) {
-                console.log(`✅ [Multi-step] Location already sent in agentService - skipping duplicate`);
+                console.log(`⏭️ [Agent] Skipping location send - already sent in multi-step`);
               } else if (agentResult.latitude && agentResult.longitude) {
-                // Skip if already sent by multi-step execution
-                if (agentResult.multiStep && agentResult.alreadySent) {
-                  console.log(`⏭️ [Agent] Skipping location send - already sent in multi-step`);
-                } else {
-                  console.log(`📍 [Agent] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
-                  await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '');
-                  mediaSent = true;
-                  // Send location info as separate text message
-                  if (agentResult.locationInfo && agentResult.locationInfo.trim()) {
-                    await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`);
-                  }
+                console.log(`📍 [Agent] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
+                await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '');
+                mediaSent = true;
+                // Send location info as separate text message
+                if (agentResult.locationInfo && agentResult.locationInfo.trim()) {
+                  await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`);
                 }
               }
               
@@ -2202,22 +2196,16 @@ async function handleOutgoingMessage(webhookData) {
                 mediaSent = true;
               }
               
-              // CRITICAL: For multi-step, location is already sent in agentService
-              // Skip here to avoid duplicate and maintain proper order
+              // For multi-step, location is already sent in agentService - skip here
               if (agentResult.multiStep && agentResult.alreadySent) {
-                console.log(`✅ [Multi-step - Outgoing] Location already sent in agentService - skipping duplicate`);
+                console.log(`⏭️ [Agent - Outgoing] Skipping location send - already sent in multi-step`);
               } else if (agentResult.latitude && agentResult.longitude) {
-                // Skip if already sent by multi-step execution
-                if (agentResult.multiStep && agentResult.alreadySent) {
-                  console.log(`⏭️ [Agent - Outgoing] Skipping location send - already sent in multi-step`);
-                } else {
-                  console.log(`📍 [Agent - Outgoing] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
-                  await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '');
-                  mediaSent = true;
-                  // Send location info as separate text message
-                  if (agentResult.locationInfo && agentResult.locationInfo.trim()) {
-                    await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`);
-                  }
+                console.log(`📍 [Agent - Outgoing] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
+                await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '');
+                mediaSent = true;
+                // Send location info as separate text message
+                if (agentResult.locationInfo && agentResult.locationInfo.trim()) {
+                  await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`);
                 }
               }
               
