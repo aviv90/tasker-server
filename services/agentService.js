@@ -3339,23 +3339,26 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     for (let i = 0; i < plan.steps.length; i++) {
       const step = plan.steps[i];
       
-      // Build context-aware prompt for this step
-      // CRITICAL: Include step number and make it clear this is MANDATORY
-      let stepPrompt = `Step ${step.stepNumber}/${plan.steps.length}: ${step.action}\n\n**YOU MUST COMPLETE THIS STEP NOW. Do NOT skip it or move to the next step.**`;
+      // Build focused prompt for this step - keep it simple and clear
+      let stepPrompt = `${step.action}`;
       
-      // Add context from previous steps if available
-      if (stepResults.length > 0) {
+      // Add minimal context from previous steps if needed for this step
+      // Only add context if step references previous results (e.g., "create image about it")
+      const stepLower = step.action.toLowerCase();
+      const needsContext = stepLower.includes('it') || stepLower.includes('אתה') || 
+                           stepLower.includes('about') || stepLower.includes('לפי') ||
+                           stepLower.includes('based on') || stepLower.includes('according to');
+      
+      if (stepResults.length > 0 && needsContext) {
         const previousContext = stepResults.map((res, idx) => {
-          let summary = `Step ${idx + 1} result:`;
-          if (res.text) summary += ` ${res.text.substring(0, 150)}`;
-          if (res.imageUrl) summary += ` [Image created]`;
-          if (res.videoUrl) summary += ` [Video created]`;
-          if (res.audioUrl) summary += ` [Audio created]`;
-          if (res.latitude && res.longitude) summary += ` [Location sent]`;
+          let summary = `Step ${idx + 1}:`;
+          if (res.text) summary += ` ${res.text.substring(0, 100)}`;
+          if (res.imageUrl) summary += ` [Image]`;
+          if (res.latitude && res.longitude) summary += ` [Location]`;
           return summary;
-        }).join('\n');
+        }).join(' | ');
         
-        stepPrompt = `Context from previous steps:\n${previousContext}\n\n**Current step (Step ${step.stepNumber}/${plan.steps.length}): ${step.action}**\n\n**YOU MUST COMPLETE THIS STEP NOW. Do NOT skip it or move to the next step.**`;
+        stepPrompt = `Previous: ${previousContext}\n\nCurrent: ${step.action}`;
       }
       
       // Execute this step
