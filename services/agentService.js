@@ -3361,6 +3361,15 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           
           // 🚀 CRITICAL: Send ALL results immediately in order (location/poll/text/media)
           // Each step's output must be sent before moving to next step
+          console.log(`🔍 [Multi-step] Step ${step.stepNumber} result:`, {
+            hasLocation: !!(stepResult.latitude && stepResult.longitude),
+            hasPoll: !!stepResult.poll,
+            hasImage: !!stepResult.imageUrl,
+            hasVideo: !!stepResult.videoUrl,
+            hasAudio: !!stepResult.audioUrl,
+            hasText: !!stepResult.text,
+            toolsUsed: stepResult.toolsUsed
+          });
           
           // 1. Send location (if exists)
           if (stepResult.latitude && stepResult.longitude) {
