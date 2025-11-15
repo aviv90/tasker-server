@@ -3454,9 +3454,14 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
             }
           }
           
-          // 6. Send text (ALWAYS send text if it exists, regardless of media)
-          // Text results (like from search_web) should always be sent, even if there's also media
-          if (stepResult.text && stepResult.text.trim()) {
+          // 6. Send text (ONLY if no structured output was already sent)
+          // CRITICAL: Avoid duplicate sending - if location/poll/media was sent, 
+          // the text is usually just a description that's already been sent separately
+          const hasStructuredOutput = stepResult.latitude || stepResult.poll || 
+                                       stepResult.imageUrl || stepResult.videoUrl || 
+                                       stepResult.audioUrl || stepResult.locationInfo;
+          
+          if (!hasStructuredOutput && stepResult.text && stepResult.text.trim()) {
             try {
               let cleanText = stepResult.text.trim().replace(/https?:\/\/[^\s]+/gi, '').trim();
               if (cleanText) {
@@ -3466,6 +3471,8 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
             } catch (textError) {
               console.error(`❌ [Multi-step] Failed to send text:`, textError.message);
             }
+          } else if (hasStructuredOutput) {
+            console.log(`⏭️ [Multi-step] Step ${step.stepNumber}: Skipping text - structured output already sent`);
           }
           
           // ✅ CRITICAL: ALL results for this step have been sent and awaited
