@@ -1578,53 +1578,59 @@ async function handleIncomingMessage(webhookData) {
               }
               
               if (agentResult.imageUrl) {
-                console.log(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}`);
-                
-                let caption = '';
-                
-                // Multi-step: Use imageCaption if exists (LLM should return it in correct language)
-                if (agentResult.multiStep) {
-                  // For multi-step, use imageCaption if it exists
-                  // LLM is responsible for returning caption in correct language
-                  caption = (agentResult.imageCaption && agentResult.imageCaption.trim()) || '';
-                  if (caption) {
-                    console.log(`📤 [Multi-step] Image sent with caption: "${caption.substring(0, 50)}..."`);
-                  } else {
-                    console.log(`📤 [Multi-step] Image sent after text (no caption)`);
-                  }
+                // CRITICAL: For multi-step with alreadySent=true, image was already sent in agentService
+                // Only send here if NOT multi-step or if alreadySent is false
+                if (agentResult.multiStep && agentResult.alreadySent) {
+                  console.log(`✅ [Multi-step] Image already sent in agentService - skipping duplicate`);
                 } else {
-                  // Single-step: Images support captions - use them!
-                  // CRITICAL: If multiple tools were used, don't mix outputs!
-                  // Only use imageCaption (specific) or text if it's the ONLY output
-                  const multipleTools = (agentResult.toolsUsed && agentResult.toolsUsed.length > 1);
+                  console.log(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}`);
                   
-                  if (multipleTools) {
-                    // Multiple tools → use ONLY imageCaption (specific to this image)
-                    caption = agentResult.imageCaption || '';
-                    console.log(`ℹ️ Multiple tools detected - using imageCaption only to avoid mixing outputs`);
+                  let caption = '';
+                  
+                  // Multi-step: Use imageCaption if exists (LLM should return it in correct language)
+                  if (agentResult.multiStep) {
+                    // For multi-step, use imageCaption if it exists
+                    // LLM is responsible for returning caption in correct language
+                    caption = (agentResult.imageCaption && agentResult.imageCaption.trim()) || '';
+                    if (caption) {
+                      console.log(`📤 [Multi-step] Image sent with caption: "${caption.substring(0, 50)}..."`);
+                    } else {
+                      console.log(`📤 [Multi-step] Image sent after text (no caption)`);
+                    }
                   } else {
-                    // Single tool → can use general text as fallback
-                    caption = agentResult.imageCaption || agentResult.text || '';
+                    // Single-step: Images support captions - use them!
+                    // CRITICAL: If multiple tools were used, don't mix outputs!
+                    // Only use imageCaption (specific) or text if it's the ONLY output
+                    const multipleTools = (agentResult.toolsUsed && agentResult.toolsUsed.length > 1);
+                    
+                    if (multipleTools) {
+                      // Multiple tools → use ONLY imageCaption (specific to this image)
+                      caption = agentResult.imageCaption || '';
+                      console.log(`ℹ️ Multiple tools detected - using imageCaption only to avoid mixing outputs`);
+                    } else {
+                      // Single tool → can use general text as fallback
+                      caption = agentResult.imageCaption || agentResult.text || '';
+                    }
+                    
+                    // Clean the caption: remove URLs, markdown links, and technical markers
+                    caption = caption
+                      .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
+                      .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
+                      .replace(/\[image\]/gi, '') // Remove [image] markers
+                      .replace(/\[video\]/gi, '') // Remove [video] markers
+                      .replace(/\[audio\]/gi, '') // Remove [audio] markers
+                      .replace(/\[תמונה\]/gi, '') // Remove [תמונה] markers
+                      .replace(/\[וידאו\]/gi, '') // Remove [וידאו] markers
+                      .replace(/\[אודיו\]/gi, '') // Remove [אודיו] markers
+                      .replace(/התמונה.*?נוצרה בהצלחה!/gi, '') // Remove success messages
+                      .replace(/הוידאו.*?נוצר בהצלחה!/gi, '')
+                      .replace(/✅/g, '')
+                      .trim();
                   }
                   
-                  // Clean the caption: remove URLs, markdown links, and technical markers
-                  caption = caption
-                    .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
-                    .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
-                    .replace(/\[image\]/gi, '') // Remove [image] markers
-                    .replace(/\[video\]/gi, '') // Remove [video] markers
-                    .replace(/\[audio\]/gi, '') // Remove [audio] markers
-                    .replace(/\[תמונה\]/gi, '') // Remove [תמונה] markers
-                    .replace(/\[וידאו\]/gi, '') // Remove [וידאו] markers
-                    .replace(/\[אודיו\]/gi, '') // Remove [אודיו] markers
-                    .replace(/התמונה.*?נוצרה בהצלחה!/gi, '') // Remove success messages
-                    .replace(/הוידאו.*?נוצר בהצלחה!/gi, '')
-                    .replace(/✅/g, '')
-                    .trim();
+                  await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption);
+                  mediaSent = true;
                 }
-                
-                await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption);
-                mediaSent = true;
               }
               
               if (agentResult.videoUrl) {

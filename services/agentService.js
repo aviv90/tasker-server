@@ -3340,7 +3340,8 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       const step = plan.steps[i];
       
       // Build context-aware prompt for this step
-      let stepPrompt = step.action;
+      // CRITICAL: Include step number and make it clear this is MANDATORY
+      let stepPrompt = `Step ${step.stepNumber}/${plan.steps.length}: ${step.action}\n\n**YOU MUST COMPLETE THIS STEP NOW. Do NOT skip it or move to the next step.**`;
       
       // Add context from previous steps if available
       if (stepResults.length > 0) {
@@ -3350,10 +3351,11 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           if (res.imageUrl) summary += ` [Image created]`;
           if (res.videoUrl) summary += ` [Video created]`;
           if (res.audioUrl) summary += ` [Audio created]`;
+          if (res.latitude && res.longitude) summary += ` [Location sent]`;
           return summary;
         }).join('\n');
         
-        stepPrompt = `Context from previous steps:\n${previousContext}\n\nCurrent step: ${step.action}`;
+        stepPrompt = `Context from previous steps:\n${previousContext}\n\n**Current step (Step ${step.stepNumber}/${plan.steps.length}): ${step.action}**\n\n**YOU MUST COMPLETE THIS STEP NOW. Do NOT skip it or move to the next step.**`;
       }
       
       // Execute this step
@@ -3410,7 +3412,8 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
             }
           }
           
-          // Track assets for final return (but we send them immediately above)
+          // Track assets for final return
+          // CRITICAL: Only track media (image/video/audio) - location/poll/text are sent immediately above
           if (stepResult.imageUrl) {
             finalAssets.imageUrl = stepResult.imageUrl;
             finalAssets.imageCaption = stepResult.imageCaption || '';
@@ -3418,11 +3421,13 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           if (stepResult.videoUrl) finalAssets.videoUrl = stepResult.videoUrl;
           if (stepResult.audioUrl) finalAssets.audioUrl = stepResult.audioUrl;
           
-          // Track other assets (already sent above)
+          // Track other assets for reference (location/poll/text already sent immediately above)
           if (stepResult.poll) finalAssets.poll = stepResult.poll;
           if (stepResult.latitude) finalAssets.latitude = stepResult.latitude;
           if (stepResult.longitude) finalAssets.longitude = stepResult.longitude;
           if (stepResult.locationInfo) finalAssets.locationInfo = stepResult.locationInfo;
+          
+          console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed: ${stepResult.toolsUsed?.join(', ') || 'text only'}`);
           
           // Accumulate text ONLY if step did NOT create media (but we already sent it above)
           if (stepResult.text && stepResult.text.trim() && !createdMedia) {
