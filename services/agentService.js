@@ -3322,22 +3322,21 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       // Build focused prompt for this step - use action from plan
       let stepPrompt = step.action;
       
-      // Add minimal context from previous steps if step references previous results
-      const stepLower = step.action.toLowerCase();
-      const needsContext = stepLower.includes('it') || stepLower.includes('אתה') || 
-                           stepLower.includes('about') || stepLower.includes('לפי') ||
-                           stepLower.includes('based on') || stepLower.includes('according to');
-      
-      if (stepResults.length > 0 && needsContext) {
+      // CRITICAL: ALWAYS add context from previous steps (not just when keywords detected)
+      // Each step needs to know what happened before to maintain continuity
+      if (stepResults.length > 0) {
         const previousContext = stepResults.map((res, idx) => {
           let summary = `Step ${idx + 1}:`;
-          if (res.text) summary += ` ${res.text.substring(0, 100)}`;
-          if (res.imageUrl) summary += ` [Image]`;
-          if (res.latitude && res.longitude) summary += ` [Location]`;
+          if (res.text) summary += ` ${res.text.substring(0, 200)}`; // Increased from 100 to 200 chars
+          if (res.imageUrl) summary += ` [Created image]`;
+          if (res.videoUrl) summary += ` [Created video]`;
+          if (res.audioUrl) summary += ` [Created audio]`;
+          if (res.poll) summary += ` [Created poll: "${res.poll.question}"]`;
+          if (res.latitude && res.longitude) summary += ` [Sent location]`;
           return summary;
-        }).join(' | ');
+        }).join('\n');
         
-        stepPrompt = `Previous: ${previousContext}\n\nCurrent: ${step.action}`;
+        stepPrompt = `CONTEXT from previous steps:\n${previousContext}\n\nCURRENT TASK: ${step.action}`;
       }
       
       // If planner provided tool and parameters, add them to the prompt
