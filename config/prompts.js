@@ -20,7 +20,7 @@ MULTI-STEP INDICATORS:
 - Multiple different verbs requiring different tools
 
 AVAILABLE TOOLS:
-• send_location - Send location (region: optional - include only if specific location requested)
+• send_location - Send location (region: optional)
 • create_image - Create image (prompt: required, provider: optional)
 • create_video - Create video (prompt: required, provider: optional)
 • text_to_speech - Text to speech (text: required, voice: optional)

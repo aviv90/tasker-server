@@ -3339,12 +3339,13 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     for (let i = 0; i < plan.steps.length; i++) {
       const step = plan.steps[i];
       
-      // Extract tool and parameters from plan (if provided by planner)
+      // Extract tool and parameters from plan (provided by planner)
       const toolName = step.tool || null;
       const toolParams = step.parameters || {};
       
-      // 📢 Send Ack for FIRST step before execution starts
-      if (i === 0 && toolName) {
+      // 📢 Send Ack for THIS step BEFORE execution starts
+      // This ensures proper order: Step 1 Ack → Step 1 execution → Step 1 results → Step 2 Ack → ...
+      if (toolName) {
         await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }]);
       }
       
@@ -3390,62 +3391,52 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         
         if (stepResult.success) {
           stepResults.push(stepResult);
-          
-          // 🚀 CRITICAL: Send results immediately after each step (not just at the end)
-          // This ensures user sees progress (location/poll/media) right away
           const { greenApiService } = getServices();
           
-          // Send location immediately if this step created one
+          // 🚀 Send results immediately after step completes (location/poll/text)
+          // Media (image/video/audio) is sent at the end to maintain proper order
+          
+          // Send location immediately
           if (stepResult.latitude && stepResult.longitude) {
             try {
               await greenApiService.sendLocation(chatId, parseFloat(stepResult.latitude), parseFloat(stepResult.longitude), '', '');
               if (stepResult.locationInfo && stepResult.locationInfo.trim()) {
                 await greenApiService.sendTextMessage(chatId, `📍 ${stepResult.locationInfo}`);
               }
+              console.log(`✅ [Multi-step] Location sent for step ${step.stepNumber}/${plan.steps.length}`);
             } catch (locationError) {
-              console.error(`❌ [Multi-step] Failed to send location after step ${step.stepNumber}:`, locationError.message);
+              console.error(`❌ [Multi-step] Failed to send location:`, locationError.message);
             }
           }
           
-          // Send poll immediately if this step created one
+          // Send poll immediately
           if (stepResult.poll) {
             try {
               const pollOptions = stepResult.poll.options.map(opt => ({ optionName: opt }));
               await greenApiService.sendPoll(chatId, stepResult.poll.question, pollOptions, false);
+              console.log(`✅ [Multi-step] Poll sent for step ${step.stepNumber}/${plan.steps.length}`);
             } catch (pollError) {
-              console.error(`❌ [Multi-step] Failed to send poll after step ${step.stepNumber}:`, pollError.message);
+              console.error(`❌ [Multi-step] Failed to send poll:`, pollError.message);
             }
           }
           
-          // Send text immediately if this step has text (and no media)
+          // Send text immediately (only if no media)
           const createdMedia = stepResult.imageUrl || stepResult.videoUrl || stepResult.audioUrl;
           if (stepResult.text && stepResult.text.trim() && !createdMedia) {
             try {
-              let cleanText = stepResult.text.trim();
-              cleanText = cleanText.replace(/https?:\/\/[^\s]+/gi, '').trim();
+              let cleanText = stepResult.text.trim().replace(/https?:\/\/[^\s]+/gi, '').trim();
               if (cleanText) {
                 await greenApiService.sendTextMessage(chatId, cleanText);
                 console.log(`✅ [Multi-step] Text sent for step ${step.stepNumber}/${plan.steps.length}`);
               }
             } catch (textError) {
-              console.error(`❌ [Multi-step] Failed to send text after step ${step.stepNumber}:`, textError.message);
+              console.error(`❌ [Multi-step] Failed to send text:`, textError.message);
             }
           }
           
-          // 📢 Send Ack for NEXT step (if exists) AFTER current step results are sent
-          // This ensures proper order: Step 1 results → Step 2 Ack → Step 2 execution
-          if (i < plan.steps.length - 1) {
-            const nextStep = plan.steps[i + 1];
-            const nextStepTool = nextStep.tool || null;
-            const nextStepParams = nextStep.parameters || {};
-            
-            if (nextStepTool) {
-              await sendToolAckMessage(chatId, [{ name: nextStepTool, args: nextStepParams }]);
-            }
-          }
+          console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed: ${stepResult.toolsUsed?.join(', ') || 'text only'}`);
           
-          // Track assets for final return
-          // CRITICAL: Only track media (image/video/audio) - location/poll/text are sent immediately above
+          // Track media assets for sending at the end (location/poll/text already sent above)
           if (stepResult.imageUrl) {
             finalAssets.imageUrl = stepResult.imageUrl;
             finalAssets.imageCaption = stepResult.imageCaption || '';
@@ -3453,15 +3444,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           if (stepResult.videoUrl) finalAssets.videoUrl = stepResult.videoUrl;
           if (stepResult.audioUrl) finalAssets.audioUrl = stepResult.audioUrl;
           
-          // Track other assets for reference (location/poll/text already sent immediately above)
-          if (stepResult.poll) finalAssets.poll = stepResult.poll;
-          if (stepResult.latitude) finalAssets.latitude = stepResult.latitude;
-          if (stepResult.longitude) finalAssets.longitude = stepResult.longitude;
-          if (stepResult.locationInfo) finalAssets.locationInfo = stepResult.locationInfo;
-          
-          console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed: ${stepResult.toolsUsed?.join(', ') || 'text only'}`);
-          
-          // Accumulate text ONLY if step did NOT create media (but we already sent it above)
+          // Accumulate text only if no media (text already sent above)
           if (stepResult.text && stepResult.text.trim() && !createdMedia) {
             accumulatedText += (accumulatedText ? '\n\n' : '') + stepResult.text;
           }
