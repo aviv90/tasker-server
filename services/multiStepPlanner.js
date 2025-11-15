@@ -39,21 +39,24 @@ async function planMultiStepExecution(userRequest) {
     
     let jsonStr = jsonMatch[0];
     
-    // Fix common JSON issues from LLM responses
-    // Fix malformed array elements (when LLM doesn't use proper object syntax)
+    // CRITICAL: Fix malformed steps array BEFORE parsing
     // Pattern: "steps": [\n  "stepNumber": 1, ...  should be: "steps": [\n  { "stepNumber": 1, ...
-    const stepsMatch = jsonStr.match(/"steps"\s*:\s*\[\s*([^\]]+)\]/s);
+    // This is the most common issue with Gemini's multi-step JSON responses
+    console.log(`🔍 [Planner] Checking JSON for malformed steps array...`);
+    const stepsMatch = jsonStr.match(/"steps"\s*:\s*\[\s*(.+?)\]/s);
     if (stepsMatch) {
       const stepsContent = stepsMatch[1];
-      console.log(`🔍 [Planner] Steps content preview: ${stepsContent.substring(0, 200)}...`);
+      console.log(`🔍 [Planner] Steps content preview (first 200 chars): ${stepsContent.substring(0, 200)}`);
       
       // Check if steps array has malformed content (properties without object wrapper)
-      // Look for pattern like: "stepNumber": 1,\n    "tool": ... (no { before)
+      // Look for: "stepNumber": 1, (without { before)
       if (stepsContent.includes('"stepNumber":') && !stepsContent.match(/^\s*\{/)) {
-        console.log(`🔧 [Planner] Fixing malformed steps array - properties without object wrapper`);
+        console.log(`🔧 [Planner] Detected malformed steps array - fixing...`);
         
         // Find all stepNumber occurrences
         const stepNumberMatches = [...stepsContent.matchAll(/"stepNumber"\s*:\s*(\d+)/g)];
+        console.log(`🔍 [Planner] Found ${stepNumberMatches.length} steps`);
+        
         if (stepNumberMatches.length > 0) {
           const fixedSteps = [];
           
@@ -71,17 +74,19 @@ async function planMultiStepExecution(userRequest) {
             stepContent = stepContent.replace(/,\s*$/, '');
             
             // Wrap in object
-            fixedSteps.push(`  {\n    ${stepContent}\n  }`);
+            fixedSteps.push(`    {\n      ${stepContent}\n    }`);
           }
           
           // Replace the malformed steps array
           jsonStr = jsonStr.replace(
-            /"steps"\s*:\s*\[\s*[^\]]+\]/s,
+            /"steps"\s*:\s*\[\s*.+?\]/s,
             `"steps": [\n${fixedSteps.join(',\n')}\n  ]`
           );
           
           console.log(`✅ [Planner] Fixed steps array - wrapped ${fixedSteps.length} steps in objects`);
         }
+      } else {
+        console.log(`✅ [Planner] Steps array is well-formed`);
       }
     }
     

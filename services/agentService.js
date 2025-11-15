@@ -1143,17 +1143,6 @@ const agentTools = {
           for (const provider of providers) {
             console.log(`🔄 Trying image provider: ${provider}`);
             
-            // Send Ack to user for retry attempt
-            if (context?.chatId) {
-              try {
-                const providerName = formatProviderName(provider);
-                await greenApiService.sendTextMessage(context.chatId, `מנסה עם ${providerName}... 🔁`);
-                console.log(`📢 [Retry] Sent Ack for ${providerName}`);
-              } catch (ackError) {
-                console.error(`❌ [Retry] Failed to send Ack:`, ackError.message);
-              }
-            }
-            
             try {
               let imageResult;
               if (provider === 'openai') {
@@ -1174,31 +1163,9 @@ const agentTools = {
                 };
               }
               
-              // Send error to user (as-is, as per rule #2)
-              if (context?.chatId && imageResult.error) {
-                try {
-                  const errorMsg = imageResult.error.toString();
-                  await greenApiService.sendTextMessage(context.chatId, `❌ שגיאה ביצירת תמונה עם ${formatProviderName(provider)}: ${errorMsg}`);
-                  console.log(`📤 [Retry] Sent error for ${provider}`);
-                } catch (errorSendError) {
-                  console.error(`❌ [Retry] Failed to send error:`, errorSendError.message);
-                }
-              }
-              
               errors.push(`${provider}: ${imageResult.error}`);
               console.log(`❌ ${provider} failed: ${imageResult.error}`);
             } catch (providerError) {
-              // Send error to user (as-is, as per rule #2)
-              if (context?.chatId) {
-                try {
-                  const errorMsg = providerError.message || providerError.toString();
-                  await greenApiService.sendTextMessage(context.chatId, `❌ שגיאה ביצירת תמונה עם ${formatProviderName(provider)}: ${errorMsg}`);
-                  console.log(`📤 [Retry] Sent error for ${provider}`);
-                } catch (errorSendError) {
-                  console.error(`❌ [Retry] Failed to send error:`, errorSendError.message);
-                }
-              }
-              
               errors.push(`${provider}: ${providerError.message}`);
               console.error(`❌ ${provider} threw error:`, providerError);
             }
@@ -3004,14 +2971,10 @@ async function sendToolAckMessage(chatId, functionCalls) {
         provider = availableProviders[0] || null;
       }
       
-      if (!provider && toolName === 'retry_with_different_provider') {
-        const avoidRaw = call.args?.avoid_provider;
-        const avoidProvider = normalizeProviderKey(avoidRaw) || 'gemini';
-        const providerSequence = VIDEO_PROVIDER_FALLBACK_ORDER;
-        // CRITICAL FIX: Show the FIRST provider that will actually be tried (after filtering)
-        // Not the "next" one in the sequence!
-        const remainingProviders = providerSequence.filter(p => p !== avoidProvider);
-        provider = remainingProviders[0] || providerSequence[0];
+      // SKIP: retry_with_different_provider handles its own Acks internally
+      // Sending Ack here would duplicate the Acks sent by the tool itself
+      if (toolName === 'retry_with_different_provider') {
+        return ''; // Don't send any Ack - let the tool handle it
       }
       
       let providerDisplayKey = providerRaw || provider;
