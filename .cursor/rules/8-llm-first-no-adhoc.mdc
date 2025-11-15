@@ -1,0 +1,145 @@
+# LLM-First Architecture & Comprehensive Fixes
+
+## Core Principle: LLM-First, Regex as Fallback Only
+
+**The primary method for all intelligent operations must be LLM (Large Language Model).**  
+Regex patterns and heuristics should ONLY be used as fallback mechanisms when the LLM fails.
+
+### Where This Applies:
+
+#### 1️⃣ Multi-Step Planning (multiStepPlanner.js)
+- **Primary**: LLM analyzes user request and outputs structured JSON plan
+- **Fallback**: Only if LLM fails to parse, use simple heuristic detection
+- **Never**: Rely on regex for multi-step detection as the primary method
+
+#### 2️⃣ Single-Step Request Analysis (agentService.js)
+- **Primary**: LLM uses Gemini Function Calling to select appropriate tools
+- **Fallback**: Only if Function Calling fails, use deterministic logic
+- **Never**: Pre-filter requests with regex before sending to LLM
+
+#### 3️⃣ Output Generation
+- **Primary**: LLM generates text, captions, descriptions in the requested language
+- **Fallback**: Only if LLM output is invalid, use templates
+- **Never**: Hardcode responses or use static templates as the primary method
+
+---
+
+## No Ad-Hoc Fixes: Comprehensive Solutions Only
+
+**Every bug fix must be comprehensive and apply to ALL similar cases, not just the specific reported issue.**
+
+### ✅ Good Example: Preventing Duplicate Sending
+```javascript
+// Comprehensive check that works for ALL media types
+if (agentResult.multiStep && agentResult.alreadySent) {
+  console.log(`⏭️ Skipping send - already sent in multi-step`);
+  return;
+}
+
+// Send image/video/audio/location/poll...
+```
+
+### ❌ Bad Example: Ad-Hoc Fix
+```javascript
+// Only fixes location, but image/video/audio might have same issue
+if (agentResult.latitude && agentResult.longitude) {
+  if (agentResult.multiStep && agentResult.alreadySent) {
+    // Skip location only
+  }
+}
+// Image sending has no such check! 🐛
+```
+
+---
+
+## Implementation Checklist
+
+When implementing a fix or new feature, ALWAYS:
+
+1. **Identify the pattern**: Is this issue specific to one tool/command, or does it affect multiple?
+2. **Apply horizontally**: If it affects multiple tools, fix ALL of them in one go
+3. **Use LLM first**: Can the LLM handle this intelligently? If yes, use it.
+4. **Verify comprehensively**: Test with multiple command types, not just the reported case
+5. **Document the principle**: Update relevant prompts/comments to prevent regression
+
+---
+
+## Examples of Comprehensive Fixes
+
+### Example 1: Multi-Step Output Order
+**Problem**: Location sent after image instead of before  
+**Ad-Hoc Fix**: Only fix location ordering  
+**Comprehensive Fix**: Ensure ALL outputs (location, poll, text, image, video, audio) follow the correct order based on planner's step sequence
+
+### Example 2: Duplicate Sending Prevention
+**Problem**: Location description sent twice  
+**Ad-Hoc Fix**: Only check for location duplicates  
+**Comprehensive Fix**: Add `multiStep && alreadySent` check for ALL media types (image, video, audio, location, poll)
+
+### Example 3: Language Consistency
+**Problem**: Image caption in English when request was in Hebrew  
+**Ad-Hoc Fix**: Only fix image captions  
+**Comprehensive Fix**: Ensure ALL outputs (text, captions, location descriptions, error messages) respect the original request language
+
+---
+
+## Anti-Patterns to Avoid
+
+### 🚫 Don't: Regex-First Detection
+```javascript
+// BAD: Using regex as primary detection
+if (/send.*location.*then.*image/i.test(prompt)) {
+  // Handle multi-step
+}
+```
+
+### ✅ Do: LLM-First Detection
+```javascript
+// GOOD: Let LLM analyze the request
+const plan = await multiStepPlanner.planMultiStepExecution(prompt);
+if (plan.isMultiStep) {
+  // Handle based on LLM's plan
+}
+```
+
+---
+
+### 🚫 Don't: Type-Specific Checks
+```javascript
+// BAD: Only handles one type
+if (result.imageUrl && multiStep) {
+  skip();
+}
+// What about videoUrl? audioUrl? location?
+```
+
+### ✅ Do: Generic, Reusable Checks
+```javascript
+// GOOD: Handles all cases
+if (multiStep && alreadySent) {
+  skip(); // Works for image, video, audio, location, poll, etc.
+}
+```
+
+---
+
+## When to Use Regex/Heuristics
+
+Regex and heuristics are ONLY acceptable in these cases:
+
+1. **Fallback after LLM failure**: If the LLM fails to parse or respond, use a simple fallback
+2. **Parameter extraction**: Extracting specific values like region names from text (e.g., "באזור סלובניה" → "Slovenia")
+3. **Validation**: Checking if a string matches a specific format (e.g., phone number, URL)
+4. **Performance optimization**: For extremely simple, deterministic checks that don't require intelligence (e.g., checking if a string is empty)
+
+**In all other cases, prefer LLM.**
+
+---
+
+## Summary
+
+- **LLM First**: Use AI for planning, analysis, and generation
+- **Regex as Fallback**: Only when LLM fails or for deterministic validation
+- **Comprehensive Fixes**: Apply fixes horizontally across all similar cases
+- **No Ad-Hoc**: Every fix should prevent the same issue in ALL contexts
+- **Test Broadly**: Verify fixes work for all command types and combinations
