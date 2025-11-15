@@ -1682,12 +1682,17 @@ async function handleIncomingMessage(webhookData) {
               if (agentResult.multiStep && agentResult.alreadySent) {
                 console.log(`✅ [Multi-step] Location already sent in agentService - skipping duplicate`);
               } else if (agentResult.latitude && agentResult.longitude) {
-                console.log(`📍 [Agent] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
-                await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '');
-                mediaSent = true;
-                // Send location info as separate text message
-                if (agentResult.locationInfo && agentResult.locationInfo.trim()) {
-                  await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`);
+                // Skip if already sent by multi-step execution
+                if (agentResult.multiStep && agentResult.alreadySent) {
+                  console.log(`⏭️ [Agent] Skipping location send - already sent in multi-step`);
+                } else {
+                  console.log(`📍 [Agent] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
+                  await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '');
+                  mediaSent = true;
+                  // Send location info as separate text message
+                  if (agentResult.locationInfo && agentResult.locationInfo.trim()) {
+                    await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`);
+                  }
                 }
               }
               
@@ -2202,12 +2207,17 @@ async function handleOutgoingMessage(webhookData) {
               if (agentResult.multiStep && agentResult.alreadySent) {
                 console.log(`✅ [Multi-step - Outgoing] Location already sent in agentService - skipping duplicate`);
               } else if (agentResult.latitude && agentResult.longitude) {
-                console.log(`📍 [Agent - Outgoing] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
-                await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '');
-                mediaSent = true;
-                // Send location info as separate text message
-                if (agentResult.locationInfo && agentResult.locationInfo.trim()) {
-                  await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`);
+                // Skip if already sent by multi-step execution
+                if (agentResult.multiStep && agentResult.alreadySent) {
+                  console.log(`⏭️ [Agent - Outgoing] Skipping location send - already sent in multi-step`);
+                } else {
+                  console.log(`📍 [Agent - Outgoing] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
+                  await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '');
+                  mediaSent = true;
+                  // Send location info as separate text message
+                  if (agentResult.locationInfo && agentResult.locationInfo.trim()) {
+                    await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`);
+                  }
                 }
               }
               
