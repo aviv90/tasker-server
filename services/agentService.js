@@ -47,86 +47,7 @@ const { TOOL_ACK_MESSAGES, VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY
 
 // ✅ splitTaskIntoSteps - removed (not needed with LLM-based planner)
 
-/**
- * DEPRECATED - Split a complex prompt into smaller subtasks
- * Kept for backwards compatibility but not used
- */
-function splitTaskIntoSteps_DEPRECATED(prompt) {
-  if (!prompt) return [prompt];
-  
-  const steps = [];
-  
-  // 🎯 Enhanced splitting for Hebrew and English multi-step commands
-  
-  // Pattern 1: "X, Y, ואז Z" or "X, Y, and then Z"
-  // Split by commas first, then by connectors
-  let parts = [];
-  
-  // Try splitting by explicit sequence connectors (strongest signal)
-  const strongConnectors = /\s+(ואז|ואחר כך|ולאחר מכן|אחר כך|לאחר מכן)\s+/gi;
-  if (strongConnectors.test(prompt)) {
-    parts = prompt.split(strongConnectors).filter(p => p && p.trim().length > 5);
-  } else {
-    // Try English connectors
-    const englishConnectors = /\s+(and then|after that|afterwards|then)\s+/gi;
-    if (englishConnectors.test(prompt)) {
-      parts = prompt.split(englishConnectors).filter(p => p && p.trim().length > 5);
-    } else {
-      // Try splitting by commas followed by action verbs
-      const commaWithAction = /,\s*(?=(ו)?(ספר|כתוב|צור|תצור|תרגם|אמור|נתח|ערוך|חפש|שלח|tell|write|create|translate|say|analyze|edit|search|send))/gi;
-      if (commaWithAction.test(prompt)) {
-        parts = prompt.split(',').filter(p => p && p.trim().length > 5);
-      }
-    }
-  }
-  
-  // Clean up parts - remove connector words that might have been included
-  if (parts.length > 0) {
-    parts = parts.map(p => {
-      // Remove leading connectors
-      p = p.replace(/^(ו|and|then|also)\s+/gi, '').trim();
-      // Remove trailing punctuation
-      p = p.replace(/[,;]$/g, '').trim();
-      return p;
-    }).filter(p => {
-      // Filter out meaningless fragments like "שלח אותה", "send it", etc.
-      const isMeaninglessFragment = /^(שלח|תשלח|send)\s+(אותה?|אותם?|אותן|it|them)[\s\.,]*$/i.test(p);
-      return p.length > 5 && !isMeaninglessFragment;
-    });
-    
-    // Remove "send it" type phrases by merging with previous step
-    const cleanedParts = [];
-    for (let i = 0; i < parts.length; i++) {
-      const current = parts[i];
-      const isSendItType = /^(שלח|תשלח|send)\s+(אותה?|אותם?|אותן|it|them)/i.test(current);
-      
-      if (isSendItType && cleanedParts.length > 0) {
-        // Merge with previous step - "send it" is implied
-        cleanedParts[cleanedParts.length - 1] += ` (${current})`;
-      } else {
-        cleanedParts.push(current);
-      }
-    }
-    parts = cleanedParts;
-  }
-  
-  // If we still have only 1 part but the prompt is complex, try extracting by action verbs
-  if (parts.length <= 1 && prompt.length > 100) {
-    const actionMatches = prompt.match(/\b(ספר|כתוב|צור|תצור|תרגם|אמור|נתח|ערוך|חפש|שלח|tell|write|create|make|translate|say|analyze|edit|search|send)[^,\.]+/gi);
-    
-    if (actionMatches && actionMatches.length >= 2) {
-      parts = actionMatches.map(m => m.trim());
-    }
-  }
-  
-  // If we still couldn't split, return the original
-  if (parts.length === 0 || parts.length === 1) {
-    return [prompt];
-  }
-  
-  console.log(`🔪 [Task Split] Split into ${parts.length} steps:`, parts.map(p => p.substring(0, 50)));
-  return parts;
-}
+// ✅ splitTaskIntoSteps_DEPRECATED removed - using LLM-based planner only (multiStepPlanner.js)
 
 // makePromptMoreGeneric is now imported from ./agent/utils/promptUtils
 
@@ -984,19 +905,8 @@ const agentTools = {
           }
         }
         
-        // Strategy 3: Split into smaller tasks (for complex prompts)
-        console.log(`📊 Strategy 3: Checking if task should be split...`);
-        if (shouldSplitTask(args.original_prompt)) {
-          const subtasks = splitTaskIntoSteps_DEPRECATED(args.original_prompt);
-          console.log(`   → Split into ${subtasks.length} subtasks`);
-          
-          return {
-            success: false,
-            data: `הפרומפט מורכב מדי. אני מציע לפצל למשימות קטנות יותר:\n${subtasks.map((t, i) => `${i+1}. ${t}`).join('\n')}`,
-            strategy_used: 'suggest_split',
-            subtasks: subtasks
-          };
-        }
+        // Strategy 3: No longer used - LLM-based planner handles complex prompts
+        // (This fallback strategy is deprecated and will be removed)
         
         // Strategy 4: Try with relaxed parameters (less strict)
         console.log(`📊 Strategy 4: Trying with relaxed parameters...`);
@@ -3394,9 +3304,10 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       const toolName = step.tool || null;
       const toolParams = step.parameters || {};
       
-      // 📢 Send Ack for THIS step BEFORE execution starts (only for first step)
-      // For subsequent steps, Ack is sent AFTER previous step results are sent
-      if (i === 0 && toolName) {
+      // 📢 Send Ack for current step BEFORE its execution
+      // This must happen AFTER previous step's results were sent
+      if (toolName) {
+        console.log(`📢 [Multi-step] Sending Ack for Step ${step.stepNumber}/${plan.steps.length} (${toolName})`);
         await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }]);
       }
       
@@ -3501,19 +3412,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           }
           
           console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed: ${stepResult.toolsUsed?.join(', ') || 'text only'}`);
-          
-          // 📢 Send Ack for NEXT step ONLY AFTER all current step results are sent
-          // CRITICAL: All location/poll/text results must be sent before next step Ack
-          if (i < plan.steps.length - 1) {
-            const nextStep = plan.steps[i + 1];
-            const nextStepTool = nextStep.tool || null;
-            const nextStepParams = nextStep.parameters || {};
-            
-            if (nextStepTool) {
-              console.log(`📢 [Multi-step] Sending Ack for Step ${nextStep.stepNumber} (${nextStepTool}) AFTER Step ${step.stepNumber} results sent`);
-              await sendToolAckMessage(chatId, [{ name: nextStepTool, args: nextStepParams }]);
-            }
-          }
+          // Ack for next step will be sent at the beginning of next iteration
         } else {
           console.error(`❌ [Agent] Step ${step.stepNumber}/${plan.steps.length} failed:`, stepResult.error);
           // Continue with remaining steps even if one fails
