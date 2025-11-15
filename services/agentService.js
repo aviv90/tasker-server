@@ -3345,6 +3345,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       
       // Execute this step
       try {
+        console.log(`🔄 [Multi-step] Executing Step ${step.stepNumber}/${plan.steps.length}: ${step.action}`);
         const stepResult = await executeSingleStep(stepPrompt, chatId, {
           ...options,
           maxIterations: 5, // Limit iterations per step
@@ -3353,6 +3354,18 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           functionDeclarations,
           systemInstruction: prompts.singleStepInstruction(languageInstruction),
           expectedTool: toolName  // Restrict execution to this tool only
+        });
+        
+        console.log(`🔍 [Multi-step] Step ${step.stepNumber} executeSingleStep returned:`, {
+          success: stepResult.success,
+          hasLocation: !!(stepResult.latitude && stepResult.longitude),
+          hasPoll: !!stepResult.poll,
+          hasImage: !!stepResult.imageUrl,
+          hasVideo: !!stepResult.videoUrl,
+          hasAudio: !!stepResult.audioUrl,
+          hasText: !!stepResult.text,
+          toolsUsed: stepResult.toolsUsed,
+          error: stepResult.error
         });
         
         if (stepResult.success) {
