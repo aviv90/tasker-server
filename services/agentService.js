@@ -3765,49 +3765,12 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   }
 }
 
-/**
- * Check if a query should use the agent (vs regular routing)
- * @param {string} prompt - User's prompt
- * @param {Object} input - Normalized input
- * @returns {boolean} - True if should use agent
- */
-function shouldUseAgent(prompt, input) {
-  // Use agent for:
-  // • Chat history/previous messages
-  // • Multi-step requests (create + analyze) - LLM Planner handles this
-  // • Conditional fallback ("if fails, try X")
-  // • Complex retry requests
-  
-  // NOTE: Multi-step detection is handled by LLM Planner - no heuristic needed!
-  
-  const agentPatterns = [
-    // History (Hebrew + English)
-    /מה\s+(אמרתי|אמרת|כתבתי|כתבת|שלחתי|שלחת|דיברתי|דיברת)|על\s+מה\s+(דיברנו|עסקנו|שוחחנו)|(אילו|איזה|מה|כמה)\s+(תמונות|וידאו|הודעות)\s+(היו|נשלחו|כאן|פה)?|(תראה|הראה)\s+(לי)?\s+מה\s+(שלחתי|היה)|מה\s+(היה|קרה|עבר)\s+(כאן|פה|בשיחה)/i,
-    /(ב|מ|על)(ה)?(תמונה|וידאו|הקלטה|הודעה|שיחה)\s+(האחרונה|הקודמת|מקודם)/i,
-    /what\s+(did\s+)?(I|we|you)\s+(say|write|mention|talk|discuss)|what\s+(images?|videos?|messages?)\s+(were|was)?\s+(sent|shared|here)?|(show|display)\s+me\s+what\s+(I|we|you)\s+(sent|shared)|about\s+the\s+(image|video|audio|message|conversation)|in\s+the\s+(previous|last|recent)\s+(message|conversation)/i,
-    
-    // Conditional fallback (Hebrew + English)
-    /(אם|ו?אם).+(נכשל|לא\s+עבד|לא\s+הצליח).+(נסה|צור).+(עם|ב)\s+(OpenAI|Gemini|Grok)|(אם|if).+(לא|not).+(נסה|try).+(אחר|different|other)/i,
-    /(if|and\s+if|when).+(fails?|doesn'?t\s+work|error|not\s+good).+(try|create|use).+(with|using|another|different|other)\s*(OpenAI|Gemini|Grok)?/i,
-    
-    // Smart retry (Hebrew + English)
-    /(זה|ה\w+)\s+(לא\s+)?(עבד|עובד|הצליח|יוצא|יצא)\s+(כמו\s+שצריך|טוב|נכון)?|(נסה|תנסה)\s+(שוב|עוד פעם)\s+(עם|ב|אבל|רק).+|(פשט|תפשט)\s+(את\s+)?(זה|הפרומפט|הבקשה)/i,
-    /(this|it)\s+(didn'?t|doesn'?t)\s+(work|come\s+out|turn\s+out)|try\s+(again|once\s+more)\s+(with|but|using).+|(simplify|make\s+it\s+simpler)|too\s+(complex|complicated|detailed)/i
-  ];
-  
-  for (const pattern of agentPatterns) {
-    if (pattern.test(prompt)) {
-      console.log(`🤖 [Agent] Detected agent-suitable query, will use agent`);
-      return true;
-    }
-  }
-  
-  return false;
-}
+// NOTE: shouldUseAgent was removed - all requests now go through routeToAgent
+// which uses LLM-based planning and execution (no regex/heuristic intent detection)
+// The agent is now the PRIMARY routing mechanism, handling all intent detection via LLM
 
 module.exports = {
-  executeAgentQuery,
-  shouldUseAgent
+  executeAgentQuery
 };
 
 
