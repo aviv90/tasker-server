@@ -1,23 +1,24 @@
-/**
- * Multi-step execution planner
- * Uses LLM to intelligently detect and plan sequential task execution
- */
-
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const prompts = require('../config/prompts');
-const { generateTextResponse } = require('./geminiService');
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 /**
- * Use Gemini to intelligently plan multi-step execution
- * @param {string} userRequest - User's request text (without metadata)
- * @returns {Promise<Object>} - Planning result: {isMultiStep: boolean, steps: Array, reasoning: string}
+ * Use LLM (Gemini) to plan multi-step execution
+ * @param {string} userRequest - The user's request
+ * @returns {Promise<{isMultiStep: boolean, steps?: Array, fallback?: boolean}>}
  */
 async function planMultiStepExecution(userRequest) {
   try {
-    const planningPrompt = prompts.multiStepPlanner(userRequest);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
     
-    const result = await generateTextResponse(planningPrompt, [], {
-      model: 'gemini-2.0-flash-exp' // Fast model for planning
-    });
+    const result = await model.generateContent(prompts.multiStepPlanner(userRequest));
+    const response = result.response;
+    
+    if (!response || !response.text()) {
+      console.warn(`⚠️ [Planner] No response from Gemini`);
+      return { isMultiStep: false, fallback: true };
+    }
     
     if (result.error) {
       console.warn(`⚠️ [Planner] Failed: ${result.error}`);
@@ -39,55 +40,33 @@ async function planMultiStepExecution(userRequest) {
     
     let jsonStr = jsonMatch[0];
     
-    // CRITICAL: Fix malformed steps array BEFORE parsing
-    // Pattern: "steps": [\n  "stepNumber": 1, ...  should be: "steps": [\n  { "stepNumber": 1, ...
-    // This is the most common issue with Gemini's multi-step JSON responses
-    console.log(`🔍 [Planner] Checking JSON for malformed steps array...`);
-    const stepsMatch = jsonStr.match(/"steps"\s*:\s*\[\s*(.+?)\]/s);
-    if (stepsMatch) {
-      const stepsContent = stepsMatch[1];
-      console.log(`🔍 [Planner] Steps content preview (first 200 chars): ${stepsContent.substring(0, 200)}`);
+    // CRITICAL FIX: Gemini returns steps array without wrapping each step in {}
+    // Bad:  "steps": [\n    "stepNumber": 1,\n    "tool": "x",\n    }\n  ]
+    // Good: "steps": [\n    {\n      "stepNumber": 1,\n      "tool": "x"\n    }\n  ]
+    
+    // Simple detection and fix
+    const stepsArrayPattern = /"steps"\s*:\s*\[[\s\n]*"stepNumber"/;
+    if (stepsArrayPattern.test(jsonStr)) {
+      console.log(`🔧 [Planner] Detected malformed steps array - fixing...`);
       
-      // Check if steps array has malformed content (properties without object wrapper)
-      // Look for: "stepNumber": 1, (without { before)
-      if (stepsContent.includes('"stepNumber":') && !stepsContent.match(/^\s*\{/)) {
-        console.log(`🔧 [Planner] Detected malformed steps array - fixing...`);
-        
-        // Find all stepNumber occurrences
-        const stepNumberMatches = [...stepsContent.matchAll(/"stepNumber"\s*:\s*(\d+)/g)];
-        console.log(`🔍 [Planner] Found ${stepNumberMatches.length} steps`);
-        
-        if (stepNumberMatches.length > 0) {
-          const fixedSteps = [];
-          
-          for (let i = 0; i < stepNumberMatches.length; i++) {
-            const match = stepNumberMatches[i];
-            const startPos = match.index;
-            const endPos = i < stepNumberMatches.length - 1 
-              ? stepNumberMatches[i + 1].index 
-              : stepsContent.length;
-            
-            // Extract content for this step
-            let stepContent = stepsContent.substring(startPos, endPos).trim();
-            
-            // Remove trailing comma if exists
-            stepContent = stepContent.replace(/,\s*$/, '');
-            
-            // Wrap in object
-            fixedSteps.push(`    {\n      ${stepContent}\n    }`);
-          }
-          
-          // Replace the malformed steps array
-          jsonStr = jsonStr.replace(
-            /"steps"\s*:\s*\[\s*.+?\]/s,
-            `"steps": [\n${fixedSteps.join(',\n')}\n  ]`
-          );
-          
-          console.log(`✅ [Planner] Fixed steps array - wrapped ${fixedSteps.length} steps in objects`);
-        }
-      } else {
-        console.log(`✅ [Planner] Steps array is well-formed`);
+      // Add { after [ and before "stepNumber"
+      jsonStr = jsonStr.replace(
+        /"steps"\s*:\s*\[\s*/,
+        '"steps": [\n    {'
+      );
+      
+      // Add } before ]
+      jsonStr = jsonStr.replace(
+        /\s*\]\s*,?\s*"reasoning"/,
+        '\n    }\n  ],\n  "reasoning"'
+      );
+      
+      // If no reasoning, just close before final }
+      if (!jsonStr.includes('"reasoning"')) {
+        jsonStr = jsonStr.replace(/\s*\]\s*\}/, '\n    }\n  ]\n}');
       }
+      
+      console.log(`✅ [Planner] Fixed malformed steps array`);
     }
     
     // Try to fix truncated JSON by Gemini
@@ -124,44 +103,8 @@ async function planMultiStepExecution(userRequest) {
       plan = JSON.parse(jsonStr);
     } catch (parseError) {
       console.error(`❌ [Planner] JSON parse failed:`, parseError.message);
-      const errorPos = parseInt(parseError.message.match(/position (\d+)/)?.[1] || '0');
-      console.log(`   Error position: ${errorPos}`);
-      console.log(`   Raw JSON (full): ${jsonStr}`);
-      if (errorPos > 0) {
-        console.log(`   Context around error (position ${Math.max(0, errorPos-50)}-${errorPos+50}):`);
-        console.log(`   ${jsonStr.substring(Math.max(0, errorPos-50), errorPos+50)}`);
-      }
-      
-      // Try more aggressive JSON fixes
-      // 1. Fix trailing commas
-      jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
-      
-      // 2. Fix malformed steps array by wrapping each step in object
-      // Look for pattern: "steps": [\n    "stepNumber": 1,\n    ... (no { before)
-      jsonStr = jsonStr.replace(
-        /"steps"\s*:\s*\[\s*"stepNumber"\s*:/g,
-        '"steps": [\n    {\n      "stepNumber":'
-      );
-      
-      // 3. Close any unclosed objects before next stepNumber or end of array
-      jsonStr = jsonStr.replace(/([^}])\s*"stepNumber"\s*:/g, '$1\n    }\n    {\n      "stepNumber":');
-      jsonStr = jsonStr.replace(/"steps"\s*:\s*\[([^\]]+)\]/g, (match, content) => {
-        if (!content.includes('{') && content.includes('"stepNumber":')) {
-          // Wrap the entire content in object
-          return `"steps": [{\n${content.replace(/^/, '    ')}\n  }]`;
-        }
-        return match;
-      });
-      
-      // Try parsing again after fixes
-      try {
-        plan = JSON.parse(jsonStr);
-        console.log(`✅ [Planner] JSON fixed and parsed successfully`);
-      } catch (retryError) {
-        console.error(`❌ [Planner] Still failed after fix:`, retryError.message);
-        console.log(`   Fixed JSON (first 1000 chars): ${jsonStr.substring(0, 1000)}`);
-        return { isMultiStep: false, fallback: true };
-      }
+      console.log(`   Raw JSON (first 500 chars): ${jsonStr.substring(0, 500)}`);
+      return { isMultiStep: false, fallback: true };
     }
     
     if (plan.isMultiStep && Array.isArray(plan.steps) && plan.steps.length > 1) {
@@ -169,19 +112,22 @@ async function planMultiStepExecution(userRequest) {
       const validatedSteps = plan.steps.map((step, index) => {
         // Ensure step has required fields
         return {
-          stepNumber: step.stepNumber || index + 1,
-          tool: step.tool || null, // null if text-only step
+          stepNumber: step.stepNumber || (index + 1),
+          tool: step.tool || null,
           action: step.action || `Step ${index + 1}`,
           parameters: step.parameters || {}
         };
       });
       
+      console.log(`✅ [Planner] Multi-step plan generated with ${validatedSteps.length} steps`);
       return {
-        ...plan,
-        steps: validatedSteps
+        isMultiStep: true,
+        steps: validatedSteps,
+        reasoning: plan.reasoning
       };
     }
     
+    console.log(`✅ [Planner] Single-step request detected`);
     return { isMultiStep: false };
     
   } catch (error) {
@@ -193,4 +139,3 @@ async function planMultiStepExecution(userRequest) {
 module.exports = {
   planMultiStepExecution
 };
-
