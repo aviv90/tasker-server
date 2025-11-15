@@ -1677,7 +1677,11 @@ async function handleIncomingMessage(webhookData) {
                 mediaSent = true;
               }
               
-              if (agentResult.latitude && agentResult.longitude) {
+              // CRITICAL: For multi-step, location is already sent in agentService
+              // Skip here to avoid duplicate and maintain proper order
+              if (agentResult.multiStep && agentResult.alreadySent) {
+                console.log(`✅ [Multi-step] Location already sent in agentService - skipping duplicate`);
+              } else if (agentResult.latitude && agentResult.longitude) {
                 console.log(`📍 [Agent] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
                 await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '');
                 mediaSent = true;
@@ -2193,7 +2197,11 @@ async function handleOutgoingMessage(webhookData) {
                 mediaSent = true;
               }
               
-              if (agentResult.latitude && agentResult.longitude) {
+              // CRITICAL: For multi-step, location is already sent in agentService
+              // Skip here to avoid duplicate and maintain proper order
+              if (agentResult.multiStep && agentResult.alreadySent) {
+                console.log(`✅ [Multi-step - Outgoing] Location already sent in agentService - skipping duplicate`);
+              } else if (agentResult.latitude && agentResult.longitude) {
                 console.log(`📍 [Agent - Outgoing] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
                 await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '');
                 mediaSent = true;

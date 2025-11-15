@@ -3393,28 +3393,31 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           stepResults.push(stepResult);
           const { greenApiService } = getServices();
           
-          // 🚀 Send results immediately after step completes (location/poll/text)
-          // Media (image/video/audio) is sent at the end to maintain proper order
+          // 🚀 CRITICAL: Send results immediately and in order
+          // Step results must be sent BEFORE Ack for next step
           
-          // Send location immediately
+          // Send location immediately (if exists)
           if (stepResult.latitude && stepResult.longitude) {
             try {
+              console.log(`📍 [Multi-step] Sending location for step ${step.stepNumber}/${plan.steps.length}: ${stepResult.latitude}, ${stepResult.longitude}`);
               await greenApiService.sendLocation(chatId, parseFloat(stepResult.latitude), parseFloat(stepResult.longitude), '', '');
               if (stepResult.locationInfo && stepResult.locationInfo.trim()) {
                 await greenApiService.sendTextMessage(chatId, `📍 ${stepResult.locationInfo}`);
               }
-              console.log(`✅ [Multi-step] Location sent for step ${step.stepNumber}/${plan.steps.length}`);
+              console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length}: Location sent successfully`);
             } catch (locationError) {
               console.error(`❌ [Multi-step] Failed to send location:`, locationError.message);
             }
+          } else {
+            console.log(`⚠️ [Multi-step] Step ${step.stepNumber}: No location to send (latitude: ${stepResult.latitude}, longitude: ${stepResult.longitude})`);
           }
           
-          // Send poll immediately
+          // Send poll immediately (if exists)
           if (stepResult.poll) {
             try {
               const pollOptions = stepResult.poll.options.map(opt => ({ optionName: opt }));
               await greenApiService.sendPoll(chatId, stepResult.poll.question, pollOptions, false);
-              console.log(`✅ [Multi-step] Poll sent for step ${step.stepNumber}/${plan.steps.length}`);
+              console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length}: Poll sent`);
             } catch (pollError) {
               console.error(`❌ [Multi-step] Failed to send poll:`, pollError.message);
             }
@@ -3427,36 +3430,35 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
               let cleanText = stepResult.text.trim().replace(/https?:\/\/[^\s]+/gi, '').trim();
               if (cleanText) {
                 await greenApiService.sendTextMessage(chatId, cleanText);
-                console.log(`✅ [Multi-step] Text sent for step ${step.stepNumber}/${plan.steps.length}`);
+                console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length}: Text sent`);
               }
             } catch (textError) {
               console.error(`❌ [Multi-step] Failed to send text:`, textError.message);
             }
           }
           
-          console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed: ${stepResult.toolsUsed?.join(', ') || 'text only'}`);
-          
-          // Track media assets for sending at the end (location/poll/text already sent above)
+          // Track media for sending at end (location/poll/text already sent above)
           if (stepResult.imageUrl) {
             finalAssets.imageUrl = stepResult.imageUrl;
             finalAssets.imageCaption = stepResult.imageCaption || '';
           }
           if (stepResult.videoUrl) finalAssets.videoUrl = stepResult.videoUrl;
           if (stepResult.audioUrl) finalAssets.audioUrl = stepResult.audioUrl;
-          
-          // Accumulate text only if no media (text already sent above)
           if (stepResult.text && stepResult.text.trim() && !createdMedia) {
             accumulatedText += (accumulatedText ? '\n\n' : '') + stepResult.text;
           }
           
-          // 📢 Send Ack for NEXT step (if exists) AFTER current step results are sent
-          // This ensures proper order: Step 1 Ack → Step 1 execution → Step 1 results → Step 2 Ack → Step 2 execution → ...
+          console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed: ${stepResult.toolsUsed?.join(', ') || 'text only'}`);
+          
+          // 📢 Send Ack for NEXT step ONLY AFTER all current step results are sent
+          // CRITICAL: All location/poll/text results must be sent before next step Ack
           if (i < plan.steps.length - 1) {
             const nextStep = plan.steps[i + 1];
             const nextStepTool = nextStep.tool || null;
             const nextStepParams = nextStep.parameters || {};
             
             if (nextStepTool) {
+              console.log(`📢 [Multi-step] Sending Ack for Step ${nextStep.stepNumber} (${nextStepTool}) AFTER Step ${step.stepNumber} results sent`);
               await sendToolAckMessage(chatId, [{ name: nextStepTool, args: nextStepParams }]);
             }
           }
