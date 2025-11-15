@@ -1633,7 +1633,10 @@ async function handleIncomingMessage(webhookData) {
                 }
               }
               
-              if (agentResult.videoUrl) {
+              // For multi-step, video is already sent in agentService - skip here
+              if (agentResult.multiStep && agentResult.alreadySent) {
+                console.log(`⏭️ [Agent] Skipping video send - already sent in multi-step`);
+              } else if (agentResult.videoUrl) {
                 console.log(`🎬 [Agent] Sending generated video: ${agentResult.videoUrl}`);
                 // Videos don't support captions well - send as file, text separately
                 await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '');
@@ -1656,7 +1659,10 @@ async function handleIncomingMessage(webhookData) {
                 }
               }
               
-              if (agentResult.audioUrl) {
+              // For multi-step, audio is already sent in agentService - skip here
+              if (agentResult.multiStep && agentResult.alreadySent) {
+                console.log(`⏭️ [Agent] Skipping audio send - already sent in multi-step`);
+              } else if (agentResult.audioUrl) {
                 console.log(`🎵 [Agent] Sending generated audio: ${agentResult.audioUrl}`);
                 // Audio doesn't support captions - send as file only
                 const fullAudioUrl = agentResult.audioUrl.startsWith('http') 
@@ -1669,7 +1675,10 @@ async function handleIncomingMessage(webhookData) {
                 // No need for textual descriptions like "הנה הקלטה קולית..."
               }
               
-              if (agentResult.poll) {
+              // For multi-step, poll is already sent in agentService - skip here
+              if (agentResult.multiStep && agentResult.alreadySent) {
+                console.log(`⏭️ [Agent] Skipping poll send - already sent in multi-step`);
+              } else if (agentResult.poll) {
                 console.log(`📊 [Agent] Sending poll: ${agentResult.poll.question}`);
                 // Convert options to Green API format
                 const pollOptions = agentResult.poll.options.map(opt => ({ optionName: opt }));
@@ -2152,7 +2161,10 @@ async function handleOutgoingMessage(webhookData) {
                 mediaSent = true;
               }
               
-              if (agentResult.videoUrl) {
+              // For multi-step, video is already sent in agentService - skip here
+              if (agentResult.multiStep && agentResult.alreadySent) {
+                console.log(`⏭️ [Agent - Outgoing] Skipping video send - already sent in multi-step`);
+              } else if (agentResult.videoUrl) {
                 console.log(`🎬 [Agent - Outgoing] Sending generated video: ${agentResult.videoUrl}`);
                 // Videos don't support captions well - send as file, text separately
                 await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '');
@@ -2175,7 +2187,10 @@ async function handleOutgoingMessage(webhookData) {
                 }
               }
               
-              if (agentResult.audioUrl) {
+              // For multi-step, audio is already sent in agentService - skip here
+              if (agentResult.multiStep && agentResult.alreadySent) {
+                console.log(`⏭️ [Agent - Outgoing] Skipping audio send - already sent in multi-step`);
+              } else if (agentResult.audioUrl) {
                 console.log(`🎵 [Agent - Outgoing] Sending generated audio: ${agentResult.audioUrl}`);
                 // Audio doesn't support captions - send as file only
                 const fullAudioUrl = agentResult.audioUrl.startsWith('http') 
@@ -2188,7 +2203,10 @@ async function handleOutgoingMessage(webhookData) {
                 // No need for textual descriptions like "הנה הקלטה קולית..."
               }
               
-              if (agentResult.poll) {
+              // For multi-step, poll is already sent in agentService - skip here
+              if (agentResult.multiStep && agentResult.alreadySent) {
+                console.log(`⏭️ [Agent - Outgoing] Skipping poll send - already sent in multi-step`);
+              } else if (agentResult.poll) {
                 console.log(`📊 [Agent - Outgoing] Sending poll: ${agentResult.poll.question}`);
                 // Convert options to Green API format
                 const pollOptions = agentResult.poll.options.map(opt => ({ optionName: opt }));

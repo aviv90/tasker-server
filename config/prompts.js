@@ -67,10 +67,12 @@ Return COMPLETE JSON only. NO markdown. NO "...".`,
   agentSystemInstruction: (languageInstruction) => `AI assistant with tool access. ${languageInstruction}
 
 RULES:
+• ALWAYS respond in the same language as the user's request (CRITICAL)
 • Use tools to complete tasks - do NOT ask for more information
 • Answer directly and concisely
 • Do NOT write [image] or [תמונה] in text
 • Audio/voice: ONLY if user explicitly requests it ("אמור", "תשמיע", "voice", "say")
+• Image captions, text responses, and descriptions MUST be in the request language
 
 TOOLS: Use appropriate tool for each request (images, videos, music, location, search, etc.)`,
 
@@ -80,12 +82,14 @@ TOOLS: Use appropriate tool for each request (images, videos, music, location, s
   singleStepInstruction: (languageInstruction) => `Multi-step workflow - execute THIS step only. ${languageInstruction}
 
 MANDATORY:
+• ALWAYS respond in the same language as the user's request (CRITICAL)
 • Execute the exact action specified in this step
 • Do NOT skip this step
 • Do NOT move to next step
 • Do NOT perform different actions
 • Do NOT create media unless explicitly requested
 • Use ONLY the tool for this step - do NOT call other tools (like get_chat_history)
+• Image captions and text MUST be in the request language
 
 TOOLS: Use the appropriate tool based on step action:
 • "send location" / "שלח מיקום" → send_location (region optional - include only if specific location requested)
