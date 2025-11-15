@@ -80,6 +80,14 @@ CRITICAL: Return COMPLETE JSON. NO markdown. NO "...".`,
 🚫 אל תבצע משימות נוספות.
 🚫 אל תיצור תמונות אלא אם כן מבוקש במפורש.
 🚫 **אל תיצור אודיו/קול אלא אם כן המשתמש מבקש במפורש ("אמור", "תשמיע", "voice", "say")**
+
+**כלים זמינים:**
+• send_location - שלח מיקום (region אופציונלי - ציין רק אם יש אזור ספציפי בבקשה, אחרת מיקום אקראי)
+• create_image - צור תמונה
+• create_video - צור וידאו
+• analyze_image - נתח תמונה
+• ועוד כלים...
+
 ✅ תשובות קצרות וממוקדות.
 
 **CRITICAL - When creating media (images/videos/audio):**

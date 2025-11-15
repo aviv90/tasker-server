@@ -1542,6 +1542,14 @@ async function handleIncomingMessage(webhookData) {
             const agentResult = await routeToAgent(normalized, chatId);
             
             if (agentResult.success) {
+              // 🚀 CRITICAL: For multi-step, results are sent immediately after each step in agentService
+              // If alreadySent is true, skip sending here to avoid duplicates
+              if (agentResult.multiStep && agentResult.alreadySent) {
+                console.log(`✅ [Multi-step] Results already sent immediately after each step - skipping duplicate sending`);
+                console.log(`✅ [Agent] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
+                return; // Exit early - everything already sent
+              }
+              
               // Send any generated media (image/video/audio/poll) with captions
               let mediaSent = false;
               

@@ -2061,9 +2061,15 @@ const agentTools = {
         properties: {
           region: {
             type: 'string',
-            description: `שם המקום המדויק שהמשתמש ביקש - חובה לציין אם יש אזור ספציפי בבקשה!
+            description: `שם המקום המדויק שהמשתמש ביקש - **אופציונלי!** ציין רק אם המשתמש ביקש אזור ספציפי.
             
-דוגמאות קריטיות:
+**CRITICAL - Region is OPTIONAL:**
+- "שלח מיקום" (ללא אזור) → אל תציין region (מיקום אקראי)
+- "שלח מיקום אקראי" → אל תציין region
+- "שלח מיקום באזור תל אביב" → region="תל אביב" (ציין!)
+- "מיקום ברחובות" → region="רחובות" (ציין!)
+
+דוגמאות:
 - "שלח מיקום באזור תל אביב" → region="תל אביב" (לא "באזור תל אביב"!)
 - "מיקום ברחובות" → region="רחובות"
 - "send location in Tokyo" → region="Tokyo"
@@ -2072,13 +2078,13 @@ const agentTools = {
 - "מיקום בצרפת" → region="צרפת"
 - "ביפן" → region="יפן"
 - "באירופה" → region="אירופה"
-- "שלח מיקום אקראי" → אל תציין region (השאר ריק)
+- "שלח מיקום" / "שלח מיקום אקראי" → אל תציין region (השאר ריק או null)
 
 כללים חשובים:
 1. העתק רק את שם המקום עצמו, בלי מילות קישור ("באזור", "ב", "in", "near")
 2. שמור על האיות המקורי (עברית/אנגלית כמו שהמשתמש כתב)
-3. אם המשתמש ביקש "מיקום אקראי" ללא אזור - אל תציין region
-4. גם כפרים/יישובים/שכונות קטנים - תמיד ציין ב-region!`
+3. **אם אין אזור ספציפי בבקשה - אל תציין region!** (מיקום אקראי אוטומטית)
+4. גם כפרים/יישובים/שכונות קטנים - ציין ב-region אם המשתמש ביקש!`
           }
         },
         required: []
@@ -3194,6 +3200,9 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
         break;
       }
       
+      // 📢 Send Ack message to user before executing tools (for multi-step feedback)
+      await sendToolAckMessage(chatId, functionCalls);
+      
       // Execute function calls
       const functionResponses = [];
       for (const call of functionCalls) {
@@ -3361,7 +3370,47 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         if (stepResult.success) {
           stepResults.push(stepResult);
           
-          // Track assets FIRST (only last one of each type)
+          // 🚀 CRITICAL: Send results immediately after each step (not just at the end)
+          // This ensures user sees progress (location/poll/media) right away
+          const { greenApiService } = getServices();
+          
+          // Send location immediately if this step created one
+          if (stepResult.latitude && stepResult.longitude) {
+            try {
+              await greenApiService.sendLocation(chatId, parseFloat(stepResult.latitude), parseFloat(stepResult.longitude), '', '');
+              if (stepResult.locationInfo && stepResult.locationInfo.trim()) {
+                await greenApiService.sendTextMessage(chatId, `📍 ${stepResult.locationInfo}`);
+              }
+            } catch (locationError) {
+              console.error(`❌ [Multi-step] Failed to send location after step ${step.stepNumber}:`, locationError.message);
+            }
+          }
+          
+          // Send poll immediately if this step created one
+          if (stepResult.poll) {
+            try {
+              const pollOptions = stepResult.poll.options.map(opt => ({ optionName: opt }));
+              await greenApiService.sendPoll(chatId, stepResult.poll.question, pollOptions, false);
+            } catch (pollError) {
+              console.error(`❌ [Multi-step] Failed to send poll after step ${step.stepNumber}:`, pollError.message);
+            }
+          }
+          
+          // Send text immediately if this step has text (and no media)
+          const createdMedia = stepResult.imageUrl || stepResult.videoUrl || stepResult.audioUrl;
+          if (stepResult.text && stepResult.text.trim() && !createdMedia) {
+            try {
+              let cleanText = stepResult.text.trim();
+              cleanText = cleanText.replace(/https?:\/\/[^\s]+/gi, '').trim();
+              if (cleanText) {
+                await greenApiService.sendTextMessage(chatId, cleanText);
+              }
+            } catch (textError) {
+              console.error(`❌ [Multi-step] Failed to send text after step ${step.stepNumber}:`, textError.message);
+            }
+          }
+          
+          // Track assets for final return (but we send them immediately above)
           if (stepResult.imageUrl) {
             finalAssets.imageUrl = stepResult.imageUrl;
             finalAssets.imageCaption = stepResult.imageCaption || '';
@@ -3369,15 +3418,13 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           if (stepResult.videoUrl) finalAssets.videoUrl = stepResult.videoUrl;
           if (stepResult.audioUrl) finalAssets.audioUrl = stepResult.audioUrl;
           
-          // Track other assets
+          // Track other assets (already sent above)
           if (stepResult.poll) finalAssets.poll = stepResult.poll;
           if (stepResult.latitude) finalAssets.latitude = stepResult.latitude;
           if (stepResult.longitude) finalAssets.longitude = stepResult.longitude;
           if (stepResult.locationInfo) finalAssets.locationInfo = stepResult.locationInfo;
           
-          // Accumulate text ONLY if step did NOT create media
-          // If step created media, ignore its text - media is enough, text should not be in message
-          const createdMedia = stepResult.imageUrl || stepResult.videoUrl || stepResult.audioUrl;
+          // Accumulate text ONLY if step did NOT create media (but we already sent it above)
           if (stepResult.text && stepResult.text.trim() && !createdMedia) {
             accumulatedText += (accumulatedText ? '\n\n' : '') + stepResult.text;
           }
@@ -3410,6 +3457,49 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     }
     finalText = uniqueLines.join('\n').trim();
     
+    // 🚀 CRITICAL: Send media (image/video/audio) at the end, after all text/location/poll
+    // Text, location, and poll are sent immediately after each step (see above)
+    // Media is sent at the end to maintain proper order
+    const { greenApiService } = getServices();
+    const { getStaticFileUrl } = require('../utils/urlUtils');
+    
+    if (finalAssets.imageUrl) {
+      try {
+        const fullImageUrl = finalAssets.imageUrl.startsWith('http') 
+          ? finalAssets.imageUrl 
+          : getStaticFileUrl(finalAssets.imageUrl.replace('/static/', ''));
+        const caption = (finalAssets.imageCaption && finalAssets.imageCaption.trim()) || '';
+        await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption);
+        console.log(`📸 [Multi-step] Image sent at end: ${finalAssets.imageUrl}`);
+      } catch (imageError) {
+        console.error(`❌ [Multi-step] Failed to send image at end:`, imageError.message);
+      }
+    }
+    
+    if (finalAssets.videoUrl) {
+      try {
+        const fullVideoUrl = finalAssets.videoUrl.startsWith('http') 
+          ? finalAssets.videoUrl 
+          : getStaticFileUrl(finalAssets.videoUrl.replace('/static/', ''));
+        await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '');
+        console.log(`🎬 [Multi-step] Video sent at end: ${finalAssets.videoUrl}`);
+      } catch (videoError) {
+        console.error(`❌ [Multi-step] Failed to send video at end:`, videoError.message);
+      }
+    }
+    
+    if (finalAssets.audioUrl) {
+      try {
+        const fullAudioUrl = finalAssets.audioUrl.startsWith('http') 
+          ? finalAssets.audioUrl 
+          : getStaticFileUrl(finalAssets.audioUrl.replace('/static/', ''));
+        await greenApiService.sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '');
+        console.log(`🎵 [Multi-step] Audio sent at end: ${finalAssets.audioUrl}`);
+      } catch (audioError) {
+        console.error(`❌ [Multi-step] Failed to send audio at end:`, audioError.message);
+      }
+    }
+    
     console.log(`🏁 [Agent] Multi-step execution completed: ${stepResults.length}/${plan.steps.length} steps successful`);
     console.log(`📦 [Agent] Returning: ${finalText.length} chars text, image: ${!!finalAssets.imageUrl}, multiStep: true`);
     console.log(`📝 [Agent] Final text preview: "${finalText.substring(0, 100)}..."`);
@@ -3422,7 +3512,9 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       iterations: stepResults.reduce((sum, r) => sum + (r.iterations || 0), 0),
       multiStep: true,
       stepsCompleted: stepResults.length,
-      totalSteps: plan.steps.length
+      totalSteps: plan.steps.length,
+      // Mark that results were already sent immediately (don't resend in whatsappRoutes)
+      alreadySent: true
     };
   }
   
@@ -3451,7 +3543,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   - **אם המשתמש לא אמר "אמור", "תשמיע", "voice", "say" - אל תיצור אודיו!**
 • "אמור X ב-Y" → translate_and_speak (לא translate_text!)
 • תמיד ציין provider: create_image({provider: "gemini"}), create_video({provider: "kling"})
-• send_location: חובה region אם יש אזור בבקשה!
+• send_location: region הוא **אופציונלי** - ציין רק אם יש אזור ספציפי ("שלח מיקום" = אקראי, "שלח מיקום בתל אביב" = region="תל אביב")
 • אם tool נכשל → retry_with_different_provider (אל תקרא לאותו tool שוב!)
 • שמור רציפות: קרא [היסטוריית שיחה] בסוף כל בקשה
 • Multi-step: אם רואה "Step X/Y" → התמקד רק בשלב הזה`;
