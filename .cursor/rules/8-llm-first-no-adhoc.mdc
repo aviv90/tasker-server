@@ -123,6 +123,40 @@ if (multiStep && alreadySent) {
 
 ---
 
+## Optimal Prompt Engineering
+
+**LLM prompts, system instructions, and tool descriptions must be concise, focused, and optimized.**
+
+### Prompt Quality Standards:
+
+1. **Concise**: Short, to the point - avoid verbosity
+2. **Clear**: Unambiguous instructions with concrete examples
+3. **Focused**: One clear goal per prompt section
+4. **Structured**: Use bullet points, sections, clear formatting
+5. **Optimal**: Every word must add value - remove redundancy
+
+### ✅ Good Prompt Example:
+```
+AI assistant. Respond in user's language.
+
+RULES:
+• Use tools for tasks
+• Be direct and concise
+• Images: use tool, no descriptions
+```
+
+### ❌ Bad Prompt Example:
+```
+You are an advanced AI assistant that has been designed to help users
+with a variety of tasks. Please make sure to respond in the same language
+that the user is using, which is very important. When you need to perform
+a task, you should use the available tools that have been provided to you...
+```
+
+**Why bad?**: Too verbose, repetitive, lacks structure, wastes tokens.
+
+---
+
 ## When to Use Regex/Heuristics
 
 Regex and heuristics are ONLY acceptable in these cases:
