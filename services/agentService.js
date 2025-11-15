@@ -3343,9 +3343,9 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       const toolName = step.tool || null;
       const toolParams = step.parameters || {};
       
-      // 📢 Send Ack for THIS step BEFORE execution starts
-      // This ensures proper order: Step 1 Ack → Step 1 execution → Step 1 results → Step 2 Ack → ...
-      if (toolName) {
+      // 📢 Send Ack for THIS step BEFORE execution starts (only for first step)
+      // For subsequent steps, Ack is sent AFTER previous step results are sent
+      if (i === 0 && toolName) {
         await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }]);
       }
       
@@ -3447,6 +3447,18 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           // Accumulate text only if no media (text already sent above)
           if (stepResult.text && stepResult.text.trim() && !createdMedia) {
             accumulatedText += (accumulatedText ? '\n\n' : '') + stepResult.text;
+          }
+          
+          // 📢 Send Ack for NEXT step (if exists) AFTER current step results are sent
+          // This ensures proper order: Step 1 Ack → Step 1 execution → Step 1 results → Step 2 Ack → Step 2 execution → ...
+          if (i < plan.steps.length - 1) {
+            const nextStep = plan.steps[i + 1];
+            const nextStepTool = nextStep.tool || null;
+            const nextStepParams = nextStep.parameters || {};
+            
+            if (nextStepTool) {
+              await sendToolAckMessage(chatId, [{ name: nextStepTool, args: nextStepParams }]);
+            }
           }
         } else {
           console.error(`❌ [Agent] Step ${step.stepNumber}/${plan.steps.length} failed:`, stepResult.error);
