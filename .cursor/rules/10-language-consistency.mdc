@@ -1,0 +1,218 @@
+---
+description: All outputs must be in the same language as the user's request
+globs:
+  - "**/*.js"
+  - "services/**"
+  - "config/**"
+---
+
+# Language Consistency
+
+## Core Rule
+
+**ALL outputs must be in the SAME LANGUAGE as the user's original request.**
+
+This is non-negotiable and applies to:
+- Text responses
+- Image captions
+- Video descriptions
+- Audio transcriptions
+- Poll questions and options
+- Location descriptions
+- Error messages
+- Any text sent to the user
+
+---
+
+## Examples
+
+### ✅ Good: Consistent Language
+
+**User Request (Hebrew):**
+```
+# צור תמונה של חתול
+```
+
+**System Response (Hebrew):**
+```
+[Image with caption: "חתול חמוד יושב על חלון"]
+```
+
+---
+
+**User Request (English):**
+```
+# create an image of a cat
+```
+
+**System Response (English):**
+```
+[Image with caption: "A cute cat sitting on a window"]
+```
+
+---
+
+### ❌ Bad: Language Mismatch
+
+**User Request (Hebrew):**
+```
+# צור תמונה של חתול
+```
+
+**System Response (English - WRONG!):**
+```
+[Image with caption: "A cute cat sitting on a window"]
+```
+
+---
+
+## Implementation Requirements
+
+### 1. Detect Language Early
+```javascript
+// Detect user's language from the request
+const userLanguage = detectLanguage(prompt);
+const languageInstruction = getLanguageInstruction(userLanguage);
+```
+
+### 2. Pass Language to ALL Operations
+```javascript
+// Every operation must receive language context
+const result = await generateImage(prompt, { language: userLanguage });
+const caption = await generateCaption(imageUrl, { language: userLanguage });
+const description = await describe(location, { language: userLanguage });
+```
+
+### 3. LLM System Instructions
+```javascript
+// ALWAYS include language instruction in prompts
+const systemInstruction = `AI assistant. ${languageInstruction}
+
+CRITICAL: ALWAYS respond in the same language as the user's request.
+All text, captions, and descriptions MUST be in ${userLanguage}.`;
+```
+
+### 4. Verify Before Sending
+```javascript
+// Before sending any text to user, verify it matches request language
+if (shouldVerifyLanguage(text, userLanguage)) {
+  console.warn(`⚠️ Language mismatch detected - expected ${userLanguage}`);
+  // Either translate or regenerate
+}
+```
+
+---
+
+## Special Cases
+
+### Multi-Step Commands
+**Each step's output must match the original request language.**
+
+Example:
+```
+User: "# ספר בדיחה ואז צור תמונה שממחישה אותה"
+
+Step 1 (Joke): [Hebrew joke]
+Step 2 (Image): [Image with HEBREW caption, not English]
+```
+
+### Quoted Messages
+**Response should match the language of the CURRENT request, not the quoted message.**
+
+Example:
+```
+Quoted message (English): "Hello"
+User's current request (Hebrew): "תרגם את זה לעברית"
+
+Response: [Hebrew translation] ← Hebrew because current request is Hebrew
+```
+
+### Error Messages
+**Even errors must be in the request language.**
+
+```javascript
+// ✅ Good
+if (userLanguage === 'he') {
+  throw new Error('שגיאה ביצירת התמונה');
+} else {
+  throw new Error('Error creating image');
+}
+
+// ❌ Bad
+throw new Error('Error creating image'); // Always English
+```
+
+---
+
+## Language Detection
+
+### Supported Languages:
+- **Hebrew (he)**: עברית
+- **English (en)**: English
+- **Arabic (ar)**: العربية
+- **Russian (ru)**: Русский
+
+### Detection Priority:
+1. User's explicit language request
+2. Majority language in the text
+3. Fallback to Hebrew (default)
+
+---
+
+## Validation Checklist
+
+Before any output is sent:
+
+- [ ] Does the text match the user's request language?
+- [ ] Do image captions match the request language?
+- [ ] Do video descriptions match the request language?
+- [ ] Do poll questions match the request language?
+- [ ] Do location descriptions match the request language?
+- [ ] Do error messages match the request language?
+
+**If any answer is "no", regenerate in correct language.**
+
+---
+
+## Common Mistakes to Avoid
+
+### ❌ Hardcoded English
+```javascript
+// BAD: Always English
+const caption = "Image created successfully";
+```
+
+### ✅ Language-Aware
+```javascript
+// GOOD: Matches request language
+const caption = userLanguage === 'he' 
+  ? "התמונה נוצרה בהצלחה"
+  : "Image created successfully";
+```
+
+---
+
+### ❌ LLM Ignoring Language
+```javascript
+// BAD: No language instruction
+const prompt = "Create a caption for this image";
+```
+
+### ✅ LLM with Language Instruction
+```javascript
+// GOOD: Explicit language requirement
+const prompt = `Create a caption for this image IN HEBREW ONLY.
+Do not respond in any other language.`;
+```
+
+---
+
+## Summary
+
+**ONE SIMPLE RULE: User's language = Output language. Always. No exceptions.**
+
+If the user writes in Hebrew → Everything in Hebrew.
+If the user writes in English → Everything in English.
+If the user writes in Arabic → Everything in Arabic.
+
+**This is critical for user experience and must never be violated.**
