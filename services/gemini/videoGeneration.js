@@ -27,11 +27,29 @@ async function analyzeVideoWithText(prompt, videoBuffer) {
         // Sanitize prompt as an extra safety measure
         const cleanPrompt = sanitizeText(prompt);
         
-        // Detect if prompt is in Hebrew
-        const hasHebrew = /[\u0590-\u05FF]/.test(cleanPrompt);
-        const languageInstruction = hasHebrew 
-            ? '\n\nחשוב: ענה בעברית בלבד.' 
-            : '';
+        // Detect user's language using proper detection (not just Hebrew check)
+        const { detectLanguage } = require('../../utils/agentHelpers');
+        const detectedLang = detectLanguage(cleanPrompt);
+        
+        // Build language instruction based on detected language
+        let languageInstruction = '';
+        switch (detectedLang) {
+            case 'he':
+                languageInstruction = '\n\nחשוב מאוד: עליך לענות בעברית בלבד. התשובה חייבת להיות בעברית, ללא מילים באנגלית אלא אם כן זה שם פרטי או מונח טכני שאין לו תרגום.';
+                break;
+            case 'en':
+                languageInstruction = '\n\nIMPORTANT: You must respond in English only. The answer must be in English.';
+                break;
+            case 'ar':
+                languageInstruction = '\n\nمهم جداً: يجب أن تجيب بالعربية فقط. يجب أن تكون الإجابة بالعربية.';
+                break;
+            case 'ru':
+                languageInstruction = '\n\nОчень важно: вы должны отвечать только на русском языке. Ответ должен быть на русском языке.';
+                break;
+            default:
+                // Default to Hebrew for unknown languages
+                languageInstruction = '\n\nחשוב מאוד: ענה בעברית בלבד.';
+        }
         
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.5-flash" // Use regular model for text analysis

@@ -33,11 +33,34 @@ class GrokService {
       // Sanitize prompt
       const cleanPrompt = sanitizeText(prompt);
 
+      // Detect user's language to ensure response matches input language
+      const { detectLanguage } = require('../utils/agentHelpers');
+      const detectedLang = detectLanguage(cleanPrompt);
+      
+      // Build language-specific system prompt
+      let systemContent = '';
+      switch (detectedLang) {
+          case 'he':
+              systemContent = 'אתה Grok - עוזר AI ידידותי. תן תשובות ישירות וטבעיות.\n\nחשוב מאוד: עליך לענות בעברית בלבד. התשובה חייבת להיות בעברית, ללא מילים באנגלית אלא אם כן זה שם פרטי או מונח טכני שאין לו תרגום.';
+              break;
+          case 'en':
+              systemContent = 'You are Grok - a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in English only. The answer must be in English.';
+              break;
+          case 'ar':
+              systemContent = 'أنت Grok - مساعد ذكي وودود. امنح إجابات مباشرة وطبيعية.\n\nمهم جداً: يجب أن تجيب بالعربية فقط. يجب أن تكون الإجابة بالعربية.';
+              break;
+          case 'ru':
+              systemContent = 'Вы Grok - дружелюбный AI-помощник. Давайте прямые и естественные ответы.\n\nОчень важно: вы должны отвечать только на русском языке. Ответ должен быть на русском языке.';
+              break;
+          default:
+              systemContent = 'אתה Grok - עוזר AI ידידותי. תן תשובות ישירות וטבעיות.\n\nחשוב מאוד: ענה בעברית בלבד.';
+      }
+
       // Build messages array - OPTIMIZED
       const messages = [
         {
           role: 'system',
-          content: 'אתה Grok - עוזר AI ידידותי. תן תשובות ישירות וטבעיות.'
+          content: systemContent
         }
       ];
 

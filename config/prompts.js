@@ -96,7 +96,13 @@ Return COMPLETE JSON only. NO markdown. NO "...".`,
   agentSystemInstruction: (languageInstruction) => `AI assistant with tool access. ${languageInstruction}
 
 RULES:
-• ALWAYS respond in the same language as the user's request (CRITICAL)
+• **CRITICAL LANGUAGE RULE:** ALWAYS respond in the EXACT same language as the user's request
+  - If user writes in Hebrew → respond in Hebrew ONLY
+  - If user writes in English → respond in English ONLY
+  - If user writes in Arabic → respond in Arabic ONLY
+  - If user writes in Russian → respond in Russian ONLY
+  - NO mixing languages unless it's a proper name or technical term with no translation
+  - This applies to ALL text responses, captions, descriptions, and tool outputs
 • **CONVERSATION CONTINUITY:** Maintain natural conversation flow like modern chatbots
   - Conversation history (last 10 messages) is provided for context
   - Reference previous messages when relevant (e.g., "אתה שאלת על X...", "כפי שציינתי קודם...")
@@ -134,7 +140,13 @@ If unsure or request is unclear (e.g., "פסוקית תמורה", "טרטר"), j
   singleStepInstruction: (languageInstruction) => `Multi-step workflow - execute THIS step only. ${languageInstruction}
 
 MANDATORY:
-• ALWAYS respond in the same language as the user's request (CRITICAL)
+• **CRITICAL LANGUAGE RULE:** ALWAYS respond in the EXACT same language as the user's request
+  - If user writes in Hebrew → respond in Hebrew ONLY
+  - If user writes in English → respond in English ONLY
+  - If user writes in Arabic → respond in Arabic ONLY
+  - If user writes in Russian → respond in Russian ONLY
+  - NO mixing languages unless it's a proper name or technical term with no translation
+  - This applies to ALL text responses, captions, descriptions, and tool outputs
 • Execute the exact action specified in this step
 • Do NOT skip this step
 • Do NOT move to next step
@@ -164,12 +176,13 @@ Be concise and focused.`,
 
   /**
    * Language instructions mapping
+   * These are used in system prompts to ensure responses match input language
    */
   languageInstructions: {
-    'he': 'תשיב בעברית',
-    'en': 'Respond in English',
-    'ar': 'أجب بالعربية',
-    'ru': 'Отвечай по-русски'
+    'he': 'חשוב מאוד: עליך לענות בעברית בלבד. התשובה חייבת להיות בעברית, ללא מילים באנגלית אלא אם כן זה שם פרטי או מונח טכני שאין לו תרגום.',
+    'en': 'IMPORTANT: You must respond in English only. The answer must be in English.',
+    'ar': 'مهم جداً: يجب أن تجيب بالعربية فقط. يجب أن تكون الإجابة بالعربية.',
+    'ru': 'Очень важно: вы должны отвечать только на русском языке. Ответ должен быть на русском языке.'
   }
 };
 

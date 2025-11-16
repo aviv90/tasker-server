@@ -31,13 +31,36 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         // Build conversation contents for Gemini
         const contents = [];
 
+        // Detect user's language to ensure response matches input language
+        const { detectLanguage } = require('../../utils/agentHelpers');
+        const detectedLang = detectLanguage(cleanPrompt);
+        
+        // Build language-specific system prompt
+        let languageInstruction = '';
+        switch (detectedLang) {
+            case 'he':
+                languageInstruction = 'חשוב מאוד: עליך לענות בעברית בלבד. התשובה חייבת להיות בעברית, ללא מילים באנגלית אלא אם כן זה שם פרטי או מונח טכני שאין לו תרגום.';
+                break;
+            case 'en':
+                languageInstruction = 'IMPORTANT: You must respond in English only. The answer must be in English.';
+                break;
+            case 'ar':
+                languageInstruction = 'مهم جداً: يجب أن تجيب بالعربية فقط. يجب أن تكون الإجابة بالعربية.';
+                break;
+            case 'ru':
+                languageInstruction = 'Очень важно: вы должны отвечать только на русском языке. Ответ должен быть на русском языке.';
+                break;
+            default:
+                languageInstruction = 'חשוב מאוד: ענה בעברית בלבד.';
+        }
+        
         // Build system prompt - optimized but detailed for Google Search
         let systemPrompt = `אתה עוזר AI ידידותי. תן תשובות ישירות וטבעיות.
 
 כללי תשובה:
 • תשיב ישירות בלבד - ללא הסברים על תהליך החשיבה
 • אסור: "As an AI", "My thought process", "Let's break down", "translates to", "I should"
-• תמיד תשיב באותה שפה שבה המשתמש שואל`;
+• ${languageInstruction}`;
 
         // Add Google Search specific instructions - MUST BE DETAILED
         if (useGoogleSearch) {
@@ -69,11 +92,38 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
             parts: [{ text: systemPrompt }]
         });
         
-        // Add system prompt response
-        let modelResponse = 'הבנתי. אשיב ישירות ללא תהליך חשיבה.';
-        
-        if (useGoogleSearch) {
-            modelResponse += ' **כלי Google Search זמין לי ואני חייב להשתמש בו לכל בקשת קישור.** אסור לי לענות מהזיכרון (2023) או להמציא קישורים. אם החיפוש לא מצא תוצאות - אודיע "לא מצאתי קישור זמין".';
+        // Add system prompt response in detected language
+        let modelResponse = '';
+        switch (detectedLang) {
+            case 'he':
+                modelResponse = 'הבנתי. אשיב ישירות ללא תהליך חשיבה.';
+                if (useGoogleSearch) {
+                    modelResponse += ' **כלי Google Search זמין לי ואני חייב להשתמש בו לכל בקשת קישור.** אסור לי לענות מהזיכרון (2023) או להמציא קישורים. אם החיפוש לא מצא תוצאות - אודיע "לא מצאתי קישור זמין".';
+                }
+                break;
+            case 'en':
+                modelResponse = 'Understood. I will respond directly without thinking process.';
+                if (useGoogleSearch) {
+                    modelResponse += ' **Google Search tool is available and I must use it for any link request.** I must not answer from memory (2023) or invent links. If search found no results - I will say "No link available".';
+                }
+                break;
+            case 'ar':
+                modelResponse = 'فهمت. سأجيب مباشرة دون عملية تفكير.';
+                if (useGoogleSearch) {
+                    modelResponse += ' **أداة Google Search متاحة ويجب أن أستخدمها لأي طلب رابط.** لا يجب أن أجيب من الذاكرة (2023) أو أختلق روابط. إذا لم يجد البحث نتائج - سأقول "لا يوجد رابط متاح".';
+                }
+                break;
+            case 'ru':
+                modelResponse = 'Понял. Буду отвечать напрямую без процесса размышления.';
+                if (useGoogleSearch) {
+                    modelResponse += ' **Инструмент Google Search доступен, и я должен использовать его для любого запроса ссылки.** Я не должен отвечать из памяти (2023) или придумывать ссылки. Если поиск не нашел результатов - я скажу "Ссылка недоступна".';
+                }
+                break;
+            default:
+                modelResponse = 'הבנתי. אשיב ישירות ללא תהליך חשיבה.';
+                if (useGoogleSearch) {
+                    modelResponse += ' **כלי Google Search זמין לי ואני חייב להשתמש בו לכל בקשת קישור.** אסור לי לענות מהזיכרון (2023) או להמציא קישורים. אם החיפוש לא מצא תוצאות - אודיע "לא מצאתי קישור זמין".';
+                }
         }
         
         contents.push({
@@ -83,14 +133,38 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
         
         // Add example of Google Search usage ONLY when Google Search is enabled
         // This helps Gemini understand it MUST use the tool
+        // Use example in detected language
         if (useGoogleSearch) {
+            let exampleUser, exampleModel;
+            switch (detectedLang) {
+                case 'he':
+                    exampleUser = 'שלח לי קישור למזג האוויר בתל אביב';
+                    exampleModel = '[משתמש בכלי Google Search לחיפוש "מזג אוויר תל אביב"]\n\nהנה קישור לתחזית מזג האוויר בתל אביב: https://www.ims.gov.il/he/cities/2423';
+                    break;
+                case 'en':
+                    exampleUser = 'Send me a link to weather in Tel Aviv';
+                    exampleModel = '[Using Google Search tool to search "weather Tel Aviv"]\n\nHere is a link to weather forecast in Tel Aviv: https://www.ims.gov.il/he/cities/2423';
+                    break;
+                case 'ar':
+                    exampleUser = 'أرسل لي رابط للطقس في تل أبيب';
+                    exampleModel = '[استخدام أداة Google Search للبحث عن "طقس تل أبيب"]\n\nإليك رابط لتوقعات الطقس في تل أبيب: https://www.ims.gov.il/he/cities/2423';
+                    break;
+                case 'ru':
+                    exampleUser = 'Отправь мне ссылку на погоду в Тель-Авиве';
+                    exampleModel = '[Использую инструмент Google Search для поиска "погода Тель-Авив"]\n\nВот ссылка на прогноз погоды в Тель-Авиве: https://www.ims.gov.il/he/cities/2423';
+                    break;
+                default:
+                    exampleUser = 'שלח לי קישור למזג האוויר בתל אביב';
+                    exampleModel = '[משתמש בכלי Google Search לחיפוש "מזג אוויר תל אביב"]\n\nהנה קישור לתחזית מזג האוויר בתל אביב: https://www.ims.gov.il/he/cities/2423';
+            }
+            
             contents.push({
                 role: 'user',
-                parts: [{ text: 'שלח לי קישור למזג האוויר בתל אביב' }]
+                parts: [{ text: exampleUser }]
             });
             contents.push({
                 role: 'model',
-                parts: [{ text: '[משתמש בכלי Google Search לחיפוש "מזג אוויר תל אביב"]\n\nהנה קישור לתחזית מזג האוויר בתל אביב: https://www.ims.gov.il/he/cities/2423' }]
+                parts: [{ text: exampleModel }]
             });
         }
 
