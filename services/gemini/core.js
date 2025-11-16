@@ -223,7 +223,7 @@ async function generateImageForWhatsApp(prompt, req = null) {
         
         const imageId = uuidv4();
         const fileName = `${imageId}.png`;
-        const filePath = path.join(__dirname, '..', 'public', 'tmp', fileName);
+        const filePath = path.join(__dirname, '../..', 'public', 'tmp', fileName);
         
         // Ensure tmp directory exists
         const tmpDir = path.dirname(filePath);
@@ -431,7 +431,7 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
         
         // Save to public directory
         const fileName = `gemini_edit_${uuidv4()}.png`;
-        const filePath = path.join(__dirname, '..', 'public', 'tmp', fileName);
+        const filePath = path.join(__dirname, '../..', 'public', 'tmp', fileName);
         
         // Ensure tmp directory exists
         const tmpDir = path.dirname(filePath);
@@ -567,7 +567,7 @@ async function analyzeVideoWithText(prompt, videoBuffer) {
             
             // Save video to temporary file
             const tempFileName = `temp_analysis_video_${uuidv4()}.mp4`;
-            const tempFilePath = path.join(__dirname, '..', 'public', 'tmp', tempFileName);
+            const tempFilePath = path.join(__dirname, '../..', 'public', 'tmp', tempFileName);
             const tmpDir = path.dirname(tempFilePath);
             
             if (!fs.existsSync(tmpDir)) {
@@ -725,7 +725,7 @@ async function generateVideoWithText(prompt) {
         const videoFile = operation.response.generatedVideos[0].video;
         
         const tempFileName = `temp_video_${uuidv4()}.mp4`;
-        const tempFilePath = path.join(__dirname, '..', 'public', 'tmp', tempFileName);
+        const tempFilePath = path.join(__dirname, '../..', 'public', 'tmp', tempFileName);
         const tmpDir = path.dirname(tempFilePath);
         
         if (!fs.existsSync(tmpDir)) {
@@ -849,7 +849,7 @@ async function generateVideoWithImage(prompt, imageBuffer) {
         const videoFile = operation.response.generatedVideos[0].video;
         
         const tempFileName = `temp_video_${uuidv4()}.mp4`;
-        const tempFilePath = path.join(__dirname, '..', 'public', 'tmp', tempFileName);
+        const tempFilePath = path.join(__dirname, '../..', 'public', 'tmp', tempFileName);
         const tmpDir = path.dirname(tempFilePath);
         
         if (!fs.existsSync(tmpDir)) {
@@ -996,7 +996,7 @@ async function generateVideoForWhatsApp(prompt, req = null) {
         const videoFile = operation.response.generatedVideos[0].video;
         
         const fileName = `veo3_video_${uuidv4()}.mp4`;
-        const filePath = path.join(__dirname, '..', 'public', 'tmp', fileName);
+        const filePath = path.join(__dirname, '../..', 'public', 'tmp', fileName);
         const tmpDir = path.dirname(filePath);
         
         if (!fs.existsSync(tmpDir)) {
@@ -1161,7 +1161,7 @@ async function generateVideoFromImageForWhatsApp(prompt, imageBuffer, req = null
         const videoFile = operation.response.generatedVideos[0].video;
         
         const fileName = `veo3_image_video_${uuidv4()}.mp4`;
-        const filePath = path.join(__dirname, '..', 'public', 'tmp', fileName);
+        const filePath = path.join(__dirname, '../..', 'public', 'tmp', fileName);
         const tmpDir = path.dirname(filePath);
         
         if (!fs.existsSync(tmpDir)) {
@@ -1220,7 +1220,7 @@ async function generateVideoFromImageForWhatsApp(prompt, imageBuffer, req = null
         console.log('🎬 Converting video to WhatsApp-compatible format...');
         const { exec } = require('child_process');
         const convertedFileName = `veo3_image_video_converted_${uuidv4()}.mp4`;
-        const convertedFilePath = path.join(__dirname, '..', 'public', 'tmp', convertedFileName);
+        const convertedFilePath = path.join(__dirname, '../..', 'public', 'tmp', convertedFileName);
         
         try {
             await new Promise((resolve, reject) => {
