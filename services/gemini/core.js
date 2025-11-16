@@ -4,8 +4,8 @@
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genai = require('@google/genai');
-const { sanitizeText } = require('../utils/textSanitizer');
-const { getStaticFileUrl } = require('../utils/urlUtils');
+const { sanitizeText } = require('../../utils/textSanitizer');
+const { getStaticFileUrl } = require('../../utils/urlUtils');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
