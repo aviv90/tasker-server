@@ -64,14 +64,62 @@ const { processImageEditAsync, processImageToVideoAsync, processVoiceMessageAsyn
 // Message deduplication cache - prevent processing duplicate messages
 const processedMessages = new Set();
 
-// Voice transcription and media authorization are managed through PostgreSQL database
-// All other constants are now imported from services/whatsapp/constants.js (SSOT)
-// Utility functions are now imported from services/whatsapp/utils.js (SSOT)
+// Clean up old processed messages cache every 30 minutes
+setInterval(() => {
+  if (processedMessages.size > 1000) {
+    processedMessages.clear();
+    console.log('🧹 Cleared processed messages cache');
+  }
+}, 30 * 60 * 1000);
 
 /**
-    };
+ * Webhook endpoint for receiving WhatsApp messages from Green API
+ */
+router.post('/webhook', async (req, res) => {
+  try {
+    // Security check: Verify webhook token
+    const token = req.headers['authorization']?.replace('Bearer ', '') ||
+                  req.query.token || 
+                  req.body.token;
+    
+    const expectedToken = process.env.GREEN_API_WEBHOOK_TOKEN;
+    
+    if (!expectedToken) {
+      console.error('❌ GREEN_API_WEBHOOK_TOKEN not configured in environment');
+      return res.status(500).json({ error: 'Webhook token not configured' });
+    }
+    
+    if (token !== expectedToken) {
+      console.error('❌ Unauthorized webhook request - invalid token');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const webhookData = req.body;
+    
+    // Log full webhook payload for debugging
+    console.log(`📱 Green API webhook: ${webhookData.typeWebhook || 'unknown'} | Type: ${webhookData.messageData?.typeMessage || 'N/A'}`);
+
+    // Handle different webhook types asynchronously
+    if (webhookData.typeWebhook === 'incomingMessageReceived') {
+      // Process in background - don't await
+      handleIncomingMessage(webhookData).catch(error => {
+        console.error('❌ Error in async webhook processing:', error.message || error);
+      });
+    } else if (webhookData.typeWebhook === 'outgoingMessageReceived') {
+      // Process outgoing messages (commands sent by you)
+      handleOutgoingMessage(webhookData).catch(error => {
+        console.error('❌ Error in async outgoing message processing:', error.message || error);
+      });
+    }
+
+    // Return 200 OK immediately
+    res.status(200).json({ status: 'ok' });
+  } catch (error) {
+    console.error('❌ Error processing webhook:', error.message || error);
+    res.status(500).json({ error: 'Internal server error' });
   }
-}
+});
+
 /**
  * Handle incoming WhatsApp message
  */
