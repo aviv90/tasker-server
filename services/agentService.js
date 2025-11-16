@@ -3505,7 +3505,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           // At this point, all messages for this step have been sent to WhatsApp
           // The next iteration will start, and the Ack for the next step will be sent
         } else {
-          // ❌ Step failed - try fallback for creation tools BEFORE sending error
+          // ❌ Step failed - send initial error, then try fallback for creation tools
           console.error(`❌ [Agent] Step ${step.stepNumber}/${plan.steps.length} failed:`, stepResult.error);
           
           // 🔄 FALLBACK: For creation tools that failed, try alternative providers
@@ -3513,6 +3513,18 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           let fallbackSucceeded = false;
           
           if (creationTools.includes(toolName)) {
+            // CRITICAL: Send the initial error to user first (rule #2)
+            if (stepResult.error) {
+              try {
+                const { greenApiService } = getServices();
+                const errorMessage = stepResult.error.toString();
+                await greenApiService.sendTextMessage(chatId, `❌ ${errorMessage}`);
+                console.log(`📤 [Multi-step] Step ${step.stepNumber}: Initial error sent to user`);
+              } catch (errorSendError) {
+                console.error(`❌ [Multi-step] Failed to send initial error:`, errorSendError.message);
+              }
+            }
+            
             console.log(`🔄 [Multi-step Fallback] Attempting automatic fallback for ${toolName}...`);
             
             try {
