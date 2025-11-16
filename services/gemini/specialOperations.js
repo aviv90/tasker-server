@@ -7,6 +7,7 @@
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const axios = require('axios');
+const { sanitizeText } = require('../../utils/textSanitizer');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 

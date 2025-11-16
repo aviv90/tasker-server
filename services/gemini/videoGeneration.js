@@ -8,6 +8,7 @@
 const genai = require('@google/genai');
 const { getGeminiErrorMessage } = require('./utils');
 const { getStaticFileUrl } = require('../../utils/urlUtils');
+const { sanitizeText } = require('../../utils/textSanitizer');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');

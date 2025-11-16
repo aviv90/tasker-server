@@ -1971,59 +1971,6 @@ const metaTools = {
     }
   },
 
-  // Tool: Create poll
-  create_poll: {
-    declaration: {
-      name: 'create_poll',
-      description: 'צור סקר עם שאלה ותשובות יצירתיות. תומך בסקרים עם או בלי חרוזים!',
-      parameters: {
-        type: 'object',
-        properties: {
-          topic: {
-            type: 'string',
-            description: 'נושא הסקר'
-          },
-          with_rhyme: {
-            type: 'boolean',
-            description: 'האם לייצר תשובות בחרוז? true = עם חרוזים (ברירת מחדל), false = בלי חרוזים. אם המשתמש אומר "בלי חרוזים" או "without rhyme" - שלח false!'
-          }
-        },
-        required: ['topic']
-      }
-    },
-    execute: async (args, context) => {
-      console.log(`🔧 [Agent Tool] create_poll called with topic: ${args.topic}, with_rhyme: ${args.with_rhyme !== false}`);
-      
-      try {
-        const { geminiService } = getServices();
-        
-        // Default to true (with rhyme) if not specified
-        const withRhyme = args.with_rhyme !== false;
-        
-        const pollData = await geminiService.generateCreativePoll(args.topic, withRhyme);
-        
-        if (pollData.error) {
-          return {
-            success: false,
-            error: `יצירת סקר נכשלה: ${pollData.error}`
-          };
-        }
-        
-        return {
-          success: true,
-          data: `✅ הסקר נוצר${withRhyme ? ' עם חרוזים' : ' בלי חרוזים'}!`,
-          poll: pollData
-        };
-      } catch (error) {
-        console.error('❌ Error in create_poll:', error);
-        return {
-          success: false,
-          error: `שגיאה: ${error.message}`
-        };
-      }
-    }
-  },
-
   // Tool: Send random location
   send_location: {
     declaration: {
@@ -2993,20 +2940,6 @@ const metaTools = {
     }
   }
 };
-
-// Merge modular tools with legacy meta-tools
-// This allows gradual migration while maintaining all functionality
-Object.assign(agentTools, metaTools);
-
-// TOOL_ACK_MESSAGES, VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP,
-// normalizeProviderKey, and applyProviderToMessage are now imported from refactored modules
-
-/**
- * Send Ack message to user based on tools being executed
- * @param {string} chatId - Chat ID
- * @param {Array} functionCalls - Array of function calls (with name and args)
- */
-
 
 module.exports = metaTools;
 

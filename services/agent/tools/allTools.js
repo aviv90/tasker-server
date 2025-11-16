@@ -29,7 +29,9 @@ const metaTools = require('./metaTools');
  */
 function getAllTools() {
   return {
-    // Spread all tool categories
+    // CRITICAL: metaTools comes FIRST so basic tools can override any duplicates
+    // This ensures we use the clean, modular implementations from specialized files
+    ...metaTools,
     ...contextTools,
     ...creationTools,
     ...analysisTools,
@@ -39,8 +41,7 @@ function getAllTools() {
     ...groupTools,
     ...audioTools,
     ...summaryTools,
-    ...retryTools,
-    ...metaTools
+    ...retryTools
   };
 }
 
