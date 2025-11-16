@@ -14,6 +14,44 @@ const { formatProviderName, normalizeProviderKey, applyProviderToMessage } = req
 const { TOOL_ACK_MESSAGES, VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP } = require('../config/constants');
 
 /**
+ * Get ACK message for a specific tool and provider (SSOT for all ACKs)
+ * @param {string} toolName - Tool name
+ * @param {string} provider - Provider name (optional)
+ * @returns {string} - ACK message
+ */
+function getToolAckMessage(toolName, provider = null) {
+  // Get base message from constants
+  let baseMessage = TOOL_ACK_MESSAGES[toolName] || 'מבצע פעולה... ⚙️';
+  
+  // Determine provider if not provided
+  if (!provider) {
+    if (toolName === 'create_image' || toolName === 'edit_image') {
+      provider = 'gemini';
+    } else if (toolName === 'create_video' || toolName === 'edit_video' || toolName === 'image_to_video') {
+      provider = 'grok'; // kling is the default
+    }
+  }
+  
+  // Normalize and format provider name
+  if (provider) {
+    const isVideoTask = toolName === 'create_video' || toolName === 'image_to_video' || toolName === 'edit_video';
+    let providerDisplayKey = provider;
+    
+    if (isVideoTask) {
+      const normalizedKey = normalizeProviderKey(provider);
+      if (normalizedKey && VIDEO_PROVIDER_DISPLAY_MAP[normalizedKey]) {
+        providerDisplayKey = VIDEO_PROVIDER_DISPLAY_MAP[normalizedKey];
+      }
+    }
+    
+    const providerName = formatProviderName(providerDisplayKey);
+    baseMessage = applyProviderToMessage(baseMessage, providerName);
+  }
+  
+  return baseMessage;
+}
+
+/**
  * Send acknowledgment message to user based on tools being executed
  * @param {string} chatId - Chat ID
  * @param {Array} functionCalls - Array of function calls (with name and args)
@@ -27,27 +65,19 @@ async function sendToolAckMessage(chatId, functionCalls) {
     // Helper to build Ack message for a single tool
     const buildSingleAck = (call) => {
       const toolName = call.name;
-      if (toolName === 'send_location') {
+      
+      // SKIP: These tools handle their own Acks internally or don't need ACK
+      if (toolName === 'send_location' || 
+          toolName === 'retry_with_different_provider' || 
+          toolName === 'retry_last_command') {
         return '';
       }
-      // CRITICAL: Never expose tool names to user - use generic message if undefined
-      let baseMessage = TOOL_ACK_MESSAGES[toolName] || 'מבצע פעולה... ⚙️';
       
-      // Check if this tool uses a provider (direct or nested)
+      // Extract provider from args
       const providerRaw = call.args?.provider || call.args?.service;
       let provider = normalizeProviderKey(providerRaw);
       
-      // Default providers for creation/edit tools if not specified
-      if (!provider) {
-        if (toolName === 'create_image' || toolName === 'edit_image') {
-          provider = 'gemini';
-        } else if (toolName === 'create_video' || toolName === 'edit_video') {
-          provider = 'grok'; // kling is the default for video
-        } else if (toolName === 'image_to_video') {
-          provider = 'grok'; // kling
-        }
-      }
-      
+      // Special handling for smart_execute_with_fallback
       if (!provider && toolName === 'smart_execute_with_fallback') {
         const providersTriedRaw = [];
         if (Array.isArray(call.args?.providers_tried)) {
@@ -61,30 +91,8 @@ async function sendToolAckMessage(chatId, functionCalls) {
         provider = availableProviders[0] || null;
       }
       
-      // SKIP: retry_with_different_provider handles its own Acks internally
-      // Sending Ack here would duplicate the Acks sent by the tool itself
-      if (toolName === 'retry_with_different_provider') {
-        return ''; // Don't send any Ack - let the tool handle it
-      }
-      
-      let providerDisplayKey = providerRaw || provider;
-      const isVideoTask = call.args?.task_type === 'video_creation' 
-                       || call.args?.task_type === 'video'
-                       || toolName === 'create_video'
-                       || toolName === 'retry_with_different_provider' && call.args?.task_type === 'video';
-      if (isVideoTask) {
-        const normalizedKey = normalizeProviderKey(providerDisplayKey);
-        if (normalizedKey && VIDEO_PROVIDER_DISPLAY_MAP[normalizedKey]) {
-          providerDisplayKey = VIDEO_PROVIDER_DISPLAY_MAP[normalizedKey];
-        } else if (!providerRaw && provider && VIDEO_PROVIDER_DISPLAY_MAP[provider]) {
-          providerDisplayKey = VIDEO_PROVIDER_DISPLAY_MAP[provider];
-        }
-      }
-      
-      const providerName = providerDisplayKey ? formatProviderName(providerDisplayKey) : null;
-      baseMessage = applyProviderToMessage(baseMessage, providerName);
-      
-      return baseMessage;
+      // Use centralized ACK message function (SSOT)
+      return getToolAckMessage(toolName, provider || providerRaw);
     };
     
     if (functionCalls.length === 1) {
@@ -126,6 +134,7 @@ async function sendToolAckMessage(chatId, functionCalls) {
 }
 
 module.exports = {
-  sendToolAckMessage
+  sendToolAckMessage,
+  getToolAckMessage
 };
 

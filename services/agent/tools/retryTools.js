@@ -5,6 +5,7 @@
 
 const conversationManager = require('../../conversationManager');
 const { getServices } = require('../utils/serviceLoader');
+const { getToolAckMessage } = require('../utils/ackUtils');
 
 // Reference to agentTools (will be injected)
 let agentTools = null;
@@ -15,6 +16,33 @@ let agentTools = null;
  */
 function setAgentToolsReference(tools) {
   agentTools = tools;
+}
+
+/**
+ * Send specific ACK message for retry based on tool and provider
+ * @param {string} chatId - Chat ID
+ * @param {string} tool - Tool name being retried
+ * @param {string} provider - Provider to use (optional)
+ */
+async function sendRetryAck(chatId, tool, provider) {
+  try {
+    // Skip ACK for location (no ACK needed)
+    if (tool === 'send_location') {
+      return;
+    }
+    
+    // Use centralized ACK message function (SSOT - Single Source of Truth)
+    const ackMessage = getToolAckMessage(tool, provider);
+    
+    if (ackMessage) {
+      console.log(`📢 [RETRY ACK] ${ackMessage}`);
+      const { greenApiService } = getServices();
+      await greenApiService.sendTextMessage(chatId, ackMessage);
+    }
+  } catch (error) {
+    console.error('❌ Error sending retry ACK:', error.message);
+    // Don't throw - ACK failure shouldn't break retry
+  }
 }
 
 /**
@@ -86,6 +114,9 @@ const retry_last_command = {
         // Keep original provider if exists
         provider = originalArgs.provider || originalArgs.service;
       }
+      
+      // Send specific ACK based on the tool and provider being retried
+      await sendRetryAck(context.chatId, tool, provider);
       
       // Route to appropriate tool based on last command
       if (tool === 'gemini_image' || tool === 'openai_image' || tool === 'grok_image' || tool === 'create_image') {

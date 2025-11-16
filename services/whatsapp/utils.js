@@ -24,6 +24,10 @@ function cleanAgentText(text) {
     .replace(/\[אודיו\]/gi, '')
     .replace(/\*\*IMPORTANT:.*?\*\*/gs, '') // Remove **IMPORTANT:** instructions
     .replace(/\n\n\[.*$/gs, '') // Remove trailing metadata starting with "["
+    .replace(/\n\[\s*$/g, '') // Remove orphan "[" at end with optional whitespace
+    .replace(/^\[\s*\n/g, '') // Remove orphan "[" at start with optional whitespace
+    .replace(/\n\[\s*\n/g, '\n') // Remove orphan "[" between lines
+    .replace(/\s*\[\s*$/g, '') // Remove trailing orphan "[" with spaces
     .trim();
 }
 
