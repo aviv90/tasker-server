@@ -1660,8 +1660,9 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
                                     
                                     req.on('error', (error) => {
                                         console.warn(`⚠️ Failed to resolve redirect for ${urlData.title}: ${error.message}`);
+                                        console.log(`🔗 Using original redirect URL as fallback: ${urlData.redirectUrl.substring(0, 80)}...`);
                                         resolve({
-                                            uri: urlData.title ? `https://${urlData.title}` : urlData.redirectUrl,
+                                            uri: urlData.redirectUrl,
                                             title: urlData.title
                                         });
                                     });
@@ -1669,8 +1670,9 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
                                     req.on('timeout', () => {
                                         req.destroy();
                                         console.warn(`⚠️ Timeout resolving redirect for ${urlData.title}`);
+                                        console.log(`🔗 Using original redirect URL as fallback: ${urlData.redirectUrl.substring(0, 80)}...`);
                                         resolve({
-                                            uri: urlData.title ? `https://${urlData.title}` : urlData.redirectUrl,
+                                            uri: urlData.redirectUrl,
                                             title: urlData.title
                                         });
                                     });
@@ -1681,8 +1683,9 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
                                 followRedirect(currentUrl);
                             } catch (error) {
                                 console.warn(`⚠️ Error resolving redirect for ${urlData.title}: ${error.message}`);
+                                console.log(`🔗 Using original redirect URL as fallback: ${urlData.redirectUrl.substring(0, 80)}...`);
                                 resolve({
-                                    uri: urlData.title ? `https://${urlData.title}` : urlData.redirectUrl,
+                                    uri: urlData.redirectUrl,
                                     title: urlData.title
                                 });
                             }

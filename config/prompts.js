@@ -20,21 +20,26 @@ MULTI-STEP INDICATORS:
 - Multiple different verbs requiring different tools
 
 AVAILABLE TOOLS (exact names):
-• send_location - Send location (region: optional)
-• create_image - Create image (prompt: required, provider: optional)
-• create_video - Create video (prompt: required, provider: optional)
-• create_music - Create NEW song/music with Suno AI (prompt: required, make_video: optional) - Use for: "צור שיר", "כתוב שיר", "create song", "make music"
-• text_to_speech - Text to speech (text: required, voice: optional)
-• create_poll - Create poll (topic: required, numOptions: optional)
-• search_web - Web search for EXISTING content (query: required) [Use ONLY for finding existing songs/content, NOT for creating new ones]
-• translate_text - Translate text (text: required, target_language: required)
+• send_location - Send location
+• create_image - Create image
+• create_video - Create video
+• create_music - Create NEW song with Suno (use for: "צור שיר", "create song")
+• analyze_image - Analyze image
+• edit_image - Edit image
+• edit_video - Edit video
+• text_to_speech - Convert text to speech (no translation)
+• translate_and_speak - Translate + speak (use when language specified: "אמור X ב-Y")
+• translate_text - Just translate text (no speech)
+• create_poll - Create poll
+• search_web - Find EXISTING content/links (use for: "שלח לי לינק", "find link to song X")
+• get_chat_history - Get conversation history
+• retry_with_different_provider - Retry failed task
 
-CRITICAL: 
-• Use EXACT tool names as listed above. "search_web" NOT "web_search"!
-• Use create_music for NEW songs (creating), search_web for EXISTING content (finding/links)
-
-AUDIO/VOICE:
-- Only include if user explicitly requests: "אמור", "תשמיע", "voice", "say", "קרא בקול"
+CRITICAL RULES:
+• Use EXACT tool names! "search_web" not "web_search"
+• create_music = create NEW songs | search_web = find EXISTING songs/links
+• Links: ALWAYS use search_web (user: "שלח לי לינק לשיר X" → search_web with query: "X song")
+• Audio: Only if explicit ("אמור", "תשמיע", "voice", "say")
 
 OUTPUT (strict JSON only):
 
@@ -97,11 +102,14 @@ MANDATORY:
 • Image captions and text MUST be in the request language
 
 TOOLS: Use the appropriate tool based on step action:
-• "send location" / "שלח מיקום" → send_location (region optional - include only if specific location requested)
-• "create image" / "צור תמונה" → create_image
-• "create video" / "צור וידאו" → create_video
-• "create music" / "create song" / "צור שיר" / "כתוב שיר" / "תעשה שיר" → create_music
-• Text requests → respond with text (no tools)
+• "send location" / "שלח מיקום" → send_location
+• "create image/תמונה" → create_image
+• "create video/וידאו" → create_video  
+• "create music/song/שיר" → create_music
+• "search for link" / "find song" / "חפש קישור" → search_web
+• "say X in Y" / "אמור X ב-Y" → translate_and_speak
+• "say X" / "אמור X" (no language) → text_to_speech
+• Text only → no tools
 
 CRITICAL: Execute only the step's tool, then return. Do NOT call get_chat_history or other tools.
 
