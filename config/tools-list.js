@@ -279,46 +279,6 @@ const TOOLS = {
     }
   },
 
-  history_aware_create: {
-    name: 'history_aware_create',
-    category: 'meta',
-    description: 'Create content with context from history',
-    usage: ['Internal - context-aware creation'],
-    parameters: {}
-  },
-
-  create_with_memory: {
-    name: 'create_with_memory',
-    category: 'meta',
-    description: 'Create content based on user preferences',
-    usage: ['Internal - preference-aware creation'],
-    parameters: {}
-  },
-
-  search_and_create: {
-    name: 'search_and_create',
-    category: 'meta',
-    description: 'Search for info then create based on results',
-    usage: ['Internal - combined search + create'],
-    parameters: {}
-  },
-
-  create_and_analyze: {
-    name: 'create_and_analyze',
-    category: 'meta',
-    description: 'Create content then analyze it',
-    usage: ['Internal - create + analyze'],
-    parameters: {}
-  },
-
-  analyze_and_edit: {
-    name: 'analyze_and_edit',
-    category: 'meta',
-    description: 'Analyze content then edit based on analysis',
-    usage: ['Internal - analyze + edit'],
-    parameters: {}
-  },
-
   smart_execute_with_fallback: {
     name: 'smart_execute_with_fallback',
     category: 'meta',
