@@ -35,6 +35,25 @@ const processedMessages = new Set();
 // All other constants are now imported from services/whatsapp/constants.js (SSOT)
 
 /**
+ * Clean agent response text from internal instructions and metadata
+ * Removes **IMPORTANT:** instructions, trailing metadata, media placeholders
+ */
+function cleanAgentText(text) {
+  if (!text || typeof text !== 'string') return text;
+  
+  return text
+    .replace(/\[image\]/gi, '')
+    .replace(/\[video\]/gi, '')
+    .replace(/\[audio\]/gi, '')
+    .replace(/\[תמונה\]/gi, '')
+    .replace(/\[וידאו\]/gi, '')
+    .replace(/\[אודיו\]/gi, '')
+    .replace(/\*\*IMPORTANT:.*?\*\*/gs, '') // Remove **IMPORTANT:** instructions
+    .replace(/\n\n\[.*$/gs, '') // Remove trailing metadata starting with "["
+    .trim();
+}
+
+/**
  * Clean sensitive/large data from objects for logging
  * Removes base64 thumbnails and truncates long strings
  */
@@ -1674,14 +1693,7 @@ async function handleIncomingMessage(webhookData) {
                 
                 if (!multipleTools) {
                   // Single tool → safe to send text
-                  let cleanText = agentResult.text
-                    .replace(/\[image\]/gi, '')
-                    .replace(/\[video\]/gi, '')
-                    .replace(/\[audio\]/gi, '')
-                    .replace(/\[תמונה\]/gi, '')
-                    .replace(/\[וידאו\]/gi, '')
-                    .replace(/\[אודיו\]/gi, '')
-                    .trim();
+                  const cleanText = cleanAgentText(agentResult.text);
                   if (cleanText) {
                     await sendTextMessage(chatId, cleanText);
                   }
@@ -2202,14 +2214,7 @@ async function handleOutgoingMessage(webhookData) {
                 
                 if (!multipleTools) {
                   // Single tool → safe to send text
-                  let cleanText = agentResult.text
-                    .replace(/\[image\]/gi, '')
-                    .replace(/\[video\]/gi, '')
-                    .replace(/\[audio\]/gi, '')
-                    .replace(/\[תמונה\]/gi, '')
-                    .replace(/\[וידאו\]/gi, '')
-                    .replace(/\[אודיו\]/gi, '')
-                    .trim();
+                  const cleanText = cleanAgentText(agentResult.text);
                   if (cleanText) {
                     await sendTextMessage(chatId, cleanText);
                   }

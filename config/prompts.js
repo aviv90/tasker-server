@@ -101,6 +101,8 @@ RULES:
 • Answer directly and concisely
 • Do NOT write [image] or [תמונה] in text
 • Audio/voice: ONLY if user explicitly requests it ("אמור", "תשמיע", "voice", "say")
+• Translation: ONLY if user explicitly requests it ("תרגם", "translate", "אמור ב-X")
+• After using transcribe_audio: Just return the transcription, do NOT translate unless requested
 • Image captions, text responses, and descriptions MUST be in the request language
 
 TOOLS: Use appropriate tool for each request (images, videos, music, location, search, etc.)`,
