@@ -614,9 +614,47 @@ async function generateChatSummary(messages) {
                 messageText = msg.extendedTextMessage.text || '';
             }
             
-            // If still no text, it's media only
+            // If no text, determine media type and create descriptive label
             if (!messageText) {
-                messageText = '[מדיה]';
+                let mediaType = '[מדיה]';
+                
+                // Detect media type from Green API format
+                if (msg.typeMessage === 'imageMessage' || msg.typeMessage === 'stickerMessage') {
+                    mediaType = '[תמונה]';
+                } else if (msg.typeMessage === 'videoMessage') {
+                    mediaType = '[וידאו]';
+                } else if (msg.typeMessage === 'audioMessage' || msg.typeMessage === 'pttMessage') {
+                    mediaType = '[אודיו]';
+                } else if (msg.typeMessage === 'documentMessage') {
+                    mediaType = '[קובץ]';
+                } else if (msg.typeMessage === 'locationMessage') {
+                    mediaType = '[מיקום]';
+                } else if (msg.typeMessage === 'contactMessage') {
+                    mediaType = '[איש קשר]';
+                } else if (msg.typeMessage) {
+                    // Generic media type based on typeMessage
+                    mediaType = `[${msg.typeMessage.replace('Message', '')}]`;
+                }
+                
+                // Add caption if exists (for media with caption)
+                if (msg.caption) {
+                    messageText = `${mediaType} - ${msg.caption}`;
+                } else {
+                    messageText = mediaType;
+                }
+            } else {
+                // Text message - check if it also has media
+                let mediaIndicator = '';
+                if (msg.typeMessage === 'imageMessage' || msg.typeMessage === 'stickerMessage') {
+                    mediaIndicator = ' [עם תמונה]';
+                } else if (msg.typeMessage === 'videoMessage') {
+                    mediaIndicator = ' [עם וידאו]';
+                } else if (msg.typeMessage === 'audioMessage' || msg.typeMessage === 'pttMessage') {
+                    mediaIndicator = ' [עם אודיו]';
+                } else if (msg.typeMessage === 'documentMessage') {
+                    mediaIndicator = ' [עם קובץ]';
+                }
+                messageText = messageText + mediaIndicator;
             }
             
             formattedMessages += `${index + 1}. ${timestampStr} - ${sender}: ${messageText}\n`;
@@ -625,6 +663,11 @@ async function generateChatSummary(messages) {
         const summaryPrompt = `אנא צור סיכום קצר וברור של השיחה הבאה. התמקד בנושאים העיקריים, החלטות שהתקבלו, ונקודות חשובות.
 
 חשוב: הסיכום חייב להיות בעברית.
+
+הוראות:
+- אם יש הודעות מדיה (תמונה, וידאו, אודיו) - ציין שהשיחה כללה גם מדיה, אבל אל תנתח את תוכן המדיה אלא אם כן המשתמש ביקש זאת במפורש
+- התמקד בתוכן הטקסטואלי של השיחה
+- אם יש caption למדיה - השתמש בו כחלק מההקשר
 
 הודעות השיחה:
 ${formattedMessages}

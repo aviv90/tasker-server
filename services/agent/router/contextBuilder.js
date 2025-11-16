@@ -43,7 +43,30 @@ async function buildContextualPrompt(input, chatId) {
         const recentHistory = history.slice(-10);
         const formattedHistory = recentHistory.map(msg => {
           const role = msg.role === 'user' ? 'משתמש' : 'בוט';
-          return `${role}: ${msg.content}`;
+          let content = msg.content || '';
+          
+          // Add media indicators if present
+          if (msg.metadata) {
+            const mediaTypes = [];
+            if (msg.metadata.hasImage) mediaTypes.push('תמונה');
+            if (msg.metadata.hasVideo) mediaTypes.push('וידאו');
+            if (msg.metadata.hasAudio) mediaTypes.push('אודיו');
+            
+            if (mediaTypes.length > 0) {
+              const mediaIndicator = ` [${mediaTypes.join(', ')}]`;
+              if (content) {
+                content += mediaIndicator;
+              } else {
+                content = `[הודעה ללא טקסט${mediaIndicator}]`;
+              }
+            } else if (!content) {
+              content = '[הודעה ללא טקסט]';
+            }
+          } else if (!content) {
+            content = '[הודעה ללא טקסט]';
+          }
+          
+          return `${role}: ${content}`;
         }).join('\n');
         
         if (formattedHistory) {

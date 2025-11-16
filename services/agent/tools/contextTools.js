@@ -41,7 +41,14 @@ const get_chat_history = {
       
       // Format history for the agent
       const formattedHistory = history.map((msg, idx) => {
-        let content = `${msg.role === 'user' ? 'משתמש' : 'בוט'}: ${msg.content}`;
+        // Handle messages with content
+        let content = '';
+        if (msg.content && msg.content.trim()) {
+          content = `${msg.role === 'user' ? 'משתמש' : 'בוט'}: ${msg.content}`;
+        } else {
+          // Message without text content - it's media only
+          content = `${msg.role === 'user' ? 'משתמש' : 'בוט'}: [הודעה ללא טקסט]`;
+        }
         
         // Add media indicators with URLs
         if (msg.metadata) {

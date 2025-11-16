@@ -59,33 +59,34 @@ const chat_summary = {
       
       console.log(`✅ Retrieved ${history.length} messages from Green API`);
       
-      // Filter out system messages and keep only user/bot messages with text content
+      // Filter out system messages but keep ALL user/bot messages (text + media)
       const filteredHistory = history.filter(msg => {
-        // Keep messages that have text content in various Green API formats
-        const hasText = 
-          msg.textMessage || 
-          msg.caption || 
-          (msg.typeMessage === 'textMessage') ||
-          (msg.typeMessage === 'extendedTextMessage' && msg.extendedTextMessage?.text) ||
-          (msg.extendedTextMessage?.text);
-        
-        // Also filter out system/notification messages
+        // Filter out system/notification messages
         const isSystemMessage = 
           msg.typeMessage === 'notificationMessage' ||
           msg.type === 'notification' ||
           (msg.textMessage && msg.textMessage.startsWith('System:'));
         
-        return hasText && !isSystemMessage;
+        // Keep all non-system messages (text, media, or both)
+        return !isSystemMessage;
       });
       
       if (filteredHistory.length === 0) {
         return {
           success: false,
-          error: 'לא נמצאו הודעות טקסט לסיכום. כל ההודעות הן מדיה בלבד.'
+          error: 'אין מספיק הודעות לסיכום. נסה לשלוח כמה הודעות קודם.'
         };
       }
       
-      console.log(`📝 Filtered to ${filteredHistory.length} text messages for summary`);
+      // Count message types for logging
+      const textMessages = filteredHistory.filter(msg => 
+        msg.textMessage || msg.caption || 
+        msg.typeMessage === 'textMessage' || 
+        (msg.typeMessage === 'extendedTextMessage' && msg.extendedTextMessage?.text)
+      ).length;
+      const mediaMessages = filteredHistory.length - textMessages;
+      
+      console.log(`📝 Including ${filteredHistory.length} messages for summary (${textMessages} text, ${mediaMessages} media)`);
       
       const summary = await geminiService.generateChatSummary(filteredHistory);
       
