@@ -579,21 +579,47 @@ async function generateChatSummary(messages) {
         // Format messages for Gemini
         let formattedMessages = '';
         messages.forEach((msg, index) => {
-            const timestamp = new Date(msg.timestamp * 1000).toLocaleString('he-IL');
+            // Handle timestamp - Green API can return seconds or milliseconds
+            let timestamp;
+            if (msg.timestamp) {
+                // If timestamp is less than year 2000 in milliseconds, it's probably in seconds
+                const ts = typeof msg.timestamp === 'number' ? msg.timestamp : parseInt(msg.timestamp);
+                timestamp = ts < 946684800000 ? new Date(ts * 1000) : new Date(ts);
+            } else if (msg.timestampMessage) {
+                // Alternative timestamp field
+                const ts = typeof msg.timestampMessage === 'number' ? msg.timestampMessage : parseInt(msg.timestampMessage);
+                timestamp = ts < 946684800000 ? new Date(ts * 1000) : new Date(ts);
+            } else {
+                timestamp = new Date(); // Fallback to current time
+            }
+            const timestampStr = timestamp.toLocaleString('he-IL');
             
             // Use WhatsApp display name only (chatName), fallback to phone number
             let sender = 'משתמש';
             if (msg.chatName) {
                 sender = msg.chatName;
+            } else if (msg.senderName) {
+                sender = msg.senderName;
             } else if (msg.sender) {
                 // Extract phone number from sender ID (e.g., "972543995202@c.us" -> "972543995202")
                 const phoneMatch = msg.sender.match(/^(\d+)@/);
                 sender = phoneMatch ? phoneMatch[1] : msg.sender;
             }
             
-            const messageText = msg.textMessage || msg.caption || '[מדיה]';
+            // Get message text - Green API format
+            let messageText = msg.textMessage || msg.caption || '';
             
-            formattedMessages += `${index + 1}. ${timestamp} - ${sender}: ${messageText}\n`;
+            // If no text found, check extendedTextMessage
+            if (!messageText && msg.typeMessage === 'extendedTextMessage' && msg.extendedTextMessage) {
+                messageText = msg.extendedTextMessage.text || '';
+            }
+            
+            // If still no text, it's media only
+            if (!messageText) {
+                messageText = '[מדיה]';
+            }
+            
+            formattedMessages += `${index + 1}. ${timestampStr} - ${sender}: ${messageText}\n`;
         });
         
         const summaryPrompt = `אנא צור סיכום קצר וברור של השיחה הבאה. התמקד בנושאים העיקריים, החלטות שהתקבלו, ונקודות חשובות.

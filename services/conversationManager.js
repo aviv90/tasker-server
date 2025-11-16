@@ -1298,15 +1298,15 @@ class ConversationManager {
     }
 
     try {
-      // Get recent chat history (more than usual for good summary)
-      const history = await this.getChatHistory(chatId, 100);
+      // Get recent chat history from DB (DB format: { role, content, metadata })
+      const history = await this.getConversationHistory(chatId);
       
       if (!history || history.length < 10) {
         console.log(`⏭️ [Auto-Summary] Not enough messages (${history?.length || 0}) for chat ${chatId}`);
         return { error: 'Not enough messages for summary' };
       }
 
-      // Format history for Gemini
+      // Format history for Gemini (DB format has role and content)
       const conversationText = history.map(msg => 
         `${msg.role === 'user' ? 'User' : 'Bot'}: ${msg.content}`
       ).join('\n');

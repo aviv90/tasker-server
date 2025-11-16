@@ -1005,8 +1005,8 @@ const metaTools = {
       console.log(`🔧 [Agent Tool] history_aware_create called`);
       
       try {
-        // Step 1: Get chat history
-        const history = await conversationManager.getChatHistory(context.chatId, 20);
+        // Step 1: Get chat history from DB (DB format: { role, content, metadata })
+        const history = await conversationManager.getConversationHistory(context.chatId);
         
         if (!history || history.length === 0) {
           return {
@@ -1015,9 +1015,9 @@ const metaTools = {
           };
         }
         
-        // Step 2: Build context-aware prompt
+        // Step 2: Build context-aware prompt (DB format has role and content)
         const recentMessages = history.slice(-10).map(msg => 
-          `${msg.role}: ${msg.content}`
+          `${msg.role === 'user' ? 'משתמש' : 'בוט'}: ${msg.content}`
         ).join('\n');
         
         const enrichedPrompt = `בהתבסס על ההקשר הבא:\n${recentMessages}\n\nבקשה: ${args.user_request}`;
