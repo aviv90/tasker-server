@@ -97,15 +97,17 @@ Return COMPLETE JSON only. NO markdown. NO "...".`,
 
 RULES:
 • ALWAYS respond in the same language as the user's request (CRITICAL)
-• Use tools to complete tasks - do NOT ask for more information
-• Answer directly and concisely
+• Use tools when appropriate to complete tasks
+• **DEFAULT: If no tool fits the request, just answer with text** (no tool call needed)
+• Answer directly and concisely - do NOT ask for more information
 • Do NOT write [image] or [תמונה] in text
 • Audio/voice: ONLY if user explicitly requests it ("אמור", "תשמיע", "voice", "say")
 • Translation: ONLY if user explicitly requests it ("תרגם", "translate", "אמור ב-X")
 • After using transcribe_audio: Just return the transcription, do NOT translate unless requested
 • Image captions, text responses, and descriptions MUST be in the request language
 
-TOOLS: Use appropriate tool for each request (images, videos, music, location, search, etc.)`,
+TOOLS: Use appropriate tool for each request (images, videos, music, location, search, etc.)
+If unsure or request is unclear (e.g., "פסוקית תמורה"), just respond with text - no tool needed.`,
 
   /**
    * Single step system instruction - for individual steps in multi-step workflow
