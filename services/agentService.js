@@ -3728,7 +3728,9 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         toolsUsed: Object.keys(context.previousToolResults),
         iterations: iterationCount,
         toolCalls: context.toolCalls,
-        toolResults: context.previousToolResults
+        toolResults: context.previousToolResults,
+        multiStep: false,
+        alreadySent: false
       };
     }
     
@@ -3893,7 +3895,9 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       toolsUsed: Object.keys(context.previousToolResults),
       iterations: iterationCount,
       toolCalls: context.toolCalls,
-      toolResults: context.previousToolResults
+      toolResults: context.previousToolResults,
+      multiStep: false,
+      alreadySent: false
     };
   };
   
@@ -3913,7 +3917,9 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
         toolsUsed: Object.keys(context.previousToolResults),
         timeout: true,
         toolCalls: context.toolCalls,
-        toolResults: context.previousToolResults
+        toolResults: context.previousToolResults,
+        multiStep: false,
+        alreadySent: false
       };
     }
     throw error;
