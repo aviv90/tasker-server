@@ -175,6 +175,94 @@ When using tools:
 Be concise and focused.`,
 
   /**
+   * OpenAI system instruction - for OpenAI Chat API
+   * Extracted from services/openaiService.js (Phase 5.1 - SSOT enforcement)
+   */
+  openaiSystemInstruction: (language) => {
+    switch (language) {
+      case 'he':
+        return 'אתה עוזר AI ידידותי. תן תשובות ישירות וטבעיות.\n\nחשוב מאוד: עליך לענות בעברית בלבד. התשובה חייבת להיות בעברית, ללא מילים באנגלית אלא אם כן זה שם פרטי או מונח טכני שאין לו תרגום.';
+      case 'en':
+        return 'You are a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in English only. The answer must be in English.';
+      case 'ar':
+        return 'أنت مساعد ذكي وودود. امنح إجابات مباشرة وطبيعية.\n\nمهم جداً: يجب أن تجيب بالعربية فقط. يجب أن تكون الإجابة بالعربية.';
+      case 'ru':
+        return 'Вы дружелюбный AI-помощник. Давайте прямые и естественные ответы.\n\nОчень важно: вы должны отвечать только на русском языке. Ответ должен быть на русском языке.';
+      default:
+        return 'אתה עוזר AI ידידותי. תן תשובות ישירות וטבעיות.\n\nחשוב מאוד: ענה בעברית בלבד.';
+    }
+  },
+
+  /**
+   * Grok system instruction - for Grok Chat API
+   * Extracted from services/grokService.js (Phase 5.1 - SSOT enforcement)
+   */
+  grokSystemInstruction: (language) => {
+    switch (language) {
+      case 'he':
+        return 'אתה Grok - עוזר AI ידידותי. תן תשובות ישירות וטבעיות.\n\nחשוב מאוד: עליך לענות בעברית בלבד. התשובה חייבת להיות בעברית, ללא מילים באנגלית אלא אם כן זה שם פרטי או מונח טכני שאין לו תרגום.';
+      case 'en':
+        return 'You are Grok - a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in English only. The answer must be in English.';
+      case 'ar':
+        return 'أنت Grok - مساعد ذكي وودود. امنح إجابات مباشرة وطبيعية.\n\nمهم جداً: يجب أن تجيب بالعربية فقط. يجب أن تكون الإجابة بالعربية.';
+      case 'ru':
+        return 'Вы Grok - дружелюбный AI-помощник. Давайте прямые и естественные ответы.\n\nОчень важно: вы должны отвечать только на русском языке. Ответ должен быть на русском языке.';
+      default:
+        return 'אתה Grok - עוזר AI ידידותי. תן תשובות ישירות וטבעיות.\n\nחשוב מאוד: ענה בעברית בלבד.';
+    }
+  },
+
+  /**
+   * Group creation parsing prompt - for Gemini to parse group creation requests
+   * Extracted from services/groupService.js (Phase 5.1 - SSOT enforcement)
+   */
+  groupCreationParsingPrompt: (userPrompt) => `Analyze this group creation request and extract the group name, participant names, and optional group picture description.
+
+User request: "${userPrompt}"
+
+Return ONLY a JSON object (no markdown, no extra text) with this exact structure:
+{
+  "groupName": "the group name",
+  "participants": ["name1", "name2", "name3"],
+  "groupPicture": "description of picture or null"
+}
+
+Rules:
+1. Recognize group creation keywords: "צור קבוצה", "פתח קבוצה", "הקם קבוצה", "יצירת קבוצה", "create group", "open group", "start group", "new group"
+2. Extract the group name from phrases like "בשם", "קוראים", "שם", "called", "named", or from quotes
+3. Extract participant names from lists after "עם", "with", "והם", "including", etc.
+4. Parse comma-separated names or names with "ו" (and) / "and"
+5. Return names as they appear (don't translate or modify)
+6. If group name is in quotes, extract it without quotes
+7. If no clear group name, use a reasonable default based on context
+8. Extract picture description from phrases like "עם תמונה של", "with picture of", "with image of", etc.
+9. If no picture mentioned, set groupPicture to null
+10. Picture description should be detailed and in English for best image generation results
+
+Examples:
+
+Input: "צור קבוצה בשם 'כדורגל בשכונה' עם קוקו, מכנה ומסיק"
+Output: {"groupName":"כדורגל בשכונה","participants":["קוקו","מכנה","מסיק"],"groupPicture":null}
+
+Input: "create group called Project Team with John, Sarah and Mike"
+Output: {"groupName":"Project Team","participants":["John","Sarah","Mike"],"groupPicture":null}
+
+Input: "צור קבוצה עם קרלוס בשם 'כדורגל בשכונה' עם תמונה של ברבור"
+Output: {"groupName":"כדורגל בשכונה","participants":["קרלוס"],"groupPicture":"a beautiful swan"}
+
+Input: "פתח קבוצה עם אבי ורועי בשם 'פרויקט X' עם תמונה של רובוט עתידני"
+Output: {"groupName":"פרויקט X","participants":["אבי","רועי"],"groupPicture":"a futuristic robot"}
+
+Input: "הקם קבוצה משפחתית עם אמא ואבא"
+Output: {"groupName":"משפחתית","participants":["אמא","אבא"],"groupPicture":null}
+
+Input: "create group Work Team with Mike, Sarah with picture of a mountain sunset"
+Output: {"groupName":"Work Team","participants":["Mike","Sarah"],"groupPicture":"a mountain sunset"}
+
+Input: "open group Friends with John, Lisa, Tom"
+Output: {"groupName":"Friends","participants":["John","Lisa","Tom"],"groupPicture":null}`,
+
+  /**
    * Language instructions mapping
    * These are used in system prompts to ensure responses match input language
    */

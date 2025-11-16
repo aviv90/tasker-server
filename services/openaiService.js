@@ -118,26 +118,11 @@ async function generateTextResponse(prompt, conversationHistory = []) {
 
     // Detect user's language to ensure response matches input language
     const { detectLanguage } = require('../utils/agentHelpers');
+    const prompts = require('../config/prompts');
     const detectedLang = detectLanguage(prompt);
     
-    // Build language-specific system prompt
-    let systemContent = '';
-    switch (detectedLang) {
-        case 'he':
-            systemContent = 'אתה עוזר AI ידידותי. תן תשובות ישירות וטבעיות.\n\nחשוב מאוד: עליך לענות בעברית בלבד. התשובה חייבת להיות בעברית, ללא מילים באנגלית אלא אם כן זה שם פרטי או מונח טכני שאין לו תרגום.';
-            break;
-        case 'en':
-            systemContent = 'You are a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in English only. The answer must be in English.';
-            break;
-        case 'ar':
-            systemContent = 'أنت مساعد ذكي وودود. امنح إجابات مباشرة وطبيعية.\n\nمهم جداً: يجب أن تجيب بالعربية فقط. يجب أن تكون الإجابة بالعربية.';
-            break;
-        case 'ru':
-            systemContent = 'Вы дружелюбный AI-помощник. Давайте прямые и естественные ответы.\n\nОчень важно: вы должны отвечать только на русском языке. Ответ должен быть на русском языке.';
-            break;
-        default:
-            systemContent = 'אתה עוזר AI ידידותי. תן תשובות ישירות וטבעיות.\n\nחשוב מאוד: ענה בעברית בלבד.';
-    }
+    // Build language-specific system prompt (SSOT - from config/prompts.js)
+    const systemContent = prompts.openaiSystemInstruction(detectedLang);
 
     // Build messages array - OPTIMIZED
     const messages = [

@@ -522,37 +522,9 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   // Prepare tool declarations for Gemini
   const functionDeclarations = Object.values(agentTools).map(tool => tool.declaration);
   
-    // System prompt for the agent (Hebrew base with dynamic language instruction)
-    // Build tools list dynamically from central registry
-    const availableToolNames = getUserFacingTools()
-      .map(t => t.name)
-      .slice(0, 15) // Show first 15 tools
-      .join(', ');
-    
-    const systemInstruction = `אתה עוזר AI אוטונומי עם גישה לכלים מתקדמים.
- 
- **🌐 Language:** ${languageInstruction} - תשיב בשפה שבה המשתמש כתב!
-  
- **כלים זמינים:** ${availableToolNames}, ועוד.
-  
- **כללים קריטיים:**
- • אם image_url/video_url בפרומפט → השתמש בו ישירות (אל תקרא get_chat_history!)
- • הודעות מצוטטות + מדיה: שאלה → analyze_image, עריכה → edit_image (לא retry!)
- • **לינקים/קישורים - חובה להשתמש ב-search_web!**
-   - "שלח לי לינק", "send me link", "קישור ל-X" → search_web (כלי מחובר ל-Google Search!)
-   - אסור לומר "אין לי אפשרות לשלוח לינקים" - יש לך search_web!
-   - search_web מחזיר לינקים אמיתיים ועדכניים מ-Google
- • **אודיו/קול - CRITICAL: אל תיצור אודיו/קול אלא אם כן המשתמש מבקש במפורש!**
-   - "ספר בדיחה" / "tell joke" → טקסט בלבד (לא text_to_speech!)
-   - "תרגם ל-X ואמור" / "say in English" / "אמור ב-Y" → translate_and_speak (כן!)
-   - "תשמיע לי" / "תקרא בקול" / "voice" → text_to_speech או translate_and_speak (כן!)
-   - **אם המשתמש לא אמר "אמור", "תשמיע", "voice", "say" - אל תיצור אודיו!**
- • "אמור X ב-Y" → translate_and_speak (לא translate_text!)
- • create_music: ליצירת שירים חדשים | search_web: למציאת שירים קיימים/לינקים
- • תמיד ציין provider: create_image({provider: "gemini"}), create_video({provider: "kling"})
- • send_location: region הוא **אופציונלי** - ציין רק אם יש אזור ספציפי
- • אם tool נכשל → retry_with_different_provider (אל תקרא לאותו tool שוב!)
- • Multi-step: אם רואה "Step X/Y" → התמקד רק בשלב הזה`;
+    // System prompt for the agent (SSOT - from config/prompts.js - Phase 5.1)
+    // Use centralized agentSystemInstruction instead of hardcoded prompt
+    const systemInstruction = prompts.agentSystemInstruction(languageInstruction);
 
   // 🧠 Context for tool execution (load previous context if enabled)
   let context = {
