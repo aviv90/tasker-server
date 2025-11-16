@@ -119,6 +119,7 @@ Output: {"wantsVideo":false,"cleanPrompt":"make a happy song"}`;
  * Parse text-to-speech request to detect if translation is needed
  * @param {string} prompt - User's TTS request
  * @returns {Object} - { needsTranslation: boolean, text: string, targetLanguage?: string, languageCode?: string }
+ */
 async function parseTextToSpeechRequest(prompt) {
     try {
         console.log('🔍 Parsing TTS request for translation needs');
@@ -187,10 +188,11 @@ Output: {"needsTranslation":false,"text":"read this text"}`;
 }
 
 /**
- * Translate text to target language using Gemini
- * @param {string} text - Text to translate
- * @param {string} targetLanguage - Target language name
- * @returns {Object} - { success: boolean, translatedText?: string, error?: string }
+ * Generate creative poll with optional rhyming
+ * @param {string} topic - Poll topic
+ * @param {boolean} withRhyme - Whether to use rhyming options
+ * @returns {Object} - Poll data
+ */
 async function generateCreativePoll(topic, withRhyme = true) {
     try {
         console.log(`📊 Generating creative poll about: ${topic} ${withRhyme ? '(with rhyme)' : '(without rhyme)'}`);
@@ -383,6 +385,7 @@ async function generateCreativePoll(topic, withRhyme = true) {
  * @param {number} latitude - Latitude
  * @param {number} longitude - Longitude
  * @returns {Object} - Location information
+ */
 async function getLocationInfo(latitude, longitude) {
     try {
         console.log(`🗺️ Getting location info for: ${latitude}, ${longitude}`);
@@ -589,6 +592,7 @@ async function getLocationInfo(latitude, longitude) {
  * Optimized to get accurate bounds and handle various city sizes
  * @param {string} locationName - City or location name (e.g., "תל אביב", "ירושלים", "Barcelona")
  * @returns {Promise<Object|null>} - {minLat, maxLat, minLng, maxLng, foundName, country} or null if not found
+ */
 async function getLocationBounds(locationName) {
     try {
         console.log(`🔍 Getting bounds for location: "${locationName}"`);

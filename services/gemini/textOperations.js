@@ -570,6 +570,7 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
 
 /**
  * Generate chat summary using Gemini
+ */
 async function generateChatSummary(messages) {
     try {
         console.log(`📝 Generating chat summary for ${messages.length} messages`);
@@ -628,9 +629,11 @@ ${formattedMessages}
 }
 
 /**
- * Parse music generation request to detect if video is requested
- * @param {string} prompt - User's music request
- * @returns {Object} - { wantsVideo: boolean, cleanPrompt: string }
+ * Translate text to target language
+ * @param {string} text - Text to translate
+ * @param {string} targetLanguage - Target language
+ * @returns {Object} - Translation result
+ */
 async function translateText(text, targetLanguage) {
     try {
         console.log(`🌐 Translating "${text}" to ${targetLanguage}`);
@@ -673,13 +676,6 @@ Important: Return only the translation, no explanations, no quotes, no extra tex
         };
     }
 }
-
-/**
- * Generate a creative poll with optional rhyming options
- * @param {string} topic - Poll topic (e.g., "חתולים", "כלבים", "פיצה")
- * @param {boolean} withRhyme - Whether options should rhyme (default: true)
- * @returns {Object} - Poll data with question and options
-
 
 module.exports = {
   generateTextResponse,
