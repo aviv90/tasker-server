@@ -1,53 +1,47 @@
 /**
  * All Agent Tools
  * 
- * This file temporarily exports all tools from the original agentService.js
- * This allows us to maintain functionality while refactoring
+ * Central registry for all agent tools, combining:
+ * - Basic tools (contextTools, creationTools, etc.)
+ * - Meta tools (composite/advanced tools)
  * 
- * TODO: Gradually split tools into separate modules (contextTools, creationTools, etc.)
+ * Phase 4 Refactoring - All tools now modular
  */
 
-// Import context tools (already refactored)
-const {
-  get_chat_history,
-  analyze_image_from_history,
-  save_user_preference,
-  get_long_term_memory
-} = require('./contextTools');
+// Import modular tools from different categories
+const contextTools = require('./contextTools');
+const creationTools = require('./creationTools');
+const analysisTools = require('./analysisTools');
+const editingTools = require('./editingTools');
+const searchTools = require('./searchTools');
+const locationTools = require('./locationTools');
+const groupTools = require('./groupTools');
+const audioTools = require('./audioTools');
+const summaryTools = require('./summaryTools');
+const retryTools = require('./retryTools');
 
-// For now, we need to extract tools from the original agentService.js
-// We'll do this by requiring the original file and extracting the agentTools object
-// This is a temporary solution until we finish the refactoring
+// Import meta tools (advanced composite tools)
+const metaTools = require('./metaTools');
 
-// Read the original file to extract agentTools
-// We'll need to do this carefully to avoid circular dependencies
-const fs = require('fs');
-const path = require('path');
-
-// This is a workaround - we'll need to refactor this properly
-// For now, we'll export a function that returns all tools
+/**
+ * Get all available agent tools
+ * @returns {Object} - All tools combined
+ */
 function getAllTools() {
-  // Import the original agentService to get agentTools
-  // We need to be careful about circular dependencies
-  const originalService = require('../../agentService');
-  
-  // The original service doesn't export agentTools directly
-  // We'll need to extract it from the file or refactor the original service
-  // For now, let's create a hybrid approach
-  
-  // We'll build the tools object by combining refactored tools with original ones
-  const tools = {
-    // Context tools (refactored)
-    get_chat_history,
-    analyze_image_from_history,
-    save_user_preference,
-    get_long_term_memory,
-    
-    // TODO: Add remaining tools as they are refactored
-    // For now, we'll need to keep using the original agentService.js
+  return {
+    // Spread all tool categories
+    ...contextTools,
+    ...creationTools,
+    ...analysisTools,
+    ...editingTools,
+    ...searchTools,
+    ...locationTools,
+    ...groupTools,
+    ...audioTools,
+    ...summaryTools,
+    ...retryTools,
+    ...metaTools
   };
-  
-  return tools;
 }
 
 module.exports = {
