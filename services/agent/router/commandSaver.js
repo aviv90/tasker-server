@@ -15,18 +15,22 @@ const { sanitizeToolResult } = require('../utils/resultUtils');
  * @param {Object} input - Normalized input
  */
 async function saveLastCommand(agentResult, chatId, userText, input) {
-  if (!agentResult.success || !agentResult.toolCalls || agentResult.toolCalls.length === 0) {
+  // CRITICAL: Save command even if it failed (for natural conversation continuity)
+  // When user responds with "כן" after a failure, we need to know what failed
+  if (!agentResult.toolCalls || agentResult.toolCalls.length === 0) {
     return;
   }
   
   const toolResults = agentResult.toolResults || {};
   let commandToSave = null;
   
-  // Find the last successful, persistable tool call
+  // Find the LAST persistable tool call (successful OR failed)
+  // Priority: look for failed attempts first (for natural continuity), then successful
   for (let i = agentResult.toolCalls.length - 1; i >= 0; i--) {
     const call = agentResult.toolCalls[i];
-    if (!call.success) continue;
     if (NON_PERSISTED_TOOLS.has(call.tool)) continue;
+    
+    // Save the last tool call that can be retried, regardless of success
     commandToSave = call;
     break;
   }
@@ -41,7 +45,8 @@ async function saveLastCommand(agentResult, chatId, userText, input) {
   const argsToStore = {
     toolArgs: commandToSave.args || {},
     result: sanitizedResult || null,
-    prompt: userText
+    prompt: userText,
+    failed: !commandToSave.success  // Mark if this command failed
   };
   
   await conversationManager.saveLastCommand(chatId, primaryTool, argsToStore, {
@@ -51,7 +56,7 @@ async function saveLastCommand(agentResult, chatId, userText, input) {
     audioUrl: sanitizedResult?.audioUrl || agentResult.audioUrl || null
   });
   
-  console.log(`💾 [AGENT ROUTER] Saved last command for retry: ${primaryTool}`);
+  console.log(`💾 [AGENT ROUTER] Saved last command for retry: ${primaryTool} (success: ${commandToSave.success})`);
 }
 
 module.exports = {
