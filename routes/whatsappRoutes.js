@@ -28,6 +28,10 @@ const {
   CHAT_HISTORY_LIMIT
 } = require('../services/whatsapp/constants');
 
+// Import WhatsApp utility functions
+// Note: Some functions are still defined locally for gradual refactoring
+const whatsappUtils = require('../services/whatsapp/utils');
+
 // Message deduplication cache - prevent processing duplicate messages
 const processedMessages = new Set();
 
