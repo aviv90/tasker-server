@@ -1072,9 +1072,9 @@ async function handleOutgoingMessage(webhookData) {
     }
   } catch (error) {
     console.error('❌ Error handling outgoing message:', error.message || error);
- * Handle image edit with AI (Gemini or OpenAI)
- */
-// Media handler functions are now imported from services/whatsapp/mediaHandlers.js
+  }
+}
+
 /**
  * Handle management commands (non-AI commands that don't go through router)
  */
