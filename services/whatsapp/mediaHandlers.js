@@ -14,12 +14,7 @@ const { sendTextMessage, sendFileByUrl, downloadFile } = require('../greenApiSer
 const conversationManager = require('../conversationManager');
 const { getStaticFileUrl } = require('../../utils/urlUtils');
 const { MIN_DURATION_FOR_CLONING, TRANSCRIPTION_DEFAULTS } = require('./constants');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const { exec } = require('child_process');
-const { promisify } = require('util');
-const execAsync = promisify(exec);
+const { getAudioDuration } = require('../agent/utils/audioUtils');
 
 // Import AI services
 const { 
@@ -243,40 +238,7 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
   }
 }
 
-/**
- * Get audio duration in seconds using ffprobe
- * @param {Buffer} audioBuffer - Audio buffer
- * @returns {Promise<number>} - Duration in seconds, or 0 if failed
- */
-async function getAudioDuration(audioBuffer) {
-  try {
-    // Write buffer to temp file
-    const tempFilePath = path.join(os.tmpdir(), `audio_check_${Date.now()}.ogg`);
-    fs.writeFileSync(tempFilePath, audioBuffer);
-    
-    try {
-      // Use ffprobe to get duration
-      const { stdout } = await execAsync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${tempFilePath}"`);
-      const duration = parseFloat(stdout.trim());
-      
-      // Cleanup
-      fs.unlinkSync(tempFilePath);
-      
-      console.log(`⏱️ Audio duration: ${duration.toFixed(2)} seconds`);
-      return duration;
-    } catch (err) {
-      // Cleanup on error
-      if (fs.existsSync(tempFilePath)) {
-        fs.unlinkSync(tempFilePath);
-      }
-      console.error(`❌ Could not get audio duration: ${err.message}`);
-      return 0;
-    }
-  } catch (err) {
-    console.error(`❌ Error in getAudioDuration: ${err.message}`);
-    return 0;
-  }
-}
+// getAudioDuration is now imported from services/agent/utils/audioUtils.js (SSOT)
 
 /**
  * Handle voice message with full voice-to-voice processing

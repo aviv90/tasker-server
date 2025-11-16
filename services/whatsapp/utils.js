@@ -3,6 +3,9 @@
  * Helper functions for WhatsApp message processing
  */
 
+// Import from other services for SSOT
+const { isLandLocation } = require('../locationService');
+
 /**
  * Clean agent response text from internal instructions and metadata
  * Removes **IMPORTANT:** instructions, trailing metadata, media placeholders
@@ -62,41 +65,7 @@ function cleanForLogging(obj) {
   return cleaned;
 }
 
-/**
- * Check if a location description indicates land (not open water)
- * @param {string} description - Location description from Gemini
- * @returns {boolean} - true if land, false if open water
- */
-function isLandLocation(description) {
-  const descLower = description.toLowerCase();
-  
-  // POSITIVE INDICATORS: If any found, immediately accept as land
-  const landIndicators = [
-    'עיר', 'כפר', 'ישוב', 'מדינה', 'רחוב', 'שכונה', 'אזור', 'מחוז', 'מדבר', 'הר', 'עמק', 'יער',
-    'city', 'town', 'village', 'country', 'street', 'district', 'region', 'province', 
-    'desert', 'mountain', 'valley', 'forest', 'park', 'road', 'highway', 'building',
-    'neighborhood', 'settlement', 'capital', 'state', 'county', 'rural', 'urban', 'population'
-  ];
-  
-  const hasLandIndicator = landIndicators.some(indicator => descLower.includes(indicator));
-  
-  if (hasLandIndicator) {
-    return true; // Strong land indicator - accept!
-  }
-  
-  // NEGATIVE INDICATORS: Only reject if OPEN WATER (not coastal areas)
-  const openWaterKeywords = [
-    'אוקיינוס', 'באוקיינוס', 'באמצע האוקיינוס', 'באמצע הים', 'בלב הים',
-    'in the ocean', 'in the middle of the ocean', 'in the middle of the sea',
-    'open water', 'open ocean', 'deep water', 'deep ocean', 'open sea',
-    'atlantic ocean', 'pacific ocean', 'indian ocean', 'arctic ocean',
-    'מים פתוחים', 'מים עמוקים', 'אין יבשה', 'no land'
-  ];
-  
-  const isOpenWater = openWaterKeywords.some(keyword => descLower.includes(keyword));
-  
-  return !isOpenWater; // Accept unless it's open water
-}
+// isLandLocation is now imported from services/locationService.js (SSOT)
 
 /**
  * Format chat history for context
@@ -112,46 +81,9 @@ function formatChatHistoryForContext(messages) {
   }).join('\n');
 }
 
-/**
- * Get audio duration from buffer using ffprobe
- * @param {Buffer} audioBuffer - Audio file buffer
- * @returns {Promise<number>} - Duration in seconds
- */
-async function getAudioDuration(audioBuffer) {
-  const { promisify } = require('util');
-  const { exec } = require('child_process');
-  const fs = require('fs');
-  const path = require('path');
-  const os = require('os');
-  const execAsync = promisify(exec);
-  
-  const tempFile = path.join(os.tmpdir(), `audio_${Date.now()}.ogg`);
-  
-  try {
-    // Write buffer to temp file
-    fs.writeFileSync(tempFile, audioBuffer);
-    
-    // Use ffprobe to get duration
-    const { stdout } = await execAsync(
-      `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${tempFile}"`
-    );
-    
-    const duration = parseFloat(stdout.trim());
-    console.log(`🎤 Audio duration: ${duration.toFixed(2)} seconds`);
-    
-    // Clean up temp file
-    fs.unlinkSync(tempFile);
-    
-    return duration;
-  } catch (error) {
-    console.error('❌ Error getting audio duration:', error.message);
-    // Clean up temp file on error
-    if (fs.existsSync(tempFile)) {
-      fs.unlinkSync(tempFile);
-    }
-    return 0;
-  }
-}
+// getAudioDuration moved to services/agent/utils/audioUtils.js (SSOT)
+// Import and re-export for backward compatibility
+const { getAudioDuration } = require('../agent/utils/audioUtils');
 
 module.exports = {
   cleanAgentText,

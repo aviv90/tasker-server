@@ -6,6 +6,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genai = require('@google/genai');
 const { sanitizeText } = require('../../utils/textSanitizer');
 const { getStaticFileUrl } = require('../../utils/urlUtils');
+const { getGeminiErrorMessage, cleanThinkingPatterns } = require('./utils');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
@@ -15,44 +16,7 @@ const veoClient = new genai.GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY
 });
 
-/**
- * Extract the actual error message from Gemini response
- * Uses finishMessage if available, otherwise constructs from finishReason
- * @param {Object} candidate - Gemini candidate object
- * @param {Object} promptFeedback - Gemini promptFeedback object
- * @returns {string} - User-friendly error message
- */
-function getGeminiErrorMessage(candidate, promptFeedback = null) {
-    // Priority 1: Use finishMessage if available (contains detailed explanation)
-    if (candidate?.finishMessage) {
-        return candidate.finishMessage;
-    }
-    
-    // Priority 2: Use promptFeedback blockReasonMessage if available
-    if (promptFeedback?.blockReasonMessage) {
-        return promptFeedback.blockReasonMessage;
-    }
-    
-    // Priority 3: Construct from finishReason
-    if (candidate?.finishReason) {
-        const reason = candidate.finishReason;
-        
-        if (reason === 'SAFETY' || reason === 'IMAGE_SAFETY') {
-            return 'Gemini blocked the request due to safety concerns. Try a different image or prompt.';
-        }
-        if (reason === 'RECITATION') {
-            return 'Gemini blocked the request due to potential copyright issues. Try a different prompt.';
-        }
-        if (reason === 'PROHIBITED_CONTENT') {
-            return 'Gemini blocked the request due to prohibited content. Try a different image or prompt.';
-        }
-        
-        return `Gemini returned no content (reason: ${reason})`;
-    }
-    
-    // Fallback
-    return 'No response from Gemini';
-}
+// getGeminiErrorMessage is now imported from ./utils.js (SSOT)
 
 async function generateImageWithText(prompt) {
     try {
