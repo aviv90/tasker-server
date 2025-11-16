@@ -6,6 +6,11 @@
  */
 
 const conversationManager = require('../../services/conversationManager');
+const { getMessage } = require('../../services/greenApiService');
+const { getStaticFileUrl } = require('../../utils/urlUtils');
+const path = require('path');
+const os = require('os');
+const fs = require('fs');
 
 async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
   try {

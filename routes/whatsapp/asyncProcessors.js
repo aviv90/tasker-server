@@ -6,6 +6,7 @@
  */
 
 const { handleImageEdit, handleImageToVideo, handleVoiceMessage, handleVideoToVideo } = require('../../services/whatsapp/mediaHandlers');
+const { sendTextMessage } = require('../../services/greenApiService');
 
 function processImageEditAsync(imageData) {
   // Run in background without blocking webhook response
