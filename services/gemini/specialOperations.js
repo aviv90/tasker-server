@@ -793,29 +793,6 @@ async function getLocationBounds(locationName) {
 }
 
 module.exports = {
-    generateImageWithText, 
-    generateImageForWhatsApp, 
-    editImageWithText, 
-    editImageForWhatsApp, 
-    analyzeImageWithText,
-    analyzeVideoWithText,
-    generateVideoWithText, 
-    generateVideoWithImage, 
-    generateVideoForWhatsApp, 
-    generateVideoFromImageForWhatsApp, 
-    generateTextResponse, 
-    generateChatSummary,
-    parseMusicRequest,
-    parseTextToSpeechRequest,
-    translateText,
-    generateCreativePoll,
-    getLocationInfo,
-    getLocationBounds,
-    cleanThinkingPatterns  // Export for use in other services
-};
-
-
-module.exports = {
   parseMusicRequest,
   parseTextToSpeechRequest,
   generateCreativePoll,
