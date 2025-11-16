@@ -3,7 +3,7 @@
  * Integration with x.ai Grok API for text generation
  */
 
-const { sanitizeText } = require('../utils/textSanitizer');
+const { sanitizeText, cleanMarkdown } = require('../utils/textSanitizer');
 
 class GrokService {
   constructor() {
@@ -169,7 +169,12 @@ class GrokService {
       if (data.data && data.data.length > 0) {
         const imageData = data.data[0];
         const imageUrl = imageData.url;
-        const description = imageData.revised_prompt || '';
+        let description = imageData.revised_prompt || '';
+        
+        // Clean markdown code blocks from description (Grok sometimes returns markdown)
+        if (description) {
+          description = cleanMarkdown(description);
+        }
 
         console.log('✅ Grok image generated successfully');
 

@@ -6,7 +6,7 @@
  */
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { sanitizeText } = require('../../utils/textSanitizer');
+const { sanitizeText, cleanMarkdown } = require('../../utils/textSanitizer');
 const { getStaticFileUrl } = require('../../utils/urlUtils');
 const { getGeminiErrorMessage } = require('./utils');
 const fs = require('fs');
@@ -202,10 +202,16 @@ async function generateImageForWhatsApp(prompt, req = null) {
         console.log(`🖼️ Image saved to: ${filePath}`);
         console.log(`🔗 Public URL: ${imageUrl}`);
         
+        // Clean markdown code blocks from description (Gemini sometimes returns markdown)
+        let cleanDescription = text.trim() || "";
+        if (cleanDescription) {
+            cleanDescription = cleanMarkdown(cleanDescription);
+        }
+        
         return { 
             success: true,
             imageUrl: imageUrl,
-            description: text.trim() || "", // Send exactly what Gemini writes
+            description: cleanDescription,
             fileName: fileName
         };
     } catch (err) {
@@ -454,10 +460,16 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
         console.log(`🖼️ Edited image saved to: ${filePath}`);
         console.log(`🔗 Public URL: ${imageUrl}`);
         
+        // Clean markdown code blocks from description (Gemini sometimes returns markdown)
+        let cleanDescription = text.trim() || "";
+        if (cleanDescription) {
+            cleanDescription = cleanMarkdown(cleanDescription);
+        }
+        
         return { 
             success: true,
             imageUrl: imageUrl,
-            description: text.trim() || "", // Include text description from Gemini
+            description: cleanDescription,
             fileName: fileName
         };
     } catch (err) {

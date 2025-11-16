@@ -8,11 +8,34 @@ function sanitizeText(text) {
     }
     
     // Remove dangerous characters and normalize
+    // NOTE: Preserves emojis and Unicode characters (including Hebrew, Arabic, etc.)
     return text
         .trim()
-        .replace(/[\x00-\x08\x0E-\x1F\x7F]/g, '') // Remove control characters
+        .replace(/[\x00-\x08\x0E-\x1F\x7F]/g, '') // Remove control characters (but preserve emojis)
         .replace(/\s+/g, ' ') // Normalize whitespace
         .substring(0, 2000); // Limit length
+}
+
+/**
+ * Clean markdown code blocks and formatting from text
+ * Removes markdown code fences (```), inline code (`), and other markdown formatting
+ * while preserving the actual content
+ */
+function cleanMarkdown(text) {
+    if (!text || typeof text !== 'string') {
+        return '';
+    }
+    
+    return text
+        .replace(/```[\s\S]*?```/g, '') // Remove code blocks (```...```)
+        .replace(/`[^`]*`/g, '') // Remove inline code (`...`)
+        .replace(/^\s*```+\s*$/gm, '') // Remove standalone code fence lines
+        .replace(/^\s*```+\s*/gm, '') // Remove opening code fences at start of lines
+        .replace(/\s*```+\s*$/gm, '') // Remove closing code fences at end of lines
+        .replace(/^\s*`+\s*$/gm, '') // Remove lines with only backticks
+        .replace(/^\s*`+\s*/gm, '') // Remove leading backticks
+        .replace(/\s*`+\s*$/gm, '') // Remove trailing backticks
+        .trim();
 }
 
 function validateAndSanitizePrompt(prompt) {
@@ -45,5 +68,6 @@ function validateAndSanitizePrompt(prompt) {
 
 module.exports = {
     sanitizeText,
-    validateAndSanitizePrompt
+    validateAndSanitizePrompt,
+    cleanMarkdown
 };

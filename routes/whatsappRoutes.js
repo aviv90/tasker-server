@@ -449,7 +449,10 @@ async function handleIncomingMessage(webhookData) {
                     // For multi-step, use imageCaption if it exists
                     // LLM is responsible for returning caption in correct language
                     caption = (agentResult.imageCaption && agentResult.imageCaption.trim()) || '';
+                    // Clean markdown code blocks from caption
                     if (caption) {
+                      const { cleanMarkdown } = require('../utils/textSanitizer');
+                      caption = cleanMarkdown(caption);
                       console.log(`📤 [Multi-step] Image sent with caption: "${caption.substring(0, 50)}..."`);
                     } else {
                       console.log(`📤 [Multi-step] Image sent after text (no caption)`);
@@ -469,7 +472,9 @@ async function handleIncomingMessage(webhookData) {
                       caption = agentResult.imageCaption || agentResult.text || '';
                     }
                     
-                    // Clean the caption: remove URLs, markdown links, and technical markers
+                    // Clean the caption: remove URLs, markdown links, code blocks, and technical markers
+                    const { cleanMarkdown } = require('../utils/textSanitizer');
+                    caption = cleanMarkdown(caption); // Remove markdown code blocks first
                     caption = caption
                       .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
                       .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs

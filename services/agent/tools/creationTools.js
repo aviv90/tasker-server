@@ -5,6 +5,7 @@
 
 const { formatProviderName } = require('../utils/providerUtils');
 const { getServices } = require('../utils/serviceLoader');
+const { cleanMarkdown } = require('../../../utils/textSanitizer');
 
 /**
  * Tool: Create Image
@@ -59,11 +60,17 @@ const create_image = {
         };
       }
       
+      // Clean markdown code blocks from caption (AI services sometimes return markdown)
+      let caption = imageResult.description || imageResult.revisedPrompt || '';
+      if (caption) {
+        caption = cleanMarkdown(caption);
+      }
+      
       return {
         success: true,
         data: `✅ תמונה נוצרה בהצלחה!`,
         imageUrl: imageResult.imageUrl,
-        imageCaption: imageResult.description || imageResult.revisedPrompt || '',
+        imageCaption: caption,
         provider: provider
       };
     } catch (error) {

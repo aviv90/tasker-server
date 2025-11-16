@@ -1,6 +1,6 @@
 const OpenAI = require('openai');
 const axios = require('axios');
-const { sanitizeText } = require('../utils/textSanitizer');
+const { sanitizeText, cleanMarkdown } = require('../utils/textSanitizer');
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const fs = require('fs');
 const path = require('path');
@@ -235,10 +235,16 @@ async function generateImageForWhatsApp(prompt, req) {
         console.log(`🖼️ Image saved to: ${filePath}`);
         console.log(`🔗 Public URL: ${imageUrl}`);
         
+        // Clean markdown code blocks from description (OpenAI sometimes returns markdown)
+        let cleanDescription = revisedPrompt || "";
+        if (cleanDescription) {
+            cleanDescription = cleanMarkdown(cleanDescription);
+        }
+        
         return { 
             success: true,
             imageUrl: imageUrl,
-            description: revisedPrompt || "", // Include revised prompt as description if available
+            description: cleanDescription,
             fileName: fileName
         };
     } catch (err) {
@@ -328,10 +334,16 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
         console.log(`🖼️ Edited image saved to: ${filePath}`);
         console.log(`🔗 Public URL: ${imageUrl}`);
         
+        // Clean markdown code blocks from description (OpenAI sometimes returns markdown)
+        let cleanDescription = revisedPrompt || "";
+        if (cleanDescription) {
+            cleanDescription = cleanMarkdown(cleanDescription);
+        }
+        
         return { 
             success: true,
             imageUrl: imageUrl,
-            description: revisedPrompt || "", // Include revised prompt as description
+            description: cleanDescription,
             fileName: fileName
         };
     } catch (err) {
