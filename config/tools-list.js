@@ -43,12 +43,14 @@ const TOOLS = {
   image_to_video: {
     name: 'image_to_video',
     category: 'creation',
-    description: 'Animate image to video',
-    usage: ['הפוך תמונה לוידאו', 'animate image'],
+    description: 'Convert/animate image to video (when image is attached)',
+    usage: ['הפוך לווידאו', 'הפוך תמונה לוידאו', 'animate', 'animate image', 'make video from image', 'convert to video'],
     parameters: {
       image_url: { type: 'string', required: true, description: 'Image URL' },
-      provider: { type: 'string', required: false, description: 'gemini/openai/grok' }
-    }
+      prompt: { type: 'string', required: false, description: 'Animation instructions' },
+      provider: { type: 'string', required: false, description: 'gemini/openai/grok (veo3/sora-2/kling)' }
+    },
+    critical: 'Use ONLY when user attached an image and wants to animate/convert it to video. NOT for creating new videos!'
   },
 
   create_music: {
@@ -124,12 +126,13 @@ const TOOLS = {
   edit_video: {
     name: 'edit_video',
     category: 'editing',
-    description: 'Edit existing video',
-    usage: ['ערוך וידאו', 'edit video'],
+    description: 'Edit existing video (Runway only)',
+    usage: ['ערוך וידאו', 'edit video', 'change video'],
     parameters: {
       video_url: { type: 'string', required: true, description: 'Video URL to edit' },
       edit_instruction: { type: 'string', required: true, description: 'What to edit' }
-    }
+    },
+    critical: 'Use ONLY for editing existing videos. Provider is always Runway (no other providers supported).'
   },
 
   // ═══════════════════ AUDIO/VOICE TOOLS ═══════════════════

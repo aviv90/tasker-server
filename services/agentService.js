@@ -3297,8 +3297,16 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   // 🔍 Extract clean user text for multi-step detection (remove metadata)
   const detectionText = extractDetectionText(prompt);
   
+  // 📎 Add media context for planner (so it knows about attached images/videos)
+  let plannerContext = detectionText;
+  if (imageUrl) {
+    plannerContext = `[תמונה מצורפת]\n${detectionText}`;
+  } else if (videoUrl) {
+    plannerContext = `[וידאו מצורף]\n${detectionText}`;
+  }
+  
   // 🧠 Use LLM-based planner to intelligently detect and plan multi-step execution
-  let plan = await planMultiStepExecution(detectionText);
+  let plan = await planMultiStepExecution(plannerContext);
   
   console.log(`🔍 [Planner] Plan result:`, JSON.stringify({
     isMultiStep: plan.isMultiStep,

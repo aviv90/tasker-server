@@ -17,12 +17,19 @@ RULES:
 • SINGLE-STEP = ONE action only
 • MULTI-STEP = 2+ DIFFERENT actions that must be executed in sequence
 
+CRITICAL - Media context:
+• "[תמונה מצורפת]" prefix = User attached an image
+• When image attached + "הפוך לווידאו"/"animate"/"make video" → SINGLE image_to_video (NOT create_video!)
+• When image attached + "ערוך"/"edit" → SINGLE edit_image
+• NO image attached + "צור וידאו"/"create video" → SINGLE create_video
+
 CRITICAL - Common SINGLE-STEP patterns (NOT multi-step):
 - "שלח תמונה של X" / "send image of X" → SINGLE create_image (NOT search + analyze!)
 - "צור תמונה של X" / "create image of X" → SINGLE create_image
 - "שלח וידאו של X" / "send video of X" → SINGLE create_video
 - "שלח מיקום" / "send location" → SINGLE send_location
 - "תמונה של X" / "image of X" → SINGLE create_image
+- "[תמונה מצורפת] הפוך לווידאו" → SINGLE image_to_video (NOT multi-step!)
 
 CRITICAL - Only multi-step if EXPLICIT sequence:
 - "שלח מיקום **ואז** תמונה" → MULTI (has "ואז")
@@ -67,6 +74,8 @@ EXAMPLES:
 • "שלח תמונה של בר" → SINGLE create_image (NO "ואז")
 • "תמונה של כלב" → SINGLE create_image
 • "send image of cat" → SINGLE create_image
+• "[תמונה מצורפת] הפוך לווידאו עם Veo 3" → SINGLE image_to_video (image attached!)
+• "[תמונה מצורפת] animate this" → SINGLE image_to_video (image attached!)
 • "שלח מיקום ואז תמונה" → MULTI (HAS "ואז")
 • "create song and then video" → MULTI (HAS "and then")
 

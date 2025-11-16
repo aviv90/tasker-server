@@ -19,9 +19,9 @@ const TOOL_ACK_MESSAGES = {
   'analyze_image_from_history': 'מנתח תמונה... 🔍',
   'analyze_video': 'מנתח וידאו... 🎥',
   
-  // Edit tools (with provider placeholder)
+  // Edit tools (with provider placeholder for images, Runway for video)
   'edit_image': 'עורך תמונה עם __PROVIDER__... ✏️',
-  'edit_video': 'עורך וידאו עם __PROVIDER__... 🎞️',
+  'edit_video': 'עורך וידאו עם Runway... 🎞️',
   
   // Info tools
   'search_web': 'מחפש באינטרנט... 🔎',
