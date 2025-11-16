@@ -237,23 +237,54 @@ async function processRequest(data) {
 
 ## Modularity & File Size
 
-### File Size Limits:
-- **Maximum 500 lines per file** (ideal: 200-300)
-- **Maximum 50 lines per function** (ideal: 10-20)
-- **Maximum 5 parameters per function** (use object for more)
+### 🚨 CRITICAL: Keep Files Small and Focused
+
+**NEVER allow files to become bloated monoliths.**
+
+### Strict File Size Limits:
+
+| Metric | Maximum | Ideal | Action if Exceeded |
+|--------|---------|-------|-------------------|
+| **Lines per file** | 500 | 200-300 | **MUST SPLIT** |
+| **Lines per function** | 50 | 10-20 | Extract sub-functions |
+| **Parameters per function** | 5 | 2-3 | Use object parameter |
+| **Exports per file** | 10 | 3-5 | Split into multiple files |
+| **Nesting depth** | 4 | 2-3 | Extract nested logic |
+
+### Red Flags - Immediate Refactoring Required:
+
+🚨 **File > 500 lines** → Split immediately  
+🚨 **Function > 50 lines** → Extract sub-functions  
+🚨 **Too many scroll pages** → Hard to maintain  
+🚨 **Multiple domains in one file** → Violates SRP  
+🚨 **Can't find code quickly** → Poor organization  
 
 ### When to Split a File:
 
 ✅ **Split when:**
-- File exceeds 500 lines
-- Multiple unrelated responsibilities
-- Too many exports (>10)
-- Hard to navigate or find code
+1. File exceeds 500 lines
+2. Multiple unrelated responsibilities (violates SRP)
+3. Too many exports (>10)
+4. Hard to navigate or find code
+5. Takes > 5 seconds to locate a function
+6. Mixing different concerns (routes + logic)
 
-**Example:** `agentService.js` is 3900+ lines → **MUST** be split:
+### How to Split Files:
+
+**Step 1:** Identify domains/responsibilities
+```javascript
+// Before: services/agentService.js (3900 lines) ❌
+// - Tool definitions
+// - Execution logic
+// - Ack messages
+// - Context building
+// - Multi-step planning
+```
+
+**Step 2:** Create domain-specific modules
 ```
 services/agent/
-  ├── agentService.js        # Main orchestration (max 300 lines)
+  ├── agentService.js        # Orchestration ONLY (max 300 lines) ✅
   ├── tools/
   │   ├── imageTools.js      # Image-related tools
   │   ├── searchTools.js     # Search-related tools
@@ -264,6 +295,51 @@ services/agent/
   └── utils/
       ├── ackMessages.js     # Ack message building
       └── contextBuilder.js  # Context building
+```
+
+**Step 3:** Main file becomes thin orchestrator
+```javascript
+// agentService.js - Now clean and focused! ✅
+const { imageTools } = require('./tools/imageTools');
+const { singleStep } = require('./execution/singleStep');
+const { buildAck } = require('./utils/ackMessages');
+
+async function executeAgent(request) {
+  const ack = buildAck(request);
+  await sendAck(ack);
+  return await singleStep.execute(request);
+}
+```
+
+### Benefits of Small Files:
+
+✅ **Easy Navigation**: Find code in seconds  
+✅ **Clear Purpose**: Each file has ONE job  
+✅ **Easy Testing**: Small, focused units  
+✅ **Better Git**: Smaller, clearer diffs  
+✅ **Faster Reviews**: Quick to understand changes  
+✅ **Reduced Bugs**: Less complexity = fewer bugs  
+
+### Real-World Examples from Our Codebase:
+
+#### ✅ **Success Story:**
+```
+gemini/core.js: 2724 lines → Split into 4 modules:
+  - imageGeneration.js (509 lines)
+  - videoGeneration.js (765 lines)
+  - textOperations.js (688 lines)
+  - specialOperations.js (820 lines)
+Result: -100% monolith, +400% maintainability
+```
+
+#### ✅ **Success Story:**
+```
+agentService.js: 4187 lines → Reduced to 880 lines (-79%)
+Extracted:
+  - metaTools.js (3012 lines)
+  - singleStep.js (233 lines)
+  - ackUtils.js (136 lines)
+Result: Thin orchestrator, clear responsibilities
 ```
 
 ---
