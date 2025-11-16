@@ -23,6 +23,9 @@ const { getAudioDuration } = require('./agent/utils/audioUtils');
 const { TOOL_ACK_MESSAGES, VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP } = require('./agent/config/constants');
 const { getUserFacingTools } = require('../config/tools-list');
 
+// Import modular agent tools
+const { allTools: agentTools, getToolDeclarations } = require('./agent/tools');
+
 // ═══════════════════ AGENT CONTEXT MEMORY (Persistent in DB) ═══════════════════
 // Agent context is now stored persistently in PostgreSQL database
 // No more in-memory cache or TTL - context persists indefinitely like ChatGPT
@@ -37,31 +40,21 @@ const { getUserFacingTools } = require('../config/tools-list');
  * - Analyze images/videos/audio from history
  * - Search the web
  * - And more...
+ * 
+ * NOTE: Tool definitions are now in /services/agent/tools/ (modular structure)
  */
 
 /**
- * Utility functions for smart retry strategies
+ * Meta-tools (advanced composite tools)
+ * These are kept in agentService.js temporarily until further refactoring
+ * TODO: Move these to /services/agent/tools/metaTools.js in Phase 2
  */
-
-// Prompt utility functions are now imported from ./agent/utils/promptUtils
-
-// ✅ Moved to /services/multiStepPlanner.js and /utils/agentHelpers.js
-
-// ✅ splitTaskIntoSteps - removed (not needed with LLM-based planner)
-
-// ✅ splitTaskIntoSteps_DEPRECATED removed - using LLM-based planner only (multiStepPlanner.js)
-
-// Prompt utility functions removed - using LLM-first approach only
-
-/**
- * Define available tools for the agent
- */
-const agentTools = {
-  // Tool 1: Get chat history
-  get_chat_history: {
+const metaTools = {
+  // Meta-Tool 1: Create and Analyze
+  create_and_analyze: {
     declaration: {
-      name: 'get_chat_history',
-      description: 'קבל את היסטוריית ההודעות מהשיחה. השתמש בכלי הזה כשהמשתמש מתייחס להודעות קודמות, או כשאתה צריך קונטקסט נוסף מהשיחה.',
+      name: 'create_and_analyze',
+      description: 'צור תמונה ומיד נתח אותה. שימושי כשאתה רוצה לוודא שהתמונה עומדת בדרישות מסוימות.',
       parameters: {
         type: 'object',
         properties: {
@@ -2948,6 +2941,10 @@ const agentTools = {
     }
   }
 };
+
+// Merge modular tools with legacy meta-tools
+// This allows gradual migration while maintaining all functionality
+Object.assign(agentTools, metaTools);
 
 // TOOL_ACK_MESSAGES, VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP,
 // normalizeProviderKey, and applyProviderToMessage are now imported from refactored modules

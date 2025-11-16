@@ -1,11 +1,12 @@
 /**
- * Agent Tools Index
- * Central registry for all agent tools
+ * Tools Index - Central export for all agent tools
+ * Single Source of Truth for tool exports
  * 
- * This file imports and exports all tools from their respective modules
+ * This file consolidates all tool modules into one unified interface.
+ * Import this file to get access to ALL agent tools.
  */
 
-// Context tools
+// Context tools (history, memory, preferences)
 const {
   get_chat_history,
   analyze_image_from_history,
@@ -13,34 +14,151 @@ const {
   get_long_term_memory
 } = require('./contextTools');
 
-// For now, we'll import tools from the original agentService.js
-// This will be gradually refactored to use separate tool files
-// TODO: Split remaining tools into separate modules
+// Creation tools (image, video, music, poll)
+const {
+  create_image,
+  create_video,
+  image_to_video,
+  create_music,
+  create_poll
+} = require('./creationTools');
 
-// Import all tools from the original file temporarily
-// This allows us to maintain functionality while refactoring
-const originalAgentService = require('../../agentService');
+// Analysis tools (image, video analysis)
+const {
+  analyze_image,
+  analyze_video
+} = require('./analysisTools');
 
-// Extract agentTools from the original service
-// We'll need to refactor this to use the new structure
-let agentTools = {};
+// Editing tools (image, video editing)
+const {
+  edit_image,
+  edit_video
+} = require('./editingTools');
 
-// Add context tools
-agentTools.get_chat_history = get_chat_history;
-agentTools.analyze_image_from_history = analyze_image_from_history;
-agentTools.save_user_preference = save_user_preference;
-agentTools.get_long_term_memory = get_long_term_memory;
+// Audio tools (transcribe, TTS, voice clone, translate)
+const {
+  transcribe_audio,
+  text_to_speech,
+  voice_clone_and_speak,
+  creative_audio_mix,
+  translate_text,
+  translate_and_speak
+} = require('./audioTools');
 
-// For now, we need to get the rest from the original file
-// This is a temporary solution until we finish the refactoring
-// We'll need to read the original file and extract the tools
+// Search tools (web search)
+const {
+  search_web
+} = require('./searchTools');
 
-module.exports = {
-  agentTools,
-  // Export individual tools for easier access
+// Location tools (random location)
+const {
+  send_location
+} = require('./locationTools');
+
+// Summary tools (chat summary)
+const {
+  chat_summary
+} = require('./summaryTools');
+
+// Group tools (WhatsApp group creation)
+const {
+  create_group
+} = require('./groupTools');
+
+// Retry tools (command retry)
+const {
+  retry_last_command,
+  setAgentToolsReference
+} = require('./retryTools');
+
+/**
+ * All Agent Tools - Complete collection
+ * Organized by category for easy reference
+ */
+const allTools = {
+  // Context & Memory
   get_chat_history,
   analyze_image_from_history,
   save_user_preference,
-  get_long_term_memory
+  get_long_term_memory,
+  
+  // Creation
+  create_image,
+  create_video,
+  image_to_video,
+  create_music,
+  create_poll,
+  
+  // Analysis
+  analyze_image,
+  analyze_video,
+  
+  // Editing
+  edit_image,
+  edit_video,
+  
+  // Audio & Voice
+  transcribe_audio,
+  text_to_speech,
+  voice_clone_and_speak,
+  creative_audio_mix,
+  translate_text,
+  translate_and_speak,
+  
+  // Search & Info
+  search_web,
+  chat_summary,
+  
+  // Location & Social
+  send_location,
+  create_group,
+  
+  // Meta & Retry
+  retry_last_command
 };
 
+// Initialize retry tools with reference to all tools
+setAgentToolsReference(allTools);
+
+/**
+ * Get tool declarations for Gemini Function Calling
+ * @returns {Array} Array of tool declarations
+ */
+function getToolDeclarations() {
+  return Object.values(allTools)
+    .filter(tool => tool && tool.declaration)
+    .map(tool => tool.declaration);
+}
+
+/**
+ * Get tool by name
+ * @param {string} name - Tool name
+ * @returns {Object|null} Tool object or null if not found
+ */
+function getToolByName(name) {
+  return allTools[name] || null;
+}
+
+/**
+ * Get all tool names
+ * @returns {Array<string>} Array of tool names
+ */
+function getAllToolNames() {
+  return Object.keys(allTools);
+}
+
+/**
+ * Export all tools and utility functions
+ */
+module.exports = {
+  // Main exports
+  allTools,
+  
+  // Utility functions
+  getToolDeclarations,
+  getToolByName,
+  getAllToolNames,
+  
+  // Direct tool exports for backward compatibility
+  ...allTools
+};
