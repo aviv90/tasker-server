@@ -3294,6 +3294,12 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     contextMemoryEnabled: String(process.env.AGENT_CONTEXT_MEMORY_ENABLED || 'false').toLowerCase() === 'true'
   };
   
+  // 📎 Extract media URLs from options (for planner context)
+  const input = options.input || {};
+  const imageUrl = input.imageUrl || null;
+  const videoUrl = input.videoUrl || null;
+  const audioUrl = input.audioUrl || null;
+  
   // 🔍 Extract clean user text for multi-step detection (remove metadata)
   const detectionText = extractDetectionText(prompt);
   
@@ -3303,6 +3309,8 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     plannerContext = `[תמונה מצורפת]\n${detectionText}`;
   } else if (videoUrl) {
     plannerContext = `[וידאו מצורף]\n${detectionText}`;
+  } else if (audioUrl) {
+    plannerContext = `[אודיו מצורף]\n${detectionText}`;
   }
   
   // 🧠 Use LLM-based planner to intelligently detect and plan multi-step execution

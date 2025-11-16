@@ -19,9 +19,13 @@ RULES:
 
 CRITICAL - Media context:
 • "[תמונה מצורפת]" prefix = User attached an image
+• "[וידאו מצורף]" prefix = User attached a video
+• "[אודיו מצורף]" prefix = User attached audio
 • When image attached + "הפוך לווידאו"/"animate"/"make video" → SINGLE image_to_video (NOT create_video!)
 • When image attached + "ערוך"/"edit" → SINGLE edit_image
-• NO image attached + "צור וידאו"/"create video" → SINGLE create_video
+• When video attached + "ערוך"/"edit" → SINGLE edit_video
+• When audio attached + no specific request → SINGLE transcribe_audio (transcribe by default)
+• NO media attached + "צור וידאו"/"create video" → SINGLE create_video
 
 CRITICAL - Common SINGLE-STEP patterns (NOT multi-step):
 - "שלח תמונה של X" / "send image of X" → SINGLE create_image (NOT search + analyze!)
