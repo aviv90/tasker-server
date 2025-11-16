@@ -1707,15 +1707,13 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
                     text = text.replace(/\s+/g, ' ').trim();
                 }
                 
-                // Build a clean sources section with real URLs
+                // Append resolved URLs directly (without "מקורות:" header to avoid duplication)
+                // Gemini already includes links in the text via grounding
                 const sourcesText = realUrls
-                    .map((urlData, index) => {
-                        const title = urlData.title || `מקור ${index + 1}`;
-                        return `${index + 1}. ${title}\n${urlData.uri}`;
-                    })
-                    .join('\n\n');
+                    .map((urlData) => urlData.uri)
+                    .join('\n');
                 
-                text = `${text}\n\n📚 מקורות:\n${sourcesText}`;
+                text = `${text}\n${sourcesText}`;
                 console.log(`✅ Appended ${realUrls.length} resolved URLs`);
             }
         }
