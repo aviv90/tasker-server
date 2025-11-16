@@ -201,12 +201,13 @@ async function generateImageForWhatsApp(prompt, req = null) {
             console.log('❌ Gemini: No image data found in response');
             
             // If we got text instead, it means Gemini failed to edit/generate image
+            // Return the text so the user knows what Gemini said
             if (text && text.trim().length > 0) {
                 console.log('📝 Gemini returned text instead of image - edit/generation failed');
                 console.log(`   Gemini response: ${text.substring(0, 200)}...`);
                 return { 
                     success: false, 
-                    error: 'Gemini לא הצליח לערוך/ליצור תמונה. נסה prompt אחר או השתמש ב-OpenAI במקום.'
+                    error: text.trim()  // Return Gemini's actual response
                 };
             }
             

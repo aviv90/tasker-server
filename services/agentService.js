@@ -3186,6 +3186,11 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
         if (toolResult.latitude) assets.latitude = toolResult.latitude;
         if (toolResult.longitude) assets.longitude = toolResult.longitude;
         if (toolResult.locationInfo) assets.locationInfo = toolResult.locationInfo;
+        
+        // If tool failed and returned error, save it for return
+        if (toolResult.error && !toolResult.success) {
+          assets.error = toolResult.error;
+        }
       }
       
       // If target tool executed, get final text response and stop (don't continue with more tools)
@@ -3246,8 +3251,11 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
     textResponse = cleanThinkingPatterns(textResponse);
   }
   
+  // Check if any tool failed
+  const hasError = assets.error !== undefined;
+  
   return {
-    success: true,
+    success: !hasError,
     text: textResponse,
     ...assets,
     toolsUsed,
