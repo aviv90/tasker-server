@@ -3496,7 +3496,16 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           
           if (!hasStructuredOutput && stepResult.text && stepResult.text.trim()) {
             try {
-              let cleanText = stepResult.text.trim().replace(/https?:\/\/[^\s]+/gi, '').trim();
+              let cleanText = stepResult.text.trim();
+              
+              // CRITICAL: For search_web and similar tools, URLs are part of the content
+              // Only remove URLs for creation tools where they might be duplicate artifacts
+              const toolsWithUrls = ['search_web', 'get_chat_history', 'chat_summary', 'translate_text'];
+              if (!stepResult.toolsUsed || !stepResult.toolsUsed.some(tool => toolsWithUrls.includes(tool))) {
+                // Remove URLs only if not a text-based tool that returns URLs
+                cleanText = cleanText.replace(/https?:\/\/[^\s]+/gi, '').trim();
+              }
+              
               if (cleanText) {
                 await greenApiService.sendTextMessage(chatId, cleanText);
                 console.log(`✅ [Multi-step] Step ${step.stepNumber}: Text sent`);
@@ -3674,8 +3683,10 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     // Clean and process final text for multi-step
     let finalText = accumulatedText.trim();
     
-    // Basic cleanup: Remove URLs (just in case - should not happen with improved prompts)
-    finalText = finalText.replace(/https?:\/\/[^\s]+/gi, '').trim();
+    // NOTE: finalText is mostly unused now since each step sends results immediately
+    // Kept for backward compatibility and edge cases
+    // Do NOT remove URLs here - they might be needed for text-based tools
+    // finalText = finalText.replace(/https?:\/\/[^\s]+/gi, '').trim();
     
     // Remove duplicate lines (if Step 1 and Step 2 both returned similar content)
     const lines = finalText.split('\n').filter(line => line.trim());
