@@ -3505,10 +3505,89 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
           // At this point, all messages for this step have been sent to WhatsApp
           // The next iteration will start, and the Ack for the next step will be sent
         } else {
-          // ❌ Step failed - send error to user
+          // ❌ Step failed - try fallback for creation tools
           console.error(`❌ [Agent] Step ${step.stepNumber}/${plan.steps.length} failed:`, stepResult.error);
           
-          if (stepResult.error) {
+          // 🔄 FALLBACK: For creation tools that failed, try alternative providers
+          const creationTools = ['create_image', 'create_video', 'edit_image', 'edit_video'];
+          let fallbackSucceeded = false;
+          
+          if (creationTools.includes(toolName)) {
+            console.log(`🔄 [Multi-step Fallback] Attempting fallback for ${toolName}...`);
+            
+            try {
+              // Determine fallback strategy based on tool type
+              const fallbackArgs = {
+                original_prompt: toolParams.prompt || toolParams.text || step.action,
+                reason: stepResult.error || 'Tool execution failed',
+                avoid_provider: toolParams.provider || 'gemini'
+              };
+              
+              if (toolName === 'create_image') {
+                fallbackArgs.task_type = 'image';
+              } else if (toolName === 'create_video') {
+                fallbackArgs.task_type = 'video';
+              } else if (toolName === 'edit_image') {
+                fallbackArgs.task_type = 'image_edit';
+                fallbackArgs.image_url = toolParams.image_url;
+              } else if (toolName === 'edit_video') {
+                fallbackArgs.task_type = 'video';
+                fallbackArgs.video_url = toolParams.video_url;
+              }
+              
+              console.log(`🔄 [Multi-step Fallback] Calling retry_with_different_provider with:`, fallbackArgs);
+              const fallbackResult = await metaTools.retry_with_different_provider.execute(fallbackArgs, { chatId });
+              
+              if (fallbackResult && fallbackResult.success) {
+                console.log(`✅ [Multi-step Fallback] Fallback succeeded!`);
+                fallbackSucceeded = true;
+                stepResults.push(fallbackResult);
+                const { greenApiService } = getServices();
+                
+                // Send fallback result (image/video)
+                if (fallbackResult.imageUrl) {
+                  try {
+                    const fullImageUrl = fallbackResult.imageUrl.startsWith('http') 
+                      ? fallbackResult.imageUrl 
+                      : getStaticFileUrl(fallbackResult.imageUrl.replace('/static/', ''));
+                    const caption = fallbackResult.caption || fallbackResult.imageCaption || '';
+                    await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption);
+                    console.log(`✅ [Multi-step Fallback] Image sent successfully`);
+                  } catch (imageError) {
+                    console.error(`❌ [Multi-step Fallback] Failed to send image:`, imageError.message);
+                  }
+                }
+                
+                if (fallbackResult.videoUrl) {
+                  try {
+                    const fullVideoUrl = fallbackResult.videoUrl.startsWith('http') 
+                      ? fallbackResult.videoUrl 
+                      : getStaticFileUrl(fallbackResult.videoUrl.replace('/static/', ''));
+                    await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '');
+                    console.log(`✅ [Multi-step Fallback] Video sent successfully`);
+                  } catch (videoError) {
+                    console.error(`❌ [Multi-step Fallback] Failed to send video:`, videoError.message);
+                  }
+                }
+                
+                // Send success message
+                if (fallbackResult.data) {
+                  try {
+                    await greenApiService.sendTextMessage(chatId, fallbackResult.data);
+                  } catch (textError) {
+                    console.error(`❌ [Multi-step Fallback] Failed to send success message:`, textError.message);
+                  }
+                }
+              } else {
+                console.log(`❌ [Multi-step Fallback] Fallback also failed:`, fallbackResult?.error);
+              }
+            } catch (fallbackError) {
+              console.error(`❌ [Multi-step Fallback] Error during fallback:`, fallbackError.message);
+            }
+          }
+          
+          // If fallback didn't work, send original error to user
+          if (!fallbackSucceeded && stepResult.error) {
             try {
               const { greenApiService } = getServices();
               // Send error message to user (as-is, as per rule #2)
