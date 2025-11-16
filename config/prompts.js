@@ -3,6 +3,8 @@
  * All AI prompts in one place for easy maintenance and updates
  */
 
+const { getPlannerTools, formatToolsCompact, getCriticalRules } = require('./tools-list');
+
 module.exports = {
   /**
    * Multi-step planner prompt - instructs Gemini to analyze and plan execution
@@ -20,25 +22,11 @@ MULTI-STEP INDICATORS:
 - Multiple different verbs requiring different tools
 
 AVAILABLE TOOLS (exact names):
-• send_location - Send location
-• create_image - Create image
-• create_video - Create video
-• create_music - Create NEW song with Suno (use for: "צור שיר", "create song")
-• analyze_image - Analyze image
-• edit_image - Edit image
-• edit_video - Edit video
-• text_to_speech - Convert text to speech (no translation)
-• translate_and_speak - Translate + speak (use when language specified: "אמור X ב-Y")
-• translate_text - Just translate text (no speech)
-• create_poll - Create poll
-• search_web - Find EXISTING content/links (use for: "שלח לי לינק", "find link to song X")
-• get_chat_history - Get conversation history
-• retry_with_different_provider - Retry failed task
+${formatToolsCompact(getPlannerTools())}
 
 CRITICAL RULES:
 • Use EXACT tool names! "search_web" not "web_search"
-• create_music = create NEW songs | search_web = find EXISTING songs/links
-• Links: ALWAYS use search_web (user: "שלח לי לינק לשיר X" → search_web with query: "X song")
+${getCriticalRules()}
 • Audio: Only if explicit ("אמור", "תשמיע", "voice", "say")
 
 OUTPUT (strict JSON only):

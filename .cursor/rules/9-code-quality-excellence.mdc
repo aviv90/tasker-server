@@ -109,6 +109,91 @@ if (shouldSkipSending(agentResult)) {
 
 ---
 
+## Single Source of Truth (SSOT)
+
+**CRITICAL: All data, configuration, and definitions MUST have exactly ONE authoritative source.**
+
+Never duplicate data structures, lists, constants, or configurations across files.
+
+### Rule: One Definition, Many References
+
+❌ **Bad:** Duplicated tool lists
+```javascript
+// prompts.js
+const tools = ['create_image', 'create_video', 'search_web', 'create_music'];
+
+// agentService.js - DUPLICATION!
+const availableTools = ['create_image', 'create_video', 'search_web', 'create_music'];
+
+// constants.js - MORE DUPLICATION!
+const toolNames = ['create_image', 'create_video', 'search_web', 'create_music'];
+```
+
+✅ **Good:** Single source, multiple consumers
+```javascript
+// config/tools-list.js - THE ONLY SOURCE
+const TOOLS = {
+  create_image: { name: 'create_image', description: '...' },
+  create_video: { name: 'create_video', description: '...' },
+  search_web: { name: 'search_web', description: '...' },
+  create_music: { name: 'create_music', description: '...' }
+};
+
+module.exports = { TOOLS };
+
+// prompts.js - CONSUMES from SSOT
+const { TOOLS } = require('./tools-list');
+const toolsList = Object.keys(TOOLS).join(', ');
+
+// agentService.js - CONSUMES from SSOT
+const { TOOLS } = require('../config/tools-list');
+const availableTools = Object.values(TOOLS);
+
+// constants.js - CONSUMES from SSOT
+const { TOOLS } = require('../../config/tools-list');
+const toolNames = Object.keys(TOOLS);
+```
+
+### Examples of SSOT Violations to Avoid:
+
+1. **Tool Definitions**: Define once in `config/tools-list.js`, import everywhere
+2. **Provider Names**: Define once in `config/providers.js`, import everywhere
+3. **Language Instructions**: Define once in `config/prompts.js`, import everywhere
+4. **Error Messages**: Define once in `config/messages.js`, import everywhere
+5. **API Endpoints**: Define once in `config/api.js`, import everywhere
+6. **Validation Rules**: Define once in `utils/validation.js`, import everywhere
+
+### Benefits of SSOT:
+
+1. **Consistency**: Change once, updates everywhere automatically
+2. **Maintainability**: No need to hunt for duplicates when updating
+3. **Type Safety**: Single definition ensures all consumers use same structure
+4. **Reduced Bugs**: Impossible to have inconsistent versions
+5. **Clear Ownership**: One file = one responsibility
+
+### Refactoring Checklist for SSOT:
+
+When you find duplicated data:
+
+1. ✅ Create a central config file (e.g., `config/tools-list.js`)
+2. ✅ Move ALL instances of the data to this ONE file
+3. ✅ Export utility functions to format/filter the data as needed
+4. ✅ Update all consumers to import from the central file
+5. ✅ Verify no duplicates remain (grep for patterns)
+6. ✅ Document the SSOT location in comments if non-obvious
+
+### Warning Signs of SSOT Violation:
+
+🚨 Same list appears in multiple files
+🚨 Same constant defined in different places
+🚨 Similar data structures with slight differences
+🚨 When updating, need to change multiple files
+🚨 Comments like "keep in sync with..."
+
+**If you see these signs, immediately refactor to SSOT!**
+
+---
+
 ## Separation of Concerns
 
 **Each file/module handles ONE specific domain.**
@@ -395,13 +480,15 @@ Before committing, ask yourself:
 - [ ] Is each file under 500 lines?
 - [ ] Is each function under 50 lines?
 - [ ] Does each module have a single responsibility?
-- [ ] Is there any duplicated code?
+- [ ] Is there any duplicated code? (DRY)
+- [ ] Is there a Single Source of Truth for all data/config? (SSOT)
 - [ ] Are all functions and variables named clearly?
 - [ ] Is error handling comprehensive?
 - [ ] Are concerns properly separated?
 - [ ] Is the code optimized (no unnecessary work)?
 - [ ] Would this be easy to test?
 - [ ] Would a new developer understand this code?
+- [ ] Can I reuse this code in other contexts? (Maximize reusability)
 
 **If any answer is "no", refactor before committing.**
 

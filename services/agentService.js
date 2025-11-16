@@ -21,6 +21,7 @@ const { formatProviderName, normalizeProviderKey, applyProviderToMessage } = req
 const { getServices } = require('./agent/utils/serviceLoader');
 const { getAudioDuration } = require('./agent/utils/audioUtils');
 const { TOOL_ACK_MESSAGES, VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP } = require('./agent/config/constants');
+const { getUserFacingTools } = require('../config/tools-list');
 
 // ═══════════════════ AGENT CONTEXT MEMORY (Persistent in DB) ═══════════════════
 // Agent context is now stored persistently in PostgreSQL database
@@ -3582,11 +3583,17 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   const functionDeclarations = Object.values(agentTools).map(tool => tool.declaration);
   
     // System prompt for the agent (Hebrew base with dynamic language instruction)
+    // Build tools list dynamically from central registry
+    const availableToolNames = getUserFacingTools()
+      .map(t => t.name)
+      .slice(0, 15) // Show first 15 tools
+      .join(', ');
+    
     const systemInstruction = `אתה עוזר AI אוטונומי עם גישה לכלים מתקדמים.
  
  **🌐 Language:** ${languageInstruction} - תשיב בשפה שבה המשתמש כתב!
   
- **כלים זמינים:** create_image, create_video, analyze_image, edit_image, create_music, text_to_speech, translate_and_speak, search_web (חיפוש ולינקים!), get_chat_history, retry_last_command, retry_with_different_provider, ועוד.
+ **כלים זמינים:** ${availableToolNames}, ועוד.
   
  **כללים קריטיים:**
  • אם image_url/video_url בפרומפט → השתמש בו ישירות (אל תקרא get_chat_history!)
@@ -3601,10 +3608,10 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
    - "תשמיע לי" / "תקרא בקול" / "voice" → text_to_speech או translate_and_speak (כן!)
    - **אם המשתמש לא אמר "אמור", "תשמיע", "voice", "say" - אל תיצור אודיו!**
  • "אמור X ב-Y" → translate_and_speak (לא translate_text!)
+ • create_music: ליצירת שירים חדשים | search_web: למציאת שירים קיימים/לינקים
  • תמיד ציין provider: create_image({provider: "gemini"}), create_video({provider: "kling"})
- • send_location: region הוא **אופציונלי** - ציין רק אם יש אזור ספציפי ("שלח מיקום" = אקראי, "שלח מיקום בתל אביב" = region="תל אביב")
+ • send_location: region הוא **אופציונלי** - ציין רק אם יש אזור ספציפי
  • אם tool נכשל → retry_with_different_provider (אל תקרא לאותו tool שוב!)
- • שמור רציפות: קרא [היסטוריית שיחה] בסוף כל בקשה
  • Multi-step: אם רואה "Step X/Y" → התמקד רק בשלב הזה`;
 
   // 🧠 Context for tool execution (load previous context if enabled)
