@@ -1064,6 +1064,15 @@ const metaTools = {
           for (const provider of providers) {
             console.log(`🔄 Trying image edit provider: ${provider}`);
             
+            // ✅ CRITICAL: Send Ack BEFORE attempting the provider
+            const ackMessage = `🎨 מנסה לערוך עם ${formatProviderName(provider)}...`;
+            try {
+              await greenApiService.sendTextMessage(context.chatId, ackMessage);
+              console.log(`📢 [Fallback Ack] Sent: "${ackMessage}"`);
+            } catch (ackError) {
+              console.error('❌ Failed to send fallback Ack:', ackError);
+            }
+            
             try {
               // Download image and convert to base64
               const imageBuffer = await greenApiService.downloadFile(args.image_url);
@@ -1086,11 +1095,30 @@ const metaTools = {
                 };
               }
               
-              errors.push(`${provider}: ${editResult?.error || 'Unknown error'}`);
+              // ✅ CRITICAL: Send error message to user as-is (Rule 2)
+              const errorMessage = `❌ ${formatProviderName(provider)} נכשל בעריכה: ${editResult?.error || 'Unknown error'}`;
+              errors.push(errorMessage);
               console.log(`❌ ${provider} edit failed: ${editResult?.error}`);
+              
+              try {
+                await greenApiService.sendTextMessage(context.chatId, errorMessage);
+                console.log(`📢 [Fallback Error] Sent to user: "${errorMessage}"`);
+              } catch (sendError) {
+                console.error('❌ Failed to send error to user:', sendError);
+              }
+              
             } catch (providerError) {
-              errors.push(`${provider}: ${providerError.message}`);
+              // ✅ CRITICAL: Send exception error to user as-is (Rule 2)
+              const exceptionMessage = `❌ ${formatProviderName(provider)} נכשל בעריכה: ${providerError.message}`;
+              errors.push(exceptionMessage);
               console.error(`❌ ${provider} edit threw error:`, providerError);
+              
+              try {
+                await greenApiService.sendTextMessage(context.chatId, exceptionMessage);
+                console.log(`📢 [Fallback Exception] Sent to user: "${exceptionMessage}"`);
+              } catch (sendError) {
+                console.error('❌ Failed to send exception to user:', sendError);
+              }
             }
           }
           
@@ -1112,6 +1140,15 @@ const metaTools = {
             const displayProvider = displayProviders[i];
             console.log(`🔄 Trying video provider: ${displayProvider} (${provider})`);
             
+            // ✅ CRITICAL: Send Ack BEFORE attempting the provider
+            const ackMessage = `🎬 מנסה עם ${formatProviderName(displayProvider)}...`;
+            try {
+              await greenApiService.sendTextMessage(context.chatId, ackMessage);
+              console.log(`📢 [Fallback Ack] Sent: "${ackMessage}"`);
+            } catch (ackError) {
+              console.error('❌ Failed to send fallback Ack:', ackError);
+            }
+            
             try {
               let result;
               if (provider === 'grok') {
@@ -1132,11 +1169,30 @@ const metaTools = {
                 };
               }
               
-              errors.push(`${displayProvider}: ${result?.error || 'Unknown error'}`);
+              // ✅ CRITICAL: Send error message to user as-is (Rule 2)
+              const errorMessage = `❌ ${formatProviderName(displayProvider)} נכשל: ${result?.error || 'Unknown error'}`;
+              errors.push(errorMessage);
               console.log(`❌ ${displayProvider} failed: ${result?.error}`);
+              
+              try {
+                await greenApiService.sendTextMessage(context.chatId, errorMessage);
+                console.log(`📢 [Fallback Error] Sent to user: "${errorMessage}"`);
+              } catch (sendError) {
+                console.error('❌ Failed to send error to user:', sendError);
+              }
+              
             } catch (providerError) {
-              errors.push(`${displayProvider}: ${providerError.message}`);
+              // ✅ CRITICAL: Send exception error to user as-is (Rule 2)
+              const exceptionMessage = `❌ ${formatProviderName(displayProvider)} נכשל: ${providerError.message}`;
+              errors.push(exceptionMessage);
               console.error(`❌ ${displayProvider} threw error:`, providerError);
+              
+              try {
+                await greenApiService.sendTextMessage(context.chatId, exceptionMessage);
+                console.log(`📢 [Fallback Exception] Sent to user: "${exceptionMessage}"`);
+              } catch (sendError) {
+                console.error('❌ Failed to send exception to user:', sendError);
+              }
             }
           }
           
@@ -1152,6 +1208,15 @@ const metaTools = {
           
           for (const provider of providers) {
             console.log(`🔄 Trying image provider: ${provider}`);
+            
+            // ✅ CRITICAL: Send Ack BEFORE attempting the provider
+            const ackMessage = `🎨 מנסה עם ${formatProviderName(provider)}...`;
+            try {
+              await greenApiService.sendTextMessage(context.chatId, ackMessage);
+              console.log(`📢 [Fallback Ack] Sent: "${ackMessage}"`);
+            } catch (ackError) {
+              console.error('❌ Failed to send fallback Ack:', ackError);
+            }
             
             try {
               let imageResult;
@@ -1173,11 +1238,30 @@ const metaTools = {
                 };
               }
               
-              errors.push(`${provider}: ${imageResult.error}`);
+              // ✅ CRITICAL: Send error message to user as-is (Rule 2)
+              const errorMessage = `❌ ${formatProviderName(provider)} נכשל: ${imageResult.error}`;
+              errors.push(errorMessage);
               console.log(`❌ ${provider} failed: ${imageResult.error}`);
+              
+              try {
+                await greenApiService.sendTextMessage(context.chatId, errorMessage);
+                console.log(`📢 [Fallback Error] Sent to user: "${errorMessage}"`);
+              } catch (sendError) {
+                console.error('❌ Failed to send error to user:', sendError);
+              }
+              
             } catch (providerError) {
-              errors.push(`${provider}: ${providerError.message}`);
+              // ✅ CRITICAL: Send exception error to user as-is (Rule 2)
+              const exceptionMessage = `❌ ${formatProviderName(provider)} נכשל: ${providerError.message}`;
+              errors.push(exceptionMessage);
               console.error(`❌ ${provider} threw error:`, providerError);
+              
+              try {
+                await greenApiService.sendTextMessage(context.chatId, exceptionMessage);
+                console.log(`📢 [Fallback Exception] Sent to user: "${exceptionMessage}"`);
+              } catch (sendError) {
+                console.error('❌ Failed to send exception to user:', sendError);
+              }
             }
           }
           
