@@ -2970,8 +2970,19 @@ async function sendToolAckMessage(chatId, functionCalls) {
       let baseMessage = TOOL_ACK_MESSAGES[toolName] || 'מבצע פעולה... ⚙️';
       
       // Check if this tool uses a provider (direct or nested)
-      const providerRaw = call.args?.provider;
+      const providerRaw = call.args?.provider || call.args?.service;
       let provider = normalizeProviderKey(providerRaw);
+      
+      // Default providers for creation/edit tools if not specified
+      if (!provider) {
+        if (toolName === 'create_image' || toolName === 'edit_image') {
+          provider = 'gemini';
+        } else if (toolName === 'create_video' || toolName === 'edit_video') {
+          provider = 'grok'; // kling is the default for video
+        } else if (toolName === 'image_to_video') {
+          provider = 'grok'; // kling
+        }
+      }
       
       if (!provider && toolName === 'smart_execute_with_fallback') {
         const providersTriedRaw = [];

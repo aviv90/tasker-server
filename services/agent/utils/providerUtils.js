@@ -58,7 +58,11 @@ function normalizeProviderKey(provider) {
  */
 function applyProviderToMessage(message, providerName) {
   if (message.includes('__PROVIDER__')) {
-    return message.replace('__PROVIDER__', providerName || 'ספק אחר');
+    // If no provider, remove the entire " עם __PROVIDER__" part
+    if (!providerName) {
+      return message.replace(' עם __PROVIDER__', '').replace('עם __PROVIDER__ ', '');
+    }
+    return message.replace('__PROVIDER__', providerName);
   }
   if (providerName) {
     if (message.includes('...')) {

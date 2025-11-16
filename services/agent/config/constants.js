@@ -7,10 +7,10 @@
  * Map tool names to Hebrew Ack messages
  */
 const TOOL_ACK_MESSAGES = {
-  // Creation tools
-  'create_image': 'יוצר תמונה... 🎨',
-  'create_video': 'יוצר וידאו... 🎬',
-  'image_to_video': 'ממיר תמונה לוידאו מונפש... 🎞️',
+  // Creation tools (with provider placeholder)
+  'create_image': 'יוצר תמונה עם __PROVIDER__... 🎨',
+  'create_video': 'יוצר וידאו עם __PROVIDER__... 🎬',
+  'image_to_video': 'ממיר תמונה לוידאו מונפש עם __PROVIDER__... 🎞️',
   'create_music': 'יוצר מוזיקה... 🎵',
   'text_to_speech': 'ממיר לדיבור... 🎤',
   
@@ -19,9 +19,9 @@ const TOOL_ACK_MESSAGES = {
   'analyze_image_from_history': 'מנתח תמונה... 🔍',
   'analyze_video': 'מנתח וידאו... 🎥',
   
-  // Edit tools
-  'edit_image': 'עורך תמונה... ✏️',
-  'edit_video': 'עורך וידאו... 🎞️',
+  // Edit tools (with provider placeholder)
+  'edit_image': 'עורך תמונה עם __PROVIDER__... ✏️',
+  'edit_video': 'עורך וידאו עם __PROVIDER__... 🎞️',
   
   // Info tools
   'search_web': 'מחפש באינטרנט... 🔎',
