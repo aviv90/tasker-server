@@ -220,9 +220,6 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
     };
   }
 }
-/**
- * Handle incoming WhatsApp message
-
 
 module.exports = {
   handleQuotedMessage

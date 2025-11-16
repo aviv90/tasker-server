@@ -59,14 +59,6 @@ function processVideoToVideoAsync(videoData) {
   });
 }
 
-/**
- * Handle image edit with AI (Gemini or OpenAI)
- */
-// Media handler functions are now imported from services/whatsapp/mediaHandlers.js
-/**
- * Handle management commands (non-AI commands that don't go through router)
-
-
 module.exports = {
   processImageEditAsync,
   processImageToVideoAsync,

@@ -746,16 +746,6 @@ async function generateVideoFromImageForWhatsApp(prompt, imageBuffer, req = null
     }
 }
 
-// Regex patterns and cleanThinkingPatterns are now imported from ./utils.js (SSOT)
-
-/**
- * Generate text response using Gemini with conversation history support
- * @param {string} prompt - User input text
- * @param {Array} conversationHistory - Previous messages in conversation
- * @param {Object} options - Additional options (model, useGoogleSearch)
- * @returns {Object} - Response with generated text
-
-
 module.exports = {
   analyzeVideoWithText,
   generateVideoWithText,
