@@ -21,11 +21,12 @@ const TOOLS = {
     name: 'create_image',
     category: 'creation',
     description: 'Create NEW image with AI',
-    usage: ['צור תמונה', 'create image', 'draw X'],
+    usage: ['צור תמונה', 'שלח תמונה', 'תמונה של', 'create image', 'send image', 'draw X', 'image of X'],
     parameters: {
       prompt: { type: 'string', required: true, description: 'Image description' },
       provider: { type: 'string', required: false, description: 'gemini/openai/grok' }
-    }
+    },
+    critical: 'Use for ANY request to create/send/make an image. "שלח תמונה של X" means CREATE image, not search!'
   },
 
   create_video: {
@@ -204,11 +205,11 @@ const TOOLS = {
     name: 'search_web',
     category: 'search',
     description: 'Search web for EXISTING content and links using Google Search',
-    usage: ['שלח לי לינק', 'find link to X', 'חפש קישור', 'מצא שיר של X'],
+    usage: ['שלח לי לינק', 'find link to X', 'חפש קישור', 'מצא שיר של X', 'קישור ל-X'],
     parameters: {
       query: { type: 'string', required: true, description: 'Search query' }
     },
-    critical: 'Use for finding EXISTING content/links. Connected to Google Search - ALWAYS returns real URLs! Never say "אין לי אפשרות לשלוח לינקים" - you have this tool!'
+    critical: 'Use ONLY for finding links/URLs to EXISTING content. NOT for creating new images/videos! "שלח תמונה של X" = create_image, NOT search_web!'
   },
 
   get_chat_history: {

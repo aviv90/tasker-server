@@ -17,6 +17,17 @@ RULES:
 • SINGLE-STEP = ONE action only
 • MULTI-STEP = 2+ DIFFERENT actions that must be executed in sequence
 
+CRITICAL - Common SINGLE-STEP patterns (NOT multi-step):
+- "שלח תמונה של X" / "send image of X" → SINGLE create_image (NOT search + analyze!)
+- "צור תמונה של X" / "create image of X" → SINGLE create_image
+- "שלח וידאו של X" / "send video of X" → SINGLE create_video
+- "שלח מיקום" / "send location" → SINGLE send_location
+- "תמונה של X" / "image of X" → SINGLE create_image
+
+CRITICAL - Only multi-step if EXPLICIT sequence:
+- "שלח מיקום **ואז** תמונה" → MULTI (has "ואז")
+- "צור שיר **אחר כך** שלח תמונה" → MULTI (has "אחר כך")
+
 MULTI-STEP INDICATORS:
 - Sequence words: "ואז", "אחר כך", "and then", "after that", "then"
 - Multiple different verbs requiring different tools
@@ -49,8 +60,15 @@ MULTI: {
       "parameters":{"prompt":"lightning","provider":"gemini"}
     }
   ],
-  "reasoning":"two sequential actions"
+  "reasoning":"Has sequence word 'ואז' indicating two sequential actions"
 }
+
+EXAMPLES:
+• "שלח תמונה של בר" → SINGLE create_image (NO "ואז")
+• "תמונה של כלב" → SINGLE create_image
+• "send image of cat" → SINGLE create_image
+• "שלח מיקום ואז תמונה" → MULTI (HAS "ואז")
+• "create song and then video" → MULTI (HAS "and then")
 
 CRITICAL:
 - Each step MUST include: stepNumber, tool, action, parameters
