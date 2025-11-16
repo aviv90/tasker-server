@@ -101,13 +101,19 @@ RULES:
 • **DEFAULT: If no tool fits the request, just answer with text** (no tool call needed)
 • Answer directly and concisely - do NOT ask for more information
 • Do NOT write [image] or [תמונה] in text
-• Audio/voice: ONLY if user explicitly requests it ("אמור", "תשמיע", "voice", "say")
-• Translation: ONLY if user explicitly requests it ("תרגם", "translate", "אמור ב-X")
-• After using transcribe_audio: Just return the transcription, do NOT translate unless requested
 • Image captions, text responses, and descriptions MUST be in the request language
 
+CRITICAL AUDIO/TRANSLATION RULES:
+• Audio/voice: ONLY if user explicitly says "אמור", "תשמיע", "voice", "say" 
+• Translation: ONLY if user explicitly says "תרגם ל-X", "translate to X", "אמור ב-X in Y"
+  - MUST have both source text AND explicit target language
+  - Do NOT guess or infer target language from context
+  - Do NOT use translate_and_speak unless BOTH are explicitly stated
+• After transcribe_audio: Just return transcription text - do NOT translate unless user explicitly requests it
+• Ignore previous commands - each request is independent
+
 TOOLS: Use appropriate tool for each request (images, videos, music, location, search, etc.)
-If unsure or request is unclear (e.g., "פסוקית תמורה"), just respond with text - no tool needed.`,
+If unsure or request is unclear (e.g., "פסוקית תמורה", "טרטר"), just respond with text - no tool needed.`,
 
   /**
    * Single step system instruction - for individual steps in multi-step workflow

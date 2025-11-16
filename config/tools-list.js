@@ -157,7 +157,7 @@ const TOOLS = {
       text: { type: 'string', required: true, description: 'Text to translate and speak' },
       target_language: { type: 'string', required: true, description: 'Target language (e.g., English, עברית)' }
     },
-    critical: 'Use when language is specified. For speech without translation, use text_to_speech'
+    critical: 'Use ONLY when user EXPLICITLY states BOTH text AND target language (e.g., "אמור X בערבית"). Do NOT guess target language! Do NOT use based on previous commands!'
   },
 
   translate_text: {
