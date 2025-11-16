@@ -184,37 +184,7 @@ function applyProviderOverride(additionalInstructions, currentDecision, context 
   return null;
 }
 
-/**
- * Format chat history messages for including as context in prompts
- * @param {Array} messages - Array of messages from getChatHistory
- * @returns {string} - Formatted messages string
- */
-function formatChatHistoryForContext(messages) {
-  if (!messages || messages.length === 0) {
-    return '';
-  }
-  
-  let formattedMessages = '';
-  messages.forEach((msg, index) => {
-    const timestamp = new Date(msg.timestamp * 1000).toLocaleString('he-IL');
-    
-    // Use WhatsApp display name only (chatName), fallback to phone number
-    let sender = 'משתמש';
-    if (msg.chatName) {
-      sender = msg.chatName;
-    } else if (msg.sender) {
-      // Extract phone number from sender ID (e.g., "972543995202@c.us" -> "972543995202")
-      const phoneMatch = msg.sender.match(/^(\d+)@/);
-      sender = phoneMatch ? phoneMatch[1] : msg.sender;
-    }
-    
-    const messageText = msg.textMessage || msg.caption || '[מדיה]';
-    
-    formattedMessages += `${index + 1}. ${timestamp} - ${sender}: ${messageText}\n`;
-  });
-  
-  return formattedMessages;
-}
+// formatChatHistoryForContext is now imported from services/whatsapp/utils.js
 
 // Authorization functions moved to services/whatsapp/authorization.js
 // Now imported above instead of defined locally

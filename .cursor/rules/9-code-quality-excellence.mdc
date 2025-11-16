@@ -494,6 +494,97 @@ Before committing, ask yourself:
 
 ---
 
+## Prompts & Acknowledgments Separation
+
+**CRITICAL: All prompts and acknowledgment messages MUST be separated from business logic.**
+
+This enforces SSOT and ensures consistency across all execution paths.
+
+### Prompts Separation Rules:
+
+1. **ALL prompts in `config/prompts.js`**:
+   - System instructions for LLMs (Gemini, OpenAI, Grok)
+   - Multi-step planner prompts
+   - Agent routing prompts
+   - Tool descriptions and examples
+   
+2. **Tool definitions in `config/tools-list.js`**:
+   - Single source of truth for all tools
+   - Descriptions, parameters, usage patterns
+   - No duplication in other files
+
+3. **Never hardcode prompts** in service files:
+
+❌ **Bad:**
+```javascript
+// services/imageService.js
+const prompt = "Generate an image based on this description..."; // ← Hardcoded!
+const result = await gemini.generate(prompt);
+```
+
+✅ **Good:**
+```javascript
+// config/prompts.js
+module.exports = {
+  imageGeneration: (userPrompt) => `Generate an image: ${userPrompt}`
+};
+
+// services/imageService.js
+const { imageGeneration } = require('../config/prompts');
+const prompt = imageGeneration(userPrompt);
+const result = await gemini.generate(prompt);
+```
+
+### Acknowledgment Messages (Acks) Rules:
+
+**MUST be consistent across single-step AND multi-step execution.**
+
+1. **Centralized Ack storage**:
+   - WhatsApp Acks: `services/whatsapp/messaging.js` (sendAck function)
+   - Agent Acks: `services/agent/config/constants.js` (TOOL_ACK_MESSAGES)
+
+2. **Include provider names** where relevant:
+   ```javascript
+   TOOL_ACK_MESSAGES: {
+     create_image: '🎨 יוצר תמונה עם __PROVIDER__...',
+     create_video: '🎬 יוצר וידאו עם __PROVIDER__...',
+     edit_video: '🎞️ עורך וידאו עם Runway...' // Fixed provider
+   }
+   ```
+
+3. **Same format for all paths**:
+   - Single-step commands → Use same Ack format
+   - Multi-step commands → Use same Ack format
+   - Fallback attempts → Send Ack for each provider
+
+### Benefits:
+
+✅ **Maintainability**: Change once, apply everywhere  
+✅ **Consistency**: Same UX across all execution paths  
+✅ **Testability**: Easy to test prompt/Ack changes  
+✅ **Clarity**: Business logic stays clean  
+✅ **SSOT**: Single source for all user-facing text  
+
+### Example: Wrong vs. Right
+
+❌ **Wrong:** Different Acks for same operation
+```javascript
+// Single-step handler
+await sendTextMessage(chatId, '🎨 קיבלתי! מייצר תמונה...'); // Different!
+
+// Multi-step handler
+await sendTextMessage(chatId, '🎨 יוצר תמונה עם Gemini...'); // Different!
+```
+
+✅ **Right:** Consistent Acks everywhere
+```javascript
+// Both use the same central function
+await sendAck(chatId, { type: 'create_image', provider: 'gemini' });
+// → "🎨 יוצר תמונה עם Gemini..."
+```
+
+---
+
 ## Further Reading
 
 - Clean Code by Robert C. Martin
