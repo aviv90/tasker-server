@@ -4,6 +4,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { promisify } = require('util');
 const musicService = require('./musicService');
+const { getTempDir, ensureTempDir, cleanupTempFile } = require('../utils/tempFileUtils');
 
 const execAsync = promisify(exec);
 
@@ -13,8 +14,8 @@ const execAsync = promisify(exec);
  */
 class CreativeAudioService {
     constructor() {
-        this.tempDir = path.join(__dirname, '..', 'public', 'tmp');
-        this.ensureTempDir();
+        this.tempDir = getTempDir();
+        ensureTempDir();
         
         // Creative effects library
         this.effects = {
@@ -449,8 +450,8 @@ class CreativeAudioService {
                     const processedBuffer = fs.readFileSync(outputPath);
                     
                     // Clean up temporary files
-                    this.cleanupFile(inputPath);
-                    this.cleanupFile(outputPath);
+                    cleanupTempFile(inputPath);
+                    cleanupTempFile(outputPath);
 
                     console.log(`✅ Creative effect applied: ${processedBuffer.length} bytes`);
 
@@ -465,8 +466,8 @@ class CreativeAudioService {
                     console.error('❌ FFmpeg processing error:', ffmpegError);
                     
                     // Clean up temporary files
-                    this.cleanupFile(inputPath);
-                    this.cleanupFile(outputPath);
+                    cleanupTempFile(inputPath);
+                    cleanupTempFile(outputPath);
                     
                     reject(new Error(`Creative processing failed: ${ffmpegError.message}`));
                 }
@@ -534,9 +535,9 @@ class CreativeAudioService {
                     const mixedBuffer = fs.readFileSync(outputPath);
                     
                     // Clean up temporary files
-                    this.cleanupFile(voicePath);
-                    this.cleanupFile(backgroundLowPath);
-                    this.cleanupFile(outputPath);
+                    cleanupTempFile(voicePath);
+                    cleanupTempFile(backgroundLowPath);
+                    cleanupTempFile(outputPath);
 
                     console.log(`✅ Voice mixed with background: ${mixedBuffer.length} bytes`);
 
@@ -550,9 +551,9 @@ class CreativeAudioService {
                     console.error('❌ FFmpeg mixing error:', ffmpegError);
                     
                     // Clean up temporary files
-                    this.cleanupFile(voicePath);
-                    this.cleanupFile(backgroundLowPath);
-                    this.cleanupFile(outputPath);
+                    cleanupTempFile(voicePath);
+                    cleanupTempFile(backgroundLowPath);
+                    cleanupTempFile(outputPath);
                     
                     reject(new Error(`Audio mixing failed: ${ffmpegError.message}`));
                 }
@@ -627,7 +628,7 @@ class CreativeAudioService {
             const mixResult = await this.mixWithBackground(effectResult.audioBuffer, 'mp3', backgroundPath);
 
             // Clean up background music file
-            this.cleanupFile(backgroundPath);
+            cleanupTempFile(backgroundPath);
 
             if (mixResult.success) {
                 return {
@@ -658,20 +659,6 @@ class CreativeAudioService {
         }
     }
 
-    /**
-     * Clean up temporary file
-     * @param {string} filePath - Path to file to delete
-     */
-    cleanupFile(filePath) {
-        try {
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-                console.log(`🧹 Cleaned up temporary file: ${path.basename(filePath)}`);
-            }
-        } catch (err) {
-            console.warn(`⚠️ Failed to cleanup file ${filePath}:`, err.message);
-        }
-    }
 }
 
 // Create and export instance

@@ -3,8 +3,8 @@
  */
 
 const fs = require('fs');
-const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const { createTempFilePath, verifyFileWritten } = require('../../utils/tempFileUtils');
 
 /**
  * Download video from URL and save to temp file
@@ -13,12 +13,7 @@ async function downloadVideoFile(videoUrl, model) {
   console.log(`✅ Kie.ai ${model} video generation completed! Downloading...`);
 
   const tempFileName = `temp_video_${uuidv4()}.mp4`;
-  const tempFilePath = path.join(__dirname, '../..', 'public', 'tmp', tempFileName);
-  const tmpDir = path.dirname(tempFilePath);
-
-  if (!fs.existsSync(tmpDir)) {
-    fs.mkdirSync(tmpDir, { recursive: true });
-  }
+  const tempFilePath = createTempFilePath(tempFileName);
 
   try {
     const videoResponse = await fetch(videoUrl);
@@ -30,39 +25,15 @@ async function downloadVideoFile(videoUrl, model) {
     fs.writeFileSync(tempFilePath, videoBuffer);
 
     // Verify file was written correctly
-    let retries = 0;
-    let fileReady = false;
+    const verifyResult = await verifyFileWritten(tempFilePath, 10000, 15);
 
-    while (!fileReady && retries < 15) {
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      if (fs.existsSync(tempFilePath)) {
-        try {
-          const stats = fs.statSync(tempFilePath);
-
-          if (stats.size > 0) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            const newStats = fs.statSync(tempFilePath);
-
-            if (newStats.size === stats.size && stats.size > 10000) { // At least 10KB
-              fileReady = true;
-              break;
-            }
-          }
-        } catch (statError) {
-          // Continue retrying
-        }
-      }
-      retries++;
-    }
-
-    if (!fileReady) {
+    if (!verifyResult.success) {
       console.error('❌ Video file was not properly downloaded');
-      return { error: 'Video file was not downloaded successfully' };
+      return { error: verifyResult.error || 'Video file was not downloaded successfully' };
     }
 
     const finalVideoBuffer = fs.readFileSync(tempFilePath);
-    const filename = path.basename(tempFilePath);
+    const filename = require('path').basename(tempFilePath);
     const publicPath = `/static/${filename}`;
 
     return {

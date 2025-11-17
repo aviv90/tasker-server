@@ -253,7 +253,8 @@ async function findContactByName(searchName, threshold = 0.6) {
     
     if (match) {
       const isGroup = match.contact.contact_id.endsWith('@g.us');
-      const entityType = isGroup ? 'קבוצה' : 'איש קשר';
+      const { getEntityType } = require('../config/messages');
+      const entityType = getEntityType(isGroup);
       console.log(`✅ Found ${entityType}: "${searchName}" → "${match.contact.contact_name || match.contact.name}" (score: ${match.score.toFixed(2)})`);
       return {
         contactId: match.contact.contact_id,

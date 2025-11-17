@@ -79,8 +79,9 @@ function cleanForLogging(obj) {
 function formatChatHistoryForContext(messages) {
   if (!messages || messages.length === 0) return '';
   
+  const { getRole } = require('../../config/messages');
   return messages.map(msg => {
-    const role = msg.role === 'user' ? 'משתמש' : 'בוט';
+    const role = getRole(msg.role);
     return `${role}: ${msg.content}`;
   }).join('\n');
 }

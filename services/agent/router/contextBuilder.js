@@ -41,8 +41,9 @@ async function buildContextualPrompt(input, chatId) {
       const history = await conversationManager.getConversationHistory(chatId);
       if (history && history.length > 0) {
         const recentHistory = history.slice(-10);
+        const { getRole } = require('../../../config/messages');
         const formattedHistory = recentHistory.map(msg => {
-          const role = msg.role === 'user' ? 'משתמש' : 'בוט';
+          const role = getRole(msg.role);
           let content = msg.content || '';
           
           // Add media indicators if present

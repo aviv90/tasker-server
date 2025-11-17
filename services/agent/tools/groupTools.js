@@ -37,9 +37,10 @@ const create_group = {
         };
       }
       
+      const { defaultSenderName } = require('../../../config/messages');
       const senderData = context.originalInput?.senderData || {};
       const senderId = senderData.senderId || senderData.sender;
-      const senderName = senderData.senderName || senderData.senderContactName || senderId || 'המשתמש';
+      const senderName = senderData.senderName || senderData.senderContactName || senderId || defaultSenderName;
       
       const { parseGroupCreationPrompt, resolveParticipants } = require('../../groupService');
       const { createGroup, setGroupPicture, sendTextMessage } = require('../../greenApiService');

@@ -5,11 +5,11 @@
 const { sanitizeText } = require('../../utils/textSanitizer');
 const { getStaticFileUrl } = require('../../utils/urlUtils');
 const fs = require('fs');
-const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const KieServiceBase = require('./base');
 const { pollVideoGeneration, extractVideoUrls } = require('./polling');
 const { downloadVideoFile } = require('./download');
+const { createTempFilePath, cleanupTempFile } = require('../../utils/tempFileUtils');
 
 class ImageToVideoService extends KieServiceBase {
   /**
@@ -23,13 +23,7 @@ class ImageToVideoService extends KieServiceBase {
 
       // Step 1: Upload image first (save temporarily and create public URL)
       const tempImageName = `temp_image_${uuidv4()}.png`;
-      const tempImagePath = path.join(__dirname, '../..', 'public', 'tmp', tempImageName);
-      const tmpDir = path.dirname(tempImagePath);
-
-      if (!fs.existsSync(tmpDir)) {
-        fs.mkdirSync(tmpDir, { recursive: true });
-      }
-
+      const tempImagePath = createTempFilePath(tempImageName);
       fs.writeFileSync(tempImagePath, imageBuffer);
 
       // Create public URL for the image
@@ -52,7 +46,7 @@ class ImageToVideoService extends KieServiceBase {
       if (!generateResponse.ok || generateData.code !== 200) {
         console.error(`❌ Kie.ai ${model} image-to-video task submission failed:`, generateData.msg);
         // Clean up temp image
-        try { fs.unlinkSync(tempImagePath); } catch (e) { }
+        cleanupTempFile(tempImagePath);
         return { error: generateData.msg || 'Task submission failed' };
       }
 
@@ -64,7 +58,7 @@ class ImageToVideoService extends KieServiceBase {
 
       if (pollResult.error) {
         // Clean up temp image
-        try { fs.unlinkSync(tempImagePath); } catch (e) { }
+        cleanupTempFile(tempImagePath);
         return { error: pollResult.error };
       }
 
@@ -74,7 +68,7 @@ class ImageToVideoService extends KieServiceBase {
 
       if (urlResult.error) {
         // Clean up temp image
-        try { fs.unlinkSync(tempImagePath); } catch (e) { }
+        cleanupTempFile(tempImagePath);
         return { error: urlResult.error };
       }
 
@@ -84,7 +78,7 @@ class ImageToVideoService extends KieServiceBase {
       const downloadResult = await downloadVideoFile(videoUrl, model);
 
       // Clean up temp image (regardless of download result)
-      try { fs.unlinkSync(tempImagePath); } catch (e) { }
+      cleanupTempFile(tempImagePath);
 
       if (downloadResult.error) {
         return { error: downloadResult.error };

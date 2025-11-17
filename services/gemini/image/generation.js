@@ -3,8 +3,8 @@ const { sanitizeText, cleanMarkdown, cleanMediaDescription } = require('../../..
 const { getStaticFileUrl } = require('../../../utils/urlUtils');
 const { getGeminiErrorMessage } = require('../utils');
 const fs = require('fs');
-const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const { createTempFilePath } = require('../../../utils/tempFileUtils');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -80,12 +80,7 @@ class ImageGeneration {
   saveImageForWhatsApp(imageBuffer, req, prefix = 'gemini') {
     const imageId = uuidv4();
     const fileName = `${prefix}_${imageId}.png`;
-    const filePath = path.join(__dirname, '../../..', 'public', 'tmp', fileName);
-
-    const tmpDir = path.dirname(filePath);
-    if (!fs.existsSync(tmpDir)) {
-      fs.mkdirSync(tmpDir, { recursive: true });
-    }
+    const filePath = createTempFilePath(fileName);
 
     fs.writeFileSync(filePath, imageBuffer);
     const imageUrl = getStaticFileUrl(fileName, req);

@@ -166,13 +166,8 @@ async function generateImageForWhatsApp(prompt, req) {
         
         // Save to public directory
         const fileName = `openai_${uuidv4()}.png`;
-        const filePath = path.join(__dirname, '..', '..', 'public', 'tmp', fileName);
-        
-        // Ensure tmp directory exists
-        const tmpDir = path.dirname(filePath);
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, { recursive: true });
-        }
+        const { createTempFilePath } = require('../../utils/tempFileUtils');
+        const filePath = createTempFilePath(fileName);
         
         // Write image file
         fs.writeFileSync(filePath, imageBuffer);
@@ -272,13 +267,8 @@ async function editImageForWhatsApp(prompt, base64Image, req) {
         
         // Save to public directory
         const fileName = `openai_edit_${uuidv4()}.png`;
-        const filePath = path.join(__dirname, '..', '..', 'public', 'tmp', fileName);
-        
-        // Ensure tmp directory exists
-        const tmpDir = path.dirname(filePath);
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, { recursive: true });
-        }
+        const { createTempFilePath } = require('../../utils/tempFileUtils');
+        const filePath = createTempFilePath(fileName);
         
         // Write image file
         fs.writeFileSync(filePath, editedImageBuffer);
