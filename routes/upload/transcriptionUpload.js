@@ -1,0 +1,203 @@
+const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
+const taskStore = require('../../store/taskStore');
+const geminiService = require('../../services/geminiService');
+const speechService = require('../../services/speechService');
+const { voiceService } = require('../../services/voiceService');
+const { getTaskError } = require('../../utils/errorHandler');
+const path = require('path');
+const finalizers = require('./finalizers');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024,
+    fieldSize: 50 * 1024 * 1024
+  }
+});
+
+/**
+ * Transcription upload routes
+ */
+class TranscriptionUploadRoutes {
+  /**
+   * Setup transcription upload routes
+   */
+  setupRoutes(router) {
+    /**
+     * Upload audio and transcribe with voice processing pipeline
+     */
+    router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
+      if (!req.file) {
+        return res.status(400).json({ status: 'error', error: 'Missing audio file' });
+      }
+
+      // Validate file size for ElevenLabs (25MB limit)
+      if (req.file.size > 25 * 1024 * 1024) {
+        return res.status(413).json({
+          status: 'error',
+          error: `File too large: ${Math.round(req.file.size / 1024 / 1024)}MB. Maximum size is 25MB.`
+        });
+      }
+
+      const taskId = uuidv4();
+      await taskStore.set(taskId, { status: 'pending' });
+      res.json({ taskId });
+
+      try {
+        console.log(`🎤 Starting enhanced voice processing pipeline with Gemini integration...`);
+        console.log(`📋 Pipeline: Transcription → Voice Clone → Gemini Response → Text-to-Speech → Cleanup`);
+
+        // Step 1: Speech-to-Text transcription
+        const originalExtension = path.extname(req.file.originalname).slice(1).toLowerCase();
+        const supportedFormats = ['mp3', 'wav', 'ogg', 'opus', 'webm', 'm4a', 'aac', 'flac'];
+        const format = supportedFormats.includes(originalExtension) ? originalExtension : 'wav';
+
+        const transcriptionOptions = {
+          model: req.body.model || 'scribe_v1',
+          language: req.body.language === 'auto' ? null : req.body.language || null,
+          removeNoise: req.body.removeNoise !== 'false',
+          removeFiller: req.body.removeFiller !== 'false',
+          optimizeLatency: parseInt(req.body.optimizeLatency) || 0,
+          format: format
+        };
+
+        console.log(`🔄 Step 1: Transcribing speech...`);
+        const transcriptionResult = await speechService.speechToText(req.file.buffer, transcriptionOptions);
+
+        if (transcriptionResult.error) {
+          console.error('❌ Transcription failed:', transcriptionResult.error);
+          return await finalizers.finalizeTranscription(taskId, transcriptionResult);
+        }
+
+        const transcribedText = transcriptionResult.text;
+        console.log(`✅ Step 1 complete: Transcribed ${transcribedText.length} characters`);
+
+        // Step 2: Create Instant Voice Clone with optimal parameters
+        console.log(`🔄 Step 2: Creating voice clone with optimized parameters...`);
+        const voiceName = req.body.voiceName || `Voice_${Date.now()}`;
+
+        // Use our own language detection on transcribed text for consistency
+        const originalLanguage = voiceService.detectLanguage(transcribedText);
+        const sttDetected = transcriptionResult.metadata?.language || 'auto';
+        console.log(`🌐 Language detection for voice clone:`);
+        console.log(`   - STT detected: ${sttDetected}`);
+        console.log(`   - Our detection: ${originalLanguage}`);
+
+        const voiceCloneOptions = {
+          name: voiceName,
+          description: req.body.voiceDescription || `High-quality voice clone (${originalLanguage})`,
+          removeBackgroundNoise: req.body.removeBackgroundNoise !== 'false',
+          labels: JSON.stringify({
+            accent: originalLanguage === 'he' ? 'hebrew' : 'natural',
+            use_case: 'conversational',
+            quality: 'high',
+            style: 'natural',
+            language: originalLanguage
+          })
+        };
+
+        const voiceCloneResult = await voiceService.createInstantVoiceClone(req.file.buffer, voiceCloneOptions);
+
+        if (voiceCloneResult.error) {
+          console.error('❌ Voice cloning failed:', voiceCloneResult.error);
+          // If voice cloning fails, return error with transcription
+          return await finalizers.finalizeVoiceProcessing(taskId, {
+            text: transcribedText,
+            error: voiceCloneResult.error
+          }, req);
+        }
+
+        const voiceId = voiceCloneResult.voiceId;
+        console.log(`✅ Step 2 complete: Voice clone created with ID ${voiceId}`);
+
+        // Step 3: Generate Gemini response (Chatbot)
+        console.log(`🔄 Step 3: Generating Gemini response to transcribed text...`);
+        const geminiOptions = {
+          model: req.body.geminiModel || 'gemini-2.5-flash'
+        };
+
+        const geminiResult = await geminiService.generateTextResponse(transcribedText, geminiOptions);
+
+        let textForTTS = transcribedText; // Default to original text
+
+        if (geminiResult.error) {
+          console.warn('⚠️ Gemini generation failed:', geminiResult.error);
+          console.log('📝 Using original transcribed text for TTS');
+        } else {
+          textForTTS = geminiResult.text;
+          console.log(`✅ Step 3 complete: Gemini response generated`);
+        }
+
+        // Step 4: Text-to-Speech with cloned voice
+        console.log(`🔄 Step 4: Converting text to speech with cloned voice...`);
+
+        // For TTS, use the original language to maintain consistency throughout the flow
+        const ttsLanguage = originalLanguage;
+        console.log(`🌐 Language consistency in upload-transcribe:`);
+        console.log(`   - Original (from transcription): ${originalLanguage}`);
+        console.log(`   - TTS (forced same): ${ttsLanguage}`);
+
+        const ttsOptions = {
+          modelId: req.body.ttsModel || 'eleven_v3',
+          outputFormat: req.body.outputFormat || 'mp3_44100_128',
+          languageCode: ttsLanguage
+        };
+
+        // Only add optimizeStreamingLatency if explicitly requested and not using eleven_v3
+        if (req.body.optimizeStreamingLatency && (req.body.ttsModel && req.body.ttsModel !== 'eleven_v3')) {
+          ttsOptions.optimizeStreamingLatency = parseInt(req.body.optimizeStreamingLatency);
+          console.log(`⚡ Added streaming latency optimization: ${ttsOptions.optimizeStreamingLatency}`);
+        }
+
+        const ttsResult = await voiceService.textToSpeech(voiceId, textForTTS, ttsOptions);
+
+        if (ttsResult.error) {
+          console.error('❌ Text-to-speech failed:', ttsResult.error);
+          // If TTS fails, return error with transcription
+          return await finalizers.finalizeVoiceProcessing(taskId, {
+            text: transcribedText,
+            error: ttsResult.error
+          }, req);
+        }
+
+        console.log(`✅ Step 4 complete: Audio generated at ${ttsResult.audioUrl}`);
+
+        // Final result: Complete pipeline success
+        console.log(`📝 Finalizing with transcribed text: "${transcribedText.substring(0, 100)}..."`);
+        await finalizers.finalizeVoiceProcessing(taskId, {
+          text: transcribedText, // The original transcribed text - this is what should be returned
+          result: ttsResult.audioUrl,
+          geminiResponse: geminiResult.error ? null : geminiResult.text,
+          voiceId: voiceId,
+          transcriptionMetadata: transcriptionResult.metadata,
+          voiceCloneMetadata: voiceCloneResult.metadata,
+          geminiMetadata: geminiResult.error ? null : geminiResult.metadata,
+          ttsMetadata: ttsResult.metadata
+        }, req);
+
+        console.log(`🎉 Full voice processing pipeline completed successfully!`);
+
+        // Step 4: Clean up - delete the temporary voice clone
+        console.log(`🧹 Step 4: Cleaning up voice clone ${voiceId}...`);
+        try {
+          const deleteResult = await voiceService.deleteVoice(voiceId);
+          if (deleteResult.error) {
+            console.warn(`⚠️ Warning: Could not delete voice clone ${voiceId}:`, deleteResult.error);
+          } else {
+            console.log(`✅ Voice clone ${voiceId} deleted successfully`);
+          }
+        } catch (cleanupError) {
+          console.warn(`⚠️ Warning: Voice cleanup failed:`, cleanupError.message);
+        }
+
+      } catch (error) {
+        console.error(`❌ Pipeline error:`, error);
+        await taskStore.set(taskId, getTaskError(error));
+      }
+    });
+  }
+}
+
+module.exports = new TranscriptionUploadRoutes();
+
