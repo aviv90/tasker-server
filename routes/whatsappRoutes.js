@@ -62,6 +62,9 @@ const { saveLastCommand, applyProviderOverride } = require('./whatsapp/commandHa
 const { handleQuotedMessage } = require('./whatsapp/quotedMessageHandler');
 const { processImageEditAsync, processImageToVideoAsync, processVoiceMessageAsync, processVideoToVideoAsync } = require('./whatsapp/asyncProcessors');
 
+// Import WhatsApp handlers (Phase 5.3)
+const { handleIncomingMessage } = require('./whatsapp/incomingHandler');
+
 // Message deduplication cache - prevent processing duplicate messages
 const processedMessages = new Set();
 
@@ -103,7 +106,7 @@ router.post('/webhook', async (req, res) => {
     // Handle different webhook types asynchronously
     if (webhookData.typeWebhook === 'incomingMessageReceived') {
       // Process in background - don't await
-      handleIncomingMessage(webhookData).catch(error => {
+      handleIncomingMessage(webhookData, processedMessages).catch(error => {
         console.error('❌ Error in async webhook processing:', error.message || error);
       });
     } else if (webhookData.typeWebhook === 'outgoingMessageReceived') {
@@ -121,10 +124,12 @@ router.post('/webhook', async (req, res) => {
   }
 });
 
+// handleIncomingMessage extracted to routes/whatsapp/incomingHandler.js (Phase 5.3)
+
 /**
- * Handle incoming WhatsApp message
+ * Handle outgoing WhatsApp message (commands sent by you)
  */
-async function handleIncomingMessage(webhookData) {
+async function handleOutgoingMessage(webhookData) {
   try {
     const messageData = webhookData.messageData;
     const senderData = webhookData.senderData;
@@ -135,12 +140,12 @@ async function handleIncomingMessage(webhookData) {
     // For edited messages, append suffix to ensure they're processed even if original was processed
     if (messageData.typeMessage === 'editedMessage') {
       messageId = `${messageId}_edited_${Date.now()}`;
-      console.log(`✏️ Edited message - using unique ID for reprocessing: ${messageId}`);
+      console.log(`✏️ Edited message (outgoing) - using unique ID for reprocessing: ${messageId}`);
     }
     
     // Check if we already processed this message
     if (processedMessages.has(messageId)) {
-      console.log(`🔄 Duplicate message detected, skipping: ${messageId}`);
+      console.log(`🔄 Duplicate outgoing message detected, skipping: ${messageId}`);
       return;
     }
     
