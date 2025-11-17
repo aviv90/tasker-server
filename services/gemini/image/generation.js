@@ -80,7 +80,7 @@ class ImageGeneration {
   saveImageForWhatsApp(imageBuffer, req, prefix = 'gemini') {
     const imageId = uuidv4();
     const fileName = `${prefix}_${imageId}.png`;
-    const filePath = path.join(__dirname, '../../../..', 'public', 'tmp', fileName);
+    const filePath = path.join(__dirname, '../../..', 'public', 'tmp', fileName);
 
     const tmpDir = path.dirname(filePath);
     if (!fs.existsSync(tmpDir)) {

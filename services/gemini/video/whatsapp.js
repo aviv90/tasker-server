@@ -98,8 +98,8 @@ class WhatsAppVideoGeneration {
    * Download video file from Veo (for WhatsApp)
    */
   async downloadVideoFile(videoFile, fileNamePrefix = 'veo3') {
-    const fileName = `${fileNamePrefix}_video_${uuidv4()}.mp4`;
-    const filePath = path.join(__dirname, '../../../..', 'public', 'tmp', fileName);
+      const fileName = `${fileNamePrefix}_video_${uuidv4()}.mp4`;
+      const filePath = path.join(__dirname, '../../..', 'public', 'tmp', fileName);
     const tmpDir = path.dirname(filePath);
 
     if (!fs.existsSync(tmpDir)) {
@@ -165,8 +165,8 @@ class WhatsAppVideoGeneration {
    */
   async convertVideoForWhatsApp(filePath, fileName, req) {
     console.log('🎬 Converting video to WhatsApp-compatible format...');
-    const convertedFileName = fileName.replace('.mp4', '_converted.mp4');
-    const convertedFilePath = path.join(__dirname, '../../../..', 'public', 'tmp', convertedFileName);
+      const convertedFileName = fileName.replace('.mp4', '_converted.mp4');
+      const convertedFilePath = path.join(__dirname, '../../..', 'public', 'tmp', convertedFileName);
 
     try {
       await execAsync(`ffmpeg -i "${filePath}" -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -movflags +faststart "${convertedFilePath}" -y`);

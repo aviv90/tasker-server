@@ -168,7 +168,7 @@ class ImageEditing {
    */
   saveEditedImageForWhatsApp(imageBuffer, req) {
     const fileName = `gemini_edit_${uuidv4()}.png`;
-    const filePath = path.join(__dirname, '../../../..', 'public', 'tmp', fileName);
+    const filePath = path.join(__dirname, '../../..', 'public', 'tmp', fileName);
 
     const tmpDir = path.dirname(filePath);
     if (!fs.existsSync(tmpDir)) {

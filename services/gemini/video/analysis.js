@@ -42,7 +42,7 @@ class VideoAnalysis {
       console.log('📤 Video is large, uploading to Files API first...');
 
       const tempFileName = `temp_analysis_video_${uuidv4()}.mp4`;
-      const tempFilePath = path.join(__dirname, '../../../..', 'public', 'tmp', tempFileName);
+      const tempFilePath = path.join(__dirname, '../../..', 'public', 'tmp', tempFileName);
       const tmpDir = path.dirname(tempFilePath);
 
       if (!fs.existsSync(tmpDir)) {
