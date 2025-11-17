@@ -1,4 +1,4 @@
-const conversationManager = require('../../../conversationManager');
+const conversationManager = require('../../conversationManager');
 
 /**
  * Agent context management

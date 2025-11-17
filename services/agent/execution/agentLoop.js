@@ -1,5 +1,5 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const conversationManager = require('../../../conversationManager');
+const conversationManager = require('../../conversationManager');
 const { cleanThinkingPatterns } = require('../../../utils/agentHelpers');
 const { allTools: agentTools } = require('../tools');
 const { sendToolAckMessage } = require('../utils/ackUtils');
