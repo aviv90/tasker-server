@@ -1,41 +1,17 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { promisify } = require('util');
-const { exec } = require('child_process');
 const conversationManager = require('./conversationManager');
-const locationService = require('./locationService');
 const prompts = require('../config/prompts');
-const { detectLanguage, extractDetectionText, cleanThinkingPatterns } = require('../utils/agentHelpers');
+const { detectLanguage, extractDetectionText } = require('../utils/agentHelpers');
+const { getLanguageInstruction } = require('./agent/utils/languageUtils');
 const { planMultiStepExecution } = require('./multiStepPlanner');
-const { getStaticFileUrl } = require('../utils/urlUtils');
 
-const execAsync = promisify(exec);
+// Import execution modules
+const multiStepExecution = require('./agent/execution/multiStep');
+const agentLoop = require('./agent/execution/agentLoop');
+const contextManager = require('./agent/execution/context');
+const { allTools: agentTools } = require('./agent/tools');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-// Import utility functions from refactored modules
-const { formatProviderName, normalizeProviderKey, applyProviderToMessage } = require('./agent/utils/providerUtils');
-// promptUtils removed - using LLM-first approach only
-const { getServices } = require('./agent/utils/serviceLoader');
-const { getAudioDuration } = require('./agent/utils/audioUtils');
-const { TOOL_ACK_MESSAGES, VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP } = require('./agent/config/constants');
-const { getUserFacingTools } = require('../config/tools-list');
-
-// Import modular agent tools
-const { allTools: agentTools, getToolDeclarations } = require('./agent/tools');
-
-// Import execution and utility functions (Phase 4.2)
-const { sendToolAckMessage } = require('./agent/utils/ackUtils');
-const { getLanguageInstruction } = require('./agent/utils/languageUtils');
-const { executeSingleStep } = require('./agent/execution/singleStep');
-
-// ═══════════════════ AGENT CONTEXT MEMORY (Persistent in DB) ═══════════════════
-// Agent context is now stored persistently in PostgreSQL database
-// No more in-memory cache or TTL - context persists indefinitely like ChatGPT
-// Access via conversationManager.saveAgentContext/getAgentContext/clearAgentContext
-// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * Agent Service - Autonomous AI agent that can use tools dynamically
@@ -45,11 +21,7 @@ const { executeSingleStep } = require('./agent/execution/singleStep');
  * - Analyze images/videos/audio from history
  * - Search the web
  * - And more...
-    ...assets,
-    toolsUsed,
-    iterations
-  };
-}
+ */
 
 /**
  * Execute an agent query with autonomous tool usage
@@ -66,8 +38,8 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   // ⚙️ Configuration: Load from env or use defaults
   const agentConfig = {
     model: process.env.AGENT_MODEL || 'gemini-2.5-flash',
-    maxIterations: Number(process.env.AGENT_MAX_ITERATIONS) || 8, // Increased from 5 to 8 for multi-step tasks
-    timeoutMs: Number(process.env.AGENT_TIMEOUT_MS) || 240000, // 4 minutes for complex multi-step tasks (increased from 3)
+    maxIterations: Number(process.env.AGENT_MAX_ITERATIONS) || 8,
+    timeoutMs: Number(process.env.AGENT_TIMEOUT_MS) || 240000, // 4 minutes
     contextMemoryEnabled: String(process.env.AGENT_CONTEXT_MEMORY_ENABLED || 'false').toLowerCase() === 'true'
   };
   
@@ -108,411 +80,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   
   // 🔄 Multi-step execution - execute each step sequentially
   if (plan.isMultiStep && plan.steps && plan.steps.length > 1) {
-    console.log(`✅ [Planner] Entering multi-step execution with ${plan.steps.length} steps`);
-    agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 15); // More iterations for multi-step
-    agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 360000); // 6 minutes for multi-step
-    
-    // Prepare tools for steps
-    const functionDeclarations = Object.values(agentTools).map(tool => tool.declaration);
-    const systemInstruction = prompts.agentSystemInstruction(languageInstruction);
-    
-    // 🔄 Execute each step sequentially
-    const stepResults = [];
-    let accumulatedText = '';
-    let finalAssets = {
-      imageUrl: null,
-      imageCaption: '',
-      videoUrl: null,
-      audioUrl: null,
-      poll: null,
-      latitude: null,
-      longitude: null,
-      locationInfo: null
-    };
-    
-    for (let i = 0; i < plan.steps.length; i++) {
-      const step = plan.steps[i];
-      
-      // Extract tool and parameters from plan (provided by planner)
-      const toolName = step.tool || null;
-      const toolParams = step.parameters || {};
-      
-      // 📢 CRITICAL: Send Ack BEFORE executing the step
-      // For first step: Send Ack immediately
-      // For subsequent steps: Previous step's results were already sent in previous iteration (all awaits completed)
-      // So we can safely send Ack for current step
-      if (toolName) {
-        console.log(`📢 [Multi-step] Sending Ack for Step ${step.stepNumber}/${plan.steps.length} (${toolName}) BEFORE execution`);
-        await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }]);
-      }
-      
-      // Build focused prompt for this step - use action from plan
-      let stepPrompt = step.action;
-      
-      // CRITICAL: ALWAYS add context from previous steps (not just when keywords detected)
-      // Each step needs to know what happened before to maintain continuity
-      if (stepResults.length > 0) {
-        const previousContext = stepResults.map((res, idx) => {
-          let summary = `Step ${idx + 1}:`;
-          if (res.text) summary += ` ${res.text.substring(0, 200)}`; // Increased from 100 to 200 chars
-          if (res.imageUrl) summary += ` [Created image]`;
-          if (res.videoUrl) summary += ` [Created video]`;
-          if (res.audioUrl) summary += ` [Created audio]`;
-          if (res.poll) summary += ` [Created poll: "${res.poll.question}"]`;
-          if (res.latitude && res.longitude) summary += ` [Sent location]`;
-          return summary;
-        }).join('\n');
-        
-        stepPrompt = `CONTEXT from previous steps:\n${previousContext}\n\nCURRENT TASK: ${step.action}`;
-      }
-      
-      // If planner provided tool and parameters, add them to the prompt
-      if (toolName && Object.keys(toolParams).length > 0) {
-        const paramsStr = Object.entries(toolParams)
-          .map(([key, value]) => `${key}: ${value}`)
-          .join(', ');
-        stepPrompt = `${stepPrompt}\n\nTool: ${toolName}\nParameters: ${paramsStr}`;
-      }
-      
-      // Execute this step
-      try {
-        console.log(`🔄 [Multi-step] Executing Step ${step.stepNumber}/${plan.steps.length}: ${step.action}`);
-        const stepResult = await executeSingleStep(stepPrompt, chatId, {
-          ...options,
-          maxIterations: 5, // Limit iterations per step
-          languageInstruction,
-          agentConfig,
-          functionDeclarations,
-          systemInstruction: prompts.singleStepInstruction(languageInstruction),
-          expectedTool: toolName  // Restrict execution to this tool only
-        });
-        
-        console.log(`🔍 [Multi-step] Step ${step.stepNumber} executeSingleStep returned:`, {
-          success: stepResult.success,
-          hasLocation: !!(stepResult.latitude && stepResult.longitude),
-          hasPoll: !!stepResult.poll,
-          hasImage: !!stepResult.imageUrl,
-          hasVideo: !!stepResult.videoUrl,
-          hasAudio: !!stepResult.audioUrl,
-          hasText: !!stepResult.text,
-          toolsUsed: stepResult.toolsUsed,
-          error: stepResult.error
-        });
-        
-        if (stepResult.success) {
-          stepResults.push(stepResult);
-          const { greenApiService } = getServices();
-          
-          // 🚀 CRITICAL: Send ALL results immediately in order (location/poll/text/media)
-          // Each step's output must be sent before moving to next step
-          console.log(`🔍 [Multi-step] Step ${step.stepNumber} result:`, {
-            hasLocation: !!(stepResult.latitude && stepResult.longitude),
-            hasPoll: !!stepResult.poll,
-            hasImage: !!stepResult.imageUrl,
-            hasVideo: !!stepResult.videoUrl,
-            hasAudio: !!stepResult.audioUrl,
-            hasText: !!stepResult.text,
-            toolsUsed: stepResult.toolsUsed
-          });
-          
-          // 1. Send location (if exists)
-          if (stepResult.latitude && stepResult.longitude) {
-            try {
-              console.log(`📍 [Multi-step] Sending location for step ${step.stepNumber}/${plan.steps.length}`);
-              await greenApiService.sendLocation(chatId, parseFloat(stepResult.latitude), parseFloat(stepResult.longitude), '', '');
-              if (stepResult.locationInfo && stepResult.locationInfo.trim()) {
-                await greenApiService.sendTextMessage(chatId, `📍 ${stepResult.locationInfo}`);
-              }
-              console.log(`✅ [Multi-step] Step ${step.stepNumber}: Location sent`);
-            } catch (locationError) {
-              console.error(`❌ [Multi-step] Failed to send location:`, locationError.message);
-            }
-          }
-          
-          // 2. Send poll (if exists)
-          if (stepResult.poll) {
-            try {
-              const pollOptions = stepResult.poll.options.map(opt => ({ optionName: opt }));
-              await greenApiService.sendPoll(chatId, stepResult.poll.question, pollOptions, false);
-              console.log(`✅ [Multi-step] Step ${step.stepNumber}: Poll sent`);
-            } catch (pollError) {
-              console.error(`❌ [Multi-step] Failed to send poll:`, pollError.message);
-            }
-          }
-          
-          // 3. Send image (if exists)
-          if (stepResult.imageUrl) {
-            try {
-              const fullImageUrl = stepResult.imageUrl.startsWith('http') 
-                ? stepResult.imageUrl 
-                : getStaticFileUrl(stepResult.imageUrl.replace('/static/', ''));
-              const caption = stepResult.imageCaption || '';
-              await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption);
-              console.log(`✅ [Multi-step] Step ${step.stepNumber}: Image sent`);
-            } catch (imageError) {
-              console.error(`❌ [Multi-step] Failed to send image:`, imageError.message);
-            }
-          }
-          
-          // 4. Send video (if exists)
-          if (stepResult.videoUrl) {
-            try {
-              const fullVideoUrl = stepResult.videoUrl.startsWith('http') 
-                ? stepResult.videoUrl 
-                : getStaticFileUrl(stepResult.videoUrl.replace('/static/', ''));
-              await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '');
-              console.log(`✅ [Multi-step] Step ${step.stepNumber}: Video sent`);
-            } catch (videoError) {
-              console.error(`❌ [Multi-step] Failed to send video:`, videoError.message);
-            }
-          }
-          
-          // 5. Send audio (if exists)
-          if (stepResult.audioUrl) {
-            try {
-              const fullAudioUrl = stepResult.audioUrl.startsWith('http') 
-                ? stepResult.audioUrl 
-                : getStaticFileUrl(stepResult.audioUrl.replace('/static/', ''));
-              await greenApiService.sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '');
-              console.log(`✅ [Multi-step] Step ${step.stepNumber}: Audio sent`);
-            } catch (audioError) {
-              console.error(`❌ [Multi-step] Failed to send audio:`, audioError.message);
-            }
-          }
-          
-          // 6. Send text (ONLY if no structured output was already sent)
-          // CRITICAL: Avoid duplicate sending - if location/poll/media was sent, 
-          // the text is usually just a description that's already been sent separately
-          const hasStructuredOutput = stepResult.latitude || stepResult.poll || 
-                                       stepResult.imageUrl || stepResult.videoUrl || 
-                                       stepResult.audioUrl || stepResult.locationInfo;
-          
-          if (!hasStructuredOutput && stepResult.text && stepResult.text.trim()) {
-            try {
-              let cleanText = stepResult.text.trim();
-              
-              // CRITICAL: For search_web and similar tools, URLs are part of the content
-              // Only remove URLs for creation tools where they might be duplicate artifacts
-              const toolsWithUrls = ['search_web', 'get_chat_history', 'chat_summary', 'translate_text'];
-              if (!stepResult.toolsUsed || !stepResult.toolsUsed.some(tool => toolsWithUrls.includes(tool))) {
-                // Remove URLs only if not a text-based tool that returns URLs
-                cleanText = cleanText.replace(/https?:\/\/[^\s]+/gi, '').trim();
-              }
-              
-              if (cleanText) {
-                await greenApiService.sendTextMessage(chatId, cleanText);
-                console.log(`✅ [Multi-step] Step ${step.stepNumber}: Text sent`);
-              }
-            } catch (textError) {
-              console.error(`❌ [Multi-step] Failed to send text:`, textError.message);
-            }
-          } else if (hasStructuredOutput) {
-            console.log(`⏭️ [Multi-step] Step ${step.stepNumber}: Skipping text - structured output already sent`);
-          }
-          
-          // ✅ CRITICAL: ALL results for this step have been sent and awaited
-          // All async operations (sendLocation, sendPoll, sendFileByUrl, sendTextMessage) have completed
-          // The loop will now continue to the next iteration, where the Ack will be sent
-          console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed and ALL results sent and delivered: ${stepResult.toolsUsed?.join(', ') || 'text only'}`);
-          
-          // At this point, all messages for this step have been sent to WhatsApp
-          // The next iteration will start, and the Ack for the next step will be sent
-        } else {
-          // ❌ Step failed - send initial error, then try fallback for creation tools
-          console.error(`❌ [Agent] Step ${step.stepNumber}/${plan.steps.length} failed:`, stepResult.error);
-          
-          // 🔄 FALLBACK: For creation tools that failed, try alternative providers
-          const creationTools = ['create_image', 'create_video', 'edit_image', 'edit_video'];
-          let fallbackSucceeded = false;
-          
-          if (creationTools.includes(toolName)) {
-            // CRITICAL: Send the initial error to user first (rule #2)
-            if (stepResult.error) {
-              try {
-                const { greenApiService } = getServices();
-                const errorMessage = stepResult.error.toString();
-                await greenApiService.sendTextMessage(chatId, `❌ ${errorMessage}`);
-                console.log(`📤 [Multi-step] Step ${step.stepNumber}: Initial error sent to user`);
-              } catch (errorSendError) {
-                console.error(`❌ [Multi-step] Failed to send initial error:`, errorSendError.message);
-              }
-            }
-            
-            console.log(`🔄 [Multi-step Fallback] Attempting automatic fallback for ${toolName}...`);
-            
-            try {
-              const { greenApiService } = getServices();
-              
-              // Determine provider order based on what failed
-              const avoidProvider = toolParams.provider || 'gemini';
-              const imageProviders = ['gemini', 'openai', 'grok'].filter(p => p !== avoidProvider);
-              const videoProviders = ['veo3', 'sora', 'kling'].filter(p => p !== avoidProvider);
-              
-              let providersToTry = toolName.includes('image') ? imageProviders : videoProviders;
-              const allErrors = [`${avoidProvider}: ${stepResult.error}`];
-              
-              // Try each provider with Ack
-              for (const provider of providersToTry) {
-                console.log(`🔄 [Multi-step Fallback] Trying ${provider}...`);
-                
-                // Send Ack for this fallback attempt
-                const ackMessage = TOOL_ACK_MESSAGES[toolName]?.replace('__PROVIDER__', formatProviderName(provider)) || 
-                                  `מנסה עם ${formatProviderName(provider)}... 🔁`;
-                await sendToolAckMessage(chatId, [{ name: toolName, args: { provider } }]);
-                
-                try {
-                  let result;
-                  const promptToUse = toolParams.prompt || toolParams.text || step.action;
-                  
-                  if (toolName === 'create_image') {
-                    result = await agentTools.create_image.execute({ prompt: promptToUse, provider }, { chatId });
-                  } else if (toolName === 'create_video') {
-                    result = await agentTools.create_video.execute({ prompt: promptToUse, provider }, { chatId });
-                  } else if (toolName === 'edit_image') {
-                    result = await agentTools.edit_image.execute({ 
-                      image_url: toolParams.image_url, 
-                      edit_instruction: promptToUse, 
-                      service: provider 
-                    }, { chatId });
-                  } else if (toolName === 'edit_video') {
-                    result = await agentTools.edit_video.execute({ 
-                      video_url: toolParams.video_url, 
-                      edit_instruction: promptToUse, 
-                      provider 
-                    }, { chatId });
-                  }
-                  
-                  if (result && result.success) {
-                    console.log(`✅ [Multi-step Fallback] ${provider} succeeded!`);
-                    fallbackSucceeded = true;
-                    stepResults.push(result);
-                    
-                    // Send the result (image/video)
-                    if (result.imageUrl) {
-                      const fullImageUrl = result.imageUrl.startsWith('http') 
-                        ? result.imageUrl 
-                        : getStaticFileUrl(result.imageUrl.replace('/static/', ''));
-                      const caption = result.caption || result.imageCaption || '';
-                      await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption);
-                      console.log(`✅ [Multi-step Fallback] Image sent successfully`);
-                    }
-                    
-                    if (result.videoUrl) {
-                      const fullVideoUrl = result.videoUrl.startsWith('http') 
-                        ? result.videoUrl 
-                        : getStaticFileUrl(result.videoUrl.replace('/static/', ''));
-                      await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '');
-                      console.log(`✅ [Multi-step Fallback] Video sent successfully`);
-                    }
-                    
-                    // Success message (optional, don't send if media was sent)
-                    if (result.data && !result.imageUrl && !result.videoUrl) {
-                      await greenApiService.sendTextMessage(chatId, result.data);
-                    }
-                    
-                    break; // Success! Stop trying other providers
-                  } else {
-                    // This provider also failed
-                    const errorMsg = result?.error || 'Unknown error';
-                    allErrors.push(`${provider}: ${errorMsg}`);
-                    console.log(`❌ [Multi-step Fallback] ${provider} failed: ${errorMsg}`);
-                    
-                    // Send this error to user immediately (as-is)
-                    await greenApiService.sendTextMessage(chatId, `❌ ${errorMsg}`);
-                  }
-                } catch (providerError) {
-                  const errorMsg = providerError.message;
-                  allErrors.push(`${provider}: ${errorMsg}`);
-                  console.error(`❌ [Multi-step Fallback] ${provider} threw error:`, errorMsg);
-                  
-                  // Send this error to user immediately (as-is)
-                  await greenApiService.sendTextMessage(chatId, `❌ ${errorMsg}`);
-                }
-              }
-              
-              // If all fallbacks failed, send summary
-              if (!fallbackSucceeded) {
-                console.log(`❌ [Multi-step Fallback] All providers failed for ${toolName}`);
-                await greenApiService.sendTextMessage(chatId, `❌ כל הספקים נכשלו עבור ${toolName}`);
-              }
-              
-            } catch (fallbackError) {
-              console.error(`❌ [Multi-step Fallback] Critical error during fallback:`, fallbackError.message);
-            }
-          } else {
-            // Not a creation tool - send original error
-            if (stepResult.error) {
-              try {
-                const { greenApiService } = getServices();
-                const errorMessage = stepResult.error.toString();
-                await greenApiService.sendTextMessage(chatId, `❌ ${errorMessage}`);
-                console.log(`📤 [Multi-step] Step ${step.stepNumber}: Error sent to user`);
-              } catch (errorSendError) {
-                console.error(`❌ [Multi-step] Failed to send error message:`, errorSendError.message);
-              }
-            }
-          }
-          
-          // Continue with remaining steps even if one fails
-        }
-      } catch (stepError) {
-        // ❌ Step execution threw an exception - send error to user
-        console.error(`❌ [Agent] Error executing step ${step.stepNumber}:`, stepError.message);
-        
-        try {
-          const { greenApiService } = getServices();
-          // Send error message to user (as-is, as per rule #2)
-          const errorMessage = stepError.message || stepError.toString();
-          await greenApiService.sendTextMessage(chatId, `❌ שגיאה בביצוע שלב ${step.stepNumber}: ${errorMessage}`);
-          console.log(`📤 [Multi-step] Step ${step.stepNumber}: Exception error sent to user`);
-        } catch (errorSendError) {
-          console.error(`❌ [Multi-step] Failed to send exception error:`, errorSendError.message);
-        }
-        
-        // Continue with remaining steps
-      }
-    }
-    
-    // Clean and process final text for multi-step
-    let finalText = accumulatedText.trim();
-    
-    // NOTE: finalText is mostly unused now since each step sends results immediately
-    // Kept for backward compatibility and edge cases
-    // Do NOT remove URLs here - they might be needed for text-based tools
-    // finalText = finalText.replace(/https?:\/\/[^\s]+/gi, '').trim();
-    
-    // Remove duplicate lines (if Step 1 and Step 2 both returned similar content)
-    const lines = finalText.split('\n').filter(line => line.trim());
-    const uniqueLines = [];
-    const seen = new Set();
-    for (const line of lines) {
-      const normalized = line.trim().toLowerCase();
-      if (!seen.has(normalized)) {
-        seen.add(normalized);
-        uniqueLines.push(line);
-      }
-    }
-    finalText = uniqueLines.join('\n').trim();
-    
-    // ✅ All results (including media) were already sent immediately after each step
-    // No need to send anything at the end
-    
-    console.log(`🏁 [Agent] Multi-step execution completed: ${stepResults.length}/${plan.steps.length} steps successful`);
-    console.log(`📦 [Agent] Returning: ${finalText.length} chars text, image: ${!!finalAssets.imageUrl}, multiStep: true`);
-    console.log(`📝 [Agent] Final text preview: "${finalText.substring(0, 100)}..."`);
-    
-    return {
-      success: true,
-      text: finalText,
-      ...finalAssets,
-      toolsUsed: stepResults.flatMap(r => r.toolsUsed || []),
-      iterations: stepResults.reduce((sum, r) => sum + (r.iterations || 0), 0),
-      multiStep: true,
-      stepsCompleted: stepResults.length,
-      totalSteps: plan.steps.length,
-      // Mark that results were already sent immediately (don't resend in whatsappRoutes)
-      alreadySent: true
-    };
+    return await multiStepExecution.execute(plan, chatId, options, languageInstruction, agentConfig);
   }
   
   // Continue with single-step execution if not multi-step
@@ -522,42 +90,13 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   // Prepare tool declarations for Gemini
   const functionDeclarations = Object.values(agentTools).map(tool => tool.declaration);
   
-    // System prompt for the agent (SSOT - from config/prompts.js - Phase 5.1)
-    // Use centralized agentSystemInstruction instead of hardcoded prompt
-    const systemInstruction = prompts.agentSystemInstruction(languageInstruction);
+  // System prompt for the agent (SSOT - from config/prompts.js)
+  const systemInstruction = prompts.agentSystemInstruction(languageInstruction);
 
   // 🧠 Context for tool execution (load previous context if enabled)
-  let context = {
-    chatId,
-    previousToolResults: {},
-    toolCalls: [],
-    generatedAssets: {
-      images: [],
-      videos: [],
-      audio: [],
-      polls: []
-    },
-    lastCommand: options.lastCommand || null,
-    originalInput: options.input || null,
-    suppressFinalResponse: false,
-    expectedMediaType: null
-  };
-  
-  // Load previous context if context memory is enabled (from DB)
-  if (agentConfig.contextMemoryEnabled) {
-    const previousContext = await conversationManager.getAgentContext(chatId);
-    if (previousContext) {
-      console.log(`🧠 [Agent Context] Loaded previous context from DB with ${previousContext.toolCalls.length} tool calls`);
-      context = {
-        ...context,
-        toolCalls: previousContext.toolCalls || [],
-        generatedAssets: previousContext.generatedAssets || context.generatedAssets
-      };
-    } else {
-      console.log(`🧠 [Agent Context] No previous context found in DB (starting fresh)`);
-    }
-  }
-  
+  let context = contextManager.createInitialContext(chatId, options);
+  context = await contextManager.loadPreviousContext(chatId, context, agentConfig.contextMemoryEnabled);
+
   // Conversation history for the agent
   const chat = model.startChat({
     history: [],
@@ -567,253 +106,10 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
       parts: [{ text: systemInstruction }]
     }
   });
-  
+
   // ⏱️ Wrap entire agent execution with timeout
   const agentExecution = async () => {
-    // Single-step execution (multi-step is handled above with executeSingleStep loop)
-    let response = await chat.sendMessage(prompt);
-    let iterationCount = 0;
-    
-    // Agent loop - continue until we get a final text response
-    while (iterationCount < maxIterations) {
-    iterationCount++;
-    console.log(`🔄 [Agent] Iteration ${iterationCount}/${maxIterations}`);
-    
-    const result = response.response;
-    
-    // Check if Gemini wants to call a function
-    const functionCalls = result.functionCalls();
-    
-    if (!functionCalls || functionCalls.length === 0) {
-      // No more function calls in this iteration
-      let text = result.text();
-      
-      // 🧹 CRITICAL: Clean thinking patterns before sending to user
-      text = cleanThinkingPatterns(text);
-      
-      // No continuation needed - this is the final answer
-      console.log(`✅ [Agent] Completed in ${iterationCount} iterations`);
-      
-      // 🧠 Save context for future agent calls if enabled (to DB)
-      if (agentConfig.contextMemoryEnabled) {
-        await conversationManager.saveAgentContext(chatId, {
-          toolCalls: context.toolCalls,
-          generatedAssets: context.generatedAssets
-        });
-        console.log(`🧠 [Agent Context] Saved context to DB with ${context.toolCalls.length} tool calls`);
-      }
-      
-      // 🎨 Extract latest generated media to send to user
-      console.log(`🔍 [Agent] Assets: ${context.generatedAssets.images.length} images, ${context.generatedAssets.videos.length} videos, ${context.generatedAssets.audio.length} audio`);
-      
-      const latestImageAsset = context.generatedAssets.images.length > 0 
-        ? context.generatedAssets.images[context.generatedAssets.images.length - 1]
-        : null;
-      const latestVideoAsset = context.generatedAssets.videos.length > 0 
-        ? context.generatedAssets.videos[context.generatedAssets.videos.length - 1]
-        : null;
-      const latestAudioAsset = context.generatedAssets.audio && context.generatedAssets.audio.length > 0 
-        ? context.generatedAssets.audio[context.generatedAssets.audio.length - 1]
-        : null;
-      const latestPollAsset = context.generatedAssets.polls && context.generatedAssets.polls.length > 0 
-        ? context.generatedAssets.polls[context.generatedAssets.polls.length - 1]
-        : null;
-      
-      // Check if send_location was called - extract latitude/longitude from tool result
-      const locationResult = context.previousToolResults['send_location'];
-      const latitude = locationResult?.latitude || null;
-      const longitude = locationResult?.longitude || null;
-      const locationInfo = locationResult?.locationInfo || locationResult?.data || null;
-      
-      console.log(`🔍 [Agent] Extracted assets - Image: ${latestImageAsset?.url}, Video: ${latestVideoAsset?.url}, Audio: ${latestAudioAsset?.url}, Poll: ${latestPollAsset?.question}, Location: ${latitude}, ${longitude}`);
-      
-      const finalText = context.suppressFinalResponse ? '' : text;
-      
-      return {
-        success: true,
-        text: finalText,
-        imageUrl: latestImageAsset?.url || null,
-        imageCaption: latestImageAsset?.caption || '',
-        videoUrl: latestVideoAsset?.url || null,
-        audioUrl: latestAudioAsset?.url || null,
-        poll: latestPollAsset || null,
-        latitude: latitude,
-        longitude: longitude,
-        locationInfo: locationInfo,
-        toolsUsed: Object.keys(context.previousToolResults),
-        iterations: iterationCount,
-        toolCalls: context.toolCalls,
-        toolResults: context.previousToolResults,
-        multiStep: false,
-        alreadySent: false
-      };
-    }
-    
-    // Execute function calls (in parallel for better performance)
-    console.log(`🔧 [Agent] Executing ${functionCalls.length} function call(s)`);
-    
-    // 📢 Send Ack message to user before executing tools (includes provider info)
-    await sendToolAckMessage(chatId, functionCalls);
-    
-    // Execute all tools in parallel (they're independent)
-    const toolPromises = functionCalls.map(async (call) => {
-      const toolName = call.name;
-      const toolArgs = call.args;
-      
-      console.log(`   → Calling tool: ${toolName} with args:`, toolArgs);
-      
-      const tool = agentTools[toolName];
-      if (!tool) {
-        console.error(`❌ Unknown tool: ${toolName}`);
-        return {
-          functionResponse: {
-            name: toolName,
-            response: {
-              success: false,
-              error: `Unknown tool: ${toolName}`
-            }
-          }
-        };
-      }
-      
-      try {
-        // Execute the tool
-        const toolResult = await tool.execute(toolArgs, context);
-        
-        // Save result for future tool calls
-        context.previousToolResults[toolName] = toolResult;
-        
-        // Immediately surface raw errors to the user (as-is), even if fallback will follow
-        if (toolResult && toolResult.error && context.chatId) {
-          try {
-            const { greenApiService } = getServices();
-            const errorMessage = toolResult.error.startsWith('❌')
-              ? toolResult.error
-              : `❌ ${toolResult.error}`;
-            await greenApiService.sendTextMessage(context.chatId, errorMessage);
-          } catch (notifyError) {
-            console.error(`❌ Failed to notify user about error: ${notifyError.message}`);
-          }
-        }
-        
-        if (toolResult && toolResult.suppressFinalResponse) {
-          context.suppressFinalResponse = true;
-        }
-        
-        // 🧠 Track tool call for context memory
-        context.toolCalls.push({
-          tool: toolName,
-          args: toolArgs,
-          success: toolResult.success !== false,
-          timestamp: Date.now()
-        });
-        
-        // 🧠 Track generated assets for context memory
-        if (toolResult.imageUrl) {
-          console.log(`✅ [Agent] Tracking image: ${toolResult.imageUrl}, caption: ${toolResult.caption || '(none)'}`);
-          context.generatedAssets.images.push({
-            url: toolResult.imageUrl,
-            caption: toolResult.caption || '',
-            prompt: toolArgs.prompt,
-            provider: toolResult.provider || toolArgs.provider,
-            timestamp: Date.now()
-          });
-        } else {
-          console.log(`⚠️ [Agent] No imageUrl in toolResult for ${toolName}`);
-        }
-        if (toolResult.videoUrl) {
-          context.generatedAssets.videos.push({
-            url: toolResult.videoUrl,
-            prompt: toolArgs.prompt,
-            timestamp: Date.now()
-          });
-        }
-        if (toolResult.audioUrl) {
-          if (!context.generatedAssets.audio) context.generatedAssets.audio = [];
-          context.generatedAssets.audio.push({
-            url: toolResult.audioUrl,
-            prompt: toolArgs.prompt || toolArgs.text_to_speak || toolArgs.text,
-            timestamp: Date.now()
-          });
-        }
-        if (toolResult.poll) {
-          if (!context.generatedAssets.polls) context.generatedAssets.polls = [];
-          context.generatedAssets.polls.push({
-            question: toolResult.poll.question,
-            options: toolResult.poll.options,
-            topic: toolArgs.topic,
-            timestamp: Date.now()
-          });
-        }
-        
-        return {
-          functionResponse: {
-            name: toolName,
-            response: toolResult
-          }
-        };
-      } catch (error) {
-        console.error(`❌ Error executing tool ${toolName}:`, error);
-        
-        // 🧠 Track failed tool call
-        context.toolCalls.push({
-          tool: toolName,
-          args: toolArgs,
-          success: false,
-          error: error.message,
-          timestamp: Date.now()
-        });
-        
-        return {
-          functionResponse: {
-            name: toolName,
-            response: {
-              success: false,
-              error: `Tool execution failed: ${error.message}`
-            }
-          }
-        };
-      }
-    });
-    
-    // Wait for all tools to complete
-    const functionResponses = await Promise.all(toolPromises);
-    
-    // 🧠 Enrich function responses with context for better multi-step handling
-    // Add execution context directly IN the response object (not as separate text - that causes Gemini errors)
-    const enrichedResponses = functionResponses.map(fr => {
-      const result = fr.functionResponse.response;
-      
-      // Add step completion indicators to help Gemini track progress
-      // Result processed successfully
-      
-      return fr;
-    });
-    
-    // Log execution summary for debugging
-    if (functionResponses.length > 0) {
-      const successCount = functionResponses.filter(fr => fr.functionResponse.response.success !== false).length;
-      const failCount = functionResponses.length - successCount;
-      console.log(`📊 [Agent] Tool execution: ${successCount} succeeded, ${failCount} failed`);
-    }
-    
-    // Send function responses back to Gemini
-    // CRITICAL: Do NOT add text parts here - Gemini doesn't allow mixing FunctionResponse with text
-    response = await chat.sendMessage(enrichedResponses);
-  }
-  
-    // Max iterations reached
-    console.warn(`⚠️ [Agent] Max iterations (${maxIterations}) reached`);
-    return {
-      success: false,
-      error: 'הגעתי למספר המקסימלי של ניסיונות. נסה לנסח את השאלה אחרת.',
-      toolsUsed: Object.keys(context.previousToolResults),
-      iterations: iterationCount,
-      toolCalls: context.toolCalls,
-      toolResults: context.previousToolResults,
-      multiStep: false,
-      alreadySent: false
-    };
+    return await agentLoop.execute(chat, prompt, chatId, context, maxIterations, agentConfig);
   };
   
   // ⏱️ Execute agent with timeout
@@ -822,7 +118,14 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   );
   
   try {
-    return await Promise.race([agentExecution(), timeoutPromise]);
+    const result = await Promise.race([agentExecution(), timeoutPromise]);
+    
+    // Save context after execution if enabled
+    if (result.success && agentConfig.contextMemoryEnabled) {
+      await contextManager.saveContext(chatId, context, agentConfig.contextMemoryEnabled);
+    }
+    
+    return result;
   } catch (error) {
     if (error.message === 'Agent timeout') {
       console.error(`⏱️ [Agent] Timeout after ${agentConfig.timeoutMs}ms`);
@@ -841,12 +144,6 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   }
 }
 
-// NOTE: shouldUseAgent was removed - all requests now go through routeToAgent
-// which uses LLM-based planning and execution (no regex/heuristic intent detection)
-// The agent is now the PRIMARY routing mechanism, handling all intent detection via LLM
-
 module.exports = {
   executeAgentQuery
 };
-
-
