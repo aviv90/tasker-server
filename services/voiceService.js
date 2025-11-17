@@ -5,34 +5,29 @@ const textToSpeechModule = require('./voice/textToSpeech');
 const voiceSelection = require('./voice/voiceSelection');
 
 /**
- * Voice Service for ElevenLabs API integration
- * Extracted into modular helpers (Phase 5.3)
+ * Voice Service orchestrator for ElevenLabs integration
+ * Split into modular helpers (Phase 5.3)
  */
 class VoiceService {
     constructor() {
         this.client = null;
     }
 
-    /**
-     * Initialize ElevenLabs client with lazy loading
-     */
     initializeClient() {
         if (!this.client) {
             if (!process.env.ELEVENLABS_API_KEY) {
                 throw new Error('ELEVENLABS_API_KEY environment variable is required');
             }
-            
+
             this.client = new ElevenLabsClient({
                 apiKey: process.env.ELEVENLABS_API_KEY
             });
         }
-        
+
         return this.client;
     }
 
-    /**
-     * Voice cloning helpers
-     */
+    // Voice cloning
     async createInstantVoiceClone(audioBuffers, options = {}) {
         return voiceCloning.createInstantVoiceClone.call(this, audioBuffers, options);
     }
@@ -41,9 +36,7 @@ class VoiceService {
         return voiceCloning.getAvailableOptions();
     }
 
-    /**
-     * Voice management helpers
-     */
+    // Voice management
     async getVoices() {
         return voiceManagement.getVoices.call(this);
     }
@@ -56,16 +49,12 @@ class VoiceService {
         return voiceManagement.deleteVoice.call(this, voiceId);
     }
 
-    /**
-     * Text-to-speech helper
-     */
+    // Text-to-speech
     async textToSpeech(voiceId, text, options = {}) {
         return textToSpeechModule.textToSpeech.call(this, voiceId, text, options);
     }
 
-    /**
-     * Voice selection & language detection helpers
-     */
+    // Voice selection & language detection
     async getRandomVoice() {
         return voiceSelection.getRandomVoice.call(this);
     }
