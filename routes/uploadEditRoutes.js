@@ -14,7 +14,7 @@ const taskStore = require('../store/taskStore');
 // Map between our task IDs and Kie.ai task IDs for callback handling
 const kieTaskMapping = new Map();
 const geminiService = require('../services/geminiService');
-const openaiService = require('../services/openaiService');
+const openaiService = require('../services/openai');
 const replicateService = require('../services/replicateService');
 const kieService = require('../services/kieService');
 const speechService = require('../services/speechService');

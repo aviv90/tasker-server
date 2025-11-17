@@ -10,7 +10,7 @@ let geminiService, openaiService, grokService, greenApiService;
  */
 function getServices() {
   if (!geminiService) geminiService = require('../../geminiService');
-  if (!openaiService) openaiService = require('../../openaiService');
+  if (!openaiService) openaiService = require('../../openai');
   if (!grokService) grokService = require('../../grokService');
   if (!greenApiService) greenApiService = require('../../greenApiService');
   return { geminiService, openaiService, grokService, greenApiService };
