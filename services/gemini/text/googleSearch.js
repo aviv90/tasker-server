@@ -39,18 +39,36 @@ class GoogleSearchProcessor {
             const parsedUrl = new URL(urlData.redirectUrl);
             const httpModule = parsedUrl.protocol === 'https:' ? https : http;
 
-            const options = {
-              method: 'HEAD',
-              timeout: 5000,
-              maxRedirects: 0
-            };
-
             let currentUrl = urlData.redirectUrl;
             let redirectCount = 0;
-            const maxRedirects = 5;
+            const maxRedirects = 10; // Increased to handle more redirects
+            let useGet = false; // Try HEAD first, then GET if needed
 
-            const followRedirect = (url) => {
+            const followRedirect = (url, method = 'HEAD') => {
+              // Skip vertexaisearch URLs - they're redirect URLs, not final destinations
+              if (url.includes('vertexaisearch') || url.includes('google.com/url')) {
+                // Try to extract the actual URL from the redirect URL
+                try {
+                  const urlObj = new URL(url);
+                  const qParam = urlObj.searchParams.get('q') || urlObj.searchParams.get('url');
+                  if (qParam && (qParam.startsWith('http://') || qParam.startsWith('https://'))) {
+                    currentUrl = decodeURIComponent(qParam);
+                    console.log(`🔗 Extracted URL from redirect: ${currentUrl.substring(0, 80)}...`);
+                    followRedirect(currentUrl, 'HEAD');
+                    return;
+                  }
+                } catch (e) {
+                  // If extraction fails, continue with normal redirect following
+                }
+              }
+
               if (redirectCount >= maxRedirects) {
+                // If we still have a vertexaisearch URL after max redirects, reject it
+                if (currentUrl.includes('vertexaisearch') || currentUrl.includes('google.com/url')) {
+                  console.warn(`⚠️ Failed to resolve vertexaisearch redirect after ${maxRedirects} attempts for ${urlData.title}`);
+                  resolve(null); // Return null to indicate failure
+                  return;
+                }
                 console.log(`✅ Resolved (max redirects): ${urlData.title} → ${currentUrl.substring(0, 80)}...`);
                 resolve({
                   uri: currentUrl,
@@ -62,6 +80,12 @@ class GoogleSearchProcessor {
               const parsed = new URL(url);
               const module = parsed.protocol === 'https:' ? https : http;
 
+              const options = {
+                method: method,
+                timeout: 8000, // Increased timeout
+                maxRedirects: 0
+              };
+
               const req = module.request(url, options, (res) => {
                 // Check if redirect
                 if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
@@ -71,9 +95,20 @@ class GoogleSearchProcessor {
                     ? res.headers.location
                     : new URL(res.headers.location, url).href;
                   currentUrl = newUrl;
-                  followRedirect(newUrl);
+                  followRedirect(newUrl, 'HEAD');
                 } else {
-                  // Final destination
+                  // Final destination - make sure it's not a vertexaisearch URL
+                  if (currentUrl.includes('vertexaisearch') || currentUrl.includes('google.com/url')) {
+                    // If HEAD didn't work and we haven't tried GET yet, try GET
+                    if (method === 'HEAD' && !useGet) {
+                      useGet = true;
+                      followRedirect(url, 'GET');
+                      return;
+                    }
+                    console.warn(`⚠️ Final URL is still a redirect URL for ${urlData.title}`);
+                    resolve(null); // Reject vertexaisearch URLs
+                    return;
+                  }
                   console.log(`✅ Resolved: ${urlData.title} → ${currentUrl.substring(0, 80)}...`);
                   resolve({
                     uri: currentUrl,
@@ -83,22 +118,38 @@ class GoogleSearchProcessor {
               });
 
               req.on('error', (error) => {
+                // If HEAD failed and we haven't tried GET yet, try GET
+                if (method === 'HEAD' && !useGet) {
+                  useGet = true;
+                  followRedirect(url, 'GET');
+                  return;
+                }
                 console.warn(`⚠️ Failed to resolve redirect for ${urlData.title}: ${error.message}`);
-                console.log(`🔗 Using original redirect URL as fallback: ${urlData.redirectUrl.substring(0, 80)}...`);
-                resolve({
-                  uri: urlData.redirectUrl,
-                  title: urlData.title
-                });
+                // Don't use vertexaisearch URLs as fallback
+                if (urlData.redirectUrl.includes('vertexaisearch') || urlData.redirectUrl.includes('google.com/url')) {
+                  console.warn(`⚠️ Rejecting vertexaisearch URL: ${urlData.redirectUrl.substring(0, 80)}...`);
+                  resolve(null);
+                  return;
+                }
+                resolve(null);
               });
 
               req.on('timeout', () => {
                 req.destroy();
+                // If HEAD timed out and we haven't tried GET yet, try GET
+                if (method === 'HEAD' && !useGet) {
+                  useGet = true;
+                  followRedirect(url, 'GET');
+                  return;
+                }
                 console.warn(`⚠️ Timeout resolving redirect for ${urlData.title}`);
-                console.log(`🔗 Using original redirect URL as fallback: ${urlData.redirectUrl.substring(0, 80)}...`);
-                resolve({
-                  uri: urlData.redirectUrl,
-                  title: urlData.title
-                });
+                // Don't use vertexaisearch URLs as fallback
+                if (urlData.redirectUrl.includes('vertexaisearch') || urlData.redirectUrl.includes('google.com/url')) {
+                  console.warn(`⚠️ Rejecting vertexaisearch URL due to timeout: ${urlData.redirectUrl.substring(0, 80)}...`);
+                  resolve(null);
+                  return;
+                }
+                resolve(null);
               });
 
               req.end();
@@ -107,11 +158,13 @@ class GoogleSearchProcessor {
             followRedirect(currentUrl);
           } catch (error) {
             console.warn(`⚠️ Error resolving redirect for ${urlData.title}: ${error.message}`);
-            console.log(`🔗 Using original redirect URL as fallback: ${urlData.redirectUrl.substring(0, 80)}...`);
-            resolve({
-              uri: urlData.redirectUrl,
-              title: urlData.title
-            });
+            // Don't use vertexaisearch URLs as fallback
+            if (urlData.redirectUrl.includes('vertexaisearch') || urlData.redirectUrl.includes('google.com/url')) {
+              console.warn(`⚠️ Rejecting vertexaisearch URL due to error: ${urlData.redirectUrl.substring(0, 80)}...`);
+              resolve(null);
+              return;
+            }
+            resolve(null);
           }
         });
       })
@@ -127,13 +180,20 @@ class GoogleSearchProcessor {
       text = text.replace(/\s+/g, ' ').trim();
     }
 
-    // Append resolved URLs directly (without "מקורות:" header to avoid duplication)
-    const sourcesText = realUrls
-      .map((urlData) => urlData.uri)
-      .join('\n');
+    // Filter out null results (failed redirect resolutions) and vertexaisearch URLs
+    const validUrls = realUrls
+      .filter(urlData => urlData && urlData.uri && 
+        !urlData.uri.includes('vertexaisearch') && 
+        !urlData.uri.includes('google.com/url'))
+      .map((urlData) => urlData.uri);
 
-    text = `${text}\n${sourcesText}`;
-    console.log(`✅ Appended ${realUrls.length} resolved URLs`);
+    if (validUrls.length > 0) {
+      const sourcesText = validUrls.join('\n');
+      text = `${text}\n${sourcesText}`;
+      console.log(`✅ Appended ${validUrls.length} resolved URLs (filtered out ${realUrls.length - validUrls.length} invalid/redirect URLs)`);
+    } else {
+      console.warn(`⚠️ No valid URLs to append after filtering (all ${realUrls.length} URLs were invalid or redirect URLs)`);
+    }
 
     return text;
   }
@@ -145,10 +205,17 @@ class GoogleSearchProcessor {
     // 1. Convert Markdown links [text](url) to plain text with URL
     text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '$1: $2');
 
-    // 2. Add space between URL and closing parenthesis to prevent WhatsApp from including ) in URL
+    // 2. Remove square brackets around URLs: [https://...] -> https://...
+    text = text.replace(/\[(https?:\/\/[^\]]+)\]/g, '$1');
+
+    // 3. Remove square brackets around text that contains URLs: [text https://...] -> text https://...
+    // This handles cases like [some text https://example.com] -> some text https://example.com
+    text = text.replace(/\[([^\]]*?)(https?:\/\/[^\]]+)([^\]]*?)\]/g, '$1$2$3');
+
+    // 4. Add space between URL and closing parenthesis to prevent WhatsApp from including ) in URL
     text = text.replace(/(\bhttps?:\/\/[^\s)]+)\)/g, '$1 )');
 
-    // 3. Add space between opening parenthesis and URL
+    // 5. Add space between opening parenthesis and URL
     text = text.replace(/\((\bhttps?:\/\/[^\s)]+)/g, '( $1');
 
     return text;
