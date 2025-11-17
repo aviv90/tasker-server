@@ -1,5 +1,5 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { sanitizeText, cleanMarkdown } = require('../../../utils/textSanitizer');
+const { sanitizeText, cleanMarkdown, cleanMediaDescription } = require('../../../utils/textSanitizer');
 const { getStaticFileUrl } = require('../../../utils/urlUtils');
 const { getGeminiErrorMessage } = require('../utils');
 const { detectLanguage } = require('../../../utils/agentHelpers');
@@ -253,10 +253,22 @@ class ImageEditing {
       const { imageBuffer, text } = processResult;
       const saveResult = this.saveEditedImageForWhatsApp(imageBuffer, req);
 
-      // Clean markdown code blocks from description
+      // Clean markdown, image markers, and media descriptions from text
       let cleanDescription = text.trim() || "";
       if (cleanDescription) {
+        // First clean markdown
         cleanDescription = cleanMarkdown(cleanDescription);
+        // Then clean image-specific markers and patterns
+        cleanDescription = cleanDescription
+          .replace(/\[image[:\]]/gi, '') // Remove [image: or [image]
+          .replace(/image[:\]]/gi, '') // Remove image: or image]
+          .replace(/\[תמונה[:\]]/gi, '') // Remove [תמונה: or [תמונה]
+          .replace(/בבקשה[^.!?]*תמונה[^.!?]*\[?image/gi, '') // Remove "בבקשה...תמונה...[image"
+          .replace(/יצרתי[^.!?]*תמונה[^.!?]*\[?image/gi, '') // Remove "יצרתי...תמונה...[image"
+          .replace(/^[^.!?]*\[image[:\]][^.!?]*/gi, '') // Remove entire lines with [image: or [image]
+          .trim();
+        // Finally use cleanMediaDescription for additional cleanup
+        cleanDescription = cleanMediaDescription(cleanDescription);
       }
 
       console.log('✅ Gemini image edited successfully');
