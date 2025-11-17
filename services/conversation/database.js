@@ -1,0 +1,272 @@
+const { Pool } = require('pg');
+
+/**
+ * Database initialization and table creation
+ */
+class DatabaseManager {
+  constructor(conversationManager) {
+    this.conversationManager = conversationManager;
+  }
+
+  /**
+   * Initialize PostgreSQL database connection and create tables
+   */
+  async initializeDatabase(attempt = 1) {
+    try {
+      // Create connection pool
+      this.conversationManager.pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        max: 10, // Maximum number of clients in the pool
+        idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+        connectionTimeoutMillis: 10000, // Allow up to 10s for cold starts / sleeping DBs
+      });
+
+      // Test connection
+      const client = await this.conversationManager.pool.connect();
+      console.log('✅ Connected to PostgreSQL database');
+      client.release();
+
+      // Create tables
+      await this.createTables();
+      
+      // Initialize voice settings
+      await this.initializeVoiceSettings();
+      
+      this.conversationManager.isInitialized = true;
+      console.log('✅ Database initialization completed successfully');
+      
+      // Start periodic cleanup task (monthly)
+      this.conversationManager.startPeriodicCleanup();
+      
+    } catch (error) {
+      console.error('❌ Database initialization failed:', error.message);
+      // Retry with exponential backoff to avoid crashing the app on transient DB issues
+      const maxAttempts = 5;
+      if (attempt < maxAttempts) {
+        const delayMs = Math.min(30000, 2000 * Math.pow(2, attempt - 1));
+        console.warn(`⏳ Retrying DB init in ${Math.round(delayMs / 1000)}s (attempt ${attempt + 1}/${maxAttempts})...`);
+        setTimeout(() => this.initializeDatabase(attempt + 1).catch(() => {}), delayMs);
+      } else {
+        console.error('🚫 Giving up on DB initialization after multiple attempts. Running without DB until next restart.');
+      }
+    }
+  }
+
+  /**
+   * Create all necessary tables
+   */
+  async createTables() {
+    const client = await this.conversationManager.pool.connect();
+    
+    try {
+        // Create conversations table
+      await client.query(`
+          CREATE TABLE IF NOT EXISTS conversations (
+          id SERIAL PRIMARY KEY,
+          chat_id VARCHAR(255) NOT NULL,
+          role VARCHAR(50) NOT NULL,
+          content TEXT NOT NULL,
+          metadata JSONB DEFAULT '{}'::jsonb,
+          timestamp BIGINT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+      `);
+        
+      // Create voice_settings table
+      await client.query(`
+          CREATE TABLE IF NOT EXISTS voice_settings (
+          id SERIAL PRIMARY KEY,
+          enabled BOOLEAN DEFAULT false,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create voice_allow_list table
+      await client.query(`
+          CREATE TABLE IF NOT EXISTS voice_allow_list (
+          id SERIAL PRIMARY KEY,
+          contact_name VARCHAR(255) NOT NULL UNIQUE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create media_allow_list table
+      await client.query(`
+          CREATE TABLE IF NOT EXISTS media_allow_list (
+          id SERIAL PRIMARY KEY,
+          contact_name VARCHAR(255) NOT NULL UNIQUE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create group_creation_allow_list table
+      await client.query(`
+          CREATE TABLE IF NOT EXISTS group_creation_allow_list (
+          id SERIAL PRIMARY KEY,
+          contact_name VARCHAR(255) NOT NULL UNIQUE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create last_commands table for retry functionality
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS last_commands (
+          id SERIAL PRIMARY KEY,
+          chat_id VARCHAR(255) NOT NULL UNIQUE,
+          tool VARCHAR(100) NOT NULL,
+          args JSONB,
+          normalized JSONB,
+          image_url TEXT,
+          video_url TEXT,
+          audio_url TEXT,
+          timestamp BIGINT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create tasks table for async task tracking (API routes)
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS tasks (
+          id SERIAL PRIMARY KEY,
+          task_id VARCHAR(255) NOT NULL UNIQUE,
+          status VARCHAR(50) NOT NULL,
+          result JSONB,
+          error TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create contacts table for WhatsApp contacts and groups
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS contacts (
+          id SERIAL PRIMARY KEY,
+          contact_id VARCHAR(255) NOT NULL UNIQUE,
+          name VARCHAR(500),
+          contact_name VARCHAR(500),
+          type VARCHAR(50),
+          chat_id VARCHAR(255),
+          raw_data JSONB,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create agent_context table for persistent agent memory
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS agent_context (
+          id SERIAL PRIMARY KEY,
+          chat_id VARCHAR(255) NOT NULL UNIQUE,
+          tool_calls JSONB DEFAULT '[]'::jsonb,
+          generated_assets JSONB DEFAULT '{"images":[],"videos":[],"audio":[]}'::jsonb,
+          last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create conversation_summaries table for long-term memory
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS conversation_summaries (
+          id SERIAL PRIMARY KEY,
+          chat_id VARCHAR(255) NOT NULL,
+          summary TEXT NOT NULL,
+          key_topics JSONB DEFAULT '[]'::jsonb,
+          user_preferences JSONB DEFAULT '{}'::jsonb,
+          message_count INTEGER DEFAULT 0,
+          summary_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Add metadata column if it doesn't exist (for existing databases)
+      await client.query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='conversations' AND column_name='metadata'
+          ) THEN
+            ALTER TABLE conversations ADD COLUMN metadata JSONB DEFAULT '{}'::jsonb;
+          END IF;
+        END $$;
+      `);
+
+      // Create indexes for better performance
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_conversations_chat_id 
+        ON conversations(chat_id)
+      `);
+      
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_conversations_timestamp 
+        ON conversations(timestamp DESC)
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_contacts_contact_id
+        ON contacts(contact_id)
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_contacts_type
+        ON contacts(type)
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_agent_context_chat_id
+        ON agent_context(chat_id)
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_agent_context_last_updated
+        ON agent_context(last_updated DESC)
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_conversation_summaries_chat_id
+        ON conversation_summaries(chat_id)
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_conversation_summaries_date
+        ON conversation_summaries(summary_date DESC)
+      `);
+
+      console.log('✅ All database tables and indexes created successfully');
+      
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Initialize voice settings with default values
+   */
+  async initializeVoiceSettings() {
+    const client = await this.conversationManager.pool.connect();
+    
+    try {
+      // Check if voice settings already exist
+      const result = await client.query('SELECT id FROM voice_settings LIMIT 1');
+      
+      if (result.rows.length === 0) {
+        // Insert default voice settings
+        await client.query(`
+          INSERT INTO voice_settings (enabled) 
+          VALUES (false)
+        `);
+        console.log('🔊 Voice transcription initialized: disabled (default)');
+      } else {
+        console.log('🔊 Voice settings already exist');
+      }
+    } finally {
+      client.release();
+    }
+  }
+}
+
+module.exports = DatabaseManager;
+
