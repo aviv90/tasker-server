@@ -661,6 +661,82 @@ await sendAck(chatId, { type: 'create_image', provider: 'gemini' });
 
 ---
 
+## Media Handling - CRITICAL Rule
+
+**CRITICAL: If media URLs are present in provider response, they MUST be sent to the user!**
+
+### Media Delivery Requirements:
+
+1. **Mandatory Media Sending**:
+   - If `imageUrl` exists in response → MUST send image via WhatsApp
+   - If `videoUrl` exists in response → MUST send video via WhatsApp
+   - If `audioUrl` exists in response → MUST send audio via WhatsApp
+   - **NEVER send URLs as text instead of actual media!**
+
+2. **Media Types Supported**:
+   - 🖼️ **Images**: `imageUrl` → Use `sendFileByUrl()` or `sendImage()`
+   - 🎬 **Videos**: `videoUrl` → Use `sendFileByUrl()` or `sendVideo()`
+   - 🎤 **Audio**: `audioUrl` → Use `sendFileByUrl()` or `sendAudio()`
+
+3. **URL Handling**:
+   - Provider returns URL → Download and send as file
+   - Provider returns buffer → Save to temp file, then send
+   - **NEVER** send URL string in text message (user can't access it!)
+
+❌ **Bad:** Sending URL as text instead of media
+```javascript
+// ❌ WRONG - User gets text link, not actual media!
+if (result.imageUrl) {
+  await sendTextMessage(chatId, `Here's your image: ${result.imageUrl}`);
+}
+```
+
+✅ **Good:** Always send actual media
+```javascript
+// ✅ CORRECT - User gets actual image file
+if (result.imageUrl) {
+  console.log(`📸 Sending generated image: ${result.imageUrl}`);
+  await sendFileByUrl(chatId, result.imageUrl, 'image', {
+    caption: result.imageCaption || ''
+  });
+}
+```
+
+✅ **Good:** Handle both URL and buffer cases
+```javascript
+if (result.imageUrl) {
+  await sendFileByUrl(chatId, result.imageUrl, 'image', {
+    caption: result.imageCaption || ''
+  });
+} else if (result.imageBuffer) {
+  // Save buffer to temp file first
+  const tempPath = await saveBufferToTempFile(result.imageBuffer, 'image.jpg');
+  const tempUrl = `${host}/static/${path.basename(tempPath)}`;
+  await sendFileByUrl(chatId, tempUrl, 'image');
+}
+```
+
+### Error Handling for Media:
+
+- If media download fails → Log error AND notify user
+- If media send fails → Log error AND notify user  
+- **Always inform user** if media operation fails (Rule 2: Send errors as-is)
+
+### Priority Order:
+
+1. **Media URLs** (highest priority) → Send immediately
+2. **Text response** → Send after media, or separately
+3. **Captions** → Attach to media if possible
+
+### Benefits:
+
+✅ **Better UX**: Users get actual media files, not broken links  
+✅ **Reliability**: Media is accessible even if URLs expire  
+✅ **Consistency**: Same behavior across all providers  
+✅ **User Trust**: Media always delivered as expected  
+
+---
+
 ## Further Reading
 
 - Clean Code by Robert C. Martin
