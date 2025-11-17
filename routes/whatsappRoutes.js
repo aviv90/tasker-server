@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory, getMessage, sendPoll, sendLocation } = require('../services/greenApiService');
 const { getStaticFileUrl } = require('../utils/urlUtils');
+const { cleanMediaDescription } = require('../utils/textSanitizer');
 const locationService = require('../services/locationService');
 const conversationManager = require('../services/conversationManager');
 const { routeToAgent } = require('../services/agentRouter');
@@ -449,10 +450,9 @@ async function handleIncomingMessage(webhookData) {
                     // For multi-step, use imageCaption if it exists
                     // LLM is responsible for returning caption in correct language
                     caption = (agentResult.imageCaption && agentResult.imageCaption.trim()) || '';
-                    // Clean markdown code blocks from caption
+                    // Clean markdown/code blocks from caption
                     if (caption) {
-                      const { cleanMarkdown } = require('../utils/textSanitizer');
-                      caption = cleanMarkdown(caption);
+                      caption = cleanMediaDescription(caption);
                       console.log(`📤 [Multi-step] Image sent with caption: "${caption.substring(0, 50)}..."`);
                     } else {
                       console.log(`📤 [Multi-step] Image sent after text (no caption)`);
@@ -473,21 +473,7 @@ async function handleIncomingMessage(webhookData) {
                     }
                     
                     // Clean the caption: remove URLs, markdown links, code blocks, and technical markers
-                    const { cleanMarkdown } = require('../utils/textSanitizer');
-                    caption = cleanMarkdown(caption); // Remove markdown code blocks first
-                    caption = caption
-                      .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
-                      .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
-                      .replace(/\[image\]/gi, '') // Remove [image] markers
-                      .replace(/\[video\]/gi, '') // Remove [video] markers
-                      .replace(/\[audio\]/gi, '') // Remove [audio] markers
-                      .replace(/\[תמונה\]/gi, '') // Remove [תמונה] markers
-                      .replace(/\[וידאו\]/gi, '') // Remove [וידאו] markers
-                      .replace(/\[אודיו\]/gi, '') // Remove [אודיו] markers
-                      .replace(/התמונה.*?נוצרה בהצלחה!/gi, '') // Remove success messages
-                      .replace(/הוידאו.*?נוצר בהצלחה!/gi, '')
-                      .replace(/✅/g, '')
-                      .trim();
+                    caption = cleanMediaDescription(caption);
                   }
                   
                   await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption);
@@ -506,15 +492,7 @@ async function handleIncomingMessage(webhookData) {
                 
                 // If there's meaningful text (description/revised prompt), send it separately
                 if (agentResult.text && agentResult.text.trim()) {
-                  let videoDescription = agentResult.text
-                    .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs
-                    .replace(/\[image\]/gi, '') // Remove [image] markers
-                    .replace(/\[video\]/gi, '') // Remove [video] markers
-                    .replace(/\[audio\]/gi, '') // Remove [audio] markers
-                    .replace(/\[תמונה\]/gi, '') // Remove [תמונה] markers
-                    .replace(/\[וידאו\]/gi, '') // Remove [וידאו] markers
-                    .replace(/\[אודיו\]/gi, '') // Remove [אודיו] markers
-                    .trim();
+                  const videoDescription = cleanMediaDescription(agentResult.text);
                   if (videoDescription && videoDescription.length > 2) {
                     await sendTextMessage(chatId, videoDescription);
                   }
@@ -610,7 +588,9 @@ async function handleIncomingMessage(webhookData) {
                   if (imageResult && imageResult.success && imageResult.imageUrl) {
                     console.log(`📸 [Agent Post] Sending complementary image generated from text: ${imageResult.imageUrl}`);
                     
-                    const caption = (imageResult.imageCaption || '').trim();
+                    // Clean caption before sending
+                    let caption = (imageResult.imageCaption || '').trim();
+                    caption = cleanMediaDescription(caption);
                     await sendFileByUrl(
                       chatId,
                       imageResult.imageUrl,
@@ -976,7 +956,9 @@ async function handleOutgoingMessage(webhookData) {
                   // For multi-step, use imageCaption if it exists
                   // LLM is responsible for returning caption in correct language
                   caption = (agentResult.imageCaption && agentResult.imageCaption.trim()) || '';
+                  // Clean markdown/code blocks from caption
                   if (caption) {
+                    caption = cleanMediaDescription(caption);
                     console.log(`📤 [Multi-step - Outgoing] Image sent with caption: "${caption.substring(0, 50)}..."`);
                   } else {
                     console.log(`📤 [Multi-step - Outgoing] Image sent after text (no caption)`);
@@ -996,20 +978,8 @@ async function handleOutgoingMessage(webhookData) {
                     caption = agentResult.imageCaption || agentResult.text || '';
                   }
                   
-                  // Clean the caption: remove URLs, markdown links, and technical markers
-                  caption = caption
-                    .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
-                    .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
-                    .replace(/\[image\]/gi, '') // Remove [image] markers
-                    .replace(/\[video\]/gi, '') // Remove [video] markers
-                    .replace(/\[audio\]/gi, '') // Remove [audio] markers
-                    .replace(/\[תמונה\]/gi, '') // Remove [תמונה] markers
-                    .replace(/\[וידאו\]/gi, '') // Remove [וידאו] markers
-                    .replace(/\[אודיו\]/gi, '') // Remove [אודיו] markers
-                    .replace(/התמונה.*?נוצרה בהצלחה!/gi, '') // Remove success messages
-                    .replace(/הוידאו.*?נוצר בהצלחה!/gi, '')
-                    .replace(/✅/g, '')
-                    .trim();
+                  // Clean the caption: remove markdown, URLs, success messages, and link references
+                  caption = cleanMediaDescription(caption);
                 }
                 
                 await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption);
@@ -1027,16 +997,8 @@ async function handleOutgoingMessage(webhookData) {
                 
                 // If there's meaningful text (description/revised prompt), send it separately
                 if (agentResult.text && agentResult.text.trim()) {
-                  let videoDescription = agentResult.text
-                    .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs
-                    .replace(/\[image\]/gi, '') // Remove [image] markers
-                    .replace(/\[video\]/gi, '') // Remove [video] markers
-                    .replace(/\[audio\]/gi, '') // Remove [audio] markers
-                    .replace(/\[תמונה\]/gi, '') // Remove [תמונה] markers
-                    .replace(/\[וידאו\]/gi, '') // Remove [וידאו] markers
-                    .replace(/\[אודיו\]/gi, '') // Remove [אודיו] markers
-                    .trim();
-                  if (videoDescription && videoDescription.length > 2) {
+                  const videoDescription = cleanMediaDescription(agentResult.text);
+                  if (videoDescription && videoDescription.length > 0) {
                     await sendTextMessage(chatId, videoDescription);
                   }
                 }
