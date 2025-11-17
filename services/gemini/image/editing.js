@@ -258,13 +258,11 @@ class ImageEditing {
       if (cleanDescription) {
         // First clean markdown
         cleanDescription = cleanMarkdown(cleanDescription);
-        // Then clean image-specific markers and patterns
+        // Then clean image-specific markers and patterns (only formatting, not text phrases)
         cleanDescription = cleanDescription
           .replace(/\[image[:\]]/gi, '') // Remove [image: or [image]
           .replace(/image[:\]]/gi, '') // Remove image: or image]
           .replace(/\[תמונה[:\]]/gi, '') // Remove [תמונה: or [תמונה]
-          .replace(/בבקשה[^.!?]*תמונה[^.!?]*\[?image/gi, '') // Remove "בבקשה...תמונה...[image"
-          .replace(/יצרתי[^.!?]*תמונה[^.!?]*\[?image/gi, '') // Remove "יצרתי...תמונה...[image"
           .replace(/^[^.!?]*\[image[:\]][^.!?]*/gi, '') // Remove entire lines with [image: or [image]
           .trim();
         // Finally use cleanMediaDescription for additional cleanup
