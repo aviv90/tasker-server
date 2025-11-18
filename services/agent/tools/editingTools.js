@@ -47,9 +47,9 @@ const edit_image = {
       
       let result;
       if (service === 'openai') {
-        result = await openaiService.editImageForWhatsApp(args.edit_instruction, base64Image);
+        result = await openaiService.editImageForWhatsApp(args.edit_instruction, base64Image, null);
       } else if (service === 'grok') {
-        result = await grokService.editImageForWhatsApp(args.edit_instruction, base64Image);
+        result = await grokService.editImageForWhatsApp(args.edit_instruction, base64Image, null);
       } else {
         result = await geminiService.editImageForWhatsApp(args.edit_instruction, base64Image);
       }

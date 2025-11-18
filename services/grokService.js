@@ -4,7 +4,11 @@
  */
 
 const axios = require('axios');
+const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
 const { sanitizeText, cleanMarkdown } = require('../utils/textSanitizer');
+const { createTempFilePath } = require('../utils/tempFileUtils');
+const { getStaticFileUrl } = require('../utils/urlUtils');
 
 const DEFAULT_IMAGE_MIME = 'image/png';
 
@@ -264,9 +268,10 @@ class GrokService {
    * Edit an existing image using Grok
    * @param {string} prompt - Edit instructions
    * @param {string} base64Image - Base64-encoded image data
+   * @param {Object} req - Express request object (for URL generation)
    * @returns {Promise<{success: boolean, imageUrl?: string, description?: string, textOnly?: boolean, metadata?: object, error?: string}>}
    */
-  async editImageForWhatsApp(prompt, base64Image) {
+  async editImageForWhatsApp(prompt, base64Image, req) {
     try {
       if (!this.apiKey) {
         throw new Error('Grok API key not configured');
@@ -286,17 +291,23 @@ class GrokService {
 
       const imageBuffer = Buffer.from(base64Payload, 'base64');
       const mimeType = detectImageMimeType(imageBuffer);
+      const fileExtension = mimeType === 'image/jpeg' ? 'jpg' : mimeType === 'image/png' ? 'png' : 'png';
       console.log(`🖌️ Editing image with Grok: "${cleanPrompt}"`);
 
-      // Use JSON format with base64 image object (x.ai API expects application/json)
+      // Save image temporarily to get a URL (x.ai API expects image URL, not base64)
+      const fileName = `grok_edit_input_${uuidv4()}.${fileExtension}`;
+      const filePath = createTempFilePath(fileName);
+      fs.writeFileSync(filePath, imageBuffer);
+      const imageUrl = getStaticFileUrl(fileName, req);
+
+      // Use JSON format with image URL (x.ai API expects application/json with image.url)
       const payload = {
         model: 'grok-2-image',
         prompt: cleanPrompt,
         response_format: 'url',
         n: 1,
         image: {
-          mime_type: mimeType,
-          b64_json: base64Payload
+          url: imageUrl
         }
       };
 

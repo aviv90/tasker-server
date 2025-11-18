@@ -77,9 +77,9 @@ const retryWithDifferentProvider = {
 
             let editResult;
             if (provider === 'openai') {
-              editResult = await openaiService.editImageForWhatsApp(args.original_prompt, base64Image);
+              editResult = await openaiService.editImageForWhatsApp(args.original_prompt, base64Image, null);
             } else if (provider === 'grok') {
-              editResult = await grokService.editImageForWhatsApp(args.original_prompt, base64Image);
+              editResult = await grokService.editImageForWhatsApp(args.original_prompt, base64Image, null);
             } else {
               editResult = await geminiService.editImageForWhatsApp(args.original_prompt, base64Image);
             }
