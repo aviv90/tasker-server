@@ -4,7 +4,6 @@
  */
 
 const axios = require('axios');
-const FormData = require('form-data');
 const { sanitizeText, cleanMarkdown } = require('../utils/textSanitizer');
 
 const DEFAULT_IMAGE_MIME = 'image/png';
@@ -286,25 +285,25 @@ class GrokService {
       }
 
       const imageBuffer = Buffer.from(base64Payload, 'base64');
-      console.log(`🖌️ Editing image with Grok: "${cleanPrompt}"`);
       const mimeType = detectImageMimeType(imageBuffer);
-      const fileExtension = mimeType === 'image/jpeg' ? 'jpg' : mimeType === 'image/png' ? 'png' : 'png';
+      console.log(`🖌️ Editing image with Grok: "${cleanPrompt}"`);
 
-      // Use multipart/form-data for x.ai API
-      const formData = new FormData();
-      formData.append('model', 'grok-2-image');
-      formData.append('prompt', cleanPrompt);
-      formData.append('response_format', 'url');
-      formData.append('n', '1');
-      formData.append('image', imageBuffer, {
-        filename: `edit.${fileExtension}`,
-        contentType: mimeType
-      });
+      // Use JSON format with base64 image object (x.ai API expects application/json)
+      const payload = {
+        model: 'grok-2-image',
+        prompt: cleanPrompt,
+        response_format: 'url',
+        n: 1,
+        image: {
+          mime_type: mimeType,
+          b64_json: base64Payload
+        }
+      };
 
-      const response = await axios.post(`${this.baseUrl}/images/edits`, formData, {
+      const response = await axios.post(`${this.baseUrl}/images/edits`, payload, {
         headers: {
-          ...formData.getHeaders(),
-          'Authorization': `Bearer ${this.apiKey}`
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
         },
         timeout: 120000
       });
