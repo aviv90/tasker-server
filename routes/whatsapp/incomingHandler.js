@@ -9,9 +9,8 @@
 const { sendTextMessage } = require('../../services/greenApiService');
 const conversationManager = require('../../services/conversationManager');
 const { routeToAgent } = require('../../services/agentRouter');
-const { isAuthorizedForMediaCreation, isAdminCommand } = require('../../services/whatsapp/authorization');
+const { isAuthorizedForMediaCreation } = require('../../services/whatsapp/authorization');
 const { isAuthorizedForVoiceTranscription } = require('../../services/conversationManager');
-const { handleManagementCommand } = require('./managementHandler');
 const { processVoiceMessageAsync } = require('./asyncProcessors');
 
 // Import modular handlers
@@ -170,78 +169,6 @@ async function handleIncomingMessage(webhookData, processedMessages) {
         await sendTextMessage(chatId, `❌ שגיאה בביצוע הפקודה: ${error.message || error}`);
       }
       return; // Exit early after handling # commands
-    }
-
-    // Handle management commands (not starting with #)
-    if (messageText && messageText.trim()) {
-      const trimmedText = messageText.trim().toLowerCase();
-      
-      // Parse management commands
-      let managementCommand = null;
-      
-      // Check for management command patterns
-      if (trimmedText.includes('כלול בתמלול') || trimmedText.includes('include_in_transcription')) {
-        const match = messageText.match(/(?:כלול בתמלול|include_in_transcription)\s+(.+)/i);
-        managementCommand = {
-          type: 'include_in_transcription',
-          contactName: match ? match[1].trim() : null
-        };
-      } else if (trimmedText.includes('הסר מתמלול') || trimmedText.includes('exclude_from_transcription')) {
-        const match = messageText.match(/(?:הסר מתמלול|exclude_from_transcription)\s+(.+)/i);
-        managementCommand = {
-          type: 'exclude_from_transcription',
-          contactName: match ? match[1].trim() : null
-        };
-      } else if (trimmedText.includes('הוסף ליצירת מדיה') || trimmedText.includes('add_media_authorization')) {
-        const match = messageText.match(/(?:הוסף ליצירת מדיה|add_media_authorization)\s+(.+)/i);
-        managementCommand = {
-          type: 'add_media_authorization',
-          contactName: match ? match[1].trim() : null
-        };
-      } else if (trimmedText.includes('הסר מיצירת מדיה') || trimmedText.includes('remove_media_authorization')) {
-        const match = messageText.match(/(?:הסר מיצירת מדיה|remove_media_authorization)\s+(.+)/i);
-        managementCommand = {
-          type: 'remove_media_authorization',
-          contactName: match ? match[1].trim() : null
-        };
-      } else if (trimmedText.includes('הוסף ליצירת קבוצות') || trimmedText.includes('add_group_authorization')) {
-        const match = messageText.match(/(?:הוסף ליצירת קבוצות|add_group_authorization)\s+(.+)/i);
-        managementCommand = {
-          type: 'add_group_authorization',
-          contactName: match ? match[1].trim() : null
-        };
-      } else if (trimmedText.includes('הסר מיצירת קבוצות') || trimmedText.includes('remove_group_authorization')) {
-        const match = messageText.match(/(?:הסר מיצירת קבוצות|remove_group_authorization)\s+(.+)/i);
-        managementCommand = {
-          type: 'remove_group_authorization',
-          contactName: match ? match[1].trim() : null
-        };
-      } else if (trimmedText.includes('מצב יצירת מדיה') || trimmedText.includes('media_creation_status')) {
-        managementCommand = { type: 'media_creation_status' };
-      } else if (trimmedText.includes('מצב תמלול') || trimmedText.includes('voice_transcription_status')) {
-        managementCommand = { type: 'voice_transcription_status' };
-      } else if (trimmedText.includes('מצב יצירת קבוצות') || trimmedText.includes('group_creation_status')) {
-        managementCommand = { type: 'group_creation_status' };
-      } else if (trimmedText.includes('עדכן אנשי קשר') || trimmedText.includes('sync_contacts')) {
-        managementCommand = { type: 'sync_contacts' };
-      } else if (trimmedText.includes('נקה היסטוריות') || trimmedText.includes('clear_all_conversations')) {
-        managementCommand = { type: 'clear_all_conversations' };
-      } else if (trimmedText.includes('היסטוריה') || trimmedText.includes('show_history')) {
-        managementCommand = { type: 'show_history' };
-      } else if (trimmedText.includes('הוסף ליצירת קבוצות נוכחית') || trimmedText.includes('add_group_authorization_current')) {
-        managementCommand = { type: 'add_group_authorization_current' };
-      }
-
-      if (managementCommand && isAdminCommand(managementCommand.type)) {
-        try {
-          await handleManagementCommand(managementCommand, chatId, senderId, senderName, senderContactName, chatName);
-          return; // Exit early after handling management command
-        } catch (error) {
-          console.error('❌ Management command error:', error.message || error);
-          await sendTextMessage(chatId, `❌ שגיאה בעיבוד הפקודה: ${error.message || error}`);
-          return;
-        }
-      }
     }
 
     // Handle automatic voice transcription for authorized users
