@@ -48,6 +48,70 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     const originalLanguage = voiceService.detectLanguage(transcribedText);
     console.log(`🌐 STT detected: ${transcriptionResult.detectedLanguage}, Our detection: ${originalLanguage}`);
 
+    // Check if transcribed text contains a command (starts with # or contains command keywords)
+    const isCommand = /^#\s+/.test(transcribedText.trim()) || 
+                     transcribedText.toLowerCase().includes('סולמית') ||
+                     transcribedText.toLowerCase().includes('hashtag') ||
+                     transcribedText.toLowerCase().includes('hash');
+    
+    if (isCommand) {
+      console.log(`🎯 Detected command in voice message: "${transcribedText}"`);
+      
+      // Clean the transcribed text (remove "סולמית"/"hashtag" if present)
+      let cleanedText = transcribedText
+        .replace(/סולמית/gi, '#')
+        .replace(/hashtag/gi, '#')
+        .replace(/hash/gi, '#')
+        .trim();
+      
+      // Ensure # prefix
+      if (!cleanedText.startsWith('#')) {
+        cleanedText = `# ${cleanedText}`;
+      }
+      
+      console.log(`🔄 Routing to agent with command: "${cleanedText}"`);
+      
+      // Save user message with transcription
+      await conversationManager.addMessage(chatId, 'user', `[הקלטה קולית] ${transcribedText}`, {
+        hasAudio: true,
+        audioUrl: audioUrl,
+        transcribedText: transcribedText
+      });
+      
+      // Route to agent as a regular command
+      const { routeToAgent } = require('../../agentRouter');
+      const normalized = {
+        userText: cleanedText,
+        hasAudio: true,
+        audioUrl: audioUrl,
+        chatType: chatId && chatId.endsWith('@g.us') ? 'group' : 'private',
+        language: originalLanguage,
+        senderData: { chatId, senderId, senderName }
+      };
+      
+      const agentResult = await routeToAgent(normalized, chatId);
+      
+      if (agentResult.success) {
+        // Send agent result (text, image, video, etc.)
+        if (agentResult.text && agentResult.text.trim()) {
+          await sendTextMessage(chatId, agentResult.text);
+        }
+        if (agentResult.imageUrl) {
+          await sendFileByUrl(chatId, agentResult.imageUrl, `image_${Date.now()}.jpg`, '');
+        }
+        if (agentResult.videoUrl) {
+          await sendFileByUrl(chatId, agentResult.videoUrl, `video_${Date.now()}.mp4`, '');
+        }
+      } else {
+        await sendTextMessage(chatId, `❌ ${agentResult.error || 'לא הצלחתי לבצע את הפקודה'}`);
+      }
+      
+      console.log(`✅ Command from voice message processed`);
+      return;
+    }
+
+    console.log(`💬 Regular voice message (not a command) - proceeding with voice-to-voice`);
+
     // Don't send transcription to user - they should only receive the final voice response
 
     // Step 2: Check audio duration and decide whether to clone voice
@@ -198,7 +262,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 
     // Step 5: Convert and send voice response back to user as voice note
     console.log(`🔄 Converting voice-to-voice to Opus format for voice note...`);
-    const conversionResult = await audioConverterService.convertUrlToOpus(ttsResult.audioUrl, 'mp3');
+    const conversionResult = await audioConverterService.audioConverterService.convertUrlToOpus(ttsResult.audioUrl, 'mp3');
 
     if (!conversionResult.success) {
       console.error('❌ Audio conversion failed:', conversionResult.error);
