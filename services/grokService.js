@@ -1,8 +1,10 @@
 /**
  * Grok AI Service
- * Integration with x.ai Grok API for text generation
+ * Integration with x.ai Grok API for text and image workflows
  */
 
+const axios = require('axios');
+const FormData = require('form-data');
 const { sanitizeText, cleanMarkdown } = require('../utils/textSanitizer');
 
 class GrokService {
@@ -226,6 +228,112 @@ class GrokService {
       };
     }
   }
+
+  /**
+   * Edit an existing image using Grok
+   * @param {string} prompt - Edit instructions
+   * @param {string} base64Image - Base64-encoded image data
+   * @returns {Promise<{success: boolean, imageUrl?: string, description?: string, textOnly?: boolean, metadata?: object, error?: string}>}
+   */
+  async editImageForWhatsApp(prompt, base64Image) {
+    try {
+      if (!this.apiKey) {
+        throw new Error('Grok API key not configured');
+      }
+      if (!base64Image) {
+        throw new Error('Missing image data for Grok edit');
+      }
+
+      const cleanPrompt = sanitizeText(prompt || '');
+      const base64Payload = typeof base64Image === 'string'
+        ? base64Image.split(',').pop()
+        : '';
+
+      if (!base64Payload) {
+        throw new Error('Invalid base64 image provided for Grok edit');
+      }
+
+      const imageBuffer = Buffer.from(base64Payload, 'base64');
+      console.log(`🖌️ Editing image with Grok: "${cleanPrompt}"`);
+
+      const formData = new FormData();
+      formData.append('model', 'grok-2-image');
+      formData.append('prompt', cleanPrompt);
+      formData.append('response_format', 'url');
+      formData.append('n', '1');
+      formData.append('image[]', imageBuffer, {
+        filename: 'edit.png',
+        contentType: 'image/png'
+      });
+
+      const response = await axios.post(`${this.baseUrl}/images/edits`, formData, {
+        headers: {
+          ...formData.getHeaders(),
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        timeout: 120000
+      });
+
+      const data = response.data;
+
+      if (data?.data && data.data.length > 0) {
+        const imageData = data.data[0];
+        const imageUrl = imageData.url;
+        let description = imageData.revised_prompt || '';
+
+        if (description) {
+          description = cleanMarkdown(description);
+        }
+
+        return {
+          success: true,
+          imageUrl,
+          description,
+          metadata: {
+            service: 'Grok',
+            model: 'grok-2-image',
+            type: 'image_editing',
+            created_at: new Date().toISOString()
+          }
+        };
+      }
+
+      const textContent = data?.choices?.[0]?.message?.content || data?.text || '';
+      if (textContent) {
+        return {
+          success: true,
+          textOnly: true,
+          description: cleanMarkdown(textContent),
+          metadata: {
+            service: 'Grok',
+            model: 'grok-2-image',
+            type: 'image_editing_text',
+            created_at: new Date().toISOString()
+          }
+        };
+      }
+
+      return {
+        success: false,
+        error: 'No image data received from Grok edit'
+      };
+    } catch (error) {
+      console.error('❌ Error editing Grok image:', error);
+      let errorMessage = error.message || 'Unknown error occurred during image editing';
+
+      if (error.response) {
+        const responseData = typeof error.response.data === 'string'
+          ? error.response.data
+          : JSON.stringify(error.response.data);
+        errorMessage = `Grok image edit failed: ${error.response.status} - ${responseData}`;
+      }
+
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  }
 }
 
 // Create and export instance
@@ -233,5 +341,6 @@ const grokService = new GrokService();
 
 module.exports = {
   generateTextResponse: grokService.generateTextResponse.bind(grokService),
-  generateImageForWhatsApp: grokService.generateImageForWhatsApp.bind(grokService)
+  generateImageForWhatsApp: grokService.generateImageForWhatsApp.bind(grokService),
+  editImageForWhatsApp: grokService.editImageForWhatsApp.bind(grokService)
 };

@@ -119,7 +119,7 @@ const TOOLS = {
     parameters: {
       image_url: { type: 'string', required: true, description: 'Image URL to edit' },
       edit_instruction: { type: 'string', required: true, description: 'What to edit' },
-      service: { type: 'string', required: false, description: 'openai/gemini' }
+      service: { type: 'string', required: false, description: 'openai/gemini/grok' }
     }
   },
 

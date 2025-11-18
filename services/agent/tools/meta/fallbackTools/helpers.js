@@ -36,7 +36,7 @@ async function sendFallbackError(context, message) {
  */
 function getProviderOrder(taskType, avoidProvider = null) {
   if (taskType === 'image_edit') {
-    return ['gemini', 'openai'].filter(p => p !== avoidProvider);
+    return ['gemini', 'openai', 'grok'].filter(p => p !== avoidProvider);
   } else if (taskType === 'video' || taskType === 'video_creation') {
     return VIDEO_PROVIDER_FALLBACK_ORDER.filter(p => p !== avoidProvider);
   } else {
