@@ -60,7 +60,7 @@ const translate_text = {
 const translate_and_speak = {
   declaration: {
     name: 'translate_and_speak',
-    description: 'תרגם טקסט לשפה אחרת והמר לדיבור (מחזיר אודיו + טקסט). השתמש בכלי הזה כשהמשתמש מבקש: "אמור X ביפנית", "תרגם X לאנגלית ואמור", "say X in Spanish", וכו\'.',
+    description: 'תרגם טקסט לשפה אחרת והמר לדיבור (מחזיר אודיו + טקסט). אם יש הקלטה מצוטטת - משבט את הקול! השתמש בכלי הזה כשהמשתמש מבקש: "אמור X ביפנית", "תרגם X לאנגלית ואמור", "say X in Spanish", וכו\'.',
     parameters: {
       type: 'object',
       properties: {
@@ -77,10 +77,13 @@ const translate_and_speak = {
     }
   },
   execute: async (args, context) => {
-    console.log(`🔧 [Agent Tool] translate_and_speak called`);
+    console.log(`🔧 [Agent Tool] translate_and_speak called: "${args.text}" -> ${args.target_language}`);
 
     try {
-      const { geminiService } = getServices();
+      const { geminiService, greenApiService } = getServices();
+      const { getAudioDuration } = require('../../../agent/utils/audioUtils');
+      
+      const MIN_DURATION_FOR_CLONING = 4.6; // seconds
 
       // Try to parse TTS request to get optimal voice/language mapping
       let targetLangCode = 'en';
@@ -94,6 +97,7 @@ const translate_and_speak = {
       }
 
       // Step 1: Translate text
+      console.log(`🌐 Translating to ${args.target_language}...`);
       const translationResult = await geminiService.translateText(args.text, args.target_language);
 
       if (translationResult.error) {
@@ -104,26 +108,95 @@ const translate_and_speak = {
       }
 
       const translatedText = translationResult.translatedText;
+      console.log(`✅ Translated: "${translatedText}"`);
 
-      // Step 2: Get appropriate voice for target language
-      const voiceResult = await voiceService.getVoiceForLanguage(targetLangCode);
+      // Step 2: Handle voice selection (clone or random)
+      let voiceId = null;
+      let shouldDeleteVoice = false;
+      
+      // Check if there's a quoted audio for voice cloning
+      const quotedAudioUrl = context?.quotedContext?.audioUrl || context?.audioUrl;
+      
+      if (quotedAudioUrl) {
+        console.log(`🎤 Quoted audio detected for voice cloning: ${quotedAudioUrl.substring(0, 50)}...`);
+        
+        try {
+          // Download audio file
+          const audioBuffer = await greenApiService.downloadFile(quotedAudioUrl);
+          
+          // Get audio duration
+          const audioDuration = await getAudioDuration(audioBuffer);
+          console.log(`🎵 Quoted audio duration: ${audioDuration.toFixed(2)}s (minimum for cloning: ${MIN_DURATION_FOR_CLONING}s)`);
+          
+          if (audioDuration >= MIN_DURATION_FOR_CLONING) {
+            console.log(`🎤 Attempting voice clone from quoted audio...`);
+            
+            const voiceCloneOptions = {
+              name: `Translate Voice Clone ${Date.now()}`,
+              description: `Voice clone for translate_and_speak to ${args.target_language}`,
+              removeBackgroundNoise: true,
+              labels: JSON.stringify({
+                accent: 'natural',
+                use_case: 'conversational',
+                quality: 'high',
+                language: targetLangCode
+              })
+            };
+            
+            const voiceCloneResult = await voiceService.createInstantVoiceClone(audioBuffer, voiceCloneOptions);
+            
+            if (voiceCloneResult.error) {
+              console.log(`⚠️ Voice cloning failed: ${voiceCloneResult.error}, using random voice`);
+            } else {
+              voiceId = voiceCloneResult.voiceId;
+              shouldDeleteVoice = true; // Mark for cleanup
+              console.log(`✅ Voice cloned successfully: ${voiceId}`);
+            }
+          } else {
+            console.log(`⏭️ Quoted audio too short for cloning (${audioDuration.toFixed(2)}s < ${MIN_DURATION_FOR_CLONING}s), using random voice`);
+          }
+        } catch (cloneError) {
+          console.log(`⚠️ Error during voice cloning process: ${cloneError.message}, using random voice`);
+        }
+      }
+      
+      // If voice wasn't cloned, get random voice for target language
+      if (!voiceId) {
+        console.log(`🎤 Getting random voice for language: ${targetLangCode}...`);
+        const voiceResult = await voiceService.getVoiceForLanguage(targetLangCode);
 
-      if (voiceResult.error) {
-        // Return translated text even if TTS fails
-        return {
-          success: true,
-          data: translatedText,
-          translatedText: translatedText,
-          ttsError: `לא הצלחתי להמיר לדיבור: ${voiceResult.error}`
-        };
+        if (voiceResult.error) {
+          // Return translated text even if TTS fails
+          return {
+            success: true,
+            data: translatedText,
+            translatedText: translatedText,
+            ttsError: `לא הצלחתי להמיר לדיבור: ${voiceResult.error}`
+          };
+        }
+
+        voiceId = voiceResult.voiceId;
+        console.log(`✅ Using random voice: ${voiceId}`);
       }
 
       // Step 3: Convert to speech
-      const ttsResult = await voiceService.textToSpeech(voiceResult.voiceId, translatedText, {
+      console.log(`🗣️ Converting to speech with voice ${voiceId}...`);
+      const ttsResult = await voiceService.textToSpeech(voiceId, translatedText, {
         model_id: 'eleven_v3',
         optimize_streaming_latency: 0,
-        output_format: 'mp3_44100_128'
+        output_format: 'mp3_44100_128',
+        languageCode: targetLangCode
       });
+
+      // Cleanup: Delete cloned voice if it was created
+      if (shouldDeleteVoice && voiceId) {
+        try {
+          await voiceService.deleteVoice(voiceId);
+          console.log(`🧹 Cleanup: Cloned voice ${voiceId} deleted`);
+        } catch (cleanupError) {
+          console.warn('⚠️ Voice cleanup failed:', cleanupError.message);
+        }
+      }
 
       if (ttsResult.error) {
         // Return translated text even if TTS fails
@@ -141,7 +214,8 @@ const translate_and_speak = {
         translatedText: translatedText,
         audioUrl: ttsResult.audioUrl,
         targetLanguage: args.target_language,
-        languageCode: targetLangCode
+        languageCode: targetLangCode,
+        voiceCloned: shouldDeleteVoice
       };
     } catch (error) {
       console.error('❌ Error in translate_and_speak:', error);

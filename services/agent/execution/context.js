@@ -24,6 +24,8 @@ class AgentContext {
       },
       lastCommand: options.lastCommand || null,
       originalInput: options.input || null,
+      quotedContext: options.input?.quotedContext || null,
+      audioUrl: options.input?.quotedContext?.audioUrl || null,
       suppressFinalResponse: false,
       expectedMediaType: null
     };
