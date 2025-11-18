@@ -20,49 +20,49 @@ const TOOLS = {
   create_image: {
     name: 'create_image',
     category: 'creation',
-    description: 'Create NEW image with AI',
-    usage: ['צור תמונה', 'שלח תמונה', 'תמונה של', 'create image', 'send image', 'draw X', 'image of X'],
+    description: 'Create NEW image with AI. Supports providers: gemini (default), openai, grok. Use this for NEW image requests, even if user specifies provider like "with OpenAI" or "עם Gemini". Do NOT use retry_last_command for new image requests!',
+    usage: ['צור תמונה', 'שלח תמונה', 'תמונה של', 'create image', 'send image', 'draw X', 'image of X', 'צור תמונה עם OpenAI', 'create image with Gemini'],
     parameters: {
       prompt: { type: 'string', required: true, description: 'Image description' },
-      provider: { type: 'string', required: false, description: 'gemini/openai/grok' }
+      provider: { type: 'string', required: false, description: 'Image generation provider: gemini (default), openai, grok. If user specifies provider like "with OpenAI" or "עם Gemini", use provider: "openai" or "gemini" accordingly.' }
     },
-    critical: 'Use for ANY request to create/send/make an image. "שלח תמונה של X" means CREATE image, not search!'
+    critical: 'Use for ANY request to create/send/make an image. "שלח תמונה של X" means CREATE image, not search! If user requests NEW image with provider, use create_image with provider parameter, NOT retry_last_command!'
   },
 
   create_video: {
     name: 'create_video',
     category: 'creation',
-    description: 'Create NEW video with AI',
-    usage: ['צור וידאו', 'create video', 'make video of X'],
+    description: 'Create NEW video with AI. Supports providers: veo3 (Google Veo 3), sora/sora-pro (OpenAI Sora 2), kling (default). Use this for NEW video requests, even if user specifies provider like "with Veo 3". Do NOT use retry_last_command for new video requests!',
+    usage: ['צור וידאו', 'create video', 'make video of X', 'צור וידאו עם Veo 3', 'create video with Sora'],
     parameters: {
       prompt: { type: 'string', required: true, description: 'Video description' },
-      provider: { type: 'string', required: false, description: 'gemini/openai/grok' }
+      provider: { type: 'string', required: false, description: 'Video generation provider: veo3 (Google Veo 3 - best quality), sora/sora-pro (OpenAI Sora 2 - cinematic), kling (Replicate Kling - fast, default). If user specifies provider like "with Veo 3", use provider: "veo3".' }
     }
   },
 
   image_to_video: {
     name: 'image_to_video',
     category: 'creation',
-    description: 'Convert/animate image to video (when image is attached)',
-    usage: ['הפוך לווידאו', 'הפוך תמונה לוידאו', 'animate', 'animate image', 'make video from image', 'convert to video'],
+    description: 'Convert/animate image to video (when image is attached). Supports providers: veo3 (Gemini Veo 3), sora/sora-pro (OpenAI Sora 2), kling (default). Use this for NEW image-to-video requests, even if user specifies provider like "with Veo 3". Do NOT use retry_last_command for new image-to-video requests!',
+    usage: ['הפוך לווידאו', 'הפוך תמונה לוידאו', 'animate', 'animate image', 'make video from image', 'convert to video', 'הפוך לווידאו עם Veo 3'],
     parameters: {
       image_url: { type: 'string', required: true, description: 'Image URL' },
       prompt: { type: 'string', required: false, description: 'Animation instructions' },
-      provider: { type: 'string', required: false, description: 'gemini/openai/grok (veo3/sora-2/kling)' }
+      provider: { type: 'string', required: false, description: 'Image-to-video provider: veo3 (Gemini Veo 3 - best quality), sora/sora-pro (OpenAI Sora 2 - cinematic), kling (Replicate Kling - fast, default). If user specifies provider like "with Veo 3", use provider: "veo3".' }
     },
-    critical: 'Use ONLY when user attached an image and wants to animate/convert it to video. NOT for creating new videos!'
+    critical: 'Use ONLY when user attached an image and wants to animate/convert it to video. NOT for creating new videos! If user requests NEW image-to-video conversion with provider, use image_to_video with provider parameter, NOT retry_last_command!'
   },
 
   create_music: {
     name: 'create_music',
     category: 'creation',
-    description: 'Create NEW song/music with Suno AI',
+    description: 'Create NEW song/music with Suno AI. Use this for NEW music/song requests. Do NOT use retry_last_command for new music requests!',
     usage: ['צור שיר', 'כתוב שיר', 'create song', 'make music'],
     parameters: {
       prompt: { type: 'string', required: true, description: 'Song description/lyrics' },
       make_video: { type: 'boolean', required: false, description: 'Also create music video' }
     },
-    critical: 'Use ONLY for creating NEW songs. For EXISTING songs, use search_web!'
+    critical: 'Use ONLY for creating NEW songs. For EXISTING songs, use search_web! If user requests NEW song/music, use create_music, NOT retry_last_command!'
   },
 
   create_poll: {
@@ -114,12 +114,12 @@ const TOOLS = {
   edit_image: {
     name: 'edit_image',
     category: 'editing',
-    description: 'Edit existing image',
-    usage: ['ערוך תמונה', 'edit image', 'שנה את התמונה'],
+    description: 'Edit existing image. Supports services: openai (default), gemini. Use this for NEW image editing requests, even if user specifies service like "with OpenAI". Do NOT use retry_last_command for new editing requests!',
+    usage: ['ערוך תמונה', 'edit image', 'שנה את התמונה', 'ערוך עם Gemini'],
     parameters: {
       image_url: { type: 'string', required: true, description: 'Image URL to edit' },
       edit_instruction: { type: 'string', required: true, description: 'What to edit' },
-      service: { type: 'string', required: false, description: 'openai/gemini' }
+      service: { type: 'string', required: false, description: 'Image editing service: openai (default), gemini. If user specifies service like "with Gemini", use service: "gemini".' }
     }
   },
 
