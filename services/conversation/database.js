@@ -13,10 +13,18 @@ class DatabaseManager {
    */
   async initializeDatabase(attempt = 1) {
     try {
+      // Determine if SSL is needed (production OR remote PostgreSQL)
+      // Check if DATABASE_URL contains external host (not localhost)
+      const databaseUrl = process.env.DATABASE_URL || '';
+      const isRemoteDB = databaseUrl && !databaseUrl.includes('localhost') && !databaseUrl.includes('127.0.0.1');
+      const needsSSL = process.env.NODE_ENV === 'production' || isRemoteDB;
+      
+      console.log(`🔐 Database connection: ${needsSSL ? 'with SSL (remote)' : 'without SSL (local)'}`);
+      
       // Create connection pool
       this.conversationManager.pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        connectionString: databaseUrl,
+        ssl: needsSSL ? { rejectUnauthorized: false } : false,
         max: 10, // Maximum number of clients in the pool
         idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
         connectionTimeoutMillis: 10000, // Allow up to 10s for cold starts / sleeping DBs
