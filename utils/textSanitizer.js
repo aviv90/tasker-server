@@ -59,47 +59,12 @@ function cleanMediaDescription(text) {
         .replace(/\[אודיו\]/gi, '')
         .replace(/✅/g, '');
     
-    // Step 2: Remove success messages and link references (entire sentences)
-    // These patterns remove sentences ending with common punctuation or line breaks
-    const sentencePatterns = [
-        // Hebrew success messages with link references
-        /התמונה\s+הומרה\s+בהצלחה[^.!?\n]*[.!?\n]*/gi,
-        /התמונה\s+נוצרה\s+בהצלחה[^.!?\n]*[.!?\n]*/gi,
-        /הוידאו\s+נוצר\s+בהצלחה[^.!?\n]*[.!?\n]*/gi,
-        /הווידאו\s+נוצר\s+בהצלחה[^.!?\n]*[.!?\n]*/gi,
-        /הסרטון\s+נוצר\s+בהצלחה[^.!?\n]*[.!?\n]*/gi,
-        /הקלטה\s+נוצרה\s+בהצלחה[^.!?\n]*[.!?\n]*/gi,
-        /האודיו\s+נוצר\s+בהצלחה[^.!?\n]*[.!?\n]*/gi,
-        // Link reference sentences (Hebrew) - including colons for "הנה הקישור:"
-        /הנה\s+ה?קישור[^.!?\n]*[.!?:\n]*/gi,
-        /זה\s+ה?קישור[^.!?\n]*[.!?:\n]*/gi,
-        /קישור\s+להורדה[^.!?\n]*[.!?:\n]*/gi,
-        /הנה\s+ה?לינק[^.!?\n]*[.!?:\n]*/gi,
-        /לחצו?\s+כאן[^.!?\n]*[.!?:\n]*/gi,
-        // English success messages
-        /image\s+generated\s+successfully[^.!?\n]*[.!?\n]*/gi,
-        /video\s+generated\s+successfully[^.!?\n]*[.!?\n]*/gi,
-        /audio\s+generated\s+successfully[^.!?\n]*[.!?\n]*/gi,
-        /successfully\s+generated[^.!?\n]*[.!?\n]*/gi,
-        /successfully\s+converted[^.!?\n]*[.!?\n]*/gi,
-        // Link reference sentences (English) - including colons for "here's the link:"
-        /here'?s\s+the\s+link[^.!?\n]*[.!?:\n]*/gi,
-        /here\s+is\s+the\s+link[^.!?\n]*[.!?:\n]*/gi,
-        /download\s+link[^.!?\n]*[.!?:\n]*/gi,
-        /click\s+here[^.!?\n]*[.!?:\n]*/gi
-    ];
-    
-    // Apply all sentence removal patterns
-    sentencePatterns.forEach(pattern => {
-        cleaned = cleaned.replace(pattern, '');
-    });
-    
-    // Step 3: Clean up whitespace
+    // Step 2: Clean up whitespace
     cleaned = cleaned
         .replace(/\s{2,}/g, ' ')
         .trim();
     
-    // Step 4: If nothing meaningful left, return empty string
+    // Step 3: If nothing meaningful left, return empty string
     // (prevents sending messages with just punctuation or whitespace)
     if (cleaned.length < 3 || /^[^\w\u0590-\u05FF]+$/.test(cleaned)) {
         return '';

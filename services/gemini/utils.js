@@ -3,13 +3,6 @@
  * Clean, reusable utilities for Gemini service
  */
 
-// Patterns for cleaning Gemini's thinking/meta-text
-const META_PHRASE_PATTERNS = [
-  /^(Okay,?|Alright,?|Let me|I'll|I will|I can|I should|First,?|So,?)\s+/i,
-  /^(Sure,?|Of course,?|Certainly,?|Absolutely,?)\s+/i,
-  /^(Here'?s?|Here is|This is)\s+(the|a|an)\s+/i,
-];
-
 const THINKING_SECTION_PATTERNS = [
   /\*\*My internal thoughts?:?\*\*[\s\S]*?(?=\n\n|\*\*[A-Z]|$)/gi,
   /\[Internal (thought|reasoning|analysis):[\s\S]*?\]/gi,
@@ -71,12 +64,7 @@ function cleanThinkingPatterns(text) {
   let cleaned = text;
   const originalLength = text.length;
   
-  // 1. Remove English meta-linguistic phrases that appear at the start
-  for (const pattern of META_PHRASE_PATTERNS) {
-    cleaned = cleaned.replace(pattern, '');
-  }
-  
-  // 1.5. Remove "My internal thoughts:" sections (CRITICAL!)
+  // 1. Remove "My internal thoughts:" or similar sections (CRITICAL!)
   for (const pattern of THINKING_SECTION_PATTERNS) {
     cleaned = cleaned.replace(pattern, '');
   }
