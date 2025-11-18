@@ -7,6 +7,38 @@ const axios = require('axios');
 const FormData = require('form-data');
 const { sanitizeText, cleanMarkdown } = require('../utils/textSanitizer');
 
+const DEFAULT_IMAGE_MIME = 'image/png';
+
+function detectImageMimeType(buffer) {
+  if (!buffer || buffer.length < 4) return DEFAULT_IMAGE_MIME;
+
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+    return 'image/png';
+  }
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  if (
+    buffer[0] === 0x47 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x38
+  ) {
+    return 'image/gif';
+  }
+  if (
+    buffer[0] === 0x52 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x46 &&
+    buffer.length >= 12 &&
+    buffer.slice(8, 12).toString('ascii') === 'WEBP'
+  ) {
+    return 'image/webp';
+  }
+  return DEFAULT_IMAGE_MIME;
+}
+
 class GrokService {
   constructor() {
     this.apiKey = process.env.GROK_API_KEY;
@@ -255,15 +287,18 @@ class GrokService {
 
       const imageBuffer = Buffer.from(base64Payload, 'base64');
       console.log(`🖌️ Editing image with Grok: "${cleanPrompt}"`);
+      const mimeType = detectImageMimeType(imageBuffer);
+      const fileExtension = mimeType === 'image/jpeg' ? 'jpg' : mimeType === 'image/png' ? 'png' : 'png';
 
+      // Use multipart/form-data for x.ai API
       const formData = new FormData();
       formData.append('model', 'grok-2-image');
       formData.append('prompt', cleanPrompt);
       formData.append('response_format', 'url');
       formData.append('n', '1');
-      formData.append('image[]', imageBuffer, {
-        filename: 'edit.png',
-        contentType: 'image/png'
+      formData.append('image', imageBuffer, {
+        filename: `edit.${fileExtension}`,
+        contentType: mimeType
       });
 
       const response = await axios.post(`${this.baseUrl}/images/edits`, formData, {
