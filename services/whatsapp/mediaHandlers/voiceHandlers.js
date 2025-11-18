@@ -9,7 +9,7 @@ const conversationManager = require('../../conversationManager');
 const { getStaticFileUrl } = require('../../../utils/urlUtils');
 const { MIN_DURATION_FOR_CLONING, TRANSCRIPTION_DEFAULTS } = require('../constants');
 const { getAudioDuration } = require('../../agent/utils/audioUtils');
-const { generateGeminiResponse } = require('../../geminiService');
+const { generateTextResponse } = require('../../geminiService');
 const speechService = require('../../speechService');
 const { voiceService } = require('../../voiceService');
 const audioConverterService = require('../../audioConverterService');
@@ -108,7 +108,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 
     const geminiPrompt = languageInstruction + transcribedText;
     // Voice processing doesn't need conversation history - treat each voice message independently
-    const geminiResult = await generateGeminiResponse(geminiPrompt, []);
+    const geminiResult = await generateTextResponse(geminiPrompt, []);
 
     // Get final audio URL (will be used for conversation history)
     const finalAudioUrl = audioUrl;
