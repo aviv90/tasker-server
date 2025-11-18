@@ -3,44 +3,7 @@
  * Integration with x.ai Grok API for text and image workflows
  */
 
-const axios = require('axios');
-const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
 const { sanitizeText, cleanMarkdown } = require('../utils/textSanitizer');
-const { createTempFilePath } = require('../utils/tempFileUtils');
-const { getStaticFileUrl } = require('../utils/urlUtils');
-
-const DEFAULT_IMAGE_MIME = 'image/png';
-
-function detectImageMimeType(buffer) {
-  if (!buffer || buffer.length < 4) return DEFAULT_IMAGE_MIME;
-
-  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
-    return 'image/png';
-  }
-  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
-    return 'image/jpeg';
-  }
-  if (
-    buffer[0] === 0x47 &&
-    buffer[1] === 0x49 &&
-    buffer[2] === 0x46 &&
-    buffer[3] === 0x38
-  ) {
-    return 'image/gif';
-  }
-  if (
-    buffer[0] === 0x52 &&
-    buffer[1] === 0x49 &&
-    buffer[2] === 0x46 &&
-    buffer[3] === 0x46 &&
-    buffer.length >= 12 &&
-    buffer.slice(8, 12).toString('ascii') === 'WEBP'
-  ) {
-    return 'image/webp';
-  }
-  return DEFAULT_IMAGE_MIME;
-}
 
 class GrokService {
   constructor() {
@@ -264,121 +227,6 @@ class GrokService {
     }
   }
 
-  /**
-   * Edit an existing image using Grok
-   * @param {string} prompt - Edit instructions
-   * @param {string} base64Image - Base64-encoded image data
-   * @param {Object} req - Express request object (for URL generation)
-   * @returns {Promise<{success: boolean, imageUrl?: string, description?: string, textOnly?: boolean, metadata?: object, error?: string}>}
-   */
-  async editImageForWhatsApp(prompt, base64Image, req) {
-    try {
-      if (!this.apiKey) {
-        throw new Error('Grok API key not configured');
-      }
-      if (!base64Image) {
-        throw new Error('Missing image data for Grok edit');
-      }
-
-      const cleanPrompt = sanitizeText(prompt || '');
-      const base64Payload = typeof base64Image === 'string'
-        ? base64Image.split(',').pop()
-        : '';
-
-      if (!base64Payload) {
-        throw new Error('Invalid base64 image provided for Grok edit');
-      }
-
-      const imageBuffer = Buffer.from(base64Payload, 'base64');
-      const mimeType = detectImageMimeType(imageBuffer);
-      const fileExtension = mimeType === 'image/jpeg' ? 'jpg' : mimeType === 'image/png' ? 'png' : 'png';
-      console.log(`🖌️ Editing image with Grok: "${cleanPrompt}"`);
-
-      // Save image temporarily to get a URL (x.ai API expects image URL, not base64)
-      const fileName = `grok_edit_input_${uuidv4()}.${fileExtension}`;
-      const filePath = createTempFilePath(fileName);
-      fs.writeFileSync(filePath, imageBuffer);
-      const imageUrl = getStaticFileUrl(fileName, req);
-
-      // Use JSON format with image URL (x.ai API expects application/json with image.url)
-      const payload = {
-        model: 'grok-2-image',
-        prompt: cleanPrompt,
-        response_format: 'url',
-        n: 1,
-        image: {
-          url: imageUrl
-        }
-      };
-
-      const response = await axios.post(`${this.baseUrl}/images/edits`, payload, {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 120000
-      });
-
-      const data = response.data;
-
-      if (data?.data && data.data.length > 0) {
-        const imageData = data.data[0];
-        const imageUrl = imageData.url;
-        let description = imageData.revised_prompt || '';
-
-        if (description) {
-          description = cleanMarkdown(description);
-        }
-
-        return {
-          success: true,
-          imageUrl,
-          description,
-          metadata: {
-            service: 'Grok',
-            model: 'grok-2-image',
-            type: 'image_editing',
-            created_at: new Date().toISOString()
-          }
-        };
-      }
-
-      const textContent = data?.choices?.[0]?.message?.content || data?.text || '';
-      if (textContent) {
-        return {
-          success: true,
-          textOnly: true,
-          description: cleanMarkdown(textContent),
-          metadata: {
-            service: 'Grok',
-            model: 'grok-2-image',
-            type: 'image_editing_text',
-            created_at: new Date().toISOString()
-          }
-        };
-      }
-
-      return {
-        success: false,
-        error: 'No image data received from Grok edit'
-      };
-    } catch (error) {
-      console.error('❌ Error editing Grok image:', error);
-      let errorMessage = error.message || 'Unknown error occurred during image editing';
-
-      if (error.response) {
-        const responseData = typeof error.response.data === 'string'
-          ? error.response.data
-          : JSON.stringify(error.response.data);
-        errorMessage = `Grok image edit failed: ${error.response.status} - ${responseData}`;
-      }
-
-      return {
-        success: false,
-        error: errorMessage
-      };
-    }
-  }
 }
 
 // Create and export instance
@@ -386,6 +234,5 @@ const grokService = new GrokService();
 
 module.exports = {
   generateTextResponse: grokService.generateTextResponse.bind(grokService),
-  generateImageForWhatsApp: grokService.generateImageForWhatsApp.bind(grokService),
-  editImageForWhatsApp: grokService.editImageForWhatsApp.bind(grokService)
+  generateImageForWhatsApp: grokService.generateImageForWhatsApp.bind(grokService)
 };

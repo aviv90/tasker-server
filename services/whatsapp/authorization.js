@@ -43,8 +43,7 @@ function requiresMediaAuthorization(commandType) {
     'music_generation',
     'text_to_speech',
     'gemini_image_edit',
-    'openai_image_edit',
-    'grok_image_edit'
+    'openai_image_edit'
   ];
   return mediaCommands.includes(commandType);
 }

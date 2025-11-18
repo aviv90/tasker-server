@@ -27,7 +27,7 @@ const edit_image = {
         service: {
           type: 'string',
           description: 'ספק לעריכה',
-      enum: ['openai', 'gemini', 'grok']
+          enum: ['openai', 'gemini']
         }
       },
       required: ['image_url', 'edit_instruction']
@@ -37,7 +37,7 @@ const edit_image = {
     console.log(`🔧 [Agent Tool] edit_image called`);
     
     try {
-      const { openaiService, geminiService, grokService, greenApiService } = getServices();
+      const { openaiService, geminiService, greenApiService } = getServices();
       const service = args.service || 'gemini'; // Gemini is the default editor (OpenAI is fallback)
       
       // CRITICAL: edit_image needs base64 image, not URL!
@@ -47,9 +47,7 @@ const edit_image = {
       
       let result;
       if (service === 'openai') {
-        result = await openaiService.editImageForWhatsApp(args.edit_instruction, base64Image, null);
-      } else if (service === 'grok') {
-        result = await grokService.editImageForWhatsApp(args.edit_instruction, base64Image, null);
+        result = await openaiService.editImageForWhatsApp(args.edit_instruction, base64Image);
       } else {
         result = await geminiService.editImageForWhatsApp(args.edit_instruction, base64Image);
       }

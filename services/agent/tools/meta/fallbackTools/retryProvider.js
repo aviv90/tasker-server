@@ -48,7 +48,7 @@ const retryWithDifferentProvider = {
       const avoidProviderRaw = args.avoid_provider;
       const avoidProvider = helpers.normalizeProviderKey(avoidProviderRaw);
 
-      const { geminiService, openaiService, grokService, greenApiService } = getServices();
+      const { geminiService, openaiService, greenApiService } = getServices();
       const replicateService = require('../../../../replicateService');
 
       const providers = helpers.getProviderOrder(taskType, avoidProvider);
@@ -77,9 +77,7 @@ const retryWithDifferentProvider = {
 
             let editResult;
             if (provider === 'openai') {
-              editResult = await openaiService.editImageForWhatsApp(args.original_prompt, base64Image, null);
-            } else if (provider === 'grok') {
-              editResult = await grokService.editImageForWhatsApp(args.original_prompt, base64Image, null);
+              editResult = await openaiService.editImageForWhatsApp(args.original_prompt, base64Image);
             } else {
               editResult = await geminiService.editImageForWhatsApp(args.original_prompt, base64Image);
             }
