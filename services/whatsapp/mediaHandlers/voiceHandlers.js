@@ -61,8 +61,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     const { routeToAgent } = require('../../agentRouter');
     const normalized = {
       userText: `# ${transcribedText}`, // Add # prefix to route through agent
-      hasAudio: true,
-      audioUrl: audioUrl,
+      hasAudio: false, // Audio already transcribed - don't send audioUrl to agent
       chatType: chatId && chatId.endsWith('@g.us') ? 'group' : 'private',
       language: originalLanguage,
       senderData: { chatId, senderId, senderName }
