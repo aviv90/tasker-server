@@ -146,14 +146,16 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
       if (trimmed === 'הוסף ליצירה') {
         managementCommand = {
           type: 'add_media_authorization',
-          contactName: resolveCurrentContact()
+          contactName: resolveCurrentContact(),
+          isCurrentContact: true // Skip DB lookup - use contact directly
         };
       } else if (trimmed.startsWith('הוסף ליצירה ')) {
         const contactName = trimmed.substring('הוסף ליצירה '.length).trim();
         if (contactName) {
           managementCommand = {
             type: 'add_media_authorization',
-            contactName: contactName
+            contactName: contactName,
+            isCurrentContact: false
           };
         }
       }
@@ -161,14 +163,16 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
       else if (trimmed === 'הסר מיצירה') {
         managementCommand = {
           type: 'remove_media_authorization',
-          contactName: resolveCurrentContact()
+          contactName: resolveCurrentContact(),
+          isCurrentContact: true // Skip DB lookup - use contact directly
         };
       } else if (trimmed.startsWith('הסר מיצירה ')) {
         const contactName = trimmed.substring('הסר מיצירה '.length).trim();
         if (contactName) {
           managementCommand = {
             type: 'remove_media_authorization',
-            contactName: contactName
+            contactName: contactName,
+            isCurrentContact: false
           };
         }
       }
@@ -180,14 +184,16 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
       else if (trimmed === 'הוסף לתמלול') {
         managementCommand = {
           type: 'include_in_transcription',
-          contactName: resolveCurrentContact()
+          contactName: resolveCurrentContact(),
+          isCurrentContact: true // Skip DB lookup - use contact directly
         };
       } else if (trimmed.startsWith('הוסף לתמלול ')) {
         const contactName = trimmed.substring('הוסף לתמלול '.length).trim();
         if (contactName) {
           managementCommand = {
             type: 'include_in_transcription',
-            contactName: contactName
+            contactName: contactName,
+            isCurrentContact: false
           };
         }
       }
@@ -195,14 +201,16 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
       else if (trimmed === 'הסר מתמלול') {
         managementCommand = {
           type: 'exclude_from_transcription',
-          contactName: resolveCurrentContact()
+          contactName: resolveCurrentContact(),
+          isCurrentContact: true // Skip DB lookup - use contact directly
         };
       } else if (trimmed.startsWith('הסר מתמלול ')) {
         const contactName = trimmed.substring('הסר מתמלול '.length).trim();
         if (contactName) {
           managementCommand = {
             type: 'exclude_from_transcription',
-            contactName: contactName
+            contactName: contactName,
+            isCurrentContact: false
           };
         }
       }
@@ -214,14 +222,16 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
       else if (trimmed === 'הוסף לקבוצות') {
         managementCommand = {
           type: 'add_group_authorization',
-          contactName: resolveCurrentContact()
+          contactName: resolveCurrentContact(),
+          isCurrentContact: true // Skip DB lookup - use contact directly
         };
       } else if (trimmed.startsWith('הוסף לקבוצות ')) {
         const contactName = trimmed.substring('הוסף לקבוצות '.length).trim();
         if (contactName) {
           managementCommand = {
             type: 'add_group_authorization',
-            contactName: contactName
+            contactName: contactName,
+            isCurrentContact: false
           };
         }
       }
@@ -229,14 +239,16 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
       else if (trimmed === 'הסר מקבוצות') {
         managementCommand = {
           type: 'remove_group_authorization',
-          contactName: resolveCurrentContact()
+          contactName: resolveCurrentContact(),
+          isCurrentContact: true // Skip DB lookup - use contact directly
         };
       } else if (trimmed.startsWith('הסר מקבוצות ')) {
         const contactName = trimmed.substring('הסר מקבוצות '.length).trim();
         if (contactName) {
           managementCommand = {
             type: 'remove_group_authorization',
-            contactName: contactName
+            contactName: contactName,
+            isCurrentContact: false
           };
         }
       }
