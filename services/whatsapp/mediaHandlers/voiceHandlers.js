@@ -42,75 +42,58 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 
     const transcribedText = transcriptionResult.text;
     console.log(`✅ Step 1 complete: Transcribed ${transcribedText.length} characters`);
-    console.log(`📝 Transcription complete`);
+    console.log(`📝 Transcription complete: "${transcribedText}"`);
 
     // Use our own language detection on the transcribed text for consistency
     const originalLanguage = voiceService.detectLanguage(transcribedText);
     console.log(`🌐 STT detected: ${transcriptionResult.detectedLanguage}, Our detection: ${originalLanguage}`);
 
-    // Check if transcribed text contains a command (starts with # or contains command keywords)
-    const isCommand = /^#\s+/.test(transcribedText.trim()) || 
-                     transcribedText.toLowerCase().includes('סולמית') ||
-                     transcribedText.toLowerCase().includes('hashtag') ||
-                     transcribedText.toLowerCase().includes('hash');
+    // Save user message with transcription first
+    await conversationManager.addMessage(chatId, 'user', `[הקלטה קולית] ${transcribedText}`, {
+      hasAudio: true,
+      audioUrl: audioUrl,
+      transcribedText: transcribedText
+    });
+
+    // Try to route to agent to see if this is a command (let the Agent/Planner decide)
+    console.log(`🔄 Routing transcribed text to agent for evaluation...`);
     
-    if (isCommand) {
-      console.log(`🎯 Detected command in voice message: "${transcribedText}"`);
+    const { routeToAgent } = require('../../agentRouter');
+    const normalized = {
+      userText: `# ${transcribedText}`, // Add # prefix to route through agent
+      hasAudio: true,
+      audioUrl: audioUrl,
+      chatType: chatId && chatId.endsWith('@g.us') ? 'group' : 'private',
+      language: originalLanguage,
+      senderData: { chatId, senderId, senderName }
+    };
+    
+    const agentResult = await routeToAgent(normalized, chatId);
+    
+    // If agent successfully executed a tool/command, send the result and exit
+    if (agentResult.success && (agentResult.toolsUsed?.length > 0 || agentResult.imageUrl || agentResult.videoUrl || agentResult.audioUrl)) {
+      console.log(`🎯 Agent identified and executed command/tool from voice message`);
       
-      // Clean the transcribed text (remove "סולמית"/"hashtag" if present)
-      let cleanedText = transcribedText
-        .replace(/סולמית/gi, '#')
-        .replace(/hashtag/gi, '#')
-        .replace(/hash/gi, '#')
-        .trim();
-      
-      // Ensure # prefix
-      if (!cleanedText.startsWith('#')) {
-        cleanedText = `# ${cleanedText}`;
+      // Send agent result (text, image, video, audio, etc.)
+      if (agentResult.text && agentResult.text.trim()) {
+        await sendTextMessage(chatId, agentResult.text);
+      }
+      if (agentResult.imageUrl) {
+        await sendFileByUrl(chatId, agentResult.imageUrl, `image_${Date.now()}.jpg`, '');
+      }
+      if (agentResult.videoUrl) {
+        await sendFileByUrl(chatId, agentResult.videoUrl, `video_${Date.now()}.mp4`, '');
+      }
+      if (agentResult.audioUrl) {
+        await sendFileByUrl(chatId, agentResult.audioUrl, `audio_${Date.now()}.mp3`, '');
       }
       
-      console.log(`🔄 Routing to agent with command: "${cleanedText}"`);
-      
-      // Save user message with transcription
-      await conversationManager.addMessage(chatId, 'user', `[הקלטה קולית] ${transcribedText}`, {
-        hasAudio: true,
-        audioUrl: audioUrl,
-        transcribedText: transcribedText
-      });
-      
-      // Route to agent as a regular command
-      const { routeToAgent } = require('../../agentRouter');
-      const normalized = {
-        userText: cleanedText,
-        hasAudio: true,
-        audioUrl: audioUrl,
-        chatType: chatId && chatId.endsWith('@g.us') ? 'group' : 'private',
-        language: originalLanguage,
-        senderData: { chatId, senderId, senderName }
-      };
-      
-      const agentResult = await routeToAgent(normalized, chatId);
-      
-      if (agentResult.success) {
-        // Send agent result (text, image, video, etc.)
-        if (agentResult.text && agentResult.text.trim()) {
-          await sendTextMessage(chatId, agentResult.text);
-        }
-        if (agentResult.imageUrl) {
-          await sendFileByUrl(chatId, agentResult.imageUrl, `image_${Date.now()}.jpg`, '');
-        }
-        if (agentResult.videoUrl) {
-          await sendFileByUrl(chatId, agentResult.videoUrl, `video_${Date.now()}.mp4`, '');
-        }
-      } else {
-        await sendTextMessage(chatId, `❌ ${agentResult.error || 'לא הצלחתי לבצע את הפקודה'}`);
-      }
-      
-      console.log(`✅ Command from voice message processed`);
+      console.log(`✅ Command from voice message processed successfully`);
       return;
     }
-
-    console.log(`💬 Regular voice message (not a command) - proceeding with voice-to-voice`);
+    
+    // If agent didn't execute any tool, treat as regular voice-to-voice conversation
+    console.log(`💬 Not a command - proceeding with voice-to-voice conversation`);
 
     // Don't send transcription to user - they should only receive the final voice response
 

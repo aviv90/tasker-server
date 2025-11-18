@@ -8,7 +8,7 @@ const { voiceService } = require('../../../voiceService');
 const text_to_speech = {
   declaration: {
     name: 'text_to_speech',
-    description: 'המר טקסט לדיבור. משתמש ב-ElevenLabs.',
+    description: 'המר טקסט לדיבור. אם יש הקלטה מצוטטת - משבט את הקול! משתמש ב-ElevenLabs.',
     parameters: {
       type: 'object',
       properties: {
@@ -25,24 +25,95 @@ const text_to_speech = {
     }
   },
   execute: async (args, context) => {
-    console.log(`🔧 [Agent Tool] text_to_speech called`);
+    console.log(`🔧 [Agent Tool] text_to_speech called: "${args.text}"`);
 
     try {
+      const { greenApiService } = getServices();
+      const { getAudioDuration } = require('../../../agent/utils/audioUtils');
+      
+      const MIN_DURATION_FOR_CLONING = 4.6; // seconds
       const language = args.language || 'he';
-      const voiceResult = await voiceService.getVoiceForLanguage(language);
+      
+      let voiceId = null;
+      let shouldDeleteVoice = false;
+      
+      // Check if there's a quoted audio for voice cloning
+      const quotedAudioUrl = context?.quotedContext?.audioUrl || context?.audioUrl;
+      
+      if (quotedAudioUrl) {
+        console.log(`🎤 Quoted audio detected for voice cloning: ${quotedAudioUrl.substring(0, 50)}...`);
+        
+        try {
+          // Download audio file
+          const audioBuffer = await greenApiService.downloadFile(quotedAudioUrl);
+          
+          // Get audio duration
+          const audioDuration = await getAudioDuration(audioBuffer);
+          console.log(`🎵 Quoted audio duration: ${audioDuration.toFixed(2)}s (minimum for cloning: ${MIN_DURATION_FOR_CLONING}s)`);
+          
+          if (audioDuration >= MIN_DURATION_FOR_CLONING) {
+            console.log(`🎤 Attempting voice clone from quoted audio...`);
+            
+            const voiceCloneOptions = {
+              name: `TTS Voice Clone ${Date.now()}`,
+              description: `Voice clone for text_to_speech`,
+              removeBackgroundNoise: true,
+              labels: JSON.stringify({
+                accent: 'natural',
+                use_case: 'conversational',
+                quality: 'high',
+                language: language
+              })
+            };
+            
+            const voiceCloneResult = await voiceService.createInstantVoiceClone(audioBuffer, voiceCloneOptions);
+            
+            if (voiceCloneResult.error) {
+              console.log(`⚠️ Voice cloning failed: ${voiceCloneResult.error}, using random voice`);
+            } else {
+              voiceId = voiceCloneResult.voiceId;
+              shouldDeleteVoice = true; // Mark for cleanup
+              console.log(`✅ Voice cloned successfully: ${voiceId}`);
+            }
+          } else {
+            console.log(`⏭️ Quoted audio too short for cloning (${audioDuration.toFixed(2)}s < ${MIN_DURATION_FOR_CLONING}s), using random voice`);
+          }
+        } catch (cloneError) {
+          console.log(`⚠️ Error during voice cloning process: ${cloneError.message}, using random voice`);
+        }
+      }
+      
+      // If voice wasn't cloned, get random voice for language
+      if (!voiceId) {
+        console.log(`🎤 Getting random voice for language: ${language}...`);
+        const voiceResult = await voiceService.getVoiceForLanguage(language);
 
-      if (voiceResult.error) {
-        return {
-          success: false,
-          error: `לא נמצא קול לשפה: ${voiceResult.error}`
-        };
+        if (voiceResult.error) {
+          return {
+            success: false,
+            error: `לא נמצא קול לשפה: ${voiceResult.error}`
+          };
+        }
+
+        voiceId = voiceResult.voiceId;
+        console.log(`✅ Using random voice: ${voiceId}`);
       }
 
-      const ttsResult = await voiceService.textToSpeech(voiceResult.voiceId, args.text, {
+      const ttsResult = await voiceService.textToSpeech(voiceId, args.text, {
         model_id: 'eleven_v3',
         optimize_streaming_latency: 0,
         output_format: 'mp3_44100_128'
       });
+
+      // Cleanup: Delete cloned voice if it was created
+      if (shouldDeleteVoice && voiceId) {
+        try {
+          await voiceService.deleteVoice(voiceId);
+          console.log(`🧹 Cleanup: Cloned voice ${voiceId} deleted`);
+        } catch (cleanupError) {
+          console.warn('⚠️ Voice cleanup failed:', cleanupError.message);
+        }
+      }
 
       if (ttsResult.error) {
         return {
@@ -54,7 +125,8 @@ const text_to_speech = {
       return {
         success: true,
         data: `✅ הטקסט הומר לדיבור!`,
-        audioUrl: ttsResult.audioUrl
+        audioUrl: ttsResult.audioUrl,
+        voiceCloned: shouldDeleteVoice
       };
     } catch (error) {
       console.error('❌ Error in text_to_speech:', error);
