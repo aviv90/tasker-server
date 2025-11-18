@@ -10,7 +10,6 @@ const { sendTextMessage } = require('../../services/greenApiService');
 const conversationManager = require('../../services/conversationManager');
 const { routeToAgent } = require('../../services/agentRouter');
 const { isAuthorizedForMediaCreation } = require('../../services/whatsapp/authorization');
-const { isAuthorizedForVoiceTranscription } = require('../../services/conversationManager');
 const { processVoiceMessageAsync } = require('./asyncProcessors');
 
 // Import modular handlers
@@ -173,19 +172,26 @@ async function handleIncomingMessage(webhookData, processedMessages) {
 
     // Handle automatic voice transcription for authorized users
     if (messageData.typeMessage === 'audioMessage') {
+      console.log(`🎤 Detected audio message from ${senderName}`);
       const audioUrl = messageData.downloadUrl || 
                       messageData.fileMessageData?.downloadUrl || 
                       messageData.audioMessageData?.downloadUrl;
       
+      console.log(`🔍 Audio URL: ${audioUrl ? 'found' : 'NOT FOUND'}`);
+      
       if (audioUrl) {
         // Check if user is authorized for automatic transcription
-        const isAuthorized = await isAuthorizedForVoiceTranscription({
+        const senderDataForAuth = {
           chatId,
           senderContactName,
           chatName,
           senderName,
           senderId
-        });
+        };
+        console.log(`🔍 Checking authorization for: ${JSON.stringify(senderDataForAuth)}`);
+        
+        const isAuthorized = await conversationManager.isAuthorizedForVoiceTranscription(senderDataForAuth);
+        console.log(`🔐 Authorization result: ${isAuthorized}`);
 
         if (isAuthorized) {
           console.log(`🎤 Authorized user ${senderName} sent voice message - processing automatically`);
@@ -199,6 +205,8 @@ async function handleIncomingMessage(webhookData, processedMessages) {
         } else {
           console.log(`🚫 User ${senderName} is not authorized for automatic voice transcription`);
         }
+      } else {
+        console.log(`❌ Audio message detected but no URL found`);
       }
     }
   } catch (error) {
