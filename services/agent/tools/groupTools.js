@@ -126,8 +126,10 @@ const create_group = {
               await sendTextMessage(chatId, '✅ תמונת הקבוצה עודכנה בהצלחה!');
             } else {
               console.warn(`⚠️ Generated group image not found at ${imagePath}`);
+              await sendTextMessage(chatId, `⚠️ התמונה נוצרה אבל לא נמצאה בשרת`);
             }
           } else if (imageResult.error) {
+            console.error('❌ Image generation failed:', imageResult.error);
             await sendTextMessage(chatId, `⚠️ הקבוצה נוצרה, אבל הייתה בעיה ביצירת התמונה: ${imageResult.error}`);
           }
         } catch (pictureError) {

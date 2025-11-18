@@ -458,8 +458,6 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
               // Send any generated media (image/video/audio/poll) with captions
               let mediaSent = false;
               
-              // Debug: Check multi-step status
-              console.log(`🔍 [Debug - Outgoing] multiStep: ${agentResult.multiStep}, text length: ${agentResult.text?.length || 0}, hasImage: ${!!agentResult.imageUrl}`);
               
               // Multi-step: Send text FIRST, then media
               if (agentResult.multiStep && agentResult.text && agentResult.text.trim()) {
