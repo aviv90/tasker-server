@@ -77,6 +77,17 @@ const TOOLS = {
     }
   },
 
+  create_group: {
+    name: 'create_group',
+    category: 'creation',
+    description: 'Create WhatsApp group with participants. Only available for authorized users.',
+    usage: ['צור קבוצה', 'create group', 'צור קבוצה עם המשפחה'],
+    parameters: {
+      group_name: { type: 'string', required: true, description: 'Group name' },
+      participants_description: { type: 'string', required: false, description: 'Participants description (e.g., "all family members", "work team")' }
+    }
+  },
+
   // ═══════════════════ ANALYSIS TOOLS ═══════════════════
   analyze_image: {
     name: 'analyze_image',
