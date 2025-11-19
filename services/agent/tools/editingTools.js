@@ -38,33 +38,62 @@ const edit_image = {
     
     try {
       const { openaiService, geminiService, greenApiService } = getServices();
-      const service = args.service || 'gemini'; // Gemini is the default editor (OpenAI is fallback)
+      const requestedService = args.service || null;
+      const servicesToTry = requestedService ? [requestedService] : ['gemini', 'openai'];
       
       // CRITICAL: edit_image needs base64 image, not URL!
-      // Download the image first and convert to base64
+      // Download the image first and convert to base64 (reuse for all attempts)
       const imageBuffer = await greenApiService.downloadFile(args.image_url);
       const base64Image = imageBuffer.toString('base64');
+      const errorStack = [];
       
-      let result;
-      if (service === 'openai') {
-        result = await openaiService.editImageForWhatsApp(args.edit_instruction, base64Image);
-      } else {
-        result = await geminiService.editImageForWhatsApp(args.edit_instruction, base64Image);
+      for (const service of servicesToTry) {
+        try {
+          console.log(`✏️ [edit_image] Trying provider: ${service}`);
+          let result;
+          if (service === 'openai') {
+            result = await openaiService.editImageForWhatsApp(args.edit_instruction, base64Image);
+          } else {
+            result = await geminiService.editImageForWhatsApp(args.edit_instruction, base64Image);
+          }
+          
+          if (result?.error) {
+            const providerName = formatProviderName(service);
+            const message = result.error || 'Unknown error';
+            errorStack.push({ provider: providerName, message });
+            console.warn(`❌ [edit_image] ${providerName} failed: ${message}`);
+            continue;
+          }
+          
+          return {
+            success: true,
+            data: `✅ התמונה נערכה בהצלחה עם ${formatProviderName(service)}!`,
+            imageUrl: result.imageUrl,
+            caption: result.description || '',
+            service: service
+          };
+        } catch (error) {
+          const providerName = formatProviderName(service);
+          const message = error.message || 'Unknown error';
+          errorStack.push({ provider: providerName, message });
+          console.error(`❌ [edit_image] ${providerName} threw error: ${message}`);
+        }
       }
       
-      if (result.error) {
+      if (requestedService) {
+        const failure = errorStack[0];
         return {
           success: false,
-          error: `עריכת תמונה נכשלה: ${result.error}`
+          error: `עריכת תמונה נכשלה עם ${failure?.provider || formatProviderName(requestedService)}: ${failure?.message || 'סיבה לא ידועה'}`
         };
       }
       
+      const failureDetails = errorStack.length > 0
+        ? errorStack.map(err => `• ${err.provider}: ${err.message}`).join('\n')
+        : 'לא התקבל הסבר מפורט מהספקים.';
       return {
-        success: true,
-        data: `✅ התמונה נערכה בהצלחה עם ${formatProviderName(service)}!`,
-        imageUrl: result.imageUrl,
-        caption: result.description || '',
-        service: service
+        success: false,
+        error: `כל הספקים נכשלו בעריכת התמונה:\n${failureDetails}`
       };
     } catch (error) {
       console.error('❌ Error in edit_image:', error);
