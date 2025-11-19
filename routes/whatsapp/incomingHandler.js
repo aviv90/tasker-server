@@ -119,6 +119,7 @@ async function handleIncomingMessage(webhookData, processedMessages) {
 
         // Save original message ID for quoting all bot responses
         const originalMessageId = webhookData.idMessage;
+        console.log(`🔍 [IncomingHandler] originalMessageId: ${originalMessageId}`);
 
         const normalized = {
           userText: `# ${finalPrompt}`, // Add back the # prefix for router
@@ -157,6 +158,7 @@ async function handleIncomingMessage(webhookData, processedMessages) {
           // Pass originalMessageId to agentResult for use in result handling
           if (agentResult) {
             agentResult.originalMessageId = originalMessageId;
+            console.log(`🔍 [IncomingHandler] Set agentResult.originalMessageId: ${agentResult.originalMessageId}`);
           }
 
           if (agentResult.success) {

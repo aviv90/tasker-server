@@ -115,6 +115,7 @@ class MultiStepExecution {
           
           // Get quotedMessageId from options.input if available
           const quotedMessageId = options.input?.originalMessageId || null;
+          console.log(`🔍 [MultiStep] quotedMessageId for step ${step.stepNumber}: ${quotedMessageId}, from options.input: ${options.input?.originalMessageId}`);
           
           // Send ALL results immediately in order
           await resultSender.sendStepResults(chatId, stepResult, step.stepNumber, quotedMessageId);

@@ -309,6 +309,7 @@ async function sendAgentResults(chatId, agentResult, normalized) {
 
   // Get quotedMessageId from agentResult or normalized
   const quotedMessageId = agentResult.originalMessageId || normalized?.originalMessageId || null;
+  console.log(`🔍 [ResultHandling] quotedMessageId: ${quotedMessageId}, from agentResult: ${agentResult.originalMessageId}, from normalized: ${normalized?.originalMessageId}`);
 
   // Send any generated media (image/video/audio/poll) with captions
   let mediaSent = false;
