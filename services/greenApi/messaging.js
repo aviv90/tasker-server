@@ -23,9 +23,6 @@ async function sendTextMessage(chatId, message, quotedMessageId = null) {
     // Add quoted message ID if provided
     if (quotedMessageId) {
       data.quotedMessageId = quotedMessageId;
-      console.log(`🔍 [Messaging] Adding quotedMessageId to sendTextMessage: ${quotedMessageId}`);
-    } else {
-      console.log(`🔍 [Messaging] sendTextMessage called WITHOUT quotedMessageId`);
     }
 
     const response = await axios.post(url, data, {

@@ -349,7 +349,8 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
           
           // Check if there was an error processing the quoted message
           if (quotedResult.error) {
-            await sendTextMessage(chatId, quotedResult.error);
+            const originalMessageId = webhookData.idMessage;
+            await sendTextMessage(chatId, quotedResult.error, originalMessageId);
             return;
           }
           
@@ -435,6 +436,9 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
           };
         }
 
+        // Save original message ID for quoting all bot responses
+        const originalMessageId = webhookData.idMessage;
+
         const normalized = {
           userText: `# ${finalPrompt}`, // Add back the # prefix for router
           hasImage: hasImage,
@@ -444,6 +448,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
           videoUrl: videoUrl, // 🆕 Pass media URLs to Agent
           audioUrl: audioUrl, // 🆕 Pass media URLs to Agent
           quotedContext: quotedContext, // 🆕 Quoted message info for Agent
+          originalMessageId: originalMessageId, // Original message ID for quoting bot responses
           chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
           language: 'he',
           authorizations: {
@@ -466,6 +471,14 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
             
             const agentResult = await routeToAgent(normalized, chatId);
             
+            // Pass originalMessageId to agentResult for use in result handling
+            if (agentResult) {
+              agentResult.originalMessageId = originalMessageId;
+            }
+            
+            // Get quotedMessageId from agentResult or normalized
+            const quotedMessageId = agentResult.originalMessageId || normalized?.originalMessageId || null;
+            
             if (agentResult.success) {
               // Send any generated media (image/video/audio/poll) with captions
               let mediaSent = false;
@@ -483,7 +496,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
                   .replace(/\[אודיו\]/gi, '')
                   .trim();
                 if (cleanText) {
-                  await sendTextMessage(chatId, cleanText);
+                  await sendTextMessage(chatId, cleanText, quotedMessageId);
                   console.log(`📤 [Multi-step - Outgoing] Text sent first (${cleanText.length} chars)`);
                 } else {
                   console.warn(`⚠️ [Multi-step - Outgoing] Text exists but cleanText is empty`);
@@ -529,7 +542,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
                   caption = cleanMediaDescription(caption);
                 }
                 
-                await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption);
+                await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId);
                 mediaSent = true;
               }
               
@@ -540,14 +553,14 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
               } else if (agentResult.videoUrl) {
                 console.log(`🎬 [Agent - Outgoing] Sending generated video: ${agentResult.videoUrl}`);
                 // Videos don't support captions well - send as file, text separately
-                await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '');
+                await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId);
                 mediaSent = true;
                 
                 // If there's meaningful text (description/revised prompt), send it separately
                 if (agentResult.text && agentResult.text.trim()) {
                   const videoDescription = cleanMediaDescription(agentResult.text);
                   if (videoDescription && videoDescription.length > 0) {
-                    await sendTextMessage(chatId, videoDescription);
+                    await sendTextMessage(chatId, videoDescription, quotedMessageId);
                   }
                 }
               }
@@ -562,7 +575,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
                 const fullAudioUrl = agentResult.audioUrl.startsWith('http') 
                   ? agentResult.audioUrl 
                   : getStaticFileUrl(agentResult.audioUrl.replace('/static/', ''));
-                await sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '');
+                await sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '', quotedMessageId);
                 mediaSent = true;
                 
                 // For audio files (TTS/translate_and_speak), don't send text - the audio IS the response
@@ -576,7 +589,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
                 console.log(`📊 [Agent - Outgoing] Sending poll: ${agentResult.poll.question}`);
                 // Convert options to Green API format
                 const pollOptions = agentResult.poll.options.map(opt => ({ optionName: opt }));
-                await sendPoll(chatId, agentResult.poll.question, pollOptions, false);
+                await sendPoll(chatId, agentResult.poll.question, pollOptions, false, quotedMessageId);
                 mediaSent = true;
               }
               
@@ -585,11 +598,11 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
                 console.log(`⏭️ [Agent - Outgoing] Skipping location send - already sent in multi-step`);
               } else if (agentResult.latitude && agentResult.longitude) {
                 console.log(`📍 [Agent - Outgoing] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
-                await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '');
+                await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '', quotedMessageId);
                 mediaSent = true;
                 // Send location info as separate text message
                 if (agentResult.locationInfo && agentResult.locationInfo.trim()) {
-                  await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`);
+                  await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`, quotedMessageId);
                 }
               }
               
@@ -602,7 +615,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
                   // Single tool → safe to send text
                   const cleanText = cleanAgentText(agentResult.text);
                   if (cleanText) {
-                    await sendTextMessage(chatId, cleanText);
+                    await sendTextMessage(chatId, cleanText, quotedMessageId);
                   }
                 } else {
                   console.log(`ℹ️ Multiple tools detected - skipping general text to avoid mixing outputs`);
@@ -618,20 +631,21 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
               
               console.log(`✅ [Agent - Outgoing] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
             } else {
-              await sendTextMessage(chatId, `❌ שגיאה: ${agentResult.error || 'לא הצלחתי לעבד את הבקשה'}`);
+              await sendTextMessage(chatId, `❌ שגיאה: ${agentResult.error || 'לא הצלחתי לעבד את הבקשה'}`, quotedMessageId);
             }
             return; // Exit early - no need for regular flow
             
           } catch (agentError) {
             console.error('❌ [Agent - Outgoing] Error:', agentError);
-            await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${agentError.message}`);
+            await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${agentError.message}`, quotedMessageId);
             return;
           }
         
 
       } catch (error) {
         console.error('❌ Command execution error (outgoing):', error.message || error);
-        await sendTextMessage(chatId, `❌ שגיאה בביצוע הפקודה: ${error.message || error}`);
+        const originalMessageId = webhookData.idMessage;
+        await sendTextMessage(chatId, `❌ שגיאה בביצוע הפקודה: ${error.message || error}`, originalMessageId);
       }
     }
   } catch (error) {

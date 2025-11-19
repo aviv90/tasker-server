@@ -299,8 +299,6 @@ async function saveBotResponse(chatId, agentResult) {
  * @returns {Promise<boolean>} True if results were sent successfully
  */
 async function sendAgentResults(chatId, agentResult, normalized) {
-  console.log(`🔍 [ResultHandling] sendAgentResults CALLED - agentResult.success: ${agentResult?.success}, multiStep: ${agentResult?.multiStep}, alreadySent: ${agentResult?.alreadySent}`);
-  
   // For multi-step, results are sent immediately after each step in agentService
   // If alreadySent is true, skip sending here to avoid duplicates
   if (agentResult.multiStep && agentResult.alreadySent) {
@@ -311,13 +309,9 @@ async function sendAgentResults(chatId, agentResult, normalized) {
 
   // Get quotedMessageId from agentResult or normalized
   const quotedMessageId = agentResult.originalMessageId || normalized?.originalMessageId || null;
-  console.log(`🔍 [ResultHandling] quotedMessageId: ${quotedMessageId}, from agentResult: ${agentResult.originalMessageId}, from normalized: ${normalized?.originalMessageId}`);
 
   // Send any generated media (image/video/audio/poll) with captions
   let mediaSent = false;
-
-  // Debug: Check multi-step status
-  console.log(`🔍 [Debug] multiStep: ${agentResult.multiStep}, text length: ${agentResult.text?.length || 0}, hasImage: ${!!agentResult.imageUrl}`);
 
   // Multi-step: Send text FIRST, then media
   if (agentResult.multiStep && agentResult.text && agentResult.text.trim()) {

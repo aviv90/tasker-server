@@ -30,7 +30,6 @@ const { sendAgentResults } = require('./incoming/resultHandling');
  */
 async function handleIncomingMessage(webhookData, processedMessages) {
   try {
-    console.log(`🔍 [IncomingHandler] START - webhookData.idMessage: ${webhookData.idMessage}`);
     const messageData = webhookData.messageData;
     const senderData = webhookData.senderData;
 
@@ -64,7 +63,6 @@ async function handleIncomingMessage(webhookData, processedMessages) {
 
     // Unified intent router for commands that start with "# "
     if (messageText && /^#\s+/.test(messageText.trim())) {
-      console.log(`🔍 [IncomingHandler] Command detected: "${messageText}"`);
       try {
         // Extract the prompt (remove "# " prefix if exists)
         const basePrompt = extractPrompt(messageText);
@@ -121,7 +119,6 @@ async function handleIncomingMessage(webhookData, processedMessages) {
 
         // Save original message ID for quoting all bot responses
         const originalMessageId = webhookData.idMessage;
-        console.log(`🔍 [IncomingHandler] originalMessageId: ${originalMessageId}`);
 
         const normalized = {
           userText: `# ${finalPrompt}`, // Add back the # prefix for router
@@ -160,7 +157,6 @@ async function handleIncomingMessage(webhookData, processedMessages) {
           // Pass originalMessageId to agentResult for use in result handling
           if (agentResult) {
             agentResult.originalMessageId = originalMessageId;
-            console.log(`🔍 [IncomingHandler] Set agentResult.originalMessageId: ${agentResult.originalMessageId}`);
           }
 
           if (agentResult.success) {
@@ -214,7 +210,8 @@ async function handleIncomingMessage(webhookData, processedMessages) {
             chatId,
             senderId,
             senderName,
-            audioUrl
+            audioUrl,
+            originalMessageId: webhookData.idMessage
           });
           return; // Exit early after processing voice message
         } else {

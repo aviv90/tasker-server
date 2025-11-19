@@ -105,7 +105,6 @@ class AgentLoop {
       // Send Ack message before executing tools
       // Get quotedMessageId from context if available
       const quotedMessageId = context.originalInput?.originalMessageId || null;
-      console.log(`🔍 [AgentLoop] quotedMessageId: ${quotedMessageId}, from context.originalInput: ${context.originalInput?.originalMessageId}`);
       await sendToolAckMessage(chatId, functionCalls, quotedMessageId);
 
       // Execute all tools in parallel

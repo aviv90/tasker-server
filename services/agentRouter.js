@@ -41,7 +41,6 @@ async function routeToAgent(input, chatId) {
   }
   
   // Execute agent query
-  console.log(`🔍 [AgentRouter] input.originalMessageId: ${input.originalMessageId}`);
   const agentResult = await executeAgentQuery(contextualPrompt, chatId, {
     input: {
       ...input,
@@ -49,7 +48,6 @@ async function routeToAgent(input, chatId) {
     },
     lastCommand: parsedLastCommand
   });
-  console.log(`🔍 [AgentRouter] agentResult.originalMessageId: ${agentResult?.originalMessageId}`);
   
   // Save the last successful command for retry functionality
   await saveLastCommand(agentResult, chatId, userText, input);

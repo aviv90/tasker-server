@@ -24,7 +24,7 @@ function setAgentToolsReference(tools) {
  * @param {string} tool - Tool name being retried
  * @param {string} provider - Provider to use (optional)
  */
-async function sendRetryAck(chatId, tool, provider) {
+async function sendRetryAck(chatId, tool, provider, quotedMessageId = null) {
   try {
     // Skip ACK for location (no ACK needed)
     if (tool === 'send_location') {
@@ -37,7 +37,7 @@ async function sendRetryAck(chatId, tool, provider) {
     if (ackMessage) {
       console.log(`📢 [RETRY ACK] ${ackMessage}`);
       const { greenApiService } = getServices();
-      await greenApiService.sendTextMessage(chatId, ackMessage);
+      await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId);
     }
   } catch (error) {
     console.error('❌ Error sending retry ACK:', error.message);
@@ -116,7 +116,8 @@ const retry_last_command = {
       }
       
       // Send specific ACK based on the tool and provider being retried
-      await sendRetryAck(context.chatId, tool, provider);
+      const quotedMessageId = context.originalInput?.originalMessageId || null;
+      await sendRetryAck(context.chatId, tool, provider, quotedMessageId);
       
       // Route to appropriate tool based on last command
       if (tool === 'gemini_image' || tool === 'openai_image' || tool === 'grok_image' || tool === 'create_image') {

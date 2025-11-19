@@ -11,7 +11,8 @@ const { VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP } = require('.
 async function sendFallbackAck(context, message) {
   try {
     const { greenApiService } = getServices();
-    await greenApiService.sendTextMessage(context.chatId, message);
+    const quotedMessageId = context.originalInput?.originalMessageId || null;
+    await greenApiService.sendTextMessage(context.chatId, message, quotedMessageId);
     console.log(`📢 [Fallback Ack] Sent: "${message}"`);
   } catch (ackError) {
     console.error('❌ Failed to send fallback Ack:', ackError);
@@ -24,7 +25,8 @@ async function sendFallbackAck(context, message) {
 async function sendFallbackError(context, message) {
   try {
     const { greenApiService } = getServices();
-    await greenApiService.sendTextMessage(context.chatId, message);
+    const quotedMessageId = context.originalInput?.originalMessageId || null;
+    await greenApiService.sendTextMessage(context.chatId, message, quotedMessageId);
     console.log(`📢 [Fallback Error] Sent to user: "${message}"`);
   } catch (sendError) {
     console.error('❌ Failed to send error to user:', sendError);

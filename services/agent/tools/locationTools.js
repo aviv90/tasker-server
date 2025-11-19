@@ -64,14 +64,16 @@ const send_location = {
       const regionAckMessage = locationService.buildLocationAckMessage(requestedRegion);
 
       if (regionAckMessage && context?.chatId) {
-        await greenApiService.sendTextMessage(context.chatId, regionAckMessage);
+        const quotedMessageId = context.originalInput?.originalMessageId || null;
+        await greenApiService.sendTextMessage(context.chatId, regionAckMessage, quotedMessageId);
       }
 
       const locationResult = await locationService.findRandomLocation({ requestedRegion });
       if (!locationResult.success) {
         const errorMessage = locationResult.error || 'לא הצלחתי למצוא מיקום תקין';
         if (context?.chatId) {
-          await greenApiService.sendTextMessage(context.chatId, `❌ ${errorMessage}`);
+          const quotedMessageId = context.originalInput?.originalMessageId || null;
+          await greenApiService.sendTextMessage(context.chatId, `❌ ${errorMessage}`, quotedMessageId);
         }
         return {
           success: false,
@@ -98,7 +100,8 @@ const send_location = {
       console.error('❌ Error in send_location:', error);
       const errorMessage = error?.message || 'שגיאה לא ידועה בשליחת המיקום';
       if (context?.chatId) {
-        await greenApiService.sendTextMessage(context.chatId, `❌ ${errorMessage}`);
+        const quotedMessageId = context.originalInput?.originalMessageId || null;
+        await greenApiService.sendTextMessage(context.chatId, `❌ ${errorMessage}`, quotedMessageId);
       }
       return {
         success: false,
