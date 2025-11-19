@@ -153,8 +153,46 @@ function isCriticalError(error) {
            (errorObj.response?.status >= 400 && errorObj.response?.status < 500);
 }
 
+/**
+ * Ensure user-facing error messages consistently include the red X emoji.
+ * Keeps the original text "as-is" after the prefix.
+ * This is the SSOT for error message formatting - ensures all user-facing errors have ❌ prefix.
+ * @param {string} message - Error message to format
+ * @returns {string} - Formatted error message with ❌ prefix
+ */
+function formatErrorMessage(message) {
+    if (!message || typeof message !== 'string') {
+        return '❌ שגיאה לא ידועה';
+    }
+
+    const trimmed = message.trim();
+    if (!trimmed) {
+        return '❌ שגיאה לא ידועה';
+    }
+
+    if (trimmed.startsWith('❌')) {
+        return trimmed;
+    }
+
+    return `❌ ${trimmed}`;
+}
+
+/**
+ * Extract error message from various error formats AND format it for user display.
+ * This is a combined function that does both extraction and formatting.
+ * @param {any} error - The error object (can be string, object, or complex structure)
+ * @param {string} fallback - Fallback message if no error message found
+ * @returns {string} - Formatted error message ready for user display
+ */
+function formatUserFacingError(error, fallback = 'שגיאה לא ידועה') {
+    const message = extractErrorMessage(error, fallback);
+    return formatErrorMessage(message);
+}
+
 module.exports = {
     extractErrorMessage,
+    formatErrorMessage,
+    formatUserFacingError,
     isErrorResult,
     getTaskError,
     isCriticalError,
