@@ -85,16 +85,15 @@ const translate_and_speak = {
       
       const MIN_DURATION_FOR_CLONING = 4.6; // seconds
 
-      // Try to parse TTS request to get optimal voice/language mapping
-      let targetLangCode = 'en';
-      try {
-        const parseResult = await parseTextToSpeechRequest(`say ${args.text} in ${args.target_language}`);
-        if (parseResult?.targetLanguage) {
-          targetLangCode = parseResult.targetLanguage;
-        }
-      } catch (parseError) {
-        console.warn('⚠️ Failed to parse language code, using default:', parseError.message);
-      }
+      // Map target language to language code (optimized - no API call needed)
+      const languageCodeMap = {
+        'english': 'en', 'hebrew': 'he', 'spanish': 'es', 'french': 'fr',
+        'german': 'de', 'italian': 'it', 'portuguese': 'pt', 'russian': 'ru',
+        'chinese': 'zh', 'japanese': 'ja', 'korean': 'ko', 'arabic': 'ar',
+        'hindi': 'hi', 'turkish': 'tr', 'polish': 'pl', 'dutch': 'nl',
+        'swedish': 'sv', 'finnish': 'fi', 'norwegian': 'no', 'danish': 'da', 'czech': 'cs'
+      };
+      const targetLangCode = languageCodeMap[args.target_language?.toLowerCase()] || 'en';
 
       // Step 1: Translate text
       console.log(`🌐 Translating to ${args.target_language}...`);

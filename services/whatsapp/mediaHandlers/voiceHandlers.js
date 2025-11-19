@@ -48,13 +48,6 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     const originalLanguage = voiceService.detectLanguage(transcribedText);
     console.log(`🌐 STT detected: ${transcriptionResult.detectedLanguage}, Our detection: ${originalLanguage}`);
 
-    // Save user message with transcription first
-    await conversationManager.addMessage(chatId, 'user', `[הקלטה קולית] ${transcribedText}`, {
-      hasAudio: true,
-      audioUrl: audioUrl,
-      transcribedText: transcribedText
-    });
-
     // Try to route to agent to see if this is a command (let the Agent/Planner decide)
     console.log(`🔄 Routing transcribed text to agent for evaluation...`);
     
@@ -73,19 +66,28 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     if (agentResult.success && (agentResult.toolsUsed?.length > 0 || agentResult.imageUrl || agentResult.videoUrl || agentResult.audioUrl)) {
       console.log(`🎯 Agent identified and executed command/tool from voice message`);
       
-      // Send agent result (text, image, video, audio, etc.)
+      // Save user message AFTER successful command execution
+      await conversationManager.addMessage(chatId, 'user', `[הקלטה קולית] ${transcribedText}`, {
+        hasAudio: true,
+        audioUrl: audioUrl,
+        transcribedText: transcribedText
+      });
+      
+      // Send agent result (text, image, video, audio, etc.) in parallel for better performance
+      const sendPromises = [];
       if (agentResult.text && agentResult.text.trim()) {
-        await sendTextMessage(chatId, agentResult.text);
+        sendPromises.push(sendTextMessage(chatId, agentResult.text));
       }
       if (agentResult.imageUrl) {
-        await sendFileByUrl(chatId, agentResult.imageUrl, `image_${Date.now()}.jpg`, '');
+        sendPromises.push(sendFileByUrl(chatId, agentResult.imageUrl, `image_${Date.now()}.jpg`, ''));
       }
       if (agentResult.videoUrl) {
-        await sendFileByUrl(chatId, agentResult.videoUrl, `video_${Date.now()}.mp4`, '');
+        sendPromises.push(sendFileByUrl(chatId, agentResult.videoUrl, `video_${Date.now()}.mp4`, ''));
       }
       if (agentResult.audioUrl) {
-        await sendFileByUrl(chatId, agentResult.audioUrl, `audio_${Date.now()}.mp3`, '');
+        sendPromises.push(sendFileByUrl(chatId, agentResult.audioUrl, `audio_${Date.now()}.mp3`, ''));
       }
+      await Promise.all(sendPromises);
       
       console.log(`✅ Command from voice message processed successfully`);
       return;
@@ -96,8 +98,36 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 
     // Don't send transcription to user - they should only receive the final voice response
 
-    // Step 2: Check audio duration and decide whether to clone voice
-    const audioDuration = await getAudioDuration(audioBuffer);
+    // Step 2: Check audio duration and decide whether to clone voice (parallel with Gemini)
+    const [audioDuration, geminiResult] = await Promise.all([
+      getAudioDuration(audioBuffer),
+      (async () => {
+        // Step 3: Generate Gemini response in the same language as the original
+        console.log(`🔄 Step 3: Generating Gemini response in ${originalLanguage}...`);
+
+        // Create language-aware prompt for Gemini
+        const languageInstruction = originalLanguage === 'he'
+          ? '' // Hebrew is default, no need for special instruction
+          : originalLanguage === 'en'
+            ? 'Please respond in English. '
+            : originalLanguage === 'ar'
+              ? 'يرجى الرد باللغة العربية. '
+              : originalLanguage === 'ru'
+                ? 'Пожалуйста, отвечайте на русском языке. '
+                : originalLanguage === 'es'
+                  ? 'Por favor responde en español. '
+                  : originalLanguage === 'fr'
+                    ? 'Veuillez répondre en français. '
+                    : originalLanguage === 'de'
+                      ? 'Bitte antworten Sie auf Deutsch. '
+                      : `Please respond in the same language as this message. `;
+
+        const geminiPrompt = languageInstruction + transcribedText;
+        // Voice processing doesn't need conversation history - treat each voice message independently
+        return await generateTextResponse(geminiPrompt, []);
+      })()
+    ]);
+
     let voiceId = null;
     let shouldCloneVoice = audioDuration >= MIN_DURATION_FOR_CLONING;
 
@@ -130,39 +160,10 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
       console.log(`⏭️ Step 2: Skipping voice clone (duration: ${audioDuration.toFixed(2)}s < ${MIN_DURATION_FOR_CLONING}s) - will use random voice`);
     }
 
-    const detectedLanguage = transcriptionResult.detectedLanguage || 'he';
-
-    // Step 3: Generate Gemini response in the same language as the original
-    console.log(`🔄 Step 3: Generating Gemini response in ${originalLanguage}...`);
-
-    // Create language-aware prompt for Gemini
-    const languageInstruction = originalLanguage === 'he'
-      ? '' // Hebrew is default, no need for special instruction
-      : originalLanguage === 'en'
-        ? 'Please respond in English. '
-        : originalLanguage === 'ar'
-          ? 'يرجى الرد باللغة العربية. '
-          : originalLanguage === 'ru'
-            ? 'Пожалуйста, отвечайте на русском языке. '
-            : originalLanguage === 'es'
-              ? 'Por favor responde en español. '
-              : originalLanguage === 'fr'
-                ? 'Veuillez répondre en français. '
-                : originalLanguage === 'de'
-                  ? 'Bitte antworten Sie auf Deutsch. '
-                  : `Please respond in the same language as this message. `;
-
-    const geminiPrompt = languageInstruction + transcribedText;
-    // Voice processing doesn't need conversation history - treat each voice message independently
-    const geminiResult = await generateTextResponse(geminiPrompt, []);
-
-    // Get final audio URL (will be used for conversation history)
-    const finalAudioUrl = audioUrl;
-
-    // Add user message to conversation AFTER getting Gemini response to avoid duplication
+    // Save user message AFTER getting Gemini response to avoid duplication
     await conversationManager.addMessage(chatId, 'user', `[הקלטה קולית] ${transcribedText}`, {
       hasAudio: true,
-      audioUrl: finalAudioUrl,
+      audioUrl: audioUrl,
       transcribedText: transcribedText
     });
 
