@@ -1,6 +1,10 @@
 /**
  * Contacts management
  */
+const { CacheKeys, CacheTTL } = require('../../utils/cache');
+const cache = require('../../utils/cache');
+const logger = require('../../utils/logger');
+
 class ContactsManager {
   constructor(conversationManager) {
     this.conversationManager = conversationManager;
@@ -53,7 +57,11 @@ class ContactsManager {
         }
       }
 
-      console.log(`📇 Contacts synced: ${inserted} inserted, ${updated} updated (total: ${contactsArray.length})`);
+      logger.info(`📇 Contacts synced: ${inserted} inserted, ${updated} updated (total: ${contactsArray.length})`);
+      
+      // Invalidate contacts cache after sync
+      cache.del(CacheKeys.allContacts());
+      
       return { inserted, updated, total: contactsArray.length };
     } finally {
       client.release();
@@ -61,11 +69,18 @@ class ContactsManager {
   }
 
   /**
-   * Get all contacts from database
+   * Get all contacts from database (with caching)
    */
   async getAllContacts() {
     if (!this.conversationManager.isInitialized) {
       return [];
+    }
+
+    // Try cache first
+    const cacheKey = CacheKeys.allContacts();
+    const cached = cache.get(cacheKey);
+    if (cached !== null) {
+      return cached;
     }
 
     const client = await this.conversationManager.pool.connect();
@@ -76,6 +91,9 @@ class ContactsManager {
         FROM contacts
         ORDER BY name ASC
       `);
+      
+      // Cache for 5 minutes (contacts don't change frequently)
+      cache.set(cacheKey, result.rows, CacheTTL.MEDIUM);
       
       return result.rows;
     } finally {

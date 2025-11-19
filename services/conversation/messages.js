@@ -1,6 +1,10 @@
 /**
  * Conversation messages management
  */
+const { CacheKeys, CacheTTL } = require('../../utils/cache');
+const cache = require('../../utils/cache');
+const logger = require('../../utils/logger');
+
 class MessagesManager {
   constructor(conversationManager) {
     this.conversationManager = conversationManager;
@@ -31,9 +35,12 @@ class MessagesManager {
       `, [chatId, role, content, JSON.stringify(metadata), timestamp]);
       
       const messageId = result.rows[0].id;
-      console.log(`💬 Added ${role} message to ${chatId} (ID: ${messageId})`);
+      logger.debug(`💬 Added ${role} message to ${chatId}`, { messageId, role });
+      
+      // Invalidate conversation history cache (new message added)
+      cache.invalidatePattern(CacheKeys.conversationHistory(chatId).split(':').slice(0, 2).join(':'));
         
-        // Keep only the last N messages for this chat
+      // Keep only the last N messages for this chat
       await this.trimMessagesForChat(chatId);
       
       // 🤖 Automatic Summary Generation Trigger
@@ -51,11 +58,16 @@ class MessagesManager {
       
       // Trigger summary every SUMMARY_TRIGGER_INTERVAL messages
       if (messageCount % SUMMARY_TRIGGER_INTERVAL === 0 && messageCount > 0) {
-        console.log(`📊 [Auto-Summary] Triggering summary generation for chat ${chatId} (${messageCount} messages)`);
+        logger.info(`📊 [Auto-Summary] Triggering summary generation for chat ${chatId}`, { messageCount });
         
         // Run in background (don't await)
         this.conversationManager.summariesManager.generateAutomaticSummary(chatId).catch(error => {
-          console.error(`❌ [Auto-Summary] Failed for chat ${chatId}:`, error.message);
+          logger.error(`❌ [Auto-Summary] Failed for chat ${chatId}`, {
+            error: {
+              message: error.message,
+              stack: error.stack
+            }
+          });
         });
       }
       
@@ -93,29 +105,50 @@ class MessagesManager {
   }
 
   /**
-   * Get conversation history for a specific chat
+   * Get conversation history for a specific chat (with caching)
    */
-  async getConversationHistory(chatId) {
+  async getConversationHistory(chatId, limit = null) {
     if (!this.conversationManager.isInitialized) {
       return [];
+    }
+
+    // Try cache first
+    const cacheKey = CacheKeys.conversationHistory(chatId, limit || 50);
+    const cached = cache.get(cacheKey);
+    if (cached !== null) {
+      return cached;
     }
 
     const client = await this.conversationManager.pool.connect();
     
     try {
-      const result = await client.query(`
+      let query = `
         SELECT role, content, metadata, timestamp
         FROM conversations 
         WHERE chat_id = $1 
         ORDER BY timestamp ASC
-      `, [chatId]);
+      `;
       
-      return result.rows.map(row => ({
+      const params = [chatId];
+      
+      if (limit) {
+        query += ` LIMIT $2`;
+        params.push(limit);
+      }
+      
+      const result = await client.query(query, params);
+      
+      const history = result.rows.map(row => ({
         role: row.role,
         content: row.content,
         metadata: row.metadata || {},
         timestamp: row.timestamp
       }));
+      
+      // Cache for 2 minutes (conversation history changes frequently)
+      cache.set(cacheKey, history, CacheTTL.SHORT * 2);
+      
+      return history;
     } finally {
       client.release();
     }

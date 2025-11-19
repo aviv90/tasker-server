@@ -237,17 +237,30 @@ async function resolveParticipants(participantNames) {
  */
 async function findContactByName(searchName, threshold = 0.6) {
   try {
-    console.log(`🔍 Searching for contact/group: "${searchName}"`);
+    const logger = require('../utils/logger');
+    const cache = require('../utils/cache');
+    const { CacheKeys, CacheTTL } = require('../utils/cache');
+    
+    logger.debug(`🔍 Searching for contact/group: "${searchName}"`);
+    
+    // Try cache first (cache key includes search name and threshold)
+    const cacheKey = CacheKeys.contact(`${searchName}:${threshold}`);
+    const cached = cache.get(cacheKey);
+    if (cached !== null) {
+      logger.debug(`✅ Contact found in cache`, { searchName });
+      return cached;
+    }
     
     // Get all contacts from database (includes both private contacts and groups)
+    // This itself is cached, so it's fast
     const contacts = await conversationManager.getAllContacts();
     
     if (!contacts || contacts.length === 0) {
-      console.log('⚠️ No contacts/groups found in database');
+      logger.warn('⚠️ No contacts/groups found in database');
       return null;
     }
     
-    console.log(`📇 Searching through ${contacts.length} contacts and groups in database`);
+    logger.debug(`📇 Searching through ${contacts.length} contacts and groups in database`);
     
     const match = findBestContactMatch(searchName, contacts, threshold);
     
@@ -255,8 +268,8 @@ async function findContactByName(searchName, threshold = 0.6) {
       const isGroup = match.contact.contact_id.endsWith('@g.us');
       const { getEntityType } = require('../config/messages');
       const entityType = getEntityType(isGroup);
-      console.log(`✅ Found ${entityType}: "${searchName}" → "${match.contact.contact_name || match.contact.name}" (score: ${match.score.toFixed(2)})`);
-      return {
+      
+      const result = {
         contactId: match.contact.contact_id,
         contactName: match.contact.contact_name || match.contact.name,
         matchScore: match.score,
@@ -266,13 +279,33 @@ async function findContactByName(searchName, threshold = 0.6) {
         originalContactName: match.contact.contact_name,
         type: match.contact.type
       };
+      
+      // Cache successful lookup for 5 minutes
+      cache.set(cacheKey, result, CacheTTL.MEDIUM);
+      
+      logger.debug(`✅ Found ${entityType}`, {
+        searchName,
+        foundName: result.contactName,
+        score: match.score.toFixed(2),
+        isGroup
+      });
+      
+      return result;
     }
     
-    console.log(`❌ No match found for "${searchName}"`);
+    logger.debug(`❌ No match found for "${searchName}"`);
+    // Cache null results for shorter time (1 minute) to avoid repeated failed lookups
+    cache.set(cacheKey, null, CacheTTL.SHORT);
     return null;
     
   } catch (error) {
-    console.error('❌ Error finding contact by name:', error);
+    logger.error('❌ Error finding contact by name', {
+      searchName,
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    });
     return null;
   }
 }
