@@ -53,7 +53,9 @@ class MultiStepExecution {
       // Send Ack BEFORE executing the step
       if (toolName) {
         console.log(`📢 [Multi-step] Sending Ack for Step ${step.stepNumber}/${plan.steps.length} (${toolName}) BEFORE execution`);
-        await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }]);
+        // Get quotedMessageId from options.input if available
+        const quotedMessageId = options.input?.originalMessageId || null;
+        await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }], quotedMessageId);
       }
       
       // Build focused prompt for this step
@@ -111,8 +113,11 @@ class MultiStepExecution {
         if (stepResult.success) {
           stepResults.push(stepResult);
           
+          // Get quotedMessageId from options.input if available
+          const quotedMessageId = options.input?.originalMessageId || null;
+          
           // Send ALL results immediately in order
-          await resultSender.sendStepResults(chatId, stepResult, step.stepNumber);
+          await resultSender.sendStepResults(chatId, stepResult, step.stepNumber, quotedMessageId);
           
           console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed and ALL results sent`);
         } else {
@@ -196,7 +201,9 @@ class MultiStepExecution {
         console.log(`🔄 [Multi-step Fallback] Trying ${provider}...`);
         
         // Send Ack for this fallback attempt
-        await sendToolAckMessage(chatId, [{ name: toolName, args: { provider } }]);
+        // Get quotedMessageId from options.input if available
+        const quotedMessageId = options.input?.originalMessageId || null;
+        await sendToolAckMessage(chatId, [{ name: toolName, args: { provider } }], quotedMessageId);
         
         try {
           const result = await this.executeFallbackTool(toolName, provider, toolParams, step, chatId);

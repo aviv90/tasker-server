@@ -55,8 +55,9 @@ function getToolAckMessage(toolName, provider = null) {
  * Send acknowledgment message to user based on tools being executed
  * @param {string} chatId - Chat ID
  * @param {Array} functionCalls - Array of function calls (with name and args)
+ * @param {string} [quotedMessageId] - Optional: ID of message to quote
  */
-async function sendToolAckMessage(chatId, functionCalls) {
+async function sendToolAckMessage(chatId, functionCalls, quotedMessageId = null) {
   if (!chatId || !functionCalls || functionCalls.length === 0) return;
   
   try {
@@ -127,7 +128,7 @@ async function sendToolAckMessage(chatId, functionCalls) {
     
     console.log(`📢 [ACK] Sending acknowledgment: "${ackMessage}"`);
     const { greenApiService } = getServices();
-    await greenApiService.sendTextMessage(chatId, ackMessage);
+    await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId);
   } catch (error) {
     console.error('❌ [ACK] Failed to send acknowledgment:', error.message);
     // Don't throw - Ack failure shouldn't break the agent

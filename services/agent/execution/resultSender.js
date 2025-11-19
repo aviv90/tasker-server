@@ -8,8 +8,12 @@ const { getStaticFileUrl } = require('../../../utils/urlUtils');
 class ResultSender {
   /**
    * Send location result to WhatsApp
+   * @param {string} chatId - Chat ID
+   * @param {Object} stepResult - Step result
+   * @param {number} [stepNumber] - Step number
+   * @param {string} [quotedMessageId] - Optional: ID of message to quote
    */
-  async sendLocation(chatId, stepResult, stepNumber = null) {
+  async sendLocation(chatId, stepResult, stepNumber = null, quotedMessageId = null) {
     if (!stepResult.latitude || !stepResult.longitude) return;
 
     try {
@@ -22,11 +26,12 @@ class ResultSender {
         parseFloat(stepResult.latitude),
         parseFloat(stepResult.longitude),
         '',
-        ''
+        '',
+        quotedMessageId
       );
 
       if (stepResult.locationInfo && stepResult.locationInfo.trim()) {
-        await greenApiService.sendTextMessage(chatId, `📍 ${stepResult.locationInfo}`);
+        await greenApiService.sendTextMessage(chatId, `📍 ${stepResult.locationInfo}`, quotedMessageId);
       }
 
       console.log(`✅ [ResultSender] Location sent${stepInfo}`);
@@ -37,8 +42,12 @@ class ResultSender {
 
   /**
    * Send poll result to WhatsApp
+   * @param {string} chatId - Chat ID
+   * @param {Object} stepResult - Step result
+   * @param {number} [stepNumber] - Step number
+   * @param {string} [quotedMessageId] - Optional: ID of message to quote
    */
-  async sendPoll(chatId, stepResult, stepNumber = null) {
+  async sendPoll(chatId, stepResult, stepNumber = null, quotedMessageId = null) {
     if (!stepResult.poll) return;
 
     try {
@@ -47,7 +56,7 @@ class ResultSender {
       console.log(`📊 [ResultSender] Sending poll${stepInfo}`);
 
       const pollOptions = stepResult.poll.options.map(opt => ({ optionName: opt }));
-      await greenApiService.sendPoll(chatId, stepResult.poll.question, pollOptions, false);
+      await greenApiService.sendPoll(chatId, stepResult.poll.question, pollOptions, false, quotedMessageId);
 
       console.log(`✅ [ResultSender] Poll sent${stepInfo}`);
     } catch (error) {
@@ -57,8 +66,12 @@ class ResultSender {
 
   /**
    * Send image result to WhatsApp
+   * @param {string} chatId - Chat ID
+   * @param {Object} stepResult - Step result
+   * @param {number} [stepNumber] - Step number
+   * @param {string} [quotedMessageId] - Optional: ID of message to quote
    */
-  async sendImage(chatId, stepResult, stepNumber = null) {
+  async sendImage(chatId, stepResult, stepNumber = null, quotedMessageId = null) {
     if (!stepResult.imageUrl) return;
 
     try {
@@ -71,7 +84,7 @@ class ResultSender {
         : getStaticFileUrl(stepResult.imageUrl.replace('/static/', ''));
       const caption = stepResult.imageCaption || '';
 
-      await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption);
+      await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId);
 
       console.log(`✅ [ResultSender] Image sent${stepInfo}`);
     } catch (error) {
@@ -81,8 +94,12 @@ class ResultSender {
 
   /**
    * Send video result to WhatsApp
+   * @param {string} chatId - Chat ID
+   * @param {Object} stepResult - Step result
+   * @param {number} [stepNumber] - Step number
+   * @param {string} [quotedMessageId] - Optional: ID of message to quote
    */
-  async sendVideo(chatId, stepResult, stepNumber = null) {
+  async sendVideo(chatId, stepResult, stepNumber = null, quotedMessageId = null) {
     if (!stepResult.videoUrl) return;
 
     try {
@@ -94,7 +111,7 @@ class ResultSender {
         ? stepResult.videoUrl
         : getStaticFileUrl(stepResult.videoUrl.replace('/static/', ''));
 
-      await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '');
+      await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId);
 
       console.log(`✅ [ResultSender] Video sent${stepInfo}`);
     } catch (error) {
@@ -104,8 +121,12 @@ class ResultSender {
 
   /**
    * Send audio result to WhatsApp
+   * @param {string} chatId - Chat ID
+   * @param {Object} stepResult - Step result
+   * @param {number} [stepNumber] - Step number
+   * @param {string} [quotedMessageId] - Optional: ID of message to quote
    */
-  async sendAudio(chatId, stepResult, stepNumber = null) {
+  async sendAudio(chatId, stepResult, stepNumber = null, quotedMessageId = null) {
     if (!stepResult.audioUrl) return;
 
     try {
@@ -117,7 +138,7 @@ class ResultSender {
         ? stepResult.audioUrl
         : getStaticFileUrl(stepResult.audioUrl.replace('/static/', ''));
 
-      await greenApiService.sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '');
+      await greenApiService.sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '', quotedMessageId);
 
       console.log(`✅ [ResultSender] Audio sent${stepInfo}`);
     } catch (error) {
@@ -127,8 +148,12 @@ class ResultSender {
 
   /**
    * Send text result to WhatsApp (only if no structured output was sent)
+   * @param {string} chatId - Chat ID
+   * @param {Object} stepResult - Step result
+   * @param {number} [stepNumber] - Step number
+   * @param {string} [quotedMessageId] - Optional: ID of message to quote
    */
-  async sendText(chatId, stepResult, stepNumber = null) {
+  async sendText(chatId, stepResult, stepNumber = null, quotedMessageId = null) {
     // Check if structured output was already sent
     const hasStructuredOutput = stepResult.latitude || stepResult.poll ||
                                  stepResult.imageUrl || stepResult.videoUrl ||
@@ -157,7 +182,7 @@ class ResultSender {
       }
 
       if (cleanText) {
-        await greenApiService.sendTextMessage(chatId, cleanText);
+        await greenApiService.sendTextMessage(chatId, cleanText, quotedMessageId);
         console.log(`✅ [ResultSender] Text sent${stepInfo}`);
       }
     } catch (error) {
@@ -168,14 +193,18 @@ class ResultSender {
   /**
    * Send all results from a step result in correct order
    * Order: location → poll → image → video → audio → text
+   * @param {string} chatId - Chat ID
+   * @param {Object} stepResult - Step result
+   * @param {number} [stepNumber] - Step number
+   * @param {string} [quotedMessageId] - Optional: ID of message to quote
    */
-  async sendStepResults(chatId, stepResult, stepNumber = null) {
-    await this.sendLocation(chatId, stepResult, stepNumber);
-    await this.sendPoll(chatId, stepResult, stepNumber);
-    await this.sendImage(chatId, stepResult, stepNumber);
-    await this.sendVideo(chatId, stepResult, stepNumber);
-    await this.sendAudio(chatId, stepResult, stepNumber);
-    await this.sendText(chatId, stepResult, stepNumber);
+  async sendStepResults(chatId, stepResult, stepNumber = null, quotedMessageId = null) {
+    await this.sendLocation(chatId, stepResult, stepNumber, quotedMessageId);
+    await this.sendPoll(chatId, stepResult, stepNumber, quotedMessageId);
+    await this.sendImage(chatId, stepResult, stepNumber, quotedMessageId);
+    await this.sendVideo(chatId, stepResult, stepNumber, quotedMessageId);
+    await this.sendAudio(chatId, stepResult, stepNumber, quotedMessageId);
+    await this.sendText(chatId, stepResult, stepNumber, quotedMessageId);
   }
 }
 

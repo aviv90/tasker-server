@@ -89,7 +89,8 @@ async function handleIncomingMessage(webhookData, processedMessages) {
           const quotedResult = await processQuotedMessage(quotedMessage, basePrompt, chatId);
 
           if (quotedResult.error) {
-            await sendTextMessage(chatId, quotedResult.error);
+            const originalMessageId = webhookData.idMessage;
+            await sendTextMessage(chatId, quotedResult.error, originalMessageId);
             return;
           }
 
@@ -116,6 +117,9 @@ async function handleIncomingMessage(webhookData, processedMessages) {
           ? buildQuotedContext(quotedMessage, imageUrl, videoUrl, audioUrl)
           : null;
 
+        // Save original message ID for quoting all bot responses
+        const originalMessageId = webhookData.idMessage;
+
         const normalized = {
           userText: `# ${finalPrompt}`, // Add back the # prefix for router
           hasImage: hasImage,
@@ -125,6 +129,7 @@ async function handleIncomingMessage(webhookData, processedMessages) {
           videoUrl: videoUrl, // Pass media URLs to Agent
           audioUrl: audioUrl, // Pass media URLs to Agent
           quotedContext: quotedContext, // Quoted message info for Agent
+          originalMessageId: originalMessageId, // Original message ID for quoting bot responses
           chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
           language: 'he',
           authorizations: {
@@ -149,23 +154,29 @@ async function handleIncomingMessage(webhookData, processedMessages) {
 
           const agentResult = await routeToAgent(normalized, chatId);
 
+          // Pass originalMessageId to agentResult for use in result handling
+          if (agentResult) {
+            agentResult.originalMessageId = originalMessageId;
+          }
+
           if (agentResult.success) {
             // Send all results (text, media, polls, locations)
             await sendAgentResults(chatId, agentResult, normalized);
           } else {
-            await sendTextMessage(chatId, `❌ שגיאה: ${agentResult.error || 'לא הצלחתי לעבד את הבקשה'}`);
+            await sendTextMessage(chatId, `❌ שגיאה: ${agentResult.error || 'לא הצלחתי לעבד את הבקשה'}`, originalMessageId);
           }
           return; // Exit early - no need for regular flow
 
         } catch (agentError) {
           console.error('❌ [Agent] Error:', agentError);
-          await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${agentError.message}`);
+          await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${agentError.message}`, originalMessageId);
           return;
         }
 
       } catch (error) {
         console.error('❌ Command execution error:', error.message || error);
-        await sendTextMessage(chatId, `❌ שגיאה בביצוע הפקודה: ${error.message || error}`);
+        const originalMessageId = webhookData.idMessage;
+        await sendTextMessage(chatId, `❌ שגיאה בביצוע הפקודה: ${error.message || error}`, originalMessageId);
       }
       return; // Exit early after handling # commands
     }

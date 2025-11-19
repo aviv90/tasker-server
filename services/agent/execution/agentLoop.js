@@ -99,7 +99,9 @@ class AgentLoop {
       console.log(`🔧 [Agent] Executing ${functionCalls.length} function call(s)`);
 
       // Send Ack message before executing tools
-      await sendToolAckMessage(chatId, functionCalls);
+      // Get quotedMessageId from context if available
+      const quotedMessageId = context.originalInput?.originalMessageId || null;
+      await sendToolAckMessage(chatId, functionCalls, quotedMessageId);
 
       // Execute all tools in parallel
       const toolPromises = functionCalls.map(async (call) => {

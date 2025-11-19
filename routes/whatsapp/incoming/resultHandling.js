@@ -15,8 +15,9 @@ const { executeAgentQuery } = require('../../../services/agentService');
  * Send multi-step text response
  * @param {string} chatId - Chat ID
  * @param {string} text - Text to send
+ * @param {string} [quotedMessageId] - Optional: ID of message to quote
  */
-async function sendMultiStepText(chatId, text) {
+async function sendMultiStepText(chatId, text, quotedMessageId = null) {
   if (!text || !text.trim()) return;
 
   let cleanText = text
@@ -30,7 +31,7 @@ async function sendMultiStepText(chatId, text) {
     .trim();
 
   if (cleanText) {
-    await sendTextMessage(chatId, cleanText);
+    await sendTextMessage(chatId, cleanText, quotedMessageId);
     console.log(`📤 [Multi-step] Text sent first (${cleanText.length} chars)`);
   } else {
     console.warn(`⚠️ [Multi-step] Text exists but cleanText is empty`);
@@ -41,9 +42,10 @@ async function sendMultiStepText(chatId, text) {
  * Send image result
  * @param {string} chatId - Chat ID
  * @param {Object} agentResult - Agent result
+ * @param {string} [quotedMessageId] - Optional: ID of message to quote
  * @returns {boolean} True if sent
  */
-async function sendImageResult(chatId, agentResult) {
+async function sendImageResult(chatId, agentResult, quotedMessageId = null) {
   if (!agentResult.imageUrl) return false;
 
   // For multi-step with alreadySent=true, image was already sent in agentService
@@ -82,7 +84,7 @@ async function sendImageResult(chatId, agentResult) {
     caption = cleanMediaDescription(caption);
   }
 
-  await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption);
+  await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId);
   return true;
 }
 
@@ -90,9 +92,10 @@ async function sendImageResult(chatId, agentResult) {
  * Send video result
  * @param {string} chatId - Chat ID
  * @param {Object} agentResult - Agent result
+ * @param {string} [quotedMessageId] - Optional: ID of message to quote
  * @returns {boolean} True if sent
  */
-async function sendVideoResult(chatId, agentResult) {
+async function sendVideoResult(chatId, agentResult, quotedMessageId = null) {
   if (!agentResult.videoUrl) return false;
 
   // For multi-step, video is already sent in agentService - skip here
@@ -103,13 +106,13 @@ async function sendVideoResult(chatId, agentResult) {
 
   console.log(`🎬 [Agent] Sending generated video: ${agentResult.videoUrl}`);
   // Videos don't support captions well - send as file, text separately
-  await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '');
+  await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId);
 
   // If there's meaningful text (description/revised prompt), send it separately
   if (agentResult.text && agentResult.text.trim()) {
     const videoDescription = cleanMediaDescription(agentResult.text);
     if (videoDescription && videoDescription.length > 2) {
-      await sendTextMessage(chatId, videoDescription);
+      await sendTextMessage(chatId, videoDescription, quotedMessageId);
     }
   }
 
@@ -120,9 +123,10 @@ async function sendVideoResult(chatId, agentResult) {
  * Send audio result
  * @param {string} chatId - Chat ID
  * @param {Object} agentResult - Agent result
+ * @param {string} [quotedMessageId] - Optional: ID of message to quote
  * @returns {boolean} True if sent
  */
-async function sendAudioResult(chatId, agentResult) {
+async function sendAudioResult(chatId, agentResult, quotedMessageId = null) {
   if (!agentResult.audioUrl) return false;
 
   // For multi-step, audio is already sent in agentService - skip here
@@ -136,7 +140,7 @@ async function sendAudioResult(chatId, agentResult) {
   const fullAudioUrl = agentResult.audioUrl.startsWith('http')
     ? agentResult.audioUrl
     : getStaticFileUrl(agentResult.audioUrl.replace('/static/', ''));
-  await sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '');
+  await sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '', quotedMessageId);
 
   // For audio files (TTS/translate_and_speak), don't send text - the audio IS the response
   return true;
@@ -146,9 +150,10 @@ async function sendAudioResult(chatId, agentResult) {
  * Send poll result
  * @param {string} chatId - Chat ID
  * @param {Object} agentResult - Agent result
+ * @param {string} [quotedMessageId] - Optional: ID of message to quote
  * @returns {boolean} True if sent
  */
-async function sendPollResult(chatId, agentResult) {
+async function sendPollResult(chatId, agentResult, quotedMessageId = null) {
   if (!agentResult.poll) return false;
 
   // For multi-step, poll is already sent in agentService - skip here
@@ -160,7 +165,7 @@ async function sendPollResult(chatId, agentResult) {
   console.log(`📊 [Agent] Sending poll: ${agentResult.poll.question}`);
   // Convert options to Green API format
   const pollOptions = agentResult.poll.options.map(opt => ({ optionName: opt }));
-  await sendPoll(chatId, agentResult.poll.question, pollOptions, false);
+  await sendPoll(chatId, agentResult.poll.question, pollOptions, false, quotedMessageId);
   return true;
 }
 
@@ -168,9 +173,10 @@ async function sendPollResult(chatId, agentResult) {
  * Send location result
  * @param {string} chatId - Chat ID
  * @param {Object} agentResult - Agent result
+ * @param {string} [quotedMessageId] - Optional: ID of message to quote
  * @returns {boolean} True if sent
  */
-async function sendLocationResult(chatId, agentResult) {
+async function sendLocationResult(chatId, agentResult, quotedMessageId = null) {
   if (!agentResult.latitude || !agentResult.longitude) return false;
 
   // For multi-step, location is already sent in agentService - skip here
@@ -180,10 +186,10 @@ async function sendLocationResult(chatId, agentResult) {
   }
 
   console.log(`📍 [Agent] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
-  await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '');
+  await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '', quotedMessageId);
   // Send location info as separate text message
   if (agentResult.locationInfo && agentResult.locationInfo.trim()) {
-    await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`);
+    await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`, quotedMessageId);
   }
   return true;
 }
@@ -193,8 +199,9 @@ async function sendLocationResult(chatId, agentResult) {
  * @param {string} chatId - Chat ID
  * @param {Object} agentResult - Agent result
  * @param {boolean} mediaSent - Whether media was already sent
+ * @param {string} [quotedMessageId] - Optional: ID of message to quote
  */
-async function sendSingleStepText(chatId, agentResult, mediaSent) {
+async function sendSingleStepText(chatId, agentResult, mediaSent, quotedMessageId = null) {
   // Single-step: If no media was sent and it's not multi-step, send text response
   if (!agentResult.multiStep && !mediaSent && agentResult.text && agentResult.text.trim()) {
     const multipleTools = (agentResult.toolsUsed && agentResult.toolsUsed.length > 1);
@@ -203,7 +210,7 @@ async function sendSingleStepText(chatId, agentResult, mediaSent) {
       // Single tool → safe to send text
       const cleanText = cleanAgentText(agentResult.text);
       if (cleanText) {
-        await sendTextMessage(chatId, cleanText);
+        await sendTextMessage(chatId, cleanText, quotedMessageId);
       }
     } else {
       console.log(`ℹ️ Multiple tools detected - skipping general text to avoid mixing outputs`);
@@ -216,8 +223,9 @@ async function sendSingleStepText(chatId, agentResult, mediaSent) {
  * @param {string} chatId - Chat ID
  * @param {Object} normalized - Normalized input
  * @param {Object} agentResult - Agent result
+ * @param {string} [quotedMessageId] - Optional: ID of message to quote
  */
-async function handlePostProcessing(chatId, normalized, agentResult) {
+async function handlePostProcessing(chatId, normalized, agentResult, quotedMessageId = null) {
   try {
     const userText = normalized.userText || '';
 
@@ -257,7 +265,8 @@ async function handlePostProcessing(chatId, normalized, agentResult) {
           chatId,
           imageResult.imageUrl,
           `agent_image_${Date.now()}.png`,
-          caption
+          caption,
+          quotedMessageId
         );
       } else {
         console.warn('⚠️ [Agent Post] Failed to generate complementary image for text+image request');
@@ -298,6 +307,9 @@ async function sendAgentResults(chatId, agentResult, normalized) {
     return true;
   }
 
+  // Get quotedMessageId from agentResult or normalized
+  const quotedMessageId = agentResult.originalMessageId || normalized?.originalMessageId || null;
+
   // Send any generated media (image/video/audio/poll) with captions
   let mediaSent = false;
 
@@ -306,37 +318,37 @@ async function sendAgentResults(chatId, agentResult, normalized) {
 
   // Multi-step: Send text FIRST, then media
   if (agentResult.multiStep && agentResult.text && agentResult.text.trim()) {
-    await sendMultiStepText(chatId, agentResult.text);
+    await sendMultiStepText(chatId, agentResult.text, quotedMessageId);
   } else {
     console.warn(`⚠️ [Multi-step] Text not sent - multiStep: ${agentResult.multiStep}, text: ${!!agentResult.text}, trimmed: ${!!agentResult.text?.trim()}`);
   }
 
   // CRITICAL: Send media if URLs exist (Rule: Media MUST be sent!)
-  if (await sendImageResult(chatId, agentResult)) {
+  if (await sendImageResult(chatId, agentResult, quotedMessageId)) {
     mediaSent = true;
   }
 
-  if (await sendVideoResult(chatId, agentResult)) {
+  if (await sendVideoResult(chatId, agentResult, quotedMessageId)) {
     mediaSent = true;
   }
 
-  if (await sendAudioResult(chatId, agentResult)) {
+  if (await sendAudioResult(chatId, agentResult, quotedMessageId)) {
     mediaSent = true;
   }
 
-  if (await sendPollResult(chatId, agentResult)) {
+  if (await sendPollResult(chatId, agentResult, quotedMessageId)) {
     mediaSent = true;
   }
 
-  if (await sendLocationResult(chatId, agentResult)) {
+  if (await sendLocationResult(chatId, agentResult, quotedMessageId)) {
     mediaSent = true;
   }
 
   // Single-step: If no media was sent, send text response
-  await sendSingleStepText(chatId, agentResult, mediaSent);
+  await sendSingleStepText(chatId, agentResult, mediaSent, quotedMessageId);
 
   // Handle post-processing (complementary image generation)
-  await handlePostProcessing(chatId, normalized, agentResult);
+  await handlePostProcessing(chatId, normalized, agentResult, quotedMessageId);
 
   // Save bot response to conversation history
   await saveBotResponse(chatId, agentResult);

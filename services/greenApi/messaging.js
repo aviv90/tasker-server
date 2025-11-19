@@ -7,8 +7,11 @@ const { BASE_URL, GREEN_API_API_TOKEN_INSTANCE } = require('./constants');
 
 /**
  * Send text message via Green API
+ * @param {string} chatId - Chat ID
+ * @param {string} message - Message text
+ * @param {string} [quotedMessageId] - Optional: ID of message to quote
  */
-async function sendTextMessage(chatId, message) {
+async function sendTextMessage(chatId, message, quotedMessageId = null) {
   try {
     const url = `${BASE_URL}/sendMessage/${GREEN_API_API_TOKEN_INSTANCE}`;
 
@@ -16,6 +19,11 @@ async function sendTextMessage(chatId, message) {
       chatId: chatId,
       message: message
     };
+
+    // Add quoted message ID if provided
+    if (quotedMessageId) {
+      data.quotedMessageId = quotedMessageId;
+    }
 
     const response = await axios.post(url, data, {
       headers: {
@@ -33,8 +41,13 @@ async function sendTextMessage(chatId, message) {
 
 /**
  * Send file by URL via Green API
+ * @param {string} chatId - Chat ID
+ * @param {string} fileUrl - File URL
+ * @param {string} fileName - File name
+ * @param {string} [caption] - Optional caption
+ * @param {string} [quotedMessageId] - Optional: ID of message to quote
  */
-async function sendFileByUrl(chatId, fileUrl, fileName, caption = '') {
+async function sendFileByUrl(chatId, fileUrl, fileName, caption = '', quotedMessageId = null) {
   try {
     const url = `${BASE_URL}/sendFileByUrl/${GREEN_API_API_TOKEN_INSTANCE}`;
 
@@ -44,6 +57,11 @@ async function sendFileByUrl(chatId, fileUrl, fileName, caption = '') {
       fileName: fileName,
       caption: caption
     };
+
+    // Add quoted message ID if provided
+    if (quotedMessageId) {
+      data.quotedMessageId = quotedMessageId;
+    }
 
     console.log(`📤 Sending file: ${fileName} to ${chatId}`);
 
@@ -71,8 +89,13 @@ async function sendFileByUrl(chatId, fileUrl, fileName, caption = '') {
 
 /**
  * Send poll message via Green API
+ * @param {string} chatId - Chat ID
+ * @param {string} message - Poll question
+ * @param {Array} options - Poll options
+ * @param {boolean} [multipleAnswers] - Allow multiple answers
+ * @param {string} [quotedMessageId] - Optional: ID of message to quote
  */
-async function sendPoll(chatId, message, options, multipleAnswers = false) {
+async function sendPoll(chatId, message, options, multipleAnswers = false, quotedMessageId = null) {
   try {
     const url = `${BASE_URL}/sendPoll/${GREEN_API_API_TOKEN_INSTANCE}`;
 
@@ -82,6 +105,11 @@ async function sendPoll(chatId, message, options, multipleAnswers = false) {
       options: options,
       multipleAnswers: multipleAnswers
     };
+
+    // Add quoted message ID if provided
+    if (quotedMessageId) {
+      data.quotedMessageId = quotedMessageId;
+    }
 
     const response = await axios.post(url, data, {
       headers: {
@@ -106,8 +134,14 @@ async function sendPoll(chatId, message, options, multipleAnswers = false) {
 
 /**
  * Send location message via Green API
+ * @param {string} chatId - Chat ID
+ * @param {number} latitude - Latitude
+ * @param {number} longitude - Longitude
+ * @param {string} [nameLocation] - Optional location name
+ * @param {string} [address] - Optional address
+ * @param {string} [quotedMessageId] - Optional: ID of message to quote
  */
-async function sendLocation(chatId, latitude, longitude, nameLocation = '', address = '') {
+async function sendLocation(chatId, latitude, longitude, nameLocation = '', address = '', quotedMessageId = null) {
   try {
     const url = `${BASE_URL}/sendLocation/${GREEN_API_API_TOKEN_INSTANCE}`;
 
@@ -118,6 +152,11 @@ async function sendLocation(chatId, latitude, longitude, nameLocation = '', addr
       nameLocation: nameLocation,
       address: address
     };
+
+    // Add quoted message ID if provided
+    if (quotedMessageId) {
+      data.quotedMessageId = quotedMessageId;
+    }
 
     const response = await axios.post(url, data, {
       headers: {
