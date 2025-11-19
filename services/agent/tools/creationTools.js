@@ -4,6 +4,7 @@
  */
 
 const { formatProviderName } = require('../utils/providerUtils');
+const { sendToolAckMessage } = require('../utils/ackUtils');
 const { getServices } = require('../utils/serviceLoader');
 const { cleanMarkdown } = require('../../../utils/textSanitizer');
 
@@ -45,12 +46,19 @@ const create_image = {
       const providersToTry = requestedProvider
         ? [requestedProvider]
         : ['gemini', 'openai', 'grok'];
-      const { geminiService, openaiService, grokService } = getServices();
+      const { geminiService, openaiService, grokService, greenApiService } = getServices();
       const errorStack = [];
+      const chatId = context?.chatId || null;
       
-      for (const provider of providersToTry) {
+      for (let idx = 0; idx < providersToTry.length; idx++) {
+        const provider = providersToTry[idx];
         try {
           console.log(`🎨 [create_image] Trying provider: ${provider}`);
+          
+          if (idx > 0 && chatId) {
+            await sendToolAckMessage(chatId, [{ name: 'create_image', args: { provider } }]);
+          }
+          
           let imageResult;
           if (provider === 'openai') {
             imageResult = await openaiService.generateImageForWhatsApp(args.prompt);
@@ -62,9 +70,12 @@ const create_image = {
           
           if (imageResult?.error) {
             const providerName = formatProviderName(provider);
-            const message = imageResult.error || 'Unknown error';
+            const message = imageResult.error || `שגיאה ביצירת תמונה עם ${providerName}`;
             errorStack.push({ provider: providerName, message });
             console.warn(`❌ [create_image] ${providerName} failed: ${message}`);
+            if (chatId && greenApiService) {
+              await greenApiService.sendTextMessage(chatId, message);
+            }
             continue;
           }
           
@@ -83,9 +94,12 @@ const create_image = {
           };
         } catch (error) {
           const providerName = formatProviderName(provider);
-          const message = error.message || 'Unknown error';
+          const message = `שגיאה ביצירת תמונה עם ${providerName}: ${error.message || 'Unknown error'}`;
           errorStack.push({ provider: providerName, message });
           console.error(`❌ [create_image] ${providerName} threw error: ${message}`);
+          if (chatId && greenApiService) {
+            await greenApiService.sendTextMessage(chatId, message);
+          }
         }
       }
       
@@ -141,7 +155,7 @@ const create_video = {
     console.log(`🔧 [Agent Tool] create_video called with provider: ${args.provider || 'kling'}`);
     
     try {
-      const { geminiService, openaiService } = getServices();
+      const { geminiService, openaiService, greenApiService } = getServices();
       const replicateService = require('../../replicateService');
       const requestedProvider = args.provider || null;
       const providersToTry = requestedProvider
@@ -149,10 +163,17 @@ const create_video = {
         : ['kling', 'veo3', 'sora'];
       const errorStack = [];
       context.expectedMediaType = 'video';
+      const chatId = context?.chatId || null;
       
-      for (const provider of providersToTry) {
+      for (let idx = 0; idx < providersToTry.length; idx++) {
+        const provider = providersToTry[idx];
         try {
           console.log(`🎬 [create_video] Trying provider: ${provider}`);
+          
+          if (idx > 0 && chatId) {
+            await sendToolAckMessage(chatId, [{ name: 'create_video', args: { provider } }]);
+          }
+          
           let result;
           if (provider === 'veo3') {
             result = await geminiService.generateVideoForWhatsApp(args.prompt);
@@ -165,9 +186,12 @@ const create_video = {
           
           if (result?.error) {
             const providerName = formatProviderName(provider);
-            const message = result.error || 'Unknown error';
+            const message = result.error || `יצירת וידאו נכשלה עם ${providerName}`;
             errorStack.push({ provider: providerName, message });
             console.warn(`❌ [create_video] ${providerName} failed: ${message}`);
+            if (chatId && greenApiService) {
+              await greenApiService.sendTextMessage(chatId, message);
+            }
             continue;
           }
           
@@ -181,9 +205,12 @@ const create_video = {
           return payload;
         } catch (error) {
           const providerName = formatProviderName(provider);
-          const message = error.message || 'Unknown error';
+          const message = `שגיאה ביצירת וידאו עם ${providerName}: ${error.message || 'Unknown error'}`;
           errorStack.push({ provider: providerName, message });
           console.error(`❌ [create_video] ${providerName} threw error: ${message}`);
+          if (chatId && greenApiService) {
+            await greenApiService.sendTextMessage(chatId, message);
+          }
         }
       }
       

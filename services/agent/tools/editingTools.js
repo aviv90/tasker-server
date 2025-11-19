@@ -4,6 +4,7 @@
  */
 
 const { formatProviderName } = require('../utils/providerUtils');
+const { sendToolAckMessage } = require('../utils/ackUtils');
 const { getServices } = require('../utils/serviceLoader');
 
 /**
@@ -40,6 +41,7 @@ const edit_image = {
       const { openaiService, geminiService, greenApiService } = getServices();
       const requestedService = args.service || null;
       const servicesToTry = requestedService ? [requestedService] : ['gemini', 'openai'];
+      const chatId = context?.chatId || null;
       
       // CRITICAL: edit_image needs base64 image, not URL!
       // Download the image first and convert to base64 (reuse for all attempts)
@@ -47,9 +49,15 @@ const edit_image = {
       const base64Image = imageBuffer.toString('base64');
       const errorStack = [];
       
-      for (const service of servicesToTry) {
+      for (let idx = 0; idx < servicesToTry.length; idx++) {
+        const service = servicesToTry[idx];
         try {
           console.log(`✏️ [edit_image] Trying provider: ${service}`);
+          
+          if (idx > 0 && chatId) {
+            await sendToolAckMessage(chatId, [{ name: 'edit_image', args: { service } }]);
+          }
+          
           let result;
           if (service === 'openai') {
             result = await openaiService.editImageForWhatsApp(args.edit_instruction, base64Image);
@@ -59,9 +67,12 @@ const edit_image = {
           
           if (result?.error) {
             const providerName = formatProviderName(service);
-            const message = result.error || 'Unknown error';
+            const message = result.error || `עריכת תמונה נכשלה עם ${providerName}`;
             errorStack.push({ provider: providerName, message });
             console.warn(`❌ [edit_image] ${providerName} failed: ${message}`);
+            if (chatId && greenApiService) {
+              await greenApiService.sendTextMessage(chatId, message);
+            }
             continue;
           }
           
@@ -74,9 +85,12 @@ const edit_image = {
           };
         } catch (error) {
           const providerName = formatProviderName(service);
-          const message = error.message || 'Unknown error';
+          const message = `שגיאה בעריכת תמונה עם ${providerName}: ${error.message || 'Unknown error'}`;
           errorStack.push({ provider: providerName, message });
           console.error(`❌ [edit_image] ${providerName} threw error: ${message}`);
+          if (chatId && greenApiService) {
+            await greenApiService.sendTextMessage(chatId, message);
+          }
         }
       }
       
