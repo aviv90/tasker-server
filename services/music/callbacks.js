@@ -106,7 +106,8 @@ class MusicCallbacks {
                   // Send error message to user
                   if (taskInfo.whatsappContext) {
                     const { sendTextMessage } = require('../greenApiService');
-                    await sendTextMessage(taskInfo.whatsappContext.chatId, `⚠️ השיר נוצר אבל הייתה בעיה ביצירת הוידאו: ${videoResult.error}`);
+                    const quotedMessageId = taskInfo.whatsappContext.originalMessageId || null;
+                    await sendTextMessage(taskInfo.whatsappContext.chatId, `⚠️ השיר נוצר אבל הייתה בעיה ביצירת הוידאו: ${videoResult.error}`, quotedMessageId);
                   }
                 } else {
                   console.log(`✅ Video generation started: ${videoResult.videoTaskId}`);

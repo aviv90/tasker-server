@@ -74,7 +74,8 @@ class MusicWhatsAppDelivery {
       // Try to send error message to user
       try {
         const { sendTextMessage } = require('../greenApiService');
-        await sendTextMessage(whatsappContext.chatId, `❌ שגיאה בשליחת השיר: ${error.message || error}`);
+        const quotedMessageId = whatsappContext.originalMessageId || null;
+        await sendTextMessage(whatsappContext.chatId, `❌ שגיאה בשליחת השיר: ${error.message || error}`, quotedMessageId);
       } catch (sendError) {
         console.error('❌ Failed to send error message:', sendError);
       }

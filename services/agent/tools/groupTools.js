@@ -74,15 +74,18 @@ const create_group = {
         });
         errorMsg += `\n💡 טיפ: וודא שהשמות נכונים או הרץ "עדכן אנשי קשר" לסנכרון אנשי קשר`;
         
+        // Get originalMessageId from context for quoting
+        const quotedMessageId = context.originalInput?.originalMessageId || null;
+        
         if (resolution.resolved.length === 0) {
-          await sendTextMessage(chatId, errorMsg + '\n\n❌ לא נמצאו משתתפים - ביטול יצירת קבוצה');
+          await sendTextMessage(chatId, errorMsg + '\n\n❌ לא נמצאו משתתפים - ביטול יצירת קבוצה', quotedMessageId);
           return {
             success: false,
             error: 'לא נמצאו משתתפים תואמים ליצירת הקבוצה'
           };
         }
         
-        await sendTextMessage(chatId, errorMsg);
+        await sendTextMessage(chatId, errorMsg, quotedMessageId);
       }
       
       if (resolution.resolved.length > 0) {
@@ -130,11 +133,15 @@ const create_group = {
             }
           } else if (imageResult.error) {
             console.error('❌ Image generation failed:', imageResult.error);
-            await sendTextMessage(chatId, `⚠️ הקבוצה נוצרה, אבל הייתה בעיה ביצירת התמונה: ${imageResult.error}`);
+            // Get originalMessageId from context for quoting
+            const quotedMessageId = context.originalInput?.originalMessageId || null;
+            await sendTextMessage(chatId, `⚠️ הקבוצה נוצרה, אבל הייתה בעיה ביצירת התמונה: ${imageResult.error}`, quotedMessageId);
           }
         } catch (pictureError) {
           console.error('❌ Failed to set group picture:', pictureError);
-          await sendTextMessage(chatId, `⚠️ הקבוצה נוצרה, אבל לא הצלחתי להעלות תמונה: ${pictureError.message}`);
+          // Get originalMessageId from context for quoting
+          const quotedMessageId = context.originalInput?.originalMessageId || null;
+          await sendTextMessage(chatId, `⚠️ הקבוצה נוצרה, אבל לא הצלחתי להעלות תמונה: ${pictureError.message}`, quotedMessageId);
         }
       }
       

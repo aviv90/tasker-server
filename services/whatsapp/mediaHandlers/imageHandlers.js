@@ -17,15 +17,18 @@ const {
 /**
  * Handle image editing with Gemini or OpenAI
  */
-async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt, service }) {
+async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt, service, originalMessageId }) {
   console.log(`🎨 Processing ${service} image edit request from ${senderName}`);
+
+  // Get originalMessageId for quoting all responses
+  const quotedMessageId = originalMessageId || null;
 
   try {
     // Send immediate ACK
     const ackMessage = service === 'gemini'
       ? '🎨 מעבד באמצעות Gemini...'
       : '🖼️ מעבד באמצעות OpenAI...';
-    await sendTextMessage(chatId, ackMessage);
+    await sendTextMessage(chatId, ackMessage, quotedMessageId);
 
     // Note: Image editing commands do NOT add to conversation history
 
@@ -71,24 +74,24 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
 
       // If nothing was sent, it means we have success but no content
       if (!sentSomething) {
-        await sendTextMessage(chatId, '✅ העיבוד הושלם בהצלחה');
+        await sendTextMessage(chatId, '✅ העיבוד הושלם בהצלחה', quotedMessageId);
         console.log(`✅ ${service} edit completed but no content to send to ${senderName}`);
       }
     } else {
       const errorMsg = editResult.error || 'לא הצלחתי לערוך את התמונה. נסה שוב מאוחר יותר.';
-      await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
+      await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`, quotedMessageId);
       console.log(`❌ ${service} image edit failed for ${senderName}: ${errorMsg}`);
     }
   } catch (error) {
     console.error(`❌ Error in ${service} image editing:`, error.message || error);
-    await sendTextMessage(chatId, `❌ שגיאה בעריכת התמונה: ${error.message || error}`);
+    await sendTextMessage(chatId, `❌ שגיאה בעריכת התמונה: ${error.message || error}`, quotedMessageId);
   }
 }
 
 /**
  * Handle image-to-video conversion with Veo 3, Sora 2, or Kling
  */
-async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prompt, service = 'veo3', model = null }) {
+async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prompt, service = 'veo3', model = null, originalMessageId }) {
   let serviceName;
   if (service === 'veo3') {
     serviceName = 'Veo 3';
@@ -98,6 +101,9 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
     serviceName = 'Kling 2.1 Master';
   }
   console.log(`🎬 Processing ${serviceName} image-to-video request from ${senderName}`);
+
+  // Get originalMessageId for quoting all responses
+  const quotedMessageId = originalMessageId || null;
 
   try {
     // Send immediate ACK
@@ -111,7 +117,7 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
     } else {
       ackMessage = '🎬 יוצר וידאו עם Kling 2.1...';
     }
-    await sendTextMessage(chatId, ackMessage);
+    await sendTextMessage(chatId, ackMessage, quotedMessageId);
 
     // Note: Image-to-video commands do NOT add to conversation history
 
@@ -146,12 +152,12 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
       console.log(`✅ ${serviceName} image-to-video sent to ${senderName}`);
     } else {
       const errorMsg = videoResult.error || `לא הצלחתי ליצור וידאו מהתמונה עם ${serviceName}. נסה שוב מאוחר יותר.`;
-      await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
+      await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`, quotedMessageId);
       console.log(`❌ ${serviceName} image-to-video failed for ${senderName}: ${errorMsg}`);
     }
   } catch (error) {
     console.error(`❌ Error in ${serviceName} image-to-video:`, error.message || error);
-    await sendTextMessage(chatId, `❌ שגיאה ביצירת הוידאו מהתמונה: ${error.message || error}`);
+    await sendTextMessage(chatId, `❌ שגיאה ביצירת הוידאו מהתמונה: ${error.message || error}`, quotedMessageId);
   }
 }
 

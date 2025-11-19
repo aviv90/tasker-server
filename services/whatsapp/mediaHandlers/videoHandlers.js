@@ -11,8 +11,11 @@ const { sendAck } = require('../messaging');
 /**
  * Handle video-to-video processing with RunwayML Gen4
  */
-async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prompt }) {
+async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prompt, originalMessageId }) {
   console.log(`🎬 Processing RunwayML Gen4 video-to-video request from ${senderName}`);
+
+  // Get originalMessageId for quoting all responses
+  const quotedMessageId = originalMessageId || null;
 
   try {
     // Send immediate ACK
@@ -41,12 +44,12 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
       console.log(`✅ RunwayML Gen4 video-to-video sent to ${senderName}`);
     } else {
       const errorMsg = videoResult.error || 'לא הצלחתי לעבד את הווידאו. נסה שוב מאוחר יותר.';
-      await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`);
+      await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`, quotedMessageId);
       console.log(`❌ RunwayML Gen4 video-to-video failed for ${senderName}: ${errorMsg}`);
     }
   } catch (error) {
     console.error('❌ Error in RunwayML Gen4 video-to-video:', error.message || error);
-    await sendTextMessage(chatId, `❌ שגיאה בעיבוד הווידאו: ${error.message || error}`);
+    await sendTextMessage(chatId, `❌ שגיאה בעיבוד הווידאו: ${error.message || error}`, quotedMessageId);
   }
 }
 
