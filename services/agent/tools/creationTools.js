@@ -48,9 +48,10 @@ const create_image = {
       }
 
       const requestedProvider = args.provider || null;
-      // If user requested a specific provider, try it first, then fallback to others
+      // If user requested a specific provider, only try that one (no fallback)
+      // If no provider specified (default), try all providers with fallback
       const providersToTry = requestedProvider
-        ? [requestedProvider, ...['gemini', 'openai', 'grok'].filter(p => p !== requestedProvider)]
+        ? [requestedProvider]
         : ['gemini', 'openai', 'grok'];
       const { geminiService, openaiService, grokService } = getServices();
       
@@ -144,9 +145,10 @@ const create_video = {
       const { geminiService, openaiService } = getServices();
       const replicateService = require('../../replicateService');
       const requestedProvider = args.provider || null;
-      // If user requested a specific provider, try it first, then fallback to others
+      // If user requested a specific provider, only try that one (no fallback)
+      // If no provider specified (default), try all providers with fallback
       const providersToTry = requestedProvider
-        ? [requestedProvider, ...['kling', 'veo3', 'sora'].filter(p => p !== requestedProvider)]
+        ? [requestedProvider]
         : ['kling', 'veo3', 'sora'];
       context.expectedMediaType = 'video';
       

@@ -46,9 +46,10 @@ const edit_image = {
     try {
       const { openaiService, geminiService, greenApiService } = getServices();
       const requestedService = args.service || null;
-      // If user requested a specific service, try it first, then fallback to others
+      // If user requested a specific service, only try that one (no fallback)
+      // If no service specified (default), try all services with fallback
       const servicesToTry = requestedService
-        ? [requestedService, ...['gemini', 'openai'].filter(s => s !== requestedService)]
+        ? [requestedService]
         : ['gemini', 'openai'];
       
       // CRITICAL: edit_image needs base64 image, not URL!
