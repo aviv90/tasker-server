@@ -43,7 +43,8 @@ async function buildContextualPrompt(input, chatId) {
         const recentHistory = history.slice(-10);
         const messagesConfig = require('../../../config/messages');
         const formattedHistory = recentHistory.map(msg => {
-          const role = messagesConfig.getRole(msg.role);
+          // Safely get role - handle undefined/null cases
+          const role = (msg && msg.role) ? messagesConfig.getRole(msg.role) : 'לא ידוע';
           let content = msg.content || '';
           
           // Add media indicators if present

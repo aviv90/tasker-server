@@ -202,6 +202,16 @@ async function sendLocationResult(chatId, agentResult, quotedMessageId = null) {
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
  */
 async function sendSingleStepText(chatId, agentResult, mediaSent, quotedMessageId = null) {
+  // CRITICAL: If tool failed and error was already sent, don't send Gemini's error text
+  // This prevents duplicate error messages (one from tool, one from Gemini final response)
+  const hasToolError = agentResult.toolResults && 
+                       Object.values(agentResult.toolResults).some(result => result?.error);
+  
+  if (hasToolError) {
+    console.log(`⚠️ [Result Handling] Tool error detected - skipping Gemini final text to avoid duplicate`);
+    return;
+  }
+  
   // Single-step: If no media was sent and it's not multi-step, send text response
   if (!agentResult.multiStep && !mediaSent && agentResult.text && agentResult.text.trim()) {
     const multipleTools = (agentResult.toolsUsed && agentResult.toolsUsed.length > 1);
