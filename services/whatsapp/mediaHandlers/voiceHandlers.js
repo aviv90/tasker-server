@@ -22,7 +22,8 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
   console.log(`🎤 Processing voice-to-voice request from ${senderName}`);
 
   try {
-    // No ACK - user should only receive the final voice response
+    // Send ACK message first (same as when transcribing quoted audio)
+    await sendTextMessage(chatId, 'מתמלל הקלטה... 🎤📝');
 
     // Step 1: Download audio file
     const audioBuffer = await downloadFile(audioUrl);
