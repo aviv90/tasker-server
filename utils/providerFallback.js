@@ -126,7 +126,8 @@ class ProviderFallback {
       
       return {
         success: false,
-        error: `שגיאה עם ${failure?.provider || providerName}: ${failure?.message || 'סיבה לא ידועה'}`
+        error: `שגיאה עם ${failure?.provider || providerName}: ${failure?.message || 'סיבה לא ידועה'}`,
+        errorsAlreadySent: true // Flag to prevent duplicate error sending in agentLoop
       };
     }
 
@@ -142,7 +143,8 @@ class ProviderFallback {
 
     return {
       success: false,
-      error: `כל הספקים נכשלו ב${operation} ה${assetType}:\n${failureDetails}`
+      error: `כל הספקים נכשלו ב${operation} ה${assetType}:\n${failureDetails}`,
+      errorsAlreadySent: true // Flag to prevent duplicate error sending in agentLoop
     };
   }
 }
