@@ -126,7 +126,9 @@ async function sendAck(chatId, command) {
   }
   
   try {
-    await sendTextMessage(chatId, ackMessage);
+    // Get quotedMessageId from command context if available
+    const quotedMessageId = command.originalMessageId || null;
+    await sendTextMessage(chatId, ackMessage, quotedMessageId);
     console.log(`✅ ACK sent for ${command.type}`);
   } catch (error) {
     console.error('❌ Error sending ACK:', error.message || error);

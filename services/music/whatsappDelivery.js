@@ -66,7 +66,9 @@ class MusicWhatsAppDelivery {
         console.log('⚠️ No metadata available for song');
       }
       
-      await sendTextMessage(chatId, songInfo);
+      // Get quotedMessageId from whatsappContext if available
+      const quotedMessageId = whatsappContext?.originalMessageId || null;
+      await sendTextMessage(chatId, songInfo, quotedMessageId);
       
       console.log(`✅ Music delivered to WhatsApp: ${musicResult.metadata?.title || 'Generated Music'}`);
     } catch (error) {

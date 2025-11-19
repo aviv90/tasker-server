@@ -37,6 +37,9 @@ const create_group = {
         };
       }
       
+      // Get quotedMessageId once at the start for all messages
+      const quotedMessageId = context.originalInput?.originalMessageId || null;
+      
       const { defaultSenderName } = require('../../../config/messages');
       const senderData = context.originalInput?.senderData || {};
       const senderId = senderData.senderId || senderData.sender;
@@ -54,8 +57,8 @@ const create_group = {
       
       console.log(`📋 Parsing group creation request from: "${promptForParsing}"`);
       
-      await sendTextMessage(chatId, '👥 מתחיל יצירת קבוצה...');
-      await sendTextMessage(chatId, '🔍 מנתח את הבקשה...');
+      await sendTextMessage(chatId, '👥 מתחיל יצירת קבוצה...', quotedMessageId);
+      await sendTextMessage(chatId, '🔍 מנתח את הבקשה...', quotedMessageId);
       
       const parsed = await parseGroupCreationPrompt(promptForParsing);
       
@@ -63,7 +66,7 @@ const create_group = {
       if (parsed.groupPicture) {
         statusMsg += `\n🎨 תמונה: ${parsed.groupPicture}`;
       }
-      await sendTextMessage(chatId, statusMsg);
+      await sendTextMessage(chatId, statusMsg, quotedMessageId);
       
       const resolution = await resolveParticipants(parsed.participants);
       
@@ -73,9 +76,6 @@ const create_group = {
           errorMsg += `• ${name}\n`;
         });
         errorMsg += `\n💡 טיפ: וודא שהשמות נכונים או הרץ "עדכן אנשי קשר" לסנכרון אנשי קשר`;
-        
-        // Get originalMessageId from context for quoting
-        const quotedMessageId = context.originalInput?.originalMessageId || null;
         
         if (resolution.resolved.length === 0) {
           await sendTextMessage(chatId, errorMsg + '\n\n❌ לא נמצאו משתתפים - ביטול יצירת קבוצה', quotedMessageId);
@@ -93,17 +93,17 @@ const create_group = {
         resolution.resolved.forEach(p => {
           foundMsg += `• ${p.searchName} → ${p.contactName}\n`;
         });
-        await sendTextMessage(chatId, foundMsg);
+        await sendTextMessage(chatId, foundMsg, quotedMessageId);
       }
       
-      await sendTextMessage(chatId, '🔨 יוצר את הקבוצה...');
+      await sendTextMessage(chatId, '🔨 יוצר את הקבוצה...', quotedMessageId);
       
       const participantIds = resolution.resolved
         .map(p => p.contactId)
         .filter(id => id && id !== senderId);
       
       if (participantIds.length === 0) {
-        await sendTextMessage(chatId, '⚠️ לא נמצאו משתתפים נוספים (חוץ ממך). צריך לפחות משתתף אחד נוסף ליצירת קבוצה.');
+        await sendTextMessage(chatId, '⚠️ לא נמצאו משתתפים נוספים (חוץ ממך). צריך לפחות משתתף אחד נוסף ליצירת קבוצה.', quotedMessageId);
         return {
           success: false,
           error: 'לא נמצאו משתתפים נוספים ליצירת הקבוצה'
@@ -111,11 +111,11 @@ const create_group = {
       }
       
       const groupResult = await createGroup(parsed.groupName, participantIds);
-      await sendTextMessage(chatId, `✅ הקבוצה "${parsed.groupName}" נוצרה בהצלחה!`);
+      await sendTextMessage(chatId, `✅ הקבוצה "${parsed.groupName}" נוצרה בהצלחה!`, quotedMessageId);
       
       if (parsed.groupPicture && groupResult.chatId) {
         try {
-          await sendTextMessage(chatId, `🎨 יוצר תמונת פרופיל לקבוצה...\n"${parsed.groupPicture}"`);
+          await sendTextMessage(chatId, `🎨 יוצר תמונת פרופיל לקבוצה...\n"${parsed.groupPicture}"`, quotedMessageId);
           
           const imageResult = await generateImageForWhatsApp(parsed.groupPicture);
           
@@ -124,23 +124,19 @@ const create_group = {
             
             if (fs.existsSync(imagePath)) {
               const imageBuffer = fs.readFileSync(imagePath);
-              await sendTextMessage(chatId, '🖼️ מעלה תמונה לקבוצה...');
+              await sendTextMessage(chatId, '🖼️ מעלה תמונה לקבוצה...', quotedMessageId);
               await setGroupPicture(groupResult.chatId, imageBuffer);
-              await sendTextMessage(chatId, '✅ תמונת הקבוצה עודכנה בהצלחה!');
+              await sendTextMessage(chatId, '✅ תמונת הקבוצה עודכנה בהצלחה!', quotedMessageId);
             } else {
               console.warn(`⚠️ Generated group image not found at ${imagePath}`);
-              await sendTextMessage(chatId, `⚠️ התמונה נוצרה אבל לא נמצאה בשרת`);
+              await sendTextMessage(chatId, `⚠️ התמונה נוצרה אבל לא נמצאה בשרת`, quotedMessageId);
             }
           } else if (imageResult.error) {
             console.error('❌ Image generation failed:', imageResult.error);
-            // Get originalMessageId from context for quoting
-            const quotedMessageId = context.originalInput?.originalMessageId || null;
             await sendTextMessage(chatId, `⚠️ הקבוצה נוצרה, אבל הייתה בעיה ביצירת התמונה: ${imageResult.error}`, quotedMessageId);
           }
         } catch (pictureError) {
           console.error('❌ Failed to set group picture:', pictureError);
-          // Get originalMessageId from context for quoting
-          const quotedMessageId = context.originalInput?.originalMessageId || null;
           await sendTextMessage(chatId, `⚠️ הקבוצה נוצרה, אבל לא הצלחתי להעלות תמונה: ${pictureError.message}`, quotedMessageId);
         }
       }

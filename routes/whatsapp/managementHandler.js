@@ -28,7 +28,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
     switch (command.type) {
       case 'clear_all_conversations': {
         await conversationManager.clearAllConversations();
-        await sendTextMessage(chatId, '✅ כל ההיסטוריות נוקו בהצלחה');
+        await sendTextMessage(chatId, '✅ כל ההיסטוריות נוקו בהצלחה', originalMessageId);
         console.log(`🗑️ All conversation histories cleared by ${senderName}`);
         break;
       }
@@ -41,9 +41,9 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
             const role = msg.role === 'user' ? '👤' : '🤖';
             historyText += `${role} ${msg.content}\n\n`;
           });
-          await sendTextMessage(chatId, historyText);
+          await sendTextMessage(chatId, historyText, originalMessageId);
         } else {
-          await sendTextMessage(chatId, 'ℹ️ אין היסטוריית שיחה');
+          await sendTextMessage(chatId, 'ℹ️ אין היסטוריית שיחה', originalMessageId);
         }
         break;
       }
@@ -55,9 +55,9 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           authorizedUsers.forEach(contactName => {
             statusText += `• ${contactName}\n`;
           });
-          await sendTextMessage(chatId, statusText);
+          await sendTextMessage(chatId, statusText, originalMessageId);
         } else {
-          await sendTextMessage(chatId, 'ℹ️ אין משתמשים מורשים ליצירת מדיה');
+          await sendTextMessage(chatId, 'ℹ️ אין משתמשים מורשים ליצירת מדיה', originalMessageId);
         }
         break;
       }
@@ -69,9 +69,9 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           allowList.forEach(contactName => {
             statusText += `• ${contactName}\n`;
           });
-          await sendTextMessage(chatId, statusText);
+          await sendTextMessage(chatId, statusText, originalMessageId);
         } else {
-          await sendTextMessage(chatId, 'ℹ️ אין משתמשים מורשים לתמלול');
+          await sendTextMessage(chatId, 'ℹ️ אין משתמשים מורשים לתמלול', originalMessageId);
         }
         break;
       }
@@ -83,22 +83,22 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           authorizedUsers.forEach(contactName => {
             statusText += `• ${contactName}\n`;
           });
-          await sendTextMessage(chatId, statusText);
+          await sendTextMessage(chatId, statusText, originalMessageId);
         } else {
-          await sendTextMessage(chatId, 'ℹ️ אין משתמשים מורשים ליצירת קבוצות');
+          await sendTextMessage(chatId, 'ℹ️ אין משתמשים מורשים ליצירת קבוצות', originalMessageId);
         }
         break;
       }
 
       case 'sync_contacts': {
         try {
-          await sendTextMessage(chatId, '📇 מעדכן רשימת אנשי קשר...');
+          await sendTextMessage(chatId, '📇 מעדכן רשימת אנשי קשר...', originalMessageId);
           
           // Fetch contacts from Green API
           const contacts = await getContacts();
           
           if (!contacts || contacts.length === 0) {
-            await sendTextMessage(chatId, '⚠️ לא נמצאו אנשי קשר');
+            await sendTextMessage(chatId, '⚠️ לא נמצאו אנשי קשר', originalMessageId);
             return;
           }
           
@@ -112,7 +112,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
 • סה"כ: ${syncResult.total}
 💾 כל אנשי הקשר נשמרו במסד הנתונים`;
           
-          await sendTextMessage(chatId, resultMessage);
+          await sendTextMessage(chatId, resultMessage, originalMessageId);
           console.log(`✅ Contacts synced successfully by ${senderName}`);
         } catch (error) {
           console.error('❌ Error syncing contacts:', error);
@@ -129,10 +129,10 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
             console.log(`✅ Using current contact directly: ${exactName}`);
-            await sendTextMessage(chatId, `✅ מוסיף "${exactName}" לרשימת המורשים ליצירת מדיה...`);
+            await sendTextMessage(chatId, `✅ מוסיף "${exactName}" לרשימת המורשים ליצירת מדיה...`, originalMessageId);
           } else {
             // Use fuzzy search to find exact contact/group name
-            await sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`);
+            await sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`, originalMessageId);
             const foundContact = await findContactByName(command.contactName);
             
             if (!foundContact) {
@@ -143,15 +143,15 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
             // Use the exact contact name found in DB
             exactName = foundContact.contactName;
             entityType = foundContact.isGroup ? '👥 קבוצה' : '👤 איש קשר';
-            await sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`);
+            await sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`, originalMessageId);
           }
           
           const wasAdded = await authStore.addAuthorizedUser(exactName);
           if (wasAdded) {
-            await sendTextMessage(chatId, `✅ ${exactName} נוסף לרשימת המורשים ליצירת מדיה`);
+            await sendTextMessage(chatId, `✅ ${exactName} נוסף לרשימת המורשים ליצירת מדיה`, originalMessageId);
             console.log(`✅ Added ${exactName} to media creation authorization by ${senderName}`);
           } else {
-            await sendTextMessage(chatId, `ℹ️ ${exactName} כבר נמצא ברשימת המורשים ליצירת מדיה`);
+            await sendTextMessage(chatId, `ℹ️ ${exactName} כבר נמצא ברשימת המורשים ליצירת מדיה`, originalMessageId);
           }
         } catch (error) {
           console.error('❌ Error in add_media_authorization:', error);
@@ -168,10 +168,10 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
             console.log(`✅ Using current contact directly: ${exactName}`);
-            await sendTextMessage(chatId, `✅ מסיר "${exactName}" מרשימת המורשים ליצירת מדיה...`);
+            await sendTextMessage(chatId, `✅ מסיר "${exactName}" מרשימת המורשים ליצירת מדיה...`, originalMessageId);
           } else {
             // Use fuzzy search to find exact contact/group name
-            await sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`);
+            await sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`, originalMessageId);
             const foundContact = await findContactByName(command.contactName);
             
             if (!foundContact) {
@@ -182,15 +182,15 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
             // Use the exact contact name found in DB
             exactName = foundContact.contactName;
             entityType = foundContact.isGroup ? '👥 קבוצה' : '👤 איש קשר';
-            await sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`);
+            await sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`, originalMessageId);
           }
           
           const wasRemoved = await authStore.removeAuthorizedUser(exactName);
           if (wasRemoved) {
-            await sendTextMessage(chatId, `🚫 ${exactName} הוסר מרשימת המורשים ליצירת מדיה`);
+            await sendTextMessage(chatId, `🚫 ${exactName} הוסר מרשימת המורשים ליצירת מדיה`, originalMessageId);
             console.log(`✅ Removed ${exactName} from media creation authorization by ${senderName}`);
           } else {
-            await sendTextMessage(chatId, `ℹ️ ${exactName} לא נמצא ברשימת המורשים ליצירת מדיה`);
+            await sendTextMessage(chatId, `ℹ️ ${exactName} לא נמצא ברשימת המורשים ליצירת מדיה`, originalMessageId);
           }
         } catch (error) {
           console.error('❌ Error in remove_media_authorization:', error);
@@ -207,10 +207,10 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
             console.log(`✅ Using current contact directly: ${exactName}`);
-            await sendTextMessage(chatId, `✅ מוסיף "${exactName}" לרשימת המורשים ליצירת קבוצות...`);
+            await sendTextMessage(chatId, `✅ מוסיף "${exactName}" לרשימת המורשים ליצירת קבוצות...`, originalMessageId);
           } else {
             // Use fuzzy search to find exact contact/group name
-            await sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`);
+            await sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`, originalMessageId);
             const foundContact = await findContactByName(command.contactName);
             
             if (!foundContact) {
@@ -221,15 +221,15 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
             // Use the exact contact name found in DB
             exactName = foundContact.contactName;
             entityType = foundContact.isGroup ? '👥 קבוצה' : '👤 איש קשר';
-            await sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`);
+            await sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`, originalMessageId);
           }
           
           const wasAdded = await groupAuthStore.addAuthorizedUser(exactName);
           if (wasAdded) {
-            await sendTextMessage(chatId, `✅ ${exactName} נוסף לרשימת המורשים ליצירת קבוצות`);
+            await sendTextMessage(chatId, `✅ ${exactName} נוסף לרשימת המורשים ליצירת קבוצות`, originalMessageId);
             console.log(`✅ Added ${exactName} to group creation authorization by ${senderName}`);
           } else {
-            await sendTextMessage(chatId, `ℹ️ ${exactName} כבר נמצא ברשימת המורשים ליצירת קבוצות`);
+            await sendTextMessage(chatId, `ℹ️ ${exactName} כבר נמצא ברשימת המורשים ליצירת קבוצות`, originalMessageId);
           }
         } catch (error) {
           console.error('❌ Error in add_group_authorization:', error);
@@ -246,10 +246,10 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
             console.log(`✅ Using current contact directly: ${exactName}`);
-            await sendTextMessage(chatId, `✅ מסיר "${exactName}" מרשימת המורשים ליצירת קבוצות...`);
+            await sendTextMessage(chatId, `✅ מסיר "${exactName}" מרשימת המורשים ליצירת קבוצות...`, originalMessageId);
           } else {
             // Use fuzzy search to find exact contact/group name
-            await sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`);
+            await sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`, originalMessageId);
             const foundContact = await findContactByName(command.contactName);
             
             if (!foundContact) {
@@ -260,19 +260,19 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
             // Use the exact contact name found in DB
             exactName = foundContact.contactName;
             entityType = foundContact.isGroup ? '👥 קבוצה' : '👤 איש קשר';
-            await sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`);
+            await sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`, originalMessageId);
           }
           
           const wasRemoved = await groupAuthStore.removeAuthorizedUser(exactName);
           if (wasRemoved) {
-            await sendTextMessage(chatId, `🚫 ${exactName} הוסר מרשימת המורשים ליצירת קבוצות`);
+            await sendTextMessage(chatId, `🚫 ${exactName} הוסר מרשימת המורשים ליצירת קבוצות`, originalMessageId);
             console.log(`✅ Removed ${exactName} from group creation authorization by ${senderName}`);
           } else {
-            await sendTextMessage(chatId, `ℹ️ ${exactName} לא נמצא ברשימת המורשים ליצירת קבוצות`);
+            await sendTextMessage(chatId, `ℹ️ ${exactName} לא נמצא ברשימת המורשים ליצירת קבוצות`, originalMessageId);
           }
         } catch (error) {
           console.error('❌ Error in remove_group_authorization:', error);
-          await sendTextMessage(chatId, `❌ שגיאה בהסרת הרשאה: ${error.message}`);
+          await sendTextMessage(chatId, `❌ שגיאה בהסרת הרשאה: ${error.message}`, originalMessageId);
         }
         break;
       }
@@ -285,10 +285,10 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
             console.log(`✅ Using current contact directly: ${exactName}`);
-            await sendTextMessage(chatId, `✅ מוסיף "${exactName}" לרשימת המורשים לתמלול...`);
+            await sendTextMessage(chatId, `✅ מוסיף "${exactName}" לרשימת המורשים לתמלול...`, originalMessageId);
           } else {
             // Use fuzzy search to find exact contact/group name
-            await sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`);
+            await sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`, originalMessageId);
             const foundContact = await findContactByName(command.contactName);
             
             if (!foundContact) {
@@ -299,19 +299,19 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
             // Use the exact contact name found in DB
             exactName = foundContact.contactName;
             entityType = foundContact.isGroup ? '👥 קבוצה' : '👤 איש קשר';
-            await sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`);
+            await sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`, originalMessageId);
           }
           
           const wasAdded = await conversationManager.addToVoiceAllowList(exactName);
           if (wasAdded) {
-            await sendTextMessage(chatId, `✅ ${exactName} נוסף לרשימת המורשים לתמלול`);
+            await sendTextMessage(chatId, `✅ ${exactName} נוסף לרשימת המורשים לתמלול`, originalMessageId);
             console.log(`✅ Added ${exactName} to voice allow list by ${senderName}`);
           } else {
-            await sendTextMessage(chatId, `ℹ️ ${exactName} כבר נמצא ברשימת המורשים לתמלול`);
+            await sendTextMessage(chatId, `ℹ️ ${exactName} כבר נמצא ברשימת המורשים לתמלול`, originalMessageId);
           }
         } catch (error) {
           console.error('❌ Error in include_in_transcription:', error);
-          await sendTextMessage(chatId, `❌ שגיאה בהוספת הרשאת תמלול: ${error.message}`);
+          await sendTextMessage(chatId, `❌ שגיאה בהוספת הרשאת תמלול: ${error.message}`, originalMessageId);
         }
         break;
       }
@@ -324,10 +324,10 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
             console.log(`✅ Using current contact directly: ${exactName}`);
-            await sendTextMessage(chatId, `✅ מסיר "${exactName}" מרשימת המורשים לתמלול...`);
+            await sendTextMessage(chatId, `✅ מסיר "${exactName}" מרשימת המורשים לתמלול...`, originalMessageId);
           } else {
             // Use fuzzy search to find exact contact/group name
-            await sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`);
+            await sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`, originalMessageId);
             const foundContact = await findContactByName(command.contactName);
             
             if (!foundContact) {
@@ -338,19 +338,19 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
             // Use the exact contact name found in DB
             exactName = foundContact.contactName;
             entityType = foundContact.isGroup ? '👥 קבוצה' : '👤 איש קשר';
-            await sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`);
+            await sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`, originalMessageId);
           }
           
           const wasRemoved = await conversationManager.removeFromVoiceAllowList(exactName);
           if (wasRemoved) {
-            await sendTextMessage(chatId, `🚫 ${exactName} הוסר מרשימת המורשים לתמלול`);
+            await sendTextMessage(chatId, `🚫 ${exactName} הוסר מרשימת המורשים לתמלול`, originalMessageId);
             console.log(`✅ Removed ${exactName} from voice allow list by ${senderName}`);
           } else {
-            await sendTextMessage(chatId, `ℹ️ ${exactName} לא נמצא ברשימת המורשים לתמלול`);
+            await sendTextMessage(chatId, `ℹ️ ${exactName} לא נמצא ברשימת המורשים לתמלול`, originalMessageId);
           }
         } catch (error) {
           console.error('❌ Error in exclude_from_transcription:', error);
-          await sendTextMessage(chatId, `❌ שגיאה בהסרת הרשאת תמלול: ${error.message}`);
+          await sendTextMessage(chatId, `❌ שגיאה בהסרת הרשאת תמלול: ${error.message}`, originalMessageId);
         }
         break;
       }
@@ -367,33 +367,33 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           } else if (isPrivateChat) {
             targetName = senderContactName || chatName || senderName;
           } else {
-            await sendTextMessage(chatId, '❌ לא ניתן לזהות את השיחה הנוכחית');
+            await sendTextMessage(chatId, '❌ לא ניתן לזהות את השיחה הנוכחית', originalMessageId);
             break;
           }
           
-          await sendTextMessage(chatId, `📝 מזהה אוטומטית: "${targetName}"`);
+          await sendTextMessage(chatId, `📝 מזהה אוטומטית: "${targetName}"`, originalMessageId);
           
           const wasAdded = await groupAuthStore.addAuthorizedUser(targetName);
           if (wasAdded) {
-            await sendTextMessage(chatId, `✅ ${targetName} נוסף לרשימת המורשים ליצירת קבוצות`);
+            await sendTextMessage(chatId, `✅ ${targetName} נוסף לרשימת המורשים ליצירת קבוצות`, originalMessageId);
             console.log(`✅ Added ${targetName} (auto-detected from current chat) to group creation authorization by ${senderName}`);
           } else {
-            await sendTextMessage(chatId, `ℹ️ ${targetName} כבר נמצא ברשימת המורשים ליצירת קבוצות`);
+            await sendTextMessage(chatId, `ℹ️ ${targetName} כבר נמצא ברשימת המורשים ליצירת קבוצות`, originalMessageId);
           }
         } catch (error) {
           console.error('❌ Error in add_group_authorization_current:', error);
-          await sendTextMessage(chatId, `❌ שגיאה בהוספת הרשאה: ${error.message}`);
+          await sendTextMessage(chatId, `❌ שגיאה בהוספת הרשאה: ${error.message}`, originalMessageId);
         }
         break;
       }
 
       default:
         console.log(`⚠️ Unknown management command type: ${command.type}`);
-        await sendTextMessage(chatId, `⚠️ Unknown management command type: ${command.type}`);
+        await sendTextMessage(chatId, `⚠️ Unknown management command type: ${command.type}`, originalMessageId);
     }
   } catch (error) {
     console.error(`❌ Error handling management command ${command.type}:`, error);
-    await sendTextMessage(chatId, `❌ שגיאה בעיבוד הפקודה: ${error.message || error}`);
+    await sendTextMessage(chatId, `❌ שגיאה בעיבוד הפקודה: ${error.message || error}`, originalMessageId);
   }
 }
 

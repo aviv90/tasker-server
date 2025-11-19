@@ -114,7 +114,8 @@ class MusicCallbacks {
                   // Notify user that video is being generated
                   if (taskInfo.whatsappContext) {
                     const { sendTextMessage } = require('../greenApiService');
-                    await sendTextMessage(taskInfo.whatsappContext.chatId, '🎬 מייצר קליפ לשיר... אשלח בעוד כמה רגעים! ⏳');
+                    const quotedMessageId = taskInfo.whatsappContext?.originalMessageId || null;
+                    await sendTextMessage(taskInfo.whatsappContext.chatId, '🎬 מייצר קליפ לשיר... אשלח בעוד כמה רגעים! ⏳', quotedMessageId);
                   }
                 }
               } catch (videoError) {

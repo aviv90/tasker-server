@@ -54,7 +54,7 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
 
       // Send text response if available
       if (editResult.description && editResult.description.trim()) {
-        await sendTextMessage(chatId, editResult.description);
+        await sendTextMessage(chatId, editResult.description, quotedMessageId);
 
         // Note: Image editing results do NOT add to conversation history
 

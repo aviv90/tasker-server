@@ -78,10 +78,11 @@ function isAdminCommand(commandType) {
  * Send unauthorized access message
  * @param {string} chatId - WhatsApp chat ID
  * @param {string} feature - Feature name (for logging)
+ * @param {string} [originalMessageId] - Optional: ID of original message for quoting
  */
-async function sendUnauthorizedMessage(chatId, feature) {
+async function sendUnauthorizedMessage(chatId, feature, originalMessageId = null) {
   const message = '🔒 סליחה, אין לך הרשאה להשתמש בתכונה זו. פנה למנהל המערכת.';
-  await sendTextMessage(chatId, message);
+  await sendTextMessage(chatId, message, originalMessageId);
   console.log(`🚫 Unauthorized access attempt to ${feature}`);
 }
 
