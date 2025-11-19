@@ -121,6 +121,15 @@ const config = {
     fileUploadSize: process.env.FILE_UPLOAD_SIZE_LIMIT || '100mb',
   },
 
+  // Timeout Configuration
+  timeouts: {
+    database: parseInt(process.env.TIMEOUT_DATABASE || '30000', 10), // 30 seconds
+    apiCall: parseInt(process.env.TIMEOUT_API || '60000', 10), // 60 seconds
+    aiGeneration: parseInt(process.env.TIMEOUT_AI || '120000', 10), // 2 minutes
+    fileOperation: parseInt(process.env.TIMEOUT_FILE || '30000', 10), // 30 seconds
+    upload: parseInt(process.env.TIMEOUT_UPLOAD || '300000', 10), // 5 minutes
+  },
+
   // Feature Flags
   features: {
     // Intent Router - use LLM for routing instead of regex
