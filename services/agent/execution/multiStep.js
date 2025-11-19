@@ -125,19 +125,23 @@ class MultiStepExecution {
           // Step failed - try fallback
           console.error(`❌ [Agent] Step ${step.stepNumber}/${plan.steps.length} failed:`, stepResult.error);
           
-          const fallbackResult = await this.tryFallback(chatId, toolName, toolParams, step, stepResult);
+          // Get quotedMessageId to pass to fallback
+          const quotedMessageId = options.input?.originalMessageId || null;
+          
+          const fallbackResult = await this.tryFallback(chatId, toolName, toolParams, step, stepResult, quotedMessageId);
           if (fallbackResult) {
             stepResults.push(fallbackResult);
           } else {
             // Send error for non-creation tools
             if (!this.isCreationTool(toolName)) {
-              await this.sendError(chatId, stepResult.error, step.stepNumber);
+              await this.sendError(chatId, stepResult.error, step.stepNumber, quotedMessageId);
             }
           }
         }
       } catch (stepError) {
         console.error(`❌ [Agent] Error executing step ${step.stepNumber}:`, stepError.message);
-        await this.sendError(chatId, stepError.message || stepError.toString(), step.stepNumber, true);
+        const quotedMessageId = options.input?.originalMessageId || null;
+        await this.sendError(chatId, stepError.message || stepError.toString(), step.stepNumber, quotedMessageId, true);
       }
     }
     
@@ -177,16 +181,17 @@ class MultiStepExecution {
   /**
    * Try fallback for creation tools
    */
-  async tryFallback(chatId, toolName, toolParams, step, stepResult) {
+  async tryFallback(chatId, toolName, toolParams, step, stepResult, quotedMessageId = null) {
     const creationTools = ['create_image', 'create_video', 'edit_image', 'edit_video'];
     
     if (!this.isCreationTool(toolName)) {
       return null;
     }
     
-    // Send initial error first
+    // Don't send initial error here - it's already sent by the tool itself
+    // Just log it
     if (stepResult.error) {
-      await this.sendError(chatId, stepResult.error.toString(), step.stepNumber);
+      console.log(`🔍 [Multi-step Fallback] Initial error: ${stepResult.error.toString()}`);
     }
     
     console.log(`🔄 [Multi-step Fallback] Attempting automatic fallback for ${toolName}...`);
@@ -206,8 +211,6 @@ class MultiStepExecution {
         console.log(`🔄 [Multi-step Fallback] Trying ${provider}...`);
         
         // Send Ack for this fallback attempt
-        // Get quotedMessageId from options.input if available
-        const quotedMessageId = options.input?.originalMessageId || null;
         await sendToolAckMessage(chatId, [{ name: toolName, args: { provider } }], quotedMessageId);
         
         try {
@@ -222,7 +225,7 @@ class MultiStepExecution {
                 ? result.imageUrl
                 : getStaticFileUrl(result.imageUrl.replace('/static/', ''));
               const caption = result.caption || result.imageCaption || '';
-              await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption);
+              await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId);
               console.log(`✅ [Multi-step Fallback] Image sent successfully`);
             }
             
@@ -230,31 +233,31 @@ class MultiStepExecution {
               const fullVideoUrl = result.videoUrl.startsWith('http')
                 ? result.videoUrl
                 : getStaticFileUrl(result.videoUrl.replace('/static/', ''));
-              await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '');
+              await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId);
               console.log(`✅ [Multi-step Fallback] Video sent successfully`);
             }
             
             // Success message (optional)
             if (result.data && !result.imageUrl && !result.videoUrl) {
-              await greenApiService.sendTextMessage(chatId, result.data);
+              await greenApiService.sendTextMessage(chatId, result.data, quotedMessageId);
             }
             
             return result;
           } else {
             const errorMsg = result?.error || 'Unknown error';
             console.log(`❌ [Multi-step Fallback] ${provider} failed: ${errorMsg}`);
-            await greenApiService.sendTextMessage(chatId, `❌ ${errorMsg}`);
+            await greenApiService.sendTextMessage(chatId, `❌ ${errorMsg}`, quotedMessageId);
           }
         } catch (providerError) {
           const errorMsg = providerError.message;
           console.error(`❌ [Multi-step Fallback] ${provider} threw error:`, errorMsg);
-          await greenApiService.sendTextMessage(chatId, `❌ ${errorMsg}`);
+          await greenApiService.sendTextMessage(chatId, `❌ ${errorMsg}`, quotedMessageId);
         }
       }
       
       // All fallbacks failed
       console.log(`❌ [Multi-step Fallback] All providers failed for ${toolName}`);
-      await greenApiService.sendTextMessage(chatId, `❌ כל הספקים נכשלו עבור ${toolName}`);
+      await greenApiService.sendTextMessage(chatId, `❌ כל הספקים נכשלו עבור ${toolName}`, quotedMessageId);
       return null;
     } catch (fallbackError) {
       console.error(`❌ [Multi-step Fallback] Critical error during fallback:`, fallbackError.message);
@@ -300,13 +303,13 @@ class MultiStepExecution {
   /**
    * Send error message to user
    */
-  async sendError(chatId, error, stepNumber = null, isException = false) {
+  async sendError(chatId, error, stepNumber = null, quotedMessageId = null, isException = false) {
     try {
       const { greenApiService } = getServices();
       const stepInfo = stepNumber ? ` שגיאה בביצוע שלב ${stepNumber}:` : '';
       const prefix = isException ? `❌${stepInfo}` : '❌';
       const errorMessage = error.startsWith('❌') ? error : `${prefix} ${error}`;
-      await greenApiService.sendTextMessage(chatId, errorMessage);
+      await greenApiService.sendTextMessage(chatId, errorMessage, quotedMessageId);
       console.log(`📤 [Multi-step] Error sent to user${stepNumber ? ` for step ${stepNumber}` : ''}`);
     } catch (errorSendError) {
       console.error(`❌ [Multi-step] Failed to send error message:`, errorSendError.message);

@@ -31,11 +31,17 @@ module.exports = {
 
   /**
    * Get role message
-   * @param {string} role - Role ('user' or 'bot')
+   * @param {string} role - Role ('user', 'bot', or 'assistant')
    * @returns {string} Role message
    */
   getRole(role) {
-    return role === 'user' ? this.roles.user : this.roles.bot;
+    if (role === 'user') {
+      return this.roles.user;
+    } else if (role === 'assistant' || role === 'bot') {
+      return this.roles.bot;
+    } else {
+      return role || 'לא ידוע';
+    }
   },
 
   /**

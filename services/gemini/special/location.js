@@ -118,7 +118,9 @@ class LocationService {
           }
         }
       } catch (mapsError) {
-        console.log(`⚠️ Google Maps Grounding failed: ${mapsError.message}, falling back to general knowledge...`);
+        // Google Maps Grounding often fails for coordinate-based queries, which is expected
+        // Fall back to general knowledge without alarming logs
+        console.log(`🔄 Google Maps Grounding unavailable, using general knowledge...`);
         text = '';
       }
 
