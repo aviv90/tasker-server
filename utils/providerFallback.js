@@ -11,6 +11,7 @@ const { formatProviderName } = require('../services/agent/utils/providerUtils');
 const { sendToolAckMessage } = require('../services/agent/utils/ackUtils');
 const { formatErrorMessage } = require('./errorHandler');
 const { getServices } = require('../services/agent/utils/serviceLoader');
+const logger = require('./logger');
 
 /**
  * Provider Fallback Handler
@@ -52,7 +53,12 @@ class ProviderFallback {
       const provider = this.providersToTry[idx];
       
       try {
-        console.log(`🔄 [${this.toolName}] Trying provider: ${provider}`);
+        logger.debug(`🔄 [${this.toolName}] Trying provider: ${provider}`, { 
+          toolName: this.toolName, 
+          provider, 
+          attempt: idx + 1,
+          totalProviders: this.providersToTry.length 
+        });
 
         // Send Ack for fallback attempts (not the first one)
         if (idx > 0 && this.chatId) {
@@ -98,10 +104,24 @@ class ProviderFallback {
     
     this.errorStack.push({ provider: providerName, message });
     
-    console.warn(`❌ [${this.toolName}] ${providerName} failed: ${message}`);
+    logger.warn(`❌ [${this.toolName}] ${providerName} failed: ${message}`, {
+      toolName: this.toolName,
+      provider: providerName,
+      errorMessage: message,
+      chatId: this.chatId
+    });
     
     if (error) {
-      console.error(`❌ [${this.toolName}] ${providerName} threw error:`, error);
+      logger.error(`❌ [${this.toolName}] ${providerName} threw error`, {
+        toolName: this.toolName,
+        provider: providerName,
+        error: error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        } : error,
+        chatId: this.chatId
+      });
     }
 
     // Send error message to user (only if we have chatId)
@@ -109,7 +129,14 @@ class ProviderFallback {
       try {
         await this.greenApiService.sendTextMessage(this.chatId, formatErrorMessage(message));
       } catch (sendError) {
-        console.error(`❌ Failed to send error message to user:`, sendError);
+        logger.error(`❌ Failed to send error message to user`, {
+          toolName: this.toolName,
+          chatId: this.chatId,
+          error: sendError instanceof Error ? {
+            message: sendError.message,
+            stack: sendError.stack
+          } : sendError
+        });
       }
     }
   }

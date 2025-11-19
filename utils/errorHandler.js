@@ -2,6 +2,8 @@
  * Error handling utilities for consistent error processing
  */
 
+const logger = require('./logger');
+
 /**
  * Extract error message from various error formats
  * @param {any} error - The error object (can be string, object, or complex structure)
@@ -128,7 +130,10 @@ function serializeError(error) {
 function getTaskError(error, context = '') {
     // Log for server debugging
     if (context) {
-        console.error(`❌ Error in ${context}:`, error);
+        logger.error(`❌ Error in ${context}`, { 
+            error: serializeError(error),
+            context 
+        });
     }
 
     return {

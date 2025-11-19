@@ -7,6 +7,7 @@ const { formatProviderName } = require('../utils/providerUtils');
 const { getServices } = require('../utils/serviceLoader');
 const { cleanMarkdown } = require('../../../utils/textSanitizer');
 const { ProviderFallback } = require('../../../utils/providerFallback');
+const logger = require('../../../utils/logger');
 
 /**
  * Tool: Create Image
@@ -32,7 +33,11 @@ const create_image = {
     }
   },
   execute: async (args, context) => {
-    console.log(`🔧 [Agent Tool] create_image called`);
+    logger.debug(`🔧 [Agent Tool] create_image called`, { 
+      prompt: args.prompt?.substring(0, 100), 
+      provider: args.provider,
+      chatId: context?.chatId 
+    });
     
     try {
       if (context?.expectedMediaType === 'video') {
@@ -86,7 +91,16 @@ const create_image = {
       
       return result;
     } catch (error) {
-      console.error('❌ Error in create_image tool:', error);
+      logger.error('❌ Error in create_image tool', {
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        },
+        prompt: args.prompt?.substring(0, 100),
+        provider: args.provider,
+        chatId: context?.chatId
+      });
       return {
         success: false,
         error: `שגיאה: ${error.message}`
@@ -119,7 +133,11 @@ const create_video = {
     }
   },
   execute: async (args, context) => {
-    console.log(`🔧 [Agent Tool] create_video called with provider: ${args.provider || 'kling'}`);
+    logger.debug(`🔧 [Agent Tool] create_video called with provider: ${args.provider || 'kling'}`, {
+      prompt: args.prompt?.substring(0, 100),
+      provider: args.provider || 'kling',
+      chatId: context?.chatId
+    });
     
     try {
       const { geminiService, openaiService } = getServices();
@@ -162,7 +180,16 @@ const create_video = {
       context.expectedMediaType = null;
       return result;
     } catch (error) {
-      console.error('❌ Error in create_video:', error);
+      logger.error('❌ Error in create_video', {
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        },
+        prompt: args.prompt?.substring(0, 100),
+        provider: args.provider,
+        chatId: context?.chatId
+      });
       return {
         success: false,
         error: `שגיאה: ${error.message}`
@@ -199,7 +226,12 @@ const image_to_video = {
     }
   },
   execute: async (args, context) => {
-    console.log(`🔧 [Agent Tool] image_to_video called`);
+    logger.debug(`🔧 [Agent Tool] image_to_video called`, {
+      imageUrl: args.image_url?.substring(0, 50),
+      prompt: args.prompt?.substring(0, 100),
+      provider: args.provider || 'kling',
+      chatId: context?.chatId
+    });
     
     try {
       const { geminiService, openaiService, greenApiService } = getServices();
@@ -235,7 +267,17 @@ const image_to_video = {
         provider: provider
       };
     } catch (error) {
-      console.error('❌ Error in image_to_video:', error);
+      logger.error('❌ Error in image_to_video', {
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        },
+        imageUrl: args.image_url?.substring(0, 50),
+        prompt: args.prompt?.substring(0, 100),
+        provider: args.provider,
+        chatId: context?.chatId
+      });
       return {
         success: false,
         error: `שגיאה: ${error.message}`
@@ -288,7 +330,11 @@ const create_music = {
           wantsVideo = true;
         }
       } catch (parseError) {
-        console.warn('⚠️ create_music: Failed to parse music request for video detection:', parseError.message);
+        logger.warn('⚠️ create_music: Failed to parse music request for video detection', {
+          error: parseError.message,
+          prompt: args.prompt?.substring(0, 100),
+          chatId: context?.chatId
+        });
       }
       
       const senderData = context.originalInput?.senderData || {};
@@ -329,7 +375,16 @@ const create_music = {
         lyrics: result.lyrics
       };
     } catch (error) {
-      console.error('❌ Error in create_music:', error);
+      logger.error('❌ Error in create_music', {
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        },
+        prompt: args.prompt?.substring(0, 100),
+        makeVideo: args.make_video,
+        chatId: context?.chatId
+      });
       return {
         success: false,
         error: `שגיאה: ${error.message}`
@@ -384,7 +439,16 @@ const create_poll = {
         poll: pollData
       };
     } catch (error) {
-      console.error('❌ Error in create_poll:', error);
+      logger.error('❌ Error in create_poll', {
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        },
+        question: args.question?.substring(0, 100),
+        options: args.options,
+        chatId: context?.chatId
+      });
       return {
         success: false,
         error: `שגיאה: ${error.message}`

@@ -6,6 +6,7 @@
 const { formatProviderName } = require('../utils/providerUtils');
 const { getServices } = require('../utils/serviceLoader');
 const { ProviderFallback } = require('../../../utils/providerFallback');
+const logger = require('../../../utils/logger');
 
 /**
  * Tool: Edit Image
@@ -35,7 +36,12 @@ const edit_image = {
     }
   },
   execute: async (args, context) => {
-    console.log(`🔧 [Agent Tool] edit_image called`);
+    logger.debug(`🔧 [Agent Tool] edit_image called`, {
+      imageUrl: args.image_url?.substring(0, 50),
+      editInstruction: args.edit_instruction?.substring(0, 100),
+      service: args.service,
+      chatId: context?.chatId
+    });
     
     try {
       const { openaiService, geminiService, greenApiService } = getServices();
@@ -75,7 +81,17 @@ const edit_image = {
       
       return result;
     } catch (error) {
-      console.error('❌ Error in edit_image:', error);
+      logger.error('❌ Error in edit_image', {
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        },
+        imageUrl: args.image_url?.substring(0, 50),
+        editInstruction: args.edit_instruction?.substring(0, 100),
+        service: args.service,
+        chatId: context?.chatId
+      });
       return {
         success: false,
         error: `שגיאה: ${error.message}`
@@ -107,7 +123,11 @@ const edit_video = {
     }
   },
   execute: async (args, context) => {
-    console.log(`🔧 [Agent Tool] edit_video called`);
+    logger.debug(`🔧 [Agent Tool] edit_video called`, {
+      videoUrl: args.video_url?.substring(0, 50),
+      editInstruction: args.edit_instruction?.substring(0, 100),
+      chatId: context?.chatId
+    });
     
     try {
       const { greenApiService } = getServices();
@@ -147,7 +167,16 @@ const edit_video = {
       
       return result;
     } catch (error) {
-      console.error('❌ Error in edit_video:', error);
+      logger.error('❌ Error in edit_video', {
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        },
+        videoUrl: args.video_url?.substring(0, 50),
+        editInstruction: args.edit_instruction?.substring(0, 100),
+        chatId: context?.chatId
+      });
       return {
         success: false,
         error: `שגיאה: ${error.message}`
