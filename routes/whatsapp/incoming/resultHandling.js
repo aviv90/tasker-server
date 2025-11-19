@@ -299,6 +299,8 @@ async function saveBotResponse(chatId, agentResult) {
  * @returns {Promise<boolean>} True if results were sent successfully
  */
 async function sendAgentResults(chatId, agentResult, normalized) {
+  console.log(`🔍 [ResultHandling] sendAgentResults CALLED - agentResult.success: ${agentResult?.success}, multiStep: ${agentResult?.multiStep}, alreadySent: ${agentResult?.alreadySent}`);
+  
   // For multi-step, results are sent immediately after each step in agentService
   // If alreadySent is true, skip sending here to avoid duplicates
   if (agentResult.multiStep && agentResult.alreadySent) {

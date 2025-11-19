@@ -30,6 +30,7 @@ const { sendAgentResults } = require('./incoming/resultHandling');
  */
 async function handleIncomingMessage(webhookData, processedMessages) {
   try {
+    console.log(`🔍 [IncomingHandler] START - webhookData.idMessage: ${webhookData.idMessage}`);
     const messageData = webhookData.messageData;
     const senderData = webhookData.senderData;
 
@@ -63,6 +64,7 @@ async function handleIncomingMessage(webhookData, processedMessages) {
 
     // Unified intent router for commands that start with "# "
     if (messageText && /^#\s+/.test(messageText.trim())) {
+      console.log(`🔍 [IncomingHandler] Command detected: "${messageText}"`);
       try {
         // Extract the prompt (remove "# " prefix if exists)
         const basePrompt = extractPrompt(messageText);
