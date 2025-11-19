@@ -127,6 +127,29 @@ const config = {
     intentRouterUseLLM: process.env.INTENT_ROUTER_USE_LLM === 'on',
     // Enable automatic voice transcription for authorized users
     autoVoiceTranscription: process.env.AUTO_VOICE_TRANSCRIPTION !== 'false',
+    // Rate Limiting configuration
+    rateLimit: {
+      api: {
+        max: parseInt(process.env.RATE_LIMIT_API_MAX || '100', 10),
+        windowMs: 15 * 60 * 1000, // 15 minutes
+      },
+      whatsapp: {
+        max: parseInt(process.env.RATE_LIMIT_WHATSAPP_MAX || '200', 10),
+        windowMs: 1 * 60 * 1000, // 1 minute
+      },
+      upload: {
+        max: parseInt(process.env.RATE_LIMIT_UPLOAD_MAX || '20', 10),
+        windowMs: 15 * 60 * 1000, // 15 minutes
+      },
+      callback: {
+        max: parseInt(process.env.RATE_LIMIT_CALLBACK_MAX || '50', 10),
+        windowMs: 1 * 60 * 1000, // 1 minute
+      },
+      expensive: {
+        max: parseInt(process.env.RATE_LIMIT_EXPENSIVE_MAX || '30', 10),
+        windowMs: 60 * 60 * 1000, // 1 hour
+      },
+    },
   },
 
   // WhatsApp Configuration (if needed)

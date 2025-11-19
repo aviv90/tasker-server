@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
+const { expensiveOperationLimiter } = require('../middleware/rateLimiter');
 const taskStore = require('../store/taskStore');
 const geminiService = require('../services/geminiService');
 const openaiService = require('../services/openai');
@@ -13,7 +14,8 @@ const { finalizeVideo } = require('../utils/videoUtils');
 const fs = require('fs');
 const path = require('path');
 
-router.post('/start-task', async (req, res) => {
+// Expensive operations (AI generation) - strict rate limiting
+router.post('/start-task', expensiveOperationLimiter, async (req, res) => {
     const { type, prompt, provider, model } = req.body;
     
     // Validate required fields

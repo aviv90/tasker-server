@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { whatsappLimiter } = require('../middleware/rateLimiter');
 const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory, getMessage, sendPoll, sendLocation } = require('../services/greenApiService');
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const { cleanMediaDescription } = require('../utils/textSanitizer');
@@ -80,8 +81,9 @@ setInterval(() => {
 
 /**
  * Webhook endpoint for receiving WhatsApp messages from Green API
+ * Higher rate limit for legitimate WhatsApp traffic
  */
-router.post('/webhook', async (req, res) => {
+router.post('/webhook', whatsappLimiter, async (req, res) => {
   try {
     // Security check: Verify webhook token
     const token = req.headers['authorization']?.replace('Bearer ', '') ||

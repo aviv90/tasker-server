@@ -33,6 +33,11 @@ if (!fs.existsSync(config.paths.tmp)) {
 app.enable('trust proxy');
 app.use(express.json({ limit: config.limits.jsonBodySize }));
 app.use('/static', express.static(config.paths.static));
+
+// Apply rate limiting to routes
+const { apiLimiter } = require('./middleware/rateLimiter');
+app.use('/api', apiLimiter); // Apply to all /api routes
+
 app.use('/api', taskRoutes);
 app.use('/api', uploadEditRoutes);
 app.use('/api/whatsapp', whatsappRoutes);

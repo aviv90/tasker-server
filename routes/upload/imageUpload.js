@@ -22,11 +22,13 @@ class ImageUploadRoutes {
   /**
    * Setup image upload routes
    */
-  setupRoutes(router) {
+  setupRoutes(router, rateLimiter = null) {
     /**
      * Upload and edit image
      */
-    router.post('/upload-edit', upload.single('file'), async (req, res) => {
+    const handlers = [upload.single('file')];
+    if (rateLimiter) handlers.push(rateLimiter);
+    handlers.push(async (req, res) => {
       const { prompt, provider } = req.body;
 
       // Validate required fields
@@ -70,6 +72,8 @@ class ImageUploadRoutes {
         await taskStore.set(taskId, getTaskError(error));
       }
     });
+    
+    router.post('/upload-edit', ...handlers);
   }
 }
 
