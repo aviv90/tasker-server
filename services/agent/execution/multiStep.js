@@ -157,6 +157,9 @@ class MultiStepExecution {
     
     console.log(`🏁 [Agent] Multi-step execution completed: ${stepResults.length}/${plan.steps.length} steps successful`);
     
+    // Get originalMessageId from options.input for quoting
+    const originalMessageId = options.input?.originalMessageId || null;
+    
     return {
       success: true,
       text: finalText,
@@ -166,7 +169,8 @@ class MultiStepExecution {
       multiStep: true,
       stepsCompleted: stepResults.length,
       totalSteps: plan.steps.length,
-      alreadySent: true
+      alreadySent: true,
+      originalMessageId: originalMessageId // Pass originalMessageId for quoting
     };
   }
 

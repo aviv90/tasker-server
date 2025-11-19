@@ -75,6 +75,9 @@ class AgentLoop {
 
         const finalText = context.suppressFinalResponse ? '' : text;
 
+        // Get originalMessageId from context for quoting
+        const originalMessageId = context.originalInput?.originalMessageId || null;
+
         return {
           success: true,
           text: finalText,
@@ -91,7 +94,8 @@ class AgentLoop {
           toolCalls: context.toolCalls,
           toolResults: context.previousToolResults,
           multiStep: false,
-          alreadySent: false
+          alreadySent: false,
+          originalMessageId: originalMessageId // Pass originalMessageId for quoting
         };
       }
 
