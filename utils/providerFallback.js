@@ -12,6 +12,7 @@ const { sendToolAckMessage } = require('../services/agent/utils/ackUtils');
 const { formatErrorMessage } = require('./errorHandler');
 const { getServices } = require('../services/agent/utils/serviceLoader');
 const logger = require('./logger');
+const { circuitBreakerManager } = require('./circuitBreaker');
 
 /**
  * Provider Fallback Handler
@@ -60,6 +61,24 @@ class ProviderFallback {
           totalProviders: this.providersToTry.length 
         });
 
+        // Check circuit breaker (skip if open)
+        const breaker = circuitBreakerManager.getBreaker(`${provider}_${this.toolName}`, {
+          failureThreshold: 5,
+          timeout: 60000, // 60 seconds for AI generation
+          resetTimeout: 60000 // 1 minute before retry
+        });
+
+        if (breaker.isOpen()) {
+          const nextAttemptTime = breaker.getState().nextAttemptTime;
+          logger.warn(`⛔ Circuit breaker OPEN for ${provider}`, {
+            toolName: this.toolName,
+            provider,
+            nextAttemptTime: nextAttemptTime ? new Date(nextAttemptTime).toISOString() : null
+          });
+          await this._handleProviderError(provider, `Service ${formatProviderName(provider)} is temporarily unavailable (circuit breaker open)`);
+          continue; // Skip this provider, try next
+        }
+
         // Send Ack for fallback attempts (not the first one)
         if (idx > 0 && this.chatId) {
           await sendToolAckMessage(this.chatId, [{ 
@@ -68,8 +87,10 @@ class ProviderFallback {
           }]);
         }
 
-        // Try the provider
-        const result = await tryProvider(provider, this.services);
+        // Try the provider with circuit breaker protection
+        const result = await breaker.execute(async () => {
+          return await tryProvider(provider, this.services);
+        });
 
         // Check if result has error
         if (result?.error) {
@@ -85,6 +106,12 @@ class ProviderFallback {
         return result;
 
       } catch (error) {
+        // Check if it's a circuit breaker error (already logged)
+        if (error.code === 'CIRCUIT_BREAKER_OPEN') {
+          await this._handleProviderError(provider, error.message, error);
+          continue; // Skip this provider
+        }
+        
         const errorMessage = error.message || 'Unknown error';
         await this._handleProviderError(provider, errorMessage, error);
       }
