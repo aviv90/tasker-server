@@ -69,7 +69,8 @@ async function sendToolAckMessage(chatId, functionCalls) {
       // SKIP: These tools handle their own Acks internally or don't need ACK
       if (toolName === 'send_location' || 
           toolName === 'retry_with_different_provider' || 
-          toolName === 'retry_last_command') {
+          toolName === 'retry_last_command' ||
+          toolName === 'smart_execute_with_fallback') {
         return '';
       }
       
