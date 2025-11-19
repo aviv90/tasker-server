@@ -18,12 +18,15 @@ const audioConverterService = require('../../audioConverterService');
  * Handle voice message with full voice-to-voice processing
  * Flow: Speech-to-Text → Voice Clone → Gemini Response → Text-to-Speech
  */
-async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
+async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, originalMessageId }) {
   console.log(`🎤 Processing voice-to-voice request from ${senderName}`);
+
+  // Get originalMessageId for quoting all responses
+  const quotedMessageId = originalMessageId || null;
 
   try {
     // Send ACK message first (same as when transcribing quoted audio)
-    await sendTextMessage(chatId, 'מתמלל הקלטה... 🎤📝');
+    await sendTextMessage(chatId, 'מתמלל הקלטה... 🎤📝', quotedMessageId);
 
     // Step 1: Download audio file
     const audioBuffer = await downloadFile(audioUrl);
@@ -37,7 +40,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
     if (transcriptionResult.error) {
       console.error('❌ Transcription failed:', transcriptionResult.error);
       // We don't know the language yet, so use Hebrew as default for error messages
-      await sendTextMessage(chatId, `❌ סליחה, לא הצלחתי לתמלל את ההקלטה: ${transcriptionResult.error}`);
+      await sendTextMessage(chatId, `❌ סליחה, לא הצלחתי לתמלל את ההקלטה: ${transcriptionResult.error}`, quotedMessageId);
       return;
     }
 
@@ -77,16 +80,16 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
       // Send agent result (text, image, video, audio, etc.) in parallel for better performance
       const sendPromises = [];
       if (agentResult.text && agentResult.text.trim()) {
-        sendPromises.push(sendTextMessage(chatId, agentResult.text));
+        sendPromises.push(sendTextMessage(chatId, agentResult.text, quotedMessageId));
       }
       if (agentResult.imageUrl) {
-        sendPromises.push(sendFileByUrl(chatId, agentResult.imageUrl, `image_${Date.now()}.jpg`, ''));
+        sendPromises.push(sendFileByUrl(chatId, agentResult.imageUrl, `image_${Date.now()}.jpg`, '', quotedMessageId));
       }
       if (agentResult.videoUrl) {
-        sendPromises.push(sendFileByUrl(chatId, agentResult.videoUrl, `video_${Date.now()}.mp4`, ''));
+        sendPromises.push(sendFileByUrl(chatId, agentResult.videoUrl, `video_${Date.now()}.mp4`, '', quotedMessageId));
       }
       if (agentResult.audioUrl) {
-        sendPromises.push(sendFileByUrl(chatId, agentResult.audioUrl, `audio_${Date.now()}.mp3`, ''));
+        sendPromises.push(sendFileByUrl(chatId, agentResult.audioUrl, `audio_${Date.now()}.mp3`, '', quotedMessageId));
       }
       await Promise.all(sendPromises);
       
@@ -173,7 +176,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
       const errorMessage = originalLanguage === 'he'
         ? `❌ סליחה, לא הצלחתי ליצור תגובה: ${geminiResult.error}`
         : `❌ Sorry, I couldn't generate a response: ${geminiResult.error}`;
-      await sendTextMessage(chatId, errorMessage);
+      await sendTextMessage(chatId, errorMessage, quotedMessageId);
 
       // Clean up voice clone before returning (only if we cloned)
       if (shouldCloneVoice && voiceId) {
@@ -205,7 +208,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
       const randomVoiceResult = await voiceService.getVoiceForLanguage(responseLanguage);
       if (randomVoiceResult.error) {
         console.error(`❌ Could not get random voice: ${randomVoiceResult.error}`);
-        await sendTextMessage(chatId, `❌ סליחה, לא הצלחתי ליצור תגובה קולית`);
+        await sendTextMessage(chatId, `❌ סליחה, לא הצלחתי ליצור תגובה קולית`, quotedMessageId);
         return;
       }
       voiceId = randomVoiceResult.voiceId;
@@ -228,7 +231,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
       const errorMessage = originalLanguage === 'he'
         ? '❌ סליחה, לא הצלחתי ליצור תגובה קולית. נסה שוב.'
         : '❌ Sorry, I couldn\'t generate voice response. Please try again.';
-      await sendTextMessage(chatId, errorMessage);
+      await sendTextMessage(chatId, errorMessage, quotedMessageId);
 
       // Clean up voice clone before returning (only if we cloned)
       if (shouldCloneVoice && voiceId) {
@@ -254,11 +257,11 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
       const fullAudioUrl = ttsResult.audioUrl.startsWith('http')
         ? ttsResult.audioUrl
         : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
-      await sendFileByUrl(chatId, fullAudioUrl, `voice_${Date.now()}.mp3`, '');
+      await sendFileByUrl(chatId, fullAudioUrl, `voice_${Date.now()}.mp3`, '', quotedMessageId);
     } else {
       // Send as voice note with Opus format
       const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
-      await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '');
+      await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '', quotedMessageId);
       console.log(`✅ Voice-to-voice sent as voice note: ${conversionResult.fileName}`);
     }
 
@@ -276,7 +279,9 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl }) {
 
   } catch (error) {
     console.error('❌ Error in voice-to-voice processing:', error.message || error);
-    await sendTextMessage(chatId, `❌ שגיאה בעיבוד ההקלטה הקולית: ${error.message || error}`);
+    // Get quotedMessageId for error response (preserve original message ID)
+    const quotedMessageId = originalMessageId || null;
+    await sendTextMessage(chatId, `❌ שגיאה בעיבוד ההקלטה הקולית: ${error.message || error}`, quotedMessageId);
   }
 }
 

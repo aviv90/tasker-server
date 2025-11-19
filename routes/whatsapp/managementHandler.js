@@ -21,8 +21,9 @@ const { getContacts } = require('../../services/greenApiService');
  * @param {string} senderName - Sender name
  * @param {string} senderContactName - Sender contact name
  * @param {string} chatName - Chat name
+ * @param {string} [originalMessageId] - Optional: ID of original message for quoting
  */
-async function handleManagementCommand(command, chatId, senderId, senderName, senderContactName, chatName) {
+async function handleManagementCommand(command, chatId, senderId, senderName, senderContactName, chatName, originalMessageId = null) {
   try {
     switch (command.type) {
       case 'clear_all_conversations': {
@@ -115,7 +116,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           console.log(`✅ Contacts synced successfully by ${senderName}`);
         } catch (error) {
           console.error('❌ Error syncing contacts:', error);
-          await sendTextMessage(chatId, `❌ שגיאה בעדכון אנשי קשר: ${error.message}`);
+          await sendTextMessage(chatId, `❌ שגיאה בעדכון אנשי קשר: ${error.message}`, originalMessageId);
         }
         break;
       }
@@ -135,7 +136,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
             const foundContact = await findContactByName(command.contactName);
             
             if (!foundContact) {
-              await sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`);
+              await sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`, originalMessageId);
               break;
             }
             
@@ -154,7 +155,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           }
         } catch (error) {
           console.error('❌ Error in add_media_authorization:', error);
-          await sendTextMessage(chatId, `❌ שגיאה בהוספת הרשאה: ${error.message}`);
+          await sendTextMessage(chatId, `❌ שגיאה בהוספת הרשאה: ${error.message}`, originalMessageId);
         }
         break;
       }
@@ -174,7 +175,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
             const foundContact = await findContactByName(command.contactName);
             
             if (!foundContact) {
-              await sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`);
+              await sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`, originalMessageId);
               break;
             }
             
@@ -193,7 +194,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           }
         } catch (error) {
           console.error('❌ Error in remove_media_authorization:', error);
-          await sendTextMessage(chatId, `❌ שגיאה בהסרת הרשאה: ${error.message}`);
+          await sendTextMessage(chatId, `❌ שגיאה בהסרת הרשאה: ${error.message}`, originalMessageId);
         }
         break;
       }
@@ -213,7 +214,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
             const foundContact = await findContactByName(command.contactName);
             
             if (!foundContact) {
-              await sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`);
+              await sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`, originalMessageId);
               break;
             }
             
@@ -232,7 +233,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           }
         } catch (error) {
           console.error('❌ Error in add_group_authorization:', error);
-          await sendTextMessage(chatId, `❌ שגיאה בהוספת הרשאה: ${error.message}`);
+          await sendTextMessage(chatId, `❌ שגיאה בהוספת הרשאה: ${error.message}`, originalMessageId);
         }
         break;
       }
@@ -252,7 +253,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
             const foundContact = await findContactByName(command.contactName);
             
             if (!foundContact) {
-              await sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`);
+              await sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`, originalMessageId);
               break;
             }
             
@@ -291,7 +292,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
             const foundContact = await findContactByName(command.contactName);
             
             if (!foundContact) {
-              await sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`);
+              await sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`, originalMessageId);
               break;
             }
             
@@ -330,7 +331,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
             const foundContact = await findContactByName(command.contactName);
             
             if (!foundContact) {
-              await sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`);
+              await sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`, originalMessageId);
               break;
             }
             

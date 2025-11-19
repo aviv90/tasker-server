@@ -154,7 +154,9 @@ class ProviderFallback {
     // Send error message to user (only if we have chatId)
     if (this.chatId && this.greenApiService) {
       try {
-        await this.greenApiService.sendTextMessage(this.chatId, formatErrorMessage(message));
+        // Get originalMessageId from context for quoting
+        const quotedMessageId = this.context?.originalInput?.originalMessageId || null;
+        await this.greenApiService.sendTextMessage(this.chatId, formatErrorMessage(message), quotedMessageId);
       } catch (sendError) {
         logger.error(`❌ Failed to send error message to user`, {
           toolName: this.toolName,

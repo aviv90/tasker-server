@@ -127,6 +127,8 @@ class AgentLoop {
 
     // Max iterations reached
     console.warn(`⚠️ [Agent] Max iterations (${maxIterations}) reached`);
+    // Get originalMessageId from context for quoting
+    const originalMessageId = context.originalInput?.originalMessageId || null;
     return {
       success: false,
       error: 'הגעתי למספר המקסימלי של ניסיונות. נסה לנסח את השאלה אחרת.',
@@ -135,7 +137,8 @@ class AgentLoop {
       toolCalls: context.toolCalls,
       toolResults: context.previousToolResults,
       multiStep: false,
-      alreadySent: false
+      alreadySent: false,
+      originalMessageId: originalMessageId // Pass originalMessageId for quoting error messages
     };
   }
 
@@ -177,7 +180,9 @@ class AgentLoop {
           const errorMessage = toolResult.error.startsWith('❌')
             ? toolResult.error
             : `❌ ${toolResult.error}`;
-          await greenApiService.sendTextMessage(context.chatId, errorMessage);
+          // Get originalMessageId from context for quoting
+          const quotedMessageId = context.originalInput?.originalMessageId || null;
+          await greenApiService.sendTextMessage(context.chatId, errorMessage, quotedMessageId);
         } catch (notifyError) {
           console.error(`❌ Failed to notify user about error: ${notifyError.message}`);
         }

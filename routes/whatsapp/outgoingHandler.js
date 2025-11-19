@@ -267,11 +267,15 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
 
       if (managementCommand && isAdminCommand(managementCommand.type)) {
         try {
-          await handleManagementCommand(managementCommand, chatId, senderId, senderName, senderContactName, chatName);
+          // Get originalMessageId for quoting all management responses
+          const originalMessageId = webhookData.idMessage;
+          await handleManagementCommand(managementCommand, chatId, senderId, senderName, senderContactName, chatName, originalMessageId);
           return; // Exit early after handling management command
         } catch (error) {
           console.error('❌ Management command error:', error.message || error);
-          await sendTextMessage(chatId, `❌ שגיאה בעיבוד הפקודה: ${error.message || error}`);
+          // Get originalMessageId for quoting error
+          const originalMessageId = webhookData.idMessage;
+          await sendTextMessage(chatId, `❌ שגיאה בעיבוד הפקודה: ${error.message || error}`, originalMessageId);
           return;
         }
       }
