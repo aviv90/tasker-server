@@ -17,8 +17,10 @@ const { config } = require('../config');
 
 /**
  * Key generator for rate limiting (by IP or custom identifier)
+ * @param {Object} req - Express request object
+ * @param {Function} ipKeyGenerator - Helper function for IPv6 support
  */
-function generateKey(req) {
+function generateKey(req, ipKeyGenerator) {
   // For WhatsApp webhook, try to use chatId if available
   if (req.body?.sender?.chatId) {
     return `whatsapp:${req.body.sender.chatId}`;
@@ -29,8 +31,8 @@ function generateKey(req) {
     return `user:${req.user.id}`;
   }
   
-  // Fallback to IP address
-  return req.ip || req.connection.remoteAddress || 'unknown';
+  // Use ipKeyGenerator helper for proper IPv6 support
+  return ipKeyGenerator(req);
 }
 
 /**
@@ -50,8 +52,7 @@ const apiLimiter = rateLimit({
     logger.warn('⚠️ Rate limit exceeded', {
       ip: req.ip,
       path: req.path,
-      method: req.method,
-      key: generateKey(req)
+      method: req.method
     });
     
     res.status(429).json({
@@ -78,8 +79,7 @@ const whatsappLimiter = rateLimit({
     logger.warn('⚠️ WhatsApp rate limit exceeded', {
       ip: req.ip,
       path: req.path,
-      chatId: req.body?.sender?.chatId,
-      key: generateKey(req)
+      chatId: req.body?.sender?.chatId
     });
     
     res.status(429).json({
@@ -106,8 +106,7 @@ const uploadLimiter = rateLimit({
     logger.warn('⚠️ Upload rate limit exceeded', {
       ip: req.ip,
       path: req.path,
-      method: req.method,
-      key: generateKey(req)
+      method: req.method
     });
     
     res.status(429).json({
@@ -129,9 +128,9 @@ const callbackLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
+  keyGenerator: (req, ipKeyGenerator) => {
     // Use origin IP or service identifier
-    return req.get('origin') || req.ip || 'unknown';
+    return req.get('origin') || ipKeyGenerator(req);
   },
   handler: (req, res) => {
     logger.warn('⚠️ Callback rate limit exceeded', {
@@ -164,8 +163,7 @@ const expensiveOperationLimiter = rateLimit({
     logger.warn('⚠️ Expensive operation rate limit exceeded', {
       ip: req.ip,
       path: req.path,
-      method: req.method,
-      key: generateKey(req)
+      method: req.method
     });
     
     res.status(429).json({
@@ -182,4 +180,3 @@ module.exports = {
   callbackLimiter,
   expensiveOperationLimiter
 };
-

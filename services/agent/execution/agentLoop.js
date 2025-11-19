@@ -173,8 +173,16 @@ class AgentLoop {
       context.previousToolResults[toolName] = toolResult;
 
       // Immediately surface raw errors to the user (as-is)
-      // BUT: Skip if errors were already sent (e.g., by ProviderFallback during fallback attempts)
-      if (toolResult && toolResult.error && context.chatId && !toolResult.errorsAlreadySent) {
+      // BUT: Skip if:
+      // 1. Errors were already sent (e.g., by ProviderFallback during fallback attempts)
+      // 2. Tool will be retried (suppressFinalResponse = true means fallback is happening)
+      const shouldSendError = toolResult && 
+                             toolResult.error && 
+                             context.chatId && 
+                             !toolResult.errorsAlreadySent &&
+                             !toolResult.suppressFinalResponse;
+      
+      if (shouldSendError) {
         try {
           const { greenApiService } = getServices();
           const errorMessage = toolResult.error.startsWith('❌')
