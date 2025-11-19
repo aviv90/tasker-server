@@ -5,6 +5,7 @@
 
 const { formatProviderName } = require('../utils/providerUtils');
 const { sendToolAckMessage } = require('../utils/ackUtils');
+const { formatErrorMessage } = require('../utils/errorUtils');
 const { getServices } = require('../utils/serviceLoader');
 
 /**
@@ -71,7 +72,7 @@ const edit_image = {
             errorStack.push({ provider: providerName, message });
             console.warn(`❌ [edit_image] ${providerName} failed: ${message}`);
             if (chatId && greenApiService) {
-              await greenApiService.sendTextMessage(chatId, message);
+              await greenApiService.sendTextMessage(chatId, formatErrorMessage(message));
             }
             continue;
           }
@@ -89,7 +90,7 @@ const edit_image = {
           errorStack.push({ provider: providerName, message });
           console.error(`❌ [edit_image] ${providerName} threw error: ${message}`);
           if (chatId && greenApiService) {
-            await greenApiService.sendTextMessage(chatId, message);
+            await greenApiService.sendTextMessage(chatId, formatErrorMessage(message));
           }
         }
       }

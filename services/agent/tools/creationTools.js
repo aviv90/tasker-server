@@ -5,6 +5,7 @@
 
 const { formatProviderName } = require('../utils/providerUtils');
 const { sendToolAckMessage } = require('../utils/ackUtils');
+const { formatErrorMessage } = require('../utils/errorUtils');
 const { getServices } = require('../utils/serviceLoader');
 const { cleanMarkdown } = require('../../../utils/textSanitizer');
 
@@ -74,7 +75,7 @@ const create_image = {
             errorStack.push({ provider: providerName, message });
             console.warn(`❌ [create_image] ${providerName} failed: ${message}`);
             if (chatId && greenApiService) {
-              await greenApiService.sendTextMessage(chatId, message);
+              await greenApiService.sendTextMessage(chatId, formatErrorMessage(message));
             }
             continue;
           }
@@ -98,7 +99,7 @@ const create_image = {
           errorStack.push({ provider: providerName, message });
           console.error(`❌ [create_image] ${providerName} threw error: ${message}`);
           if (chatId && greenApiService) {
-            await greenApiService.sendTextMessage(chatId, message);
+            await greenApiService.sendTextMessage(chatId, formatErrorMessage(message));
           }
         }
       }
@@ -190,7 +191,7 @@ const create_video = {
             errorStack.push({ provider: providerName, message });
             console.warn(`❌ [create_video] ${providerName} failed: ${message}`);
             if (chatId && greenApiService) {
-              await greenApiService.sendTextMessage(chatId, message);
+              await greenApiService.sendTextMessage(chatId, formatErrorMessage(message));
             }
             continue;
           }
@@ -209,7 +210,7 @@ const create_video = {
           errorStack.push({ provider: providerName, message });
           console.error(`❌ [create_video] ${providerName} threw error: ${message}`);
           if (chatId && greenApiService) {
-            await greenApiService.sendTextMessage(chatId, message);
+            await greenApiService.sendTextMessage(chatId, formatErrorMessage(message));
           }
         }
       }

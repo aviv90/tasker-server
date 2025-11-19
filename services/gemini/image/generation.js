@@ -61,10 +61,11 @@ class ImageGeneration {
       console.log('❌ Gemini: No image data found in response');
 
       if (text && text.trim().length > 0) {
+        const cleanText = text.trim();
         console.log('📝 Gemini returned text instead of image - generation failed');
-        console.log(`   Gemini response: ${text.substring(0, 200)}...`);
+        console.log(`   Gemini response: ${cleanText.substring(0, 200)}...`);
         return {
-          error: 'Gemini לא הצליח ליצור תמונה. נסה prompt אחר או השתמש ב-OpenAI במקום.'
+          error: cleanText
         };
       }
 
