@@ -106,17 +106,22 @@ async function sendPoll(chatId, message, options, multipleAnswers = false, quote
       multipleAnswers: multipleAnswers
     };
 
-    // NOTE: quotedMessageId is not included for polls to avoid issues
-    // Polls will be sent without quoting the original message
+    // NOTE: quotedMessageId is temporarily disabled for polls.
+    // Investigation showed that including it causes the poll to NOT be delivered,
+    // even though the API returns 200 OK. This is likely a Green API bug or limitation
+    // regarding quoting in sendPoll specifically.
+    // See: https://green-api.com/en/docs/api/sending/SendPoll/ (says it's supported, but fails in practice)
+    /*
     if (quotedMessageId && typeof quotedMessageId === 'string' && quotedMessageId.trim().length > 0) {
        console.log(`🔍 [sendPoll] Adding quotedMessageId: "${quotedMessageId}"`);
        data.quotedMessageId = quotedMessageId;
     }
+    */
 
     console.log(`📊 [sendPoll] Sending poll to ${chatId}:`, {
       question: message.substring(0, 50),
       optionsCount: options.length,
-      quotedMessageId: data.quotedMessageId || 'NONE'
+      quotedMessageId: 'DISABLED_TO_ENSURE_DELIVERY' // data.quotedMessageId || 'NONE'
     });
 
     const response = await axios.post(url, data, {
