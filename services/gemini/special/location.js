@@ -62,7 +62,7 @@ class LocationService {
       console.log(`🗺️ Getting location info for: ${latitude}, ${longitude} (Language: ${language})`);
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash"
+        model: "gemini-3-pro-preview"
       });
 
       let text = '';
@@ -368,7 +368,7 @@ Interesting answer in ${langName}.`;
       console.log(`🔍 Getting bounds for location: "${locationName}"`);
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash"
+        model: "gemini-3-pro-preview"
       });
 
       const geocodePrompt = `מצא את המקום הבא ב-Google Maps וחזור עם המידע הגיאוגרפי המדויק שלו:

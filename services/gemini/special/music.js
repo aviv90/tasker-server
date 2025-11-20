@@ -37,7 +37,7 @@ class MusicParser {
       }
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash"
+        model: "gemini-3-pro-preview"
       });
 
       const analysisPrompt = `Analyze this music generation request and determine if the user wants a video along with the song.

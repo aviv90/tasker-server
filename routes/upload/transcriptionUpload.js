@@ -114,7 +114,7 @@ class TranscriptionUploadRoutes {
         // Step 3: Generate Gemini response (Chatbot)
         console.log(`🔄 Step 3: Generating Gemini response to transcribed text...`);
         const geminiOptions = {
-          model: req.body.geminiModel || 'gemini-2.5-flash'
+          model: req.body.geminiModel || 'gemini-3-pro-preview'
         };
 
         const geminiResult = await geminiService.generateTextResponse(transcribedText, geminiOptions);
