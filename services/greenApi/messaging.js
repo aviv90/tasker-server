@@ -106,8 +106,10 @@ async function sendPoll(chatId, message, options, multipleAnswers = false, quote
       multipleAnswers: multipleAnswers
     };
 
-    // NOTE: quotedMessageId is not included for polls to avoid issues
-    // Polls will be sent without quoting the original message
+    // Add quoted message ID if provided
+    if (quotedMessageId && typeof quotedMessageId === 'string' && quotedMessageId.trim().length > 0) {
+      data.quotedMessageId = quotedMessageId;
+    }
 
     console.log(`📊 [sendPoll] Sending poll to ${chatId}:`, {
       question: message.substring(0, 50),
