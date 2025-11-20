@@ -61,6 +61,15 @@ class ResultSender {
       console.log(`✅ [ResultSender] Poll sent${stepInfo}`);
     } catch (error) {
       console.error(`❌ [ResultSender] Failed to send poll${stepNumber ? ` for step ${stepNumber}` : ''}:`, error.message);
+      
+      // Send error to user
+      try {
+        const { greenApiService } = getServices();
+        const errorMsg = `❌ שגיאה בשליחת הסקר: ${error.message || 'שגיאה לא ידועה'}`;
+        await greenApiService.sendTextMessage(chatId, errorMsg, quotedMessageId);
+      } catch (sendError) {
+        console.error(`❌ [ResultSender] Failed to send poll error message:`, sendError.message);
+      }
     }
   }
 

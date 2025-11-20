@@ -96,9 +96,9 @@ async function sendFileByUrl(chatId, fileUrl, fileName, caption = '', quotedMess
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
  */
 async function sendPoll(chatId, message, options, multipleAnswers = false, quotedMessageId = null) {
-  const url = `${BASE_URL}/sendPoll/${GREEN_API_API_TOKEN_INSTANCE}`;
-  
   try {
+    const url = `${BASE_URL}/sendPoll/${GREEN_API_API_TOKEN_INSTANCE}`;
+
     const data = {
       chatId: chatId,
       message: message,
@@ -106,17 +106,13 @@ async function sendPoll(chatId, message, options, multipleAnswers = false, quote
       multipleAnswers: multipleAnswers
     };
 
-    // NOTE: Green API may not support quotedMessageId for polls
-    // If poll fails, try without quotedMessageId
-    // Add quoted message ID if provided
-    if (quotedMessageId) {
-      data.quotedMessageId = quotedMessageId;
-    }
+    // NOTE: Green API does not support quotedMessageId for polls
+    // We ignore quotedMessageId parameter for polls to ensure they work correctly
+    // Polls will be sent without quoting the original message
 
-    console.log(`📊 [sendPoll] Attempting to send poll to ${chatId}:`, {
+    console.log(`📊 [sendPoll] Sending poll to ${chatId}:`, {
       question: message.substring(0, 50),
-      optionsCount: options.length,
-      hasQuotedMessageId: !!quotedMessageId
+      optionsCount: options.length
     });
 
     const response = await axios.post(url, data, {
@@ -134,43 +130,6 @@ async function sendPoll(chatId, message, options, multipleAnswers = false, quote
     if (error.response) {
       console.error(`❌ Green API Error: ${error.response.status} - ${error.response.statusText}`);
       console.error('❌ Response data:', JSON.stringify(error.response.data, null, 2));
-      
-      // If error is related to quotedMessageId, try again without it
-      const errorData = error.response.data;
-      const errorMessage = JSON.stringify(errorData).toLowerCase();
-      
-      if (quotedMessageId && (
-        errorMessage.includes('quoted') || 
-        errorMessage.includes('quote') ||
-        error.response.status === 400
-      )) {
-        console.log('🔄 [sendPoll] Retrying without quotedMessageId (may not be supported for polls)');
-        
-        try {
-          const retryData = {
-            chatId: chatId,
-            message: message,
-            options: options,
-            multipleAnswers: multipleAnswers
-          };
-          
-          const retryResponse = await axios.post(url, retryData, {
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          console.log(`✅ [sendPoll] Poll sent successfully (without quote) to ${chatId}`);
-          return retryResponse.data;
-        } catch (retryError) {
-          console.error('❌ [sendPoll] Retry also failed:', retryError.message);
-          if (retryError.response) {
-            console.error(`❌ Retry Error: ${retryError.response.status} - ${retryError.response.statusText}`);
-            console.error('❌ Retry Response data:', JSON.stringify(retryError.response.data, null, 2));
-          }
-          throw retryError;
-        }
-      }
     }
 
     throw error;

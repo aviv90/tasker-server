@@ -162,11 +162,26 @@ async function sendPollResult(chatId, agentResult, quotedMessageId = null) {
     return false;
   }
 
-  console.log(`📊 [Agent] Sending poll: ${agentResult.poll.question}`);
-  // Convert options to Green API format
-  const pollOptions = agentResult.poll.options.map(opt => ({ optionName: opt }));
-  await sendPoll(chatId, agentResult.poll.question, pollOptions, false, quotedMessageId);
-  return true;
+  try {
+    console.log(`📊 [Agent] Sending poll: ${agentResult.poll.question}`);
+    // Convert options to Green API format
+    const pollOptions = agentResult.poll.options.map(opt => ({ optionName: opt }));
+    await sendPoll(chatId, agentResult.poll.question, pollOptions, false, quotedMessageId);
+    return true;
+  } catch (error) {
+    console.error(`❌ [Agent] Failed to send poll:`, error.message);
+    
+    // Send error to user
+    try {
+      const { sendTextMessage } = require('../../services/greenApiService');
+      const errorMsg = `❌ שגיאה בשליחת הסקר: ${error.message || 'שגיאה לא ידועה'}`;
+      await sendTextMessage(chatId, errorMsg, quotedMessageId);
+    } catch (sendError) {
+      console.error(`❌ [Agent] Failed to send poll error message:`, sendError.message);
+    }
+    
+    return false;
+  }
 }
 
 /**

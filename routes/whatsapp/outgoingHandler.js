@@ -590,11 +590,23 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
               if (agentResult.multiStep && agentResult.alreadySent) {
                 console.log(`⏭️ [Agent - Outgoing] Skipping poll send - already sent in multi-step`);
               } else if (agentResult.poll) {
-                console.log(`📊 [Agent - Outgoing] Sending poll: ${agentResult.poll.question}`);
-                // Convert options to Green API format
-                const pollOptions = agentResult.poll.options.map(opt => ({ optionName: opt }));
-                await sendPoll(chatId, agentResult.poll.question, pollOptions, false, quotedMessageId);
-                mediaSent = true;
+                try {
+                  console.log(`📊 [Agent - Outgoing] Sending poll: ${agentResult.poll.question}`);
+                  // Convert options to Green API format
+                  const pollOptions = agentResult.poll.options.map(opt => ({ optionName: opt }));
+                  await sendPoll(chatId, agentResult.poll.question, pollOptions, false, quotedMessageId);
+                  mediaSent = true;
+                } catch (error) {
+                  console.error(`❌ [Agent - Outgoing] Failed to send poll:`, error.message);
+                  
+                  // Send error to user
+                  try {
+                    const errorMsg = `❌ שגיאה בשליחת הסקר: ${error.message || 'שגיאה לא ידועה'}`;
+                    await sendTextMessage(chatId, errorMsg, quotedMessageId);
+                  } catch (sendError) {
+                    console.error(`❌ [Agent - Outgoing] Failed to send poll error message:`, sendError.message);
+                  }
+                }
               }
               
               // For multi-step, location is already sent in agentService - skip here
