@@ -102,14 +102,13 @@ class ImageGeneration {
       const cleanPrompt = this.cleanPrompt(prompt);
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash-image-preview"
+        model: "gemini-3-pro-image-preview"
       });
 
       const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: cleanPrompt }] }],
         generationConfig: {
-          responseModalities: ["IMAGE", "TEXT"],
-          temperature: 0.7
+          responseModalities: ["IMAGE", "TEXT"]
         }
       });
 
@@ -138,14 +137,13 @@ class ImageGeneration {
       const cleanPrompt = this.cleanPrompt(prompt);
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash-image-preview"
+        model: "gemini-3-pro-image-preview"
       });
 
       const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: cleanPrompt }] }],
         generationConfig: {
-          responseModalities: ["IMAGE", "TEXT"],
-          temperature: 0.7
+          responseModalities: ["IMAGE", "TEXT"]
         }
       });
 
