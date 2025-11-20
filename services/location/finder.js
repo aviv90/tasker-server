@@ -10,8 +10,12 @@ const { buildLocationAckMessage } = require('./helpers');
 
 /**
  * Find random location within requested region
+ * @param {Object} params
+ * @param {Object} params.requestedRegion - Requested region info
+ * @param {number} params.maxAttempts - Max attempts
+ * @param {string} params.language - Output language (default: 'he')
  */
-async function findRandomLocation({ requestedRegion, maxAttempts = 15 }) {
+async function findRandomLocation({ requestedRegion, maxAttempts = 15, language = 'he' }) {
   let locationInfo = null;
   let attempts = 0;
 
@@ -80,7 +84,7 @@ async function findRandomLocation({ requestedRegion, maxAttempts = 15 }) {
       longitude = (Math.random() * (selectedContinent.maxLng - selectedContinent.minLng) + selectedContinent.minLng).toFixed(6);
     }
 
-    const tempLocationInfo = await getLocationInfo(parseFloat(latitude), parseFloat(longitude));
+    const tempLocationInfo = await getLocationInfo(parseFloat(latitude), parseFloat(longitude), language);
 
     if (tempLocationInfo.success && tempLocationInfo.description) {
       if (isLandLocation(tempLocationInfo.description)) {
@@ -92,7 +96,9 @@ async function findRandomLocation({ requestedRegion, maxAttempts = 15 }) {
   if (!locationInfo) {
     return {
       success: false,
-      error: `לא הצלחתי למצוא מיקום תקין אחרי ${maxAttempts} ניסיונות`
+      error: language === 'he' 
+        ? `לא הצלחתי למצוא מיקום תקין אחרי ${maxAttempts} ניסיונות`
+        : `Could not find a valid location after ${maxAttempts} attempts`
     };
   }
 

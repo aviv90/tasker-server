@@ -68,9 +68,13 @@ const send_location = {
         await greenApiService.sendTextMessage(context.chatId, regionAckMessage, quotedMessageId);
       }
 
-      const locationResult = await locationService.findRandomLocation({ requestedRegion });
+      // Determine language from context
+      const language = context?.originalInput?.language || context?.normalized?.language || 'he';
+      console.log(`🌐 [Location] Using language: ${language}`);
+
+      const locationResult = await locationService.findRandomLocation({ requestedRegion, language });
       if (!locationResult.success) {
-        const errorMessage = locationResult.error || 'לא הצלחתי למצוא מיקום תקין';
+        const errorMessage = locationResult.error || (language === 'he' ? 'לא הצלחתי למצוא מיקום תקין' : 'Could not find a valid location');
         if (context?.chatId) {
           const quotedMessageId = context.originalInput?.originalMessageId || null;
           await greenApiService.sendTextMessage(context.chatId, `❌ ${errorMessage}`, quotedMessageId);

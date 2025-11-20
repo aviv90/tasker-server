@@ -53,10 +53,13 @@ class LocationService {
 
   /**
    * Get location information using Google Maps grounding
+   * @param {number} latitude - Latitude
+   * @param {number} longitude - Longitude
+   * @param {string} [language='he'] - Output language (e.g., 'he', 'en')
    */
-  async getLocationInfo(latitude, longitude) {
+  async getLocationInfo(latitude, longitude, language = 'he') {
     try {
-      console.log(`🗺️ Getting location info for: ${latitude}, ${longitude}`);
+      console.log(`🗺️ Getting location info for: ${latitude}, ${longitude} (Language: ${language})`);
 
       const model = genAI.getGenerativeModel({
         model: "gemini-2.5-flash"
@@ -64,14 +67,30 @@ class LocationService {
 
       let text = '';
       let usedMapsGrounding = false;
-
+      
+      // Language-specific instructions
+      const isHebrew = language === 'he' || language === 'Hebrew';
+      const langName = isHebrew ? 'Hebrew' : (language === 'en' ? 'English' : language);
+      const langInstruction = isHebrew ? 'בעברית' : `in ${langName}`;
+      
       try {
         console.log('🗺️ Trying Google Maps Grounding first...');
-        const mapsPrompt = `תאר את המיקום בקואורדינטות: קו רוחב ${latitude}°, קו אורך ${longitude}°.
+        
+        // Dynamic prompt based on language
+        let mapsPrompt;
+        if (isHebrew) {
+          mapsPrompt = `תאר את המיקום בקואורדינטות: קו רוחב ${latitude}°, קו אורך ${longitude}°.
             
 באיזו עיר או אזור זה נמצא? באיזו מדינה? מה מעניין או מפורסם במקום הזה?
 
 תשובה קצרה ומעניינת בעברית (2-3 שורות).`;
+        } else {
+          mapsPrompt = `Describe the location at coordinates: Latitude ${latitude}°, Longitude ${longitude}°.
+            
+Which city or region is this in? Which country? What is interesting or famous about this place?
+
+Short and interesting answer in ${langName} (2-3 lines).`;
+        }
 
         const mapsResult = await model.generateContent({
           contents: [{ role: "user", parts: [{ text: mapsPrompt }] }],
@@ -87,6 +106,7 @@ class LocationService {
             }
           }
         });
+
 
         const mapsResponse = mapsResult.response;
         if (mapsResponse.candidates && mapsResponse.candidates.length > 0) {
@@ -127,7 +147,10 @@ class LocationService {
       // Fallback: Use Gemini's general geographic knowledge
       if (!text || text.trim().length === 0) {
         console.log('🌍 Using Gemini general geographic knowledge...');
-        const generalPrompt = `תאר את המיקום הגיאוגרפי: קו רוחב ${latitude}°, קו אורך ${longitude}°.
+        
+        let generalPrompt;
+        if (isHebrew) {
+          generalPrompt = `תאר את המיקום הגיאוגרפי: קו רוחב ${latitude}°, קו אורך ${longitude}°.
 
 ספר בקצרה (2-3 שורות):
 - באיזו מדינה, אזור או אוקיינוס זה נמצא
@@ -135,6 +158,16 @@ class LocationService {
 - אם יש שם משהו מעניין או מפורסם, ציין את זה
 
 תשובה מעניינת בעברית.`;
+        } else {
+          generalPrompt = `Describe the geographic location: Latitude ${latitude}°, Longitude ${longitude}°.
+
+Briefly describe (2-3 lines):
+- Which country, region, or ocean is it in?
+- What is the climate and nature of the area?
+- If there is something interesting or famous there, mention it.
+
+Interesting answer in ${langName}.`;
+        }
 
         const generalResult = await model.generateContent(generalPrompt);
         const generalResponse = generalResult.response;
@@ -164,7 +197,9 @@ class LocationService {
 
       // Final validation: ensure we still have meaningful text
       if (!text || text.length < 10) {
-        text = `מיקום: קו רוחב ${latitude}°, קו אורך ${longitude}°`;
+        text = isHebrew 
+          ? `מיקום: קו רוחב ${latitude}°, קו אורך ${longitude}°`
+          : `Location: Latitude ${latitude}°, Longitude ${longitude}°`;
       }
 
       console.log(`✅ Location info retrieved (${usedMapsGrounding ? 'Maps Grounding' : 'General Knowledge'}): ${text.substring(0, 100)}...`);
