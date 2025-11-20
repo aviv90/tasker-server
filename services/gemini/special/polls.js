@@ -11,9 +11,13 @@ class PollGenerator {
   /**
    * Build poll prompt with or without rhyming
    */
-  buildPollPrompt(cleanTopic, numOptions, withRhyme) {
+  buildPollPrompt(cleanTopic, numOptions, withRhyme, language = 'he') {
+    const isHebrew = language === 'he' || language === 'Hebrew';
+    const langName = isHebrew ? 'Hebrew' : (language === 'en' ? 'English' : language);
+
     if (withRhyme) {
-      return `אתה יוצר סקרים יצירתיים ומשעשעים בעברית עם חריזה מושלמת.
+      if (isHebrew) {
+        return `אתה יוצר סקרים יצירתיים ומשעשעים בעברית עם חריזה מושלמת.
 
 נושא הסקר: ${cleanTopic}
 
@@ -33,27 +37,6 @@ class PollGenerator {
   תשובה 2: "נמר לועס"
   (חרוז: כועס / לועס)
 
-- נושא: כלבים (3 תשובות)
-  שאלה: "איזה כלב הכי טוב?"
-  תשובה 1: "גולדן רטריבר נהדר"
-  תשובה 2: "ביגל קטן ויפה בחדר"
-  תשובה 3: "פודל לבן שמתגבר"
-  (חרוז: נהדר / בחדר / מתגבר)
-
-- נושא: פיצה (4 תשובות)
-  שאלה: "איזו פיצה הכי טעימה?"
-  תשובה 1: "פיצה עם זיתים"
-  תשובה 2: "פלאפל עם חומוס שלמים"
-  תשובה 3: "בורקס במילוי עשיר ושמנים"
-  תשובה 4: "שווארמה עם בצל וחצילים"
-  (חרוז: זיתים / שלמים / שמנים / חצילים)
-
-- נושא: קפה (2 תשובות)
-  שאלה: "איך אתה שותה קפה?"
-  תשובה 1: "עם חלב וסוכר"
-  תשובה 2: "שחור וחזק כמו נמר"
-  (חרוז: סוכר / נמר)
-
 חוקים קפדניים:
 ⭐ החרוז חייב להיות מושלם - המילה האחרונה בכל תשובה חייבת לחרוז!
 - התשובות חייבות להיות שונות זו מזו במשמעות
@@ -66,49 +49,83 @@ class PollGenerator {
   "question": "השאלה כאן",
   "options": ["תשובה 1", "תשובה 2"${numOptions > 2 ? ', "תשובה 3"' : ''}${numOptions > 3 ? ', "תשובה 4"' : ''}]
 }`;
+      } else {
+        return `You create creative and entertaining polls in ${langName} with perfect rhymes.
+
+Poll Topic: ${cleanTopic}
+
+Create a poll with:
+1. An interesting and creative question
+2. Exactly ${numOptions} possible answers
+3. ⭐ MOST IMPORTANT: All answers must rhyme with each other perfectly! ⭐
+4. The rhyme must be at the end of each answer
+5. Answers should be short (max 100 chars)
+6. Answers should be related to the topic
+7. Answers must be entertaining and creative
+
+Strict Rules:
+⭐ The rhyme must be perfect - the last word of each answer must rhyme!
+- Answers must be different in meaning
+- Question max 255 chars
+- Each answer max 100 chars
+- All ${numOptions} answers must rhyme together!
+
+Return JSON only in this format:
+{
+  "question": "Question here",
+  "options": ["Answer 1", "Answer 2"${numOptions > 2 ? ', "Answer 3"' : ''}${numOptions > 3 ? ', "Answer 4"' : ''}]
+}`;
+      }
     } else {
-      return `אתה יוצר סקרים יצירתיים ומשעשעים בעברית.
+      if (isHebrew) {
+        return `אתה יוצר סקרים יצירתיים ומשעשעים בעברית.
 
 נושא הסקר: ${cleanTopic}
 
 צור סקר עם:
-1. שאלה מעניינת ויצירתית (יכולה להיות "מה היית מעדיפ/ה?" או כל שאלה אחרת)
+1. שאלה מעניינת ויצירתית
 2. בדיוק ${numOptions} תשובות אפשריות
 3. התשובות צריכות להיות קצרות (עד 100 תווים כל אחת)
 4. התשובות צריכות להיות קשורות לנושא
 5. התשובות חייבות להיות משעשעות, יצירתיות, ומעניינות
 6. ⭐ חשוב: התשובות לא צריכות לחרוז! ⭐
 
-דוגמאות ללא חריזה:
-- נושא: חתולים (2 תשובות)
-  שאלה: "איזה חתול היית מעדיפ/ה?"
-  תשובה 1: "חתול פרסי רך ונחמד"
-  תשובה 2: "חתול רחוב עצמאי ופראי"
-
-- נושא: פיצה (3 תשובות)
-  שאלה: "איזו פיצה הכי טעימה?"
-  תשובה 1: "מרגריטה קלאסית"
-  תשובה 2: "פפרוני עם גבינה"
-  תשובה 3: "ירקות טריים ובריאים"
-
-- נושא: קפה (4 תשובות)
-  שאלה: "איך אתה שותה קפה?"
-  תשובה 1: "אספרסו חזק"
-  תשובה 2: "קפוצ'ינו מוקצף"
-  תשובה 3: "לאטה עם חלב שקדים"
-  תשובה 4: "קר עם קרח"
-
 חוקים קפדניים:
 - התשובות חייבות להיות שונות זו מזו במשמעות
 - השאלה מקסימום 255 תווים
 - כל תשובה מקסימום 100 תווים
-- התשובות לא צריכות לחרוז (זה חשוב!)
+- התשובות לא צריכות לחרוז
 
 החזר JSON בלבד בפורמט:
 {
   "question": "השאלה כאן",
   "options": ["תשובה 1", "תשובה 2"${numOptions > 2 ? ', "תשובה 3"' : ''}${numOptions > 3 ? ', "תשובה 4"' : ''}]
 }`;
+      } else {
+        return `You create creative and entertaining polls in ${langName}.
+
+Poll Topic: ${cleanTopic}
+
+Create a poll with:
+1. An interesting and creative question
+2. Exactly ${numOptions} possible answers
+3. Answers should be short (max 100 chars)
+4. Answers should be related to the topic
+5. Answers must be entertaining, creative, and interesting
+6. ⭐ IMPORTANT: Answers should NOT rhyme! ⭐
+
+Strict Rules:
+- Answers must be different in meaning
+- Question max 255 chars
+- Each answer max 100 chars
+- Answers should NOT rhyme
+
+Return JSON only in this format:
+{
+  "question": "Question here",
+  "options": ["Answer 1", "Answer 2"${numOptions > 2 ? ', "Answer 3"' : ''}${numOptions > 3 ? ', "Answer 4"' : ''}]
+}`;
+      }
     }
   }
 
@@ -161,9 +178,9 @@ class PollGenerator {
   /**
    * Generate creative poll with optional rhyming
    */
-  async generateCreativePoll(topic, withRhyme = true) {
+  async generateCreativePoll(topic, withRhyme = true, language = 'he') {
     try {
-      console.log(`📊 Generating creative poll about: ${topic} ${withRhyme ? '(with rhyme)' : '(without rhyme)'}`);
+      console.log(`📊 Generating creative poll about: ${topic} ${withRhyme ? '(with rhyme)' : '(without rhyme)'} (Language: ${language})`);
 
       const cleanTopic = sanitizeText(topic);
 
@@ -171,7 +188,7 @@ class PollGenerator {
       const numOptions = crypto.randomInt(2, 5); // 2, 3, or 4
       console.log(`🎲 Randomly selected ${numOptions} poll options`);
 
-      const pollPrompt = this.buildPollPrompt(cleanTopic, numOptions, withRhyme);
+      const pollPrompt = this.buildPollPrompt(cleanTopic, numOptions, withRhyme, language);
 
       const model = genAI.getGenerativeModel({
         model: "gemini-2.5-flash"

@@ -40,10 +40,16 @@ const search_web = {
     console.log(`🔧 [Agent Tool] search_web called with query: ${args.query}`);
     
     try {
+      // Determine language from context
+      const language = context?.originalInput?.language || context?.normalized?.language || 'he';
+      const isHebrew = language === 'he' || language === 'Hebrew';
+      const langInstruction = isHebrew ? 'בעברית' : `in ${language === 'en' ? 'English' : language}`;
+
       // Use Gemini with Google Search
       const { geminiService } = getServices();
       const result = await geminiService.generateTextResponse(args.query, [], {
-        useGoogleSearch: true
+        useGoogleSearch: true,
+        systemInstruction: `You are a helpful search assistant. Search for "${args.query}" and answer ${langInstruction}. Provide relevant links if found.`
       });
       
       if (result.error) {

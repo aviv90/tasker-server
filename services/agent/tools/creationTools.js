@@ -427,19 +427,24 @@ const create_poll = {
       
       // Default to true (with rhyme) if not specified
       const withRhyme = args.with_rhyme !== false;
+      const language = context?.originalInput?.language || context?.normalized?.language || 'he';
       
-      const pollData = await geminiService.generateCreativePoll(args.topic, withRhyme);
+      const pollData = await geminiService.generateCreativePoll(args.topic, withRhyme, language);
       
       if (pollData.error) {
         return {
           success: false,
-          error: `יצירת סקר נכשלה: ${pollData.error}`
+          error: language === 'he' 
+            ? `יצירת סקר נכשלה: ${pollData.error}`
+            : `Poll generation failed: ${pollData.error}`
         };
       }
       
       return {
         success: true,
-        data: `✅ הסקר נוצר${withRhyme ? ' עם חרוזים' : ' בלי חרוזים'}!`,
+        data: language === 'he'
+          ? `✅ הסקר נוצר${withRhyme ? ' עם חרוזים' : ' בלי חרוזים'}!`
+          : `✅ Poll generated${withRhyme ? ' with rhymes' : ' without rhymes'}!`,
         poll: pollData
       };
     } catch (error) {
