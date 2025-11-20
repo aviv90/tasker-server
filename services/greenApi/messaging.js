@@ -106,13 +106,15 @@ async function sendPoll(chatId, message, options, multipleAnswers = false, quote
       multipleAnswers: multipleAnswers
     };
 
-    // NOTE: Green API does not support quotedMessageId for polls
-    // We ignore quotedMessageId parameter for polls to ensure they work correctly
-    // Polls will be sent without quoting the original message
+    // Add quoted message ID if provided
+    if (quotedMessageId) {
+      data.quotedMessageId = quotedMessageId;
+    }
 
     console.log(`📊 [sendPoll] Sending poll to ${chatId}:`, {
       question: message.substring(0, 50),
-      optionsCount: options.length
+      optionsCount: options.length,
+      hasQuotedMessageId: !!quotedMessageId
     });
 
     const response = await axios.post(url, data, {
