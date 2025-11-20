@@ -106,14 +106,17 @@ async function sendPoll(chatId, message, options, multipleAnswers = false, quote
       multipleAnswers: multipleAnswers
     };
 
-    // Add quoted message ID if provided
+    // NOTE: quotedMessageId is not included for polls to avoid issues
+    // Polls will be sent without quoting the original message
     if (quotedMessageId && typeof quotedMessageId === 'string' && quotedMessageId.trim().length > 0) {
-      data.quotedMessageId = quotedMessageId;
+       console.log(`🔍 [sendPoll] Adding quotedMessageId: "${quotedMessageId}"`);
+       data.quotedMessageId = quotedMessageId;
     }
 
     console.log(`📊 [sendPoll] Sending poll to ${chatId}:`, {
       question: message.substring(0, 50),
-      optionsCount: options.length
+      optionsCount: options.length,
+      quotedMessageId: data.quotedMessageId || 'NONE'
     });
 
     const response = await axios.post(url, data, {
