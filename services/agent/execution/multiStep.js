@@ -225,7 +225,7 @@ class MultiStepExecution {
                 ? result.imageUrl
                 : getStaticFileUrl(result.imageUrl.replace('/static/', ''));
               const caption = result.caption || result.imageCaption || '';
-              await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId);
+              await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId, 1000);
               console.log(`✅ [Multi-step Fallback] Image sent successfully`);
             }
             
@@ -233,31 +233,31 @@ class MultiStepExecution {
               const fullVideoUrl = result.videoUrl.startsWith('http')
                 ? result.videoUrl
                 : getStaticFileUrl(result.videoUrl.replace('/static/', ''));
-              await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId);
+              await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId, 1000);
               console.log(`✅ [Multi-step Fallback] Video sent successfully`);
             }
             
             // Success message (optional)
             if (result.data && !result.imageUrl && !result.videoUrl) {
-              await greenApiService.sendTextMessage(chatId, result.data, quotedMessageId);
+              await greenApiService.sendTextMessage(chatId, result.data, quotedMessageId, 1000);
             }
             
             return result;
           } else {
             const errorMsg = result?.error || 'Unknown error';
             console.log(`❌ [Multi-step Fallback] ${provider} failed: ${errorMsg}`);
-            await greenApiService.sendTextMessage(chatId, `❌ ${errorMsg}`, quotedMessageId);
+            await greenApiService.sendTextMessage(chatId, `❌ ${errorMsg}`, quotedMessageId, 1000);
           }
         } catch (providerError) {
           const errorMsg = providerError.message;
           console.error(`❌ [Multi-step Fallback] ${provider} threw error:`, errorMsg);
-          await greenApiService.sendTextMessage(chatId, `❌ ${errorMsg}`, quotedMessageId);
+          await greenApiService.sendTextMessage(chatId, `❌ ${errorMsg}`, quotedMessageId, 1000);
         }
       }
       
       // All fallbacks failed
       console.log(`❌ [Multi-step Fallback] All providers failed for ${toolName}`);
-      await greenApiService.sendTextMessage(chatId, `❌ כל הספקים נכשלו עבור ${toolName}`, quotedMessageId);
+      await greenApiService.sendTextMessage(chatId, `❌ כל הספקים נכשלו עבור ${toolName}`, quotedMessageId, 1000);
       return null;
     } catch (fallbackError) {
       console.error(`❌ [Multi-step Fallback] Critical error during fallback:`, fallbackError.message);
@@ -309,7 +309,7 @@ class MultiStepExecution {
       const stepInfo = stepNumber ? ` שגיאה בביצוע שלב ${stepNumber}:` : '';
       const prefix = isException ? `❌${stepInfo}` : '❌';
       const errorMessage = error.startsWith('❌') ? error : `${prefix} ${error}`;
-      await greenApiService.sendTextMessage(chatId, errorMessage, quotedMessageId);
+      await greenApiService.sendTextMessage(chatId, errorMessage, quotedMessageId, 1000);
       console.log(`📤 [Multi-step] Error sent to user${stepNumber ? ` for step ${stepNumber}` : ''}`);
     } catch (errorSendError) {
       console.error(`❌ [Multi-step] Failed to send error message:`, errorSendError.message);

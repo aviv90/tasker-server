@@ -190,7 +190,7 @@ class AgentLoop {
             : `❌ ${toolResult.error}`;
           // Get originalMessageId from context for quoting
           const quotedMessageId = context.originalInput?.originalMessageId || null;
-          await greenApiService.sendTextMessage(context.chatId, errorMessage, quotedMessageId);
+          await greenApiService.sendTextMessage(context.chatId, errorMessage, quotedMessageId, 1000);
         } catch (notifyError) {
           console.error(`❌ Failed to notify user about error: ${notifyError.message}`);
         }

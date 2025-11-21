@@ -27,11 +27,12 @@ class ResultSender {
         parseFloat(stepResult.longitude),
         '',
         '',
-        quotedMessageId
+        quotedMessageId,
+        1000
       );
 
       if (stepResult.locationInfo && stepResult.locationInfo.trim()) {
-        await greenApiService.sendTextMessage(chatId, `📍 ${stepResult.locationInfo}`, quotedMessageId);
+        await greenApiService.sendTextMessage(chatId, `📍 ${stepResult.locationInfo}`, quotedMessageId, 1000);
       }
 
       console.log(`✅ [ResultSender] Location sent${stepInfo}`);
@@ -56,7 +57,7 @@ class ResultSender {
       console.log(`📊 [ResultSender] Sending poll${stepInfo}`);
 
       const pollOptions = stepResult.poll.options.map(opt => ({ optionName: opt }));
-      await greenApiService.sendPoll(chatId, stepResult.poll.question, pollOptions, false, quotedMessageId);
+      await greenApiService.sendPoll(chatId, stepResult.poll.question, pollOptions, false, quotedMessageId, 1000);
 
       console.log(`✅ [ResultSender] Poll sent${stepInfo}`);
     } catch (error) {
@@ -66,7 +67,7 @@ class ResultSender {
       try {
         const { greenApiService } = getServices();
         const errorMsg = `❌ שגיאה בשליחת הסקר: ${error.message || 'שגיאה לא ידועה'}`;
-        await greenApiService.sendTextMessage(chatId, errorMsg, quotedMessageId);
+        await greenApiService.sendTextMessage(chatId, errorMsg, quotedMessageId, 1000);
       } catch (sendError) {
         console.error(`❌ [ResultSender] Failed to send poll error message:`, sendError.message);
       }
@@ -93,7 +94,7 @@ class ResultSender {
         : getStaticFileUrl(stepResult.imageUrl.replace('/static/', ''));
       const caption = stepResult.imageCaption || '';
 
-      await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId);
+      await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId, 1000);
 
       console.log(`✅ [ResultSender] Image sent${stepInfo}`);
     } catch (error) {
@@ -120,7 +121,7 @@ class ResultSender {
         ? stepResult.videoUrl
         : getStaticFileUrl(stepResult.videoUrl.replace('/static/', ''));
 
-      await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId);
+      await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId, 1000);
 
       console.log(`✅ [ResultSender] Video sent${stepInfo}`);
     } catch (error) {
@@ -147,7 +148,7 @@ class ResultSender {
         ? stepResult.audioUrl
         : getStaticFileUrl(stepResult.audioUrl.replace('/static/', ''));
 
-      await greenApiService.sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '', quotedMessageId);
+      await greenApiService.sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '', quotedMessageId, 1000);
 
       console.log(`✅ [ResultSender] Audio sent${stepInfo}`);
     } catch (error) {
@@ -191,7 +192,7 @@ class ResultSender {
       }
 
       if (cleanText) {
-        await greenApiService.sendTextMessage(chatId, cleanText, quotedMessageId);
+        await greenApiService.sendTextMessage(chatId, cleanText, quotedMessageId, 1000);
         console.log(`✅ [ResultSender] Text sent${stepInfo}`);
       }
     } catch (error) {
