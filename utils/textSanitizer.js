@@ -54,7 +54,8 @@ function cleanMediaDescription(text) {
         .replace(/\[image\]/gi, '')
         .replace(/\[video\]/gi, '')
         .replace(/\[audio\]/gi, '')
-        .replace(/\[תמונה\]/gi, '')
+        .replace(/\[תמונה[^\]]*/gi, '') // Remove [תמונה: or [תמונה] with any text after (including incomplete brackets)
+        .replace(/תמונה:\s*$/gi, '') // Remove תמונה: at the end of text
         .replace(/\[וידאו\]/gi, '')
         .replace(/\[אודיו\]/gi, '')
         .replace(/✅/g, '');
