@@ -37,7 +37,7 @@ async function sendRetryAck(chatId, tool, provider, quotedMessageId = null) {
     if (ackMessage) {
       console.log(`📢 [RETRY ACK] ${ackMessage}`);
       const { greenApiService } = getServices();
-      await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId);
+      await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId, 1000);
     }
   } catch (error) {
     console.error('❌ Error sending retry ACK:', error.message);

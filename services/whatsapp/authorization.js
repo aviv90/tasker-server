@@ -82,7 +82,7 @@ function isAdminCommand(commandType) {
  */
 async function sendUnauthorizedMessage(chatId, feature, originalMessageId = null) {
   const message = '🔒 סליחה, אין לך הרשאה להשתמש בתכונה זו. פנה למנהל המערכת.';
-  await sendTextMessage(chatId, message, originalMessageId);
+  await sendTextMessage(chatId, message, originalMessageId, 1000);
   console.log(`🚫 Unauthorized access attempt to ${feature}`);
 }
 

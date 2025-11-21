@@ -12,7 +12,7 @@ async function sendFallbackAck(context, message) {
   try {
     const { greenApiService } = getServices();
     const quotedMessageId = context.originalInput?.originalMessageId || null;
-    await greenApiService.sendTextMessage(context.chatId, message, quotedMessageId);
+    await greenApiService.sendTextMessage(context.chatId, message, quotedMessageId, 1000);
     console.log(`📢 [Fallback Ack] Sent: "${message}"`);
   } catch (ackError) {
     console.error('❌ Failed to send fallback Ack:', ackError);
@@ -26,7 +26,7 @@ async function sendFallbackError(context, message) {
   try {
     const { greenApiService } = getServices();
     const quotedMessageId = context.originalInput?.originalMessageId || null;
-    await greenApiService.sendTextMessage(context.chatId, message, quotedMessageId);
+    await greenApiService.sendTextMessage(context.chatId, message, quotedMessageId, 1000);
     console.log(`📢 [Fallback Error] Sent to user: "${message}"`);
   } catch (sendError) {
     console.error('❌ Failed to send error to user:', sendError);

@@ -65,7 +65,7 @@ const send_location = {
 
       if (regionAckMessage && context?.chatId) {
         const quotedMessageId = context.originalInput?.originalMessageId || null;
-        await greenApiService.sendTextMessage(context.chatId, regionAckMessage, quotedMessageId);
+        await greenApiService.sendTextMessage(context.chatId, regionAckMessage, quotedMessageId, 1000);
       }
 
       // Determine language from context
@@ -77,7 +77,7 @@ const send_location = {
         const errorMessage = locationResult.error || (language === 'he' ? 'לא הצלחתי למצוא מיקום תקין' : 'Could not find a valid location');
         if (context?.chatId) {
           const quotedMessageId = context.originalInput?.originalMessageId || null;
-          await greenApiService.sendTextMessage(context.chatId, `❌ ${errorMessage}`, quotedMessageId);
+          await greenApiService.sendTextMessage(context.chatId, `❌ ${errorMessage}`, quotedMessageId, 1000);
         }
         return {
           success: false,
@@ -105,7 +105,7 @@ const send_location = {
       const errorMessage = error?.message || 'שגיאה לא ידועה בשליחת המיקום';
       if (context?.chatId) {
         const quotedMessageId = context.originalInput?.originalMessageId || null;
-        await greenApiService.sendTextMessage(context.chatId, `❌ ${errorMessage}`, quotedMessageId);
+        await greenApiService.sendTextMessage(context.chatId, `❌ ${errorMessage}`, quotedMessageId, 1000);
       }
       return {
         success: false,

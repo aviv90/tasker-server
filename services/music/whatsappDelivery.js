@@ -31,11 +31,11 @@ class MusicWhatsAppDelivery {
         const fullAudioUrl = musicResult.result.startsWith('http') 
           ? musicResult.result 
           : getStaticFileUrl(musicResult.result.replace('/static/', ''));
-        await sendFileByUrl(chatId, fullAudioUrl, fileName, '');
+        await sendFileByUrl(chatId, fullAudioUrl, fileName, '', quotedMessageId, 1000);
       } else {
         // Send as voice note with Opus format
         const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
-        await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '');
+        await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '', quotedMessageId, 1000);
         console.log(`✅ Music sent as voice note: ${conversionResult.fileName}`);
       }
       
@@ -68,7 +68,7 @@ class MusicWhatsAppDelivery {
       
       // Get quotedMessageId from whatsappContext if available
       const quotedMessageId = whatsappContext?.originalMessageId || null;
-      await sendTextMessage(chatId, songInfo, quotedMessageId);
+      await sendTextMessage(chatId, songInfo, quotedMessageId, 1000);
       
       console.log(`✅ Music delivered to WhatsApp: ${musicResult.metadata?.title || 'Generated Music'}`);
     } catch (error) {
@@ -77,7 +77,7 @@ class MusicWhatsAppDelivery {
       try {
         const { sendTextMessage } = require('../greenApiService');
         const quotedMessageId = whatsappContext.originalMessageId || null;
-        await sendTextMessage(whatsappContext.chatId, `❌ שגיאה בשליחת השיר: ${error.message || error}`, quotedMessageId);
+        await sendTextMessage(whatsappContext.chatId, `❌ שגיאה בשליחת השיר: ${error.message || error}`, quotedMessageId, 1000);
       } catch (sendError) {
         console.error('❌ Failed to send error message:', sendError);
       }

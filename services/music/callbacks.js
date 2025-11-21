@@ -107,7 +107,7 @@ class MusicCallbacks {
                   if (taskInfo.whatsappContext) {
                     const { sendTextMessage } = require('../greenApiService');
                     const quotedMessageId = taskInfo.whatsappContext.originalMessageId || null;
-                    await sendTextMessage(taskInfo.whatsappContext.chatId, `⚠️ השיר נוצר אבל הייתה בעיה ביצירת הוידאו: ${videoResult.error}`, quotedMessageId);
+                    await sendTextMessage(taskInfo.whatsappContext.chatId, `⚠️ השיר נוצר אבל הייתה בעיה ביצירת הוידאו: ${videoResult.error}`, quotedMessageId, 1000);
                   }
                 } else {
                   console.log(`✅ Video generation started: ${videoResult.videoTaskId}`);
@@ -115,7 +115,7 @@ class MusicCallbacks {
                   if (taskInfo.whatsappContext) {
                     const { sendTextMessage } = require('../greenApiService');
                     const quotedMessageId = taskInfo.whatsappContext?.originalMessageId || null;
-                    await sendTextMessage(taskInfo.whatsappContext.chatId, '🎬 מייצר קליפ לשיר... אשלח בעוד כמה רגעים! ⏳', quotedMessageId);
+                    await sendTextMessage(taskInfo.whatsappContext.chatId, '🎬 מייצר קליפ לשיר... אשלח בעוד כמה רגעים! ⏳', quotedMessageId, 1000);
                   }
                 }
               } catch (videoError) {

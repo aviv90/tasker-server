@@ -58,14 +58,16 @@ async function sendFileByUrl(chatId, fileUrl, fileName, caption = '', quotedMess
       chatId: chatId,
       urlFile: fileUrl,
       fileName: fileName,
-      caption: caption,
-      typingTime: typingTime
+      caption: caption
     };
 
     // Add quoted message ID if provided
     if (quotedMessageId) {
       data.quotedMessageId = quotedMessageId;
     }
+
+    // Add typingTime parameter
+    data.typingTime = typingTime;
 
     console.log(`📤 Sending file: ${fileName} to ${chatId}`);
 
@@ -108,9 +110,16 @@ async function sendPoll(chatId, message, options, multipleAnswers = false, quote
       chatId: chatId,
       message: message,
       options: options,
-      multipleAnswers: multipleAnswers,
-      typingTime: typingTime
+      multipleAnswers: multipleAnswers
     };
+
+    // Add quoted message ID if provided
+    if (quotedMessageId) {
+      data.quotedMessageId = quotedMessageId;
+    }
+
+    // Add typingTime parameter
+    data.typingTime = typingTime;
 
     // NOTE: quotedMessageId is temporarily disabled for polls.
     // Investigation showed that including it causes the poll to NOT be delivered,
@@ -170,14 +179,16 @@ async function sendLocation(chatId, latitude, longitude, nameLocation = '', addr
       latitude: latitude,
       longitude: longitude,
       nameLocation: nameLocation,
-      address: address,
-      typingTime: typingTime
+      address: address
     };
 
     // Add quoted message ID if provided
     if (quotedMessageId) {
       data.quotedMessageId = quotedMessageId;
     }
+
+    // Add typingTime parameter
+    data.typingTime = typingTime;
 
     const response = await axios.post(url, data, {
       headers: {

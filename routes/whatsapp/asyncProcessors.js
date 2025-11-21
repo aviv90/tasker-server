@@ -14,7 +14,7 @@ function processImageEditAsync(imageData) {
     console.error('❌ Error in async image edit processing:', error.message || error);
     try {
       const quotedMessageId = imageData.originalMessageId || null;
-      await sendTextMessage(imageData.chatId, `❌ שגיאה בעריכת התמונה: ${error.message || error}`, quotedMessageId);
+      await sendTextMessage(imageData.chatId, `❌ שגיאה בעריכת התמונה: ${error.message || error}`, quotedMessageId, 1000);
     } catch (sendError) {
       console.error('❌ Failed to send error message to user:', sendError);
     }
@@ -30,7 +30,7 @@ function processImageToVideoAsync(imageData) {
     console.error('❌ Error in async image-to-video processing:', error.message || error);
     try {
       const quotedMessageId = imageData.originalMessageId || null;
-      await sendTextMessage(imageData.chatId, `❌ שגיאה ביצירת וידאו מהתמונה: ${error.message || error}`, quotedMessageId);
+      await sendTextMessage(imageData.chatId, `❌ שגיאה ביצירת וידאו מהתמונה: ${error.message || error}`, quotedMessageId, 1000);
     } catch (sendError) {
       console.error('❌ Failed to send error message to user:', sendError);
     }
@@ -56,7 +56,7 @@ function processVideoToVideoAsync(videoData) {
     console.error('❌ Error in async video-to-video processing:', error.message || error);
     try {
       const quotedMessageId = videoData.originalMessageId || null;
-      await sendTextMessage(videoData.chatId, `❌ שגיאה בעיבוד הווידאו: ${error.message || error}`, quotedMessageId);
+      await sendTextMessage(videoData.chatId, `❌ שגיאה בעיבוד הווידאו: ${error.message || error}`, quotedMessageId, 1000);
     } catch (sendError) {
       console.error('❌ Failed to send error message to user:', sendError);
     }

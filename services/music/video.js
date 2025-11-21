@@ -184,7 +184,8 @@ class MusicVideo {
             try {
               const { sendFileByUrl } = require('../greenApiService');
               const fullVideoUrl = getStaticFileUrl(tempVideoFileName);
-              await sendFileByUrl(videoTaskInfo.whatsappContext.chatId, fullVideoUrl, tempVideoFileName, '🎬 הקליפ מוכן!');
+              const quotedMessageId = videoTaskInfo.whatsappContext?.originalMessageId || null;
+              await sendFileByUrl(videoTaskInfo.whatsappContext.chatId, fullVideoUrl, tempVideoFileName, '🎬 הקליפ מוכן!', quotedMessageId, 1000);
               console.log(`✅ Video sent to WhatsApp successfully`);
             } catch (whatsappError) {
               console.error(`❌ Failed to send video to WhatsApp:`, whatsappError);
