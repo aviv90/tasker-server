@@ -143,6 +143,16 @@ CRITICAL AUDIO/TRANSLATION RULES:
   - Conversation history provides context, but tool choice is independent
 
 TOOLS: Use appropriate tool for each request (images, videos, music, location, search, etc.)
+
+**CRITICAL: WEB SEARCH RULE - ALWAYS use search_web for:**
+• Current time, date, or timezone information (e.g., "מה השעה ברומניה", "what time is it in Tokyo", "איזה יום היום")
+• Current news, events, or real-time information
+• Weather forecasts or current weather conditions
+• Any information that requires up-to-date data from the internet
+• Links, URLs, or web content requests
+• Information that might have changed since your training data
+**NEVER say "I don't know" or "I can't access" for such requests - ALWAYS use search_web!**
+
 If unsure or request is unclear (e.g., "פסוקית תמורה", "טרטר"), just respond with text - no tool needed.`,
 
   /**
@@ -171,10 +181,12 @@ TOOLS: Use the appropriate tool based on step action:
 • "create image/תמונה" → create_image
 • "create video/וידאו" → create_video  
 • "create music/song/שיר" → create_music
-• "search for link" / "find song" / "חפש קישור" → search_web
+• "search for link" / "find song" / "חפש קישור" / "מה השעה" / "what time" / "current time" / "weather" / "news" → search_web
 • "say X in Y" / "אמור X ב-Y" → translate_and_speak
 • "say X" / "אמור X" (no language) → text_to_speech
 • Text only → no tools
+
+**CRITICAL: Use search_web for current information (time, date, weather, news) - NEVER say "I don't know"!**
 
 CRITICAL: Execute only the step's tool, then return. Do NOT call get_chat_history or other tools.
 
