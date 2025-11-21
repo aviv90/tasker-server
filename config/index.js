@@ -38,7 +38,7 @@ const config = {
     openai: process.env.OPENAI_API_KEY || null,
     replicate: process.env.REPLICATE_API_KEY || null,
     grok: process.env.GROK_API_KEY || null,
-    elevenlabs: process.env.ELEVEN_API_KEY || null,
+    elevenlabs: process.env.ELEVENLABS_API_KEY || null,
     kie: process.env.KIE_API_KEY || null,
   },
 
@@ -74,6 +74,7 @@ const config = {
     serverBaseUrl: (() => {
       if (process.env.SERVER_URL) return process.env.SERVER_URL;
       if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL;
+      if (process.env.BASE_URL) return process.env.BASE_URL;
       if (process.env.HEROKU_APP_NAME) {
         return `https://${process.env.HEROKU_APP_NAME}.herokuapp.com`;
       }

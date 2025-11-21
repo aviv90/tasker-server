@@ -29,6 +29,11 @@ function getServerBaseUrl(req = null) {
         return process.env.PUBLIC_URL;
     }
     
+    // Check for BASE_URL (Heroku convention)
+    if (process.env.BASE_URL) {
+        return process.env.BASE_URL;
+    }
+    
     // Try to detect Heroku URL automatically
     if (process.env.HEROKU_APP_NAME) {
         return `https://${process.env.HEROKU_APP_NAME}.herokuapp.com`;
