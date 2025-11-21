@@ -58,18 +58,19 @@ class ImageGeneration {
     }
 
     if (!imageBuffer) {
-      console.log('❌ Gemini: No image data found in response');
-
       if (text && text.trim().length > 0) {
         const cleanText = text.trim();
-        console.log('📝 Gemini returned text instead of image - generation failed');
+        console.log('📝 Gemini returned text instead of image');
         console.log(`   Gemini response: ${cleanText.substring(0, 200)}...`);
         return {
-          error: cleanText
+          textOnly: true,
+          text: cleanText
         };
       }
 
-      return { error: 'No image or text data found in response' };
+      // No image and no text - this is a real error
+      console.log('❌ Gemini: No image data found in response and no text returned');
+      return { error: 'לא חזרה תמונה ולא חזר טקסט' };
     }
 
     return { text: text || prompt, imageBuffer };
@@ -115,6 +116,14 @@ class ImageGeneration {
       const response = result.response;
       const processResult = this.processImageResponse(response, prompt);
 
+      // Handle text-only response (no image but text returned)
+      if (processResult.textOnly) {
+        return {
+          textOnly: true,
+          text: processResult.text
+        };
+      }
+
       if (processResult.error) {
         return processResult;
       }
@@ -149,6 +158,15 @@ class ImageGeneration {
 
       const response = result.response;
       const processResult = this.processImageResponse(response, prompt);
+
+      // Handle text-only response (no image but text returned)
+      if (processResult.textOnly) {
+        return {
+          success: true,
+          textOnly: true,
+          description: processResult.text
+        };
+      }
 
       if (processResult.error) {
         return {

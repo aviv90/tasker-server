@@ -75,9 +75,27 @@ const create_image = {
         return imageResult;
       }, {
         onSuccess: (imageResult, provider) => {
+          // Handle text-only response (no image but text returned)
+          if (imageResult.textOnly) {
+            // Clean markdown from text
+            let text = imageResult.description || '';
+            if (text) {
+              const { cleanMarkdown } = require('../../../utils/textSanitizer');
+              text = cleanMarkdown(text);
+            }
+            
+            return {
+              success: true,
+              data: text, // Just return the text, no error message
+              provider: provider
+            };
+          }
+          
+          // Normal image response
           // Clean markdown code blocks from caption (AI services sometimes return markdown)
           let caption = imageResult.description || imageResult.revisedPrompt || '';
           if (caption) {
+            const { cleanMarkdown } = require('../../../utils/textSanitizer');
             caption = cleanMarkdown(caption);
           }
           

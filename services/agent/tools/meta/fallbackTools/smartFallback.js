@@ -70,6 +70,16 @@ const smartExecuteWithFallback = {
               result = await geminiService.generateImageForWhatsApp(args.original_prompt);
             }
 
+            // Handle text-only response (no image but text returned)
+            if (result.textOnly) {
+              return {
+                success: true,
+                data: result.description || '',
+                strategy_used: 'different_provider',
+                provider: provider
+              };
+            }
+
             if (!result.error) {
               return {
                 success: true,

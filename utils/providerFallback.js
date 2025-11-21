@@ -95,6 +95,15 @@ class ProviderFallback {
           return await tryProvider(provider, this.services);
         });
 
+        // Handle text-only response (no image but text returned) - this is success, not error
+        if (result?.textOnly) {
+          // Text-only is a valid response, return it as success
+          if (onSuccess) {
+            return onSuccess(result, provider);
+          }
+          return result;
+        }
+
         // Check if result has error
         if (result?.error) {
           await this._handleProviderError(provider, result.error);

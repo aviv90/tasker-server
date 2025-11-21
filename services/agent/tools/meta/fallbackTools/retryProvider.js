@@ -190,6 +190,15 @@ const retryWithDifferentProvider = {
               imageResult = await geminiService.generateImageForWhatsApp(args.original_prompt);
             }
 
+            // Handle text-only response (no image but text returned)
+            if (imageResult.textOnly) {
+              return {
+                success: true,
+                data: imageResult.description || '',
+                provider: provider
+              };
+            }
+
             if (!imageResult.error) {
               return {
                 success: true,
