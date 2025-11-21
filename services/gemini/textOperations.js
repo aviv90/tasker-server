@@ -36,7 +36,7 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
     }
 
     const model = genAI.getGenerativeModel({
-      model: options.model || "gemini-3-pro-preview"
+      model: options.model || "gemini-2.5-flash"
     });
 
     // Detect user's language
@@ -56,6 +56,7 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
     const generateConfig = {
       contents,
       generationConfig: {
+        temperature: useGoogleSearch ? 0.3 : 0.7,
         topP: 0.95,
         topK: 40,
         maxOutputTokens: 2048
@@ -132,7 +133,7 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
       originalPrompt: cleanPrompt,
       metadata: {
         service: 'Gemini',
-        model: options.model || "gemini-3-pro-preview",
+        model: options.model || "gemini-2.5-flash",
         type: 'text_generation',
         characterCount: text.length,
         created_at: new Date().toISOString()

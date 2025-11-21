@@ -37,7 +37,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   
   // ⚙️ Configuration: Load from env or use defaults
   const agentConfig = {
-    model: process.env.AGENT_MODEL || 'gemini-3-pro-preview',
+    model: process.env.AGENT_MODEL || 'gemini-2.5-flash',
     maxIterations: Number(process.env.AGENT_MAX_ITERATIONS) || 8,
     timeoutMs: Number(process.env.AGENT_TIMEOUT_MS) || 240000, // 4 minutes
     contextMemoryEnabled: String(process.env.AGENT_CONTEXT_MEMORY_ENABLED || 'false').toLowerCase() === 'true'

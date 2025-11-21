@@ -26,7 +26,7 @@ async function parseGroupCreationPrompt(prompt) {
     // Use centralized prompt from config/prompts.js (SSOT - Phase 5.1)
     const parsingPrompt = prompts.groupCreationParsingPrompt(prompt);
 
-    const result = await geminiText(parsingPrompt, [], { model: 'gemini-3-pro-preview' });
+    const result = await geminiText(parsingPrompt, [], { model: 'gemini-2.5-flash' });
     
     if (!result || !result.text) {
       throw new Error('No response from Gemini');

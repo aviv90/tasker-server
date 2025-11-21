@@ -38,7 +38,7 @@ class ImageAnalysis {
       const languageInstruction = this.buildLanguageInstruction(detectedLang);
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-3-pro-preview"
+        model: "gemini-2.5-flash"
       });
 
       const result = await model.generateContent({
@@ -52,7 +52,8 @@ class ImageAnalysis {
           }
         ],
         generationConfig: {
-          responseModalities: ["TEXT"]
+          responseModalities: ["TEXT"],
+          temperature: 0.7
         }
       });
 

@@ -191,7 +191,7 @@ Return JSON only in this format:
       const pollPrompt = this.buildPollPrompt(cleanTopic, numOptions, withRhyme, language);
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-3-pro-preview"
+        model: "gemini-2.5-flash"
       });
 
       const result = await model.generateContent(pollPrompt);

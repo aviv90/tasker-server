@@ -17,7 +17,7 @@ class TranslationService {
       console.log(`🌐 Translating "${text}" to ${targetLanguage}`);
       
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-3-pro-preview" 
+        model: "gemini-2.5-flash" 
       });
       
       const translationPrompt = `Translate the following text to ${targetLanguage}. Return ONLY the translated text, nothing else.

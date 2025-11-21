@@ -111,7 +111,7 @@ ${formattedMessages}
 
 סיכום השיחה:`;
 
-      const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-preview' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
       const result = await model.generateContent(summaryPrompt);
       
       if (!result.response) {

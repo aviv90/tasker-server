@@ -14,7 +14,7 @@ class TTSParser {
       console.log('🔍 Parsing TTS request for translation needs');
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-3-pro-preview"
+        model: "gemini-2.5-flash"
       });
 
       const analysisPrompt = `Analyze this text-to-speech request and determine if the user wants the output in a specific language.
