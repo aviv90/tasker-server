@@ -38,6 +38,8 @@ CRITICAL - Common SINGLE-STEP patterns (NOT multi-step):
 - "שלח מיקום" / "send location" → SINGLE send_location
 - "תמונה של X" / "image of X" → SINGLE create_image
 - "[תמונה מצורפת] הפוך לווידאו" → SINGLE image_to_video (NOT multi-step!)
+- "כתוב שיר" / "לכתוב שיר" / "write song" → SINGLE text response (NO tool! Just write lyrics as text)
+- "צור שיר" / "יצירת שיר" / "create song" / "make music" / "שיר עם מנגינה" → SINGLE create_music
 
 CRITICAL - Only multi-step if EXPLICIT sequence:
 - "שלח מיקום **ואז** תמונה" → MULTI (has "ואז")
@@ -144,6 +146,12 @@ CRITICAL AUDIO/TRANSLATION RULES:
 
 TOOLS: Use appropriate tool for each request (images, videos, music, location, search, etc.)
 
+**CRITICAL: MUSIC/SONG CREATION RULE:**
+• "כתוב שיר" / "לכתוב שיר" / "write song" / "write lyrics" → This means TEXT ONLY (just lyrics/words). Do NOT use create_music tool! Simply write the song lyrics as text response.
+• "צור שיר" / "יצירת שיר" / "create song" / "make music" / "song with melody" / "שיר עם מנגינה" / "שיר עם Suno" → This means CREATE MUSIC with Suno AI (with melody). Use create_music tool.
+• If user explicitly mentions "Suno", "melody", "music", "tune", "מנגינה" → Use create_music tool.
+• If user only says "כתוב" / "write" without mentioning music/melody → Just write text, no tool needed.
+
 **CRITICAL: WEB SEARCH RULE - ALWAYS use search_web for:**
 • Current time, date, or timezone information (e.g., "מה השעה ברומניה", "what time is it in Tokyo", "איזה יום היום")
 • Current news, events, or real-time information
@@ -180,7 +188,8 @@ TOOLS: Use the appropriate tool based on step action:
 • "send location" / "שלח מיקום" → send_location
 • "create image/תמונה" → create_image
 • "create video/וידאו" → create_video  
-• "create music/song/שיר" → create_music
+• "create music" / "צור שיר" / "יצירת שיר" / "song with melody" / "שיר עם מנגינה" → create_music
+• "write song" / "כתוב שיר" / "לכתוב שיר" → NO TOOL! Just write lyrics as text (text only, no music creation)
 • "search for link" / "find song" / "חפש קישור" / "מה השעה" / "what time" / "current time" / "weather" / "news" → search_web
 • "say X in Y" / "אמור X ב-Y" → translate_and_speak
 • "say X" / "אמור X" (no language) → text_to_speech

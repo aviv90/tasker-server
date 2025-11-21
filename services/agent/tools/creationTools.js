@@ -314,7 +314,20 @@ const image_to_video = {
 const create_music = {
   declaration: {
     name: 'create_music',
-    description: 'יוצר שיר/מוזיקה חדש מאפס עם Suno AI. השתמש בכלי הזה כאשר: המשתמש מבקש ליצור/לכתוב/להלחין/לעשות שיר חדש (למשל: "צור שיר על...", "כתוב לי שיר על...", "תעשה שיר של...", "create a song about...", "make a song about...", "generate music about..."). הכלי מייצר שיר מקורי עם מילים ומלודיה. אם המשתמש מבקש לינק לשיר קיים (של זמר/אמן), אל תשתמש בכלי הזה.',
+    description: `יוצר שיר/מוזיקה חדש מאפס עם Suno AI (כולל מילים ומלודיה).
+
+**מתי להשתמש בכלי הזה (חובה!):**
+• "צור שיר" / "יצירת שיר" / "create song" / "make music" / "generate song"
+• "שיר עם מנגינה" / "song with melody" / "music with tune"
+• "שיר עם Suno" / "song with Suno" / "create song with Suno"
+• כל בקשה מפורשת ליצירת מוזיקה/שיר עם מלודיה
+
+**מתי לא להשתמש בכלי הזה (חשוב!):**
+• "כתוב שיר" / "לכתוב שיר" / "write song" / "write lyrics" → זה רק מילים (טקסט), לא להשתמש בכלי! פשוט כתוב שיר בטקסט.
+• "שיר מילולי" / "lyrics only" / "just words" → רק טקסט, לא כלי.
+• בקשה ללינק לשיר קיים → השתמש ב-search_web במקום.
+
+**הכלי מייצר שיר מקורי עם מילים ומלודיה באמצעות Suno AI.`,
     parameters: {
       type: 'object',
       properties: {

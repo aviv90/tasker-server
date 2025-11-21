@@ -56,8 +56,8 @@ const TOOLS = {
   create_music: {
     name: 'create_music',
     category: 'creation',
-    description: 'Create NEW song/music with Suno AI. Use this for NEW music/song requests. Do NOT use retry_last_command for new music requests!',
-    usage: ['צור שיר', 'כתוב שיר', 'create song', 'make music'],
+    description: 'Create NEW song/music with Suno AI (with melody). Use ONLY for "צור שיר" / "create song" / "make music" / "song with melody". Do NOT use for "כתוב שיר" / "write song" (text only - no tool needed).',
+    usage: ['צור שיר', 'יצירת שיר', 'שיר עם מנגינה', 'create song', 'make music', 'generate song'],
     parameters: {
       prompt: { type: 'string', required: true, description: 'Song description/lyrics' },
       make_video: { type: 'boolean', required: false, description: 'Also create music video' }
