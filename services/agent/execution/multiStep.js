@@ -5,6 +5,7 @@ const { formatProviderError } = require('../../../utils/errorHandler');
 const { TOOL_ACK_MESSAGES } = require('../config/constants');
 const { getServices } = require('../utils/serviceLoader');
 const { getStaticFileUrl } = require('../../../utils/urlUtils');
+const { extractQuotedMessageId } = require('../../../utils/messageHelpers');
 const { allTools: agentTools } = require('../tools');
 const prompts = require('../../../config/prompts');
 const resultSender = require('./resultSender');
