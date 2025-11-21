@@ -6,7 +6,7 @@
 
 const { sendTextMessage, sendFileByUrl, sendPoll, sendLocation } = require('../../../services/greenApiService');
 const { getStaticFileUrl } = require('../../../utils/urlUtils');
-const { cleanMediaDescription } = require('../../../utils/textSanitizer');
+const { cleanMediaDescription, cleanMultiStepText } = require('../../../utils/textSanitizer');
 const { cleanAgentText } = require('../../../services/whatsapp/utils');
 const conversationManager = require('../../../services/conversationManager');
 const { executeAgentQuery } = require('../../../services/agentService');
@@ -20,15 +20,8 @@ const { executeAgentQuery } = require('../../../services/agentService');
 async function sendMultiStepText(chatId, text, quotedMessageId = null) {
   if (!text || !text.trim()) return;
 
-  let cleanText = text
-    .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs (image URLs should not be in text)
-    .replace(/\[image\]/gi, '')
-    .replace(/\[video\]/gi, '')
-    .replace(/\[audio\]/gi, '')
-    .replace(/\[תמונה\]/gi, '')
-    .replace(/\[וידאו\]/gi, '')
-    .replace(/\[אודיו\]/gi, '')
-    .trim();
+  // Use centralized text cleaning function (SSOT)
+  const cleanText = cleanMultiStepText(text);
 
   if (cleanText) {
     await sendTextMessage(chatId, cleanText, quotedMessageId, 1000);

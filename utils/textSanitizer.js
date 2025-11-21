@@ -74,6 +74,27 @@ function cleanMediaDescription(text) {
     return cleaned;
 }
 
+/**
+ * Clean text for multi-step agent responses
+ * Removes URLs and media placeholders that shouldn't appear in text messages
+ * SSOT for multi-step text cleaning - used by both incoming and outgoing handlers
+ */
+function cleanMultiStepText(text) {
+    if (!text || typeof text !== 'string') {
+        return '';
+    }
+    
+    return text
+        .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs (image URLs should not be in text)
+        .replace(/\[image\]/gi, '')
+        .replace(/\[video\]/gi, '')
+        .replace(/\[audio\]/gi, '')
+        .replace(/\[תמונה\]/gi, '')
+        .replace(/\[וידאו\]/gi, '')
+        .replace(/\[אודיו\]/gi, '')
+        .trim();
+}
+
 function validateAndSanitizePrompt(prompt) {
     if (!prompt || typeof prompt !== 'string') {
         throw { message: 'Prompt is required and must be a string', code: 'INVALID_PROMPT' };
@@ -106,5 +127,6 @@ module.exports = {
     sanitizeText,
     validateAndSanitizePrompt,
     cleanMarkdown,
-    cleanMediaDescription
+    cleanMediaDescription,
+    cleanMultiStepText
 };
