@@ -38,7 +38,7 @@ const create_group = {
       }
       
       // Get quotedMessageId once at the start for all messages
-      const quotedMessageId = context.originalInput?.originalMessageId || null;
+      const quotedMessageId = extractQuotedMessageId({ context });
       
       const { defaultSenderName } = require('../../../config/messages');
       const senderData = context.originalInput?.senderData || {};

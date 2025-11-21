@@ -4,6 +4,7 @@
 const { getServices } = require('../../../../utils/serviceLoader');
 const { formatProviderName, normalizeProviderKey } = require('../../../../utils/providerUtils');
 const { VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP } = require('../../../../config/constants');
+const { extractQuotedMessageId } = require('../../../../utils/messageHelpers');
 
 /**
  * Send fallback Ack message
@@ -11,7 +12,7 @@ const { VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP } = require('.
 async function sendFallbackAck(context, message) {
   try {
     const { greenApiService } = getServices();
-    const quotedMessageId = context.originalInput?.originalMessageId || null;
+    const quotedMessageId = extractQuotedMessageId({ context });
     await greenApiService.sendTextMessage(context.chatId, message, quotedMessageId, 1000);
     console.log(`📢 [Fallback Ack] Sent: "${message}"`);
   } catch (ackError) {
@@ -25,7 +26,7 @@ async function sendFallbackAck(context, message) {
 async function sendFallbackError(context, message) {
   try {
     const { greenApiService } = getServices();
-    const quotedMessageId = context.originalInput?.originalMessageId || null;
+    const quotedMessageId = extractQuotedMessageId({ context });
     await greenApiService.sendTextMessage(context.chatId, message, quotedMessageId, 1000);
     console.log(`📢 [Fallback Error] Sent to user: "${message}"`);
   } catch (sendError) {

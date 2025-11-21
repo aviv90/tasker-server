@@ -5,6 +5,7 @@
 const axios = require('axios');
 const FormData = require('form-data');
 const { BASE_URL, GREEN_API_API_TOKEN_INSTANCE } = require('./constants');
+const logger = require('../../utils/logger');
 
 /**
  * Create a new WhatsApp group
@@ -18,8 +19,11 @@ async function createGroup(groupName, participantIds) {
       chatIds: participantIds
     };
 
-    console.log(`👥 Creating group: "${groupName}" with ${participantIds.length} participants`);
-    console.log(`   Participants: ${participantIds.join(', ')}`);
+    logger.info(`👥 Creating group: "${groupName}" with ${participantIds.length} participants`, { 
+      groupName, 
+      participantCount: participantIds.length,
+      participants: participantIds 
+    });
 
     const response = await axios.post(url, data, {
       headers: {
@@ -31,15 +35,21 @@ async function createGroup(groupName, participantIds) {
       throw new Error('No data received from createGroup');
     }
 
-    console.log(`✅ Group created successfully: ${response.data.chatId || 'unknown ID'}`);
+    logger.info(`✅ Group created successfully: ${response.data.chatId || 'unknown ID'}`, { 
+      groupName, 
+      chatId: response.data.chatId,
+      participantCount: participantIds.length 
+    });
     return response.data;
   } catch (error) {
-    console.error('❌ Error creating group:', error.message);
+    logger.error('❌ Error creating group:', { error: error.message, groupName, participantCount: participantIds.length });
 
     // Log the response details if available for debugging
     if (error.response) {
-      console.error(`❌ Green API Error: ${error.response.status} - ${error.response.statusText}`);
-      console.error('❌ Response data:', error.response.data);
+      logger.error(`❌ Green API Error: ${error.response.status} - ${error.response.statusText}`, { 
+        responseData: error.response.data,
+        groupName 
+      });
     }
 
     throw error;
@@ -60,7 +70,7 @@ async function setGroupPicture(groupId, imageBuffer) {
       contentType: 'image/jpeg'
     });
 
-    console.log(`🖼️ Setting group picture for: ${groupId}`);
+    logger.info(`🖼️ Setting group picture for: ${groupId}`, { groupId });
 
     const response = await axios.post(url, formData, {
       headers: {
@@ -73,19 +83,21 @@ async function setGroupPicture(groupId, imageBuffer) {
     }
 
     if (response.data.setGroupPicture) {
-      console.log(`✅ Group picture set successfully: ${response.data.urlAvatar || 'unknown URL'}`);
+      logger.info(`✅ Group picture set successfully: ${response.data.urlAvatar || 'unknown URL'}`, { groupId });
     } else {
-      console.log(`⚠️ Failed to set group picture: ${response.data.reason || 'unknown reason'}`);
+      logger.warn(`⚠️ Failed to set group picture: ${response.data.reason || 'unknown reason'}`, { groupId, reason: response.data.reason });
     }
 
     return response.data;
   } catch (error) {
-    console.error('❌ Error setting group picture:', error.message);
+    logger.error('❌ Error setting group picture:', { error: error.message, groupId });
 
     // Log the response details if available for debugging
     if (error.response) {
-      console.error(`❌ Green API Error: ${error.response.status} - ${error.response.statusText}`);
-      console.error('❌ Response data:', error.response.data);
+      logger.error(`❌ Green API Error: ${error.response.status} - ${error.response.statusText}`, { 
+        responseData: error.response.data,
+        groupId 
+      });
     }
 
     throw error;

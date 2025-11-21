@@ -4,6 +4,7 @@ const { cleanThinkingPatterns } = require('../../../utils/agentHelpers');
 const { allTools: agentTools } = require('../tools');
 const { sendToolAckMessage } = require('../utils/ackUtils');
 const { getServices } = require('../utils/serviceLoader');
+const { extractQuotedMessageId } = require('../../../utils/messageHelpers');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -76,7 +77,7 @@ class AgentLoop {
         const finalText = context.suppressFinalResponse ? '' : text;
 
         // Get originalMessageId from context for quoting
-        const originalMessageId = context.originalInput?.originalMessageId || null;
+        const originalMessageId = extractQuotedMessageId({ context });
 
         return {
           success: true,
@@ -104,7 +105,7 @@ class AgentLoop {
 
       // Send Ack message before executing tools
       // Get quotedMessageId from context if available
-      const quotedMessageId = context.originalInput?.originalMessageId || null;
+      const quotedMessageId = extractQuotedMessageId({ context });
       await sendToolAckMessage(chatId, functionCalls, quotedMessageId);
 
       // Execute all tools in parallel
@@ -128,7 +129,7 @@ class AgentLoop {
     // Max iterations reached
     console.warn(`⚠️ [Agent] Max iterations (${maxIterations}) reached`);
     // Get originalMessageId from context for quoting
-    const originalMessageId = context.originalInput?.originalMessageId || null;
+    const originalMessageId = extractQuotedMessageId({ context });
     return {
       success: false,
       error: 'הגעתי למספר המקסימלי של ניסיונות. נסה לנסח את השאלה אחרת.',
@@ -189,7 +190,7 @@ class AgentLoop {
             ? toolResult.error
             : `❌ ${toolResult.error}`;
           // Get originalMessageId from context for quoting
-          const quotedMessageId = context.originalInput?.originalMessageId || null;
+          const quotedMessageId = extractQuotedMessageId({ context });
           await greenApiService.sendTextMessage(context.chatId, errorMessage, quotedMessageId, 1000);
         } catch (notifyError) {
           console.error(`❌ Failed to notify user about error: ${notifyError.message}`);

@@ -56,7 +56,7 @@ class MultiStepExecution {
       if (toolName) {
         console.log(`📢 [Multi-step] Sending Ack for Step ${step.stepNumber}/${plan.steps.length} (${toolName}) BEFORE execution`);
         // Get quotedMessageId from options.input if available
-        const quotedMessageId = options.input?.originalMessageId || null;
+        const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
         await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }], quotedMessageId);
       }
       
@@ -116,7 +116,7 @@ class MultiStepExecution {
           stepResults.push(stepResult);
           
           // Get quotedMessageId from options.input if available
-          const quotedMessageId = options.input?.originalMessageId || null;
+          const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
           console.log(`🔍 [MultiStep] quotedMessageId for step ${step.stepNumber}: ${quotedMessageId}, from options.input: ${options.input?.originalMessageId}`);
           
           // Send ALL results immediately in order
@@ -128,7 +128,7 @@ class MultiStepExecution {
           console.error(`❌ [Agent] Step ${step.stepNumber}/${plan.steps.length} failed:`, stepResult.error);
           
           // Get quotedMessageId to pass to fallback
-          const quotedMessageId = options.input?.originalMessageId || null;
+          const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
           
           const fallbackResult = await this.tryFallback(chatId, toolName, toolParams, step, stepResult, quotedMessageId);
           if (fallbackResult) {
@@ -142,7 +142,7 @@ class MultiStepExecution {
         }
       } catch (stepError) {
         console.error(`❌ [Agent] Error executing step ${step.stepNumber}:`, stepError.message);
-        const quotedMessageId = options.input?.originalMessageId || null;
+        const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
         await this.sendError(chatId, stepError.message || stepError.toString(), step.stepNumber, quotedMessageId, true);
       }
     }
@@ -164,7 +164,7 @@ class MultiStepExecution {
     console.log(`🏁 [Agent] Multi-step execution completed: ${stepResults.length}/${plan.steps.length} steps successful`);
     
     // Get originalMessageId from options.input for quoting
-    const originalMessageId = options.input?.originalMessageId || null;
+    const originalMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
     
     return {
       success: true,

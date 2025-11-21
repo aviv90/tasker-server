@@ -6,6 +6,7 @@
 const conversationManager = require('../../conversationManager');
 const { getServices } = require('../utils/serviceLoader');
 const { getToolAckMessage } = require('../utils/ackUtils');
+const { extractQuotedMessageId } = require('../../../utils/messageHelpers');
 
 // Reference to agentTools (will be injected)
 let agentTools = null;
@@ -116,7 +117,7 @@ const retry_last_command = {
       }
       
       // Send specific ACK based on the tool and provider being retried
-      const quotedMessageId = context.originalInput?.originalMessageId || null;
+      const quotedMessageId = extractQuotedMessageId({ context });
       await sendRetryAck(context.chatId, tool, provider, quotedMessageId);
       
       // Route to appropriate tool based on last command

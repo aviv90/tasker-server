@@ -156,7 +156,10 @@ async function sendPoll(chatId, message, options, multipleAnswers = false, quote
 
     // Log the response details if available for debugging
     if (error.response) {
-      console.error(`❌ Green API Error: ${error.response.status} - ${error.response.statusText}`);
+      logger.error(`❌ Green API Error: ${error.response.status} - ${error.response.statusText}`, { 
+        responseData: error.response.data,
+        chatId 
+      });
       logger.error('❌ Response data:', { responseData: error.response.data, chatId });
     }
 

@@ -4,13 +4,14 @@
 
 const axios = require('axios');
 const { BASE_URL, GREEN_API_API_TOKEN_INSTANCE } = require('./constants');
+const logger = require('../../utils/logger');
 
 /**
  * Get chat history (last N messages) from Green API
  */
 async function getChatHistory(chatId, count = 10) {
   try {
-    console.log(`📜 Getting last ${count} messages from chat: ${chatId}`);
+    logger.info(`📜 Getting last ${count} messages from chat: ${chatId}`);
 
     const url = `${BASE_URL}/getChatHistory/${GREEN_API_API_TOKEN_INSTANCE}`;
 
@@ -25,15 +26,17 @@ async function getChatHistory(chatId, count = 10) {
       }
     });
 
-    console.log(`📜 Retrieved ${response.data.length || 0} messages from chat history`);
+    logger.info(`📜 Retrieved ${response.data.length || 0} messages from chat history`, { chatId, count });
     return response.data;
   } catch (error) {
-    console.error('❌ Error getting chat history:', error.message);
+    logger.error('❌ Error getting chat history:', { error: error.message, chatId, count });
 
     // Log the response details if available for debugging
     if (error.response) {
-      console.error(`❌ Green API Error: ${error.response.status} - ${error.response.statusText}`);
-      console.error('❌ Response data:', error.response.data);
+      logger.error(`❌ Green API Error: ${error.response.status} - ${error.response.statusText}`, { 
+        responseData: error.response.data,
+        chatId 
+      });
     }
 
     throw error;
@@ -47,7 +50,7 @@ async function getContacts() {
   try {
     const url = `${BASE_URL}/getContacts/${GREEN_API_API_TOKEN_INSTANCE}`;
 
-    console.log(`📇 Fetching contacts from Green API...`);
+    logger.info(`📇 Fetching contacts from Green API...`);
 
     const response = await axios.get(url);
 
@@ -55,10 +58,10 @@ async function getContacts() {
       throw new Error('No data received from getContacts');
     }
 
-    console.log(`✅ Retrieved ${response.data.length || 0} contacts`);
+    logger.info(`✅ Retrieved ${response.data.length || 0} contacts`);
     return response.data;
   } catch (error) {
-    console.error('❌ Error fetching contacts:', error.message);
+    logger.error('❌ Error fetching contacts:', { error: error.message });
     throw error;
   }
 }
@@ -76,7 +79,7 @@ async function getMessage(chatId, idMessage) {
       idMessage: idMessage
     };
 
-    console.log(`📨 Fetching message ${idMessage} from chat ${chatId}`);
+    logger.info(`📨 Fetching message ${idMessage} from chat ${chatId}`, { chatId, idMessage });
 
     const response = await axios.post(url, data, {
       headers: {
@@ -88,10 +91,10 @@ async function getMessage(chatId, idMessage) {
       throw new Error('No data received from getMessage');
     }
 
-    console.log(`✅ Message retrieved: ${response.data.type || 'unknown type'}`);
+    logger.info(`✅ Message retrieved: ${response.data.type || 'unknown type'}`, { chatId, idMessage, messageType: response.data.type });
     return response.data;
   } catch (error) {
-    console.error('❌ Error fetching message:', error.message);
+    logger.error('❌ Error fetching message:', { error: error.message, chatId, idMessage });
     throw error;
   }
 }

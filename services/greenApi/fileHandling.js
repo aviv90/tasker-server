@@ -5,6 +5,7 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const logger = require('../../utils/logger');
 
 const STATIC_DIR = path.join(__dirname, '../..', 'public', 'tmp');
 
@@ -49,27 +50,27 @@ async function downloadFile(downloadUrl, fileName = null) {
 
     const localPath = resolveLocalStaticPath(downloadUrl);
     if (localPath && fs.existsSync(localPath)) {
-      console.log(`📥 Loading file directly from local static path: ${localPath}`);
+      logger.info(`📥 Loading file directly from local static path: ${localPath}`, { fileName });
       const buffer = fs.readFileSync(localPath);
-      console.log(`📥 File loaded locally: ${buffer.length} bytes`);
+      logger.info(`📥 File loaded locally: ${buffer.length} bytes`, { fileName, size: buffer.length });
 
       if (fileName) {
         const filePath = path.join(STATIC_DIR, fileName);
         fs.writeFileSync(filePath, buffer);
-        console.log(`📥 File also saved to: ${filePath}`);
+        logger.info(`📥 File also saved to: ${filePath}`, { fileName, filePath });
       }
 
       return buffer;
     }
 
-    console.log(`📥 Downloading file from URL (${downloadUrl.length} chars)`);
+    logger.info(`📥 Downloading file from URL (${downloadUrl.length} chars)`, { fileName, urlLength: downloadUrl.length });
 
     const response = await axios.get(downloadUrl, {
       responseType: 'arraybuffer'
     });
 
     const buffer = Buffer.from(response.data);
-    console.log(`📥 File downloaded as buffer: ${buffer.length} bytes`);
+    logger.info(`📥 File downloaded as buffer: ${buffer.length} bytes`, { fileName, size: buffer.length });
 
     // If fileName is provided, also save to file (for backward compatibility)
     if (fileName) {
@@ -79,12 +80,12 @@ async function downloadFile(downloadUrl, fileName = null) {
 
       const filePath = path.join(STATIC_DIR, fileName);
       fs.writeFileSync(filePath, buffer);
-      console.log(`📥 File also saved to: ${filePath}`);
+      logger.info(`📥 File also saved to: ${filePath}`, { fileName, filePath });
     }
 
     return buffer;
   } catch (error) {
-    console.error('❌ Error downloading file:', error.message);
+    logger.error('❌ Error downloading file:', { error: error.message, fileName, downloadUrl: downloadUrl?.substring(0, 100) });
     throw error;
   }
 }

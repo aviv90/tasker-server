@@ -5,6 +5,7 @@
 
 const { getServices } = require('../utils/serviceLoader');
 const locationService = require('../../locationService');
+const { extractQuotedMessageId } = require('../../../utils/messageHelpers');
 
 /**
  * Tool: Send Location
@@ -64,7 +65,7 @@ const send_location = {
       const regionAckMessage = locationService.buildLocationAckMessage(requestedRegion);
 
       if (regionAckMessage && context?.chatId) {
-        const quotedMessageId = context.originalInput?.originalMessageId || null;
+        const quotedMessageId = extractQuotedMessageId({ context });
         await greenApiService.sendTextMessage(context.chatId, regionAckMessage, quotedMessageId, 1000);
       }
 
@@ -76,7 +77,7 @@ const send_location = {
       if (!locationResult.success) {
         const errorMessage = locationResult.error || (language === 'he' ? 'לא הצלחתי למצוא מיקום תקין' : 'Could not find a valid location');
         if (context?.chatId) {
-          const quotedMessageId = context.originalInput?.originalMessageId || null;
+          const quotedMessageId = extractQuotedMessageId({ context });
           await greenApiService.sendTextMessage(context.chatId, `❌ ${errorMessage}`, quotedMessageId, 1000);
         }
         return {
@@ -104,7 +105,7 @@ const send_location = {
       console.error('❌ Error in send_location:', error);
       const errorMessage = error?.message || 'שגיאה לא ידועה בשליחת המיקום';
       if (context?.chatId) {
-        const quotedMessageId = context.originalInput?.originalMessageId || null;
+        const quotedMessageId = extractQuotedMessageId({ context });
         await greenApiService.sendTextMessage(context.chatId, `❌ ${errorMessage}`, quotedMessageId, 1000);
       }
       return {
