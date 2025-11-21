@@ -3,6 +3,9 @@
  * Clean, modular tool definitions following SOLID principles
  */
 
+const { extractQuotedMessageId } = require('../../../utils/messageHelpers');
+const { sendErrorToUser } = require('../../../utils/errorSender');
+
 /**
  * Tool: Create Group
  */
