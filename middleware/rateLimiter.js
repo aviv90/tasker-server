@@ -12,12 +12,13 @@
  */
 
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 const logger = require('../utils/logger');
 const { config } = require('../config');
 
 /**
  * Key generator for rate limiting (by IP or custom identifier)
- * Uses req.ip which is properly handled by Express with trust proxy
+ * Uses ipKeyGenerator helper for proper IPv6 support
  */
 function generateKey(req) {
   // For WhatsApp webhook, try to use chatId if available
@@ -30,9 +31,8 @@ function generateKey(req) {
     return `user:${req.user.id}`;
   }
   
-  // Fallback to IP address (already normalized by Express trust proxy)
-  // Express handles IPv6 normalization when trust proxy is set
-  return req.ip || req.connection?.remoteAddress || 'unknown';
+  // Fallback to IP address using ipKeyGenerator for proper IPv6 support
+  return ipKeyGenerator(req);
 }
 
 /**
@@ -130,7 +130,12 @@ const callbackLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => {
     // Use origin IP or service identifier
-    return req.get('origin') || generateKey(req);
+    const origin = req.get('origin');
+    if (origin) {
+      return origin;
+    }
+    // Fallback to generateKey which uses ipKeyGenerator for IPv6 support
+    return generateKey(req);
   },
   handler: (req, res) => {
     logger.warn('⚠️ Callback rate limit exceeded', {

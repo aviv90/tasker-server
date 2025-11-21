@@ -13,6 +13,7 @@
  */
 
 const path = require('path');
+const logger = require('../utils/logger');
 
 /**
  * Configuration object
@@ -188,7 +189,10 @@ function validateConfig() {
   const optionalKeys = ['openai', 'replicate', 'grok', 'elevenlabs', 'kie'];
   optionalKeys.forEach(key => {
     if (!config.apiKeys[key]) {
-      console.warn(`⚠️ ${key.toUpperCase()}_API_KEY not set (some features may not work)`);
+      logger.warn(`⚠️ ${key.toUpperCase()}_API_KEY not set (some features may not work)`, {
+        missingKey: key,
+        service: 'tasker-server'
+      });
     }
   });
 
@@ -224,7 +228,10 @@ if (config.isProduction) {
   try {
     validateConfig();
   } catch (error) {
-    console.error('❌ Configuration validation failed:', error.message);
+    logger.error('❌ Configuration validation failed', {
+      error: error.message,
+      service: 'tasker-server'
+    });
     process.exit(1);
   }
 } else {
