@@ -249,7 +249,6 @@ class ConversationManager {
       
     }, 60 * 60 * 1000);  // 1 hour delay
     
-    const { TIME } = require('../utils/constants');
     const intervalDays = Math.round(CLEANUP_INTERVAL_MS / TIME.DAY);
     console.log(`✅ Periodic cleanup scheduled (~every ${intervalDays} days)`);
   }
