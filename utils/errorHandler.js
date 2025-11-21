@@ -194,10 +194,37 @@ function formatUserFacingError(error, fallback = 'שגיאה לא ידועה') {
     return formatErrorMessage(message);
 }
 
+/**
+ * Format error message with provider name prefix
+ * Format: ❌ שגיאה ב-<provider name>: <error message as-is>
+ * @param {string} provider - Provider name (will be formatted using formatProviderName)
+ * @param {string|any} errorMessage - Error message (will be extracted if not string)
+ * @returns {string} - Formatted error message with provider prefix
+ */
+function formatProviderError(provider, errorMessage) {
+    // Import formatProviderName dynamically to avoid circular dependencies
+    const { formatProviderName } = require('../services/agent/utils/providerUtils');
+    
+    // Format provider name
+    const providerName = formatProviderName(provider);
+    
+    // Extract error message if needed
+    const errorText = typeof errorMessage === 'string' 
+        ? errorMessage 
+        : extractErrorMessage(errorMessage, 'שגיאה לא ידועה');
+    
+    // Remove any existing ❌ prefix from error message (we'll add it at the start)
+    const cleanError = errorText.replace(/^❌\s*/, '').trim();
+    
+    // Format: ❌ שגיאה ב-<provider>: <error>
+    return `❌ שגיאה ב-${providerName}: ${cleanError}`;
+}
+
 module.exports = {
     extractErrorMessage,
     formatErrorMessage,
     formatUserFacingError,
+    formatProviderError,
     isErrorResult,
     getTaskError,
     isCriticalError,

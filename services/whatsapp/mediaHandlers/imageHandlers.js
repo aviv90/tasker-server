@@ -6,6 +6,7 @@
 
 const { sendTextMessage, sendFileByUrl, downloadFile } = require('../../greenApiService');
 const conversationManager = require('../../conversationManager');
+const { formatProviderError } = require('../../../utils/errorHandler');
 const {
   editImageForWhatsApp,
   editOpenAIImage,
@@ -79,12 +80,14 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
       }
     } else {
       const errorMsg = editResult.error || 'לא הצלחתי לערוך את התמונה. נסה שוב מאוחר יותר.';
-      await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`, quotedMessageId, 1000);
+      const formattedError = formatProviderError(service, errorMsg);
+      await sendTextMessage(chatId, formattedError, quotedMessageId, 1000);
       console.log(`❌ ${service} image edit failed for ${senderName}: ${errorMsg}`);
     }
   } catch (error) {
     console.error(`❌ Error in ${service} image editing:`, error.message || error);
-    await sendTextMessage(chatId, `❌ שגיאה בעריכת התמונה: ${error.message || error}`, quotedMessageId, 1000);
+    const formattedError = formatProviderError(service, error.message || error);
+    await sendTextMessage(chatId, formattedError, quotedMessageId, 1000);
   }
 }
 
@@ -151,13 +154,19 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
 
       console.log(`✅ ${serviceName} image-to-video sent to ${senderName}`);
     } else {
-      const errorMsg = videoResult.error || `לא הצלחתי ליצור וידאו מהתמונה עם ${serviceName}. נסה שוב מאוחר יותר.`;
-      await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`, quotedMessageId, 1000);
+      const errorMsg = videoResult.error || 'לא הצלחתי ליצור וידאו מהתמונה. נסה שוב מאוחר יותר.';
+      // Map service to provider name for formatting
+      const providerName = service === 'veo3' ? 'veo3' : service === 'sora' ? 'sora' : 'kling';
+      const formattedError = formatProviderError(providerName, errorMsg);
+      await sendTextMessage(chatId, formattedError, quotedMessageId, 1000);
       console.log(`❌ ${serviceName} image-to-video failed for ${senderName}: ${errorMsg}`);
     }
   } catch (error) {
     console.error(`❌ Error in ${serviceName} image-to-video:`, error.message || error);
-    await sendTextMessage(chatId, `❌ שגיאה ביצירת הוידאו מהתמונה: ${error.message || error}`, quotedMessageId, 1000);
+    // Map service to provider name for formatting
+    const providerName = service === 'veo3' ? 'veo3' : service === 'sora' ? 'sora' : 'kling';
+    const formattedError = formatProviderError(providerName, error.message || error);
+    await sendTextMessage(chatId, formattedError, quotedMessageId, 1000);
   }
 }
 

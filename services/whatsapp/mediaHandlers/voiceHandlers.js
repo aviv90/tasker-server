@@ -6,6 +6,7 @@
 
 const { sendTextMessage, sendFileByUrl, downloadFile } = require('../../greenApiService');
 const conversationManager = require('../../conversationManager');
+const { formatProviderError } = require('../../../utils/errorHandler');
 const { getStaticFileUrl } = require('../../../utils/urlUtils');
 const { MIN_DURATION_FOR_CLONING, TRANSCRIPTION_DEFAULTS } = require('../constants');
 const { getAudioDuration } = require('../../agent/utils/audioUtils');
@@ -174,8 +175,8 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
     if (geminiResult.error) {
       console.error('❌ Gemini generation failed:', geminiResult.error);
       const errorMessage = originalLanguage === 'he'
-        ? `❌ סליחה, לא הצלחתי ליצור תגובה: ${geminiResult.error}`
-        : `❌ Sorry, I couldn't generate a response: ${geminiResult.error}`;
+        ? formatProviderError('gemini', geminiResult.error)
+        : formatProviderError('gemini', geminiResult.error);
       await sendTextMessage(chatId, errorMessage, quotedMessageId, 1000);
 
       // Clean up voice clone before returning (only if we cloned)

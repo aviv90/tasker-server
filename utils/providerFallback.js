@@ -9,7 +9,7 @@
 
 const { formatProviderName } = require('../services/agent/utils/providerUtils');
 const { sendToolAckMessage } = require('../services/agent/utils/ackUtils');
-const { formatErrorMessage } = require('./errorHandler');
+const { formatErrorMessage, formatProviderError } = require('./errorHandler');
 const { getServices } = require('../services/agent/utils/serviceLoader');
 const logger = require('./logger');
 const { circuitBreakerManager } = require('./circuitBreaker');
@@ -129,7 +129,7 @@ class ProviderFallback {
    */
   async _handleProviderError(provider, errorMessage, error = null) {
     const providerName = formatProviderName(provider);
-    const message = errorMessage || `שגיאה עם ${providerName}`;
+    const message = errorMessage || 'שגיאה לא ידועה';
     
     this.errorStack.push({ provider: providerName, message });
     
@@ -158,7 +158,9 @@ class ProviderFallback {
       try {
         // Get originalMessageId from context for quoting
         const quotedMessageId = this.context?.originalInput?.originalMessageId || null;
-        await this.greenApiService.sendTextMessage(this.chatId, formatErrorMessage(message), quotedMessageId, 1000);
+        // Use formatProviderError to format error with provider name prefix
+        const formattedError = formatProviderError(provider, message);
+        await this.greenApiService.sendTextMessage(this.chatId, formattedError, quotedMessageId, 1000);
       } catch (sendError) {
         logger.error(`❌ Failed to send error message to user`, {
           toolName: this.toolName,
@@ -182,9 +184,15 @@ class ProviderFallback {
       const failure = this.errorStack[0];
       const providerName = formatProviderName(this.requestedProvider);
       
+      // Format error with provider name prefix
+      const errorMessage = formatProviderError(
+        this.requestedProvider, 
+        failure?.message || 'סיבה לא ידועה'
+      );
+      
       return {
         success: false,
-        error: `שגיאה עם ${failure?.provider || providerName}: ${failure?.message || 'סיבה לא ידועה'}`,
+        error: errorMessage,
         errorsAlreadySent: true // Flag to prevent duplicate error sending in agentLoop
       };
     }

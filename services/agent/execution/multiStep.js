@@ -1,6 +1,7 @@
 const { executeSingleStep } = require('./singleStep');
 const { sendToolAckMessage } = require('../utils/ackUtils');
 const { formatProviderName } = require('../utils/providerUtils');
+const { formatProviderError } = require('../../../utils/errorHandler');
 const { TOOL_ACK_MESSAGES } = require('../config/constants');
 const { getServices } = require('../utils/serviceLoader');
 const { getStaticFileUrl } = require('../../../utils/urlUtils');
@@ -248,15 +249,17 @@ class MultiStepExecution {
             console.log(`❌ [Multi-step Fallback] ${provider} failed: ${errorMsg}`);
             // Don't send error if it was already sent by ProviderFallback
             if (!result?.errorsAlreadySent) {
-              await greenApiService.sendTextMessage(chatId, `❌ ${errorMsg}`, quotedMessageId, 1000);
+              const formattedError = formatProviderError(provider, errorMsg);
+              await greenApiService.sendTextMessage(chatId, formattedError, quotedMessageId, 1000);
             }
           }
         } catch (providerError) {
-          const errorMsg = providerError.message;
+          const errorMsg = providerError.message || 'Unknown error';
           console.error(`❌ [Multi-step Fallback] ${provider} threw error:`, errorMsg);
           // Only send error if it wasn't already sent by ProviderFallback
           // (ProviderFallback sends errors in _handleProviderError)
-          await greenApiService.sendTextMessage(chatId, `❌ ${errorMsg}`, quotedMessageId, 1000);
+          const formattedError = formatProviderError(provider, errorMsg);
+          await greenApiService.sendTextMessage(chatId, formattedError, quotedMessageId, 1000);
         }
       }
       

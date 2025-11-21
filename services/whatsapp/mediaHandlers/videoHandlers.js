@@ -7,6 +7,7 @@
 const { sendTextMessage, sendFileByUrl, downloadFile } = require('../../greenApiService');
 const { generateRunwayVideoFromVideo } = require('../../geminiService');
 const { sendAck } = require('../messaging');
+const { formatProviderError } = require('../../../utils/errorHandler');
 
 /**
  * Handle video-to-video processing with RunwayML Gen4
@@ -44,12 +45,14 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
       console.log(`✅ RunwayML Gen4 video-to-video sent to ${senderName}`);
     } else {
       const errorMsg = videoResult.error || 'לא הצלחתי לעבד את הווידאו. נסה שוב מאוחר יותר.';
-      await sendTextMessage(chatId, `❌ סליחה, ${errorMsg}`, quotedMessageId, 1000);
+      const formattedError = formatProviderError('runway', errorMsg);
+      await sendTextMessage(chatId, formattedError, quotedMessageId, 1000);
       console.log(`❌ RunwayML Gen4 video-to-video failed for ${senderName}: ${errorMsg}`);
     }
   } catch (error) {
     console.error('❌ Error in RunwayML Gen4 video-to-video:', error.message || error);
-    await sendTextMessage(chatId, `❌ שגיאה בעיבוד הווידאו: ${error.message || error}`, quotedMessageId, 1000);
+    const formattedError = formatProviderError('runway', error.message || error);
+    await sendTextMessage(chatId, formattedError, quotedMessageId, 1000);
   }
 }
 
