@@ -7,6 +7,7 @@
 
 // Import services
 const { sendTextMessage } = require('../../services/greenApiService');
+const { sendErrorToUser, ERROR_MESSAGES } = require('../../utils/errorSender');
 const conversationManager = require('../../services/conversationManager');
 const { routeToAgent } = require('../../services/agentRouter');
 const { isAuthorizedForMediaCreation } = require('../../services/whatsapp/authorization');
@@ -163,20 +164,20 @@ async function handleIncomingMessage(webhookData, processedMessages) {
             // Send all results (text, media, polls, locations)
             await sendAgentResults(chatId, agentResult, normalized);
           } else {
-            await sendTextMessage(chatId, `❌ שגיאה: ${agentResult.error || 'לא הצלחתי לעבד את הבקשה'}`, originalMessageId, 1000);
+            await sendErrorToUser(chatId, agentResult.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId: originalMessageId });
           }
           return; // Exit early - no need for regular flow
 
         } catch (agentError) {
           console.error('❌ [Agent] Error:', agentError);
-          await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${agentError.message}`, originalMessageId, 1000);
+          await sendErrorToUser(chatId, agentError, { context: 'REQUEST', quotedMessageId: originalMessageId });
           return;
         }
 
       } catch (error) {
         console.error('❌ Command execution error:', error.message || error);
         const originalMessageId = webhookData.idMessage;
-        await sendTextMessage(chatId, `❌ שגיאה בביצוע הפקודה: ${error.message || error}`, originalMessageId, 1000);
+        await sendErrorToUser(chatId, error, { context: 'EXECUTION', quotedMessageId: originalMessageId });
       }
       return; // Exit early after handling # commands
     }

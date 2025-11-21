@@ -25,7 +25,8 @@ async function downloadVideoFile(videoUrl, model) {
     fs.writeFileSync(tempFilePath, videoBuffer);
 
     // Verify file was written correctly
-    const verifyResult = await verifyFileWritten(tempFilePath, 10000, 15);
+    const { TIME } = require('../../utils/constants');
+    const verifyResult = await verifyFileWritten(tempFilePath, TIME.FILE_VERIFY_TIMEOUT, TIME.FILE_VERIFY_RETRIES);
 
     if (!verifyResult.success) {
       console.error('❌ Video file was not properly downloaded');

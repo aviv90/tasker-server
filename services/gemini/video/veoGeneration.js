@@ -17,7 +17,8 @@ class VeoGeneration {
    */
   async pollOperation(operation, operationType = 'video generation') {
     console.log('⏳ Polling for video generation completion...');
-    const maxWaitTime = 10 * 60 * 1000; // 10 minutes
+    const { TIME } = require('../../../utils/constants');
+    const maxWaitTime = TIME.VIDEO_GENERATION_TIMEOUT;
     const startTime = Date.now();
     let pollAttempts = 0;
 
@@ -82,11 +83,16 @@ class VeoGeneration {
   /**
    * Wait for file to be ready
    */
-  async waitForFileReady(filePath, minSize = 10000) {
+  async waitForFileReady(filePath, minSize = null) {
+    const { FILE_SIZE, TIME } = require('../../../utils/constants');
+    if (minSize === null) {
+      minSize = FILE_SIZE.MIN_FILE_SIZE * 10; // Default to 10KB
+    }
     let retries = 0;
     let fileReady = false;
+    const maxRetries = TIME.FILE_VERIFY_RETRIES;
 
-    while (!fileReady && retries < 15) {
+    while (!fileReady && retries < maxRetries) {
       await new Promise(resolve => setTimeout(resolve, 200));
 
       if (fs.existsSync(filePath)) {
@@ -151,7 +157,8 @@ class VeoGeneration {
       }
 
       const { filePath, fileName } = downloadResult;
-      const fileReadyResult = await this.waitForFileReady(filePath, 10000);
+      const { TIME } = require('../../../utils/constants');
+      const fileReadyResult = await this.waitForFileReady(filePath, TIME.FILE_VERIFY_TIMEOUT);
       if (fileReadyResult.error) {
         return fileReadyResult;
       }
@@ -213,7 +220,8 @@ class VeoGeneration {
       }
 
       const { filePath, fileName } = downloadResult;
-      const fileReadyResult = await this.waitForFileReady(filePath, 10000);
+      const { TIME } = require('../../../utils/constants');
+      const fileReadyResult = await this.waitForFileReady(filePath, TIME.FILE_VERIFY_TIMEOUT);
       if (fileReadyResult.error) {
         return fileReadyResult;
       }

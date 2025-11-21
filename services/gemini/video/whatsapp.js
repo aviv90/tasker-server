@@ -22,7 +22,8 @@ class WhatsAppVideoGeneration {
    */
   async pollOperation(operation, operationType = 'video generation') {
     console.log('⏳ Polling for video generation completion...');
-    const maxWaitTime = 10 * 60 * 1000; // 10 minutes
+    const { TIME } = require('../../../utils/constants');
+    const maxWaitTime = TIME.VIDEO_GENERATION_TIMEOUT;
     const startTime = Date.now();
     let pollAttempts = 0;
 

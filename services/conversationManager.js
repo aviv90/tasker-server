@@ -227,7 +227,8 @@ class ConversationManager {
     
     // Run cleanup once per month (30 days)
     const MAX_INTERVAL_MS = 2147483647; // ~24.8 days - Node.js timer limit
-    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const { TIME } = require('../utils/constants');
+    const THIRTY_DAYS_MS = TIME.CLEANUP_INTERVAL;
     const CLEANUP_INTERVAL_MS = Math.min(THIRTY_DAYS_MS, MAX_INTERVAL_MS);
     
     // Run first cleanup after 1 hour (to not impact startup)
@@ -248,7 +249,8 @@ class ConversationManager {
       
     }, 60 * 60 * 1000);  // 1 hour delay
     
-    const intervalDays = Math.round(CLEANUP_INTERVAL_MS / (24 * 60 * 60 * 1000));
+    const { TIME } = require('../utils/constants');
+    const intervalDays = Math.round(CLEANUP_INTERVAL_MS / TIME.DAY);
     console.log(`✅ Periodic cleanup scheduled (~every ${intervalDays} days)`);
   }
 

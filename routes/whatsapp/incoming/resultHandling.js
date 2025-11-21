@@ -10,6 +10,7 @@ const { cleanMediaDescription, cleanMultiStepText } = require('../../../utils/te
 const { cleanAgentText } = require('../../../services/whatsapp/utils');
 const conversationManager = require('../../../services/conversationManager');
 const { executeAgentQuery } = require('../../../services/agentService');
+const { sendErrorToUser, ERROR_MESSAGES } = require('../../../utils/errorSender');
 
 /**
  * Send multi-step text response
@@ -167,8 +168,7 @@ async function sendPollResult(chatId, agentResult, quotedMessageId = null) {
     // Send error to user
     try {
       const { sendTextMessage } = require('../../services/greenApiService');
-      const errorMsg = `❌ שגיאה בשליחת הסקר: ${error.message || 'שגיאה לא ידועה'}`;
-      await sendTextMessage(chatId, errorMsg, quotedMessageId, 1000);
+      await sendErrorToUser(chatId, error, { context: 'SENDING_POLL', quotedMessageId });
     } catch (sendError) {
       console.error(`❌ [Agent] Failed to send poll error message:`, sendError.message);
     }

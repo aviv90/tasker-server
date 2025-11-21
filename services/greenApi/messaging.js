@@ -4,15 +4,16 @@
 
 const axios = require('axios');
 const { BASE_URL, GREEN_API_API_TOKEN_INSTANCE } = require('./constants');
+const { TIME } = require('../../utils/constants');
 
 /**
  * Send text message via Green API
  * @param {string} chatId - Chat ID
  * @param {string} message - Message text
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
- * @param {number} [typingTime] - Optional: Typing indicator duration in milliseconds (default: 1000)
+ * @param {number} [typingTime] - Optional: Typing indicator duration in milliseconds (default: TIME.TYPING_INDICATOR)
  */
-async function sendTextMessage(chatId, message, quotedMessageId = null, typingTime = 1000) {
+async function sendTextMessage(chatId, message, quotedMessageId = null, typingTime = TIME.TYPING_INDICATOR) {
   try {
     const url = `${BASE_URL}/sendMessage/${GREEN_API_API_TOKEN_INSTANCE}`;
 
@@ -48,9 +49,9 @@ async function sendTextMessage(chatId, message, quotedMessageId = null, typingTi
  * @param {string} fileName - File name
  * @param {string} [caption] - Optional caption
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
- * @param {number} [typingTime] - Optional: Typing indicator duration in milliseconds (default: 1000)
+ * @param {number} [typingTime] - Optional: Typing indicator duration in milliseconds (default: TIME.TYPING_INDICATOR)
  */
-async function sendFileByUrl(chatId, fileUrl, fileName, caption = '', quotedMessageId = null, typingTime = 1000) {
+async function sendFileByUrl(chatId, fileUrl, fileName, caption = '', quotedMessageId = null, typingTime = TIME.TYPING_INDICATOR) {
   try {
     const url = `${BASE_URL}/sendFileByUrl/${GREEN_API_API_TOKEN_INSTANCE}`;
 
@@ -100,9 +101,9 @@ async function sendFileByUrl(chatId, fileUrl, fileName, caption = '', quotedMess
  * @param {Array} options - Poll options
  * @param {boolean} [multipleAnswers] - Allow multiple answers
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
- * @param {number} [typingTime] - Optional: Typing indicator duration in milliseconds (default: 1000)
+ * @param {number} [typingTime] - Optional: Typing indicator duration in milliseconds (default: TIME.TYPING_INDICATOR)
  */
-async function sendPoll(chatId, message, options, multipleAnswers = false, quotedMessageId = null, typingTime = 1000) {
+async function sendPoll(chatId, message, options, multipleAnswers = false, quotedMessageId = null, typingTime = TIME.TYPING_INDICATOR) {
   try {
     const url = `${BASE_URL}/sendPoll/${GREEN_API_API_TOKEN_INSTANCE}`;
 
@@ -168,9 +169,9 @@ async function sendPoll(chatId, message, options, multipleAnswers = false, quote
  * @param {string} [nameLocation] - Optional location name
  * @param {string} [address] - Optional address
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
- * @param {number} [typingTime] - Optional: Typing indicator duration in milliseconds (default: 1000)
+ * @param {number} [typingTime] - Optional: Typing indicator duration in milliseconds (default: TIME.TYPING_INDICATOR)
  */
-async function sendLocation(chatId, latitude, longitude, nameLocation = '', address = '', quotedMessageId = null, typingTime = 1000) {
+async function sendLocation(chatId, latitude, longitude, nameLocation = '', address = '', quotedMessageId = null, typingTime = TIME.TYPING_INDICATOR) {
   try {
     const url = `${BASE_URL}/sendLocation/${GREEN_API_API_TOKEN_INSTANCE}`;
 

@@ -9,6 +9,7 @@
 const { sendTextMessage } = require('../../services/greenApiService');
 const conversationManager = require('../../services/conversationManager');
 const { routeToAgent } = require('../../services/agentRouter');
+const { sendErrorToUser, ERROR_MESSAGES } = require('../../utils/errorSender');
 
 // Import WhatsApp utilities
 const { isAdminCommand } = require('../../services/whatsapp/authorization');
@@ -86,7 +87,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
           console.error('❌ Management command error:', error.message || error);
           // Get originalMessageId for quoting error
           const originalMessageId = webhookData.idMessage;
-          await sendTextMessage(chatId, `❌ שגיאה בעיבוד הפקודה: ${error.message || error}`, originalMessageId, 1000);
+          await sendErrorToUser(chatId, error, { context: 'PROCESSING', quotedMessageId: originalMessageId });
           return;
         }
       }
@@ -225,14 +226,14 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
               await sendAgentResults(chatId, agentResult, normalized);
               console.log(`✅ [Agent - Outgoing] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
             } else {
-              await sendTextMessage(chatId, `❌ שגיאה: ${agentResult.error || 'לא הצלחתי לעבד את הבקשה'}`, quotedMessageId, 1000);
+              await sendErrorToUser(chatId, agentResult.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId });
             }
             return; // Exit early - no need for regular flow
             
           } catch (agentError) {
             console.error('❌ [Agent - Outgoing] Error:', agentError);
             const originalMessageId = webhookData.idMessage;
-            await sendTextMessage(chatId, `❌ שגיאה בעיבוד הבקשה: ${agentError.message}`, originalMessageId, 1000);
+            await sendErrorToUser(chatId, agentError, { context: 'REQUEST', quotedMessageId: originalMessageId });
             return;
           }
         
@@ -240,7 +241,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
       } catch (error) {
         console.error('❌ Command execution error (outgoing):', error.message || error);
         const originalMessageId = webhookData.idMessage;
-        await sendTextMessage(chatId, `❌ שגיאה בביצוע הפקודה: ${error.message || error}`, originalMessageId, 1000);
+        await sendErrorToUser(chatId, error, { context: 'EXECUTION', quotedMessageId: originalMessageId });
       }
     }
   } catch (error) {

@@ -7,6 +7,7 @@
 
 // Import services
 const { sendTextMessage } = require('../../services/greenApiService');
+const { sendErrorToUser, ERROR_MESSAGES } = require('../../utils/errorSender');
 const conversationManager = require('../../services/conversationManager');
 const authStore = require('../../store/authStore');
 const groupAuthStore = require('../../store/groupAuthStore');
@@ -116,7 +117,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           console.log(`✅ Contacts synced successfully by ${senderName}`);
         } catch (error) {
           console.error('❌ Error syncing contacts:', error);
-          await sendTextMessage(chatId, `❌ שגיאה בעדכון אנשי קשר: ${error.message}`, originalMessageId, 1000);
+          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בעדכון אנשי קשר: ${error.message}`, quotedMessageId: originalMessageId });
         }
         break;
       }
@@ -155,7 +156,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           }
         } catch (error) {
           console.error('❌ Error in add_media_authorization:', error);
-          await sendTextMessage(chatId, `❌ שגיאה בהוספת הרשאה: ${error.message}`, originalMessageId, 1000);
+          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהוספת הרשאה: ${error.message}`, quotedMessageId: originalMessageId });
         }
         break;
       }
@@ -194,7 +195,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           }
         } catch (error) {
           console.error('❌ Error in remove_media_authorization:', error);
-          await sendTextMessage(chatId, `❌ שגיאה בהסרת הרשאה: ${error.message}`, originalMessageId, 1000);
+          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהסרת הרשאה: ${error.message}`, quotedMessageId: originalMessageId });
         }
         break;
       }
@@ -233,7 +234,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           }
         } catch (error) {
           console.error('❌ Error in add_group_authorization:', error);
-          await sendTextMessage(chatId, `❌ שגיאה בהוספת הרשאה: ${error.message}`, originalMessageId, 1000);
+          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהוספת הרשאה: ${error.message}`, quotedMessageId: originalMessageId });
         }
         break;
       }
@@ -272,7 +273,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           }
         } catch (error) {
           console.error('❌ Error in remove_group_authorization:', error);
-          await sendTextMessage(chatId, `❌ שגיאה בהסרת הרשאה: ${error.message}`, originalMessageId, 1000);
+          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהסרת הרשאה: ${error.message}`, quotedMessageId: originalMessageId });
         }
         break;
       }
@@ -311,7 +312,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           }
         } catch (error) {
           console.error('❌ Error in include_in_transcription:', error);
-          await sendTextMessage(chatId, `❌ שגיאה בהוספת הרשאת תמלול: ${error.message}`, originalMessageId, 1000);
+          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהוספת הרשאת תמלול: ${error.message}`, quotedMessageId: originalMessageId });
         }
         break;
       }
@@ -350,7 +351,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           }
         } catch (error) {
           console.error('❌ Error in exclude_from_transcription:', error);
-          await sendTextMessage(chatId, `❌ שגיאה בהסרת הרשאת תמלול: ${error.message}`, originalMessageId, 1000);
+          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהסרת הרשאת תמלול: ${error.message}`, quotedMessageId: originalMessageId });
         }
         break;
       }
@@ -382,7 +383,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           }
         } catch (error) {
           console.error('❌ Error in add_group_authorization_current:', error);
-          await sendTextMessage(chatId, `❌ שגיאה בהוספת הרשאה: ${error.message}`, originalMessageId, 1000);
+          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהוספת הרשאה: ${error.message}`, quotedMessageId: originalMessageId });
         }
         break;
       }
@@ -393,7 +394,7 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
     }
   } catch (error) {
     console.error(`❌ Error handling management command ${command.type}:`, error);
-    await sendTextMessage(chatId, `❌ שגיאה בעיבוד הפקודה: ${error.message || error}`, originalMessageId, 1000);
+    await sendErrorToUser(chatId, error, { context: 'PROCESSING', quotedMessageId: originalMessageId });
   }
 }
 

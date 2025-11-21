@@ -28,12 +28,12 @@ class MusicVideo {
       // - H.264 video codec (baseline profile for maximum compatibility)
       // - AAC audio codec
       // - MP4 container with faststart for streaming
-      // - Maximum bitrate: 2000k (WhatsApp recommendation)
+      // - Maximum bitrate: FILE_SIZE.MAX_BITRATE (WhatsApp recommendation)
       const ffmpegCommand = `ffmpeg -i "${inputPath}" \
           -c:v libx264 -profile:v baseline -level 3.0 -pix_fmt yuv420p \
           -c:a aac -b:a 128k -ar 44100 \
           -movflags +faststart \
-          -b:v 2000k -maxrate 2000k -bufsize 4000k \
+          -b:v ${FILE_SIZE.MAX_BITRATE}k -maxrate ${FILE_SIZE.MAX_BITRATE}k -bufsize ${FILE_SIZE.MAX_BITRATE_BUFFER}k \
           -y "${outputPath}"`;
       
       execSync(ffmpegCommand, { stdio: 'pipe' });

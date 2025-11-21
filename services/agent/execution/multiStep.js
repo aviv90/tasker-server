@@ -28,7 +28,8 @@ class MultiStepExecution {
     
     // Adjust config for multi-step
     agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 15);
-    agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, 360000); // 6 minutes
+    const { TIME } = require('../../../utils/constants');
+    agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, TIME.MULTI_STEP_MIN_TIMEOUT);
     
     const functionDeclarations = Object.values(agentTools).map(tool => tool.declaration);
     const systemInstruction = prompts.agentSystemInstruction(languageInstruction);

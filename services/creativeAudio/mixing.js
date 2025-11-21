@@ -134,7 +134,8 @@ async function processVoiceCreatively(audioBuffer, inputFormat = 'mp3') {
     console.log(`🎵 Adding background music...`);
 
     // Get audio duration (approximate)
-    const duration = Math.max(3, Math.min(15, audioBuffer.length / 10000)); // Rough estimate
+    const { AUDIO } = require('../../utils/constants');
+    const duration = Math.max(AUDIO.MIN_DURATION_ESTIMATE, Math.min(AUDIO.MAX_DURATION_ESTIMATE, audioBuffer.length / AUDIO.BYTES_PER_SECOND_ESTIMATE)); // Rough estimate
 
     // Choose background music type: 50% synthetic, 50% Suno
     const backgroundType = Math.random();

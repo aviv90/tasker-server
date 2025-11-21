@@ -63,7 +63,8 @@ async function generateVideoWithSora(prompt, options = {}) {
         
         // Poll for completion
         console.log('⏳ Waiting for video generation to complete...');
-        const maxWaitTime = 10 * 60 * 1000; // 10 minutes
+        const { TIME } = require('../../utils/constants');
+        const maxWaitTime = TIME.VIDEO_GENERATION_TIMEOUT;
         const startTime = Date.now();
         let pollAttempts = 0;
         
@@ -159,7 +160,8 @@ async function generateVideoWithSoraForWhatsApp(prompt, req = null, options = {}
         
         // Poll for completion
         console.log('⏳ Waiting for video generation to complete...');
-        const maxWaitTime = 10 * 60 * 1000; // 10 minutes
+        const { TIME } = require('../../utils/constants');
+        const maxWaitTime = TIME.VIDEO_GENERATION_TIMEOUT;
         const startTime = Date.now();
         let pollAttempts = 0;
         
@@ -325,7 +327,8 @@ async function generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, op
         
         // Poll for completion
         console.log('⏳ Waiting for video generation to complete...');
-        const maxWaitTime = 10 * 60 * 1000; // 10 minutes
+        const { TIME } = require('../../utils/constants');
+        const maxWaitTime = TIME.VIDEO_GENERATION_TIMEOUT;
         const startTime = Date.now();
         let pollAttempts = 0;
         

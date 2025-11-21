@@ -13,6 +13,7 @@ const { formatErrorMessage, formatProviderError } = require('./errorHandler');
 const { getServices } = require('../services/agent/utils/serviceLoader');
 const logger = require('./logger');
 const { circuitBreakerManager } = require('./circuitBreaker');
+const { TIME } = require('./constants');
 
 /**
  * Provider Fallback Handler
@@ -64,8 +65,8 @@ class ProviderFallback {
         // Check circuit breaker (skip if open)
         const breaker = circuitBreakerManager.getBreaker(`${provider}_${this.toolName}`, {
           failureThreshold: 5,
-          timeout: 60000, // 60 seconds for AI generation
-          resetTimeout: 60000 // 1 minute before retry
+          timeout: TIME.CIRCUIT_BREAKER_TIMEOUT,
+          resetTimeout: TIME.CIRCUIT_BREAKER_RESET
         });
 
         if (breaker.isOpen()) {

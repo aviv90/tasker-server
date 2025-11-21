@@ -7,6 +7,7 @@
 const { sendTextMessage, sendFileByUrl, downloadFile } = require('../../greenApiService');
 const conversationManager = require('../../conversationManager');
 const { formatProviderError } = require('../../../utils/errorHandler');
+const { sendErrorToUser, ERROR_MESSAGES } = require('../../../utils/errorSender');
 const { getStaticFileUrl } = require('../../../utils/urlUtils');
 const { MIN_DURATION_FOR_CLONING, TRANSCRIPTION_DEFAULTS } = require('../constants');
 const { getAudioDuration } = require('../../agent/utils/audioUtils');
@@ -41,7 +42,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
     if (transcriptionResult.error) {
       console.error('❌ Transcription failed:', transcriptionResult.error);
       // We don't know the language yet, so use Hebrew as default for error messages
-      await sendTextMessage(chatId, `❌ סליחה, לא הצלחתי לתמלל את ההקלטה: ${transcriptionResult.error}`, quotedMessageId, 1000);
+      await sendErrorToUser(chatId, transcriptionResult.error, { context: 'TRANSCRIPTION', quotedMessageId });
       return;
     }
 
@@ -209,7 +210,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
       const randomVoiceResult = await voiceService.getVoiceForLanguage(responseLanguage);
       if (randomVoiceResult.error) {
         console.error(`❌ Could not get random voice: ${randomVoiceResult.error}`);
-        await sendTextMessage(chatId, `❌ סליחה, לא הצלחתי ליצור תגובה קולית`, quotedMessageId, 1000);
+        await sendErrorToUser(chatId, null, { context: 'VOICE_RESPONSE', quotedMessageId });
         return;
       }
       voiceId = randomVoiceResult.voiceId;
@@ -282,7 +283,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
     console.error('❌ Error in voice-to-voice processing:', error.message || error);
     // Get quotedMessageId for error response (preserve original message ID)
     const quotedMessageId = originalMessageId || null;
-    await sendTextMessage(chatId, `❌ שגיאה בעיבוד ההקלטה הקולית: ${error.message || error}`, quotedMessageId, 1000);
+    await sendErrorToUser(chatId, error, { context: 'PROCESSING_VOICE', quotedMessageId });
   }
 }
 

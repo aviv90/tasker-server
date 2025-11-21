@@ -2,6 +2,8 @@
  * Text sanitization utilities for safe AI generation
  */
 
+const { TEXT_LIMITS } = require('./constants');
+
 function sanitizeText(text) {
     if (!text || typeof text !== 'string') {
         return '';
@@ -13,7 +15,7 @@ function sanitizeText(text) {
         .trim()
         .replace(/[\x00-\x08\x0E-\x1F\x7F]/g, '') // Remove control characters (but preserve emojis)
         .replace(/\s+/g, ' ') // Normalize whitespace
-        .substring(0, 2000); // Limit length
+        .substring(0, TEXT_LIMITS.MAX_SANITIZED_LENGTH); // Limit length
 }
 
 /**
@@ -106,8 +108,8 @@ function validateAndSanitizePrompt(prompt) {
         throw { message: 'Prompt must be at least 3 characters long', code: 'PROMPT_TOO_SHORT' };
     }
     
-    if (sanitized.length > 2000) {
-        throw { message: 'Prompt must be less than 2000 characters', code: 'PROMPT_TOO_LONG' };
+    if (sanitized.length > TEXT_LIMITS.MAX_PROMPT_LENGTH) {
+        throw { message: `Prompt must be less than ${TEXT_LIMITS.MAX_PROMPT_LENGTH} characters`, code: 'PROMPT_TOO_LONG' };
     }
     
     // Check for potentially harmful content

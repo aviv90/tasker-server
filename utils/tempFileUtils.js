@@ -7,6 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { FILE_SIZE, TIME } = require('./constants');
 
 /**
  * Get the temporary directory path
@@ -78,11 +79,11 @@ function cleanupTempFile(filePath) {
 /**
  * Verify that a file was written correctly
  * @param {string} filePath - Path to the file to verify
- * @param {number} minSize - Minimum file size in bytes (default: 1000)
+ * @param {number} minSize - Minimum file size in bytes (default: FILE_SIZE.MIN_FILE_SIZE)
  * @param {number} maxRetries - Maximum retry attempts (default: 15)
  * @returns {Promise<Object>} Result with success flag and stats
  */
-async function verifyFileWritten(filePath, minSize = 1000, maxRetries = 15) {
+async function verifyFileWritten(filePath, minSize = FILE_SIZE.MIN_FILE_SIZE, maxRetries = TIME.FILE_VERIFY_RETRIES) {
   let retries = 0;
   let fileReady = false;
 
