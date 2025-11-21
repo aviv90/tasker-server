@@ -246,11 +246,16 @@ class MultiStepExecution {
           } else {
             const errorMsg = result?.error || 'Unknown error';
             console.log(`❌ [Multi-step Fallback] ${provider} failed: ${errorMsg}`);
-            await greenApiService.sendTextMessage(chatId, `❌ ${errorMsg}`, quotedMessageId, 1000);
+            // Don't send error if it was already sent by ProviderFallback
+            if (!result?.errorsAlreadySent) {
+              await greenApiService.sendTextMessage(chatId, `❌ ${errorMsg}`, quotedMessageId, 1000);
+            }
           }
         } catch (providerError) {
           const errorMsg = providerError.message;
           console.error(`❌ [Multi-step Fallback] ${provider} threw error:`, errorMsg);
+          // Only send error if it wasn't already sent by ProviderFallback
+          // (ProviderFallback sends errors in _handleProviderError)
           await greenApiService.sendTextMessage(chatId, `❌ ${errorMsg}`, quotedMessageId, 1000);
         }
       }

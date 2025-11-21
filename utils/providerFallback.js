@@ -81,10 +81,12 @@ class ProviderFallback {
 
         // Send Ack for fallback attempts (not the first one)
         if (idx > 0 && this.chatId) {
+          // Get originalMessageId from context for quoting
+          const quotedMessageId = this.context?.originalInput?.originalMessageId || null;
           await sendToolAckMessage(this.chatId, [{ 
             name: this.toolName, 
             args: { provider: provider, service: provider } 
-          }]);
+          }], quotedMessageId);
         }
 
         // Try the provider with circuit breaker protection
@@ -156,7 +158,7 @@ class ProviderFallback {
       try {
         // Get originalMessageId from context for quoting
         const quotedMessageId = this.context?.originalInput?.originalMessageId || null;
-        await this.greenApiService.sendTextMessage(this.chatId, formatErrorMessage(message), quotedMessageId);
+        await this.greenApiService.sendTextMessage(this.chatId, formatErrorMessage(message), quotedMessageId, 1000);
       } catch (sendError) {
         logger.error(`❌ Failed to send error message to user`, {
           toolName: this.toolName,
