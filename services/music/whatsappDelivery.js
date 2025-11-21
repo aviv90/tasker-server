@@ -1,4 +1,6 @@
 const { getStaticFileUrl } = require('../../utils/urlUtils');
+const { extractQuotedMessageId } = require('../../utils/messageHelpers');
+const { sendErrorToUser } = require('../../utils/errorSender');
 
 /**
  * WhatsApp delivery for music results
@@ -16,6 +18,9 @@ class MusicWhatsAppDelivery {
       // Import WhatsApp functions dynamically to avoid circular dependency
       const { audioConverterService } = require('../audioConverterService');
       const { sendFileByUrl, sendTextMessage } = require('../greenApiService');
+      
+      // Get quotedMessageId from whatsappContext if available (needed for all messages)
+      const quotedMessageId = extractQuotedMessageId({ originalMessageId: whatsappContext?.originalMessageId });
       
       // Note: Video is now handled separately via /api/v1/mp4/generate and its own callback
       // This function only sends the audio as voice note
@@ -65,9 +70,6 @@ class MusicWhatsAppDelivery {
         songInfo = `🎵 השיר מוכן!`;
         logger.warn('⚠️ No metadata available for song', { chatId });
       }
-      
-      // Get quotedMessageId from whatsappContext if available
-      const quotedMessageId = extractQuotedMessageId({ originalMessageId: whatsappContext?.originalMessageId });
       await sendTextMessage(chatId, songInfo, quotedMessageId, 1000);
       
       logger.info(`✅ Music delivered to WhatsApp: ${musicResult.metadata?.title || 'Generated Music'}`, { chatId });
