@@ -128,7 +128,7 @@ async function sendToolAckMessage(chatId, functionCalls, quotedMessageId = null)
     
     console.log(`📢 [ACK] Sending acknowledgment: "${ackMessage}"`);
     const { greenApiService } = getServices();
-    await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId);
+    await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId, 500);
   } catch (error) {
     console.error('❌ [ACK] Failed to send acknowledgment:', error.message);
     // Don't throw - Ack failure shouldn't break the agent

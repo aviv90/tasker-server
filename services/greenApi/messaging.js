@@ -10,14 +10,16 @@ const { BASE_URL, GREEN_API_API_TOKEN_INSTANCE } = require('./constants');
  * @param {string} chatId - Chat ID
  * @param {string} message - Message text
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
+ * @param {number} [typingTime] - Optional: Typing indicator duration in milliseconds (default: 1000)
  */
-async function sendTextMessage(chatId, message, quotedMessageId = null) {
+async function sendTextMessage(chatId, message, quotedMessageId = null, typingTime = 1000) {
   try {
     const url = `${BASE_URL}/sendMessage/${GREEN_API_API_TOKEN_INSTANCE}`;
 
     const data = {
       chatId: chatId,
-      message: message
+      message: message,
+      typingTime: typingTime
     };
 
     // Add quoted message ID if provided
@@ -46,8 +48,9 @@ async function sendTextMessage(chatId, message, quotedMessageId = null) {
  * @param {string} fileName - File name
  * @param {string} [caption] - Optional caption
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
+ * @param {number} [typingTime] - Optional: Typing indicator duration in milliseconds (default: 1000)
  */
-async function sendFileByUrl(chatId, fileUrl, fileName, caption = '', quotedMessageId = null) {
+async function sendFileByUrl(chatId, fileUrl, fileName, caption = '', quotedMessageId = null, typingTime = 1000) {
   try {
     const url = `${BASE_URL}/sendFileByUrl/${GREEN_API_API_TOKEN_INSTANCE}`;
 
@@ -55,7 +58,8 @@ async function sendFileByUrl(chatId, fileUrl, fileName, caption = '', quotedMess
       chatId: chatId,
       urlFile: fileUrl,
       fileName: fileName,
-      caption: caption
+      caption: caption,
+      typingTime: typingTime
     };
 
     // Add quoted message ID if provided
@@ -94,8 +98,9 @@ async function sendFileByUrl(chatId, fileUrl, fileName, caption = '', quotedMess
  * @param {Array} options - Poll options
  * @param {boolean} [multipleAnswers] - Allow multiple answers
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
+ * @param {number} [typingTime] - Optional: Typing indicator duration in milliseconds (default: 1000)
  */
-async function sendPoll(chatId, message, options, multipleAnswers = false, quotedMessageId = null) {
+async function sendPoll(chatId, message, options, multipleAnswers = false, quotedMessageId = null, typingTime = 1000) {
   try {
     const url = `${BASE_URL}/sendPoll/${GREEN_API_API_TOKEN_INSTANCE}`;
 
@@ -103,7 +108,8 @@ async function sendPoll(chatId, message, options, multipleAnswers = false, quote
       chatId: chatId,
       message: message,
       options: options,
-      multipleAnswers: multipleAnswers
+      multipleAnswers: multipleAnswers,
+      typingTime: typingTime
     };
 
     // NOTE: quotedMessageId is temporarily disabled for polls.
@@ -153,8 +159,9 @@ async function sendPoll(chatId, message, options, multipleAnswers = false, quote
  * @param {string} [nameLocation] - Optional location name
  * @param {string} [address] - Optional address
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
+ * @param {number} [typingTime] - Optional: Typing indicator duration in milliseconds (default: 1000)
  */
-async function sendLocation(chatId, latitude, longitude, nameLocation = '', address = '', quotedMessageId = null) {
+async function sendLocation(chatId, latitude, longitude, nameLocation = '', address = '', quotedMessageId = null, typingTime = 1000) {
   try {
     const url = `${BASE_URL}/sendLocation/${GREEN_API_API_TOKEN_INSTANCE}`;
 
@@ -163,7 +170,8 @@ async function sendLocation(chatId, latitude, longitude, nameLocation = '', addr
       latitude: latitude,
       longitude: longitude,
       nameLocation: nameLocation,
-      address: address
+      address: address,
+      typingTime: typingTime
     };
 
     // Add quoted message ID if provided

@@ -31,7 +31,7 @@ async function sendMultiStepText(chatId, text, quotedMessageId = null) {
     .trim();
 
   if (cleanText) {
-    await sendTextMessage(chatId, cleanText, quotedMessageId);
+    await sendTextMessage(chatId, cleanText, quotedMessageId, 1000);
     console.log(`📤 [Multi-step] Text sent first (${cleanText.length} chars)`);
   } else {
     console.warn(`⚠️ [Multi-step] Text exists but cleanText is empty`);
@@ -84,7 +84,7 @@ async function sendImageResult(chatId, agentResult, quotedMessageId = null) {
     caption = cleanMediaDescription(caption);
   }
 
-  await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId);
+  await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId, 1000);
   return true;
 }
 
@@ -106,13 +106,13 @@ async function sendVideoResult(chatId, agentResult, quotedMessageId = null) {
 
   console.log(`🎬 [Agent] Sending generated video: ${agentResult.videoUrl}`);
   // Videos don't support captions well - send as file, text separately
-  await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId);
+  await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId, 1000);
 
   // If there's meaningful text (description/revised prompt), send it separately
   if (agentResult.text && agentResult.text.trim()) {
     const videoDescription = cleanMediaDescription(agentResult.text);
     if (videoDescription && videoDescription.length > 2) {
-      await sendTextMessage(chatId, videoDescription, quotedMessageId);
+      await sendTextMessage(chatId, videoDescription, quotedMessageId, 1000);
     }
   }
 
@@ -140,7 +140,7 @@ async function sendAudioResult(chatId, agentResult, quotedMessageId = null) {
   const fullAudioUrl = agentResult.audioUrl.startsWith('http')
     ? agentResult.audioUrl
     : getStaticFileUrl(agentResult.audioUrl.replace('/static/', ''));
-  await sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '', quotedMessageId);
+  await sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '', quotedMessageId, 1000);
 
   // For audio files (TTS/translate_and_speak), don't send text - the audio IS the response
   return true;
@@ -166,7 +166,7 @@ async function sendPollResult(chatId, agentResult, quotedMessageId = null) {
     console.log(`📊 [Agent] Sending poll: ${agentResult.poll.question}`);
     // Convert options to Green API format
     const pollOptions = agentResult.poll.options.map(opt => ({ optionName: opt }));
-    await sendPoll(chatId, agentResult.poll.question, pollOptions, false, quotedMessageId);
+    await sendPoll(chatId, agentResult.poll.question, pollOptions, false, quotedMessageId, 1000);
     return true;
   } catch (error) {
     console.error(`❌ [Agent] Failed to send poll:`, error.message);
@@ -175,7 +175,7 @@ async function sendPollResult(chatId, agentResult, quotedMessageId = null) {
     try {
       const { sendTextMessage } = require('../../services/greenApiService');
       const errorMsg = `❌ שגיאה בשליחת הסקר: ${error.message || 'שגיאה לא ידועה'}`;
-      await sendTextMessage(chatId, errorMsg, quotedMessageId);
+      await sendTextMessage(chatId, errorMsg, quotedMessageId, 1000);
     } catch (sendError) {
       console.error(`❌ [Agent] Failed to send poll error message:`, sendError.message);
     }
@@ -201,10 +201,10 @@ async function sendLocationResult(chatId, agentResult, quotedMessageId = null) {
   }
 
   console.log(`📍 [Agent] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
-  await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '', quotedMessageId);
+  await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '', quotedMessageId, 1000);
   // Send location info as separate text message
   if (agentResult.locationInfo && agentResult.locationInfo.trim()) {
-    await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`, quotedMessageId);
+    await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`, quotedMessageId, 1000);
   }
   return true;
 }
@@ -235,7 +235,7 @@ async function sendSingleStepText(chatId, agentResult, mediaSent, quotedMessageI
       // Single tool → safe to send text
       const cleanText = cleanAgentText(agentResult.text);
       if (cleanText) {
-        await sendTextMessage(chatId, cleanText, quotedMessageId);
+        await sendTextMessage(chatId, cleanText, quotedMessageId, 1000);
       }
     } else {
       console.log(`ℹ️ Multiple tools detected - skipping general text to avoid mixing outputs`);
@@ -291,7 +291,8 @@ async function handlePostProcessing(chatId, normalized, agentResult, quotedMessa
           imageResult.imageUrl,
           `agent_image_${Date.now()}.png`,
           caption,
-          quotedMessageId
+          quotedMessageId,
+          1000
         );
       } else {
         console.warn('⚠️ [Agent Post] Failed to generate complementary image for text+image request');
