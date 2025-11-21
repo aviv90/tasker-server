@@ -11,7 +11,7 @@ class MusicWhatsAppDelivery {
   async sendMusicToWhatsApp(whatsappContext, musicResult) {
     try {
       const { chatId, senderName } = whatsappContext;
-      console.log(`📱 Sending music to WhatsApp: ${chatId}`);
+      logger.info(`📱 Sending music to WhatsApp: ${chatId}`);
       
       // Import WhatsApp functions dynamically to avoid circular dependency
       const { audioConverterService } = require('../audioConverterService');
@@ -21,11 +21,11 @@ class MusicWhatsAppDelivery {
       // This function only sends the audio as voice note
       
       // Convert MP3 to Opus for voice note
-      console.log(`🔄 Converting music to Opus format for voice note...`);
+      logger.info(`🔄 Converting music to Opus format for voice note...`, { chatId });
       const conversionResult = await audioConverterService.convertAndSaveAsOpus(musicResult.audioBuffer, 'mp3');
       
       if (!conversionResult.success) {
-        console.error('❌ Audio conversion failed:', conversionResult.error);
+        logger.error('❌ Audio conversion failed:', { error: conversionResult.error, chatId });
         // Fallback: send as regular MP3 file
         const fileName = `suno_music_${Date.now()}.mp3`;
         const fullAudioUrl = musicResult.result.startsWith('http') 
@@ -36,7 +36,7 @@ class MusicWhatsAppDelivery {
         // Send as voice note with Opus format
         const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
         await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '', quotedMessageId, 1000);
-        console.log(`✅ Music sent as voice note: ${conversionResult.fileName}`);
+        logger.info(`✅ Music sent as voice note: ${conversionResult.fileName}`, { chatId });
       }
       
       // Send song information and lyrics as separate text message
@@ -63,23 +63,23 @@ class MusicWhatsAppDelivery {
         }
       } else {
         songInfo = `🎵 השיר מוכן!`;
-        console.log('⚠️ No metadata available for song');
+        logger.warn('⚠️ No metadata available for song', { chatId });
       }
       
       // Get quotedMessageId from whatsappContext if available
-      const quotedMessageId = whatsappContext?.originalMessageId || null;
+      const quotedMessageId = extractQuotedMessageId({ originalMessageId: whatsappContext?.originalMessageId });
       await sendTextMessage(chatId, songInfo, quotedMessageId, 1000);
       
-      console.log(`✅ Music delivered to WhatsApp: ${musicResult.metadata?.title || 'Generated Music'}`);
+      logger.info(`✅ Music delivered to WhatsApp: ${musicResult.metadata?.title || 'Generated Music'}`, { chatId });
     } catch (error) {
-      console.error('❌ Error sending music to WhatsApp:', error);
+      logger.error('❌ Error sending music to WhatsApp:', { error, chatId });
       // Try to send error message to user
       try {
         const { sendTextMessage } = require('../greenApiService');
-        const quotedMessageId = whatsappContext.originalMessageId || null;
+        const quotedMessageId = extractQuotedMessageId({ originalMessageId: whatsappContext.originalMessageId });
         await sendErrorToUser(whatsappContext.chatId, error, { context: 'SENDING_SONG', quotedMessageId });
       } catch (sendError) {
-        console.error('❌ Failed to send error message:', sendError);
+        logger.error('❌ Failed to send error message:', { error: sendError, chatId: whatsappContext.chatId });
       }
       throw error;
     }

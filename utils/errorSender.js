@@ -7,6 +7,7 @@
 
 const { sendTextMessage } = require('../services/greenApiService');
 const { formatProviderError, extractErrorMessage } = require('./errorHandler');
+const logger = require('./logger');
 
 /**
  * Default typing time for error messages (ms)
@@ -78,7 +79,7 @@ async function sendErrorToUser(chatId, error, options = {}) {
   try {
     await sendTextMessage(chatId, errorMessage, quotedMessageId, typingTime);
   } catch (sendError) {
-    console.error('❌ Failed to send error message to user:', sendError.message);
+    logger.error('❌ Failed to send error message to user:', { error: sendError.message, chatId });
     // Don't throw - error sending shouldn't break the flow
   }
 }

@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { getApiUrl, getStaticFileUrl } = require('../../utils/urlUtils');
+const { extractQuotedMessageId } = require('../../utils/messageHelpers');
 
 /**
  * Video operations for music service
@@ -184,7 +185,7 @@ class MusicVideo {
             try {
               const { sendFileByUrl } = require('../greenApiService');
               const fullVideoUrl = getStaticFileUrl(tempVideoFileName);
-              const quotedMessageId = videoTaskInfo.whatsappContext?.originalMessageId || null;
+              const quotedMessageId = extractQuotedMessageId({ originalMessageId: videoTaskInfo.whatsappContext?.originalMessageId });
               await sendFileByUrl(videoTaskInfo.whatsappContext.chatId, fullVideoUrl, tempVideoFileName, '🎬 הקליפ מוכן!', quotedMessageId, 1000);
               console.log(`✅ Video sent to WhatsApp successfully`);
             } catch (whatsappError) {

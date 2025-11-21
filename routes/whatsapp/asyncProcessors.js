@@ -8,16 +8,17 @@
 const { handleImageEdit, handleImageToVideo, handleVoiceMessage, handleVideoToVideo } = require('../../services/whatsapp/mediaHandlers');
 const { sendTextMessage } = require('../../services/greenApiService');
 const { sendErrorToUser, ERROR_MESSAGES } = require('../../utils/errorSender');
+const { extractQuotedMessageId } = require('../../utils/messageHelpers');
 
 function processImageEditAsync(imageData) {
   // Run in background without blocking webhook response
   handleImageEdit(imageData).catch(async error => {
-    console.error('❌ Error in async image edit processing:', error.message || error);
+    logger.error('❌ Error in async image edit processing:', { error: error.message || error });
     try {
-      const quotedMessageId = imageData.originalMessageId || null;
+      const quotedMessageId = extractQuotedMessageId({ originalMessageId: imageData.originalMessageId });
       await sendErrorToUser(imageData.chatId, error, { context: 'PROCESSING_IMAGE', quotedMessageId });
     } catch (sendError) {
-      console.error('❌ Failed to send error message to user:', sendError);
+      logger.error('❌ Failed to send error message to user:', { error: sendError, chatId: imageData.chatId });
     }
   });
 }
@@ -28,12 +29,12 @@ function processImageEditAsync(imageData) {
 function processImageToVideoAsync(imageData) {
   // Run in background without blocking webhook response
   handleImageToVideo(imageData).catch(async error => {
-    console.error('❌ Error in async image-to-video processing:', error.message || error);
+    logger.error('❌ Error in async image-to-video processing:', { error: error.message || error });
     try {
-      const quotedMessageId = imageData.originalMessageId || null;
+      const quotedMessageId = extractQuotedMessageId({ originalMessageId: imageData.originalMessageId });
       await sendErrorToUser(imageData.chatId, error, { context: 'CREATING_VIDEO', quotedMessageId });
     } catch (sendError) {
-      console.error('❌ Failed to send error message to user:', sendError);
+      logger.error('❌ Failed to send error message to user:', { error: sendError, chatId: imageData.chatId });
     }
   });
 }
@@ -44,7 +45,7 @@ function processImageToVideoAsync(imageData) {
 function processVoiceMessageAsync(voiceData) {
   // Run in background without blocking webhook response
   handleVoiceMessage(voiceData).catch(error => {
-    console.error('❌ Error in async voice processing:', error.message || error);
+    logger.error('❌ Error in async voice processing:', { error: error.message || error });
   });
 }
 
@@ -54,12 +55,12 @@ function processVoiceMessageAsync(voiceData) {
 function processVideoToVideoAsync(videoData) {
   // Run in background without blocking webhook response
   handleVideoToVideo(videoData).catch(async error => {
-    console.error('❌ Error in async video-to-video processing:', error.message || error);
+    logger.error('❌ Error in async video-to-video processing:', { error: error.message || error });
     try {
-      const quotedMessageId = videoData.originalMessageId || null;
+      const quotedMessageId = extractQuotedMessageId({ originalMessageId: videoData.originalMessageId });
       await sendErrorToUser(videoData.chatId, error, { context: 'PROCESSING_VIDEO', quotedMessageId });
     } catch (sendError) {
-      console.error('❌ Failed to send error message to user:', sendError);
+      logger.error('❌ Failed to send error message to user:', { error: sendError, chatId: imageData.chatId });
     }
   });
 }

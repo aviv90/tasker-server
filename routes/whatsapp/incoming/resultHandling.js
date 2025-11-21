@@ -11,6 +11,7 @@ const { cleanAgentText } = require('../../../services/whatsapp/utils');
 const conversationManager = require('../../../services/conversationManager');
 const { executeAgentQuery } = require('../../../services/agentService');
 const { sendErrorToUser, ERROR_MESSAGES } = require('../../../utils/errorSender');
+const { extractQuotedMessageId } = require('../../../utils/messageHelpers');
 
 /**
  * Send multi-step text response
@@ -327,7 +328,7 @@ async function sendAgentResults(chatId, agentResult, normalized) {
   }
 
   // Get quotedMessageId from agentResult or normalized
-  const quotedMessageId = agentResult.originalMessageId || normalized?.originalMessageId || null;
+  const quotedMessageId = extractQuotedMessageId({ agentResult, normalized });
 
   // Send any generated media (image/video/audio/poll) with captions
   let mediaSent = false;

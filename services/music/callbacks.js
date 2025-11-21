@@ -106,7 +106,7 @@ class MusicCallbacks {
                   // Send error message to user
                   if (taskInfo.whatsappContext) {
                     const { sendTextMessage } = require('../greenApiService');
-                    const quotedMessageId = taskInfo.whatsappContext.originalMessageId || null;
+                    const quotedMessageId = extractQuotedMessageId({ originalMessageId: taskInfo.whatsappContext.originalMessageId });
                     await sendErrorToUser(taskInfo.whatsappContext.chatId, videoResult.error, { 
                       customMessage: `⚠️ השיר נוצר אבל הייתה בעיה ביצירת הוידאו: ${videoResult.error}`,
                       quotedMessageId 
@@ -117,7 +117,7 @@ class MusicCallbacks {
                   // Notify user that video is being generated
                   if (taskInfo.whatsappContext) {
                     const { sendTextMessage } = require('../greenApiService');
-                    const quotedMessageId = taskInfo.whatsappContext?.originalMessageId || null;
+                    const quotedMessageId = extractQuotedMessageId({ originalMessageId: taskInfo.whatsappContext?.originalMessageId });
                     await sendTextMessage(taskInfo.whatsappContext.chatId, '🎬 מייצר קליפ לשיר... אשלח בעוד כמה רגעים! ⏳', quotedMessageId, 1000);
                   }
                 }

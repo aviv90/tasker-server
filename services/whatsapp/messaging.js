@@ -8,6 +8,7 @@
  */
 
 const { sendTextMessage } = require('../greenApiService');
+const logger = require('../../utils/logger');
 
 /**
  * Send acknowledgment message for a command
@@ -129,9 +130,9 @@ async function sendAck(chatId, command) {
     // Get quotedMessageId from command context if available
     const quotedMessageId = command.originalMessageId || null;
     await sendTextMessage(chatId, ackMessage, quotedMessageId, 1000);
-    console.log(`✅ ACK sent for ${command.type}`);
+    logger.info(`✅ ACK sent for ${command.type}`, { chatId, commandType: command.type });
   } catch (error) {
-    console.error('❌ Error sending ACK:', error.message || error);
+    logger.error('❌ Error sending ACK:', { error: error.message || error, chatId, commandType: command.type });
   }
 }
 
