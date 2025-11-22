@@ -97,6 +97,77 @@ function cleanMultiStepText(text) {
         .trim();
 }
 
+/**
+ * Clean JSON wrappers from text responses
+ * Removes JSON code blocks and extracts actual content
+ * Handles cases like: ```json\n{"answer": "text"}\n``` or {"answer": "text"}
+ * @param {string} text - Text that may contain JSON wrapper
+ * @returns {string} - Cleaned text without JSON wrapper
+ */
+function cleanJsonWrapper(text) {
+    if (!text || typeof text !== 'string') {
+        return '';
+    }
+    
+    let cleaned = text.trim();
+    
+    // Try to extract JSON from code blocks first
+    const jsonCodeBlockMatch = cleaned.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (jsonCodeBlockMatch) {
+        cleaned = jsonCodeBlockMatch[1];
+    }
+    
+    // Try to parse as JSON
+    try {
+        const parsed = JSON.parse(cleaned);
+        
+        // Extract content from common JSON response fields
+        if (typeof parsed === 'object' && parsed !== null) {
+            // Priority order: answer, text, message, content, description
+            const content = parsed.answer || parsed.text || parsed.message || 
+                          parsed.content || parsed.description || parsed.data;
+            
+            if (content && typeof content === 'string') {
+                return content.trim();
+            }
+            
+            // If it's a single-key object, use the value
+            const keys = Object.keys(parsed);
+            if (keys.length === 1 && typeof parsed[keys[0]] === 'string') {
+                return parsed[keys[0]].trim();
+            }
+        }
+    } catch (e) {
+        // Not valid JSON, continue with cleaning
+    }
+    
+    // Remove JSON code blocks if still present
+    cleaned = cleaned
+        .replace(/```(?:json)?\s*\{[\s\S]*?\}\s*```/g, '') // Remove ```json {...} ```
+        .replace(/```json\s*/g, '') // Remove opening ```json
+        .replace(/```\s*/g, '') // Remove closing ```
+        .trim();
+    
+    // Try to extract JSON object from text and parse it
+    const jsonObjectMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonObjectMatch) {
+        try {
+            const parsed = JSON.parse(jsonObjectMatch[0]);
+            if (typeof parsed === 'object' && parsed !== null) {
+                const content = parsed.answer || parsed.text || parsed.message || 
+                              parsed.content || parsed.description || parsed.data;
+                if (content && typeof content === 'string') {
+                    return content.trim();
+                }
+            }
+        } catch (e) {
+            // Not valid JSON, continue
+        }
+    }
+    
+    return cleaned;
+}
+
 function validateAndSanitizePrompt(prompt) {
     if (!prompt || typeof prompt !== 'string') {
         throw { message: 'Prompt is required and must be a string', code: 'INVALID_PROMPT' };
@@ -130,5 +201,6 @@ module.exports = {
     validateAndSanitizePrompt,
     cleanMarkdown,
     cleanMediaDescription,
-    cleanMultiStepText
+    cleanMultiStepText,
+    cleanJsonWrapper
 };

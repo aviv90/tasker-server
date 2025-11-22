@@ -149,7 +149,8 @@ class MultiStepExecution {
     }
     
     // Clean and process final text
-    let finalText = accumulatedText.trim();
+    const { cleanJsonWrapper } = require('../../../utils/textSanitizer');
+    let finalText = cleanJsonWrapper(accumulatedText.trim());
     const lines = finalText.split('\n').filter(line => line.trim());
     const uniqueLines = [];
     const seen = new Set();

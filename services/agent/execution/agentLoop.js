@@ -5,6 +5,7 @@ const { allTools: agentTools } = require('../tools');
 const { sendToolAckMessage } = require('../utils/ackUtils');
 const { getServices } = require('../utils/serviceLoader');
 const { extractQuotedMessageId } = require('../../../utils/messageHelpers');
+const { cleanJsonWrapper } = require('../../../utils/textSanitizer');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -70,11 +71,17 @@ class AgentLoop {
         const locationResult = context.previousToolResults['send_location'];
         const latitude = locationResult?.latitude || null;
         const longitude = locationResult?.longitude || null;
-        const locationInfo = locationResult?.locationInfo || locationResult?.data || null;
+        let locationInfo = locationResult?.locationInfo || locationResult?.data || null;
+        
+        // Clean JSON wrappers from locationInfo
+        if (locationInfo) {
+          locationInfo = cleanJsonWrapper(locationInfo);
+        }
 
         console.log(`🔍 [Agent] Extracted assets - Image: ${latestImageAsset?.url}, Video: ${latestVideoAsset?.url}, Audio: ${latestAudioAsset?.url}, Poll: ${latestPollAsset?.question}, Location: ${latitude}, ${longitude}`);
 
-        const finalText = context.suppressFinalResponse ? '' : text;
+        // Clean JSON wrappers from final text
+        let finalText = context.suppressFinalResponse ? '' : cleanJsonWrapper(text);
 
         // Get originalMessageId from context for quoting
         const originalMessageId = extractQuotedMessageId({ context });

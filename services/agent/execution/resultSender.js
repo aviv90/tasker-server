@@ -1,5 +1,6 @@
 const { getServices } = require('../utils/serviceLoader');
 const { getStaticFileUrl } = require('../../../utils/urlUtils');
+const { cleanJsonWrapper } = require('../../../utils/textSanitizer');
 
 /**
  * Result sending utilities for agent execution
@@ -32,7 +33,11 @@ class ResultSender {
       );
 
       if (stepResult.locationInfo && stepResult.locationInfo.trim()) {
-        await greenApiService.sendTextMessage(chatId, `📍 ${stepResult.locationInfo}`, quotedMessageId, 1000);
+        // Clean JSON wrappers from locationInfo before sending
+        const cleanLocationInfo = cleanJsonWrapper(stepResult.locationInfo);
+        if (cleanLocationInfo) {
+          await greenApiService.sendTextMessage(chatId, `📍 ${cleanLocationInfo}`, quotedMessageId, 1000);
+        }
       }
 
       console.log(`✅ [ResultSender] Location sent${stepInfo}`);
@@ -182,6 +187,9 @@ class ResultSender {
       console.log(`📝 [ResultSender] Sending text${stepInfo}`);
 
       let cleanText = stepResult.text.trim();
+
+      // Clean JSON wrappers first (before other cleaning)
+      cleanText = cleanJsonWrapper(cleanText);
 
       // For search_web and similar tools, URLs are part of the content
       // Only remove URLs for creation tools where they might be duplicate artifacts

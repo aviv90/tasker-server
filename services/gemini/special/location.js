@@ -1,4 +1,5 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { cleanJsonWrapper } = require('../../../utils/textSanitizer');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -8,47 +9,11 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 class LocationService {
   /**
    * Clean JSON/snippets from response if Gemini accidentally returned structured data
+   * Uses centralized cleanJsonWrapper utility for consistency
    */
   cleanLocationResponse(text) {
-    // Remove JSON blocks (```json ... ``` or naked JSON objects)
-    if (text.includes('"snippets"') || text.includes('"link"') || (text.startsWith('{') && text.endsWith('}'))) {
-      console.warn('⚠️ Detected JSON in location description, cleaning...');
-
-      try {
-        // Remove markdown code blocks
-        let cleanText = text.replace(/```json?\s*|\s*```/g, '');
-
-        // Try to parse as JSON
-        const jsonData = JSON.parse(cleanText);
-
-        // Extract meaningful text fields (not snippets or links)
-        if (jsonData.description) {
-          return jsonData.description;
-        } else if (jsonData.text) {
-          return jsonData.text;
-        } else if (jsonData.answer) {
-          return jsonData.answer;
-        } else {
-          // Fallback: extract any long string values (likely the description)
-          for (const key in jsonData) {
-            if (typeof jsonData[key] === 'string' && jsonData[key].length > 30 &&
-              key !== 'link' && key !== 'snippets') {
-              return jsonData[key];
-            }
-          }
-        }
-      } catch (err) {
-        // If JSON parsing fails, remove JSON-like patterns
-        console.warn(`⚠️ Could not parse JSON, removing patterns: ${err.message}`);
-        return text
-          .replace(/\{[^}]*"snippets"[^}]*\}/g, '')
-          .replace(/\{[^}]*"link"[^}]*\}/g, '')
-          .replace(/```json?\s*[\s\S]*?\s*```/g, '')
-          .trim();
-      }
-    }
-
-    return text;
+    // Use centralized JSON cleaning utility
+    return cleanJsonWrapper(text);
   }
 
   /**

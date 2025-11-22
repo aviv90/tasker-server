@@ -149,7 +149,10 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
         if (toolResult.poll) assets.poll = toolResult.poll;
         if (toolResult.latitude) assets.latitude = toolResult.latitude;
         if (toolResult.longitude) assets.longitude = toolResult.longitude;
-        if (toolResult.locationInfo) assets.locationInfo = toolResult.locationInfo;
+        if (toolResult.locationInfo) {
+          const { cleanJsonWrapper } = require('../../../utils/textSanitizer');
+          assets.locationInfo = cleanJsonWrapper(toolResult.locationInfo);
+        }
         
         // If tool failed and returned error, save it for return
         if (toolResult.error && !toolResult.success) {
