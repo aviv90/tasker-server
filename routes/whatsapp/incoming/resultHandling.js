@@ -323,6 +323,11 @@ async function sendAgentResults(chatId, agentResult, normalized) {
   // If alreadySent is true, skip sending here to avoid duplicates
   if (agentResult.multiStep && agentResult.alreadySent) {
     console.log(`✅ [Multi-step] Results already sent immediately after each step - skipping duplicate sending`);
+    
+    // CRITICAL: Still save bot response to conversation history even if already sent!
+    // This ensures the bot can see its own previous responses in future requests
+    await saveBotResponse(chatId, agentResult);
+    
     console.log(`✅ [Agent] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
     return true;
   }

@@ -15,6 +15,30 @@ const { sanitizeToolResult } = require('../utils/resultUtils');
  * @param {Object} input - Normalized input
  */
 async function saveLastCommand(agentResult, chatId, userText, input) {
+  // CRITICAL: Handle multi-step commands - save the entire plan, not just the last tool
+  if (agentResult.multiStep && agentResult.plan) {
+    // Save multi-step plan for retry
+    const argsToStore = {
+      isMultiStep: true,
+      plan: agentResult.plan,
+      prompt: userText,
+      stepsCompleted: agentResult.stepsCompleted || 0,
+      totalSteps: agentResult.totalSteps || 0,
+      failed: !agentResult.success
+    };
+    
+    await conversationManager.saveLastCommand(chatId, 'multi_step', argsToStore, {
+      normalized: input,
+      imageUrl: agentResult.imageUrl || null,
+      videoUrl: agentResult.videoUrl || null,
+      audioUrl: agentResult.audioUrl || null
+    });
+    
+    console.log(`💾 [AGENT ROUTER] Saved multi-step command for retry: ${agentResult.totalSteps || 0} steps (${agentResult.stepsCompleted || 0} completed)`);
+    return;
+  }
+  
+  // Single-step command: Save the last persistable tool call
   // CRITICAL: Save command even if it failed (for natural conversation continuity)
   // When user responds with "כן" after a failure, we need to know what failed
   if (!agentResult.toolCalls || agentResult.toolCalls.length === 0) {
@@ -43,6 +67,7 @@ async function saveLastCommand(agentResult, chatId, userText, input) {
   const primaryTool = commandToSave.tool;
   const sanitizedResult = sanitizeToolResult(toolResults[primaryTool]);
   const argsToStore = {
+    isMultiStep: false,
     toolArgs: commandToSave.args || {},
     result: sanitizedResult || null,
     prompt: userText,

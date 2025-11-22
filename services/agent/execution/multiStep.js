@@ -175,6 +175,7 @@ class MultiStepExecution {
       toolsUsed: stepResults.flatMap(r => r.toolsUsed || []),
       iterations: stepResults.reduce((sum, r) => sum + (r.iterations || 0), 0),
       multiStep: true,
+      plan: plan, // CRITICAL: Save the original plan for retry functionality
       stepsCompleted: stepResults.length,
       totalSteps: plan.steps.length,
       alreadySent: true,

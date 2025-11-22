@@ -95,6 +95,99 @@ const retry_last_command = {
       // Map tool names to appropriate retry function
       const tool = lastCommand.tool;
       const storedWrapper = lastCommand.args || {};
+      
+      // CRITICAL: Check if this is a multi-step command
+      if (tool === 'multi_step' || storedWrapper.isMultiStep === true) {
+        // Multi-step retry: re-execute all steps from the plan
+        const plan = storedWrapper.plan;
+        if (!plan || !plan.steps || plan.steps.length === 0) {
+          return {
+            success: false,
+            error: 'לא הצלחתי לשחזר את התוכנית של הפקודה הרב-שלבית הקודמת.'
+          };
+        }
+        
+        console.log(`🔄 Retrying multi-step command: ${plan.steps.length} steps`);
+        
+        // Get multi-step execution handler
+        const multiStepExecution = require('../execution/multiStep');
+        const { getLanguageInstruction } = require('../../utils/languageUtils');
+        const { detectLanguage } = require('../../../utils/agentHelpers');
+        
+        // Detect language from original prompt
+        const originalPrompt = storedWrapper.prompt || '';
+        const userLanguage = detectLanguage(originalPrompt);
+        const languageInstruction = getLanguageInstruction(userLanguage);
+        
+        // Agent config
+        const agentConfig = {
+          model: process.env.AGENT_MODEL || 'gemini-2.5-flash',
+          maxIterations: Number(process.env.AGENT_MAX_ITERATIONS) || 8,
+          timeoutMs: Number(process.env.AGENT_TIMEOUT_MS) || 240000,
+          contextMemoryEnabled: String(process.env.AGENT_CONTEXT_MEMORY_ENABLED || 'false').toLowerCase() === 'true'
+        };
+        
+        // Apply modifications to plan if provided
+        if (args.modifications && args.modifications.trim()) {
+          // Modify the first step's action to include modifications
+          if (plan.steps && plan.steps.length > 0) {
+            plan.steps[0].action = `${plan.steps[0].action} ${args.modifications}`;
+            console.log(`📝 Applied modifications to multi-step plan: ${args.modifications}`);
+          }
+        }
+        
+        // CRITICAL: For manual retry, preserve original providers in each step
+        // Only change provider if user explicitly specified provider_override
+        if (args.provider_override && args.provider_override !== 'none') {
+          // User explicitly requested different provider - apply to all steps that support it
+          console.log(`🔄 [Multi-step Retry] User requested provider override: ${args.provider_override}`);
+          if (plan.steps) {
+            plan.steps.forEach((step, idx) => {
+              if (step.parameters) {
+                // Only override provider for creation tools
+                const toolName = step.tool || '';
+                if (toolName.includes('image') || toolName.includes('video') || toolName.includes('edit')) {
+                  step.parameters.provider = args.provider_override;
+                  step.parameters.service = args.provider_override;
+                  console.log(`🔄 [Multi-step Retry] Overriding provider for step ${idx + 1} to: ${args.provider_override}`);
+                }
+              }
+            });
+          }
+        } else {
+          // No provider override - keep original providers from saved plan
+          // The plan already contains the original providers, so we don't need to change anything
+          console.log(`🔄 [Multi-step Retry] Keeping original providers for all steps`);
+        }
+        
+        // Send ACK
+        const quotedMessageId = extractQuotedMessageId({ context });
+        const { greenApiService } = getServices();
+        await greenApiService.sendTextMessage(
+          context.chatId,
+          `🔄 חוזר על פקודה רב-שלבית (${plan.steps.length} שלבים)...`,
+          quotedMessageId,
+          1000
+        );
+        
+        // Re-execute the multi-step plan
+        const result = await multiStepExecution.execute(
+          plan,
+          context.chatId,
+          {
+            input: {
+              ...context.originalInput,
+              originalMessageId: quotedMessageId
+            }
+          },
+          languageInstruction,
+          agentConfig
+        );
+        
+        return result;
+      }
+      
+      // Single-step command handling
       const originalArgs = (storedWrapper && storedWrapper.toolArgs)
         ? storedWrapper.toolArgs
         : storedWrapper || {};
@@ -110,10 +203,27 @@ const retry_last_command = {
       modifiedPrompt = (modifiedPrompt || '').toString().trim();
       
       // Determine provider override
+      // CRITICAL: For manual retry, use the SAME provider as the original command
+      // Only change provider if user explicitly specified provider_override
       let provider = args.provider_override;
       if (provider === 'none' || !provider) {
-        // Keep original provider if exists
-        provider = originalArgs.provider || originalArgs.service;
+        // Keep original provider from the saved command
+        // Try multiple sources to find the original provider
+        provider = originalArgs.provider || 
+                   originalArgs.service || 
+                   storedResult.provider ||
+                   storedResult.service ||
+                   null; // Don't use default - keep null if not found
+        
+        // If we still don't have a provider, try to infer from tool name
+        if (!provider) {
+          if (tool.includes('openai')) provider = 'openai';
+          else if (tool.includes('grok')) provider = 'grok';
+          else if (tool.includes('gemini')) provider = 'gemini';
+          else if (tool.includes('sora')) provider = 'sora';
+          else if (tool.includes('veo')) provider = 'veo3';
+          else if (tool.includes('kling')) provider = 'kling';
+        }
       }
       
       // Send specific ACK based on the tool and provider being retried
@@ -133,8 +243,15 @@ const retry_last_command = {
         
         const imageArgs = {
           prompt: promptToUse,
-          provider: provider || 'gemini'
+          provider: provider || 'gemini' // Only use default if provider truly not found
         };
+        
+        // Log provider being used for debugging
+        if (provider) {
+          console.log(`🔄 [Retry] Using original provider: ${provider}`);
+        } else {
+          console.log(`⚠️ [Retry] Original provider not found, using default: gemini`);
+        }
         
         console.log(`🎨 Retrying image generation with:`, imageArgs);
         return await agentTools.create_image.execute(imageArgs, context);
@@ -151,8 +268,15 @@ const retry_last_command = {
         
         const videoArgs = {
           prompt: promptToUse,
-          provider: provider || 'kling'
+          provider: provider || 'kling' // Only use default if provider truly not found
         };
+        
+        // Log provider being used for debugging
+        if (provider) {
+          console.log(`🔄 [Retry] Using original provider: ${provider}`);
+        } else {
+          console.log(`⚠️ [Retry] Original provider not found, using default: kling`);
+        }
         
         console.log(`🎬 Retrying video generation with:`, videoArgs);
         return await agentTools.create_video.execute(videoArgs, context);
@@ -172,8 +296,15 @@ const retry_last_command = {
         const editArgs = {
           image_url: imageUrl,
           edit_instruction: editInstruction,
-          service: provider || originalArgs.service || 'openai'
+          service: provider || originalArgs.service || 'openai' // Only use default if provider truly not found
         };
+        
+        // Log provider being used for debugging
+        if (provider || originalArgs.service) {
+          console.log(`🔄 [Retry] Using original service: ${provider || originalArgs.service}`);
+        } else {
+          console.log(`⚠️ [Retry] Original service not found, using default: openai`);
+        }
         
         console.log(`✏️ Retrying image edit with:`, editArgs);
         return await agentTools.edit_image.execute(editArgs, context);
