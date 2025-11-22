@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "build": "tsc",
+    "type-check": "tsc --noEmit",
+    "type-check:watch": "tsc --noEmit --watch"
   },
   "engines": {
     "node": "22.x"
@@ -31,5 +34,12 @@
     "sharp": "^0.34.4",
     "uuid": "^13.0.0",
     "winston": "^3.18.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.5",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.10.1",
+    "@types/uuid": "^11.0.0",
+    "typescript": "^5.9.3"
   }
 }
