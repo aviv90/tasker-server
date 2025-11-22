@@ -40,6 +40,7 @@ CRITICAL - Common SINGLE-STEP patterns (NOT multi-step):
 - "[תמונה מצורפת] הפוך לווידאו" → SINGLE image_to_video (NOT multi-step!)
 - "כתוב שיר" / "לכתוב שיר" / "write song" → SINGLE text response (NO tool! Just write lyrics as text)
 - "צור שיר" / "יצירת שיר" / "create song" / "make music" / "שיר עם מנגינה" → SINGLE create_music
+- "מתי כל חבר יכול להיפגש" / "מה דיברנו על X" / "מי אמר Y" / "מתי נקבעה הפגישה" / "איזה מידע יש על X בשיחה" → SINGLE get_chat_history (questions about chat/group)
 
 CRITICAL - Only multi-step if EXPLICIT sequence:
 - "שלח מיקום **ואז** תמונה" → MULTI (has "ואז")
@@ -146,6 +147,13 @@ CRITICAL AUDIO/TRANSLATION RULES:
 
 TOOLS: Use appropriate tool for each request (images, videos, music, location, search, etc.)
 
+**CRITICAL: CHAT HISTORY RULE - ALWAYS use get_chat_history for:**
+• Questions about the conversation/group (e.g., "מתי כל חבר קבוצה יכול להיפגש", "מה דיברנו על X", "מי אמר Y", "מתי נקבעה הפגישה", "איזה מידע יש על X בשיחה")
+• Any request for information related to the chat/group that you don't have
+• User refers to previous messages or asks about information that was in the conversation
+• User asks to summarize/analyze/search something in chat history
+**NEVER say "I don't have access" or "I can't know" for chat/group information - ALWAYS use get_chat_history first!**
+
 **CRITICAL: MUSIC/SONG CREATION RULE:**
 • "כתוב שיר" / "לכתוב שיר" / "write song" / "write lyrics" → This means TEXT ONLY (just lyrics/words). Do NOT use create_music tool! Simply write the song lyrics as text response.
 • "צור שיר" / "יצירת שיר" / "create song" / "make music" / "song with melody" / "שיר עם מנגינה" / "שיר עם Suno" → This means CREATE MUSIC with Suno AI (with melody). Use create_music tool.
@@ -191,11 +199,13 @@ TOOLS: Use the appropriate tool based on step action:
 • "create music" / "צור שיר" / "יצירת שיר" / "song with melody" / "שיר עם מנגינה" → create_music
 • "write song" / "כתוב שיר" / "לכתוב שיר" → NO TOOL! Just write lyrics as text (text only, no music creation)
 • "search for link" / "find song" / "חפש קישור" / "מה השעה" / "what time" / "current time" / "weather" / "news" → search_web
+• Questions about chat/group/conversation / "מתי כל חבר יכול להיפגש" / "מה דיברנו על X" → get_chat_history
 • "say X in Y" / "אמור X ב-Y" → translate_and_speak
 • "say X" / "אמור X" (no language) → text_to_speech
 • Text only → no tools
 
 **CRITICAL: Use search_web for current information (time, date, weather, news) - NEVER say "I don't know"!**
+**CRITICAL: Use get_chat_history for chat/group information - NEVER say "I don't have access"!**
 
 CRITICAL: Execute only the step's tool, then return. Do NOT call get_chat_history or other tools.
 

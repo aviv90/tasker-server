@@ -229,11 +229,12 @@ const TOOLS = {
   get_chat_history: {
     name: 'get_chat_history',
     category: 'context',
-    description: 'Retrieve conversation history',
-    usage: ['מה אמרתי קודם', 'what did I say earlier'],
+    description: 'Retrieve conversation history. Use when user asks about chat/group information, previous messages, or any information related to the conversation.',
+    usage: ['מה אמרתי קודם', 'מתי כל חבר יכול להיפגש', 'מה דיברנו על X', 'מי אמר Y', 'מתי נקבעה הפגישה', 'what did I say earlier', 'when can everyone meet'],
     parameters: {
-      limit: { type: 'number', required: false, description: 'Number of messages (default: 10)' }
-    }
+      limit: { type: 'number', required: false, description: 'Number of messages (default: 20)' }
+    },
+    critical: 'ALWAYS use get_chat_history when user asks about chat/group/conversation information. NEVER say "I don\'t have access" - use this tool first!'
   },
 
   get_long_term_memory: {
