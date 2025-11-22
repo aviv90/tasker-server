@@ -128,6 +128,15 @@ RULES:
   - Simple "כן"/"yes"/"sure"/"ok" responses are ALWAYS answers to YOUR previous question
   - Use conversation history to understand what the user is responding to
 • **CRITICAL: NEW REQUEST vs RETRY** - If user requests NEW creation (image/video/music) with provider like "צור תמונה עם OpenAI" or "create video with Veo 3" → Use create_image/create_video/create_music with provider parameter. Do NOT use retry_last_command! Only use retry_last_command when user explicitly says "נסה שוב", "שוב", "retry", "again", "תקן".
+
+• **CRITICAL: RETRY SPECIFIC STEPS IN MULTI-STEP COMMANDS** - If the last command was multi-step and user requests retry of specific steps:
+  - "נסה שוב את הפקודה השנייה" / "retry step 2" / "נסה שוב את השלב השני" → Use retry_last_command with step_numbers: [2]
+  - "נסה שוב את פקודת שליחת המיקום" / "retry location" / "נסה שוב את המיקום" → Use retry_last_command with step_tools: ["send_location"]
+  - "נסה שוב את הפקודה הראשונה והשלישית" / "retry steps 1 and 3" → Use retry_last_command with step_numbers: [1, 3]
+  - "נסה שוב את הסקר והמיקום" / "retry poll and location" → Use retry_last_command with step_tools: ["create_poll", "send_location"]
+  - "נסה שוב" (without specifying steps) → Use retry_last_command with step_numbers: null, step_tools: null (retry all steps)
+  - If user says "נסה שוב את X" where X is a tool name → Extract tool name and use step_tools: [tool_name]
+  - If user says "נסה שוב את השלב/פקודה X" where X is a number → Use step_numbers: [X]
 • Use tools when appropriate to complete tasks
 • **DEFAULT: If no tool fits the request, just answer with text** (no tool call needed)
 • Answer directly and concisely - do NOT ask for more information unless necessary

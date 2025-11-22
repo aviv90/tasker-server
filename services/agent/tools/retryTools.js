@@ -52,7 +52,14 @@ async function sendRetryAck(chatId, tool, provider, quotedMessageId = null) {
 const retry_last_command = {
   declaration: {
     name: 'retry_last_command',
-    description: 'חזור על הפקודה האחרונה של המשתמש (retry בלבד!). השתמש רק כשהמשתמש אומר במפורש "נסה שוב", "שוב", "תקן", "retry", "again". אם המשתמש מבקש ליצור משהו חדש (תמונה, וידאו, מוזיקה) עם ספק ספציפי (כמו "צור וידאו עם Veo 3") - זו בקשה חדשה, לא retry! השתמש ב-create_image/create_video/create_music במקום.',
+    description: `חזור על הפקודה האחרונה של המשתמש (retry בלבד!). השתמש רק כשהמשתמש אומר במפורש "נסה שוב", "שוב", "תקן", "retry", "again". אם המשתמש מבקש ליצור משהו חדש (תמונה, וידאו, מוזיקה) עם ספק ספציפי (כמו "צור וידאו עם Veo 3") - זו בקשה חדשה, לא retry! השתמש ב-create_image/create_video/create_music במקום.
+
+**תמיכה ב-retry של שלבים ספציפיים בפקודות רב-שלביות:**
+- אם המשתמש אומר "נסה שוב את הפקודה השנייה" / "נסה שוב את השלב השני" / "retry step 2" → ציין step_numbers: [2]
+- אם המשתמש אומר "נסה שוב את פקודת שליחת המיקום" / "retry location" → ציין step_tools: ["send_location"]
+- אם המשתמש אומר "נסה שוב את הפקודה הראשונה והשלישית" / "retry steps 1 and 3" → ציין step_numbers: [1, 3]
+- אם המשתמש אומר "נסה שוב את הסקר והמיקום" → ציין step_tools: ["create_poll", "send_location"]
+- אם המשתמש לא ציין שלבים ספציפיים → retry את כל השלבים (step_numbers: null, step_tools: null)`,
     parameters: {
       type: 'object',
       properties: {
@@ -64,6 +71,16 @@ const retry_last_command = {
         modifications: {
           type: 'string',
           description: 'שינויים או הוראות נוספות מהמשתמש (למשל: "עם שיער ארוך", "בלי משקפיים")'
+        },
+        step_numbers: {
+          type: 'array',
+          items: { type: 'number' },
+          description: 'מספרי השלבים לנסות שוב (1-based). למשל: [2] לשלב השני, [1, 3] לשלב הראשון והשלישי. null = כל השלבים'
+        },
+        step_tools: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'שמות הכלים של השלבים לנסות שוב. למשל: ["send_location"] לשליחת מיקום, ["create_poll", "send_location"] לסקר ומיקום. null = כל השלבים'
         }
       },
       required: []
@@ -98,7 +115,7 @@ const retry_last_command = {
       
       // CRITICAL: Check if this is a multi-step command
       if (tool === 'multi_step' || storedWrapper.isMultiStep === true) {
-        // Multi-step retry: re-execute all steps from the plan
+        // Multi-step retry: re-execute steps from the plan
         const plan = storedWrapper.plan;
         if (!plan || !plan.steps || plan.steps.length === 0) {
           return {
@@ -107,7 +124,49 @@ const retry_last_command = {
           };
         }
         
-        console.log(`🔄 Retrying multi-step command: ${plan.steps.length} steps`);
+        // Check if user requested specific steps to retry
+        const stepNumbers = args.step_numbers || null;
+        const stepTools = args.step_tools || null;
+        
+        // Filter steps if specific steps were requested
+        let stepsToRetry = plan.steps;
+        if (stepNumbers && stepNumbers.length > 0) {
+          // Retry specific step numbers (1-based)
+          stepsToRetry = plan.steps.filter((step, idx) => stepNumbers.includes(idx + 1));
+          console.log(`🔄 Retrying specific step numbers: ${stepNumbers.join(', ')} (${stepsToRetry.length} steps)`);
+        } else if (stepTools && stepTools.length > 0) {
+          // Retry steps with specific tools
+          stepsToRetry = plan.steps.filter(step => {
+            const stepTool = step.tool || '';
+            return stepTools.some(requestedTool => 
+              stepTool.includes(requestedTool) || 
+              requestedTool.includes(stepTool) ||
+              stepTool === requestedTool
+            );
+          });
+          console.log(`🔄 Retrying specific step tools: ${stepTools.join(', ')} (${stepsToRetry.length} steps)`);
+        } else {
+          // Retry all steps
+          console.log(`🔄 Retrying all steps: ${plan.steps.length} steps`);
+        }
+        
+        if (stepsToRetry.length === 0) {
+          return {
+            success: false,
+            error: `לא נמצאו שלבים תואמים. השלבים הזמינים: ${plan.steps.map((s, idx) => `${idx + 1}. ${s.tool || s.action?.substring(0, 30)}`).join(', ')}`
+          };
+        }
+        
+        // Create a new plan with only the steps to retry
+        const filteredPlan = {
+          ...plan,
+          steps: stepsToRetry.map((step, idx) => ({
+            ...step,
+            stepNumber: idx + 1 // Renumber steps starting from 1
+          }))
+        };
+        
+        console.log(`🔄 Retrying multi-step command: ${filteredPlan.steps.length} of ${plan.steps.length} steps`);
         
         // Get multi-step execution handler
         const multiStepExecution = require('../execution/multiStep');
@@ -127,11 +186,11 @@ const retry_last_command = {
           contextMemoryEnabled: String(process.env.AGENT_CONTEXT_MEMORY_ENABLED || 'false').toLowerCase() === 'true'
         };
         
-        // Apply modifications to plan if provided
+        // Apply modifications to filtered plan if provided
         if (args.modifications && args.modifications.trim()) {
           // Modify the first step's action to include modifications
-          if (plan.steps && plan.steps.length > 0) {
-            plan.steps[0].action = `${plan.steps[0].action} ${args.modifications}`;
+          if (filteredPlan.steps && filteredPlan.steps.length > 0) {
+            filteredPlan.steps[0].action = `${filteredPlan.steps[0].action} ${args.modifications}`;
             console.log(`📝 Applied modifications to multi-step plan: ${args.modifications}`);
           }
         }
@@ -141,8 +200,8 @@ const retry_last_command = {
         if (args.provider_override && args.provider_override !== 'none') {
           // User explicitly requested different provider - apply to all steps that support it
           console.log(`🔄 [Multi-step Retry] User requested provider override: ${args.provider_override}`);
-          if (plan.steps) {
-            plan.steps.forEach((step, idx) => {
+          if (filteredPlan.steps) {
+            filteredPlan.steps.forEach((step, idx) => {
               if (step.parameters) {
                 // Only override provider for creation tools
                 const toolName = step.tool || '';
@@ -160,19 +219,40 @@ const retry_last_command = {
           console.log(`🔄 [Multi-step Retry] Keeping original providers for all steps`);
         }
         
-        // Send ACK
+        // Send ACK with information about which steps are being retried
         const quotedMessageId = extractQuotedMessageId({ context });
         const { greenApiService } = getServices();
+        
+        let ackMessage = '';
+        if (stepNumbers && stepNumbers.length > 0) {
+          ackMessage = `🔄 חוזר על שלבים ${stepNumbers.join(', ')} מתוך ${plan.steps.length} שלבים...`;
+        } else if (stepTools && stepTools.length > 0) {
+          const toolNames = stepTools.map(t => {
+            // Translate tool names to Hebrew for user-friendly display
+            const toolTranslations = {
+              'create_poll': 'סקר',
+              'send_location': 'מיקום',
+              'create_image': 'תמונה',
+              'create_video': 'וידאו',
+              'create_music': 'מוזיקה'
+            };
+            return toolTranslations[t] || t;
+          }).join(', ');
+          ackMessage = `🔄 חוזר על ${toolNames} (${filteredPlan.steps.length} שלבים)...`;
+        } else {
+          ackMessage = `🔄 חוזר על כל השלבים (${filteredPlan.steps.length} שלבים)...`;
+        }
+        
         await greenApiService.sendTextMessage(
           context.chatId,
-          `🔄 חוזר על פקודה רב-שלבית (${plan.steps.length} שלבים)...`,
+          ackMessage,
           quotedMessageId,
           1000
         );
         
-        // Re-execute the multi-step plan
+        // Re-execute the filtered multi-step plan (only selected steps)
         const result = await multiStepExecution.execute(
-          plan,
+          filteredPlan,
           context.chatId,
           {
             input: {
