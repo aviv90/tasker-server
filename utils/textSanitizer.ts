@@ -1,0 +1,275 @@
+/**
+ * Text sanitization utilities for safe AI generation
+ */
+
+import { TEXT_LIMITS } from './constants';
+
+/**
+ * Error types for validation
+ */
+export interface ValidationError {
+  message: string;
+  code: string;
+}
+
+/**
+ * Sanitize text by removing dangerous characters and normalizing
+ * NOTE: Preserves emojis and Unicode characters (including Hebrew, Arabic, etc.)
+ * @param text - Text to sanitize
+ * @returns Sanitized text
+ */
+export function sanitizeText(text: unknown): string {
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+  
+  // Remove dangerous characters and normalize
+  // NOTE: Preserves emojis and Unicode characters (including Hebrew, Arabic, etc.)
+  return text
+    .trim()
+    .replace(/[\x00-\x08\x0E-\x1F\x7F]/g, '') // Remove control characters (but preserve emojis)
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .substring(0, TEXT_LIMITS.MAX_SANITIZED_LENGTH); // Limit length
+}
+
+/**
+ * Clean markdown code blocks and formatting from text
+ * Removes markdown code fences (```), inline code (`), and other markdown formatting
+ * while preserving the actual content
+ * @param text - Text that may contain markdown
+ * @returns Cleaned text without markdown formatting
+ */
+export function cleanMarkdown(text: unknown): string {
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+  
+  return text
+    .replace(/```[\s\S]*?```/g, '') // Remove code blocks (```...```)
+    .replace(/`[^`]*`/g, '') // Remove inline code (`...`)
+    .replace(/^\s*```+\s*$/gm, '') // Remove standalone code fence lines
+    .replace(/^\s*```+\s*/gm, '') // Remove opening code fences at start of lines
+    .replace(/\s*```+\s*$/gm, '') // Remove closing code fences at end of lines
+    .replace(/^\s*`+\s*$/gm, '') // Remove lines with only backticks
+    .replace(/^\s*`+\s*/gm, '') // Remove leading backticks
+    .replace(/\s*`+\s*$/gm, '') // Remove trailing backticks
+    .trim();
+}
+
+/**
+ * Clean media captions/descriptions from markdown, placeholders, and dangling link references
+ * Used when sending generated images/videos/audio to WhatsApp
+ * @param text - Text that may contain markdown, URLs, or placeholders
+ * @returns Cleaned text suitable for media captions
+ */
+export function cleanMediaDescription(text: unknown): string {
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+  
+  // Step 1: Clean markdown and URLs
+  let cleaned = cleanMarkdown(text)
+    .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
+    .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
+    .replace(/\[image\]/gi, '')
+    .replace(/\[video\]/gi, '')
+    .replace(/\[audio\]/gi, '')
+    .replace(/\[תמונה[^\]]*/gi, '') // Remove [תמונה: or [תמונה] with any text after (including incomplete brackets)
+    .replace(/תמונה:\s*$/gi, '') // Remove תמונה: at the end of text
+    .replace(/\[וידאו\]/gi, '')
+    .replace(/\[אודיו\]/gi, '')
+    .replace(/✅/g, '');
+  
+  // Step 2: Clean up whitespace
+  cleaned = cleaned
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  
+  // Step 3: If nothing meaningful left, return empty string
+  // (prevents sending messages with just punctuation or whitespace)
+  if (cleaned.length < 3 || /^[^\w\u0590-\u05FF]+$/.test(cleaned)) {
+    return '';
+  }
+  
+  return cleaned;
+}
+
+/**
+ * Clean text for multi-step agent responses
+ * Removes URLs and media placeholders that shouldn't appear in text messages
+ * SSOT for multi-step text cleaning - used by both incoming and outgoing handlers
+ * @param text - Text that may contain URLs or placeholders
+ * @returns Cleaned text without URLs or placeholders
+ */
+export function cleanMultiStepText(text: unknown): string {
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+  
+  return text
+    .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs (image URLs should not be in text)
+    .replace(/\[image\]/gi, '')
+    .replace(/\[video\]/gi, '')
+    .replace(/\[audio\]/gi, '')
+    .replace(/\[תמונה\]/gi, '')
+    .replace(/\[וידאו\]/gi, '')
+    .replace(/\[אודיו\]/gi, '')
+    .trim();
+}
+
+/**
+ * JSON content extraction fields (in priority order)
+ */
+const JSON_CONTENT_FIELDS = ['answer', 'text', 'message', 'content', 'description', 'data'] as const;
+
+/**
+ * Extract content from parsed JSON object
+ * @param parsed - Parsed JSON object
+ * @returns Extracted content string or null
+ */
+function extractJsonContent(parsed: unknown): string | null {
+  if (typeof parsed !== 'object' || parsed === null) {
+    return null;
+  }
+  
+  const obj = parsed as Record<string, unknown>;
+  
+  // Try priority fields first
+  for (const field of JSON_CONTENT_FIELDS) {
+    const content = obj[field];
+    if (content && typeof content === 'string') {
+      return content.trim();
+    }
+  }
+  
+  // If it's a single-key object, use the value
+  const keys = Object.keys(obj);
+  if (keys.length === 1) {
+    const firstKey = keys[0];
+    if (firstKey && typeof obj[firstKey] === 'string') {
+      return (obj[firstKey] as string).trim();
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Clean JSON wrappers from text responses
+ * Removes JSON code blocks and extracts actual content
+ * Handles cases like: ```json\n{"answer": "text"}\n``` or {"answer": "text"}
+ * @param text - Text that may contain JSON wrapper
+ * @returns Cleaned text without JSON wrapper
+ */
+export function cleanJsonWrapper(text: unknown): string {
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+  
+  let cleaned = text.trim();
+  
+  // Try to extract JSON from code blocks first
+  const jsonCodeBlockMatch = cleaned.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+  if (jsonCodeBlockMatch && jsonCodeBlockMatch[1]) {
+    cleaned = jsonCodeBlockMatch[1];
+  }
+  
+  // Try to parse as JSON
+  try {
+    const parsed = JSON.parse(cleaned);
+    const content = extractJsonContent(parsed);
+    if (content !== null) {
+      return content;
+    }
+  } catch (e) {
+    // Not valid JSON, continue with cleaning
+  }
+  
+  // Remove JSON code blocks if still present
+  cleaned = cleaned
+    .replace(/```(?:json)?\s*\{[\s\S]*?\}\s*```/g, '') // Remove ```json {...} ```
+    .replace(/```json\s*/g, '') // Remove opening ```json
+    .replace(/```\s*/g, '') // Remove closing ```
+    .trim();
+  
+  // Try to extract JSON object from text and parse it
+  const jsonObjectMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (jsonObjectMatch) {
+    try {
+      const parsed = JSON.parse(jsonObjectMatch[0]);
+      const content = extractJsonContent(parsed);
+      if (content !== null) {
+        return content;
+      }
+    } catch (e) {
+      // Not valid JSON, continue
+    }
+  }
+  
+  return cleaned;
+}
+
+/**
+ * Banned words for content validation
+ */
+const BANNED_WORDS = ['hack', 'exploit', 'virus', 'malware'] as const;
+
+/**
+ * Validate and sanitize prompt
+ * @param prompt - Prompt to validate and sanitize
+ * @returns Sanitized prompt
+ * @throws ValidationError if prompt is invalid
+ */
+export function validateAndSanitizePrompt(prompt: unknown): string {
+  if (!prompt || typeof prompt !== 'string') {
+    const error: ValidationError = {
+      message: 'Prompt is required and must be a string',
+      code: 'INVALID_PROMPT'
+    };
+    throw error;
+  }
+  
+  const sanitized: string = sanitizeText(prompt);
+  
+  if (sanitized.length < TEXT_LIMITS.MIN_PROMPT_LENGTH) {
+    const error: ValidationError = {
+      message: `Prompt must be at least ${TEXT_LIMITS.MIN_PROMPT_LENGTH} characters long`,
+      code: 'PROMPT_TOO_SHORT'
+    };
+    throw error;
+  }
+  
+  if (sanitized.length > TEXT_LIMITS.MAX_PROMPT_LENGTH) {
+    const error: ValidationError = {
+      message: `Prompt must be less than ${TEXT_LIMITS.MAX_PROMPT_LENGTH} characters`,
+      code: 'PROMPT_TOO_LONG'
+    };
+    throw error;
+  }
+  
+  // Check for potentially harmful content
+  const lowerPrompt = sanitized.toLowerCase();
+  
+  for (const word of BANNED_WORDS) {
+    if (lowerPrompt.includes(word)) {
+      const error: ValidationError = {
+        message: 'Prompt contains inappropriate content',
+        code: 'INAPPROPRIATE_CONTENT'
+      };
+      throw error;
+    }
+  }
+  
+  return sanitized;
+}
+
+// Backward compatibility: CommonJS export
+module.exports = {
+  sanitizeText,
+  validateAndSanitizePrompt,
+  cleanMarkdown,
+  cleanMediaDescription,
+  cleanMultiStepText,
+  cleanJsonWrapper
+};
+
