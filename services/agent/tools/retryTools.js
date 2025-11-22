@@ -170,7 +170,7 @@ const retry_last_command = {
         
         // Get multi-step execution handler
         const multiStepExecution = require('../execution/multiStep');
-        const { getLanguageInstruction } = require('../../utils/languageUtils');
+        const { getLanguageInstruction } = require('../utils/languageUtils');
         const { detectLanguage } = require('../../../utils/agentHelpers');
         
         // Detect language from original prompt
