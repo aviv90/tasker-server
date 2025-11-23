@@ -30,7 +30,7 @@ class AgentLoop {
 
     while (iterationCount < maxIterations) {
       iterationCount++;
-      console.log(`🔄 [Agent] Iteration ${iterationCount}/${maxIterations}`);
+      logger.debug(`🔄 [Agent] Iteration ${iterationCount}/${maxIterations}`);
 
       const result = response.response;
       const functionCalls = result.functionCalls();
@@ -40,7 +40,7 @@ class AgentLoop {
         let text = result.text();
         text = cleanThinkingPatterns(text);
 
-        console.log(`✅ [Agent] Completed in ${iterationCount} iterations`);
+        logger.info(`✅ [Agent] Completed in ${iterationCount} iterations`);
 
         // Save context if enabled
         if (agentConfig.contextMemoryEnabled) {
@@ -48,11 +48,11 @@ class AgentLoop {
             toolCalls: context.toolCalls,
             generatedAssets: context.generatedAssets
           });
-          console.log(`🧠 [Agent Context] Saved context to DB with ${context.toolCalls.length} tool calls`);
+          logger.debug(`🧠 [Agent Context] Saved context to DB with ${context.toolCalls.length} tool calls`);
         }
 
         // Extract latest generated media
-        console.log(`🔍 [Agent] Assets: ${context.generatedAssets.images.length} images, ${context.generatedAssets.videos.length} videos, ${context.generatedAssets.audio.length} audio`);
+        logger.debug(`🔍 [Agent] Assets: ${context.generatedAssets.images.length} images, ${context.generatedAssets.videos.length} videos, ${context.generatedAssets.audio.length} audio`);
 
         const latestImageAsset = context.generatedAssets.images.length > 0
           ? context.generatedAssets.images[context.generatedAssets.images.length - 1]
@@ -78,7 +78,7 @@ class AgentLoop {
           locationInfo = cleanJsonWrapper(locationInfo);
         }
 
-        console.log(`🔍 [Agent] Extracted assets - Image: ${latestImageAsset?.url}, Video: ${latestVideoAsset?.url}, Audio: ${latestAudioAsset?.url}, Poll: ${latestPollAsset?.question}, Location: ${latitude}, ${longitude}`);
+        logger.debug(`🔍 [Agent] Extracted assets - Image: ${latestImageAsset?.url}, Video: ${latestVideoAsset?.url}, Audio: ${latestAudioAsset?.url}, Poll: ${latestPollAsset?.question}, Location: ${latitude}, ${longitude}`);
 
         // Clean JSON wrappers from final text
         let finalText = context.suppressFinalResponse ? '' : cleanJsonWrapper(text);
@@ -108,7 +108,7 @@ class AgentLoop {
       }
 
       // Execute function calls (in parallel)
-      console.log(`🔧 [Agent] Executing ${functionCalls.length} function call(s)`);
+      logger.debug(`🔧 [Agent] Executing ${functionCalls.length} function call(s)`);
 
       // Send Ack message before executing tools
       // Get quotedMessageId from context if available
@@ -126,7 +126,7 @@ class AgentLoop {
       if (functionResponses.length > 0) {
         const successCount = functionResponses.filter(fr => fr.functionResponse.response.success !== false).length;
         const failCount = functionResponses.length - successCount;
-        console.log(`📊 [Agent] Tool execution: ${successCount} succeeded, ${failCount} failed`);
+        logger.debug(`📊 [Agent] Tool execution: ${successCount} succeeded, ${failCount} failed`);
       }
 
       // Send function responses back to Gemini
@@ -134,7 +134,7 @@ class AgentLoop {
     }
 
     // Max iterations reached
-    console.warn(`⚠️ [Agent] Max iterations (${maxIterations}) reached`);
+    logger.warn(`⚠️ [Agent] Max iterations (${maxIterations}) reached`);
     // Get originalMessageId from context for quoting
     const originalMessageId = extractQuotedMessageId({ context });
     return {
@@ -157,11 +157,11 @@ class AgentLoop {
     const toolName = call.name;
     const toolArgs = call.args;
 
-    console.log(`   → Calling tool: ${toolName} with args:`, toolArgs);
+    logger.debug(`   → Calling tool: ${toolName} with args:`, toolArgs);
 
     const tool = agentTools[toolName];
     if (!tool) {
-      console.error(`❌ Unknown tool: ${toolName}`);
+      logger.error(`❌ Unknown tool: ${toolName}`);
       return {
         functionResponse: {
           name: toolName,
@@ -193,14 +193,15 @@ class AgentLoop {
       if (shouldSendError) {
         try {
           const { greenApiService } = getServices();
+          const { TIME } = require('../../../utils/constants');
           const errorMessage = toolResult.error.startsWith('❌')
             ? toolResult.error
             : `❌ ${toolResult.error}`;
           // Get originalMessageId from context for quoting
           const quotedMessageId = extractQuotedMessageId({ context });
-          await greenApiService.sendTextMessage(context.chatId, errorMessage, quotedMessageId, 1000);
+          await greenApiService.sendTextMessage(context.chatId, errorMessage, quotedMessageId, TIME.TYPING_INDICATOR);
         } catch (notifyError) {
-          console.error(`❌ Failed to notify user about error: ${notifyError.message}`);
+          logger.error(`❌ Failed to notify user about error:`, { error: notifyError.message, stack: notifyError.stack });
         }
       }
 
@@ -226,7 +227,7 @@ class AgentLoop {
         }
       };
     } catch (error) {
-      console.error(`❌ Error executing tool ${toolName}:`, error);
+      logger.error(`❌ Error executing tool ${toolName}:`, { error: error.message, stack: error.stack });
 
       // Track failed tool call
       context.toolCalls.push({
@@ -254,7 +255,7 @@ class AgentLoop {
    */
   trackGeneratedAssets(context, toolName, toolArgs, toolResult) {
     if (toolResult.imageUrl) {
-      console.log(`✅ [Agent] Tracking image: ${toolResult.imageUrl}, caption: ${toolResult.caption || '(none)'}`);
+      logger.debug(`✅ [Agent] Tracking image: ${toolResult.imageUrl}, caption: ${toolResult.caption || '(none)'}`);
       context.generatedAssets.images.push({
         url: toolResult.imageUrl,
         caption: toolResult.caption || '',
@@ -263,7 +264,7 @@ class AgentLoop {
         timestamp: Date.now()
       });
     } else {
-      console.log(`⚠️ [Agent] No imageUrl in toolResult for ${toolName}`);
+      logger.debug(`⚠️ [Agent] No imageUrl in toolResult for ${toolName}`);
     }
 
     if (toolResult.videoUrl) {

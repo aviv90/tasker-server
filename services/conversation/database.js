@@ -164,6 +164,19 @@ class DatabaseManager {
         END $$;
       `);
 
+      // Add tool_args column if it doesn't exist (for existing databases)
+      await client.query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='last_commands' AND column_name='tool_args'
+          ) THEN
+            ALTER TABLE last_commands ADD COLUMN tool_args JSONB;
+          END IF;
+        END $$;
+      `);
+
       // Create message_types table for identifying bot/user messages in Green API history
       await client.query(`
         CREATE TABLE IF NOT EXISTS message_types (
