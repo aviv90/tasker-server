@@ -6,6 +6,7 @@
  */
 
 const logger = require('../../utils/logger');
+const { TIME } = require('../../utils/constants');
 
 class MessageTypesManager {
   constructor(conversationManager) {
@@ -205,9 +206,9 @@ class MessageTypesManager {
 
   /**
    * Cleanup old entries (older than TTL)
-   * @param {number} ttlMs - TTL in milliseconds (default: 7 days)
+   * @param {number} ttlMs - TTL in milliseconds (default: 30 days)
    */
-  async cleanup(ttlMs = 7 * 24 * 60 * 60 * 1000) {
+  async cleanup(ttlMs = 30 * TIME.DAY) {
     if (!this.conversationManager.isInitialized) {
       return;
     }

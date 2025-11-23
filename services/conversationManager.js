@@ -235,11 +235,11 @@ class ConversationManager {
    * @returns {Object} - Cleanup stats
    */
   async runFullCleanup() {
-    // Cleanup message types (7 days TTL)
-    await this.messageTypesManager.cleanup(7 * 24 * 60 * 60 * 1000);
+    // Cleanup message types (30 days TTL)
+    await this.messageTypesManager.cleanup(30 * TIME.DAY);
     
     // Cleanup old commands (30 days TTL)
-    await this.commandsManager.cleanup(30 * 24 * 60 * 60 * 1000);
+    await this.commandsManager.cleanup(30 * TIME.DAY);
     
     // Existing cleanup
     logger.info('🧹 Starting full cleanup...');
