@@ -145,6 +145,20 @@ class DatabaseManager {
         )
       `);
 
+      // Drop old unique constraint on chat_id only if it exists (for existing databases)
+      await client.query(`
+        DO $$ 
+        BEGIN
+          IF EXISTS (
+            SELECT 1 FROM pg_constraint 
+            WHERE conname = 'last_commands_chat_id_key' 
+            AND conrelid = 'last_commands'::regclass
+          ) THEN
+            ALTER TABLE last_commands DROP CONSTRAINT last_commands_chat_id_key;
+          END IF;
+        END $$;
+      `);
+
       // Add message_id column if it doesn't exist (for existing databases)
       await client.query(`
         DO $$ 
@@ -158,7 +172,19 @@ class DatabaseManager {
             UPDATE last_commands SET message_id = 'legacy_' || id::text WHERE message_id IS NULL;
             -- Make it NOT NULL after updating
             ALTER TABLE last_commands ALTER COLUMN message_id SET NOT NULL;
-            -- Add unique constraint
+          END IF;
+        END $$;
+      `);
+
+      // Add unique constraint on (chat_id, message_id) if it doesn't exist
+      await client.query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint 
+            WHERE conname = 'last_commands_chat_message_unique' 
+            AND conrelid = 'last_commands'::regclass
+          ) THEN
             ALTER TABLE last_commands ADD CONSTRAINT last_commands_chat_message_unique UNIQUE(chat_id, message_id);
           END IF;
         END $$;
