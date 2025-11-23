@@ -233,25 +233,37 @@ class DatabaseManager {
       
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_conversations_timestamp 
-        ON conversations(timestamp DESC);
+        ON conversations(timestamp DESC)
+      `);
 
-        // Create indexes for message_types table
+      // Create indexes for message_types table
+      await client.query(`
         CREATE INDEX IF NOT EXISTS idx_message_types_chat_id 
-        ON message_types(chat_id);
+        ON message_types(chat_id)
+      `);
 
+      await client.query(`
         CREATE INDEX IF NOT EXISTS idx_message_types_message_id 
-        ON message_types(message_id);
+        ON message_types(message_id)
+      `);
 
+      await client.query(`
         CREATE INDEX IF NOT EXISTS idx_message_types_type 
-        ON message_types(message_type);
+        ON message_types(message_type)
+      `);
 
+      await client.query(`
         CREATE INDEX IF NOT EXISTS idx_message_types_timestamp 
-        ON message_types(timestamp DESC);
+        ON message_types(timestamp DESC)
+      `);
 
-        // Create indexes for last_commands table
+      // Create indexes for last_commands table
+      await client.query(`
         CREATE INDEX IF NOT EXISTS idx_last_commands_chat_id 
-        ON last_commands(chat_id);
+        ON last_commands(chat_id)
+      `);
 
+      await client.query(`
         CREATE INDEX IF NOT EXISTS idx_last_commands_timestamp 
         ON last_commands(timestamp DESC)
       `);
