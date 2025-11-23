@@ -50,28 +50,29 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
           if (greenApiHistory && greenApiHistory.length > 0) {
             let historyText = '📜 **היסטוריית שיחה (20 הודעות אחרונות):**\n\n';
             
-            greenApiHistory
-              .filter(msg => {
-                // Filter out system/notification messages
-                const isSystemMessage = 
-                  msg.typeMessage === 'notificationMessage' ||
-                  msg.type === 'notification' ||
-                  (msg.textMessage && msg.textMessage.startsWith('System:'));
-                return !isSystemMessage;
-              })
-              .forEach((msg, i) => {
-                const textContent = msg.textMessage || 
-                                  msg.caption || 
-                                  (msg.extendedTextMessage && msg.extendedTextMessage.text) ||
-                                  (msg.typeMessage === 'extendedTextMessage' && msg.extendedTextMessage?.text) ||
-                                  '[הודעה ללא טקסט]';
-                
-                // Determine role using conversationManager (DB-backed)
-                const isFromBot = msg.idMessage ? await conversationManager.isBotMessage(chatId, msg.idMessage) : false;
-                const role = isFromBot ? '🤖' : '👤';
-                
-                historyText += `${role} ${textContent}\n\n`;
-              });
+            const filteredMessages = greenApiHistory.filter(msg => {
+              // Filter out system/notification messages
+              const isSystemMessage = 
+                msg.typeMessage === 'notificationMessage' ||
+                msg.type === 'notification' ||
+                (msg.textMessage && msg.textMessage.startsWith('System:'));
+              return !isSystemMessage;
+            });
+            
+            // Use for...of loop to support await
+            for (const msg of filteredMessages) {
+              const textContent = msg.textMessage || 
+                                msg.caption || 
+                                (msg.extendedTextMessage && msg.extendedTextMessage.text) ||
+                                (msg.typeMessage === 'extendedTextMessage' && msg.extendedTextMessage?.text) ||
+                                '[הודעה ללא טקסט]';
+              
+              // Determine role using conversationManager (DB-backed)
+              const isFromBot = msg.idMessage ? await conversationManager.isBotMessage(chatId, msg.idMessage) : false;
+              const role = isFromBot ? '🤖' : '👤';
+              
+              historyText += `${role} ${textContent}\n\n`;
+            }
             
             await sendTextMessage(chatId, historyText, originalMessageId, TIME.TYPING_INDICATOR);
           } else {
