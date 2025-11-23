@@ -6,13 +6,14 @@
  */
 
 // Import services
-const { sendTextMessage } = require('../../services/greenApiService');
+const { sendTextMessage, getChatHistory } = require('../../services/greenApiService');
 const { sendErrorToUser, ERROR_MESSAGES } = require('../../utils/errorSender');
 const conversationManager = require('../../services/conversationManager');
 const authStore = require('../../store/authStore');
 const groupAuthStore = require('../../store/groupAuthStore');
 const { findContactByName } = require('../../services/groupService');
 const { getContacts } = require('../../services/greenApiService');
+const messageTypeCache = require('../../utils/messageTypeCache');
 
 /**
  * Handle management commands
@@ -28,23 +29,56 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
   try {
     switch (command.type) {
       case 'clear_all_conversations': {
+        // Clear DB conversations (for backward compatibility)
         await conversationManager.clearAllConversations();
-        await sendTextMessage(chatId, '✅ כל ההיסטוריות נוקו בהצלחה', originalMessageId, 1000);
-        console.log(`🗑️ All conversation histories cleared by ${senderName}`);
+        
+        // Clear messageTypeCache (bot messages, user outgoing, commands)
+        messageTypeCache.clearAll();
+        
+        const logger = require('../../utils/logger');
+        await sendTextMessage(chatId, '✅ כל ההיסטוריות נוקו בהצלחה (DB + Cache)', originalMessageId, 1000);
+        logger.info(`🗑️ All conversation histories cleared by ${senderName} (DB and cache cleared)`);
         break;
       }
 
       case 'show_history': {
-        const history = await conversationManager.getConversationHistory(chatId);
-        if (history && history.length > 0) {
-          let historyText = '📜 **היסטוריית שיחה:**\n\n';
-          history.forEach((msg, i) => {
-            const role = msg.role === 'user' ? '👤' : '🤖';
-            historyText += `${role} ${msg.content}\n\n`;
-          });
-          await sendTextMessage(chatId, historyText, originalMessageId, 1000);
-        } else {
-          await sendTextMessage(chatId, 'ℹ️ אין היסטוריית שיחה', originalMessageId, 1000);
+        // Get history from Green API (not DB) - shows all messages
+        try {
+          const greenApiHistory = await getChatHistory(chatId, 20);
+          
+          if (greenApiHistory && greenApiHistory.length > 0) {
+            let historyText = '📜 **היסטוריית שיחה (20 הודעות אחרונות):**\n\n';
+            
+            greenApiHistory
+              .filter(msg => {
+                // Filter out system/notification messages
+                const isSystemMessage = 
+                  msg.typeMessage === 'notificationMessage' ||
+                  msg.type === 'notification' ||
+                  (msg.textMessage && msg.textMessage.startsWith('System:'));
+                return !isSystemMessage;
+              })
+              .forEach((msg, i) => {
+                const textContent = msg.textMessage || 
+                                  msg.caption || 
+                                  (msg.extendedTextMessage && msg.extendedTextMessage.text) ||
+                                  (msg.typeMessage === 'extendedTextMessage' && msg.extendedTextMessage?.text) ||
+                                  '[הודעה ללא טקסט]';
+                
+                // Determine role using messageTypeCache
+                const isFromBot = msg.idMessage ? messageTypeCache.isBotMessage(chatId, msg.idMessage) : false;
+                const role = isFromBot ? '🤖' : '👤';
+                
+                historyText += `${role} ${textContent}\n\n`;
+              });
+            
+            await sendTextMessage(chatId, historyText, originalMessageId, 1000);
+          } else {
+            await sendTextMessage(chatId, 'ℹ️ אין היסטוריית שיחה', originalMessageId, 1000);
+          }
+        } catch (error) {
+          console.error('❌ Error fetching history from Green API:', error.message);
+          await sendErrorToUser(chatId, error, { context: 'SHOW_HISTORY', quotedMessageId: originalMessageId });
         }
         break;
       }

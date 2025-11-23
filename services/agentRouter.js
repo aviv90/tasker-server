@@ -10,6 +10,7 @@
 const { executeAgentQuery } = require('./agentService');
 const { buildContextualPrompt } = require('./agent/router/contextBuilder');
 const { saveLastCommand } = require('./agent/router/commandSaver');
+const logger = require('../utils/logger');
 
 /**
  * Route incoming request directly to Agent
@@ -18,25 +19,32 @@ const { saveLastCommand } = require('./agent/router/commandSaver');
  * @returns {Promise<Object>} - Agent execution result
  */
 async function routeToAgent(input, chatId) {
-  console.log('🚀 [AGENT ROUTER] Routing to Agent for intelligent tool selection');
+  logger.debug('🚀 [AGENT ROUTER] Routing to Agent for intelligent tool selection');
   
   const userText = input.userText || '';
   
   // Build contextual prompt using the new context builder
   const contextualPrompt = await buildContextualPrompt(input, chatId);
   
-  console.log(`🤖 [AGENT ROUTER] Sending to Agent: "${contextualPrompt.substring(0, 150)}..."`);
+  logger.debug(`🤖 [AGENT ROUTER] Sending to Agent: "${contextualPrompt.substring(0, 150)}..."`);
   
-  // Get last command for context (needed for agent execution)
-  const conversationManager = require('./conversationManager');
+  // Get last command for context (needed for agent execution) - from cache, not DB
+  const messageTypeCache = require('./utils/messageTypeCache');
   const { parseJSONSafe } = require('./agent/utils/resultUtils');
-  const lastCommandRaw = await conversationManager.getLastCommand(chatId);
+  const lastCommandRaw = messageTypeCache.getLastCommand(chatId);
   let parsedLastCommand = null;
   if (lastCommandRaw) {
     parsedLastCommand = {
-      ...lastCommandRaw,
-      args: parseJSONSafe(lastCommandRaw.args),
-      normalized: parseJSONSafe(lastCommandRaw.normalized)
+      tool: lastCommandRaw.tool,
+      args: lastCommandRaw.toolArgs || lastCommandRaw.args,
+      normalized: lastCommandRaw.normalized,
+      prompt: lastCommandRaw.prompt,
+      failed: lastCommandRaw.failed,
+      imageUrl: lastCommandRaw.imageUrl,
+      videoUrl: lastCommandRaw.videoUrl,
+      audioUrl: lastCommandRaw.audioUrl,
+      isMultiStep: lastCommandRaw.isMultiStep,
+      plan: lastCommandRaw.plan
     };
   }
   

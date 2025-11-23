@@ -5,7 +5,8 @@
 
 const conversationManager = require('../../conversationManager');
 const { getServices } = require('../utils/serviceLoader');
-// messageTypeCache is already imported above
+const messageTypeCache = require('../../../utils/messageTypeCache');
+const logger = require('../../../utils/logger');
 
 /**
  * Get chat history tool
@@ -39,7 +40,7 @@ const get_chat_history = {
   },
   execute: async (args, context) => {
     const limit = args.limit || 20;
-    console.log(`🔧 [Agent Tool] get_chat_history called with limit: ${limit}`);
+    logger.debug(`🔧 [Agent Tool] get_chat_history called with limit: ${limit}`);
     
     try {
       // CRITICAL: Use Green API getChatHistory instead of our DB
@@ -47,15 +48,15 @@ const get_chat_history = {
       // Green API has the complete conversation history including all messages
       const { greenApiService } = getServices();
       
-      console.log(`📜 Fetching last ${limit} messages from Green API for chat: ${context.chatId}`);
+      logger.debug(`📜 Fetching last ${limit} messages from Green API for chat: ${context.chatId}`);
       
       let greenApiHistory;
       try {
         greenApiHistory = await greenApiService.getChatHistory(context.chatId, limit);
       } catch (apiError) {
-        console.error('❌ Error fetching chat history from Green API:', apiError.message);
+        logger.error('❌ Error fetching chat history from Green API:', { error: apiError.message, chatId: context.chatId });
         // Fallback to DB if Green API fails
-        console.log('🔄 Falling back to DB conversation history...');
+        logger.debug('🔄 Falling back to DB conversation history...');
         const dbHistory = await conversationManager.getConversationHistory(context.chatId, limit);
         
         if (!dbHistory || dbHistory.length === 0) {
@@ -116,7 +117,7 @@ const get_chat_history = {
         };
       }
       
-      console.log(`✅ Retrieved ${greenApiHistory.length} messages from Green API`);
+      logger.debug(`✅ Retrieved ${greenApiHistory.length} messages from Green API`);
       
       // Format Green API history for the agent
       // Green API format: { typeMessage, textMessage, caption, senderName, senderId, timestamp, etc. }
@@ -235,7 +236,7 @@ const get_chat_history = {
         messages: internalFormat  // Keep full history for follow-up tools
       };
     } catch (error) {
-      console.error('❌ Error in get_chat_history tool:', error);
+      logger.error('❌ Error in get_chat_history tool:', { error: error.message, stack: error.stack });
       return {
         success: false,
         error: `שגיאה בשליפת היסטוריה: ${error.message}`

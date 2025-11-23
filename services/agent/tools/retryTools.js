@@ -98,7 +98,6 @@ const retry_last_command = {
     }
     
     try {
-      // Get last command from DB
       // Get last command from cache (not DB)
       const lastCommand = messageTypeCache.getLastCommand(context.chatId);
       
@@ -109,16 +108,18 @@ const retry_last_command = {
         };
       }
       
-      console.log(`🔄 Last command: ${lastCommand.tool} with args:`, lastCommand.args);
-      
       // Map tool names to appropriate retry function
       const tool = lastCommand.tool;
-      const storedWrapper = lastCommand.args || {};
+      // Use toolArgs (new structure) or fallback to args (backward compatibility)
+      const storedWrapper = lastCommand.toolArgs || lastCommand.args || {};
+      
+      console.log(`🔄 Last command: ${tool} with args:`, storedWrapper);
       
       // CRITICAL: Check if this is a multi-step command
-      if (tool === 'multi_step' || storedWrapper.isMultiStep === true) {
+      // For multi-step, plan and isMultiStep are at top level of lastCommand
+      if (tool === 'multi_step' || lastCommand.isMultiStep === true || storedWrapper.isMultiStep === true) {
         // Multi-step retry: re-execute steps from the plan
-        const plan = storedWrapper.plan;
+        const plan = lastCommand.plan || storedWrapper.plan;
         if (!plan || !plan.steps || plan.steps.length === 0) {
           return {
             success: false,
@@ -176,7 +177,8 @@ const retry_last_command = {
         const { detectLanguage } = require('../../../utils/agentHelpers');
         
         // Detect language from original prompt
-        const originalPrompt = storedWrapper.prompt || '';
+        // For multi-step, prompt is at top level of lastCommand
+        const originalPrompt = lastCommand.prompt || storedWrapper.prompt || '';
         const userLanguage = detectLanguage(originalPrompt);
         const languageInstruction = getLanguageInstruction(userLanguage);
         
@@ -270,10 +272,10 @@ const retry_last_command = {
       }
       
       // Single-step command handling
-      const originalArgs = (storedWrapper && storedWrapper.toolArgs)
-        ? storedWrapper.toolArgs
-        : storedWrapper || {};
-      const storedResult = (storedWrapper && storedWrapper.result) ? storedWrapper.result : {};
+      // storedWrapper is already toolArgs (from commandSaver), or args (backward compatibility)
+      // result is stored at top level of lastCommand, not inside toolArgs
+      const originalArgs = storedWrapper || {};
+      const storedResult = lastCommand.result || storedWrapper?.result || {};
       
       // Build modified prompt if needed
       let modifiedPrompt = originalArgs.prompt || originalArgs.text || storedResult.translation || storedResult.translatedText || '';

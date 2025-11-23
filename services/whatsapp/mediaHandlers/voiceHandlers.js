@@ -72,12 +72,10 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
     if (agentResult.success && (agentResult.toolsUsed?.length > 0 || agentResult.imageUrl || agentResult.videoUrl || agentResult.audioUrl)) {
       console.log(`🎯 Agent identified and executed command/tool from voice message`);
       
-      // Save user message AFTER successful command execution
-      await conversationManager.addMessage(chatId, 'user', `[הקלטה קולית] ${transcribedText}`, {
-        hasAudio: true,
-        audioUrl: audioUrl,
-        transcribedText: transcribedText
-      });
+      // NOTE: User messages are no longer saved to DB to avoid duplication.
+      // All messages are retrieved from Green API getChatHistory when needed.
+      // Voice transcription is handled automatically and the result is sent to the user.
+      console.log(`💾 [VoiceHandler] Voice message processed (not saving to DB - using Green API history)`);
       
       // Send agent result (text, image, video, audio, etc.) in parallel for better performance
       const sendPromises = [];
@@ -166,12 +164,9 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
       console.log(`⏭️ Step 2: Skipping voice clone (duration: ${audioDuration.toFixed(2)}s < ${MIN_DURATION_FOR_CLONING}s) - will use random voice`);
     }
 
-    // Save user message AFTER getting Gemini response to avoid duplication
-    await conversationManager.addMessage(chatId, 'user', `[הקלטה קולית] ${transcribedText}`, {
-      hasAudio: true,
-      audioUrl: audioUrl,
-      transcribedText: transcribedText
-    });
+    // NOTE: User messages are no longer saved to DB to avoid duplication.
+    // All messages are retrieved from Green API getChatHistory when needed.
+    console.log(`💾 [VoiceHandler] Voice message processed (not saving to DB - using Green API history)`);
 
     if (geminiResult.error) {
       console.error('❌ Gemini generation failed:', geminiResult.error);
@@ -195,8 +190,9 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
     const geminiResponse = geminiResult.text;
     console.log(`✅ Step 3 complete: Gemini response generated`);
 
-    // Add AI response to conversation history
-    await conversationManager.addMessage(chatId, 'assistant', geminiResponse);
+    // NOTE: Bot messages are no longer saved to DB to avoid duplication.
+    // Bot messages are tracked via messageTypeCache when sent through Green API.
+    console.log(`💾 [VoiceHandler] Bot response sent (tracked via messageTypeCache, not saved to DB)`);
 
     // Step 4: Text-to-Speech with cloned voice or random voice
     const responseLanguage = originalLanguage; // Force same language as original

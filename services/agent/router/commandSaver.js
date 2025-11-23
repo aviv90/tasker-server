@@ -9,6 +9,7 @@
 const messageTypeCache = require('../../../utils/messageTypeCache');
 const { NON_PERSISTED_TOOLS } = require('../config/constants');
 const { sanitizeToolResult } = require('../utils/resultUtils');
+const logger = require('../../../utils/logger');
 
 /**
  * Save last command for retry functionality
@@ -21,7 +22,7 @@ async function saveLastCommand(agentResult, chatId, userText, input) {
   // Get messageId from input (originalMessageId) or agentResult
   const messageId = input?.originalMessageId || agentResult?.originalMessageId;
   if (!messageId) {
-    console.warn('⚠️ [AGENT ROUTER] No messageId available, cannot save command to cache');
+    logger.warn('⚠️ [AGENT ROUTER] No messageId available, cannot save command to cache');
     return;
   }
   
@@ -43,7 +44,7 @@ async function saveLastCommand(agentResult, chatId, userText, input) {
     };
     
     messageTypeCache.saveCommand(chatId, messageId, commandMetadata);
-    console.log(`💾 [AGENT ROUTER] Saved multi-step command for retry: ${agentResult.totalSteps || 0} steps (${agentResult.stepsCompleted || 0} completed)`);
+    logger.info(`💾 [AGENT ROUTER] Saved multi-step command for retry: ${agentResult.totalSteps || 0} steps (${agentResult.stepsCompleted || 0} completed)`);
     return;
   }
   
@@ -69,7 +70,7 @@ async function saveLastCommand(agentResult, chatId, userText, input) {
   }
   
   if (!commandToSave) {
-    console.log('ℹ️ [AGENT ROUTER] No eligible tool call to save as last command');
+    logger.debug('ℹ️ [AGENT ROUTER] No eligible tool call to save as last command');
     return;
   }
   
@@ -89,7 +90,7 @@ async function saveLastCommand(agentResult, chatId, userText, input) {
   };
   
   messageTypeCache.saveCommand(chatId, messageId, commandMetadata);
-  console.log(`💾 [AGENT ROUTER] Saved last command for retry: ${primaryTool} (success: ${commandToSave.success})`);
+  logger.info(`💾 [AGENT ROUTER] Saved last command for retry: ${primaryTool} (success: ${commandToSave.success})`);
 }
 
 module.exports = {

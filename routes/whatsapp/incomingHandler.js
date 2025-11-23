@@ -151,7 +151,7 @@ async function handleIncomingMessage(webhookData, processedMessages) {
           // NOTE: User messages are no longer saved to DB to avoid duplication.
           // All messages are retrieved from Green API getChatHistory when needed.
           // Commands are saved to messageTypeCache for retry functionality.
-          console.log(`💾 [Agent] Processing command (not saving to DB - using Green API history)`);
+          // Logging is handled by agentRouter and commandSaver
 
           const agentResult = await routeToAgent(normalized, chatId);
 

@@ -43,9 +43,13 @@ async function buildContextualPrompt(input, chatId) {
     input.quotedContext;
   
   // Load conversation history if needed
+  // NOTE: Conversation history is now retrieved from Green API via get_chat_history tool
+  // We no longer use DB for conversation history to avoid duplication
+  // This is a fallback for backward compatibility, but should not be used in practice
   let conversationHistory = '';
   if (!shouldSkipHistory) {
     try {
+      // Fallback to DB (for backward compatibility only - should use Green API instead)
       const history = await conversationManager.getConversationHistory(chatId);
       if (history && history.length > 0) {
         const recentHistory = history.slice(-10);

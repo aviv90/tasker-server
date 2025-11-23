@@ -16,6 +16,8 @@
  * - This avoids DB storage and provides accurate identification
  */
 
+const logger = require('./logger');
+
 class MessageTypeCache {
   constructor() {
     // Map: chatId -> Map of messageId -> timestamp
@@ -48,7 +50,7 @@ class MessageTypeCache {
     }
     
     this.botMessages.get(chatId).set(messageId, Date.now());
-    console.log(`🤖 [MessageTypeCache] Marked message ${messageId} as bot message in ${chatId}`);
+    logger.debug(`🤖 [MessageTypeCache] Marked message ${messageId} as bot message in ${chatId}`);
   }
 
   /**
@@ -64,7 +66,7 @@ class MessageTypeCache {
     }
     
     this.userOutgoingMessages.get(chatId).set(messageId, Date.now());
-    console.log(`👤 [MessageTypeCache] Marked message ${messageId} as user outgoing in ${chatId}`);
+    logger.debug(`👤 [MessageTypeCache] Marked message ${messageId} as user outgoing in ${chatId}`);
   }
 
   /**
@@ -86,7 +88,7 @@ class MessageTypeCache {
     };
     
     this.commands.get(chatId).set(messageId, commandData);
-    console.log(`💾 [MessageTypeCache] Saved command ${messageId} for retry in ${chatId}`);
+    logger.debug(`💾 [MessageTypeCache] Saved command ${messageId} for retry in ${chatId}`);
   }
 
   /**
@@ -229,7 +231,7 @@ class MessageTypeCache {
     }
     
     if (totalRemoved > 0) {
-      console.log(`🧹 [MessageTypeCache] Cleaned up ${totalRemoved} old message IDs`);
+      logger.info(`🧹 [MessageTypeCache] Cleaned up ${totalRemoved} old message IDs`);
     }
   }
 

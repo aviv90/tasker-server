@@ -52,19 +52,10 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
     processedMessages.add(messageId);
     
     // Mark outgoing message type in cache
-    // If it's a command (starts with "# "), save it for retry
-    // Otherwise, mark as user outgoing
+    // All outgoing messages from user are marked as user outgoing
+    // Commands will be saved to cache separately in commandSaver after processing
     const chatId = senderData.chatId;
-    const messageText = extractMessageText(messageData);
-    
-    if (messageText && /^#\s+/.test(messageText.trim())) {
-      // This is a command - will be saved after processing in incomingHandler
-      // For now, just mark as user outgoing (will be updated if processed as command)
-      messageTypeCache.markAsUserOutgoing(chatId, messageId);
-    } else {
-      // Regular outgoing message from user (not a command)
-      messageTypeCache.markAsUserOutgoing(chatId, messageId);
-    }
+    messageTypeCache.markAsUserOutgoing(chatId, messageId);
     const senderId = senderData.sender;
     const senderName = senderData.senderName || senderId;
     const senderContactName = senderData.senderContactName || "";
