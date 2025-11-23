@@ -4,9 +4,22 @@
  * Persistent storage for commands in DB (replaces in-memory messageTypeCache).
  * Supports both single-step and multi-step commands.
  */
+
+const logger = require('../../utils/logger');
+const { TIME } = require('../../utils/constants');
+const CommandsRepository = require('../../repositories/commandsRepository');
+
 class CommandsManager {
   constructor(conversationManager) {
     this.conversationManager = conversationManager;
+    this.repository = null;
+  }
+
+  _getRepository() {
+    if (!this.repository && this.conversationManager.pool) {
+        this.repository = new CommandsRepository(this.conversationManager.pool);
+    }
+    return this.repository;
   }
 
   /**
@@ -19,77 +32,23 @@ class CommandsManager {
     if (!chatId || !messageId) return;
     
     if (!this.conversationManager.isInitialized) {
-      const logger = require('../../utils/logger');
       logger.warn('⚠️ Database not initialized, cannot save command');
       return;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    const logger = require('../../utils/logger');
-    
     try {
       const timestamp = Date.now();
-      const {
-        tool,
-        toolArgs,
-        args,
-        plan,
-        isMultiStep,
-        prompt,
-        result,
-        failed,
-        normalized,
-        imageUrl,
-        videoUrl,
-        audioUrl
-      } = metadata;
-      
-      // Use UPSERT (INSERT ... ON CONFLICT) to update if exists
-      await client.query(`
-        INSERT INTO last_commands (
-          chat_id, message_id, tool, tool_args, args, plan, is_multi_step,
-          prompt, result, failed, normalized, image_url, video_url, audio_url, timestamp, updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP)
-        ON CONFLICT (chat_id, message_id) 
-        DO UPDATE SET 
-          tool = EXCLUDED.tool,
-          tool_args = EXCLUDED.tool_args,
-          args = EXCLUDED.args,
-          plan = EXCLUDED.plan,
-          is_multi_step = EXCLUDED.is_multi_step,
-          prompt = EXCLUDED.prompt,
-          result = EXCLUDED.result,
-          failed = EXCLUDED.failed,
-          normalized = EXCLUDED.normalized,
-          image_url = EXCLUDED.image_url,
-          video_url = EXCLUDED.video_url,
-          audio_url = EXCLUDED.audio_url,
-          timestamp = EXCLUDED.timestamp,
-          updated_at = CURRENT_TIMESTAMP
-      `, [
+      const commandData = {
         chatId,
         messageId,
-        tool || null,
-        toolArgs ? JSON.stringify(toolArgs) : null,
-        args ? JSON.stringify(args) : null,
-        plan ? JSON.stringify(plan) : null,
-        isMultiStep || false,
-        prompt || null,
-        result ? JSON.stringify(result) : null,
-        failed || false,
-        normalized ? JSON.stringify(normalized) : null,
-        imageUrl || null,
-        videoUrl || null,
-        audioUrl || null,
-        timestamp
-      ]);
+        timestamp,
+        ...metadata
+      };
       
-      logger.debug(`💾 [Commands] Saved command ${messageId} for retry in ${chatId}: ${tool}`);
+      await this._getRepository().save(commandData);
+      logger.debug(`💾 [Commands] Saved command ${messageId} for retry in ${chatId}: ${metadata.tool}`);
     } catch (error) {
       logger.error('❌ Error saving command:', { error: error.message, chatId, messageId });
-    } finally {
-      client.release();
     }
   }
 
@@ -98,7 +57,6 @@ class CommandsManager {
    * @deprecated Use saveCommand() instead
    */
   async saveLastCommand(chatId, tool, args, options = {}) {
-    const logger = require('../../utils/logger');
     logger.warn('⚠️ [DEPRECATED] saveLastCommand() is deprecated. Use saveCommand() instead.');
     
     // For backward compatibility, create a messageId from timestamp
@@ -124,31 +82,15 @@ class CommandsManager {
     if (!chatId) return null;
     
     if (!this.conversationManager.isInitialized) {
-      const logger = require('../../utils/logger');
       logger.warn('⚠️ Database not initialized, cannot get last command');
       return null;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    const logger = require('../../utils/logger');
-    
     try {
-      // Get the most recent command (highest timestamp)
-      const result = await client.query(`
-        SELECT 
-          message_id, tool, tool_args, args, plan, is_multi_step,
-          prompt, result, failed, normalized, image_url, video_url, audio_url, timestamp
-        FROM last_commands
-        WHERE chat_id = $1
-        ORDER BY timestamp DESC
-        LIMIT 1
-      `, [chatId]);
+      const row = await this._getRepository().findLastByChatId(chatId);
       
-      if (result.rows.length === 0) {
-        return null;
-      }
+      if (!row) return null;
       
-      const row = result.rows[0];
       return {
         messageId: row.message_id,
         tool: row.tool,
@@ -168,8 +110,6 @@ class CommandsManager {
     } catch (error) {
       logger.error('❌ Error getting last command:', { error: error.message, chatId });
       return null;
-    } finally {
-      client.release();
     }
   }
 
@@ -182,23 +122,15 @@ class CommandsManager {
       return;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    const logger = require('../../utils/logger');
     const cutoffTime = Date.now() - ttlMs;
     
     try {
-      const result = await client.query(`
-        DELETE FROM last_commands
-        WHERE timestamp < $1
-      `, [cutoffTime]);
-      
-      if (result.rowCount > 0) {
-        logger.info(`🧹 [Commands] Cleaned up ${result.rowCount} old commands`);
+      const count = await this._getRepository().deleteOlderThan(cutoffTime);
+      if (count > 0) {
+        logger.info(`🧹 [Commands] Cleaned up ${count} old commands`);
       }
     } catch (error) {
       logger.error('❌ Error cleaning up commands:', { error: error.message });
-    } finally {
-      client.release();
     }
   }
 
@@ -210,16 +142,11 @@ class CommandsManager {
       return;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    const logger = require('../../utils/logger');
-    
     try {
-      await client.query('DELETE FROM last_commands');
+      await this._getRepository().deleteAll();
       logger.info('🗑️ [Commands] All commands cleared');
     } catch (error) {
       logger.error('❌ Error clearing commands:', { error: error.message });
-    } finally {
-      client.release();
     }
   }
 
@@ -242,4 +169,3 @@ class CommandsManager {
 }
 
 module.exports = CommandsManager;
-

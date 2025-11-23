@@ -7,10 +7,23 @@
 
 const logger = require('../../utils/logger');
 const { TIME } = require('../../utils/constants');
+const MessageTypesRepository = require('../../repositories/messageTypesRepository');
 
 class MessageTypesManager {
   constructor(conversationManager) {
     this.conversationManager = conversationManager;
+    // Note: We delay instantiation or handle checks because pool might not be ready
+    // But we can pass the pool *getter* or just the pool itself if it's a proxy
+    // For now, let's instantiate repo on the fly or update repo to take pool in methods.
+    // Actually, best practice: Repo takes pool in constructor. Pool is property of Manager.
+    this.repository = null;
+  }
+
+  _getRepository() {
+    if (!this.repository && this.conversationManager.pool) {
+        this.repository = new MessageTypesRepository(this.conversationManager.pool);
+    }
+    return this.repository;
   }
 
   /**
@@ -26,21 +39,11 @@ class MessageTypesManager {
       return;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      await client.query(`
-        INSERT INTO message_types (chat_id, message_id, message_type, timestamp)
-        VALUES ($1, $2, 'bot', $3)
-        ON CONFLICT (chat_id, message_id) 
-        DO UPDATE SET message_type = 'bot', timestamp = $3
-      `, [chatId, messageId, Date.now()]);
-      
+      await this._getRepository().upsert(chatId, messageId, 'bot', Date.now());
       logger.debug(`🤖 [MessageTypes] Marked message ${messageId} as bot message in ${chatId}`);
     } catch (error) {
       logger.error('❌ Error marking bot message:', { error: error.message, chatId, messageId });
-    } finally {
-      client.release();
     }
   }
 
@@ -57,21 +60,11 @@ class MessageTypesManager {
       return;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      await client.query(`
-        INSERT INTO message_types (chat_id, message_id, message_type, timestamp)
-        VALUES ($1, $2, 'user_outgoing', $3)
-        ON CONFLICT (chat_id, message_id) 
-        DO UPDATE SET message_type = 'user_outgoing', timestamp = $3
-      `, [chatId, messageId, Date.now()]);
-      
+      await this._getRepository().upsert(chatId, messageId, 'user_outgoing', Date.now());
       logger.debug(`👤 [MessageTypes] Marked message ${messageId} as user outgoing in ${chatId}`);
     } catch (error) {
       logger.error('❌ Error marking user outgoing message:', { error: error.message, chatId, messageId });
-    } finally {
-      client.release();
     }
   }
 
@@ -88,20 +81,12 @@ class MessageTypesManager {
       return false;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        SELECT message_type FROM message_types
-        WHERE chat_id = $1 AND message_id = $2
-      `, [chatId, messageId]);
-      
-      return result.rows.length > 0 && result.rows[0].message_type === 'bot';
+      const type = await this._getRepository().findType(chatId, messageId);
+      return type === 'bot';
     } catch (error) {
       logger.error('❌ Error checking bot message:', { error: error.message, chatId, messageId });
       return false;
-    } finally {
-      client.release();
     }
   }
 
@@ -118,20 +103,12 @@ class MessageTypesManager {
       return false;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        SELECT message_type FROM message_types
-        WHERE chat_id = $1 AND message_id = $2
-      `, [chatId, messageId]);
-      
-      return result.rows.length > 0 && result.rows[0].message_type === 'user_outgoing';
+      const type = await this._getRepository().findType(chatId, messageId);
+      return type === 'user_outgoing';
     } catch (error) {
       logger.error('❌ Error checking user outgoing message:', { error: error.message, chatId, messageId });
       return false;
-    } finally {
-      client.release();
     }
   }
 
@@ -143,54 +120,33 @@ class MessageTypesManager {
    * @returns {Promise<string>} Message type: 'bot' | 'user_outgoing' | 'command' | 'user_incoming'
    */
   async getMessageType(chatId, messageId, text) {
+    // Logic reuse
+    const isCommand = text && /^#\s+/.test(text.trim());
+    const defaultType = isCommand ? 'command' : 'user_incoming';
+
     if (!chatId || !messageId) {
-      // Check by text if it's a command
-      if (text && /^#\s+/.test(text.trim())) {
-        return 'command';
-      }
-      return 'user_incoming';
+      return defaultType;
     }
     
     if (!this.conversationManager.isInitialized) {
-      // Fallback to text-based check
-      if (text && /^#\s+/.test(text.trim())) {
-        return 'command';
-      }
-      return 'user_incoming';
+      return defaultType;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        SELECT message_type FROM message_types
-        WHERE chat_id = $1 AND message_id = $2
-      `, [chatId, messageId]);
+      const type = await this._getRepository().findType(chatId, messageId);
       
-      if (result.rows.length > 0) {
-        const type = result.rows[0].message_type;
+      if (type) {
         // If it's user_outgoing but also a command by text, return 'command'
-        if (type === 'user_outgoing' && text && /^#\s+/.test(text.trim())) {
+        if (type === 'user_outgoing' && isCommand) {
           return 'command';
         }
         return type;
       }
       
-      // If not in DB, check by text
-      if (text && /^#\s+/.test(text.trim())) {
-        return 'command';
-      }
-      
-      return 'user_incoming';
+      return defaultType;
     } catch (error) {
       logger.error('❌ Error getting message type:', { error: error.message, chatId, messageId });
-      // Fallback to text-based check
-      if (text && /^#\s+/.test(text.trim())) {
-        return 'command';
-      }
-      return 'user_incoming';
-    } finally {
-      client.release();
+      return defaultType;
     }
   }
 
@@ -213,22 +169,15 @@ class MessageTypesManager {
       return;
     }
 
-    const client = await this.conversationManager.pool.connect();
     const cutoffTime = Date.now() - ttlMs;
     
     try {
-      const result = await client.query(`
-        DELETE FROM message_types
-        WHERE timestamp < $1
-      `, [cutoffTime]);
-      
-      if (result.rowCount > 0) {
-        logger.info(`🧹 [MessageTypes] Cleaned up ${result.rowCount} old message type entries`);
+      const count = await this._getRepository().deleteOlderThan(cutoffTime);
+      if (count > 0) {
+        logger.info(`🧹 [MessageTypes] Cleaned up ${count} old message type entries`);
       }
     } catch (error) {
       logger.error('❌ Error cleaning up message types:', { error: error.message });
-    } finally {
-      client.release();
     }
   }
 
@@ -240,18 +189,13 @@ class MessageTypesManager {
       return;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      await client.query('DELETE FROM message_types');
+      await this._getRepository().deleteAll();
       logger.info('🗑️ [MessageTypes] All message types cleared');
     } catch (error) {
       logger.error('❌ Error clearing message types:', { error: error.message });
-    } finally {
-      client.release();
     }
   }
 }
 
 module.exports = MessageTypesManager;
-
