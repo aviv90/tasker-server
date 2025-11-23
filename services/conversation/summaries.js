@@ -1,9 +1,21 @@
 /**
  * Conversation summaries and long-term memory management
  */
+
+const logger = require('../../utils/logger');
+const SummariesRepository = require('../../repositories/summariesRepository');
+
 class SummariesManager {
   constructor(conversationManager) {
     this.conversationManager = conversationManager;
+    this.repository = null;
+  }
+
+  _getRepository() {
+    if (!this.repository && this.conversationManager.pool) {
+        this.repository = new SummariesRepository(this.conversationManager.pool);
+    }
+    return this.repository;
   }
 
   /**
@@ -13,7 +25,7 @@ class SummariesManager {
    */
   async generateAutomaticSummary(chatId) {
     if (!this.conversationManager.isInitialized) {
-      console.warn('⚠️ Database not initialized, cannot generate summary');
+      logger.warn('⚠️ Database not initialized, cannot generate summary');
       return { error: 'Database not initialized' };
     }
 
@@ -22,7 +34,7 @@ class SummariesManager {
       const history = await this.conversationManager.messagesManager.getConversationHistory(chatId);
       
       if (!history || history.length < 10) {
-        console.log(`⏭️ [Auto-Summary] Not enough messages (${history?.length || 0}) for chat ${chatId}`);
+        logger.debug(`⏭️ [Auto-Summary] Not enough messages (${history?.length || 0}) for chat ${chatId}`);
         return { error: 'Not enough messages for summary' };
       }
 
@@ -56,7 +68,7 @@ ${conversationText}
       const result = await geminiText(summaryPrompt);
       
       if (result.error) {
-        console.error('❌ Failed to generate summary:', result.error);
+        logger.error('❌ Failed to generate summary:', result.error);
         return { error: result.error };
       }
 
@@ -71,7 +83,7 @@ ${conversationText}
           summaryData = JSON.parse(result.text);
         }
       } catch (parseError) {
-        console.error('❌ Failed to parse summary JSON:', parseError);
+        logger.error('❌ Failed to parse summary JSON:', parseError);
         // Fallback: create basic summary
         summaryData = {
           summary: result.text.substring(0, 500),
@@ -89,7 +101,7 @@ ${conversationText}
         history.length
       );
 
-      console.log(`✅ [Auto-Summary] Generated and saved summary for chat ${chatId}`);
+      logger.info(`✅ [Auto-Summary] Generated and saved summary for chat ${chatId}`);
       return {
         success: true,
         summary: summaryData.summary,
@@ -97,7 +109,7 @@ ${conversationText}
         userPreferences: summaryData.userPreferences
       };
     } catch (error) {
-      console.error('❌ Error generating automatic summary:', error.message);
+      logger.error('❌ Error generating automatic summary:', error.message);
       return { error: error.message };
     }
   }
@@ -107,30 +119,23 @@ ${conversationText}
    */
   async saveConversationSummary(chatId, summary, keyTopics = [], userPreferences = {}, messageCount = 0) {
     if (!this.conversationManager.isInitialized) {
-      console.warn('⚠️ Database not initialized, cannot save summary');
+      logger.warn('⚠️ Database not initialized, cannot save summary');
       return;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      await client.query(`
-        INSERT INTO conversation_summaries 
-        (chat_id, summary, key_topics, user_preferences, message_count, summary_date)
-        VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
-      `, [
+      const summaryData = {
         chatId,
         summary,
-        JSON.stringify(keyTopics),
-        JSON.stringify(userPreferences),
+        keyTopics,
+        userPreferences,
         messageCount
-      ]);
+      };
 
-      console.log(`📝 [Long-term Memory] Saved summary for chat ${chatId}`);
+      await this._getRepository().save(summaryData);
+      logger.debug(`📝 [Long-term Memory] Saved summary for chat ${chatId}`);
     } catch (error) {
-      console.error('❌ Error saving conversation summary:', error.message);
-    } finally {
-      client.release();
+      logger.error('❌ Error saving conversation summary:', error.message);
     }
   }
 
@@ -139,33 +144,15 @@ ${conversationText}
    */
   async getConversationSummaries(chatId, limit = 5) {
     if (!this.conversationManager.isInitialized) {
-      console.warn('⚠️ Database not initialized, cannot get summaries');
+      logger.warn('⚠️ Database not initialized, cannot get summaries');
       return [];
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        SELECT summary, key_topics, user_preferences, message_count, summary_date
-        FROM conversation_summaries
-        WHERE chat_id = $1
-        ORDER BY summary_date DESC
-        LIMIT $2
-      `, [chatId, limit]);
-      
-      return result.rows.map(row => ({
-        summary: row.summary,
-        keyTopics: row.key_topics || [],
-        userPreferences: row.user_preferences || {},
-        messageCount: row.message_count,
-        summaryDate: row.summary_date
-      }));
+      return await this._getRepository().findByChatId(chatId, limit);
     } catch (error) {
-      console.error('❌ Error getting conversation summaries:', error.message);
+      logger.error('❌ Error getting conversation summaries:', error.message);
       return [];
-    } finally {
-      client.release();
     }
   }
 
@@ -174,33 +161,23 @@ ${conversationText}
    */
   async getUserPreferences(chatId) {
     if (!this.conversationManager.isInitialized) {
-      console.warn('⚠️ Database not initialized, cannot get user preferences');
+      logger.warn('⚠️ Database not initialized, cannot get user preferences');
       return {};
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        SELECT user_preferences
-        FROM conversation_summaries
-        WHERE chat_id = $1
-        ORDER BY summary_date DESC
-        LIMIT 10
-      `, [chatId]);
+      const preferencesList = await this._getRepository().findPreferences(chatId, 10);
       
       // Merge all preferences (most recent takes precedence)
       const merged = {};
-      for (const row of result.rows.reverse()) {
-        Object.assign(merged, row.user_preferences || {});
+      for (const prefs of preferencesList.reverse()) {
+        Object.assign(merged, prefs || {});
       }
       
       return merged;
     } catch (error) {
-      console.error('❌ Error getting user preferences:', error.message);
+      logger.error('❌ Error getting user preferences:', error.message);
       return {};
-    } finally {
-      client.release();
     }
   }
 
@@ -210,55 +187,36 @@ ${conversationText}
    */
   async saveUserPreference(chatId, preferenceKey, preferenceValue) {
     if (!this.conversationManager.isInitialized) {
-      console.warn('⚠️ Database not initialized, cannot save user preference');
+      logger.warn('⚠️ Database not initialized, cannot save user preference');
       return;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
       // Get the most recent summary for this chat
-      const result = await client.query(`
-        SELECT id, user_preferences
-        FROM conversation_summaries
-        WHERE chat_id = $1
-        ORDER BY summary_date DESC
-        LIMIT 1
-      `, [chatId]);
+      const summaries = await this._getRepository().findByChatId(chatId, 1);
 
-      if (result.rows.length > 0) {
+      if (summaries.length > 0) {
         // Update existing summary's user_preferences
-        const currentPreferences = result.rows[0].user_preferences || {};
+        const summary = summaries[0];
+        const currentPreferences = summary.userPreferences || {};
         currentPreferences[preferenceKey] = preferenceValue;
 
-        await client.query(`
-          UPDATE conversation_summaries
-          SET user_preferences = $1, summary_date = CURRENT_TIMESTAMP
-          WHERE id = $2
-        `, [JSON.stringify(currentPreferences), result.rows[0].id]);
-
-        console.log(`💾 [User Preference] Updated for chat ${chatId}: ${preferenceKey} = ${preferenceValue}`);
+        await this._getRepository().updatePreferences(summary.id, currentPreferences);
+        logger.debug(`💾 [User Preference] Updated for chat ${chatId}: ${preferenceKey} = ${preferenceValue}`);
       } else {
         // Create a basic summary with just this preference
-        await client.query(`
-          INSERT INTO conversation_summaries 
-          (chat_id, summary, key_topics, user_preferences, message_count, summary_date)
-          VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
-        `, [
+        await this.saveConversationSummary(
           chatId,
           'User preferences saved',
           [],
-          JSON.stringify({ [preferenceKey]: preferenceValue }),
+          { [preferenceKey]: preferenceValue },
           0
-        ]);
-
-        console.log(`💾 [User Preference] Created new summary for chat ${chatId}: ${preferenceKey} = ${preferenceValue}`);
+        );
+        logger.debug(`💾 [User Preference] Created new summary for chat ${chatId}: ${preferenceKey} = ${preferenceValue}`);
       }
     } catch (error) {
-      console.error('❌ Error saving user preference:', error.message);
+      logger.error('❌ Error saving user preference:', error.message);
       throw error;
-    } finally {
-      client.release();
     }
   }
 
@@ -269,43 +227,25 @@ ${conversationText}
    */
   async cleanupOldSummaries(keepPerChat = 10) {
     if (!this.conversationManager.isInitialized) {
-      console.warn('⚠️ Database not initialized, cannot cleanup summaries');
+      logger.warn('⚠️ Database not initialized, cannot cleanup summaries');
       return 0;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      // Delete summaries that are not in the top N for each chat_id
-      const result = await client.query(`
-        DELETE FROM conversation_summaries
-        WHERE id NOT IN (
-          SELECT id
-          FROM (
-            SELECT id, ROW_NUMBER() OVER (PARTITION BY chat_id ORDER BY summary_date DESC) as rn
-            FROM conversation_summaries
-          ) ranked
-          WHERE rn <= $1
-        )
-        RETURNING id
-      `, [keepPerChat]);
-
-      const deletedCount = result.rowCount || 0;
+      const deletedCount = await this._getRepository().deleteOldSummaries(keepPerChat);
+      
       if (deletedCount > 0) {
-        console.log(`🧹 [Summary Cleanup] Deleted ${deletedCount} old summaries (kept ${keepPerChat} per chat)`);
+        logger.info(`🧹 [Summary Cleanup] Deleted ${deletedCount} old summaries (kept ${keepPerChat} per chat)`);
       } else {
-        console.log(`✅ [Summary Cleanup] No old summaries to delete`);
+        logger.debug(`✅ [Summary Cleanup] No old summaries to delete`);
       }
 
       return deletedCount;
     } catch (error) {
-      console.error('❌ Error cleaning up old summaries:', error.message);
+      logger.error('❌ Error cleaning up old summaries:', error.message);
       return 0;
-    } finally {
-      client.release();
     }
   }
 }
 
 module.exports = SummariesManager;
-
