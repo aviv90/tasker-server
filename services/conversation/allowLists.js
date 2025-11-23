@@ -1,9 +1,21 @@
 /**
  * Allow lists and authorization management
  */
+
+const logger = require('../../utils/logger');
+const AllowListsRepository = require('../../repositories/allowListsRepository');
+
 class AllowListsManager {
   constructor(conversationManager) {
     this.conversationManager = conversationManager;
+    this.repository = null;
+  }
+
+  _getRepository() {
+    if (!this.repository && this.conversationManager.pool) {
+        this.repository = new AllowListsRepository(this.conversationManager.pool);
+    }
+    return this.repository;
   }
 
   /**
@@ -14,18 +26,12 @@ class AllowListsManager {
       throw new Error('Database not initialized');
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      await client.query(`
-        UPDATE voice_settings 
-        SET enabled = $1, updated_at = CURRENT_TIMESTAMP 
-        WHERE id = 1
-      `, [enabled]);
-      
-      console.log(`💾 Voice transcription status updated: ${enabled ? 'enabled' : 'disabled'}`);
-    } finally {
-      client.release();
+      await this._getRepository().setVoiceSettings(enabled);
+      logger.info(`💾 Voice transcription status updated: ${enabled ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      logger.error('❌ Error setting voice transcription status:', error);
+      throw error;
     }
   }
 
@@ -37,16 +43,11 @@ class AllowListsManager {
       return false;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        SELECT enabled FROM voice_settings WHERE id = 1
-      `);
-      
-      return result.rows.length > 0 ? result.rows[0].enabled : false;
-    } finally {
-      client.release();
+      return await this._getRepository().getVoiceSettings();
+    } catch (error) {
+      logger.error('❌ Error getting voice transcription status:', error);
+      return false;
     }
   }
 
@@ -58,24 +59,13 @@ class AllowListsManager {
       throw new Error('Database not initialized');
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        INSERT INTO voice_allow_list (contact_name) 
-        VALUES ($1) 
-        ON CONFLICT (contact_name) DO NOTHING
-        RETURNING id
-      `, [contactName]);
-      
-      const wasAdded = result.rows.length > 0;
-      if (wasAdded) {
-        console.log(`✅ Added ${contactName} to voice allow list`);
-      }
-      
-      return wasAdded;
-    } finally {
-      client.release();
+      await this._getRepository().addToAllowList('voice_allow_list', contactName);
+      logger.info(`✅ Added ${contactName} to voice allow list`);
+      return true;
+    } catch (error) {
+      logger.error('❌ Error adding to voice allow list:', error);
+      return false;
     }
   }
 
@@ -87,22 +77,13 @@ class AllowListsManager {
       throw new Error('Database not initialized');
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        DELETE FROM voice_allow_list 
-        WHERE contact_name = $1
-      `, [contactName]);
-      
-      const wasRemoved = result.rowCount > 0;
-        if (wasRemoved) {
-          console.log(`🚫 Removed ${contactName} from voice allow list`);
-      }
-      
-      return wasRemoved;
-    } finally {
-      client.release();
+      await this._getRepository().removeFromAllowList('voice_allow_list', contactName);
+      logger.info(`🚫 Removed ${contactName} from voice allow list`);
+      return true;
+    } catch (error) {
+      logger.error('❌ Error removing from voice allow list:', error);
+      return false;
     }
   }
 
@@ -114,17 +95,11 @@ class AllowListsManager {
       return [];
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        SELECT contact_name FROM voice_allow_list 
-        ORDER BY created_at ASC
-      `);
-      
-      return result.rows.map(row => row.contact_name);
-    } finally {
-      client.release();
+      return await this._getRepository().getAllowList('voice_allow_list');
+    } catch (error) {
+      logger.error('❌ Error getting voice allow list:', error);
+      return [];
     }
   }
 
@@ -136,20 +111,11 @@ class AllowListsManager {
       return false;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        SELECT 1 FROM voice_allow_list 
-        WHERE contact_name = $1
-      `, [contactName]);
-      
-      return result.rows.length > 0;
+      return await this._getRepository().isInAllowList('voice_allow_list', contactName);
     } catch (error) {
-      console.error('❌ Error checking voice allow list:', error);
+      logger.error('❌ Error checking voice allow list:', error);
       return false;
-    } finally {
-      client.release();
     }
   }
 
@@ -179,10 +145,7 @@ class AllowListsManager {
         const groupAuthorized = groupName && allowList.includes(groupName);
         const senderAuthorized = senderContact && allowList.includes(senderContact);
         
-        if (groupAuthorized || senderAuthorized) {
-          return true;
-        }
-        return false;
+        return groupAuthorized || senderAuthorized;
         
       } else if (isPrivateChat) {
         // Private chat - priority: senderContactName → chatName → senderName
@@ -202,7 +165,7 @@ class AllowListsManager {
         return allowList.includes(contactName);
       }
     } catch (error) {
-      console.error('❌ Error checking voice transcription authorization:', error);
+      logger.error('❌ Error checking voice transcription authorization:', error);
       return false;
     }
   }
@@ -215,24 +178,13 @@ class AllowListsManager {
       throw new Error('Database not initialized');
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        INSERT INTO media_allow_list (contact_name) 
-        VALUES ($1) 
-        ON CONFLICT (contact_name) DO NOTHING
-        RETURNING id
-      `, [contactName]);
-      
-      const wasAdded = result.rows.length > 0;
-      if (wasAdded) {
-        console.log(`✅ Added ${contactName} to media allow list`);
-      }
-      
-      return wasAdded;
-    } finally {
-      client.release();
+      await this._getRepository().addToAllowList('media_allow_list', contactName);
+      logger.info(`✅ Added ${contactName} to media allow list`);
+      return true;
+    } catch (error) {
+      logger.error('❌ Error adding to media allow list:', error);
+      return false;
     }
   }
 
@@ -244,22 +196,13 @@ class AllowListsManager {
       throw new Error('Database not initialized');
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        DELETE FROM media_allow_list 
-        WHERE contact_name = $1
-      `, [contactName]);
-      
-      const wasRemoved = result.rowCount > 0;
-      if (wasRemoved) {
-        console.log(`🚫 Removed ${contactName} from media allow list`);
-      }
-      
-      return wasRemoved;
-    } finally {
-      client.release();
+      await this._getRepository().removeFromAllowList('media_allow_list', contactName);
+      logger.info(`🚫 Removed ${contactName} from media allow list`);
+      return true;
+    } catch (error) {
+      logger.error('❌ Error removing from media allow list:', error);
+      return false;
     }
   }
 
@@ -271,17 +214,11 @@ class AllowListsManager {
       return [];
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        SELECT contact_name FROM media_allow_list 
-        ORDER BY created_at ASC
-      `);
-      
-      return result.rows.map(row => row.contact_name);
-    } finally {
-      client.release();
+      return await this._getRepository().getAllowList('media_allow_list');
+    } catch (error) {
+      logger.error('❌ Error getting media allow list:', error);
+      return [];
     }
   }
 
@@ -293,27 +230,13 @@ class AllowListsManager {
       throw new Error('Database not initialized');
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        INSERT INTO group_creation_allow_list (contact_name) 
-        VALUES ($1) 
-        ON CONFLICT (contact_name) DO NOTHING
-        RETURNING id
-      `, [contactName]);
-      
-      const wasAdded = result.rows.length > 0;
-      if (wasAdded) {
-        console.log(`✅ Added ${contactName} to group creation allow list`);
-      }
-      
-      return wasAdded;
+      await this._getRepository().addToAllowList('group_creation_allow_list', contactName);
+      logger.info(`✅ Added ${contactName} to group creation allow list`);
+      return true;
     } catch (error) {
-      console.error('❌ Error adding to group creation allow list:', error);
+      logger.error('❌ Error adding to group creation allow list:', error);
       throw error;
-    } finally {
-      client.release();
     }
   }
 
@@ -325,22 +248,13 @@ class AllowListsManager {
       throw new Error('Database not initialized');
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        DELETE FROM group_creation_allow_list 
-        WHERE contact_name = $1
-      `, [contactName]);
-      
-      const wasRemoved = result.rowCount > 0;
-      if (wasRemoved) {
-        console.log(`🚫 Removed ${contactName} from group creation allow list`);
-      }
-      
-      return wasRemoved;
-    } finally {
-      client.release();
+      await this._getRepository().removeFromAllowList('group_creation_allow_list', contactName);
+      logger.info(`🚫 Removed ${contactName} from group creation allow list`);
+      return true;
+    } catch (error) {
+      logger.error('❌ Error removing from group creation allow list:', error);
+      return false;
     }
   }
 
@@ -352,17 +266,11 @@ class AllowListsManager {
       return [];
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        SELECT contact_name FROM group_creation_allow_list 
-        ORDER BY created_at ASC
-      `);
-      
-      return result.rows.map(row => row.contact_name);
-    } finally {
-      client.release();
+      return await this._getRepository().getAllowList('group_creation_allow_list');
+    } catch (error) {
+      logger.error('❌ Error getting group creation allow list:', error);
+      return [];
     }
   }
 
@@ -374,20 +282,11 @@ class AllowListsManager {
       return false;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        SELECT 1 FROM group_creation_allow_list 
-        WHERE contact_name = $1
-      `, [contactName]);
-      
-      return result.rows.length > 0;
+      return await this._getRepository().isInAllowList('group_creation_allow_list', contactName);
     } catch (error) {
-      console.error('❌ Error checking group creation allow list:', error);
+      logger.error('❌ Error checking group creation allow list:', error);
       return false;
-    } finally {
-      client.release();
     }
   }
 
@@ -399,24 +298,11 @@ class AllowListsManager {
       return { conversations: 0, voiceAllowList: 0, mediaAllowList: 0, groupCreationAllowList: 0 };
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const [conversations, voiceAllowList, mediaAllowList, groupCreationAllowList] = await Promise.all([
-        client.query('SELECT COUNT(*) as count FROM conversations'),
-        client.query('SELECT COUNT(*) as count FROM voice_allow_list'),
-        client.query('SELECT COUNT(*) as count FROM media_allow_list'),
-        client.query('SELECT COUNT(*) as count FROM group_creation_allow_list')
-      ]);
-
-      return {
-        conversations: parseInt(conversations.rows[0].count),
-        voiceAllowList: parseInt(voiceAllowList.rows[0].count),
-        mediaAllowList: parseInt(mediaAllowList.rows[0].count),
-        groupCreationAllowList: parseInt(groupCreationAllowList.rows[0].count)
-      };
-    } finally {
-      client.release();
+      return await this._getRepository().getStats();
+    } catch (error) {
+      logger.error('❌ Error getting database stats:', error);
+      return { error: error.message };
     }
   }
 
@@ -428,17 +314,21 @@ class AllowListsManager {
       throw new Error('Database not initialized');
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query('DELETE FROM conversations');
-      console.log(`🗑️ Cleared ${result.rowCount} conversations from database`);
-      return result.rowCount;
-    } finally {
-      client.release();
+      // Currently there is no conversations table usage (deprecated), but keeping for cleanup
+      const client = await this.conversationManager.pool.connect();
+      try {
+        const result = await client.query('DELETE FROM conversations');
+        logger.info(`🗑️ Cleared ${result.rowCount} conversations from database`);
+        return result.rowCount;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      logger.error('❌ Error clearing conversations:', error);
+      throw error;
     }
   }
 }
 
 module.exports = AllowListsManager;
-

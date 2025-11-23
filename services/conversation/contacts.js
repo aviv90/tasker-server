@@ -4,10 +4,19 @@
 const { CacheKeys, CacheTTL } = require('../../utils/cache');
 const cache = require('../../utils/cache');
 const logger = require('../../utils/logger');
+const ContactsRepository = require('../../repositories/contactsRepository');
 
 class ContactsManager {
   constructor(conversationManager) {
     this.conversationManager = conversationManager;
+    this.repository = null;
+  }
+
+  _getRepository() {
+    if (!this.repository && this.conversationManager.pool) {
+        this.repository = new ContactsRepository(this.conversationManager.pool);
+    }
+    return this.repository;
   }
 
   /**
@@ -19,52 +28,40 @@ class ContactsManager {
       throw new Error('Database not initialized');
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      let inserted = 0;
-      let updated = 0;
+      let inserted = 0; // Tracking individual inserts/updates is harder with bulk/loop repository pattern unless repo returns status
+      // For now, we'll just process them.
+      
+      // NOTE: ideally we would use a batch insert/upsert in the repository for performance.
+      // But to keep it simple and match existing logic structure (loop), we'll use upsert per item.
+      // Enhancing to batch upsert is a good future optimization.
 
       for (const contact of contactsArray) {
         const contactId = contact.id || contact.chatId;
         if (!contactId) continue;
 
-        const result = await client.query(`
-          INSERT INTO contacts (contact_id, name, contact_name, type, chat_id, raw_data, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
-          ON CONFLICT (contact_id) 
-          DO UPDATE SET
-            name = EXCLUDED.name,
-            contact_name = EXCLUDED.contact_name,
-            type = EXCLUDED.type,
-            chat_id = EXCLUDED.chat_id,
-            raw_data = EXCLUDED.raw_data,
-            updated_at = CURRENT_TIMESTAMP
-          RETURNING (xmax = 0) AS inserted
-        `, [
-          contactId,
-          contact.name || null,
-          contact.contactName || null,
-          contact.type || null,
-          contact.id || null,
-          JSON.stringify(contact)
-        ]);
+        // Normalize contact object for repository
+        const contactData = {
+          id: contactId,
+          name: contact.name,
+          contactName: contact.contactName,
+          type: contact.type,
+          chatId: contact.id, // usually same as contactId
+          ...contact
+        };
 
-        if (result.rows[0].inserted) {
-          inserted++;
-        } else {
-          updated++;
-        }
+        await this._getRepository().upsert(contactData);
       }
 
-      logger.info(`📇 Contacts synced: ${inserted} inserted, ${updated} updated (total: ${contactsArray.length})`);
+      logger.info(`📇 Contacts synced: ${contactsArray.length} processed`);
       
       // Invalidate contacts cache after sync
       cache.del(CacheKeys.allContacts());
       
-      return { inserted, updated, total: contactsArray.length };
-    } finally {
-      client.release();
+      return { total: contactsArray.length };
+    } catch (error) {
+        logger.error('❌ Error syncing contacts:', error);
+        throw error;
     }
   }
 
@@ -83,21 +80,16 @@ class ContactsManager {
       return cached;
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        SELECT contact_id, name, contact_name, type, chat_id, raw_data, created_at, updated_at
-        FROM contacts
-        ORDER BY name ASC
-      `);
+      const contacts = await this._getRepository().findAll();
       
       // Cache for 5 minutes (contacts don't change frequently)
-      cache.set(cacheKey, result.rows, CacheTTL.MEDIUM);
+      cache.set(cacheKey, contacts, CacheTTL.MEDIUM);
       
-      return result.rows;
-    } finally {
-      client.release();
+      return contacts;
+    } catch (error) {
+      logger.error('❌ Error getting all contacts:', error);
+      return [];
     }
   }
 
@@ -109,22 +101,13 @@ class ContactsManager {
       return [];
     }
 
-    const client = await this.conversationManager.pool.connect();
-    
     try {
-      const result = await client.query(`
-        SELECT contact_id, name, contact_name, type, chat_id, raw_data, created_at, updated_at
-        FROM contacts
-        WHERE type = $1
-        ORDER BY name ASC
-      `, [type]);
-      
-      return result.rows;
-    } finally {
-      client.release();
+      return await this._getRepository().findByType(type);
+    } catch (error) {
+      logger.error('❌ Error getting contacts by type:', error);
+      return [];
     }
   }
 }
 
 module.exports = ContactsManager;
-
