@@ -235,7 +235,7 @@ class CommandsManager {
     try {
       return JSON.parse(value);
     } catch (err) {
-      console.warn(`⚠️ Failed to parse JSON value: ${err.message}`);
+      logger.warn(`⚠️ Failed to parse JSON value: ${err.message}`);
       return null;
     }
   }

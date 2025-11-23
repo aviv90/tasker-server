@@ -28,7 +28,7 @@ const chat_summary = {
     }
   },
   execute: async (args, context) => {
-    console.log(`🔧 [Agent Tool] chat_summary called`);
+    logger.debug(`🔧 [Agent Tool] chat_summary called`);
     
     try {
       const { geminiService, greenApiService } = getServices();
@@ -69,7 +69,7 @@ const chat_summary = {
         };
       }
       
-      console.log(`✅ Retrieved ${history.length} messages from Green API`);
+      logger.debug(`✅ Retrieved ${history.length} messages from Green API`);
       
       // Filter out system messages but keep ALL user/bot messages (text + media)
       const filteredHistory = history.filter(msg => {
@@ -98,7 +98,7 @@ const chat_summary = {
       ).length;
       const mediaMessages = filteredHistory.length - textMessages;
       
-      console.log(`📝 Including ${filteredHistory.length} messages for summary (${textMessages} text, ${mediaMessages} media)`);
+      logger.debug(`📝 Including ${filteredHistory.length} messages for summary (${textMessages} text, ${mediaMessages} media)`);
       
       const summary = await geminiService.generateChatSummary(filteredHistory);
       
@@ -115,7 +115,7 @@ const chat_summary = {
         summary: summary.text || summary
       };
     } catch (error) {
-      console.error('❌ Error in chat_summary:', error);
+      logger.error('❌ Error in chat_summary:', { error: error.message, stack: error.stack });
       return {
         success: false,
         error: `שגיאה: ${error.message}`

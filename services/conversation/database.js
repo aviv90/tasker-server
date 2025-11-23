@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const logger = require('../../utils/logger');
 
 /**
  * Database initialization and table creation
@@ -19,7 +20,7 @@ class DatabaseManager {
       const isRemoteDB = databaseUrl && !databaseUrl.includes('localhost') && !databaseUrl.includes('127.0.0.1');
       const needsSSL = process.env.NODE_ENV === 'production' || isRemoteDB;
       
-      console.log(`🔐 Database connection: ${needsSSL ? 'with SSL (remote)' : 'without SSL (local)'}`);
+      logger.info(`🔐 Database connection: ${needsSSL ? 'with SSL (remote)' : 'without SSL (local)'}`);
       
       // Create connection pool
       this.conversationManager.pool = new Pool({
@@ -32,7 +33,7 @@ class DatabaseManager {
 
       // Test connection
       const client = await this.conversationManager.pool.connect();
-      console.log('✅ Connected to PostgreSQL database');
+      logger.info('✅ Connected to PostgreSQL database');
       client.release();
 
       // Create tables
@@ -42,21 +43,21 @@ class DatabaseManager {
       await this.initializeVoiceSettings();
       
       this.conversationManager.isInitialized = true;
-      console.log('✅ Database initialization completed successfully');
+      logger.info('✅ Database initialization completed successfully');
       
       // Start periodic cleanup task (monthly)
       this.conversationManager.startPeriodicCleanup();
       
     } catch (error) {
-      console.error('❌ Database initialization failed:', error.message);
+      logger.error('❌ Database initialization failed:', { error: error.message, stack: error.stack });
       // Retry with exponential backoff to avoid crashing the app on transient DB issues
       const maxAttempts = 5;
       if (attempt < maxAttempts) {
         const delayMs = Math.min(30000, 2000 * Math.pow(2, attempt - 1));
-        console.warn(`⏳ Retrying DB init in ${Math.round(delayMs / 1000)}s (attempt ${attempt + 1}/${maxAttempts})...`);
+        logger.warn(`⏳ Retrying DB init in ${Math.round(delayMs / 1000)}s (attempt ${attempt + 1}/${maxAttempts})...`);
         setTimeout(() => this.initializeDatabase(attempt + 1).catch(() => {}), delayMs);
       } else {
-        console.error('🚫 Giving up on DB initialization after multiple attempts. Running without DB until next restart.');
+        logger.error('🚫 Giving up on DB initialization after multiple attempts. Running without DB until next restart.');
       }
     }
   }
@@ -307,9 +308,9 @@ class DatabaseManager {
           INSERT INTO voice_settings (enabled) 
           VALUES (false)
         `);
-        console.log('🔊 Voice transcription initialized: disabled (default)');
+        logger.info('🔊 Voice transcription initialized: disabled (default)');
       } else {
-        console.log('🔊 Voice settings already exist');
+        logger.debug('🔊 Voice settings already exist');
       }
     } finally {
       client.release();

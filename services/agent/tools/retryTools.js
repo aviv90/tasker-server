@@ -7,6 +7,7 @@ const conversationManager = require('../../conversationManager');
 const { getServices } = require('../utils/serviceLoader');
 const { getToolAckMessage } = require('../utils/ackUtils');
 const { extractQuotedMessageId } = require('../../../utils/messageHelpers');
+const logger = require('../../../utils/logger');
 
 // Reference to agentTools (will be injected)
 let agentTools = null;
@@ -36,12 +37,12 @@ async function sendRetryAck(chatId, tool, provider, quotedMessageId = null) {
     const ackMessage = getToolAckMessage(tool, provider);
     
     if (ackMessage) {
-      console.log(`📢 [RETRY ACK] ${ackMessage}`);
+      logger.debug(`📢 [RETRY ACK] ${ackMessage}`);
       const { greenApiService } = getServices();
       await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId, 1000);
     }
   } catch (error) {
-    console.error('❌ Error sending retry ACK:', error.message);
+    logger.error('❌ Error sending retry ACK:', { error: error.message, stack: error.stack });
     // Don't throw - ACK failure shouldn't break retry
   }
 }
@@ -87,7 +88,7 @@ const retry_last_command = {
     }
   },
   execute: async (args, context) => {
-    console.log(`🔧 [Agent Tool] retry_last_command called with provider: ${args.provider_override || 'none'}`);
+    logger.debug(`🔧 [Agent Tool] retry_last_command called with provider: ${args.provider_override || 'none'}`);
     
     if (!agentTools) {
       return {
@@ -112,7 +113,7 @@ const retry_last_command = {
       // Use toolArgs (new structure) or fallback to args (backward compatibility)
       const storedWrapper = lastCommand.toolArgs || lastCommand.args || {};
       
-      console.log(`🔄 [Retry] Last command: ${tool}`, {
+      logger.debug(`🔄 [Retry] Last command: ${tool}`, {
         isMultiStep: lastCommand.isMultiStep,
         hasPlan: !!(lastCommand.plan || storedWrapper.plan),
         hasToolArgs: !!lastCommand.toolArgs,
@@ -126,7 +127,7 @@ const retry_last_command = {
         // Multi-step retry: re-execute steps from the plan
         const plan = lastCommand.plan || storedWrapper.plan;
         if (!plan || !plan.steps || !Array.isArray(plan.steps) || plan.steps.length === 0) {
-          console.error('❌ [Retry] Plan validation failed:', {
+          logger.error('❌ [Retry] Plan validation failed:', {
             hasPlan: !!plan,
             hasSteps: !!(plan && plan.steps),
             isArray: !!(plan && plan.steps && Array.isArray(plan.steps)),
@@ -140,7 +141,7 @@ const retry_last_command = {
           };
         }
         
-        console.log(`🔄 [Retry] Found multi-step plan with ${plan.steps.length} steps:`, 
+        logger.info(`🔄 [Retry] Found multi-step plan with ${plan.steps.length} steps:`, 
           plan.steps.map((s, idx) => `${idx + 1}. ${s.tool || s.action || 'unknown'}`).join(', '));
         
         // Check if user requested specific steps to retry
@@ -152,7 +153,7 @@ const retry_last_command = {
         if (stepNumbers && Array.isArray(stepNumbers) && stepNumbers.length > 0) {
           // Retry specific step numbers (1-based)
           stepsToRetry = plan.steps.filter((step, idx) => stepNumbers.includes(idx + 1));
-          console.log(`🔄 [Retry] Filtering by step numbers ${stepNumbers.join(', ')}: ${stepsToRetry.length} of ${plan.steps.length} steps`);
+          logger.debug(`🔄 [Retry] Filtering by step numbers ${stepNumbers.join(', ')}: ${stepsToRetry.length} of ${plan.steps.length} steps`);
         } else if (stepTools && Array.isArray(stepTools) && stepTools.length > 0) {
           // Retry steps with specific tools
           stepsToRetry = plan.steps.filter(step => {
@@ -163,15 +164,15 @@ const retry_last_command = {
               stepTool === requestedTool
             );
           });
-          console.log(`🔄 [Retry] Filtering by step tools ${stepTools.join(', ')}: ${stepsToRetry.length} of ${plan.steps.length} steps`);
+          logger.debug(`🔄 [Retry] Filtering by step tools ${stepTools.join(', ')}: ${stepsToRetry.length} of ${plan.steps.length} steps`);
         } else {
           // Retry all steps (no filtering)
-          console.log(`🔄 [Retry] Retrying all ${plan.steps.length} steps (no filter specified)`);
+          logger.debug(`🔄 [Retry] Retrying all ${plan.steps.length} steps (no filter specified)`);
         }
         
         // Validate that we have steps to retry
         if (!stepsToRetry || !Array.isArray(stepsToRetry) || stepsToRetry.length === 0) {
-          console.error('❌ [Retry] No steps to retry after filtering:', {
+          logger.error('❌ [Retry] No steps to retry after filtering:', {
             originalStepsCount: plan.steps.length,
             stepNumbers,
             stepTools,
@@ -192,7 +193,7 @@ const retry_last_command = {
           }))
         };
         
-        console.log(`🔄 Retrying multi-step command: ${filteredPlan.steps.length} of ${plan.steps.length} steps`);
+        logger.info(`🔄 Retrying multi-step command: ${filteredPlan.steps.length} of ${plan.steps.length} steps`);
         
         // Get multi-step execution handler
         const multiStepExecution = require('../execution/multiStep');
@@ -218,7 +219,7 @@ const retry_last_command = {
           // Modify the first step's action to include modifications
           if (filteredPlan.steps && filteredPlan.steps.length > 0) {
             filteredPlan.steps[0].action = `${filteredPlan.steps[0].action} ${args.modifications}`;
-            console.log(`📝 Applied modifications to multi-step plan: ${args.modifications}`);
+            logger.debug(`📝 Applied modifications to multi-step plan: ${args.modifications}`);
           }
         }
         
@@ -226,7 +227,7 @@ const retry_last_command = {
         // Only change provider if user explicitly specified provider_override
         if (args.provider_override && args.provider_override !== 'none') {
           // User explicitly requested different provider - apply to all steps that support it
-          console.log(`🔄 [Multi-step Retry] User requested provider override: ${args.provider_override}`);
+          logger.debug(`🔄 [Multi-step Retry] User requested provider override: ${args.provider_override}`);
           if (filteredPlan.steps) {
             filteredPlan.steps.forEach((step, idx) => {
               if (step.parameters) {
@@ -235,7 +236,7 @@ const retry_last_command = {
                 if (toolName.includes('image') || toolName.includes('video') || toolName.includes('edit')) {
                   step.parameters.provider = args.provider_override;
                   step.parameters.service = args.provider_override;
-                  console.log(`🔄 [Multi-step Retry] Overriding provider for step ${idx + 1} to: ${args.provider_override}`);
+                  logger.debug(`🔄 [Multi-step Retry] Overriding provider for step ${idx + 1} to: ${args.provider_override}`);
                 }
               }
             });
@@ -243,7 +244,7 @@ const retry_last_command = {
         } else {
           // No provider override - keep original providers from saved plan
           // The plan already contains the original providers, so we don't need to change anything
-          console.log(`🔄 [Multi-step Retry] Keeping original providers for all steps`);
+          logger.debug(`🔄 [Multi-step Retry] Keeping original providers for all steps`);
         }
         
         // Send ACK with information about which steps are being retried
@@ -360,7 +361,7 @@ const retry_last_command = {
           console.log(`⚠️ [Retry] Original provider not found, using default: gemini`);
         }
         
-        console.log(`🎨 Retrying image generation with:`, imageArgs);
+        logger.debug(`🎨 Retrying image generation with:`, imageArgs);
         return await agentTools.create_image.execute(imageArgs, context);
         
       } else if (tool === 'veo3_video' || tool === 'sora_video' || tool === 'kling_text_to_video' || tool === 'create_video') {
@@ -385,7 +386,7 @@ const retry_last_command = {
           console.log(`⚠️ [Retry] Original provider not found, using default: kling`);
         }
         
-        console.log(`🎬 Retrying video generation with:`, videoArgs);
+        logger.debug(`🎬 Retrying video generation with:`, videoArgs);
         return await agentTools.create_video.execute(videoArgs, context);
         
       } else if (tool === 'edit_image') {
@@ -413,7 +414,7 @@ const retry_last_command = {
           console.log(`⚠️ [Retry] Original service not found, using default: openai`);
         }
         
-        console.log(`✏️ Retrying image edit with:`, editArgs);
+        logger.debug(`✏️ Retrying image edit with:`, editArgs);
         return await agentTools.edit_image.execute(editArgs, context);
         
       } else if (tool === 'gemini_chat' || tool === 'openai_chat' || tool === 'grok_chat') {
@@ -504,7 +505,7 @@ const retry_last_command = {
       }
       
     } catch (error) {
-      console.error('❌ Error in retry_last_command:', error);
+      logger.error('❌ Error in retry_last_command:', { error: error.message, stack: error.stack });
       return {
         success: false,
         error: `שגיאה בביצוע חוזר: ${error.message}`

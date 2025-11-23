@@ -90,7 +90,7 @@ const analyze_image_from_history = {
     }
   },
   execute: async (args, context) => {
-    console.log(`🔧 [Agent Tool] analyze_image_from_history called with image_id: ${args.image_id}`);
+    logger.debug(`🔧 [Agent Tool] analyze_image_from_history called with image_id: ${args.image_id}`);
     
     let imageBuffer = null;
     try {
@@ -134,7 +134,7 @@ const analyze_image_from_history = {
         };
       }
     } catch (error) {
-      console.error('❌ Error in analyze_image_from_history tool:', error);
+      logger.error('❌ Error in analyze_image_from_history tool:', { error: error.message, stack: error.stack });
       // Free memory on error
       imageBuffer = null;
       return {
@@ -172,7 +172,7 @@ const save_user_preference = {
     }
   },
   execute: async (args, context) => {
-    console.log(`🔧 [Agent Tool] save_user_preference called: ${args.preference_key} = ${args.preference_value}`);
+    logger.debug(`🔧 [Agent Tool] save_user_preference called: ${args.preference_key} = ${args.preference_value}`);
     
     try {
       await conversationManager.saveUserPreference(
@@ -186,7 +186,7 @@ const save_user_preference = {
         data: `✅ שמרתי את ההעדפה: ${args.preference_key} = ${args.preference_value}`
       };
     } catch (error) {
-      console.error('❌ Error in save_user_preference tool:', error);
+      logger.error('❌ Error in save_user_preference tool:', { error: error.message, stack: error.stack });
       return {
         success: false,
         error: `שגיאה בשמירת העדפה: ${error.message}`
@@ -218,7 +218,7 @@ const get_long_term_memory = {
     }
   },
   execute: async (args, context) => {
-    console.log(`🔧 [Agent Tool] get_long_term_memory called`);
+    logger.debug(`🔧 [Agent Tool] get_long_term_memory called`);
     
     try {
       const includeSummaries = args.include_summaries !== false;
@@ -265,7 +265,7 @@ const get_long_term_memory = {
       
       return result;
     } catch (error) {
-      console.error('❌ Error in get_long_term_memory tool:', error);
+      logger.error('❌ Error in get_long_term_memory tool:', { error: error.message, stack: error.stack });
       return {
         success: false,
         error: `שגיאה בגישה לזיכרון ארוך טווח: ${error.message}`

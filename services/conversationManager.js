@@ -28,7 +28,7 @@ class ConversationManager {
     this.agentContextManager = new AgentContextManager(this);
     this.summariesManager = new SummariesManager(this);
     
-    console.log('💭 ConversationManager initializing with PostgreSQL...');
+    logger.info('💭 ConversationManager initializing with PostgreSQL...');
     this.databaseManager.initializeDatabase();
   }
 
@@ -223,7 +223,7 @@ class ConversationManager {
     await this.commandsManager.cleanup(30 * 24 * 60 * 60 * 1000);
     
     // Existing cleanup
-    console.log('🧹 Starting full cleanup...');
+    logger.info('🧹 Starting full cleanup...');
     
     const contextDeleted = await this.agentContextManager.cleanupOldAgentContext(30);  // 30 days
     const summariesDeleted = await this.summariesManager.cleanupOldSummaries(10);   // Keep 10 per chat
@@ -235,7 +235,7 @@ class ConversationManager {
       timestamp: new Date().toISOString()
     };
     
-    console.log(`✅ Full cleanup completed:`, stats);
+    logger.info(`✅ Full cleanup completed:`, stats);
     return stats;
   }
 
@@ -244,7 +244,7 @@ class ConversationManager {
    */
   startPeriodicCleanup() {
     if (this.cleanupTimeoutHandle || this.cleanupIntervalHandle) {
-      console.log('ℹ️ Periodic cleanup already scheduled - skipping duplicate setup');
+      logger.info('ℹ️ Periodic cleanup already scheduled - skipping duplicate setup');
       return;
     }
     
@@ -257,23 +257,23 @@ class ConversationManager {
     // Run first cleanup after 1 hour (to not impact startup)
     this.cleanupTimeoutHandle = setTimeout(async () => {
       this.cleanupTimeoutHandle = null;
-      console.log('🧹 Running first scheduled cleanup...');
+      logger.info('🧹 Running first scheduled cleanup...');
       await this.runFullCleanup();
       
       // Then schedule monthly cleanups
       this.cleanupIntervalHandle = setInterval(async () => {
-        console.log('🧹 Running scheduled cleanup...');
+        logger.info('🧹 Running scheduled cleanup...');
         try {
           await this.runFullCleanup();
         } catch (err) {
-          console.error('❌ Error during scheduled cleanup:', err.message);
+          logger.error('❌ Error during scheduled cleanup:', { error: err.message, stack: err.stack });
         }
       }, CLEANUP_INTERVAL_MS);
       
     }, 60 * 60 * 1000);  // 1 hour delay
     
     const intervalDays = Math.round(CLEANUP_INTERVAL_MS / TIME.DAY);
-    console.log(`✅ Periodic cleanup scheduled (~every ${intervalDays} days)`);
+    logger.info(`✅ Periodic cleanup scheduled (~every ${intervalDays} days)`);
   }
 
   /**
@@ -282,7 +282,7 @@ class ConversationManager {
   async close() {
     if (this.pool) {
       await this.pool.end();
-      console.log('🔌 PostgreSQL connection pool closed');
+      logger.info('🔌 PostgreSQL connection pool closed');
     }
     if (this.cleanupTimeoutHandle) {
       clearTimeout(this.cleanupTimeoutHandle);
