@@ -117,25 +117,15 @@ async function sendPoll(chatId, message, options, multipleAnswers = false, quote
       multipleAnswers: multipleAnswers
     };
 
-    // Add quoted message ID if provided
-    if (quotedMessageId) {
-      data.quotedMessageId = quotedMessageId;
-    }
-
     // Add typingTime parameter
     data.typingTime = typingTime;
 
-    // NOTE: quotedMessageId is temporarily disabled for polls.
+    // CRITICAL: quotedMessageId is NOT included for polls.
     // Investigation showed that including it causes the poll to NOT be delivered,
     // even though the API returns 200 OK. This is likely a Green API bug or limitation
     // regarding quoting in sendPoll specifically.
     // See: https://green-api.com/en/docs/api/sending/SendPoll/ (says it's supported, but fails in practice)
-    /*
-    if (quotedMessageId && typeof quotedMessageId === 'string' && quotedMessageId.trim().length > 0) {
-       logger.debug(`🔍 [sendPoll] Adding quotedMessageId: "${quotedMessageId}"`);
-       data.quotedMessageId = quotedMessageId;
-    }
-    */
+    // DO NOT add quotedMessageId to data - it will prevent poll delivery!
 
     logger.info(`📊 [sendPoll] Sending poll to ${chatId}:`, {
       question: message.substring(0, 50),
