@@ -145,6 +145,25 @@ class DatabaseManager {
         )
       `);
 
+      // Add message_id column if it doesn't exist (for existing databases)
+      await client.query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='last_commands' AND column_name='message_id'
+          ) THEN
+            ALTER TABLE last_commands ADD COLUMN message_id VARCHAR(255);
+            -- Update existing rows with a default message_id
+            UPDATE last_commands SET message_id = 'legacy_' || id::text WHERE message_id IS NULL;
+            -- Make it NOT NULL after updating
+            ALTER TABLE last_commands ALTER COLUMN message_id SET NOT NULL;
+            -- Add unique constraint
+            ALTER TABLE last_commands ADD CONSTRAINT last_commands_chat_message_unique UNIQUE(chat_id, message_id);
+          END IF;
+        END $$;
+      `);
+
       // Create message_types table for identifying bot/user messages in Green API history
       await client.query(`
         CREATE TABLE IF NOT EXISTS message_types (
