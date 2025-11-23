@@ -5,6 +5,8 @@
  * Extracted from outgoingHandler.js for better modularity (SRP).
  */
 
+const logger = require('../../utils/logger');
+
 /**
  * Extract message text from various message types
  * @param {Object} messageData - Message data from Green API webhook
@@ -123,18 +125,18 @@ async function extractQuotedMediaUrls(messageData, quotedMessage, chatId, messag
     
     // If still not found, try getMessage to fetch the current message's downloadUrl
     if (!result.imageUrl && getMessageFn && chatId && messageId) {
-      console.log('⚠️ Outgoing: downloadUrl not found in webhook, fetching from Green API...');
+      logger.debug('⚠️ Outgoing: downloadUrl not found in webhook, fetching from Green API...');
       try {
         const originalMessage = await getMessageFn(chatId, messageId);
         result.imageUrl = originalMessage?.downloadUrl || 
                          originalMessage?.fileMessageData?.downloadUrl || 
                          originalMessage?.imageMessageData?.downloadUrl;
-        console.log(`✅ Outgoing: downloadUrl fetched from getMessage: ${result.imageUrl ? 'found' : 'still NOT FOUND'}`);
+        logger.debug(`✅ Outgoing: downloadUrl fetched from getMessage: ${result.imageUrl ? 'found' : 'still NOT FOUND'}`);
       } catch (err) {
-        console.log(`❌ Outgoing: Failed to fetch downloadUrl via getMessage: ${err.message}`);
+        logger.error(`❌ Outgoing: Failed to fetch downloadUrl via getMessage:`, { error: err.message, stack: err.stack });
       }
     }
-    console.log(`📸 Outgoing: Image with caption detected, final downloadUrl: ${result.imageUrl ? 'found' : 'NOT FOUND'}`);
+    logger.debug(`📸 Outgoing: Image with caption detected, final downloadUrl: ${result.imageUrl ? 'found' : 'NOT FOUND'}`);
   } else if (quotedType === 'videoMessage') {
     result.hasVideo = true;
     result.videoUrl = messageData.downloadUrl || 
@@ -146,18 +148,18 @@ async function extractQuotedMediaUrls(messageData, quotedMessage, chatId, messag
     
     // If still not found, try getMessage to fetch the current message's downloadUrl
     if (!result.videoUrl && getMessageFn && chatId && messageId) {
-      console.log('⚠️ Outgoing: Video downloadUrl not found in webhook, fetching from Green API...');
+      logger.debug('⚠️ Outgoing: Video downloadUrl not found in webhook, fetching from Green API...');
       try {
         const originalMessage = await getMessageFn(chatId, messageId);
         result.videoUrl = originalMessage?.downloadUrl || 
                          originalMessage?.fileMessageData?.downloadUrl || 
                          originalMessage?.videoMessageData?.downloadUrl;
-        console.log(`✅ Outgoing: Video downloadUrl fetched from getMessage: ${result.videoUrl ? 'found' : 'still NOT FOUND'}`);
+        logger.debug(`✅ Outgoing: Video downloadUrl fetched from getMessage: ${result.videoUrl ? 'found' : 'still NOT FOUND'}`);
       } catch (err) {
-        console.log(`❌ Outgoing: Failed to fetch video downloadUrl via getMessage: ${err.message}`);
+        logger.error(`❌ Outgoing: Failed to fetch video downloadUrl via getMessage:`, { error: err.message, stack: err.stack });
       }
     }
-    console.log(`🎥 Outgoing: Video with caption detected, final downloadUrl: ${result.videoUrl ? 'found' : 'NOT FOUND'}`);
+    logger.debug(`🎥 Outgoing: Video with caption detected, final downloadUrl: ${result.videoUrl ? 'found' : 'NOT FOUND'}`);
   }
 
   return result;
@@ -223,36 +225,36 @@ function isActualQuote(messageData) {
  * @param {string} messageText - Extracted message text
  */
 function logMessageDetails(messageData, senderName, messageText) {
-  console.log(`📤 Outgoing from ${senderName}:`);
-  console.log(`   Message Type: ${messageData.typeMessage}${messageData.typeMessage === 'editedMessage' ? ' ✏️' : ''}`);
-  console.log(`   messageText extracted: ${messageText ? `"${messageText.substring(0, 100)}"` : 'NULL/UNDEFINED'}`);
+  logger.debug(`📤 Outgoing from ${senderName}:`);
+  logger.debug(`   Message Type: ${messageData.typeMessage}${messageData.typeMessage === 'editedMessage' ? ' ✏️' : ''}`);
+  logger.debug(`   messageText extracted: ${messageText ? `"${messageText.substring(0, 100)}"` : 'NULL/UNDEFINED'}`);
   
   if (messageText) {
-    console.log(`   Text: ${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}`);
+    logger.debug(`   Text: ${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}`);
   }
   
   if (messageData.typeMessage === 'imageMessage') {
     const caption = messageData.fileMessageData?.caption || messageData.imageMessageData?.caption;
-    console.log(`   Image Caption: ${caption || 'N/A'}`);
+    logger.debug(`   Image Caption: ${caption || 'N/A'}`);
   }
   
   if (messageData.typeMessage === 'stickerMessage') {
     const caption = messageData.fileMessageData?.caption;
-    console.log(`   Sticker Caption: ${caption || 'N/A'} (treating as image)`);
+    logger.debug(`   Sticker Caption: ${caption || 'N/A'} (treating as image)`);
   }
   
   if (messageData.typeMessage === 'videoMessage') {
     const caption = messageData.fileMessageData?.caption || messageData.videoMessageData?.caption;
-    console.log(`   Video Caption: ${caption || 'N/A'}`);
+    logger.debug(`   Video Caption: ${caption || 'N/A'}`);
   }
   
   if (messageData.typeMessage === 'quotedMessage' && messageData.quotedMessage) {
-    console.log(`   Quoted Message Type: ${messageData.quotedMessage.typeMessage}`);
+    logger.debug(`   Quoted Message Type: ${messageData.quotedMessage.typeMessage}`);
     if (messageData.quotedMessage.textMessage) {
-      console.log(`   Quoted Text: ${messageData.quotedMessage.textMessage.substring(0, 50)}...`);
+      logger.debug(`   Quoted Text: ${messageData.quotedMessage.textMessage.substring(0, 50)}...`);
     }
     if (messageData.quotedMessage.caption) {
-      console.log(`   Quoted Caption: ${messageData.quotedMessage.caption.substring(0, 50)}...`);
+      logger.debug(`   Quoted Caption: ${messageData.quotedMessage.caption.substring(0, 50)}...`);
     }
   }
 }

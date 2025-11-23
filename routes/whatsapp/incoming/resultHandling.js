@@ -12,6 +12,7 @@ const conversationManager = require('../../../services/conversationManager');
 const { executeAgentQuery } = require('../../../services/agentService');
 const { sendErrorToUser, ERROR_MESSAGES } = require('../../../utils/errorSender');
 const { extractQuotedMessageId } = require('../../../utils/messageHelpers');
+const logger = require('../../../utils/logger');
 
 /**
  * Send multi-step text response
@@ -27,9 +28,9 @@ async function sendMultiStepText(chatId, text, quotedMessageId = null) {
 
   if (cleanText) {
     await sendTextMessage(chatId, cleanText, quotedMessageId, 1000);
-    console.log(`📤 [Multi-step] Text sent first (${cleanText.length} chars)`);
+    logger.debug(`📤 [Multi-step] Text sent first (${cleanText.length} chars)`);
   } else {
-    console.warn(`⚠️ [Multi-step] Text exists but cleanText is empty`);
+    logger.warn(`⚠️ [Multi-step] Text exists but cleanText is empty`);
   }
 }
 
@@ -45,11 +46,11 @@ async function sendImageResult(chatId, agentResult, quotedMessageId = null) {
 
   // For multi-step with alreadySent=true, image was already sent in agentService
   if (agentResult.multiStep && agentResult.alreadySent) {
-    console.log(`✅ [Multi-step] Image already sent in agentService - skipping duplicate`);
+    logger.debug(`✅ [Multi-step] Image already sent in agentService - skipping duplicate`);
     return false;
   }
 
-  console.log(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}`);
+  logger.debug(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}`);
 
   let caption = '';
 
@@ -58,9 +59,9 @@ async function sendImageResult(chatId, agentResult, quotedMessageId = null) {
     caption = (agentResult.imageCaption && agentResult.imageCaption.trim()) || '';
     if (caption) {
       caption = cleanMediaDescription(caption);
-      console.log(`📤 [Multi-step] Image sent with caption: "${caption.substring(0, 50)}..."`);
+      logger.debug(`📤 [Multi-step] Image sent with caption: "${caption.substring(0, 50)}..."`);
     } else {
-      console.log(`📤 [Multi-step] Image sent after text (no caption)`);
+      logger.debug(`📤 [Multi-step] Image sent after text (no caption)`);
     }
   } else {
     // Single-step: Images support captions - use them!
@@ -69,7 +70,7 @@ async function sendImageResult(chatId, agentResult, quotedMessageId = null) {
     if (multipleTools) {
       // Multiple tools → use ONLY imageCaption (specific to this image)
       caption = agentResult.imageCaption || '';
-      console.log(`ℹ️ Multiple tools detected - using imageCaption only to avoid mixing outputs`);
+      logger.debug(`ℹ️ Multiple tools detected - using imageCaption only to avoid mixing outputs`);
     } else {
       // Single tool → can use general text as fallback
       caption = agentResult.imageCaption || agentResult.text || '';
@@ -95,11 +96,11 @@ async function sendVideoResult(chatId, agentResult, quotedMessageId = null) {
 
   // For multi-step, video is already sent in agentService - skip here
   if (agentResult.multiStep && agentResult.alreadySent) {
-    console.log(`⏭️ [Agent] Skipping video send - already sent in multi-step`);
+    logger.debug(`⏭️ [Agent] Skipping video send - already sent in multi-step`);
     return false;
   }
 
-  console.log(`🎬 [Agent] Sending generated video: ${agentResult.videoUrl}`);
+  logger.debug(`🎬 [Agent] Sending generated video: ${agentResult.videoUrl}`);
   // Videos don't support captions well - send as file, text separately
   await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId, 1000);
 
@@ -126,11 +127,11 @@ async function sendAudioResult(chatId, agentResult, quotedMessageId = null) {
 
   // For multi-step, audio is already sent in agentService - skip here
   if (agentResult.multiStep && agentResult.alreadySent) {
-    console.log(`⏭️ [Agent] Skipping audio send - already sent in multi-step`);
+    logger.debug(`⏭️ [Agent] Skipping audio send - already sent in multi-step`);
     return false;
   }
 
-  console.log(`🎵 [Agent] Sending generated audio: ${agentResult.audioUrl}`);
+  logger.debug(`🎵 [Agent] Sending generated audio: ${agentResult.audioUrl}`);
   // Audio doesn't support captions - send as file only
   const fullAudioUrl = agentResult.audioUrl.startsWith('http')
     ? agentResult.audioUrl
@@ -153,25 +154,25 @@ async function sendPollResult(chatId, agentResult, quotedMessageId = null) {
 
   // For multi-step, poll is already sent in agentService - skip here
   if (agentResult.multiStep && agentResult.alreadySent) {
-    console.log(`⏭️ [Agent] Skipping poll send - already sent in multi-step`);
+    logger.debug(`⏭️ [Agent] Skipping poll send - already sent in multi-step`);
     return false;
   }
 
   try {
-    console.log(`📊 [Agent] Sending poll: ${agentResult.poll.question}`);
+    logger.debug(`📊 [Agent] Sending poll: ${agentResult.poll.question}`);
     // Convert options to Green API format
     const pollOptions = agentResult.poll.options.map(opt => ({ optionName: opt }));
     await sendPoll(chatId, agentResult.poll.question, pollOptions, false, quotedMessageId, 1000);
     return true;
   } catch (error) {
-    console.error(`❌ [Agent] Failed to send poll:`, error.message);
+    logger.error(`❌ [Agent] Failed to send poll:`, { error: error.message, stack: error.stack });
     
     // Send error to user
     try {
       const { sendTextMessage } = require('../../services/greenApiService');
       await sendErrorToUser(chatId, error, { context: 'SENDING_POLL', quotedMessageId });
     } catch (sendError) {
-      console.error(`❌ [Agent] Failed to send poll error message:`, sendError.message);
+      logger.error(`❌ [Agent] Failed to send poll error message:`, { error: sendError.message, stack: sendError.stack });
     }
     
     return false;
@@ -190,11 +191,11 @@ async function sendLocationResult(chatId, agentResult, quotedMessageId = null) {
 
   // For multi-step, location is already sent in agentService - skip here
   if (agentResult.multiStep && agentResult.alreadySent) {
-    console.log(`⏭️ [Agent] Skipping location send - already sent in multi-step`);
+    logger.debug(`⏭️ [Agent] Skipping location send - already sent in multi-step`);
     return false;
   }
 
-  console.log(`📍 [Agent] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
+  logger.debug(`📍 [Agent] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
   await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '', quotedMessageId, 1000);
   // Send location info as separate text message
   if (agentResult.locationInfo && agentResult.locationInfo.trim()) {
@@ -217,7 +218,7 @@ async function sendSingleStepText(chatId, agentResult, mediaSent, quotedMessageI
                        Object.values(agentResult.toolResults).some(result => result?.error);
   
   if (hasToolError) {
-    console.log(`⚠️ [Result Handling] Tool error detected - skipping Gemini final text to avoid duplicate`);
+    logger.debug(`⚠️ [Result Handling] Tool error detected - skipping Gemini final text to avoid duplicate`);
     return;
   }
   
@@ -232,7 +233,7 @@ async function sendSingleStepText(chatId, agentResult, mediaSent, quotedMessageI
         await sendTextMessage(chatId, cleanText, quotedMessageId, 1000);
       }
     } else {
-      console.log(`ℹ️ Multiple tools detected - skipping general text to avoid mixing outputs`);
+      logger.debug(`ℹ️ Multiple tools detected - skipping general text to avoid mixing outputs`);
     }
   }
 }
@@ -258,7 +259,7 @@ async function handlePostProcessing(chatId, normalized, agentResult, quotedMessa
     const hasTextResponse = agentResult.text && agentResult.text.trim().length > 0;
 
     if (wantsText && wantsImage && !imageAlreadyGenerated && hasTextResponse) {
-      console.log('🎯 [Agent Post] Multi-step text+image request detected, but no image was generated. Creating image from text response...');
+      logger.debug('🎯 [Agent Post] Multi-step text+image request detected, but no image was generated. Creating image from text response...');
 
       // נבנה פרומפט לתמונה שמבוססת על הטקסט שהבוט כבר החזיר (למשל בדיחה)
       const baseText = agentResult.text.trim();
@@ -275,7 +276,7 @@ async function handlePostProcessing(chatId, normalized, agentResult, quotedMessa
       });
 
       if (imageResult && imageResult.success && imageResult.imageUrl) {
-        console.log(`📸 [Agent Post] Sending complementary image generated from text: ${imageResult.imageUrl}`);
+        logger.debug(`📸 [Agent Post] Sending complementary image generated from text: ${imageResult.imageUrl}`);
 
         // Clean caption before sending
         let caption = (imageResult.imageCaption || '').trim();
@@ -289,11 +290,11 @@ async function handlePostProcessing(chatId, normalized, agentResult, quotedMessa
           1000
         );
       } else {
-        console.warn('⚠️ [Agent Post] Failed to generate complementary image for text+image request');
+        logger.warn('⚠️ [Agent Post] Failed to generate complementary image for text+image request');
       }
     }
   } catch (postError) {
-    console.error('❌ [Agent Post] Error while handling text+image multi-step fallback:', postError.message);
+    logger.error('❌ [Agent Post] Error while handling text+image multi-step fallback:', { error: postError.message, stack: postError.stack });
   }
 }
 
@@ -313,7 +314,7 @@ async function saveBotResponse(chatId, agentResult) {
   // 
   // Bot messages will be available in get_chat_history via Green API
   // and identified using conversationManager.isBotMessage() (DB-backed)
-  console.log(`💾 [Agent] Bot response sent (tracked in DB)`);
+  logger.debug(`💾 [Agent] Bot response sent (tracked in DB)`);
 }
 
 /**
@@ -327,13 +328,13 @@ async function sendAgentResults(chatId, agentResult, normalized) {
   // For multi-step, results are sent immediately after each step in agentService
   // If alreadySent is true, skip sending here to avoid duplicates
   if (agentResult.multiStep && agentResult.alreadySent) {
-    console.log(`✅ [Multi-step] Results already sent immediately after each step - skipping duplicate sending`);
+    logger.debug(`✅ [Multi-step] Results already sent immediately after each step - skipping duplicate sending`);
     
     // CRITICAL: Still save bot response to conversation history even if already sent!
     // This ensures the bot can see its own previous responses in future requests
     await saveBotResponse(chatId, agentResult);
     
-    console.log(`✅ [Agent] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
+    logger.info(`✅ [Agent] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
     return true;
   }
 
@@ -347,7 +348,7 @@ async function sendAgentResults(chatId, agentResult, normalized) {
   if (agentResult.multiStep && agentResult.text && agentResult.text.trim()) {
     await sendMultiStepText(chatId, agentResult.text, quotedMessageId);
   } else {
-    console.warn(`⚠️ [Multi-step] Text not sent - multiStep: ${agentResult.multiStep}, text: ${!!agentResult.text}, trimmed: ${!!agentResult.text?.trim()}`);
+    logger.warn(`⚠️ [Multi-step] Text not sent - multiStep: ${agentResult.multiStep}, text: ${!!agentResult.text}, trimmed: ${!!agentResult.text?.trim()}`);
   }
 
   // CRITICAL: Send media if URLs exist (Rule: Media MUST be sent!)
@@ -380,7 +381,7 @@ async function sendAgentResults(chatId, agentResult, normalized) {
   // Save bot response to conversation history
   await saveBotResponse(chatId, agentResult);
 
-  console.log(`✅ [Agent] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
+  logger.info(`✅ [Agent] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
   return true;
 }
 

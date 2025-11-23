@@ -20,7 +20,7 @@ const {
  * Handle image editing with Gemini or OpenAI
  */
 async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt, service, originalMessageId }) {
-  console.log(`🎨 Processing ${service} image edit request from ${senderName}`);
+  logger.info(`🎨 Processing ${service} image edit request from ${senderName}`);
 
   // Get originalMessageId for quoting all responses
   const quotedMessageId = originalMessageId || null;
@@ -30,7 +30,7 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
     const ackMessage = service === 'gemini'
       ? '🎨 מעבד באמצעות Gemini...'
       : '🖼️ מעבד באמצעות OpenAI...';
-    await sendTextMessage(chatId, ackMessage, quotedMessageId, 1000);
+    await sendTextMessage(chatId, ackMessage, quotedMessageId, TIME.TYPING_INDICATOR);
 
     // Note: Image editing commands do NOT add to conversation history
 
@@ -56,11 +56,11 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
 
       // Send text response if available
       if (editResult.description && editResult.description.trim()) {
-        await sendTextMessage(chatId, editResult.description, quotedMessageId, 1000);
+        await sendTextMessage(chatId, editResult.description, quotedMessageId, TIME.TYPING_INDICATOR);
 
         // Note: Image editing results do NOT add to conversation history
 
-        console.log(`✅ ${service} edit text response sent to ${senderName}: ${editResult.description}`);
+        logger.debug(`✅ ${service} edit text response sent to ${senderName}: ${editResult.description}`);
         sentSomething = true;
       }
 
@@ -70,25 +70,25 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
 
         await sendFileByUrl(chatId, editResult.imageUrl, fileName, '', quotedMessageId, TIME.TYPING_INDICATOR);
 
-        console.log(`✅ ${service} edited image sent to ${senderName}`);
+        logger.debug(`✅ ${service} edited image sent to ${senderName}`);
         sentSomething = true;
       }
 
       // If nothing was sent, it means we have success but no content
       if (!sentSomething) {
         await sendTextMessage(chatId, '✅ העיבוד הושלם בהצלחה', quotedMessageId, TIME.TYPING_INDICATOR);
-        console.log(`✅ ${service} edit completed but no content to send to ${senderName}`);
+        logger.debug(`✅ ${service} edit completed but no content to send to ${senderName}`);
       }
     } else {
       const errorMsg = editResult.error || 'לא הצלחתי לערוך את התמונה. נסה שוב מאוחר יותר.';
       const formattedError = formatProviderError(service, errorMsg);
       await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
-      console.log(`❌ ${service} image edit failed for ${senderName}: ${errorMsg}`);
+      logger.warn(`❌ ${service} image edit failed for ${senderName}: ${errorMsg}`);
     }
   } catch (error) {
-    console.error(`❌ Error in ${service} image editing:`, error.message || error);
+    logger.error(`❌ Error in ${service} image editing:`, { error: error.message || error, stack: error.stack });
     const formattedError = formatProviderError(service, error.message || error);
-    await sendTextMessage(chatId, formattedError, quotedMessageId, 1000);
+      await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
   }
 }
 
@@ -104,7 +104,7 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
   } else {
     serviceName = 'Kling 2.1 Master';
   }
-  console.log(`🎬 Processing ${serviceName} image-to-video request from ${senderName}`);
+  logger.info(`🎬 Processing ${serviceName} image-to-video request from ${senderName}`);
 
   // Get originalMessageId for quoting all responses
   const quotedMessageId = originalMessageId || null;
@@ -121,7 +121,7 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
     } else {
       ackMessage = '🎬 יוצר וידאו עם Kling 2.1...';
     }
-    await sendTextMessage(chatId, ackMessage, quotedMessageId, 1000);
+    await sendTextMessage(chatId, ackMessage, quotedMessageId, TIME.TYPING_INDICATOR);
 
     // Note: Image-to-video commands do NOT add to conversation history
 
@@ -148,27 +148,27 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
       // Send the generated video without caption
       const fileName = `${service}_image_video_${Date.now()}.mp4`;
 
-      await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '', quotedMessageId, 1000);
+      await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '', quotedMessageId, TIME.TYPING_INDICATOR);
 
       // NOTE: Bot messages are no longer saved to DB to avoid duplication.
       // Bot messages are tracked in DB (message_types table) when sent through Green API.
-      console.log(`💾 [ImageHandler] Video created (tracked in DB)`);
+      logger.debug(`💾 [ImageHandler] Video created (tracked in DB)`);
 
-      console.log(`✅ ${serviceName} image-to-video sent to ${senderName}`);
+      logger.info(`✅ ${serviceName} image-to-video sent to ${senderName}`);
     } else {
       const errorMsg = videoResult.error || 'לא הצלחתי ליצור וידאו מהתמונה. נסה שוב מאוחר יותר.';
       // Map service to provider name for formatting
       const providerName = service === 'veo3' ? 'veo3' : service === 'sora' ? 'sora' : 'kling';
       const formattedError = formatProviderError(providerName, errorMsg);
       await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
-      console.log(`❌ ${serviceName} image-to-video failed for ${senderName}: ${errorMsg}`);
+      logger.warn(`❌ ${serviceName} image-to-video failed for ${senderName}: ${errorMsg}`);
     }
   } catch (error) {
-    console.error(`❌ Error in ${serviceName} image-to-video:`, error.message || error);
+    logger.error(`❌ Error in ${serviceName} image-to-video:`, { error: error.message || error, stack: error.stack });
     // Map service to provider name for formatting
     const providerName = service === 'veo3' ? 'veo3' : service === 'sora' ? 'sora' : 'kling';
     const formattedError = formatProviderError(providerName, error.message || error);
-    await sendTextMessage(chatId, formattedError, quotedMessageId, 1000);
+      await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
   }
 }
 

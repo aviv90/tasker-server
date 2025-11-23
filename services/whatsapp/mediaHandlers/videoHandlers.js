@@ -8,12 +8,14 @@ const { sendTextMessage, sendFileByUrl, downloadFile } = require('../../greenApi
 const { generateRunwayVideoFromVideo } = require('../../geminiService');
 const { sendAck } = require('../messaging');
 const { formatProviderError } = require('../../../utils/errorHandler');
+const { TIME } = require('../../../utils/constants');
+const logger = require('../../../utils/logger');
 
 /**
  * Handle video-to-video processing with RunwayML Gen4
  */
 async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prompt, originalMessageId }) {
-  console.log(`🎬 Processing RunwayML Gen4 video-to-video request from ${senderName}`);
+  logger.info(`🎬 Processing RunwayML Gen4 video-to-video request from ${senderName}`);
 
   // Get originalMessageId for quoting all responses
   const quotedMessageId = originalMessageId || null;
@@ -38,21 +40,21 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
       // Send the generated video without caption
       const fileName = `runway_video_${Date.now()}.mp4`;
 
-      await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '', quotedMessageId, 1000);
+      await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '', quotedMessageId, TIME.TYPING_INDICATOR);
 
       // Note: Video-to-video results do NOT add to conversation history
 
-      console.log(`✅ RunwayML Gen4 video-to-video sent to ${senderName}`);
+      logger.info(`✅ RunwayML Gen4 video-to-video sent to ${senderName}`);
     } else {
       const errorMsg = videoResult.error || 'לא הצלחתי לעבד את הווידאו. נסה שוב מאוחר יותר.';
       const formattedError = formatProviderError('runway', errorMsg);
-      await sendTextMessage(chatId, formattedError, quotedMessageId, 1000);
-      console.log(`❌ RunwayML Gen4 video-to-video failed for ${senderName}: ${errorMsg}`);
+      await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
+      logger.warn(`❌ RunwayML Gen4 video-to-video failed for ${senderName}: ${errorMsg}`);
     }
   } catch (error) {
-    console.error('❌ Error in RunwayML Gen4 video-to-video:', error.message || error);
+    logger.error('❌ Error in RunwayML Gen4 video-to-video:', { error: error.message || error, stack: error.stack });
     const formattedError = formatProviderError('runway', error.message || error);
-    await sendTextMessage(chatId, formattedError, quotedMessageId, 1000);
+    await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
   }
 }
 

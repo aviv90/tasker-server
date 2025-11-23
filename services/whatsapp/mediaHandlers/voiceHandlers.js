@@ -21,7 +21,7 @@ const audioConverterService = require('../../audioConverterService');
  * Flow: Speech-to-Text → Voice Clone → Gemini Response → Text-to-Speech
  */
 async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, originalMessageId }) {
-  console.log(`🎤 Processing voice-to-voice request from ${senderName}`);
+  logger.info(`🎤 Processing voice-to-voice request from ${senderName}`);
 
   // Get originalMessageId for quoting all responses
   const quotedMessageId = originalMessageId || null;
@@ -35,28 +35,28 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
     const audioBuffer = await downloadFile(audioUrl);
 
     // Step 2: Speech-to-Text transcription
-    console.log(`🔄 Step 1: Transcribing speech...`);
+    logger.debug(`🔄 Step 1: Transcribing speech...`);
     const transcriptionOptions = TRANSCRIPTION_DEFAULTS;
 
     const transcriptionResult = await speechService.speechToText(audioBuffer, transcriptionOptions);
 
     if (transcriptionResult.error) {
-      console.error('❌ Transcription failed:', transcriptionResult.error);
+      logger.error('❌ Transcription failed:', { error: transcriptionResult.error });
       // We don't know the language yet, so use Hebrew as default for error messages
       await sendErrorToUser(chatId, transcriptionResult.error, { context: 'TRANSCRIPTION', quotedMessageId });
       return;
     }
 
     const transcribedText = transcriptionResult.text;
-    console.log(`✅ Step 1 complete: Transcribed ${transcribedText.length} characters`);
-    console.log(`📝 Transcription complete: "${transcribedText}"`);
+    logger.debug(`✅ Step 1 complete: Transcribed ${transcribedText.length} characters`);
+    logger.debug(`📝 Transcription complete: "${transcribedText}"`);
 
     // Use our own language detection on the transcribed text for consistency
     const originalLanguage = voiceService.detectLanguage(transcribedText);
-    console.log(`🌐 STT detected: ${transcriptionResult.detectedLanguage}, Our detection: ${originalLanguage}`);
+    logger.debug(`🌐 STT detected: ${transcriptionResult.detectedLanguage}, Our detection: ${originalLanguage}`);
 
     // Try to route to agent to see if this is a command (let the Agent/Planner decide)
-    console.log(`🔄 Routing transcribed text to agent for evaluation...`);
+    logger.debug(`🔄 Routing transcribed text to agent for evaluation...`);
     
     const { routeToAgent } = require('../../agentRouter');
     const normalized = {
@@ -71,12 +71,12 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
     
     // If agent successfully executed a tool/command, send the result and exit
     if (agentResult.success && (agentResult.toolsUsed?.length > 0 || agentResult.imageUrl || agentResult.videoUrl || agentResult.audioUrl)) {
-      console.log(`🎯 Agent identified and executed command/tool from voice message`);
+      logger.info(`🎯 Agent identified and executed command/tool from voice message`);
       
       // NOTE: User messages are no longer saved to DB to avoid duplication.
       // All messages are retrieved from Green API getChatHistory when needed.
       // Voice transcription is handled automatically and the result is sent to the user.
-      console.log(`💾 [VoiceHandler] Voice message processed (not saving to DB - using Green API history)`);
+      logger.debug(`💾 [VoiceHandler] Voice message processed (not saving to DB - using Green API history)`);
       
       // Send agent result (text, image, video, audio, etc.) in parallel for better performance
       const sendPromises = [];
@@ -85,7 +85,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
         sendPromises.push(sendTextMessage(chatId, agentResult.text, quotedMessageId, TIME.TYPING_INDICATOR));
       }
       if (agentResult.imageUrl) {
-        sendPromises.push(sendFileByUrl(chatId, agentResult.imageUrl, `image_${Date.now()}.jpg`, '', quotedMessageId, 1000));
+        sendPromises.push(sendFileByUrl(chatId, agentResult.imageUrl, `image_${Date.now()}.jpg`, '', quotedMessageId, TIME.TYPING_INDICATOR));
       }
       if (agentResult.videoUrl) {
         sendPromises.push(sendFileByUrl(chatId, agentResult.videoUrl, `video_${Date.now()}.mp4`, '', quotedMessageId, TIME.TYPING_INDICATOR));
@@ -95,12 +95,12 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
       }
       await Promise.all(sendPromises);
       
-      console.log(`✅ Command from voice message processed successfully`);
+      logger.info(`✅ Command from voice message processed successfully`);
       return;
     }
     
     // If agent didn't execute any tool, treat as regular voice-to-voice conversation
-    console.log(`💬 Not a command - proceeding with voice-to-voice conversation`);
+    logger.debug(`💬 Not a command - proceeding with voice-to-voice conversation`);
 
     // Don't send transcription to user - they should only receive the final voice response
 
@@ -109,7 +109,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
       getAudioDuration(audioBuffer),
       (async () => {
         // Step 3: Generate Gemini response in the same language as the original
-        console.log(`🔄 Step 3: Generating Gemini response in ${originalLanguage}...`);
+        logger.debug(`🔄 Step 3: Generating Gemini response in ${originalLanguage}...`);
 
         // Create language-aware prompt for Gemini
         const languageInstruction = originalLanguage === 'he'
@@ -138,7 +138,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
     let shouldCloneVoice = audioDuration >= MIN_DURATION_FOR_CLONING;
 
     if (shouldCloneVoice) {
-      console.log(`🔄 Step 2: Creating voice clone (duration: ${audioDuration.toFixed(2)}s >= ${MIN_DURATION_FOR_CLONING}s)...`);
+      logger.debug(`🔄 Step 2: Creating voice clone (duration: ${audioDuration.toFixed(2)}s >= ${MIN_DURATION_FOR_CLONING}s)...`);
 
       const voiceCloneOptions = {
         name: `WhatsApp Voice Clone ${Date.now()}`,
@@ -156,65 +156,65 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
       const voiceCloneResult = await voiceService.createInstantVoiceClone(audioBuffer, voiceCloneOptions);
 
       if (voiceCloneResult.error) {
-        console.warn(`⚠️ Voice cloning failed: ${voiceCloneResult.error}. Falling back to random voice.`);
+        logger.warn(`⚠️ Voice cloning failed: ${voiceCloneResult.error}. Falling back to random voice.`);
         shouldCloneVoice = false;
       } else {
         voiceId = voiceCloneResult.voiceId;
-        console.log(`✅ Step 2 complete: Voice cloned (ID: ${voiceId}), Language: ${originalLanguage}`);
+        logger.info(`✅ Step 2 complete: Voice cloned (ID: ${voiceId}), Language: ${originalLanguage}`);
       }
     } else {
-      console.log(`⏭️ Step 2: Skipping voice clone (duration: ${audioDuration.toFixed(2)}s < ${MIN_DURATION_FOR_CLONING}s) - will use random voice`);
+      logger.debug(`⏭️ Step 2: Skipping voice clone (duration: ${audioDuration.toFixed(2)}s < ${MIN_DURATION_FOR_CLONING}s) - will use random voice`);
     }
 
     // NOTE: User messages are no longer saved to DB to avoid duplication.
     // All messages are retrieved from Green API getChatHistory when needed.
-    console.log(`💾 [VoiceHandler] Voice message processed (not saving to DB - using Green API history)`);
+    logger.debug(`💾 [VoiceHandler] Voice message processed (not saving to DB - using Green API history)`);
 
     if (geminiResult.error) {
-      console.error('❌ Gemini generation failed:', geminiResult.error);
+      logger.error('❌ Gemini generation failed:', { error: geminiResult.error });
       const errorMessage = originalLanguage === 'he'
         ? formatProviderError('gemini', geminiResult.error)
         : formatProviderError('gemini', geminiResult.error);
-      await sendTextMessage(chatId, errorMessage, quotedMessageId, 1000);
+      await sendTextMessage(chatId, errorMessage, quotedMessageId, TIME.TYPING_INDICATOR);
 
       // Clean up voice clone before returning (only if we cloned)
       if (shouldCloneVoice && voiceId) {
         try {
           await voiceService.deleteVoice(voiceId);
-          console.log(`🧹 Voice clone ${voiceId} deleted (cleanup after Gemini error)`);
+          logger.debug(`🧹 Voice clone ${voiceId} deleted (cleanup after Gemini error)`);
         } catch (cleanupError) {
-          console.warn('⚠️ Could not delete voice clone:', cleanupError.message);
+          logger.warn('⚠️ Could not delete voice clone:', { error: cleanupError.message });
         }
       }
       return;
     }
 
     const geminiResponse = geminiResult.text;
-    console.log(`✅ Step 3 complete: Gemini response generated`);
+    logger.debug(`✅ Step 3 complete: Gemini response generated`);
 
     // NOTE: Bot messages are no longer saved to DB to avoid duplication.
     // Bot messages are tracked in DB (message_types table) when sent through Green API.
-    console.log(`💾 [VoiceHandler] Bot response sent (tracked in DB)`);
+    logger.debug(`💾 [VoiceHandler] Bot response sent (tracked in DB)`);
 
     // Step 4: Text-to-Speech with cloned voice or random voice
     const responseLanguage = originalLanguage; // Force same language as original
-    console.log(`🌐 Language consistency enforced:`);
-    console.log(`   - Original (from user): ${originalLanguage}`);
-    console.log(`   - TTS (forced same): ${responseLanguage}`);
+    logger.debug(`🌐 Language consistency enforced:`);
+    logger.debug(`   - Original (from user): ${originalLanguage}`);
+    logger.debug(`   - TTS (forced same): ${responseLanguage}`);
 
     // If voice wasn't cloned, get a random voice for the target language
     if (!shouldCloneVoice || !voiceId) {
-      console.log(`🔄 Step 4: Getting random voice for ${responseLanguage} (no cloning)...`);
+      logger.debug(`🔄 Step 4: Getting random voice for ${responseLanguage} (no cloning)...`);
       const randomVoiceResult = await voiceService.getVoiceForLanguage(responseLanguage);
       if (randomVoiceResult.error) {
-        console.error(`❌ Could not get random voice: ${randomVoiceResult.error}`);
+        logger.error(`❌ Could not get random voice:`, { error: randomVoiceResult.error });
         await sendErrorToUser(chatId, null, { context: 'VOICE_RESPONSE', quotedMessageId });
         return;
       }
       voiceId = randomVoiceResult.voiceId;
-      console.log(`✅ Using random voice: ${voiceId} for language ${responseLanguage}`);
+      logger.debug(`✅ Using random voice: ${voiceId} for language ${responseLanguage}`);
     } else {
-      console.log(`🔄 Step 4: Converting text to speech with cloned voice...`);
+      logger.debug(`🔄 Step 4: Converting text to speech with cloned voice...`);
     }
 
     const ttsOptions = {
@@ -226,59 +226,59 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
     const ttsResult = await voiceService.textToSpeech(voiceId, geminiResponse, ttsOptions);
 
     if (ttsResult.error) {
-      console.error('❌ Text-to-speech failed:', ttsResult.error);
+      logger.error('❌ Text-to-speech failed:', { error: ttsResult.error });
       // If TTS fails, send error message (don't send the Gemini response as text)
       const errorMessage = originalLanguage === 'he'
         ? '❌ סליחה, לא הצלחתי ליצור תגובה קולית. נסה שוב.'
         : '❌ Sorry, I couldn\'t generate voice response. Please try again.';
-      await sendTextMessage(chatId, errorMessage, quotedMessageId, 1000);
+      await sendTextMessage(chatId, errorMessage, quotedMessageId, TIME.TYPING_INDICATOR);
 
       // Clean up voice clone before returning (only if we cloned)
       if (shouldCloneVoice && voiceId) {
         try {
           await voiceService.deleteVoice(voiceId);
-          console.log(`🧹 Voice clone ${voiceId} deleted (cleanup after TTS error)`);
+          logger.debug(`🧹 Voice clone ${voiceId} deleted (cleanup after TTS error)`);
         } catch (cleanupError) {
-          console.warn('⚠️ Could not delete voice clone:', cleanupError.message);
+          logger.warn('⚠️ Could not delete voice clone:', { error: cleanupError.message });
         }
       }
       return;
     }
 
-    console.log(`✅ Step 4 complete: Audio generated at ${ttsResult.audioUrl}`);
+    logger.debug(`✅ Step 4 complete: Audio generated at ${ttsResult.audioUrl}`);
 
     // Step 5: Convert and send voice response back to user as voice note
-    console.log(`🔄 Converting voice-to-voice to Opus format for voice note...`);
+    logger.debug(`🔄 Converting voice-to-voice to Opus format for voice note...`);
     const conversionResult = await audioConverterService.audioConverterService.convertUrlToOpus(ttsResult.audioUrl, 'mp3');
 
     if (!conversionResult.success) {
-      console.error('❌ Audio conversion failed:', conversionResult.error);
+      logger.error('❌ Audio conversion failed:', { error: conversionResult.error });
       // Fallback: send as regular MP3 file
       const fullAudioUrl = ttsResult.audioUrl.startsWith('http')
         ? ttsResult.audioUrl
         : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
-      await sendFileByUrl(chatId, fullAudioUrl, `voice_${Date.now()}.mp3`, '', quotedMessageId, 1000);
+      await sendFileByUrl(chatId, fullAudioUrl, `voice_${Date.now()}.mp3`, '', quotedMessageId, TIME.TYPING_INDICATOR);
     } else {
       // Send as voice note with Opus format
       const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
       await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '', quotedMessageId, TIME.TYPING_INDICATOR);
-      console.log(`✅ Voice-to-voice sent as voice note: ${conversionResult.fileName}`);
+      logger.debug(`✅ Voice-to-voice sent as voice note: ${conversionResult.fileName}`);
     }
 
-    console.log(`✅ Voice-to-voice processing complete for ${senderName}`);
+    logger.info(`✅ Voice-to-voice processing complete for ${senderName}`);
 
     // Cleanup: Delete the cloned voice (only if we cloned - ElevenLabs has limits)
     if (shouldCloneVoice && voiceId) {
       try {
         await voiceService.deleteVoice(voiceId);
-        console.log(`🧹 Cleanup: Voice ${voiceId} deleted`);
+        logger.debug(`🧹 Cleanup: Voice ${voiceId} deleted`);
       } catch (cleanupError) {
-        console.warn('⚠️ Voice cleanup failed:', cleanupError.message);
+        logger.warn('⚠️ Voice cleanup failed:', { error: cleanupError.message });
       }
     }
 
   } catch (error) {
-    console.error('❌ Error in voice-to-voice processing:', error.message || error);
+    logger.error('❌ Error in voice-to-voice processing:', { error: error.message || error, stack: error.stack });
     // Get quotedMessageId for error response (preserve original message ID)
     const quotedMessageId = originalMessageId || null;
     await sendErrorToUser(chatId, error, { context: 'PROCESSING_VOICE', quotedMessageId });
