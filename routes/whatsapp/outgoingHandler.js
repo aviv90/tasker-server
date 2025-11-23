@@ -10,6 +10,7 @@ const { sendTextMessage } = require('../../services/greenApiService');
 const conversationManager = require('../../services/conversationManager');
 const { routeToAgent } = require('../../services/agentRouter');
 const { sendErrorToUser, ERROR_MESSAGES } = require('../../utils/errorSender');
+const messageTypeCache = require('../../utils/messageTypeCache');
 
 // Import WhatsApp utilities
 const { isAdminCommand } = require('../../services/whatsapp/authorization');
@@ -50,7 +51,20 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
     // Mark message as processed
     processedMessages.add(messageId);
     
+    // Mark outgoing message type in cache
+    // If it's a command (starts with "# "), save it for retry
+    // Otherwise, mark as user outgoing
     const chatId = senderData.chatId;
+    const messageText = extractMessageText(messageData);
+    
+    if (messageText && /^#\s+/.test(messageText.trim())) {
+      // This is a command - will be saved after processing in incomingHandler
+      // For now, just mark as user outgoing (will be updated if processed as command)
+      messageTypeCache.markAsUserOutgoing(chatId, messageId);
+    } else {
+      // Regular outgoing message from user (not a command)
+      messageTypeCache.markAsUserOutgoing(chatId, messageId);
+    }
     const senderId = senderData.sender;
     const senderName = senderData.senderName || senderId;
     const senderContactName = senderData.senderContactName || "";
@@ -206,10 +220,10 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
         console.log('🤖 [AGENT - OUTGOING] Processing request with Gemini Function Calling');
         
         try {
-            // 🧠 CRITICAL: Save user message to conversation history BEFORE processing
-            // This ensures continuity and allows the bot to see the full conversation
-            await conversationManager.addMessage(chatId, 'user', normalized.userText);
-            console.log(`💾 [Agent - Outgoing] Saved user message to conversation history`);
+            // NOTE: User messages are no longer saved to DB to avoid duplication.
+            // All messages are retrieved from Green API getChatHistory when needed.
+            // Commands are saved to messageTypeCache for retry functionality.
+            console.log(`💾 [Agent - Outgoing] Processing command (not saving to DB - using Green API history)`);
             
             const agentResult = await routeToAgent(normalized, chatId);
             

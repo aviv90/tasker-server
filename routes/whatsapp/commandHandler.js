@@ -3,29 +3,43 @@
  * 
  * Handles command persistence and provider override for retry functionality.
  * Extracted from whatsappRoutes.js (Phase 4.6)
+ * 
+ * NOTE: Commands are now saved to messageTypeCache instead of DB
+ * to avoid duplication. All messages are retrieved from Green API.
  */
 
-const conversationManager = require('../../services/conversationManager');
+const messageTypeCache = require('../../utils/messageTypeCache');
 
 /**
- * Save last executed command for retry functionality (persisted to DB)
+ * Save last executed command for retry functionality (saved to cache)
  * @param {string} chatId - Chat ID
+ * @param {string} messageId - Message ID from Green API
  * @param {Object} decision - Router decision object
  * @param {Object} options - Additional options (imageUrl, videoUrl, normalized)
  */
-async function saveLastCommand(chatId, decision, options = {}) {
+async function saveLastCommand(chatId, messageId, decision, options = {}) {
   // Don't save retry, clarification, or denial commands
   if (['retry_last_command', 'ask_clarification', 'deny_unauthorized'].includes(decision.tool)) {
     return;
   }
   
-  // Save to database for persistence across restarts
-  await conversationManager.saveLastCommand(chatId, decision.tool, decision.args, {
+  if (!messageId) {
+    console.warn('⚠️ [CommandHandler] No messageId available, cannot save command to cache');
+    return;
+  }
+  
+  // Save to cache (not DB) for retry functionality
+  const commandMetadata = {
+    tool: decision.tool,
+    toolArgs: decision.args,
     normalized: options.normalized,
     imageUrl: options.imageUrl,
     videoUrl: options.videoUrl,
-    audioUrl: options.audioUrl
-  });
+    audioUrl: options.audioUrl,
+    prompt: options.prompt || ''
+  };
+  
+  messageTypeCache.saveCommand(chatId, messageId, commandMetadata);
 }
 
 // Provider override helper for retry (supports Hebrew/English variants)

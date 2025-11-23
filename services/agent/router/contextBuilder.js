@@ -4,6 +4,7 @@
  */
 
 const conversationManager = require('../../conversationManager');
+const messageTypeCache = require('../../../utils/messageTypeCache');
 const { summarizeLastCommand } = require('../utils/resultUtils');
 const { parseJSONSafe } = require('../utils/resultUtils');
 
@@ -16,14 +17,21 @@ const { parseJSONSafe } = require('../utils/resultUtils');
 async function buildContextualPrompt(input, chatId) {
   const userText = input.userText || '';
   
-  // Fetch last command for context-aware behaviour
-  const lastCommandRaw = await conversationManager.getLastCommand(chatId);
+  // Fetch last command for context-aware behaviour (from cache, not DB)
+  const lastCommandRaw = messageTypeCache.getLastCommand(chatId);
   let parsedLastCommand = null;
   if (lastCommandRaw) {
     parsedLastCommand = {
-      ...lastCommandRaw,
-      args: parseJSONSafe(lastCommandRaw.args),
-      normalized: parseJSONSafe(lastCommandRaw.normalized)
+      tool: lastCommandRaw.tool,
+      args: lastCommandRaw.toolArgs || lastCommandRaw.args,
+      normalized: lastCommandRaw.normalized,
+      prompt: lastCommandRaw.prompt,
+      failed: lastCommandRaw.failed,
+      imageUrl: lastCommandRaw.imageUrl,
+      videoUrl: lastCommandRaw.videoUrl,
+      audioUrl: lastCommandRaw.audioUrl,
+      isMultiStep: lastCommandRaw.isMultiStep,
+      plan: lastCommandRaw.plan
     };
   }
   

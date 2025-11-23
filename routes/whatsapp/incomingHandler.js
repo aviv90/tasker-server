@@ -148,10 +148,10 @@ async function handleIncomingMessage(webhookData, processedMessages) {
         console.log('🤖 [AGENT] Processing request with Gemini Function Calling');
 
         try {
-          // CRITICAL: Save user message to conversation history BEFORE processing
-          // This ensures continuity and allows the bot to see the full conversation
-          await conversationManager.addMessage(chatId, 'user', normalized.userText);
-          console.log(`💾 [Agent] Saved user message to conversation history`);
+          // NOTE: User messages are no longer saved to DB to avoid duplication.
+          // All messages are retrieved from Green API getChatHistory when needed.
+          // Commands are saved to messageTypeCache for retry functionality.
+          console.log(`💾 [Agent] Processing command (not saving to DB - using Green API history)`);
 
           const agentResult = await routeToAgent(normalized, chatId);
 

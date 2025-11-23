@@ -7,6 +7,7 @@ const conversationManager = require('../../conversationManager');
 const { getServices } = require('../utils/serviceLoader');
 const { getToolAckMessage } = require('../utils/ackUtils');
 const { extractQuotedMessageId } = require('../../../utils/messageHelpers');
+const messageTypeCache = require('../../../utils/messageTypeCache');
 
 // Reference to agentTools (will be injected)
 let agentTools = null;
@@ -98,7 +99,8 @@ const retry_last_command = {
     
     try {
       // Get last command from DB
-      const lastCommand = await conversationManager.getLastCommand(context.chatId);
+      // Get last command from cache (not DB)
+      const lastCommand = messageTypeCache.getLastCommand(context.chatId);
       
       if (!lastCommand) {
         return {

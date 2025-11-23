@@ -6,6 +6,7 @@ const axios = require('axios');
 const { BASE_URL, GREEN_API_API_TOKEN_INSTANCE } = require('./constants');
 const { TIME } = require('../../utils/constants');
 const logger = require('../../utils/logger');
+const messageTypeCache = require('../../utils/messageTypeCache');
 
 /**
  * Send text message via Green API
@@ -36,6 +37,12 @@ async function sendTextMessage(chatId, message, quotedMessageId = null, typingTi
     });
 
     logger.info(`📤 Message sent to ${chatId}:`, { message: message.substring(0, 50) + '...' });
+    
+    // Mark message as bot message in cache (if idMessage is in response)
+    if (response.data && response.data.idMessage) {
+      messageTypeCache.markAsBotMessage(chatId, response.data.idMessage);
+    }
+    
     return response.data;
   } catch (error) {
     logger.error('❌ Error sending text message:', { error: error.message, chatId });
@@ -80,6 +87,12 @@ async function sendFileByUrl(chatId, fileUrl, fileName, caption = '', quotedMess
     });
 
     logger.info(`✅ File sent to ${chatId}: ${fileName}${caption ? ' with caption: ' + caption : ''}`);
+    
+    // Mark message as bot message in cache (if idMessage is in response)
+    if (response.data && response.data.idMessage) {
+      messageTypeCache.markAsBotMessage(chatId, response.data.idMessage);
+    }
+    
     return response.data;
   } catch (error) {
     logger.error('❌ Error sending file:', { error: error.message, fileName, chatId });
@@ -140,6 +153,12 @@ async function sendPoll(chatId, message, options, multipleAnswers = false, quote
     });
 
     logger.info(`✅ [sendPoll] Poll sent successfully to ${chatId}: "${message}" with ${options.length} options`);
+    
+    // Mark message as bot message in cache (if idMessage is in response)
+    if (response.data && response.data.idMessage) {
+      messageTypeCache.markAsBotMessage(chatId, response.data.idMessage);
+    }
+    
     return response.data;
   } catch (error) {
     logger.error('❌ Error sending poll:', { error: error.message, chatId });
@@ -194,6 +213,12 @@ async function sendLocation(chatId, latitude, longitude, nameLocation = '', addr
     });
 
     logger.info(`📍 Location sent to ${chatId}: ${latitude}, ${longitude}`);
+    
+    // Mark message as bot message in cache (if idMessage is in response)
+    if (response.data && response.data.idMessage) {
+      messageTypeCache.markAsBotMessage(chatId, response.data.idMessage);
+    }
+    
     return response.data;
   } catch (error) {
     logger.error('❌ Error sending location:', { error: error.message, chatId });

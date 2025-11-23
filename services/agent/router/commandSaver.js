@@ -1,9 +1,12 @@
 /**
  * Command Saver
  * Handles saving last command for retry functionality
+ * 
+ * NOTE: Commands are now saved to messageTypeCache instead of DB
+ * to avoid duplication. All messages are retrieved from Green API.
  */
 
-const conversationManager = require('../../conversationManager');
+const messageTypeCache = require('../../../utils/messageTypeCache');
 const { NON_PERSISTED_TOOLS } = require('../config/constants');
 const { sanitizeToolResult } = require('../utils/resultUtils');
 
@@ -15,25 +18,31 @@ const { sanitizeToolResult } = require('../utils/resultUtils');
  * @param {Object} input - Normalized input
  */
 async function saveLastCommand(agentResult, chatId, userText, input) {
+  // Get messageId from input (originalMessageId) or agentResult
+  const messageId = input?.originalMessageId || agentResult?.originalMessageId;
+  if (!messageId) {
+    console.warn('⚠️ [AGENT ROUTER] No messageId available, cannot save command to cache');
+    return;
+  }
+  
   // CRITICAL: Handle multi-step commands - save the entire plan, not just the last tool
   if (agentResult.multiStep && agentResult.plan) {
     // Save multi-step plan for retry
-    const argsToStore = {
+    const commandMetadata = {
+      tool: 'multi_step',
       isMultiStep: true,
       plan: agentResult.plan,
       prompt: userText,
       stepsCompleted: agentResult.stepsCompleted || 0,
       totalSteps: agentResult.totalSteps || 0,
-      failed: !agentResult.success
-    };
-    
-    await conversationManager.saveLastCommand(chatId, 'multi_step', argsToStore, {
+      failed: !agentResult.success,
       normalized: input,
       imageUrl: agentResult.imageUrl || null,
       videoUrl: agentResult.videoUrl || null,
       audioUrl: agentResult.audioUrl || null
-    });
+    };
     
+    messageTypeCache.saveCommand(chatId, messageId, commandMetadata);
     console.log(`💾 [AGENT ROUTER] Saved multi-step command for retry: ${agentResult.totalSteps || 0} steps (${agentResult.stepsCompleted || 0} completed)`);
     return;
   }
@@ -66,21 +75,20 @@ async function saveLastCommand(agentResult, chatId, userText, input) {
   
   const primaryTool = commandToSave.tool;
   const sanitizedResult = sanitizeToolResult(toolResults[primaryTool]);
-  const argsToStore = {
+  const commandMetadata = {
+    tool: primaryTool,
     isMultiStep: false,
     toolArgs: commandToSave.args || {},
     result: sanitizedResult || null,
     prompt: userText,
-    failed: !commandToSave.success  // Mark if this command failed
-  };
-  
-  await conversationManager.saveLastCommand(chatId, primaryTool, argsToStore, {
+    failed: !commandToSave.success,  // Mark if this command failed
     normalized: input,
     imageUrl: sanitizedResult?.imageUrl || agentResult.imageUrl || null,
     videoUrl: sanitizedResult?.videoUrl || agentResult.videoUrl || null,
     audioUrl: sanitizedResult?.audioUrl || agentResult.audioUrl || null
-  });
+  };
   
+  messageTypeCache.saveCommand(chatId, messageId, commandMetadata);
   console.log(`💾 [AGENT ROUTER] Saved last command for retry: ${primaryTool} (success: ${commandToSave.success})`);
 }
 

@@ -303,12 +303,17 @@ async function handlePostProcessing(chatId, normalized, agentResult, quotedMessa
  * @param {Object} agentResult - Agent result
  */
 async function saveBotResponse(chatId, agentResult) {
-  // CRITICAL: Save bot's response to conversation history for continuity!
-  // This allows the bot to see its own previous responses in future requests
-  if (agentResult.text && agentResult.text.trim()) {
-    await conversationManager.addMessage(chatId, 'assistant', agentResult.text);
-    console.log(`💾 [Agent] Saved bot response to conversation history`);
-  }
+  // NOTE: Bot messages are no longer saved to DB to avoid duplication.
+  // Bot messages are tracked via botMessageCache when sent through Green API,
+  // and retrieved from Green API getChatHistory when needed.
+  // This approach:
+  // - Eliminates duplication (messages exist only in Green API)
+  // - Reduces DB size (only user commands are stored)
+  // - Provides accurate bot message identification via cache
+  // 
+  // Bot messages will be available in get_chat_history via Green API
+  // and identified using botMessageCache.isBotMessage()
+  console.log(`💾 [Agent] Bot response sent (tracked via botMessageCache, not saved to DB)`);
 }
 
 /**
