@@ -304,16 +304,16 @@ async function handlePostProcessing(chatId, normalized, agentResult, quotedMessa
  */
 async function saveBotResponse(chatId, agentResult) {
   // NOTE: Bot messages are no longer saved to DB to avoid duplication.
-  // Bot messages are tracked via messageTypeCache when sent through Green API,
+  // Bot messages are tracked in DB (message_types table) when sent through Green API,
   // and retrieved from Green API getChatHistory when needed.
   // This approach:
   // - Eliminates duplication (messages exist only in Green API)
-  // - Reduces DB size (no messages stored)
-  // - Provides accurate bot message identification via cache
+  // - Reduces DB size (no message content stored, only type metadata)
+  // - Provides accurate bot message identification via DB (persistent)
   // 
   // Bot messages will be available in get_chat_history via Green API
-  // and identified using messageTypeCache.isBotMessage()
-  console.log(`💾 [Agent] Bot response sent (tracked via messageTypeCache, not saved to DB)`);
+  // and identified using conversationManager.isBotMessage() (DB-backed)
+  console.log(`💾 [Agent] Bot response sent (tracked in DB)`);
 }
 
 /**

@@ -191,8 +191,8 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
     console.log(`✅ Step 3 complete: Gemini response generated`);
 
     // NOTE: Bot messages are no longer saved to DB to avoid duplication.
-    // Bot messages are tracked via messageTypeCache when sent through Green API.
-    console.log(`💾 [VoiceHandler] Bot response sent (tracked via messageTypeCache, not saved to DB)`);
+    // Bot messages are tracked in DB (message_types table) when sent through Green API.
+    console.log(`💾 [VoiceHandler] Bot response sent (tracked in DB)`);
 
     // Step 4: Text-to-Speech with cloned voice or random voice
     const responseLanguage = originalLanguage; // Force same language as original

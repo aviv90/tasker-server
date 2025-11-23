@@ -6,7 +6,7 @@ const axios = require('axios');
 const { BASE_URL, GREEN_API_API_TOKEN_INSTANCE } = require('./constants');
 const { TIME } = require('../../utils/constants');
 const logger = require('../../utils/logger');
-const messageTypeCache = require('../../utils/messageTypeCache');
+const conversationManager = require('../../services/conversationManager');
 
 /**
  * Send text message via Green API
@@ -40,7 +40,7 @@ async function sendTextMessage(chatId, message, quotedMessageId = null, typingTi
     
     // Mark message as bot message in cache (if idMessage is in response)
     if (response.data && response.data.idMessage) {
-      messageTypeCache.markAsBotMessage(chatId, response.data.idMessage);
+      await conversationManager.markAsBotMessage(chatId, response.data.idMessage);
     }
     
     return response.data;
@@ -90,7 +90,7 @@ async function sendFileByUrl(chatId, fileUrl, fileName, caption = '', quotedMess
     
     // Mark message as bot message in cache (if idMessage is in response)
     if (response.data && response.data.idMessage) {
-      messageTypeCache.markAsBotMessage(chatId, response.data.idMessage);
+      await conversationManager.markAsBotMessage(chatId, response.data.idMessage);
     }
     
     return response.data;
@@ -156,7 +156,7 @@ async function sendPoll(chatId, message, options, multipleAnswers = false, quote
     
     // Mark message as bot message in cache (if idMessage is in response)
     if (response.data && response.data.idMessage) {
-      messageTypeCache.markAsBotMessage(chatId, response.data.idMessage);
+      await conversationManager.markAsBotMessage(chatId, response.data.idMessage);
     }
     
     return response.data;
@@ -216,7 +216,7 @@ async function sendLocation(chatId, latitude, longitude, nameLocation = '', addr
     
     // Mark message as bot message in cache (if idMessage is in response)
     if (response.data && response.data.idMessage) {
-      messageTypeCache.markAsBotMessage(chatId, response.data.idMessage);
+      await conversationManager.markAsBotMessage(chatId, response.data.idMessage);
     }
     
     return response.data;

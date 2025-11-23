@@ -28,10 +28,10 @@ async function routeToAgent(input, chatId) {
   
   logger.debug(`🤖 [AGENT ROUTER] Sending to Agent: "${contextualPrompt.substring(0, 150)}..."`);
   
-  // Get last command for context (needed for agent execution) - from cache, not DB
-  const messageTypeCache = require('../utils/messageTypeCache');
+  // Get last command for context (needed for agent execution) - from DB (persistent)
+  const conversationManager = require('../conversationManager');
   const { parseJSONSafe } = require('./agent/utils/resultUtils');
-  const lastCommandRaw = messageTypeCache.getLastCommand(chatId);
+  const lastCommandRaw = await conversationManager.getLastCommand(chatId);
   let parsedLastCommand = null;
   if (lastCommandRaw) {
     parsedLastCommand = {

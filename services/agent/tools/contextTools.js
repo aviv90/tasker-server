@@ -3,9 +3,7 @@
  * Tools for accessing chat history, memory, and preferences
  */
 
-const conversationManager = require('../../conversationManager');
-const { getServices } = require('../utils/serviceLoader');
-const messageTypeCache = require('../../../utils/messageTypeCache');
+const { getChatHistory } = require('../../../utils/chatHistoryService');
 const logger = require('../../../utils/logger');
 
 /**
@@ -43,197 +41,21 @@ const get_chat_history = {
     logger.debug(`🔧 [Agent Tool] get_chat_history called with limit: ${limit}`);
     
     try {
-      // CRITICAL: Use Green API getChatHistory instead of our DB
-      // Our DB only stores commands (messages starting with #), not regular messages
-      // Green API has the complete conversation history including all messages
-      const { greenApiService } = getServices();
+      // Use centralized chat history service (SSOT)
+      const historyResult = await getChatHistory(context.chatId, limit, { format: 'display' });
       
-      logger.debug(`📜 Fetching last ${limit} messages from Green API for chat: ${context.chatId}`);
-      
-      let greenApiHistory;
-      try {
-        greenApiHistory = await greenApiService.getChatHistory(context.chatId, limit);
-      } catch (apiError) {
-        logger.error('❌ Error fetching chat history from Green API:', { error: apiError.message, chatId: context.chatId });
-        // Fallback to DB if Green API fails
-        logger.debug('🔄 Falling back to DB conversation history...');
-        const dbHistory = await conversationManager.getConversationHistory(context.chatId, limit);
-        
-        if (!dbHistory || dbHistory.length === 0) {
-          return {
-            success: true,
-            data: 'אין היסטוריית הודעות זמינה',
-            messages: []
-          };
-        }
-        
-        // Format DB history (same as before)
-        const formattedHistory = dbHistory.map((msg, idx) => {
-          let content = '';
-          if (msg.content && msg.content.trim()) {
-            content = `${msg.role === 'user' ? 'משתמש' : 'בוט'}: ${msg.content}`;
-          } else {
-            content = `${msg.role === 'user' ? 'משתמש' : 'בוט'}: [הודעה ללא טקסט]`;
-          }
-          
-          if (msg.metadata) {
-            if (msg.metadata.hasImage && msg.metadata.imageUrl) {
-              content += ` [תמונה: image_id=${idx}, url=${msg.metadata.imageUrl}]`;
-            } else if (msg.metadata.hasImage) {
-              content += ' [תמונה מצורפת]';
-            }
-            
-            if (msg.metadata.hasVideo && msg.metadata.videoUrl) {
-              content += ` [וידאו: video_id=${idx}, url=${msg.metadata.videoUrl}]`;
-            } else if (msg.metadata.hasVideo) {
-              content += ' [וידאו מצורף]';
-            }
-            
-            if (msg.metadata.hasAudio && msg.metadata.audioUrl) {
-              content += ` [אודיו: audio_id=${idx}, url=${msg.metadata.audioUrl}]`;
-              if (msg.metadata.transcribedText) {
-                content += ` [תמלול: "${msg.metadata.transcribedText}"]`;
-              }
-            } else if (msg.metadata.hasAudio) {
-              content += ' [הקלטה קולית]';
-            }
-          }
-          
-          return content;
-        }).join('\n');
-        
+      if (!historyResult.success) {
         return {
-          success: true,
-          data: `היסטוריה של ${dbHistory.length} הודעות אחרונות (מ-DB - רק פקודות):\n\n${formattedHistory}`,
-          messages: dbHistory
-        };
-      }
-      
-      if (!greenApiHistory || greenApiHistory.length === 0) {
-        return {
-          success: true,
-          data: 'אין היסטוריית הודעות זמינה',
+          success: false,
+          error: historyResult.error || 'שגיאה בשליפת היסטוריית השיחה',
           messages: []
         };
       }
       
-      logger.debug(`✅ Retrieved ${greenApiHistory.length} messages from Green API`);
-      
-      // Format Green API history for the agent
-      // Green API format: { typeMessage, textMessage, caption, senderName, senderId, timestamp, etc. }
-      const formattedHistory = greenApiHistory
-        .filter(msg => {
-          // Filter out system/notification messages
-          const isSystemMessage = 
-            msg.typeMessage === 'notificationMessage' ||
-            msg.type === 'notification' ||
-            (msg.textMessage && msg.textMessage.startsWith('System:'));
-          return !isSystemMessage;
-        })
-        .map((msg, idx) => {
-          // Determine role: Check if message ID is in bot message cache
-          // This is the most reliable way to identify bot messages
-          const isFromBot = msg.idMessage ? messageTypeCache.isBotMessage(context.chatId, msg.idMessage) : false;
-          
-          const role = isFromBot ? 'בוט' : 'משתמש';
-          const senderName = msg.senderName || (isFromBot ? 'בוט' : 'משתמש');
-          
-          // Extract text content
-          let content = '';
-          const textContent = msg.textMessage || 
-                            msg.caption || 
-                            (msg.extendedTextMessage && msg.extendedTextMessage.text) ||
-                            (msg.typeMessage === 'extendedTextMessage' && msg.extendedTextMessage?.text);
-          
-          if (textContent && textContent.trim()) {
-            content = `${role} (${senderName}): ${textContent}`;
-          } else {
-            content = `${role} (${senderName}): [הודעה ללא טקסט]`;
-          }
-          
-          // Add media indicators
-          if (msg.typeMessage === 'imageMessage' || msg.typeMessage === 'image') {
-            const imageUrl = msg.downloadUrl || msg.urlFile || msg.imageMessageData?.downloadUrl;
-            if (imageUrl) {
-              content += ` [תמונה: image_id=${idx}, url=${imageUrl}]`;
-            } else {
-              content += ' [תמונה מצורפת]';
-            }
-          }
-          
-          if (msg.typeMessage === 'videoMessage' || msg.typeMessage === 'video') {
-            const videoUrl = msg.downloadUrl || msg.urlFile || msg.videoMessageData?.downloadUrl;
-            if (videoUrl) {
-              content += ` [וידאו: video_id=${idx}, url=${videoUrl}]`;
-            } else {
-              content += ' [וידאו מצורף]';
-            }
-          }
-          
-          if (msg.typeMessage === 'audioMessage' || msg.typeMessage === 'audio') {
-            const audioUrl = msg.downloadUrl || msg.urlFile || msg.audioMessageData?.downloadUrl;
-            if (audioUrl) {
-              content += ` [אודיו: audio_id=${idx}, url=${audioUrl}]`;
-            } else {
-              content += ' [הקלטה קולית]';
-            }
-          }
-          
-          // Add timestamp if available
-          if (msg.timestamp) {
-            const date = new Date(msg.timestamp * 1000);
-            content += ` [${date.toLocaleString('he-IL')}]`;
-          }
-          
-          return content;
-        })
-        .join('\n');
-      
-      // Convert Green API format to our internal format for compatibility
-      const internalFormat = greenApiHistory
-        .filter(msg => {
-          const isSystemMessage = 
-            msg.typeMessage === 'notificationMessage' ||
-            msg.type === 'notification' ||
-            (msg.textMessage && msg.textMessage.startsWith('System:'));
-          return !isSystemMessage;
-        })
-        .map(msg => {
-          // Determine role: Check if message ID is in bot message cache
-          // This is the most reliable way to identify bot messages
-          const isFromBot = msg.idMessage ? messageTypeCache.isBotMessage(context.chatId, msg.idMessage) : false;
-          
-          const textContent = msg.textMessage || 
-                            msg.caption || 
-                            (msg.extendedTextMessage && msg.extendedTextMessage.text) ||
-                            (msg.typeMessage === 'extendedTextMessage' && msg.extendedTextMessage?.text);
-          
-          const metadata = {};
-          if (msg.typeMessage === 'imageMessage' || msg.typeMessage === 'image') {
-            metadata.hasImage = true;
-            metadata.imageUrl = msg.downloadUrl || msg.urlFile || msg.imageMessageData?.downloadUrl;
-          }
-          if (msg.typeMessage === 'videoMessage' || msg.typeMessage === 'video') {
-            metadata.hasVideo = true;
-            metadata.videoUrl = msg.downloadUrl || msg.urlFile || msg.videoMessageData?.downloadUrl;
-          }
-          if (msg.typeMessage === 'audioMessage' || msg.typeMessage === 'audio') {
-            metadata.hasAudio = true;
-            metadata.audioUrl = msg.downloadUrl || msg.urlFile || msg.audioMessageData?.downloadUrl;
-          }
-          
-          return {
-            role: isFromBot ? 'assistant' : 'user',
-            content: textContent || '',
-            metadata: Object.keys(metadata).length > 0 ? metadata : {},
-            timestamp: msg.timestamp || Date.now()
-          };
-        });
-      
       return {
         success: true,
-        data: `היסטוריה של ${internalFormat.length} הודעות אחרונות:\n\n${formattedHistory}`,
-        messages: internalFormat  // Keep full history for follow-up tools
+        data: historyResult.data,
+        messages: historyResult.messages
       };
     } catch (error) {
       logger.error('❌ Error in get_chat_history tool:', { error: error.message, stack: error.stack });

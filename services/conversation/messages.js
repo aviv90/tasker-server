@@ -1,5 +1,11 @@
 /**
  * Conversation messages management
+ * 
+ * @deprecated Messages are no longer stored in DB to avoid duplication.
+ * All messages are retrieved from Green API getChatHistory when needed.
+ * 
+ * This class is kept for backward compatibility only and should not be used in new code.
+ * Use Green API getChatHistory via chatHistoryService instead.
  */
 const { CacheKeys, CacheTTL } = require('../../utils/cache');
 const cache = require('../../utils/cache');

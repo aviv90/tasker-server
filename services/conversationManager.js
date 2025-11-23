@@ -1,11 +1,13 @@
 const DatabaseManager = require('./conversation/database');
-const MessagesManager = require('./conversation/messages');
+const MessagesManager = require('./conversation/messages'); // @deprecated - kept for backward compatibility
 const AllowListsManager = require('./conversation/allowLists');
 const ContactsManager = require('./conversation/contacts');
 const CommandsManager = require('./conversation/commands');
+const MessageTypesManager = require('./conversation/messageTypes');
 const TasksManager = require('./conversation/tasks');
 const AgentContextManager = require('./conversation/agentContext');
 const SummariesManager = require('./conversation/summaries');
+const logger = require('../utils/logger');
 
 class ConversationManager {
   constructor() {
@@ -21,6 +23,7 @@ class ConversationManager {
     this.allowListsManager = new AllowListsManager(this);
     this.contactsManager = new ContactsManager(this);
     this.commandsManager = new CommandsManager(this);
+    this.messageTypesManager = new MessageTypesManager(this);
     this.tasksManager = new TasksManager(this);
     this.agentContextManager = new AgentContextManager(this);
     this.summariesManager = new SummariesManager(this);
@@ -36,8 +39,15 @@ class ConversationManager {
   }
 
   // ═══════════════════ MESSAGES ═══════════════════
+  //
+  // @deprecated These methods are deprecated. Messages are no longer stored in DB
+  // to avoid duplication. All messages are retrieved from Green API getChatHistory
+  // when needed. Use chatHistoryService.getChatHistory() instead.
+  //
+  // These methods are kept for backward compatibility only (fallback scenarios).
 
   async addMessage(chatId, role, content, metadata = {}) {
+    logger.warn('⚠️ [DEPRECATED] conversationManager.addMessage() is deprecated. Messages are retrieved from Green API.');
     return this.messagesManager.addMessage(chatId, role, content, metadata);
   }
 
@@ -46,6 +56,7 @@ class ConversationManager {
   }
 
   async getConversationHistory(chatId) {
+    logger.warn('⚠️ [DEPRECATED] conversationManager.getConversationHistory() is deprecated. Use chatHistoryService.getChatHistory() instead.');
     return this.messagesManager.getConversationHistory(chatId);
   }
 
@@ -131,12 +142,17 @@ class ConversationManager {
 
   // ═══════════════════ LAST COMMANDS (RETRY) ═══════════════════
 
-  async saveLastCommand(chatId, tool, args, options = {}) {
-    return this.commandsManager.saveLastCommand(chatId, tool, args, options);
+  async saveCommand(chatId, messageId, metadata) {
+    return this.commandsManager.saveCommand(chatId, messageId, metadata);
   }
 
   async getLastCommand(chatId) {
     return this.commandsManager.getLastCommand(chatId);
+  }
+
+  // Backward compatibility
+  async saveLastCommand(chatId, tool, args, options = {}) {
+    return this.commandsManager.saveLastCommand(chatId, tool, args, options);
   }
 
   // ═══════════════════ TASKS (ASYNC API) ═══════════════════
@@ -196,10 +212,17 @@ class ConversationManager {
   // ═══════════════════ CLEANUP ═══════════════════
 
   /**
-   * Run full cleanup (agent context + summaries)
+   * Run full cleanup (message types, commands, agent context + summaries)
    * @returns {Object} - Cleanup stats
    */
   async runFullCleanup() {
+    // Cleanup message types (7 days TTL)
+    await this.messageTypesManager.cleanup(7 * 24 * 60 * 60 * 1000);
+    
+    // Cleanup old commands (30 days TTL)
+    await this.commandsManager.cleanup(30 * 24 * 60 * 60 * 1000);
+    
+    // Existing cleanup
     console.log('🧹 Starting full cleanup...');
     
     const contextDeleted = await this.agentContextManager.cleanupOldAgentContext(30);  // 30 days

@@ -2,11 +2,11 @@
  * Command Saver
  * Handles saving last command for retry functionality
  * 
- * NOTE: Commands are now saved to messageTypeCache instead of DB
- * to avoid duplication. All messages are retrieved from Green API.
+ * Commands are saved to DB (persistent) for retry functionality.
+ * All messages are retrieved from Green API.
  */
 
-const messageTypeCache = require('../../../utils/messageTypeCache');
+const conversationManager = require('../../../services/conversationManager');
 const { NON_PERSISTED_TOOLS } = require('../config/constants');
 const { sanitizeToolResult } = require('../utils/resultUtils');
 const logger = require('../../../utils/logger');
@@ -55,7 +55,7 @@ async function saveLastCommand(agentResult, chatId, userText, input) {
       audioUrl: agentResult.audioUrl || null
     };
     
-    messageTypeCache.saveCommand(chatId, messageId, commandMetadata);
+    await conversationManager.saveCommand(chatId, messageId, commandMetadata);
     logger.info(`💾 [AGENT ROUTER] Saved multi-step command for retry: ${plan.steps.length} steps (${agentResult.stepsCompleted || 0} completed)`, {
       stepTools: plan.steps.map(s => s.tool || s.action?.substring(0, 30) || 'unknown').join(', ')
     });
@@ -103,7 +103,7 @@ async function saveLastCommand(agentResult, chatId, userText, input) {
     audioUrl: sanitizedResult?.audioUrl || agentResult.audioUrl || null
   };
   
-  messageTypeCache.saveCommand(chatId, messageId, commandMetadata);
+  await conversationManager.saveCommand(chatId, messageId, commandMetadata);
   logger.info(`💾 [AGENT ROUTER] Saved last command for retry: ${primaryTool} (success: ${commandToSave.success})`);
 }
 

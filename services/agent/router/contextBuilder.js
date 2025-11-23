@@ -4,7 +4,6 @@
  */
 
 const conversationManager = require('../../conversationManager');
-const messageTypeCache = require('../../../utils/messageTypeCache');
 const { summarizeLastCommand } = require('../utils/resultUtils');
 const { parseJSONSafe } = require('../utils/resultUtils');
 
@@ -17,8 +16,8 @@ const { parseJSONSafe } = require('../utils/resultUtils');
 async function buildContextualPrompt(input, chatId) {
   const userText = input.userText || '';
   
-  // Fetch last command for context-aware behaviour (from cache, not DB)
-  const lastCommandRaw = messageTypeCache.getLastCommand(chatId);
+  // Fetch last command for context-aware behaviour (from DB, persistent)
+  const lastCommandRaw = await conversationManager.getLastCommand(chatId);
   let parsedLastCommand = null;
   if (lastCommandRaw) {
     parsedLastCommand = {
@@ -42,61 +41,12 @@ async function buildContextualPrompt(input, chatId) {
     input.hasAudio ||
     input.quotedContext;
   
-  // Load conversation history if needed
   // NOTE: Conversation history is now retrieved from Green API via get_chat_history tool
   // We no longer use DB for conversation history to avoid duplication
-  // This is a fallback for backward compatibility, but should not be used in practice
+  // History is loaded dynamically when needed by the agent via the get_chat_history tool
+  // This avoids duplication and ensures we always have the latest messages from Green API
   let conversationHistory = '';
-  if (!shouldSkipHistory) {
-    try {
-      // Fallback to DB (for backward compatibility only - should use Green API instead)
-      const history = await conversationManager.getConversationHistory(chatId);
-      if (history && history.length > 0) {
-        const recentHistory = history.slice(-10);
-        const messagesConfig = require('../../../config/messages');
-        const formattedHistory = recentHistory.map(msg => {
-          // Safely get role - handle undefined/null cases
-          const role = (msg && msg.role) ? messagesConfig.getRole(msg.role) : 'לא ידוע';
-          let content = msg.content || '';
-          
-          // Add media indicators if present
-          if (msg.metadata) {
-            const mediaTypes = [];
-            if (msg.metadata.hasImage) mediaTypes.push('תמונה');
-            if (msg.metadata.hasVideo) mediaTypes.push('וידאו');
-            if (msg.metadata.hasAudio) mediaTypes.push('אודיו');
-            
-            if (mediaTypes.length > 0) {
-              const mediaIndicator = ` [${mediaTypes.join(', ')}]`;
-              if (content) {
-                content += mediaIndicator;
-              } else {
-                content = `[הודעה ללא טקסט${mediaIndicator}]`;
-              }
-            } else if (!content) {
-              content = '[הודעה ללא טקסט]';
-            }
-          } else if (!content) {
-            content = '[הודעה ללא טקסט]';
-          }
-          
-          return `${role}: ${content}`;
-        }).join('\n');
-        
-        if (formattedHistory) {
-          conversationHistory = `\n\n[היסטוריית שיחה אחרונה]:\n${formattedHistory}\n`;
-          console.log(`🧠 [AGENT ROUTER] Loaded ${recentHistory.length} recent messages for context`);
-        }
-      }
-    } catch (err) {
-      console.warn(`⚠️ [AGENT ROUTER] Failed to load conversation history:`, err.message);
-    }
-  } else {
-    const reason = input.quotedContext ? 'quoted message (context already provided)' : 
-                   (input.hasImage || input.hasVideo || input.hasAudio) ? 'media attached' : 
-                   'unknown';
-    console.log(`🎨 [AGENT ROUTER] Skipping history for: ${reason}`);
-  }
+  // History is loaded on-demand via get_chat_history tool, not pre-loaded here
   
   // Build context for the agent
   let contextualPrompt = buildMediaContext(input, userText);

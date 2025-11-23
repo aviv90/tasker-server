@@ -150,8 +150,8 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
       await sendFileByUrl(chatId, videoResult.videoUrl, fileName, '', quotedMessageId, 1000);
 
       // NOTE: Bot messages are no longer saved to DB to avoid duplication.
-      // Bot messages are tracked via messageTypeCache when sent through Green API.
-      console.log(`💾 [ImageHandler] Video created (tracked via messageTypeCache, not saved to DB)`);
+      // Bot messages are tracked in DB (message_types table) when sent through Green API.
+      console.log(`💾 [ImageHandler] Video created (tracked in DB)`);
 
       console.log(`✅ ${serviceName} image-to-video sent to ${senderName}`);
     } else {

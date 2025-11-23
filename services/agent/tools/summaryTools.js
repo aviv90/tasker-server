@@ -34,16 +34,28 @@ const chat_summary = {
       const { geminiService, greenApiService } = getServices();
       const messageCount = args.count || 50;
       
-      // CRITICAL: Use Green API getChatHistory instead of our DB
-      // because generateChatSummary expects Green API format (textMessage, caption, etc.)
-      // Our DB format (content, metadata) doesn't work with generateChatSummary
-      console.log(`📜 Fetching last ${messageCount} messages from Green API for chat: ${context.chatId}`);
+      // Use centralized chat history service (SSOT)
+      const { getChatHistory } = require('../../../utils/chatHistoryService');
+      const logger = require('../../../utils/logger');
       
+      logger.debug(`📜 Fetching last ${messageCount} messages for summary: ${context.chatId}`);
+      
+      const historyResult = await getChatHistory(context.chatId, messageCount, { format: 'internal' });
+      
+      if (!historyResult.success) {
+        return {
+          success: false,
+          error: historyResult.error || 'שגיאה בשליפת היסטוריית השיחה'
+        };
+      }
+      
+      // Get raw Green API format for generateChatSummary (needs original format)
+      const { greenApiService } = getServices();
       let history;
       try {
         history = await greenApiService.getChatHistory(context.chatId, messageCount);
       } catch (apiError) {
-        console.error('❌ Error fetching chat history from Green API:', apiError.message);
+        logger.error('❌ Error fetching raw Green API history for summary:', { error: apiError.message, chatId: context.chatId });
         return {
           success: false,
           error: `שגיאה בשליפת היסטוריית השיחה מ-WhatsApp: ${apiError.message}`

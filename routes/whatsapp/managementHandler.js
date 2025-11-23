@@ -13,7 +13,7 @@ const authStore = require('../../store/authStore');
 const groupAuthStore = require('../../store/groupAuthStore');
 const { findContactByName } = require('../../services/groupService');
 const { getContacts } = require('../../services/greenApiService');
-const messageTypeCache = require('../../utils/messageTypeCache');
+// Message types are now managed via conversationManager
 
 /**
  * Handle management commands
@@ -32,12 +32,13 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
         // Clear DB conversations (for backward compatibility)
         await conversationManager.clearAllConversations();
         
-        // Clear messageTypeCache (bot messages, user outgoing, commands)
-        messageTypeCache.clearAll();
+        // Clear message types and commands from DB
+        await conversationManager.clearAllMessageTypes();
+        await conversationManager.commandsManager.clearAll();
         
         const logger = require('../../utils/logger');
-        await sendTextMessage(chatId, '✅ כל ההיסטוריות נוקו בהצלחה (DB + Cache)', originalMessageId, 1000);
-        logger.info(`🗑️ All conversation histories cleared by ${senderName} (DB and cache cleared)`);
+        await sendTextMessage(chatId, '✅ כל ההיסטוריות נוקו בהצלחה (DB)', originalMessageId, 1000);
+        logger.info(`🗑️ All conversation histories cleared by ${senderName} (DB cleared)`);
         break;
       }
 
@@ -65,8 +66,8 @@ async function handleManagementCommand(command, chatId, senderId, senderName, se
                                   (msg.typeMessage === 'extendedTextMessage' && msg.extendedTextMessage?.text) ||
                                   '[הודעה ללא טקסט]';
                 
-                // Determine role using messageTypeCache
-                const isFromBot = msg.idMessage ? messageTypeCache.isBotMessage(chatId, msg.idMessage) : false;
+                // Determine role using conversationManager (DB-backed)
+                const isFromBot = msg.idMessage ? await conversationManager.isBotMessage(chatId, msg.idMessage) : false;
                 const role = isFromBot ? '🤖' : '👤';
                 
                 historyText += `${role} ${textContent}\n\n`;

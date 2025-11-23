@@ -10,7 +10,6 @@ const { sendTextMessage } = require('../../services/greenApiService');
 const conversationManager = require('../../services/conversationManager');
 const { routeToAgent } = require('../../services/agentRouter');
 const { sendErrorToUser, ERROR_MESSAGES } = require('../../utils/errorSender');
-const messageTypeCache = require('../../utils/messageTypeCache');
 const logger = require('../../utils/logger');
 
 // Import WhatsApp utilities
@@ -56,7 +55,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
     // All outgoing messages from user are marked as user outgoing
     // Commands will be saved to cache separately in commandSaver after processing
     const chatId = senderData.chatId;
-    messageTypeCache.markAsUserOutgoing(chatId, messageId);
+    await conversationManager.markAsUserOutgoing(chatId, messageId);
     const senderId = senderData.sender;
     const senderName = senderData.senderName || senderId;
     const senderContactName = senderData.senderContactName || "";
@@ -214,7 +213,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
         try {
             // NOTE: User messages are no longer saved to DB to avoid duplication.
             // All messages are retrieved from Green API getChatHistory when needed.
-            // Commands are saved to messageTypeCache for retry functionality.
+            // Commands are saved to DB (persistent) for retry functionality.
             logger.debug(`💾 [Agent - Outgoing] Processing command (not saving to DB - using Green API history)`);
             
             const agentResult = await routeToAgent(normalized, chatId);
