@@ -177,6 +177,32 @@ class DatabaseManager {
         END $$;
       `);
 
+      // Add plan column if it doesn't exist (for existing databases)
+      await client.query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='last_commands' AND column_name='plan'
+          ) THEN
+            ALTER TABLE last_commands ADD COLUMN plan JSONB;
+          END IF;
+        END $$;
+      `);
+
+      // Add is_multi_step column if it doesn't exist (for existing databases)
+      await client.query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='last_commands' AND column_name='is_multi_step'
+          ) THEN
+            ALTER TABLE last_commands ADD COLUMN is_multi_step BOOLEAN DEFAULT false;
+          END IF;
+        END $$;
+      `);
+
       // Create message_types table for identifying bot/user messages in Green API history
       await client.query(`
         CREATE TABLE IF NOT EXISTS message_types (

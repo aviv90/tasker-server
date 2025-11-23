@@ -6,6 +6,7 @@ const { sendToolAckMessage } = require('../utils/ackUtils');
 const { getServices } = require('../utils/serviceLoader');
 const { extractQuotedMessageId } = require('../../../utils/messageHelpers');
 const { cleanJsonWrapper } = require('../../../utils/textSanitizer');
+const logger = require('../../../utils/logger');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
