@@ -298,7 +298,7 @@ class DatabaseManager {
         ON conversation_summaries(summary_date DESC)
       `);
 
-      console.log('✅ All database tables and indexes created successfully');
+      logger.debug('✅ All database tables and indexes created successfully');
       
     } finally {
       client.release();

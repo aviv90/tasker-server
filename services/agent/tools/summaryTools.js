@@ -4,6 +4,7 @@
  */
 
 const { getServices } = require('../utils/serviceLoader');
+const logger = require('../../../utils/logger');
 
 /**
  * Tool: Chat Summary
@@ -36,7 +37,6 @@ const chat_summary = {
       
       // Use centralized chat history service (SSOT)
       const { getChatHistory } = require('../../../utils/chatHistoryService');
-      const logger = require('../../../utils/logger');
       
       logger.debug(`📜 Fetching last ${messageCount} messages for summary: ${context.chatId}`);
       
@@ -50,7 +50,6 @@ const chat_summary = {
       }
       
       // Get raw Green API format for generateChatSummary (needs original format)
-      const { greenApiService } = getServices();
       let history;
       try {
         history = await greenApiService.getChatHistory(context.chatId, messageCount);
