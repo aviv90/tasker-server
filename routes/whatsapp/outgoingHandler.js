@@ -39,12 +39,12 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
     // For edited messages, append suffix to ensure they're processed even if original was processed
     if (messageData.typeMessage === 'editedMessage') {
       messageId = `${messageId}_edited_${Date.now()}`;
-      console.log(`✏️ Edited message (outgoing) - using unique ID for reprocessing: ${messageId}`);
+      logger.debug(`✏️ Edited message (outgoing) - using unique ID for reprocessing: ${messageId}`);
     }
     
     // Check if we already processed this message
     if (processedMessages.has(messageId)) {
-      console.log(`🔄 Duplicate outgoing message detected, skipping: ${messageId}`);
+      logger.debug(`🔄 Duplicate outgoing message detected, skipping: ${messageId}`);
       return;
     }
     
@@ -89,7 +89,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
           await handleManagementCommand(managementCommand, chatId, senderId, senderName, senderContactName, chatName, originalMessageId);
           return; // Exit early after handling management command
         } catch (error) {
-          console.error('❌ Management command error:', error.message || error);
+          logger.error('❌ Management command error:', { error: error.message || error, stack: error.stack });
           // Get originalMessageId for quoting error
           const originalMessageId = webhookData.idMessage;
           await sendErrorToUser(chatId, error, { context: 'PROCESSING', quotedMessageId: originalMessageId });
@@ -130,14 +130,14 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
           console.log(`📸 Outgoing: Direct image message, downloadUrl: found`);
         }
         if (videoUrl) {
-          console.log(`🎥 Outgoing: Direct video message, downloadUrl: found`);
+          logger.debug(`🎥 Outgoing: Direct video message, downloadUrl: found`);
         }
         if (audioUrl) {
-          console.log(`🎵 Outgoing: Direct audio message, downloadUrl: found`);
+          logger.debug(`🎵 Outgoing: Direct audio message, downloadUrl: found`);
         }
         
         if (actualQuote) {
-          console.log(`🔗 Outgoing: Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
+          logger.debug(`🔗 Outgoing: Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
           
           // Handle quoted message - merge content
           const quotedResult = await handleQuotedMessage(quotedMessage, basePrompt, chatId);
@@ -250,7 +250,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
       }
     }
   } catch (error) {
-    console.error('❌ Error handling outgoing message:', error.message || error);
+    logger.error('❌ Error handling outgoing message:', { error: error.message || error, stack: error.stack });
   }
 }
 

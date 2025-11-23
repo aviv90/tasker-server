@@ -14,6 +14,10 @@ const TIME = {
   
   // Common timeouts
   TYPING_INDICATOR: 1000, // Default typing time for all messages
+  DB_CONNECTION_TIMEOUT: 10000, // 10 seconds for DB connection
+  DB_RETRY_DELAY_BASE: 2000, // Base delay for DB retry (exponential backoff)
+  DB_RETRY_MAX_DELAY: 30000, // Maximum delay for DB retry
+  CLEANUP_DELAY: 60 * 60 * 1000, // 1 hour delay before first cleanup
   CIRCUIT_BREAKER_TIMEOUT: 60000, // 60 seconds for AI generation
   CIRCUIT_BREAKER_RESET: 60000, // 1 minute before retry
   VIDEO_GENERATION_TIMEOUT: 10 * 60 * 1000, // 10 minutes

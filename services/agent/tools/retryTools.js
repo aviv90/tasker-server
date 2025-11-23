@@ -39,7 +39,8 @@ async function sendRetryAck(chatId, tool, provider, quotedMessageId = null) {
     if (ackMessage) {
       logger.debug(`📢 [RETRY ACK] ${ackMessage}`);
       const { greenApiService } = getServices();
-      await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId, 1000);
+      const { TIME } = require('../../../utils/constants');
+      await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId, TIME.TYPING_INDICATOR);
     }
   } catch (error) {
     logger.error('❌ Error sending retry ACK:', { error: error.message, stack: error.stack });

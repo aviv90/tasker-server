@@ -8,6 +8,7 @@ const TasksManager = require('./conversation/tasks');
 const AgentContextManager = require('./conversation/agentContext');
 const SummariesManager = require('./conversation/summaries');
 const logger = require('../utils/logger');
+const { TIME } = require('../utils/constants');
 
 class ConversationManager {
   constructor() {
@@ -270,7 +271,7 @@ class ConversationManager {
         }
       }, CLEANUP_INTERVAL_MS);
       
-    }, 60 * 60 * 1000);  // 1 hour delay
+    }, TIME.CLEANUP_DELAY);  // 1 hour delay
     
     const intervalDays = Math.round(CLEANUP_INTERVAL_MS / TIME.DAY);
     logger.info(`✅ Periodic cleanup scheduled (~every ${intervalDays} days)`);

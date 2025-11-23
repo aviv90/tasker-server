@@ -28,7 +28,8 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
 
   try {
     // Send ACK message first (same as when transcribing quoted audio)
-    await sendTextMessage(chatId, 'מתמלל הקלטה... 🎤📝', quotedMessageId, 1000);
+    const { TIME } = require('../../../utils/constants');
+    await sendTextMessage(chatId, 'מתמלל הקלטה... 🎤📝', quotedMessageId, TIME.TYPING_INDICATOR);
 
     // Step 1: Download audio file
     const audioBuffer = await downloadFile(audioUrl);
@@ -80,16 +81,17 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
       // Send agent result (text, image, video, audio, etc.) in parallel for better performance
       const sendPromises = [];
       if (agentResult.text && agentResult.text.trim()) {
-        sendPromises.push(sendTextMessage(chatId, agentResult.text, quotedMessageId, 1000));
+        const { TIME } = require('../../../utils/constants');
+        sendPromises.push(sendTextMessage(chatId, agentResult.text, quotedMessageId, TIME.TYPING_INDICATOR));
       }
       if (agentResult.imageUrl) {
         sendPromises.push(sendFileByUrl(chatId, agentResult.imageUrl, `image_${Date.now()}.jpg`, '', quotedMessageId, 1000));
       }
       if (agentResult.videoUrl) {
-        sendPromises.push(sendFileByUrl(chatId, agentResult.videoUrl, `video_${Date.now()}.mp4`, '', quotedMessageId, 1000));
+        sendPromises.push(sendFileByUrl(chatId, agentResult.videoUrl, `video_${Date.now()}.mp4`, '', quotedMessageId, TIME.TYPING_INDICATOR));
       }
       if (agentResult.audioUrl) {
-        sendPromises.push(sendFileByUrl(chatId, agentResult.audioUrl, `audio_${Date.now()}.mp3`, '', quotedMessageId, 1000));
+        sendPromises.push(sendFileByUrl(chatId, agentResult.audioUrl, `audio_${Date.now()}.mp3`, '', quotedMessageId, TIME.TYPING_INDICATOR));
       }
       await Promise.all(sendPromises);
       
@@ -259,7 +261,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
     } else {
       // Send as voice note with Opus format
       const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
-      await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '', quotedMessageId, 1000);
+      await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '', quotedMessageId, TIME.TYPING_INDICATOR);
       console.log(`✅ Voice-to-voice sent as voice note: ${conversionResult.fileName}`);
     }
 

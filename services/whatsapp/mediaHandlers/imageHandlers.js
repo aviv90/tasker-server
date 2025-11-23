@@ -7,6 +7,7 @@
 const { sendTextMessage, sendFileByUrl, downloadFile } = require('../../greenApiService');
 const conversationManager = require('../../conversationManager');
 const { formatProviderError } = require('../../../utils/errorHandler');
+const { TIME } = require('../../../utils/constants');
 const {
   editImageForWhatsApp,
   editOpenAIImage,
@@ -67,7 +68,7 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
       if (editResult.imageUrl) {
         const fileName = editResult.fileName || `${service}_edit_${Date.now()}.png`;
 
-        await sendFileByUrl(chatId, editResult.imageUrl, fileName, '', quotedMessageId, 1000);
+        await sendFileByUrl(chatId, editResult.imageUrl, fileName, '', quotedMessageId, TIME.TYPING_INDICATOR);
 
         console.log(`✅ ${service} edited image sent to ${senderName}`);
         sentSomething = true;
@@ -75,13 +76,13 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
 
       // If nothing was sent, it means we have success but no content
       if (!sentSomething) {
-        await sendTextMessage(chatId, '✅ העיבוד הושלם בהצלחה', quotedMessageId, 1000);
+        await sendTextMessage(chatId, '✅ העיבוד הושלם בהצלחה', quotedMessageId, TIME.TYPING_INDICATOR);
         console.log(`✅ ${service} edit completed but no content to send to ${senderName}`);
       }
     } else {
       const errorMsg = editResult.error || 'לא הצלחתי לערוך את התמונה. נסה שוב מאוחר יותר.';
       const formattedError = formatProviderError(service, errorMsg);
-      await sendTextMessage(chatId, formattedError, quotedMessageId, 1000);
+      await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
       console.log(`❌ ${service} image edit failed for ${senderName}: ${errorMsg}`);
     }
   } catch (error) {
@@ -159,7 +160,7 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
       // Map service to provider name for formatting
       const providerName = service === 'veo3' ? 'veo3' : service === 'sora' ? 'sora' : 'kling';
       const formattedError = formatProviderError(providerName, errorMsg);
-      await sendTextMessage(chatId, formattedError, quotedMessageId, 1000);
+      await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
       console.log(`❌ ${serviceName} image-to-video failed for ${senderName}: ${errorMsg}`);
     }
   } catch (error) {

@@ -321,7 +321,8 @@ class MultiStepExecution {
       const stepInfo = stepNumber ? ` שגיאה בביצוע שלב ${stepNumber}:` : '';
       const prefix = isException ? `❌${stepInfo}` : '❌';
       const errorMessage = error.startsWith('❌') ? error : `${prefix} ${error}`;
-      await greenApiService.sendTextMessage(chatId, errorMessage, quotedMessageId, 1000);
+      const { TIME } = require('../../../utils/constants');
+      await greenApiService.sendTextMessage(chatId, errorMessage, quotedMessageId, TIME.TYPING_INDICATOR);
       console.log(`📤 [Multi-step] Error sent to user${stepNumber ? ` for step ${stepNumber}` : ''}`);
     } catch (errorSendError) {
       console.error(`❌ [Multi-step] Failed to send error message:`, errorSendError.message);

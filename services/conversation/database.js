@@ -1,5 +1,6 @@
 const { Pool } = require('pg');
 const logger = require('../../utils/logger');
+const { TIME } = require('../../utils/constants');
 
 /**
  * Database initialization and table creation
@@ -28,7 +29,7 @@ class DatabaseManager {
         ssl: needsSSL ? { rejectUnauthorized: false } : false,
         max: 10, // Maximum number of clients in the pool
         idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-        connectionTimeoutMillis: 10000, // Allow up to 10s for cold starts / sleeping DBs
+        connectionTimeoutMillis: TIME.DB_CONNECTION_TIMEOUT, // Allow up to 10s for cold starts / sleeping DBs
       });
 
       // Test connection
@@ -53,7 +54,7 @@ class DatabaseManager {
       // Retry with exponential backoff to avoid crashing the app on transient DB issues
       const maxAttempts = 5;
       if (attempt < maxAttempts) {
-        const delayMs = Math.min(30000, 2000 * Math.pow(2, attempt - 1));
+        const delayMs = Math.min(TIME.DB_RETRY_MAX_DELAY, TIME.DB_RETRY_DELAY_BASE * Math.pow(2, attempt - 1));
         logger.warn(`⏳ Retrying DB init in ${Math.round(delayMs / 1000)}s (attempt ${attempt + 1}/${maxAttempts})...`);
         setTimeout(() => this.initializeDatabase(attempt + 1).catch(() => {}), delayMs);
       } else {

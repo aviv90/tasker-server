@@ -40,12 +40,12 @@ async function handleIncomingMessage(webhookData, processedMessages) {
     // For edited messages, append suffix to ensure they're processed even if original was processed
     if (messageData.typeMessage === 'editedMessage') {
       messageId = `${messageId}_edited_${Date.now()}`;
-      console.log(`✏️ Edited message - using unique ID for reprocessing: ${messageId}`);
+      logger.debug(`✏️ Edited message - using unique ID for reprocessing: ${messageId}`);
     }
 
     // Check if we already processed this message
     if (processedMessages.has(messageId)) {
-      console.log(`🔄 Duplicate message detected, skipping: ${messageId}`);
+      logger.debug(`🔄 Duplicate message detected, skipping: ${messageId}`);
       return;
     }
 
@@ -91,7 +91,7 @@ async function handleIncomingMessage(webhookData, processedMessages) {
 
           if (quotedResult.error) {
             const originalMessageId = webhookData.idMessage;
-            await sendTextMessage(chatId, quotedResult.error, originalMessageId, 1000);
+            await sendTextMessage(chatId, quotedResult.error, originalMessageId, TIME.TYPING_INDICATOR);
             return;
           }
 
@@ -145,7 +145,7 @@ async function handleIncomingMessage(webhookData, processedMessages) {
 
         // ═══════════════════ AGENT MODE (Gemini Function Calling) ═══════════════════
         // All requests are routed directly to the Agent for intelligent tool selection
-        console.log('🤖 [AGENT] Processing request with Gemini Function Calling');
+        logger.debug('🤖 [AGENT] Processing request with Gemini Function Calling');
 
         try {
           // NOTE: User messages are no longer saved to DB to avoid duplication.
@@ -172,13 +172,13 @@ async function handleIncomingMessage(webhookData, processedMessages) {
           return; // Exit early - no need for regular flow
 
         } catch (agentError) {
-          console.error('❌ [Agent] Error:', agentError);
+          logger.error('❌ [Agent] Error:', { error: agentError.message, stack: agentError.stack });
           await sendErrorToUser(chatId, agentError, { context: 'REQUEST', quotedMessageId: originalMessageId });
           return;
         }
 
       } catch (error) {
-        console.error('❌ Command execution error:', error.message || error);
+        logger.error('❌ Command execution error:', { error: error.message || error, stack: error.stack });
         const originalMessageId = webhookData.idMessage;
         await sendErrorToUser(chatId, error, { context: 'EXECUTION', quotedMessageId: originalMessageId });
       }
@@ -187,12 +187,12 @@ async function handleIncomingMessage(webhookData, processedMessages) {
 
     // Handle automatic voice transcription for authorized users
     if (messageData.typeMessage === 'audioMessage') {
-      console.log(`🎤 Detected audio message from ${senderName}`);
+      logger.debug(`🎤 Detected audio message from ${senderName}`);
       const audioUrl = messageData.downloadUrl || 
                       messageData.fileMessageData?.downloadUrl || 
                       messageData.audioMessageData?.downloadUrl;
       
-      console.log(`🔍 Audio URL: ${audioUrl ? 'found' : 'NOT FOUND'}`);
+      logger.debug(`🔍 Audio URL: ${audioUrl ? 'found' : 'NOT FOUND'}`);
       
       if (audioUrl) {
         // Check if user is authorized for automatic transcription
@@ -203,13 +203,13 @@ async function handleIncomingMessage(webhookData, processedMessages) {
           senderName,
           senderId
         };
-        console.log(`🔍 Checking authorization for: ${JSON.stringify(senderDataForAuth)}`);
+        logger.debug(`🔍 Checking authorization for: ${JSON.stringify(senderDataForAuth)}`);
         
         const isAuthorized = await conversationManager.isAuthorizedForVoiceTranscription(senderDataForAuth);
-        console.log(`🔐 Authorization result: ${isAuthorized}`);
+        logger.debug(`🔐 Authorization result: ${isAuthorized}`);
 
         if (isAuthorized) {
-          console.log(`🎤 Authorized user ${senderName} sent voice message - processing automatically`);
+          logger.info(`🎤 Authorized user ${senderName} sent voice message - processing automatically`);
           processVoiceMessageAsync({
             chatId,
             senderId,
@@ -219,14 +219,14 @@ async function handleIncomingMessage(webhookData, processedMessages) {
           });
           return; // Exit early after processing voice message
         } else {
-          console.log(`🚫 User ${senderName} is not authorized for automatic voice transcription`);
+          logger.info(`🚫 User ${senderName} is not authorized for automatic voice transcription`);
         }
       } else {
-        console.log(`❌ Audio message detected but no URL found`);
+        logger.warn(`❌ Audio message detected but no URL found`);
       }
     }
   } catch (error) {
-    console.error('❌ Error handling incoming message:', error.message || error);
+    logger.error('❌ Error handling incoming message:', { error: error.message || error, stack: error.stack });
   }
 }
 
