@@ -9,6 +9,7 @@
 const { sendTextMessage } = require('../../services/greenApiService');
 const { sendErrorToUser, ERROR_MESSAGES } = require('../../utils/errorSender');
 const conversationManager = require('../../services/conversationManager');
+const logger = require('../../utils/logger');
 const { routeToAgent } = require('../../services/agentRouter');
 const { isAuthorizedForMediaCreation } = require('../../services/whatsapp/authorization');
 const { processVoiceMessageAsync } = require('./asyncProcessors');

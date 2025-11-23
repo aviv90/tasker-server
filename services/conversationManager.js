@@ -141,6 +141,24 @@ class ConversationManager {
     return this.contactsManager.getContactsByType(type);
   }
 
+  // ═══════════════════ MESSAGE TYPES ═══════════════════
+
+  async markAsBotMessage(chatId, messageId) {
+    return this.messageTypesManager.markAsBotMessage(chatId, messageId);
+  }
+
+  async markAsUserOutgoing(chatId, messageId) {
+    return this.messageTypesManager.markAsUserOutgoing(chatId, messageId);
+  }
+
+  async isBotMessage(chatId, messageId) {
+    return this.messageTypesManager.isBotMessage(chatId, messageId);
+  }
+
+  async clearAllMessageTypes() {
+    return this.messageTypesManager.clearAll();
+  }
+
   // ═══════════════════ LAST COMMANDS (RETRY) ═══════════════════
 
   async saveCommand(chatId, messageId, metadata) {

@@ -8,6 +8,7 @@ const locationService = require('../services/locationService');
 const conversationManager = require('../services/conversationManager');
 const { routeToAgent } = require('../services/agentRouter');
 const { executeAgentQuery } = require('../services/agentService');
+const logger = require('../utils/logger');
 const authStore = require('../store/authStore');
 const groupAuthStore = require('../store/groupAuthStore');
 const fs = require('fs');
@@ -105,18 +106,18 @@ router.post('/webhook', whatsappLimiter, async (req, res) => {
     const webhookData = req.body;
     
     // Log full webhook payload for debugging
-    console.log(`📱 Green API webhook: ${webhookData.typeWebhook || 'unknown'} | Type: ${webhookData.messageData?.typeMessage || 'N/A'}`);
+    logger.debug(`📱 Green API webhook: ${webhookData.typeWebhook || 'unknown'} | Type: ${webhookData.messageData?.typeMessage || 'N/A'}`);
 
     // Handle different webhook types asynchronously
     if (webhookData.typeWebhook === 'incomingMessageReceived') {
       // Process in background - don't await
       handleIncomingMessage(webhookData, processedMessages).catch(error => {
-        console.error('❌ Error in async webhook processing:', error.message || error);
+        logger.error('❌ Error in async webhook processing:', { error: error.message || error, stack: error.stack });
       });
     } else if (webhookData.typeWebhook === 'outgoingMessageReceived') {
       // Process outgoing messages (commands sent by you)
       handleOutgoingMessage(webhookData, processedMessages).catch(error => {
-        console.error('❌ Error in async outgoing message processing:', error.message || error);
+        logger.error('❌ Error in async outgoing message processing:', { error: error.message || error, stack: error.stack });
       });
     }
 
