@@ -7,23 +7,11 @@
 
 const logger = require('../../utils/logger');
 const { TIME } = require('../../utils/constants');
-const MessageTypesRepository = require('../../repositories/messageTypesRepository');
 
 class MessageTypesManager {
-  constructor(conversationManager) {
-    this.conversationManager = conversationManager;
-    // Note: We delay instantiation or handle checks because pool might not be ready
-    // But we can pass the pool *getter* or just the pool itself if it's a proxy
-    // For now, let's instantiate repo on the fly or update repo to take pool in methods.
-    // Actually, best practice: Repo takes pool in constructor. Pool is property of Manager.
-    this.repository = null;
-  }
-
-  _getRepository() {
-    if (!this.repository && this.conversationManager.pool) {
-        this.repository = new MessageTypesRepository(this.conversationManager.pool);
-    }
-    return this.repository;
+  constructor(conversationManager, repository) {
+    this.conversationManager = conversationManager; // Kept for backward compatibility
+    this.repository = repository;
   }
 
   /**
@@ -34,13 +22,13 @@ class MessageTypesManager {
   async markAsBotMessage(chatId, messageId) {
     if (!chatId || !messageId) return;
     
-    if (!this.conversationManager.isInitialized) {
-      logger.warn('⚠️ Database not initialized, cannot mark bot message');
+    if (!this.repository) {
+      logger.warn('⚠️ Repository not initialized, cannot mark bot message');
       return;
     }
 
     try {
-      await this._getRepository().upsert(chatId, messageId, 'bot', Date.now());
+      await this.repository.upsert(chatId, messageId, 'bot', Date.now());
       logger.debug(`🤖 [MessageTypes] Marked message ${messageId} as bot message in ${chatId}`);
     } catch (error) {
       logger.error('❌ Error marking bot message:', { error: error.message, chatId, messageId });
@@ -55,13 +43,13 @@ class MessageTypesManager {
   async markAsUserOutgoing(chatId, messageId) {
     if (!chatId || !messageId) return;
     
-    if (!this.conversationManager.isInitialized) {
-      logger.warn('⚠️ Database not initialized, cannot mark user outgoing message');
+    if (!this.repository) {
+      logger.warn('⚠️ Repository not initialized, cannot mark user outgoing message');
       return;
     }
 
     try {
-      await this._getRepository().upsert(chatId, messageId, 'user_outgoing', Date.now());
+      await this.repository.upsert(chatId, messageId, 'user_outgoing', Date.now());
       logger.debug(`👤 [MessageTypes] Marked message ${messageId} as user outgoing in ${chatId}`);
     } catch (error) {
       logger.error('❌ Error marking user outgoing message:', { error: error.message, chatId, messageId });
@@ -77,12 +65,12 @@ class MessageTypesManager {
   async isBotMessage(chatId, messageId) {
     if (!chatId || !messageId) return false;
     
-    if (!this.conversationManager.isInitialized) {
+    if (!this.repository) {
       return false;
     }
 
     try {
-      const type = await this._getRepository().findType(chatId, messageId);
+      const type = await this.repository.findType(chatId, messageId);
       return type === 'bot';
     } catch (error) {
       logger.error('❌ Error checking bot message:', { error: error.message, chatId, messageId });
@@ -99,12 +87,12 @@ class MessageTypesManager {
   async isUserOutgoing(chatId, messageId) {
     if (!chatId || !messageId) return false;
     
-    if (!this.conversationManager.isInitialized) {
+    if (!this.repository) {
       return false;
     }
 
     try {
-      const type = await this._getRepository().findType(chatId, messageId);
+      const type = await this.repository.findType(chatId, messageId);
       return type === 'user_outgoing';
     } catch (error) {
       logger.error('❌ Error checking user outgoing message:', { error: error.message, chatId, messageId });
@@ -128,12 +116,12 @@ class MessageTypesManager {
       return defaultType;
     }
     
-    if (!this.conversationManager.isInitialized) {
+    if (!this.repository) {
       return defaultType;
     }
 
     try {
-      const type = await this._getRepository().findType(chatId, messageId);
+      const type = await this.repository.findType(chatId, messageId);
       
       if (type) {
         // If it's user_outgoing but also a command by text, return 'command'
@@ -165,14 +153,14 @@ class MessageTypesManager {
    * @param {number} ttlMs - TTL in milliseconds (default: 30 days)
    */
   async cleanup(ttlMs = 30 * TIME.DAY) {
-    if (!this.conversationManager.isInitialized) {
+    if (!this.repository) {
       return;
     }
 
     const cutoffTime = Date.now() - ttlMs;
     
     try {
-      const count = await this._getRepository().deleteOlderThan(cutoffTime);
+      const count = await this.repository.deleteOlderThan(cutoffTime);
       if (count > 0) {
         logger.info(`🧹 [MessageTypes] Cleaned up ${count} old message type entries`);
       }
@@ -185,12 +173,12 @@ class MessageTypesManager {
    * Clear all message types (for management command)
    */
   async clearAll() {
-    if (!this.conversationManager.isInitialized) {
+    if (!this.repository) {
       return;
     }
 
     try {
-      await this._getRepository().deleteAll();
+      await this.repository.deleteAll();
       logger.info('🗑️ [MessageTypes] All message types cleared');
     } catch (error) {
       logger.error('❌ Error clearing message types:', { error: error.message });

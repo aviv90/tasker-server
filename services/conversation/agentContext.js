@@ -3,28 +3,20 @@
  */
 
 const logger = require('../../utils/logger');
-const AgentContextRepository = require('../../repositories/agentContextRepository');
 const { contextSchema } = require('../../schemas/context.schema');
 
 class AgentContextManager {
-  constructor(conversationManager) {
-    this.conversationManager = conversationManager;
-    this.repository = null;
-  }
-
-  _getRepository() {
-    if (!this.repository && this.conversationManager.pool) {
-        this.repository = new AgentContextRepository(this.conversationManager.pool);
-    }
-    return this.repository;
+  constructor(conversationManager, repository) {
+    this.conversationManager = conversationManager; // Kept for backward compatibility
+    this.repository = repository;
   }
 
   /**
    * Save agent context to database (persistent storage)
    */
   async saveAgentContext(chatId, context) {
-    if (!this.conversationManager.isInitialized) {
-      logger.warn('⚠️ Database not initialized, cannot save agent context');
+    if (!this.repository) {
+      logger.warn('⚠️ Repository not initialized, cannot save agent context');
       return;
     }
 
@@ -35,7 +27,7 @@ class AgentContextManager {
         generatedAssets: context.generatedAssets
       });
 
-      await this._getRepository().upsert(chatId, validatedContext.toolCalls, validatedContext.generatedAssets);
+      await this.repository.upsert(chatId, validatedContext.toolCalls, validatedContext.generatedAssets);
       logger.debug(`💾 [Agent Context] Saved to DB for chat ${chatId}`);
     } catch (error) {
       logger.error('❌ Error saving agent context:', error.message);
@@ -46,13 +38,13 @@ class AgentContextManager {
    * Get agent context from database
    */
   async getAgentContext(chatId) {
-    if (!this.conversationManager.isInitialized) {
-      logger.warn('⚠️ Database not initialized, cannot get agent context');
+    if (!this.repository) {
+      logger.warn('⚠️ Repository not initialized, cannot get agent context');
       return null;
     }
 
     try {
-      return await this._getRepository().findByChatId(chatId);
+      return await this.repository.findByChatId(chatId);
     } catch (error) {
       logger.error('❌ Error getting agent context:', error.message);
       return null;
@@ -63,13 +55,13 @@ class AgentContextManager {
    * Clear agent context for a chat
    */
   async clearAgentContext(chatId) {
-    if (!this.conversationManager.isInitialized) {
-      logger.warn('⚠️ Database not initialized, cannot clear agent context');
+    if (!this.repository) {
+      logger.warn('⚠️ Repository not initialized, cannot clear agent context');
       return;
     }
 
     try {
-      await this._getRepository().deleteByChatId(chatId);
+      await this.repository.deleteByChatId(chatId);
       logger.debug(`🗑️ [Agent Context] Cleared for chat ${chatId}`);
     } catch (error) {
       logger.error('❌ Error clearing agent context:', error.message);
@@ -82,13 +74,13 @@ class AgentContextManager {
    * @returns {number} - Number of rows deleted
    */
   async cleanupOldAgentContext(olderThanDays = 30) {
-    if (!this.conversationManager.isInitialized) {
-      logger.warn('⚠️ Database not initialized, cannot cleanup agent context');
+    if (!this.repository) {
+      logger.warn('⚠️ Repository not initialized, cannot cleanup agent context');
       return 0;
     }
 
     try {
-      const deletedCount = await this._getRepository().deleteOlderThanDays(olderThanDays);
+      const deletedCount = await this.repository.deleteOlderThanDays(olderThanDays);
       
       if (deletedCount > 0) {
         logger.info(`🧹 [Agent Context Cleanup] Deleted ${deletedCount} old context(s) (older than ${olderThanDays} days)`);

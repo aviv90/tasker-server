@@ -3,19 +3,11 @@
  */
 
 const logger = require('../../utils/logger');
-const SummariesRepository = require('../../repositories/summariesRepository');
 
 class SummariesManager {
-  constructor(conversationManager) {
-    this.conversationManager = conversationManager;
-    this.repository = null;
-  }
-
-  _getRepository() {
-    if (!this.repository && this.conversationManager.pool) {
-        this.repository = new SummariesRepository(this.conversationManager.pool);
-    }
-    return this.repository;
+  constructor(conversationManager, repository) {
+    this.conversationManager = conversationManager; // Kept for backward compatibility
+    this.repository = repository;
   }
 
   /**
@@ -24,21 +16,24 @@ class SummariesManager {
    * @returns {Object} - Generated summary or error
    */
   async generateAutomaticSummary(chatId) {
-    if (!this.conversationManager.isInitialized) {
-      logger.warn('⚠️ Database not initialized, cannot generate summary');
-      return { error: 'Database not initialized' };
+    if (!this.repository) {
+      logger.warn('⚠️ Repository not initialized, cannot generate summary');
+      return { error: 'Repository not initialized' };
     }
 
     try {
-      // Get recent chat history from DB (DB format: { role, content, metadata })
-      const history = await this.conversationManager.messagesManager.getConversationHistory(chatId);
+      // Get recent chat history from Green API or legacy
+      // Note: Ideally this service should depend on chatHistoryService, not messagesManager
+      const { getChatHistory } = require('../../utils/chatHistoryService');
+      const historyResult = await getChatHistory(chatId);
+      const history = historyResult.messages;
       
       if (!history || history.length < 10) {
         logger.debug(`⏭️ [Auto-Summary] Not enough messages (${history?.length || 0}) for chat ${chatId}`);
         return { error: 'Not enough messages for summary' };
       }
 
-      // Format history for Gemini (DB format has role and content)
+      // Format history for Gemini
       const conversationText = history.map(msg => 
         `${msg.role === 'user' ? 'User' : 'Bot'}: ${msg.content}`
       ).join('\n');
@@ -118,8 +113,8 @@ ${conversationText}
    * Save conversation summary for long-term memory
    */
   async saveConversationSummary(chatId, summary, keyTopics = [], userPreferences = {}, messageCount = 0) {
-    if (!this.conversationManager.isInitialized) {
-      logger.warn('⚠️ Database not initialized, cannot save summary');
+    if (!this.repository) {
+      logger.warn('⚠️ Repository not initialized, cannot save summary');
       return;
     }
 
@@ -132,7 +127,7 @@ ${conversationText}
         messageCount
       };
 
-      await this._getRepository().save(summaryData);
+      await this.repository.save(summaryData);
       logger.debug(`📝 [Long-term Memory] Saved summary for chat ${chatId}`);
     } catch (error) {
       logger.error('❌ Error saving conversation summary:', error.message);
@@ -143,13 +138,13 @@ ${conversationText}
    * Get recent conversation summaries for a chat
    */
   async getConversationSummaries(chatId, limit = 5) {
-    if (!this.conversationManager.isInitialized) {
-      logger.warn('⚠️ Database not initialized, cannot get summaries');
+    if (!this.repository) {
+      logger.warn('⚠️ Repository not initialized, cannot get summaries');
       return [];
     }
 
     try {
-      return await this._getRepository().findByChatId(chatId, limit);
+      return await this.repository.findByChatId(chatId, limit);
     } catch (error) {
       logger.error('❌ Error getting conversation summaries:', error.message);
       return [];
@@ -160,13 +155,13 @@ ${conversationText}
    * Get aggregated user preferences from all summaries
    */
   async getUserPreferences(chatId) {
-    if (!this.conversationManager.isInitialized) {
-      logger.warn('⚠️ Database not initialized, cannot get user preferences');
+    if (!this.repository) {
+      logger.warn('⚠️ Repository not initialized, cannot get user preferences');
       return {};
     }
 
     try {
-      const preferencesList = await this._getRepository().findPreferences(chatId, 10);
+      const preferencesList = await this.repository.findPreferences(chatId, 10);
       
       // Merge all preferences (most recent takes precedence)
       const merged = {};
@@ -186,14 +181,14 @@ ${conversationText}
    * Updates the most recent summary's user_preferences, or creates a basic summary if none exists
    */
   async saveUserPreference(chatId, preferenceKey, preferenceValue) {
-    if (!this.conversationManager.isInitialized) {
-      logger.warn('⚠️ Database not initialized, cannot save user preference');
+    if (!this.repository) {
+      logger.warn('⚠️ Repository not initialized, cannot save user preference');
       return;
     }
 
     try {
       // Get the most recent summary for this chat
-      const summaries = await this._getRepository().findByChatId(chatId, 1);
+      const summaries = await this.repository.findByChatId(chatId, 1);
 
       if (summaries.length > 0) {
         // Update existing summary's user_preferences
@@ -201,7 +196,7 @@ ${conversationText}
         const currentPreferences = summary.userPreferences || {};
         currentPreferences[preferenceKey] = preferenceValue;
 
-        await this._getRepository().updatePreferences(summary.id, currentPreferences);
+        await this.repository.updatePreferences(summary.id, currentPreferences);
         logger.debug(`💾 [User Preference] Updated for chat ${chatId}: ${preferenceKey} = ${preferenceValue}`);
       } else {
         // Create a basic summary with just this preference
@@ -226,13 +221,13 @@ ${conversationText}
    * @returns {number} - Number of rows deleted
    */
   async cleanupOldSummaries(keepPerChat = 10) {
-    if (!this.conversationManager.isInitialized) {
-      logger.warn('⚠️ Database not initialized, cannot cleanup summaries');
+    if (!this.repository) {
+      logger.warn('⚠️ Repository not initialized, cannot cleanup summaries');
       return 0;
     }
 
     try {
-      const deletedCount = await this._getRepository().deleteOldSummaries(keepPerChat);
+      const deletedCount = await this.repository.deleteOldSummaries(keepPerChat);
       
       if (deletedCount > 0) {
         logger.info(`🧹 [Summary Cleanup] Deleted ${deletedCount} old summaries (kept ${keepPerChat} per chat)`);

@@ -4,20 +4,12 @@
 const { CacheKeys, CacheTTL } = require('../../utils/cache');
 const cache = require('../../utils/cache');
 const logger = require('../../utils/logger');
-const ContactsRepository = require('../../repositories/contactsRepository');
 const { contactSchema } = require('../../schemas/contact.schema');
 
 class ContactsManager {
-  constructor(conversationManager) {
-    this.conversationManager = conversationManager;
-    this.repository = null;
-  }
-
-  _getRepository() {
-    if (!this.repository && this.conversationManager.pool) {
-        this.repository = new ContactsRepository(this.conversationManager.pool);
-    }
-    return this.repository;
+  constructor(conversationManager, repository) {
+    this.conversationManager = conversationManager; // Kept for backward compatibility
+    this.repository = repository;
   }
 
   /**
@@ -25,8 +17,8 @@ class ContactsManager {
    * Updates or inserts contacts based on contact_id
    */
   async syncContacts(contactsArray) {
-    if (!this.conversationManager.isInitialized) {
-      throw new Error('Database not initialized');
+    if (!this.repository) {
+      throw new Error('Repository not initialized');
     }
 
     try {
@@ -49,7 +41,7 @@ class ContactsManager {
         // Validate with Zod
         const validatedContact = contactSchema.parse(rawContactData);
 
-        await this._getRepository().upsert(validatedContact);
+        await this.repository.upsert(validatedContact);
         processed++;
       }
 
@@ -69,7 +61,7 @@ class ContactsManager {
    * Get all contacts from database (with caching)
    */
   async getAllContacts() {
-    if (!this.conversationManager.isInitialized) {
+    if (!this.repository) {
       return [];
     }
 
@@ -81,7 +73,7 @@ class ContactsManager {
     }
 
     try {
-      const contacts = await this._getRepository().findAll();
+      const contacts = await this.repository.findAll();
       
       // Cache for 5 minutes (contacts don't change frequently)
       cache.set(cacheKey, contacts, CacheTTL.MEDIUM);
@@ -97,12 +89,12 @@ class ContactsManager {
    * Get contacts by type (user, group, etc.)
    */
   async getContactsByType(type) {
-    if (!this.conversationManager.isInitialized) {
+    if (!this.repository) {
       return [];
     }
 
     try {
-      return await this._getRepository().findByType(type);
+      return await this.repository.findByType(type);
     } catch (error) {
       logger.error('❌ Error getting contacts by type:', error);
       return [];

@@ -1,319 +1,172 @@
 const DatabaseManager = require('./conversation/database');
-const MessagesManager = require('./conversation/messages'); // @deprecated - kept for backward compatibility
-const AllowListsManager = require('./conversation/allowLists');
-const ContactsManager = require('./conversation/contacts');
-const CommandsManager = require('./conversation/commands');
-const MessageTypesManager = require('./conversation/messageTypes');
 const TasksManager = require('./conversation/tasks');
-const AgentContextManager = require('./conversation/agentContext');
-const SummariesManager = require('./conversation/summaries');
 const logger = require('../utils/logger');
-const { TIME } = require('../utils/constants');
+const container = require('./container');
 
 class ConversationManager {
   constructor() {
-    this.maxMessages = 50; // Keep last 50 messages per chat
-    this.pool = null;
     this.isInitialized = false;
-    this.cleanupTimeoutHandle = null;
-    this.cleanupIntervalHandle = null;
+    this.pool = null;
     
-    // Initialize managers
+    // We keep these here for backward compatibility API
+    // But they will delegate to the container's managers
     this.databaseManager = new DatabaseManager(this);
-    this.messagesManager = new MessagesManager(this);
-    this.allowListsManager = new AllowListsManager(this);
-    this.contactsManager = new ContactsManager(this);
-    this.commandsManager = new CommandsManager(this);
-    this.messageTypesManager = new MessageTypesManager(this);
-    this.tasksManager = new TasksManager(this);
-    this.agentContextManager = new AgentContextManager(this);
-    this.summariesManager = new SummariesManager(this);
+    this.tasksManager = new TasksManager(this); 
+    // Note: TasksManager is simple and still expects 'this' context in old code
+    // Ideally we should refactor it too, but for now we focus on the main ones.
     
-    logger.info('💭 ConversationManager initializing with PostgreSQL...');
-    this.databaseManager.initializeDatabase();
+    logger.info('💭 ConversationManager initializing with DI Container...');
+    this.initializeDatabase();
   }
 
-  // ═══════════════════ DATABASE INITIALIZATION ═══════════════════
+  // ═══════════════════ INITIALIZATION ═══════════════════
   
   async initializeDatabase(attempt = 1) {
-    return this.databaseManager.initializeDatabase(attempt);
+    try {
+      await container.initialize();
+      this.pool = container.pool; // Expose pool for legacy components
+      this.isInitialized = true;
+      
+      // Legacy DB manager just logs now, container handles migrations
+      
+      this.startPeriodicCleanup();
+      
+    } catch (error) {
+      logger.error('❌ Failed to initialize ConversationManager:', error);
+    }
   }
 
-  // ═══════════════════ MESSAGES ═══════════════════
-  //
-  // @deprecated These methods are deprecated. Messages are no longer stored in DB
-  // to avoid duplication. All messages are retrieved from Green API getChatHistory
-  // when needed. Use chatHistoryService.getChatHistory() instead.
-  //
-  // These methods are kept for backward compatibility only (fallback scenarios).
+  // ═══════════════════ GETTERS (DI) ═══════════════════
 
-  async addMessage(chatId, role, content, metadata = {}) {
-    logger.warn('⚠️ [DEPRECATED] conversationManager.addMessage() is deprecated. Messages are retrieved from Green API.');
-    return this.messagesManager.addMessage(chatId, role, content, metadata);
+  get messageTypesManager() { return container.getService('messageTypes'); }
+  get commandsManager() { return container.getService('commands'); }
+  get agentContextManager() { return container.getService('agentContext'); }
+  get summariesManager() { return container.getService('summaries'); }
+  get allowListsManager() { return container.getService('allowLists'); }
+  get contactsManager() { return container.getService('contacts'); }
+  
+  // Legacy support for messagesManager (it's deprecated anyway)
+  get messagesManager() { 
+    return {
+      getConversationHistory: async (chatId) => {
+        logger.warn('⚠️ [DEPRECATED] conversationManager.messagesManager used. Use chatHistoryService.');
+        const { getChatHistory } = require('../utils/chatHistoryService');
+        const result = await getChatHistory(chatId);
+        return result.messages || [];
+      },
+      addMessage: async () => logger.warn('⚠️ addMessage is deprecated'),
+      trimMessagesForChat: async () => {}
+    };
   }
 
-  async trimMessagesForChat(chatId) {
-    return this.messagesManager.trimMessagesForChat(chatId);
-  }
+  // ═══════════════════ FACADE METHODS ═══════════════════
+  // Delegating to specific managers from the container
 
-  async getConversationHistory(chatId) {
-    logger.warn('⚠️ [DEPRECATED] conversationManager.getConversationHistory() is deprecated. Use chatHistoryService.getChatHistory() instead.');
-    return this.messagesManager.getConversationHistory(chatId);
-  }
+  // Voice & Allow Lists
+  async setVoiceTranscriptionStatus(enabled) { return this.allowListsManager.setVoiceTranscriptionStatus(enabled); }
+  async getVoiceTranscriptionStatus() { return this.allowListsManager.getVoiceTranscriptionStatus(); }
+  async addToVoiceAllowList(contactName) { return this.allowListsManager.addToVoiceAllowList(contactName); }
+  async removeFromVoiceAllowList(contactName) { return this.allowListsManager.removeFromVoiceAllowList(contactName); }
+  async getVoiceAllowList() { return this.allowListsManager.getVoiceAllowList(); }
+  async isInVoiceAllowList(contactName) { return this.allowListsManager.isInVoiceAllowList(contactName); }
+  async isAuthorizedForVoiceTranscription(senderData) { return this.allowListsManager.isAuthorizedForVoiceTranscription(senderData); }
+  
+  async addToMediaAllowList(contactName) { return this.allowListsManager.addToMediaAllowList(contactName); }
+  async removeFromMediaAllowList(contactName) { return this.allowListsManager.removeFromMediaAllowList(contactName); }
+  async getMediaAllowList() { return this.allowListsManager.getMediaAllowList(); }
+  
+  async addToGroupCreationAllowList(contactName) { return this.allowListsManager.addToGroupCreationAllowList(contactName); }
+  async removeFromGroupCreationAllowList(contactName) { return this.allowListsManager.removeFromGroupCreationAllowList(contactName); }
+  async getGroupCreationAllowList() { return this.allowListsManager.getGroupCreationAllowList(); }
+  async isInGroupCreationAllowList(contactName) { return this.allowListsManager.isInGroupCreationAllowList(contactName); }
+  
+  async getDatabaseStats() { return this.allowListsManager.getDatabaseStats(); }
+  async clearAllConversations() { return this.allowListsManager.clearAllConversations(); }
 
-  // ═══════════════════ VOICE SETTINGS & ALLOW LISTS ═══════════════════
+  // Contacts
+  async syncContacts(contactsArray) { return this.contactsManager.syncContacts(contactsArray); }
+  async getAllContacts() { return this.contactsManager.getAllContacts(); }
+  async getContactsByType(type) { return this.contactsManager.getContactsByType(type); }
 
-  async setVoiceTranscriptionStatus(enabled) {
-    return this.allowListsManager.setVoiceTranscriptionStatus(enabled);
-  }
+  // Message Types
+  async markAsBotMessage(chatId, messageId) { return this.messageTypesManager.markAsBotMessage(chatId, messageId); }
+  async markAsUserOutgoing(chatId, messageId) { return this.messageTypesManager.markAsUserOutgoing(chatId, messageId); }
+  async isBotMessage(chatId, messageId) { return this.messageTypesManager.isBotMessage(chatId, messageId); }
+  async clearAllMessageTypes() { return this.messageTypesManager.clearAll(); }
 
-  async getVoiceTranscriptionStatus() {
-    return this.allowListsManager.getVoiceTranscriptionStatus();
-  }
+  // Commands
+  async saveCommand(chatId, messageId, metadata) { return this.commandsManager.saveCommand(chatId, messageId, metadata); }
+  async getLastCommand(chatId) { return this.commandsManager.getLastCommand(chatId); }
+  async saveLastCommand(chatId, tool, args, options = {}) { return this.commandsManager.saveLastCommand(chatId, tool, args, options); }
 
-  async addToVoiceAllowList(contactName) {
-    return this.allowListsManager.addToVoiceAllowList(contactName);
-  }
+  // Tasks (Simple)
+  async saveTask(taskId, status, data = {}) { return this.tasksManager.saveTask(taskId, status, data); }
+  async getTask(taskId) { return this.tasksManager.getTask(taskId); }
 
-  async removeFromVoiceAllowList(contactName) {
-    return this.allowListsManager.removeFromVoiceAllowList(contactName);
-  }
+  // Agent Context
+  async saveAgentContext(chatId, context) { return this.agentContextManager.saveAgentContext(chatId, context); }
+  async getAgentContext(chatId) { return this.agentContextManager.getAgentContext(chatId); }
+  async clearAgentContext(chatId) { return this.agentContextManager.clearAgentContext(chatId); }
+  async cleanupOldAgentContext(olderThanDays = 30) { return this.agentContextManager.cleanupOldAgentContext(olderThanDays); }
 
-  async getVoiceAllowList() {
-    return this.allowListsManager.getVoiceAllowList();
-  }
+  // Summaries
+  async generateAutomaticSummary(chatId) { return this.summariesManager.generateAutomaticSummary(chatId); }
+  async saveConversationSummary(chatId, summary, keyTopics = [], userPreferences = {}, messageCount = 0) { return this.summariesManager.saveConversationSummary(chatId, summary, keyTopics, userPreferences, messageCount); }
+  async getConversationSummaries(chatId, limit = 5) { return this.summariesManager.getConversationSummaries(chatId, limit); }
+  async getUserPreferences(chatId) { return this.summariesManager.getUserPreferences(chatId); }
+  async saveUserPreference(chatId, preferenceKey, preferenceValue) { return this.summariesManager.saveUserPreference(chatId, preferenceKey, preferenceValue); }
+  async cleanupOldSummaries(keepPerChat = 10) { return this.summariesManager.cleanupOldSummaries(keepPerChat); }
 
-  async isInVoiceAllowList(contactName) {
-    return this.allowListsManager.isInVoiceAllowList(contactName);
-  }
+  // Deprecated Wrappers
+  async addMessage(chatId, role, content, metadata = {}) { return this.messagesManager.addMessage(chatId, role, content, metadata); }
+  async trimMessagesForChat(chatId) { return this.messagesManager.trimMessagesForChat(chatId); }
+  async getConversationHistory(chatId) { return this.messagesManager.getConversationHistory(chatId); }
 
-  async isAuthorizedForVoiceTranscription(senderData) {
-    return this.allowListsManager.isAuthorizedForVoiceTranscription(senderData);
-  }
-
-  async addToMediaAllowList(contactName) {
-    return this.allowListsManager.addToMediaAllowList(contactName);
-  }
-
-  async removeFromMediaAllowList(contactName) {
-    return this.allowListsManager.removeFromMediaAllowList(contactName);
-  }
-
-  async getMediaAllowList() {
-    return this.allowListsManager.getMediaAllowList();
-  }
-
-  async addToGroupCreationAllowList(contactName) {
-    return this.allowListsManager.addToGroupCreationAllowList(contactName);
-  }
-
-  async removeFromGroupCreationAllowList(contactName) {
-    return this.allowListsManager.removeFromGroupCreationAllowList(contactName);
-  }
-
-  async getGroupCreationAllowList() {
-    return this.allowListsManager.getGroupCreationAllowList();
-  }
-
-  async isInGroupCreationAllowList(contactName) {
-    return this.allowListsManager.isInGroupCreationAllowList(contactName);
-  }
-
-  async getDatabaseStats() {
-    return this.allowListsManager.getDatabaseStats();
-  }
-
-  async clearAllConversations() {
-    return this.allowListsManager.clearAllConversations();
-  }
-
-  // ═══════════════════ CONTACTS ═══════════════════
-
-  async syncContacts(contactsArray) {
-    return this.contactsManager.syncContacts(contactsArray);
-  }
-
-  async getAllContacts() {
-    return this.contactsManager.getAllContacts();
-  }
-
-  async getContactsByType(type) {
-    return this.contactsManager.getContactsByType(type);
-  }
-
-  // ═══════════════════ MESSAGE TYPES ═══════════════════
-
-  async markAsBotMessage(chatId, messageId) {
-    return this.messageTypesManager.markAsBotMessage(chatId, messageId);
-  }
-
-  async markAsUserOutgoing(chatId, messageId) {
-    return this.messageTypesManager.markAsUserOutgoing(chatId, messageId);
-  }
-
-  async isBotMessage(chatId, messageId) {
-    return this.messageTypesManager.isBotMessage(chatId, messageId);
-  }
-
-  async clearAllMessageTypes() {
-    return this.messageTypesManager.clearAll();
-  }
-
-  // ═══════════════════ LAST COMMANDS (RETRY) ═══════════════════
-
-  async saveCommand(chatId, messageId, metadata) {
-    return this.commandsManager.saveCommand(chatId, messageId, metadata);
-  }
-
-  async getLastCommand(chatId) {
-    return this.commandsManager.getLastCommand(chatId);
-  }
-
-  // Backward compatibility
-  async saveLastCommand(chatId, tool, args, options = {}) {
-    return this.commandsManager.saveLastCommand(chatId, tool, args, options);
-  }
-
-  // ═══════════════════ TASKS (ASYNC API) ═══════════════════
-
-  async saveTask(taskId, status, data = {}) {
-    return this.tasksManager.saveTask(taskId, status, data);
-  }
-
-  async getTask(taskId) {
-    return this.tasksManager.getTask(taskId);
-  }
-
-  // ═══════════════════ AGENT CONTEXT ═══════════════════
-
-  async saveAgentContext(chatId, context) {
-    return this.agentContextManager.saveAgentContext(chatId, context);
-  }
-
-  async getAgentContext(chatId) {
-    return this.agentContextManager.getAgentContext(chatId);
-  }
-
-  async clearAgentContext(chatId) {
-    return this.agentContextManager.clearAgentContext(chatId);
-  }
-
-  async cleanupOldAgentContext(olderThanDays = 30) {
-    return this.agentContextManager.cleanupOldAgentContext(olderThanDays);
-  }
-
-  // ═══════════════════ SUMMARIES & LONG-TERM MEMORY ═══════════════════
-
-  async generateAutomaticSummary(chatId) {
-    return this.summariesManager.generateAutomaticSummary(chatId);
-  }
-
-  async saveConversationSummary(chatId, summary, keyTopics = [], userPreferences = {}, messageCount = 0) {
-    return this.summariesManager.saveConversationSummary(chatId, summary, keyTopics, userPreferences, messageCount);
-  }
-
-  async getConversationSummaries(chatId, limit = 5) {
-    return this.summariesManager.getConversationSummaries(chatId, limit);
-  }
-
-  async getUserPreferences(chatId) {
-    return this.summariesManager.getUserPreferences(chatId);
-  }
-
-  async saveUserPreference(chatId, preferenceKey, preferenceValue) {
-    return this.summariesManager.saveUserPreference(chatId, preferenceKey, preferenceValue);
-  }
-
-  async cleanupOldSummaries(keepPerChat = 10) {
-    return this.summariesManager.cleanupOldSummaries(keepPerChat);
-  }
-
-  // ═══════════════════ CLEANUP ═══════════════════
-
-  /**
-   * Run full cleanup (message types, commands, agent context + summaries)
-   * @returns {Object} - Cleanup stats
-   */
+  // Cleanup
   async runFullCleanup() {
+    const { TIME } = require('../utils/constants');
     // Cleanup message types (30 days TTL)
     await this.messageTypesManager.cleanup(30 * TIME.DAY);
     
     // Cleanup old commands (30 days TTL)
     await this.commandsManager.cleanup(30 * TIME.DAY);
     
-    // Existing cleanup
     logger.info('🧹 Starting full cleanup...');
+    const contextDeleted = await this.agentContextManager.cleanupOldAgentContext(30);
+    const summariesDeleted = await this.summariesManager.cleanupOldSummaries(10);
     
-    const contextDeleted = await this.agentContextManager.cleanupOldAgentContext(30);  // 30 days
-    const summariesDeleted = await this.summariesManager.cleanupOldSummaries(10);   // Keep 10 per chat
-    
-    const stats = {
-      contextDeleted,
-      summariesDeleted,
-      totalDeleted: contextDeleted + summariesDeleted,
-      timestamp: new Date().toISOString()
-    };
-    
+    const stats = { contextDeleted, summariesDeleted, totalDeleted: contextDeleted + summariesDeleted };
     logger.info(`✅ Full cleanup completed:`, stats);
     return stats;
   }
 
-  /**
-   * Start periodic cleanup task (runs monthly)
-   */
   startPeriodicCleanup() {
-    if (this.cleanupTimeoutHandle || this.cleanupIntervalHandle) {
-      logger.info('ℹ️ Periodic cleanup already scheduled - skipping duplicate setup');
-      return;
-    }
+    if (this.cleanupIntervalHandle) return;
     
-    // Run cleanup once per month (30 days)
-    const MAX_INTERVAL_MS = 2147483647; // ~24.8 days - Node.js timer limit
     const { TIME } = require('../utils/constants');
-    const THIRTY_DAYS_MS = TIME.CLEANUP_INTERVAL;
-    const CLEANUP_INTERVAL_MS = Math.min(THIRTY_DAYS_MS, MAX_INTERVAL_MS);
+    const CLEANUP_INTERVAL_MS = Math.min(TIME.CLEANUP_INTERVAL, 2147483647);
     
-    // Run first cleanup after 1 hour (to not impact startup)
-    this.cleanupTimeoutHandle = setTimeout(async () => {
-      this.cleanupTimeoutHandle = null;
+    setTimeout(async () => {
       logger.info('🧹 Running first scheduled cleanup...');
       await this.runFullCleanup();
       
-      // Then schedule monthly cleanups
       this.cleanupIntervalHandle = setInterval(async () => {
         logger.info('🧹 Running scheduled cleanup...');
-        try {
-          await this.runFullCleanup();
-        } catch (err) {
-          logger.error('❌ Error during scheduled cleanup:', { error: err.message, stack: err.stack });
-        }
+        await this.runFullCleanup();
       }, CLEANUP_INTERVAL_MS);
-      
-    }, TIME.CLEANUP_DELAY);  // 1 hour delay
+    }, TIME.CLEANUP_DELAY);
     
-    const intervalDays = Math.round(CLEANUP_INTERVAL_MS / TIME.DAY);
-    logger.info(`✅ Periodic cleanup scheduled (~every ${intervalDays} days)`);
+    logger.info(`✅ Periodic cleanup scheduled (~every 30 days)`);
   }
 
-  /**
-   * Close database connection pool
-   */
   async close() {
     if (this.pool) {
-      await this.pool.end();
+      await this.pool.end(); // Pool is managed by container
       logger.info('🔌 PostgreSQL connection pool closed');
     }
-    if (this.cleanupTimeoutHandle) {
-      clearTimeout(this.cleanupTimeoutHandle);
-      this.cleanupTimeoutHandle = null;
-    }
-    if (this.cleanupIntervalHandle) {
-      clearInterval(this.cleanupIntervalHandle);
-      this.cleanupIntervalHandle = null;
-    }
+    if (this.cleanupIntervalHandle) clearInterval(this.cleanupIntervalHandle);
   }
 }
 
-// Create and export singleton instance
 const conversationManager = new ConversationManager();
 module.exports = conversationManager;

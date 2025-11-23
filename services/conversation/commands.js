@@ -7,20 +7,12 @@
 
 const logger = require('../../utils/logger');
 const { TIME } = require('../../utils/constants');
-const CommandsRepository = require('../../repositories/commandsRepository');
 const { commandSchema } = require('../../schemas/command.schema');
 
 class CommandsManager {
-  constructor(conversationManager) {
-    this.conversationManager = conversationManager;
-    this.repository = null;
-  }
-
-  _getRepository() {
-    if (!this.repository && this.conversationManager.pool) {
-        this.repository = new CommandsRepository(this.conversationManager.pool);
-    }
-    return this.repository;
+  constructor(conversationManager, repository) {
+    this.conversationManager = conversationManager; // Kept for backward compatibility
+    this.repository = repository;
   }
 
   /**
@@ -32,8 +24,8 @@ class CommandsManager {
   async saveCommand(chatId, messageId, metadata) {
     if (!chatId || !messageId) return;
     
-    if (!this.conversationManager.isInitialized) {
-      logger.warn('⚠️ Database not initialized, cannot save command');
+    if (!this.repository) {
+      logger.warn('⚠️ Repository not initialized, cannot save command');
       return;
     }
 
@@ -49,7 +41,7 @@ class CommandsManager {
       // Validate data
       const validatedData = commandSchema.parse(commandData);
 
-      await this._getRepository().save(validatedData);
+      await this.repository.save(validatedData);
       logger.debug(`💾 [Commands] Saved command ${messageId} for retry in ${chatId}: ${metadata.tool}`);
     } catch (error) {
       logger.error('❌ Error saving command:', { error: error.message, chatId, messageId });
@@ -85,13 +77,13 @@ class CommandsManager {
   async getLastCommand(chatId) {
     if (!chatId) return null;
     
-    if (!this.conversationManager.isInitialized) {
-      logger.warn('⚠️ Database not initialized, cannot get last command');
+    if (!this.repository) {
+      logger.warn('⚠️ Repository not initialized, cannot get last command');
       return null;
     }
 
     try {
-      const row = await this._getRepository().findLastByChatId(chatId);
+      const row = await this.repository.findLastByChatId(chatId);
       
       if (!row) return null;
       
@@ -122,14 +114,14 @@ class CommandsManager {
    * @param {number} ttlMs - TTL in milliseconds (default: 30 days)
    */
   async cleanup(ttlMs = 30 * TIME.DAY) {
-    if (!this.conversationManager.isInitialized) {
+    if (!this.repository) {
       return;
     }
 
     const cutoffTime = Date.now() - ttlMs;
     
     try {
-      const count = await this._getRepository().deleteOlderThan(cutoffTime);
+      const count = await this.repository.deleteOlderThan(cutoffTime);
       if (count > 0) {
         logger.info(`🧹 [Commands] Cleaned up ${count} old commands`);
       }
@@ -142,12 +134,12 @@ class CommandsManager {
    * Clear all commands (for management command)
    */
   async clearAll() {
-    if (!this.conversationManager.isInitialized) {
+    if (!this.repository) {
       return;
     }
 
     try {
-      await this._getRepository().deleteAll();
+      await this.repository.deleteAll();
       logger.info('🗑️ [Commands] All commands cleared');
     } catch (error) {
       logger.error('❌ Error clearing commands:', { error: error.message });
