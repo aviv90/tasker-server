@@ -113,19 +113,36 @@ const retry_last_command = {
       // Use toolArgs (new structure) or fallback to args (backward compatibility)
       const storedWrapper = lastCommand.toolArgs || lastCommand.args || {};
       
-      console.log(`🔄 Last command: ${tool} with args:`, storedWrapper);
+      console.log(`🔄 [Retry] Last command: ${tool}`, {
+        isMultiStep: lastCommand.isMultiStep,
+        hasPlan: !!(lastCommand.plan || storedWrapper.plan),
+        hasToolArgs: !!lastCommand.toolArgs,
+        hasArgs: !!lastCommand.args,
+        lastCommandKeys: Object.keys(lastCommand)
+      });
       
       // CRITICAL: Check if this is a multi-step command
       // For multi-step, plan and isMultiStep are at top level of lastCommand
       if (tool === 'multi_step' || lastCommand.isMultiStep === true || storedWrapper.isMultiStep === true) {
         // Multi-step retry: re-execute steps from the plan
         const plan = lastCommand.plan || storedWrapper.plan;
-        if (!plan || !plan.steps || plan.steps.length === 0) {
+        if (!plan || !plan.steps || !Array.isArray(plan.steps) || plan.steps.length === 0) {
+          console.error('❌ [Retry] Plan validation failed:', {
+            hasPlan: !!plan,
+            hasSteps: !!(plan && plan.steps),
+            isArray: !!(plan && plan.steps && Array.isArray(plan.steps)),
+            stepsLength: plan && plan.steps ? plan.steps.length : 0,
+            planKeys: plan ? Object.keys(plan) : [],
+            lastCommandKeys: Object.keys(lastCommand)
+          });
           return {
             success: false,
             error: 'לא הצלחתי לשחזר את התוכנית של הפקודה הרב-שלבית הקודמת.'
           };
         }
+        
+        console.log(`🔄 [Retry] Found multi-step plan with ${plan.steps.length} steps:`, 
+          plan.steps.map((s, idx) => `${idx + 1}. ${s.tool || s.action || 'unknown'}`).join(', '));
         
         // Check if user requested specific steps to retry
         const stepNumbers = args.step_numbers || null;
@@ -133,11 +150,11 @@ const retry_last_command = {
         
         // Filter steps if specific steps were requested
         let stepsToRetry = plan.steps;
-        if (stepNumbers && stepNumbers.length > 0) {
+        if (stepNumbers && Array.isArray(stepNumbers) && stepNumbers.length > 0) {
           // Retry specific step numbers (1-based)
           stepsToRetry = plan.steps.filter((step, idx) => stepNumbers.includes(idx + 1));
-          console.log(`🔄 Retrying specific step numbers: ${stepNumbers.join(', ')} (${stepsToRetry.length} steps)`);
-        } else if (stepTools && stepTools.length > 0) {
+          console.log(`🔄 [Retry] Filtering by step numbers ${stepNumbers.join(', ')}: ${stepsToRetry.length} of ${plan.steps.length} steps`);
+        } else if (stepTools && Array.isArray(stepTools) && stepTools.length > 0) {
           // Retry steps with specific tools
           stepsToRetry = plan.steps.filter(step => {
             const stepTool = step.tool || '';
@@ -147,16 +164,23 @@ const retry_last_command = {
               stepTool === requestedTool
             );
           });
-          console.log(`🔄 Retrying specific step tools: ${stepTools.join(', ')} (${stepsToRetry.length} steps)`);
+          console.log(`🔄 [Retry] Filtering by step tools ${stepTools.join(', ')}: ${stepsToRetry.length} of ${plan.steps.length} steps`);
         } else {
-          // Retry all steps
-          console.log(`🔄 Retrying all steps: ${plan.steps.length} steps`);
+          // Retry all steps (no filtering)
+          console.log(`🔄 [Retry] Retrying all ${plan.steps.length} steps (no filter specified)`);
         }
         
-        if (stepsToRetry.length === 0) {
+        // Validate that we have steps to retry
+        if (!stepsToRetry || !Array.isArray(stepsToRetry) || stepsToRetry.length === 0) {
+          console.error('❌ [Retry] No steps to retry after filtering:', {
+            originalStepsCount: plan.steps.length,
+            stepNumbers,
+            stepTools,
+            filteredStepsCount: stepsToRetry ? stepsToRetry.length : 0
+          });
           return {
             success: false,
-            error: `לא נמצאו שלבים תואמים. השלבים הזמינים: ${plan.steps.map((s, idx) => `${idx + 1}. ${s.tool || s.action?.substring(0, 30)}`).join(', ')}`
+            error: `לא נמצאו שלבים תואמים. השלבים הזמינים: ${plan.steps.map((s, idx) => `${idx + 1}. ${s.tool || s.action?.substring(0, 30) || 'unknown'}`).join(', ')}`
           };
         }
         

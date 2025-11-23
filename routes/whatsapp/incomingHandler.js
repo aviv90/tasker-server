@@ -153,6 +153,9 @@ async function handleIncomingMessage(webhookData, processedMessages) {
           // Commands are saved to messageTypeCache for retry functionality.
           // Logging is handled by agentRouter and commandSaver
 
+          // Pass originalMessageId to normalized input so it's available for saveLastCommand
+          normalized.originalMessageId = originalMessageId;
+          
           const agentResult = await routeToAgent(normalized, chatId);
 
           // Pass originalMessageId to agentResult for use in result handling

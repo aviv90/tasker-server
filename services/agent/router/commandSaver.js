@@ -28,14 +28,26 @@ async function saveLastCommand(agentResult, chatId, userText, input) {
   
   // CRITICAL: Handle multi-step commands - save the entire plan, not just the last tool
   if (agentResult.multiStep && agentResult.plan) {
+    // Validate plan structure before saving
+    const plan = agentResult.plan;
+    if (!plan.steps || !Array.isArray(plan.steps) || plan.steps.length === 0) {
+      logger.warn('⚠️ [AGENT ROUTER] Multi-step plan has invalid steps structure, not saving for retry:', {
+        hasPlan: !!plan,
+        hasSteps: !!(plan && plan.steps),
+        isArray: !!(plan && plan.steps && Array.isArray(plan.steps)),
+        stepsLength: plan && plan.steps ? plan.steps.length : 0
+      });
+      return;
+    }
+    
     // Save multi-step plan for retry
     const commandMetadata = {
       tool: 'multi_step',
       isMultiStep: true,
-      plan: agentResult.plan,
+      plan: plan, // Save the validated plan
       prompt: userText,
       stepsCompleted: agentResult.stepsCompleted || 0,
-      totalSteps: agentResult.totalSteps || 0,
+      totalSteps: agentResult.totalSteps || plan.steps.length || 0,
       failed: !agentResult.success,
       normalized: input,
       imageUrl: agentResult.imageUrl || null,
@@ -44,7 +56,9 @@ async function saveLastCommand(agentResult, chatId, userText, input) {
     };
     
     messageTypeCache.saveCommand(chatId, messageId, commandMetadata);
-    logger.info(`💾 [AGENT ROUTER] Saved multi-step command for retry: ${agentResult.totalSteps || 0} steps (${agentResult.stepsCompleted || 0} completed)`);
+    logger.info(`💾 [AGENT ROUTER] Saved multi-step command for retry: ${plan.steps.length} steps (${agentResult.stepsCompleted || 0} completed)`, {
+      stepTools: plan.steps.map(s => s.tool || s.action?.substring(0, 30) || 'unknown').join(', ')
+    });
     return;
   }
   

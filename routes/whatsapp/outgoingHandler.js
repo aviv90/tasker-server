@@ -11,6 +11,7 @@ const conversationManager = require('../../services/conversationManager');
 const { routeToAgent } = require('../../services/agentRouter');
 const { sendErrorToUser, ERROR_MESSAGES } = require('../../utils/errorSender');
 const messageTypeCache = require('../../utils/messageTypeCache');
+const logger = require('../../utils/logger');
 
 // Import WhatsApp utilities
 const { isAdminCommand } = require('../../services/whatsapp/authorization');
@@ -214,7 +215,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
             // NOTE: User messages are no longer saved to DB to avoid duplication.
             // All messages are retrieved from Green API getChatHistory when needed.
             // Commands are saved to messageTypeCache for retry functionality.
-            console.log(`💾 [Agent - Outgoing] Processing command (not saving to DB - using Green API history)`);
+            logger.debug(`💾 [Agent - Outgoing] Processing command (not saving to DB - using Green API history)`);
             
             const agentResult = await routeToAgent(normalized, chatId);
             
@@ -229,14 +230,14 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
             if (agentResult.success) {
               // Use centralized result handling (SSOT - eliminates code duplication)
               await sendAgentResults(chatId, agentResult, normalized);
-              console.log(`✅ [Agent - Outgoing] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
+              logger.info(`✅ [Agent - Outgoing] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
             } else {
               await sendErrorToUser(chatId, agentResult.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId });
             }
             return; // Exit early - no need for regular flow
             
           } catch (agentError) {
-            console.error('❌ [Agent - Outgoing] Error:', agentError);
+            logger.error('❌ [Agent - Outgoing] Error:', { error: agentError.message, stack: agentError.stack });
             const originalMessageId = webhookData.idMessage;
             await sendErrorToUser(chatId, agentError, { context: 'REQUEST', quotedMessageId: originalMessageId });
             return;
