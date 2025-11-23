@@ -203,6 +203,97 @@ class DatabaseManager {
         END $$;
       `);
 
+      // Add prompt column if it doesn't exist (for existing databases)
+      await client.query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='last_commands' AND column_name='prompt'
+          ) THEN
+            ALTER TABLE last_commands ADD COLUMN prompt TEXT;
+          END IF;
+        END $$;
+      `);
+
+      // Add result column if it doesn't exist (for existing databases)
+      await client.query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='last_commands' AND column_name='result'
+          ) THEN
+            ALTER TABLE last_commands ADD COLUMN result JSONB;
+          END IF;
+        END $$;
+      `);
+
+      // Add failed column if it doesn't exist (for existing databases)
+      await client.query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='last_commands' AND column_name='failed'
+          ) THEN
+            ALTER TABLE last_commands ADD COLUMN failed BOOLEAN DEFAULT false;
+          END IF;
+        END $$;
+      `);
+
+      // Add normalized column if it doesn't exist (for existing databases)
+      await client.query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='last_commands' AND column_name='normalized'
+          ) THEN
+            ALTER TABLE last_commands ADD COLUMN normalized JSONB;
+          END IF;
+        END $$;
+      `);
+
+      // Add image_url column if it doesn't exist (for existing databases)
+      await client.query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='last_commands' AND column_name='image_url'
+          ) THEN
+            ALTER TABLE last_commands ADD COLUMN image_url TEXT;
+          END IF;
+        END $$;
+      `);
+
+      // Add video_url column if it doesn't exist (for existing databases)
+      await client.query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='last_commands' AND column_name='video_url'
+          ) THEN
+            ALTER TABLE last_commands ADD COLUMN video_url TEXT;
+          END IF;
+        END $$;
+      `);
+
+      // Add audio_url column if it doesn't exist (for existing databases)
+      await client.query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name='last_commands' AND column_name='audio_url'
+          ) THEN
+            ALTER TABLE last_commands ADD COLUMN audio_url TEXT;
+          END IF;
+        END $$;
+      `);
+
       // Create message_types table for identifying bot/user messages in Green API history
       await client.query(`
         CREATE TABLE IF NOT EXISTS message_types (
