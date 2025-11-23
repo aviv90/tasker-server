@@ -4,6 +4,7 @@
 
 const logger = require('../../utils/logger');
 const AgentContextRepository = require('../../repositories/agentContextRepository');
+const { contextSchema } = require('../../schemas/context.schema');
 
 class AgentContextManager {
   constructor(conversationManager) {
@@ -28,7 +29,13 @@ class AgentContextManager {
     }
 
     try {
-      await this._getRepository().upsert(chatId, context.toolCalls, context.generatedAssets);
+      // Validate context structure
+      const validatedContext = contextSchema.parse({
+        toolCalls: context.toolCalls,
+        generatedAssets: context.generatedAssets
+      });
+
+      await this._getRepository().upsert(chatId, validatedContext.toolCalls, validatedContext.generatedAssets);
       logger.debug(`💾 [Agent Context] Saved to DB for chat ${chatId}`);
     } catch (error) {
       logger.error('❌ Error saving agent context:', error.message);

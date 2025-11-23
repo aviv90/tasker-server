@@ -8,6 +8,7 @@
 const logger = require('../../utils/logger');
 const { TIME } = require('../../utils/constants');
 const CommandsRepository = require('../../repositories/commandsRepository');
+const { commandSchema } = require('../../schemas/command.schema');
 
 class CommandsManager {
   constructor(conversationManager) {
@@ -45,7 +46,10 @@ class CommandsManager {
         ...metadata
       };
       
-      await this._getRepository().save(commandData);
+      // Validate data
+      const validatedData = commandSchema.parse(commandData);
+
+      await this._getRepository().save(validatedData);
       logger.debug(`💾 [Commands] Saved command ${messageId} for retry in ${chatId}: ${metadata.tool}`);
     } catch (error) {
       logger.error('❌ Error saving command:', { error: error.message, chatId, messageId });

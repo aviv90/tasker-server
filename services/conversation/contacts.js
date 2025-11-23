@@ -5,6 +5,7 @@ const { CacheKeys, CacheTTL } = require('../../utils/cache');
 const cache = require('../../utils/cache');
 const logger = require('../../utils/logger');
 const ContactsRepository = require('../../repositories/contactsRepository');
+const { contactSchema } = require('../../schemas/contact.schema');
 
 class ContactsManager {
   constructor(conversationManager) {
@@ -29,36 +30,35 @@ class ContactsManager {
     }
 
     try {
-      let inserted = 0; // Tracking individual inserts/updates is harder with bulk/loop repository pattern unless repo returns status
-      // For now, we'll just process them.
-      
-      // NOTE: ideally we would use a batch insert/upsert in the repository for performance.
-      // But to keep it simple and match existing logic structure (loop), we'll use upsert per item.
-      // Enhancing to batch upsert is a good future optimization.
+      let processed = 0;
 
       for (const contact of contactsArray) {
         const contactId = contact.id || contact.chatId;
         if (!contactId) continue;
 
         // Normalize contact object for repository
-        const contactData = {
+        const rawContactData = {
           id: contactId,
           name: contact.name,
           contactName: contact.contactName,
           type: contact.type,
-          chatId: contact.id, // usually same as contactId
+          chatId: contact.id,
           ...contact
         };
 
-        await this._getRepository().upsert(contactData);
+        // Validate with Zod
+        const validatedContact = contactSchema.parse(rawContactData);
+
+        await this._getRepository().upsert(validatedContact);
+        processed++;
       }
 
-      logger.info(`📇 Contacts synced: ${contactsArray.length} processed`);
+      logger.info(`📇 Contacts synced: ${processed} processed`);
       
       // Invalidate contacts cache after sync
       cache.del(CacheKeys.allContacts());
       
-      return { total: contactsArray.length };
+      return { total: processed };
     } catch (error) {
         logger.error('❌ Error syncing contacts:', error);
         throw error;
