@@ -328,3 +328,9 @@ Output: {"groupName":"Friends","participants":["John","Lisa","Tom"],"groupPictur
 // Backward compatibility: CommonJS export
 export default prompts;
 
+// Also export as CommonJS for require() compatibility
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = prompts;
+  module.exports.default = prompts;
+}
+
