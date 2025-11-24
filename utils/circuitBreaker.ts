@@ -1,0 +1,399 @@
+/**
+ * Circuit Breaker Pattern Implementation
+ * 
+ * Prevents repeated calls to failing services.
+ * Protects the system from cascading failures.
+ * 
+ * States:
+ * - CLOSED: Normal operation (all requests pass through)
+ * - OPEN: Service is failing (requests rejected immediately)
+ * - HALF_OPEN: Testing if service recovered (limited requests)
+ * 
+ * Usage:
+ *   const breaker = new CircuitBreaker('gemini', {
+ *     failureThreshold: 5,
+ *     timeout: 60000,
+ *     resetTimeout: 30000
+ *   });
+ *   
+ *   try {
+ *     const result = await breaker.execute(() => geminiService.generateImage(...));
+ *   } catch (error) {
+ *     // Handle error
+ *   }
+ */
+
+import logger from './logger';
+
+/**
+ * Circuit breaker states
+ */
+export const STATES = {
+  CLOSED: 'CLOSED',      // Normal operation
+  OPEN: 'OPEN',          // Service is failing
+  HALF_OPEN: 'HALF_OPEN' // Testing recovery
+} as const;
+
+export type CircuitState = typeof STATES[keyof typeof STATES];
+
+/**
+ * Circuit breaker configuration options
+ */
+export interface CircuitBreakerOptions {
+  failureThreshold?: number;
+  timeout?: number;
+  resetTimeout?: number;
+  monitoringPeriod?: number;
+}
+
+/**
+ * Circuit breaker statistics
+ */
+export interface CircuitBreakerStats {
+  totalRequests: number;
+  totalFailures: number;
+  totalSuccesses: number;
+  stateChanges: number;
+}
+
+/**
+ * Circuit breaker state information
+ */
+export interface CircuitBreakerState {
+  state: CircuitState;
+  failureCount: number;
+  successCount: number;
+  lastFailureTime: number | null;
+  nextAttemptTime: number | null;
+  stats: CircuitBreakerStats;
+}
+
+/**
+ * Circuit Breaker class
+ */
+export class CircuitBreaker {
+  private name: string;
+  private state: CircuitState;
+  
+  // Configuration
+  private failureThreshold: number;
+  private timeout: number;
+  private resetTimeout: number;
+  private _monitoringPeriod: number; // Reserved for future use
+  
+  // State tracking
+  private failureCount: number;
+  private successCount: number;
+  private lastFailureTime: number | null;
+  private nextAttemptTime: number | null;
+  
+  // Statistics
+  private stats: CircuitBreakerStats;
+
+  /**
+   * @param name - Service name (for logging)
+   * @param options - Configuration options
+   * @param options.failureThreshold - Number of failures before opening circuit (default: 5)
+   * @param options.timeout - Timeout for requests in ms (default: 30000)
+   * @param options.resetTimeout - Time to wait before half-open test (default: 60000)
+   * @param options.monitoringPeriod - Period for failure counting in ms (default: 60000)
+   */
+  constructor(name: string, options: CircuitBreakerOptions = {}) {
+    this.name = name;
+    this.state = STATES.CLOSED;
+    
+    // Configuration
+    this.failureThreshold = options.failureThreshold || 5;
+    this.timeout = options.timeout || 30000; // 30 seconds
+    this.resetTimeout = options.resetTimeout || 60000; // 1 minute
+    this._monitoringPeriod = options.monitoringPeriod || 60000; // 1 minute (reserved for future use)
+    void this._monitoringPeriod; // Suppress unused warning - reserved for future monitoring period feature
+    
+    // State tracking
+    this.failureCount = 0;
+    this.successCount = 0;
+    this.lastFailureTime = null;
+    this.nextAttemptTime = null;
+    
+    // Statistics
+    this.stats = {
+      totalRequests: 0,
+      totalFailures: 0,
+      totalSuccesses: 0,
+      stateChanges: 0
+    };
+  }
+
+  /**
+   * Execute function with circuit breaker protection
+   * @param fn - Async function to execute
+   * @param args - Arguments to pass to function
+   * @returns Function result
+   * @throws {Error} If circuit is open or function fails
+   */
+  async execute<T>(fn: (...args: unknown[]) => Promise<T>, ...args: unknown[]): Promise<T> {
+    this.stats.totalRequests++;
+    
+    // Check if circuit should transition
+    this._updateState();
+    
+    // Handle different states
+    if (this.state === STATES.OPEN) {
+      this.stats.totalFailures++;
+      const error = new Error(`Circuit breaker is OPEN for ${this.name}. Service is unavailable.`) as Error & {
+        code: string;
+        service: string;
+        nextAttemptTime: number | null;
+      };
+      error.code = 'CIRCUIT_BREAKER_OPEN';
+      error.service = this.name;
+      error.nextAttemptTime = this.nextAttemptTime;
+      
+      logger.warn('⚠️ Circuit breaker OPEN', {
+        service: this.name,
+        nextAttemptTime: this.nextAttemptTime,
+        failureCount: this.failureCount
+      });
+      
+      throw error;
+    }
+    
+    // Execute with timeout
+    try {
+      const result = await Promise.race([
+        fn(...args),
+        this._createTimeoutPromise()
+      ]);
+      
+      // Success
+      this._onSuccess();
+      return result;
+      
+    } catch (error) {
+      // Failure
+      this._onFailure();
+      throw error;
+    }
+  }
+
+  /**
+   * Update circuit breaker state based on current conditions
+   * @private
+   */
+  private _updateState(): void {
+    const now = Date.now();
+    
+    switch (this.state) {
+      case STATES.CLOSED:
+        // Check if we should open (too many failures)
+        if (this.failureCount >= this.failureThreshold) {
+          this._transitionTo(STATES.OPEN);
+          this.nextAttemptTime = now + this.resetTimeout;
+          logger.warn(`🔴 Circuit breaker OPENED for ${this.name}`, {
+            service: this.name,
+            failureCount: this.failureCount,
+            threshold: this.failureThreshold,
+            nextAttemptTime: new Date(this.nextAttemptTime).toISOString()
+          });
+        }
+        break;
+        
+      case STATES.OPEN:
+        // Check if we can attempt recovery (half-open test)
+        if (this.nextAttemptTime !== null && now >= this.nextAttemptTime) {
+          this._transitionTo(STATES.HALF_OPEN);
+          this.failureCount = 0;
+          this.successCount = 0;
+          logger.info(`🟡 Circuit breaker HALF_OPEN for ${this.name} - testing recovery`, {
+            service: this.name
+          });
+        }
+        break;
+        
+      case STATES.HALF_OPEN:
+        // Check if we recovered (success) or should reopen (failure)
+        // Logic handled in _onSuccess/_onFailure
+        break;
+    }
+  }
+
+  /**
+   * Handle successful execution
+   * @private
+   */
+  private _onSuccess(): void {
+    this.stats.totalSuccesses++;
+    
+    if (this.state === STATES.HALF_OPEN) {
+      // Success in half-open means service recovered
+      this._transitionTo(STATES.CLOSED);
+      logger.info(`🟢 Circuit breaker CLOSED for ${this.name} - service recovered`, {
+        service: this.name
+      });
+    }
+    
+    // Reset failure count in CLOSED state (successful request)
+    if (this.state === STATES.CLOSED) {
+      this.failureCount = Math.max(0, this.failureCount - 1); // Gradual recovery
+    }
+  }
+
+  /**
+   * Handle failed execution
+   * @private
+   */
+  private _onFailure(): void {
+    this.stats.totalFailures++;
+    this.failureCount++;
+    this.lastFailureTime = Date.now();
+    
+    if (this.state === STATES.HALF_OPEN) {
+      // Failure in half-open means service still down
+      this._transitionTo(STATES.OPEN);
+      this.nextAttemptTime = Date.now() + this.resetTimeout;
+      logger.warn(`🔴 Circuit breaker REOPENED for ${this.name} - service still failing`, {
+        service: this.name,
+        nextAttemptTime: new Date(this.nextAttemptTime).toISOString()
+      });
+    }
+  }
+
+  /**
+   * Create timeout promise
+   * @private
+   */
+  private _createTimeoutPromise(): Promise<never> {
+    return new Promise((_, reject) => {
+      setTimeout(() => {
+        const error = new Error(`Request timeout for ${this.name} (${this.timeout}ms)`) as Error & {
+          code: string;
+          service: string;
+          timeout: number;
+        };
+        error.code = 'REQUEST_TIMEOUT';
+        error.service = this.name;
+        error.timeout = this.timeout;
+        reject(error);
+      }, this.timeout);
+    });
+  }
+
+  /**
+   * Transition to new state
+   * @private
+   */
+  private _transitionTo(newState: CircuitState): void {
+    if (this.state !== newState) {
+      const oldState = this.state;
+      this.state = newState;
+      this.stats.stateChanges++;
+      
+      logger.debug(`Circuit breaker state transition: ${oldState} → ${newState}`, {
+        service: this.name,
+        oldState,
+        newState
+      });
+    }
+  }
+
+  /**
+   * Reset circuit breaker to CLOSED state
+   */
+  reset(): void {
+    this._transitionTo(STATES.CLOSED);
+    this.failureCount = 0;
+    this.successCount = 0;
+    this.lastFailureTime = null;
+    this.nextAttemptTime = null;
+    
+    logger.info(`🔄 Circuit breaker RESET for ${this.name}`, {
+      service: this.name
+    });
+  }
+
+  /**
+   * Get current state
+   */
+  getState(): CircuitBreakerState {
+    return {
+      state: this.state,
+      failureCount: this.failureCount,
+      successCount: this.successCount,
+      lastFailureTime: this.lastFailureTime,
+      nextAttemptTime: this.nextAttemptTime,
+      stats: { ...this.stats }
+    };
+  }
+
+  /**
+   * Check if circuit is open (service unavailable)
+   */
+  isOpen(): boolean {
+    this._updateState();
+    return this.state === STATES.OPEN;
+  }
+
+  /**
+   * Check if circuit is closed (service available)
+   */
+  isClosed(): boolean {
+    this._updateState();
+    return this.state === STATES.CLOSED;
+  }
+}
+
+/**
+ * Circuit Breaker Manager - manages multiple circuit breakers
+ */
+export class CircuitBreakerManager {
+  private breakers: Map<string, CircuitBreaker>;
+  private defaultOptions: CircuitBreakerOptions;
+
+  constructor() {
+    this.breakers = new Map();
+    this.defaultOptions = {
+      failureThreshold: 5,
+      timeout: 30000,
+      resetTimeout: 60000
+    };
+  }
+
+  /**
+   * Get or create circuit breaker for service
+   * @param serviceName - Service name
+   * @param options - Circuit breaker options
+   * @returns Circuit breaker instance
+   */
+  getBreaker(serviceName: string, options: CircuitBreakerOptions = {}): CircuitBreaker {
+    if (!this.breakers.has(serviceName)) {
+      const breakerOptions = { ...this.defaultOptions, ...options };
+      this.breakers.set(serviceName, new CircuitBreaker(serviceName, breakerOptions));
+    }
+    return this.breakers.get(serviceName)!;
+  }
+
+  /**
+   * Reset all circuit breakers
+   */
+  resetAll(): void {
+    for (const [, breaker] of this.breakers.entries()) {
+      breaker.reset();
+    }
+    logger.info('🔄 All circuit breakers reset');
+  }
+
+  /**
+   * Get statistics for all breakers
+   */
+  getStats(): Record<string, CircuitBreakerState> {
+    const stats: Record<string, CircuitBreakerState> = {};
+    for (const [name, breaker] of this.breakers.entries()) {
+      stats[name] = breaker.getState();
+    }
+    return stats;
+  }
+}
+
+// Create singleton instance
+export const circuitBreakerManager = new CircuitBreakerManager();
+
