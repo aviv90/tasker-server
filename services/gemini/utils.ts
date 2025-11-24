@@ -14,13 +14,31 @@ const PARENTHETICAL_PATTERNS = [
 ];
 
 /**
+ * Gemini candidate structure
+ */
+interface GeminiCandidate {
+  finishMessage?: string;
+  finishReason?: string;
+}
+
+/**
+ * Gemini prompt feedback structure
+ */
+interface GeminiPromptFeedback {
+  blockReasonMessage?: string;
+}
+
+/**
  * Extract the actual error message from Gemini response
  * Uses finishMessage if available, otherwise constructs from finishReason
- * @param {Object} candidate - Gemini candidate object
- * @param {Object} promptFeedback - Gemini promptFeedback object
- * @returns {string} - User-friendly error message
+ * @param candidate - Gemini candidate object
+ * @param promptFeedback - Gemini promptFeedback object
+ * @returns User-friendly error message
  */
-function getGeminiErrorMessage(candidate, promptFeedback = null) {
+export function getGeminiErrorMessage(
+  candidate: GeminiCandidate | null | undefined,
+  promptFeedback: GeminiPromptFeedback | null = null
+): string {
   // Priority 1: Use finishMessage if available (contains detailed explanation)
   if (candidate?.finishMessage) {
     return candidate.finishMessage;
@@ -55,11 +73,11 @@ function getGeminiErrorMessage(candidate, promptFeedback = null) {
 /**
  * Clean thinking patterns and meta-text from Gemini responses
  * Removes English meta-linguistic phrases, thinking sections, and duplicates
- * @param {string} text - Raw Gemini response text
- * @returns {string} - Cleaned text
+ * @param text - Raw Gemini response text
+ * @returns Cleaned text
  */
-function cleanThinkingPatterns(text) {
-  if (!text || typeof text !== 'string') return text;
+export function cleanThinkingPatterns(text: string | null | undefined): string {
+  if (!text || typeof text !== 'string') return text || '';
   
   let cleaned = text;
   const originalLength = text.length;
@@ -77,8 +95,8 @@ function cleanThinkingPatterns(text) {
   // 3. Remove duplicate paragraphs/sentences
   // Sometimes Gemini repeats the same text twice
   const lines = cleaned.split('\n');
-  const uniqueLines = [];
-  const seenLines = new Set();
+  const uniqueLines: string[] = [];
+  const seenLines = new Set<string>();
   
   for (const line of lines) {
     const trimmedLine = line.trim();
@@ -114,7 +132,7 @@ function cleanThinkingPatterns(text) {
     
     // Split by double newlines (paragraphs)
     const paragraphs = cleaned.split(/\n\n+/);
-    const filteredParagraphs = [];
+    const filteredParagraphs: string[] = [];
     
     for (const para of paragraphs) {
       const paraHebrew = (para.match(/[\u0590-\u05FF]/g) || []).length;
@@ -146,9 +164,4 @@ function cleanThinkingPatterns(text) {
   
   return cleaned;
 }
-
-module.exports = {
-  getGeminiErrorMessage,
-  cleanThinkingPatterns
-};
 

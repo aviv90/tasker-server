@@ -1,27 +1,91 @@
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const { getApiUrl, getStaticFileUrl } = require('../../utils/urlUtils');
-const { extractQuotedMessageId } = require('../../utils/messageHelpers');
+/**
+ * Video operations for music service
+ */
+
+import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import { getApiUrl, getStaticFileUrl } from '../../utils/urlUtils';
+import { extractQuotedMessageId } from '../../utils/messageHelpers';
+import { FILE_SIZE } from '../../utils/constants';
+
+/**
+ * Music service interface
+ */
+interface MusicService {
+  baseUrl: string;
+  headers: Record<string, string>;
+  pendingVideoTasks?: Map<string, VideoTaskInfo>;
+}
+
+/**
+ * Video task information
+ */
+interface VideoTaskInfo {
+  videoTaskId: string;
+  musicTaskId: string;
+  audioId: string;
+  timestamp: number;
+  whatsappContext?: {
+    chatId: string;
+    originalMessageId?: string;
+    senderName?: string;
+  } | null;
+}
+
+/**
+ * Video generation options
+ */
+export interface VideoGenerationOptions {
+  whatsappContext?: {
+    chatId: string;
+    originalMessageId?: string;
+    senderName?: string;
+  } | null;
+  author?: string;
+  domainName?: string;
+}
+
+/**
+ * Video generation result
+ */
+export interface VideoGenerationResult {
+  videoTaskId?: string;
+  status?: string;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Video callback result
+ */
+export interface VideoCallbackResult {
+  success?: boolean;
+  videoUrl?: string;
+  fileName?: string;
+  error?: string;
+}
 
 /**
  * Video operations for music service
  */
-class MusicVideo {
-  constructor(musicService) {
+export class MusicVideo {
+  private musicService: MusicService;
+
+  constructor(musicService: MusicService) {
     this.musicService = musicService;
   }
 
   /**
    * Convert video to WhatsApp-compatible format using FFmpeg
-   * @param {string} inputPath - Input video file path
-   * @param {string} outputPath - Output video file path
-   * @returns {Promise<boolean>} - Success status
+   * @param inputPath - Input video file path
+   * @param outputPath - Output video file path
+   * @returns Success status
    */
-  async convertVideoForWhatsApp(inputPath, outputPath) {
+  async convertVideoForWhatsApp(inputPath: string, outputPath: string): Promise<boolean> {
     try {
-      console.log(`🔄 Converting video to WhatsApp format...`);
+      console.log('🔄 Converting video to WhatsApp format...');
       console.log(`   Input: ${inputPath}`);
       console.log(`   Output: ${outputPath}`);
       
@@ -48,8 +112,9 @@ class MusicVideo {
       console.log(`✅ Video converted successfully (${(outputSize / 1024 / 1024).toFixed(2)} MB)`);
       
       return true;
-    } catch (error) {
-      console.error(`❌ FFmpeg conversion error:`, error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('❌ FFmpeg conversion error:', errorMessage);
       return false;
     }
   }
@@ -58,11 +123,15 @@ class MusicVideo {
    * Generate music video for an existing audio track
    * This is a separate API call that happens AFTER music generation completes
    */
-  async generateMusicVideo(musicTaskId, audioId, options = {}) {
+  async generateMusicVideo(
+    musicTaskId: string,
+    audioId: string,
+    options: VideoGenerationOptions = {}
+  ): Promise<VideoGenerationResult> {
     try {
-      console.log(`🎬 Starting music video generation`);
+      console.log('🎬 Starting music video generation');
       
-      const videoOptions = {
+      const videoOptions: Record<string, unknown> = {
         taskId: musicTaskId,
         audioId: audioId,
         callBackUrl: getApiUrl('/api/video/callback')
@@ -78,19 +147,23 @@ class MusicVideo {
         headers: this.musicService.headers,
         body: JSON.stringify(videoOptions)
       });
-      
-      const generateData = await generateResponse.json();
+
+      const generateData = await generateResponse.json() as { code?: number; msg?: string; data?: { taskId?: string } };
       
       if (!generateResponse.ok || generateData.code !== 200) {
-        console.error(`❌ Music video generation task submission failed:`, generateData.msg);
+        console.error('❌ Music video generation task submission failed:', generateData.msg);
         return { error: generateData.msg || 'Video generation task submission failed' };
       }
-      
-      const videoTaskId = generateData.data.taskId;
+
+      const videoTaskId = generateData.data?.taskId;
+      if (!videoTaskId) {
+        return { error: 'No task ID returned from video generation API' };
+      }
+
       console.log(`✅ Music video generation task submitted successfully. Video Task ID: ${videoTaskId}`);
       
       // Store video task info for callback handling
-      const videoTaskInfo = {
+      const videoTaskInfo: VideoTaskInfo = {
         videoTaskId: videoTaskId,
         musicTaskId: musicTaskId,
         audioId: audioId,
@@ -109,21 +182,25 @@ class MusicVideo {
         message: '🎬 יצירת הווידאו החלה! ממתין להשלמה...'
       };
       
-    } catch (err) {
-      console.error(`❌ Music video generation error:`, err);
-      return { error: err.message || 'Unknown error' };
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('❌ Music video generation error:', errorMessage);
+      return { error: errorMessage || 'Unknown error' };
     }
   }
 
   /**
    * Handle video callback completion
    */
-  async handleVideoCallbackCompletion(videoTaskId, callbackData) {
+  async handleVideoCallbackCompletion(
+    videoTaskId: string,
+    callbackData: { code?: number; msg?: string; data?: { video_url?: string } }
+  ): Promise<VideoCallbackResult> {
     try {
       const videoTaskInfo = this.musicService.pendingVideoTasks?.get(videoTaskId);
       if (!videoTaskInfo) {
         console.warn(`⚠️ No video task info found for callback: ${videoTaskId}`);
-        return;
+        return { error: 'No video task info found' };
       }
       
       console.log(`🎬 Processing video callback for task: ${videoTaskId}`);
@@ -133,7 +210,7 @@ class MusicVideo {
         
         if (videoUrl) {
           console.log(`✅ Music video generated successfully: ${videoUrl}`);
-          console.log(`⏰ Note: Video link is valid for 14 days`);
+          console.log('⏰ Note: Video link is valid for 14 days');
           
           // Download video
           const videoResponse = await fetch(videoUrl);
@@ -163,7 +240,7 @@ class MusicVideo {
           const conversionSuccess = await this.convertVideoForWhatsApp(originalVideoFilePath, tempVideoFilePath);
           
           if (!conversionSuccess) {
-            console.warn(`⚠️ FFmpeg conversion failed, using original video`);
+            console.warn('⚠️ FFmpeg conversion failed, using original video');
             // If conversion fails, use original file
             fs.copyFileSync(originalVideoFilePath, tempVideoFilePath);
           } else {
@@ -173,9 +250,10 @@ class MusicVideo {
           // Delete original file to save space
           try {
             fs.unlinkSync(originalVideoFilePath);
-            console.log(`🗑️ Deleted original video file`);
-          } catch (deleteError) {
-            console.warn(`⚠️ Could not delete original file:`, deleteError.message);
+            console.log('🗑️ Deleted original video file');
+          } catch (deleteError: unknown) {
+            const errorMessage = deleteError instanceof Error ? deleteError.message : String(deleteError);
+            console.warn('⚠️ Could not delete original file:', errorMessage);
           }
           
           // If WhatsApp context exists, send video
@@ -183,18 +261,26 @@ class MusicVideo {
             console.log(`📱 Sending video to WhatsApp: ${videoTaskInfo.whatsappContext.chatId}`);
             
             try {
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
               const { sendFileByUrl } = require('../greenApiService');
               const fullVideoUrl = getStaticFileUrl(tempVideoFileName);
               const quotedMessageId = extractQuotedMessageId({ originalMessageId: videoTaskInfo.whatsappContext?.originalMessageId });
-              await sendFileByUrl(videoTaskInfo.whatsappContext.chatId, fullVideoUrl, tempVideoFileName, '🎬 הקליפ מוכן!', quotedMessageId, 1000);
-              console.log(`✅ Video sent to WhatsApp successfully`);
-            } catch (whatsappError) {
-              console.error(`❌ Failed to send video to WhatsApp:`, whatsappError);
+              await sendFileByUrl(
+                videoTaskInfo.whatsappContext.chatId,
+                fullVideoUrl,
+                tempVideoFileName,
+                '🎬 הקליפ מוכן!',
+                quotedMessageId || undefined,
+                1000
+              );
+              console.log('✅ Video sent to WhatsApp successfully');
+            } catch (whatsappError: unknown) {
+              console.error('❌ Failed to send video to WhatsApp:', whatsappError);
             }
           }
           
           // Clean up task info
-          this.musicService.pendingVideoTasks.delete(videoTaskId);
+          this.musicService.pendingVideoTasks?.delete(videoTaskId);
           
           return {
             success: true,
@@ -203,20 +289,19 @@ class MusicVideo {
           };
         }
       } else {
-        console.error(`❌ Video generation failed:`, callbackData.msg);
+        console.error('❌ Video generation failed:', callbackData.msg);
       }
       
       // Clean up task info
-      this.musicService.pendingVideoTasks.delete(videoTaskId);
+      this.musicService.pendingVideoTasks?.delete(videoTaskId);
       return { error: callbackData.msg || 'Video generation failed' };
       
-    } catch (error) {
-      console.error(`❌ Error processing video callback for task ${videoTaskId}:`, error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Error processing video callback for task ${videoTaskId}:`, errorMessage);
       this.musicService.pendingVideoTasks?.delete(videoTaskId);
-      return { error: error.message || 'Video callback processing failed' };
+      return { error: errorMessage || 'Video callback processing failed' };
     }
   }
 }
-
-module.exports = MusicVideo;
 

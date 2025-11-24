@@ -2,12 +2,12 @@
  * Location service constants and data
  */
 
-const { loadJson } = require('./helpers');
+import { loadJson } from './helpers';
 
 const countryBoundsData = loadJson('../../utils/countryBounds.json');
 const cityBoundsData = loadJson('../../utils/cityBounds.json');
 
-const cityKeywords = {
+const cityKeywords: Record<string, boolean> = {
   'תל אביב': true, 'tel aviv': true, 'תל-אביב': true,
   'ירושלים': true, 'jerusalem': true,
   'חיפה': true, 'haifa': true,
@@ -66,7 +66,15 @@ const cityKeywords = {
   'דבלין': true, 'dublin': true
 };
 
-const regionMap = {
+interface RegionInfo {
+  continent: string;
+  display: string;
+  multiRegions?: string[];
+}
+
+type RegionMapValue = string | RegionInfo;
+
+const regionMap: Record<string, RegionMapValue> = {
   'סלובניה': { continent: 'Southern Europe', display: 'סלובניה' },
   'slovenia': { continent: 'Southern Europe', display: 'Slovenia' },
   'סלובקיה': 'Eastern Europe',
@@ -156,7 +164,16 @@ const regionMap = {
   'oceania': { continent: 'MULTI_OCEANIA', display: 'Oceania', multiRegions: ['Australia', 'New Zealand'] }
 };
 
-const continents = [
+interface Continent {
+  name: string;
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+  weight: number;
+}
+
+const continents: Continent[] = [
   { name: 'Western Europe', minLat: 42, maxLat: 60, minLng: -5, maxLng: 15, weight: 2 },
   { name: 'Eastern Europe', minLat: 44, maxLat: 60, minLng: 15, maxLng: 40, weight: 2 },
   { name: 'Southern Europe', minLat: 36, maxLat: 46, minLng: -9, maxLng: 28, weight: 2 },
@@ -191,11 +208,13 @@ const continents = [
   { name: 'New Zealand', minLat: -47, maxLat: -34, minLng: 166, maxLng: 179, weight: 1 }
 ];
 
-module.exports = {
+export {
   countryBoundsData,
   cityBoundsData,
   cityKeywords,
   regionMap,
   continents
 };
+
+export type { Continent, RegionInfo, RegionMapValue };
 

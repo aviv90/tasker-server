@@ -7,7 +7,7 @@ const GREEN_API_API_TOKEN_INSTANCE = process.env.GREEN_API_API_TOKEN_INSTANCE ||
 
 const BASE_URL = `https://api.green-api.com/waInstance${GREEN_API_ID_INSTANCE}`;
 
-module.exports = {
+export {
   GREEN_API_ID_INSTANCE,
   GREEN_API_API_TOKEN_INSTANCE,
   BASE_URL

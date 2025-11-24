@@ -2,19 +2,24 @@
  * Location service helper functions
  */
 
-const loadJson = (path) => {
+/**
+ * Load JSON file
+ */
+export function loadJson(filePath: string): unknown {
   try {
-    return require(path);
-  } catch (err) {
-    console.warn(`⚠️ Could not load ${path}:`, err.message);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require(filePath);
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.warn(`⚠️ Could not load ${filePath}:`, errorMessage);
     return null;
   }
-};
+}
 
 /**
  * Check if location description indicates land (not water)
  */
-function isLandLocation(description) {
+export function isLandLocation(description: string | null | undefined): boolean {
   if (!description) return false;
   const descLower = description.toLowerCase();
 
@@ -41,18 +46,20 @@ function isLandLocation(description) {
 }
 
 /**
+ * Requested region structure
+ */
+export interface RequestedRegion {
+  displayName?: string;
+  [key: string]: unknown;
+}
+
+/**
  * Build acknowledgment message for location request
  */
-function buildLocationAckMessage(requestedRegion) {
+export function buildLocationAckMessage(requestedRegion: RequestedRegion | null | undefined): string {
   if (requestedRegion && requestedRegion.displayName) {
     return `🌍 שולח מיקום באזור ${requestedRegion.displayName}...`;
   }
   return '🌍 שולח מיקום אקראי...';
 }
-
-module.exports = {
-  loadJson,
-  isLandLocation,
-  buildLocationAckMessage
-};
 

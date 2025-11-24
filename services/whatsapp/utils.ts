@@ -4,16 +4,25 @@
  */
 
 // Import from other services for SSOT
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { isLandLocation } = require('../locationService');
+
+/**
+ * Message structure for chat history
+ */
+interface Message {
+  role: string;
+  content: string;
+}
 
 /**
  * Clean agent response text from internal instructions and metadata
  * Removes **IMPORTANT:** instructions, trailing metadata, media placeholders
- * @param {string} text - Text to clean
- * @returns {string} - Cleaned text
+ * @param text - Text to clean
+ * @returns Cleaned text
  */
-function cleanAgentText(text) {
-  if (!text || typeof text !== 'string') return text;
+export function cleanAgentText(text: string | null | undefined): string {
+  if (!text || typeof text !== 'string') return text || '';
   
   return text
     .replace(/\[image\]/gi, '')
@@ -34,19 +43,19 @@ function cleanAgentText(text) {
 /**
  * Clean sensitive/large data from objects for logging
  * Removes base64 thumbnails and truncates long strings
- * @param {*} obj - Object to clean
- * @returns {*} - Cleaned object
+ * @param obj - Object to clean
+ * @returns Cleaned object
  */
-function cleanForLogging(obj) {
-  if (!obj || typeof obj !== 'object') return obj;
+export function cleanForLogging(obj: unknown): unknown {
+  if (!obj || typeof obj !== 'object' || obj === null) return obj;
   
   // Create a deep copy to avoid modifying the original
-  const cleaned = JSON.parse(JSON.stringify(obj));
+  const cleaned = JSON.parse(JSON.stringify(obj)) as Record<string, unknown>;
   
-  function cleanObject(o) {
+  function cleanObject(o: Record<string, unknown>): void {
     for (const key in o) {
-      if (o[key] && typeof o[key] === 'object') {
-        cleanObject(o[key]);
+      if (o[key] && typeof o[key] === 'object' && o[key] !== null) {
+        cleanObject(o[key] as Record<string, unknown>);
       } else if (key === 'jpegThumbnail' || key === 'thumbnail') {
         // Replace base64 thumbnails with a short indicator
         if (typeof o[key] === 'string' && o[key].length > 100) {
@@ -70,15 +79,17 @@ function cleanForLogging(obj) {
 }
 
 // isLandLocation is now imported from services/locationService.js (SSOT)
+export { isLandLocation };
 
 /**
  * Format chat history for context
- * @param {Array} messages - Array of messages
- * @returns {string} - Formatted chat history
+ * @param messages - Array of messages
+ * @returns Formatted chat history
  */
-function formatChatHistoryForContext(messages) {
+export function formatChatHistoryForContext(messages: Message[] | null | undefined): string {
   if (!messages || messages.length === 0) return '';
   
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { getRole } = require('../../config/messages');
   return messages.map(msg => {
     const role = getRole(msg.role);
@@ -88,13 +99,8 @@ function formatChatHistoryForContext(messages) {
 
 // getAudioDuration moved to services/agent/utils/audioUtils.js (SSOT)
 // Import and re-export for backward compatibility
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { getAudioDuration } = require('../agent/utils/audioUtils');
 
-module.exports = {
-  cleanAgentText,
-  cleanForLogging,
-  isLandLocation,
-  formatChatHistoryForContext,
-  getAudioDuration
-};
+export { getAudioDuration };
 
