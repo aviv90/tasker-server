@@ -2,17 +2,17 @@
  * Green API File Handling Functions
  */
 
-const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
-const logger = require('../../utils/logger');
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+import logger from '../../utils/logger';
 
 const STATIC_DIR = path.join(__dirname, '../..', 'public', 'tmp');
 
 /**
  * Resolve local static file path from download URL
  */
-function resolveLocalStaticPath(downloadUrl) {
+export function resolveLocalStaticPath(downloadUrl: string | null | undefined): string | null {
   if (!downloadUrl || typeof downloadUrl !== 'string') {
     return null;
   }
@@ -42,7 +42,7 @@ function resolveLocalStaticPath(downloadUrl) {
 /**
  * Download file from WhatsApp message and return as Buffer
  */
-async function downloadFile(downloadUrl, fileName = null) {
+export async function downloadFile(downloadUrl: string, fileName: string | null = null): Promise<Buffer> {
   try {
     if (!downloadUrl || typeof downloadUrl !== 'string') {
       throw new Error('Invalid download URL provided');
@@ -84,14 +84,10 @@ async function downloadFile(downloadUrl, fileName = null) {
     }
 
     return buffer;
-  } catch (error) {
-    logger.error('❌ Error downloading file:', { error: error.message, fileName, downloadUrl: downloadUrl?.substring(0, 100) });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('❌ Error downloading file:', { error: errorMessage, fileName, downloadUrl: downloadUrl?.substring(0, 100) });
     throw error;
   }
 }
-
-module.exports = {
-  resolveLocalStaticPath,
-  downloadFile
-};
 
