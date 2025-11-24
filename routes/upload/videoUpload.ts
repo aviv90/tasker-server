@@ -91,7 +91,7 @@ class VideoUploadRoutes {
 
       try {
         const result = await replicateService.generateVideoFromVideo(req.file.buffer, prompt);
-        await finalizeVideo(taskId, result, prompt, req as any);
+        await finalizeVideo(taskId, result as { videoUrl?: string; error?: string; cost?: number }, prompt, req as any);
       } catch (error) {
         console.error(`❌ Video-to-video error:`, error);
         const errorMessage = extractErrorMessage(error);

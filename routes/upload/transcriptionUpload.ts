@@ -123,7 +123,7 @@ class TranscriptionUploadRoutes {
           })
         };
 
-        const voiceCloneResult: any = await voiceService.createInstantVoiceClone(req.file.buffer, voiceCloneOptions);
+        const voiceCloneResult: any = await voiceService.createInstantVoiceClone([req.file.buffer], voiceCloneOptions);
 
         if (voiceCloneResult.error) {
           console.error('❌ Voice cloning failed:', voiceCloneResult.error);
@@ -175,7 +175,7 @@ class TranscriptionUploadRoutes {
           console.log(`⚡ Added streaming latency optimization: ${ttsOptions.optimizeStreamingLatency}`);
         }
 
-        const ttsResult = await voiceService.textToSpeech(voiceId, textForTTS, ttsOptions);
+        const ttsResult = await voiceService.textToSpeech(voiceId, textForTTS, ttsOptions) as { error?: string; audioUrl?: string; metadata?: unknown };
 
         if (ttsResult.error) {
           console.error('❌ Text-to-speech failed:', ttsResult.error);
@@ -199,7 +199,7 @@ class TranscriptionUploadRoutes {
           transcriptionMetadata: (transcriptionResult as any).metadata,
           voiceCloneMetadata: (voiceCloneResult as any).metadata,
           geminiMetadata: geminiResult.error ? null : (geminiResult as any).metadata,
-          ttsMetadata: (ttsResult as any).metadata
+          ttsMetadata: ttsResult.metadata
         }, req);
 
         console.log(`🎉 Full voice processing pipeline completed successfully!`);
@@ -207,7 +207,7 @@ class TranscriptionUploadRoutes {
         // Step 4: Clean up - delete the temporary voice clone
         console.log(`🧹 Step 4: Cleaning up voice clone ${voiceId}...`);
         try {
-          const deleteResult = await voiceService.deleteVoice(voiceId);
+          const deleteResult = await voiceService.deleteVoice(voiceId) as { error?: string };
           if (deleteResult.error) {
             console.warn(`⚠️ Warning: Could not delete voice clone ${voiceId}:`, deleteResult.error);
           } else {

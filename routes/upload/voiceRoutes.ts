@@ -158,7 +158,7 @@ class VoiceRoutes {
       try {
         console.log('🧹 Starting voice cleanup...');
 
-        const result = await voiceService.getVoices();
+        const result = await voiceService.getVoices() as { error?: string; voices?: Array<{ voice_id: string; name?: string; category?: string; sharing?: { status?: string } }> };
         if (result.error) {
           res.status(500).json({ status: 'error', error: result.error });
           return;
@@ -181,7 +181,7 @@ class VoiceRoutes {
 
         for (const voice of customVoices) {
           try {
-            const deleteResult = await voiceService.deleteVoice(voice.voice_id);
+            const deleteResult = await voiceService.deleteVoice(voice.voice_id) as { error?: string };
             if (deleteResult.error) {
               errors.push(`${voice.name}: ${deleteResult.error}`);
             } else {
