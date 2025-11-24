@@ -2,13 +2,32 @@
  * Location extraction from prompts
  */
 
-const { getLocationBounds } = require('../geminiService');
-const { countryBoundsData, cityBoundsData, cityKeywords, regionMap } = require('./constants');
+import { getLocationBounds } from '../geminiService';
+import { countryBoundsData, cityBoundsData, cityKeywords, regionMap } from './constants';
+
+/**
+ * Extracted region information
+ */
+export interface ExtractedRegion {
+  continentName?: string | null;
+  displayName: string;
+  bounds?: {
+    minLat: number;
+    maxLat: number;
+    minLng: number;
+    maxLng: number;
+    foundName?: string;
+    type?: string;
+  } | null;
+  isCity?: boolean;
+  multiRegions?: string[] | null;
+  [key: string]: unknown; // Allow additional properties
+}
 
 /**
  * Extract requested region/city from prompt
  */
-async function extractRequestedRegion(prompt) {
+export async function extractRequestedRegion(prompt: string | null | undefined): Promise<ExtractedRegion | null> {
   if (!prompt || typeof prompt !== 'string') return null;
 
   const promptLower = prompt.toLowerCase();
@@ -16,7 +35,7 @@ async function extractRequestedRegion(prompt) {
   console.log(`📍 Prompt lowercase: "${promptLower}"`);
 
   // Check for explicit city mentions first
-  let detectedCity = null;
+  let detectedCity: string | null = null;
   for (const cityName in cityKeywords) {
     const cityNameLower = cityName.toLowerCase();
     const escapedCityName = cityNameLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -37,11 +56,12 @@ async function extractRequestedRegion(prompt) {
 
   if (detectedCity) {
     // Try static data first
-    if (cityBoundsData && cityBoundsData[detectedCity]) {
+    const cityData = cityBoundsData as Record<string, ExtractedRegion['bounds']>;
+    if (cityData && cityData[detectedCity]) {
       return {
         continentName: null,
         displayName: detectedCity,
-        bounds: cityBoundsData[detectedCity],
+        bounds: cityData[detectedCity],
         isCity: true
       };
     }
@@ -54,60 +74,66 @@ async function extractRequestedRegion(prompt) {
         console.log(`✅ Found city bounds for "${detectedCity}" via geocoding`);
         return {
           continentName: null,
-          displayName: bounds.foundName || detectedCity,
-          bounds,
+          displayName: (bounds.foundName as string) || detectedCity,
+          bounds: bounds as ExtractedRegion['bounds'],
           isCity: true
         };
       }
-    } catch (err) {
-      console.warn(`⚠️ Error geocoding city "${detectedCity}":`, err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.warn(`⚠️ Error geocoding city "${detectedCity}":`, errorMessage);
     }
   }
 
   // Check exact match in regionMap
-  if (regionMap[promptLower] || regionMap[prompt]) {
-    const mapping = regionMap[promptLower] || regionMap[prompt];
+  const regionMapTyped = regionMap as Record<string, string | { continent: string; display: string; multiRegions?: string[] }>;
+  if (regionMapTyped[promptLower] || regionMapTyped[prompt]) {
+    const mapping = regionMapTyped[promptLower] || regionMapTyped[prompt];
     if (typeof mapping === 'string') {
       return {
         continentName: mapping,
         displayName: prompt
       };
     }
+    const mappingObj = mapping as { continent: string; display: string; multiRegions?: string[] };
     return {
-      continentName: mapping.continent,
-      displayName: mapping.display,
+      continentName: mappingObj.continent,
+      displayName: mappingObj.display,
       bounds: null,
       isCity: false,
-      multiRegions: mapping.multiRegions || null
+      multiRegions: mappingObj.multiRegions || null
     };
   }
 
   // Check word by word
   const words = promptLower.split(/[\s,]+/);
   for (const word of words) {
-    const originalWord = prompt.split(/[\s,]+/)[words.indexOf(word)];
-    if (regionMap[word] || regionMap[originalWord]) {
-      const mapping = regionMap[word] || regionMap[originalWord];
+    const wordIndex = words.indexOf(word);
+    const originalWord = prompt.split(/[\s,]+/)[wordIndex];
+    if (originalWord && (regionMapTyped[word] || regionMapTyped[originalWord])) {
+      const mapping = regionMapTyped[word] || regionMapTyped[originalWord];
       if (typeof mapping === 'string') {
         return {
           continentName: mapping,
           displayName: originalWord || word
         };
       }
+      const mappingObj = mapping as { continent: string; display: string; multiRegions?: string[] };
       return {
-        continentName: mapping.continent,
-        displayName: mapping.display,
+        continentName: mappingObj.continent,
+        displayName: mappingObj.display,
         bounds: null,
         isCity: false,
-        multiRegions: mapping.multiRegions || null
+        multiRegions: mappingObj.multiRegions || null
       };
     }
   }
 
   // Check country bounds data
-  if (countryBoundsData) {
-    for (const countryKey of Object.keys(countryBoundsData)) {
-      const countryInfo = countryBoundsData[countryKey];
+  const countryData = countryBoundsData as Record<string, unknown>;
+  if (countryData) {
+    for (const countryKey of Object.keys(countryData)) {
+      const countryInfo = countryData[countryKey];
       if (!countryInfo || typeof countryInfo !== 'object') {
         continue;
       }
@@ -119,7 +145,7 @@ async function extractRequestedRegion(prompt) {
         new RegExp(`ב-?(${escapedCountryKey})(?=$|[^\\p{L}\\p{N}])`, 'iu')
       ];
 
-      let matchValue = null;
+      let matchValue: string | null = null;
       for (const pattern of countryPatterns) {
         const match = pattern.exec(prompt);
         if (match && match[1]) {
@@ -132,25 +158,27 @@ async function extractRequestedRegion(prompt) {
         continue;
       }
 
-      const boundsSource = countryInfo.bounds && typeof countryInfo.bounds === 'object'
-        ? countryInfo.bounds
+      const boundsSource = (countryInfo as { bounds?: unknown }).bounds && typeof (countryInfo as { bounds?: unknown }).bounds === 'object'
+        ? (countryInfo as { bounds: unknown }).bounds
         : countryInfo;
 
+      const bounds = boundsSource as { minLat?: number; maxLat?: number; minLng?: number; maxLng?: number };
       if (
-        typeof boundsSource.minLat === 'number' &&
-        typeof boundsSource.maxLat === 'number' &&
-        typeof boundsSource.minLng === 'number' &&
-        typeof boundsSource.maxLng === 'number'
+        typeof bounds.minLat === 'number' &&
+        typeof bounds.maxLat === 'number' &&
+        typeof bounds.minLng === 'number' &&
+        typeof bounds.maxLng === 'number'
       ) {
-        const regionMeta = regionMap[countryKey] || regionMap[countryKey.toLowerCase()] || null;
+        const regionMapTyped = regionMap as Record<string, string | { continent?: string }>;
+        const regionMeta = (regionMapTyped[countryKey] || regionMapTyped[countryKey.toLowerCase()]) as { continent?: string } | undefined;
         return {
           continentName: (regionMeta && regionMeta.continent) || null,
           displayName: matchValue || countryKey,
           bounds: {
-            minLat: boundsSource.minLat,
-            maxLat: boundsSource.maxLat,
-            minLng: boundsSource.minLng,
-            maxLng: boundsSource.maxLng
+            minLat: bounds.minLat,
+            maxLat: bounds.maxLat,
+            minLng: bounds.minLng,
+            maxLng: bounds.maxLng
           },
           isCity: false
         };
@@ -187,7 +215,7 @@ async function extractRequestedRegion(prompt) {
     'the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were'
   ]);
 
-  let locationName = null;
+  let locationName: string | null = null;
   for (const pattern of locationPatterns) {
     const match = cleanPrompt.match(pattern);
     if (match && match[1]) {
@@ -210,13 +238,14 @@ async function extractRequestedRegion(prompt) {
         console.log(`✅ Found city/location bounds for "${locationName}"`);
         return {
           continentName: null,
-          displayName: bounds.foundName || locationName,
-          bounds,
-          isCity: (bounds.type || '').toLowerCase().includes('city')
+          displayName: (bounds.foundName as string) || locationName,
+          bounds: bounds as ExtractedRegion['bounds'],
+          isCity: ((bounds.type as string) || '').toLowerCase().includes('city')
         };
       }
-    } catch (err) {
-      console.warn(`⚠️ Error geocoding "${locationName}":`, err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.warn(`⚠️ Error geocoding "${locationName}":`, errorMessage);
     }
   }
 
@@ -230,21 +259,18 @@ async function extractRequestedRegion(prompt) {
         console.log(`✅ Found bounds for prompt "${trimmedPrompt}" via geocode`);
         return {
           continentName: null,
-          displayName: bounds.foundName || trimmedPrompt,
-          bounds,
-          isCity: (bounds.type || '').toLowerCase().includes('city')
+          displayName: (bounds.foundName as string) || trimmedPrompt,
+          bounds: bounds as ExtractedRegion['bounds'],
+          isCity: ((bounds.type as string) || '').toLowerCase().includes('city')
         };
       }
-    } catch (err) {
-      console.warn(`⚠️ Final geocode attempt failed for "${trimmedPrompt}":`, err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.warn(`⚠️ Final geocode attempt failed for "${trimmedPrompt}":`, errorMessage);
     }
   }
 
   console.log(`❌ No region/city found in prompt: "${prompt}"`);
   return null;
 }
-
-module.exports = {
-  extractRequestedRegion
-};
 

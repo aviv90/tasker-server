@@ -3,30 +3,101 @@
  * Handles group creation with intelligent parsing and fuzzy contact matching
  */
 
-const { generateTextResponse: geminiText } = require('./geminiService');
-const conversationManager = require('./conversationManager');
-const prompts = require('../config/prompts');
+import { generateTextResponse as geminiText } from './geminiService';
+import conversationManager from './conversationManager';
+import prompts from '../config/prompts';
+import logger from '../utils/logger';
+import { get, set } from '../utils/cache';
+import { CacheKeys, CacheTTL } from '../utils/cache';
+import { getEntityType } from '../config/messages';
+
+/**
+ * Parsed group creation result
+ */
+interface ParsedGroupCreation {
+  groupName: string;
+  participants: string[];
+  groupPicture?: string;
+}
+
+/**
+ * Gemini text response structure
+ */
+interface GeminiTextResult {
+  text: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Contact structure from database
+ */
+interface Contact {
+  contact_id: string;
+  contact_name?: string;
+  name?: string;
+  type?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Contact match result
+ */
+interface ContactMatch {
+  contact: Contact;
+  score: number;
+}
+
+/**
+ * Resolved participant structure
+ */
+interface ResolvedParticipant {
+  searchName: string;
+  contactId: string;
+  contactName: string;
+  matchScore: number;
+}
+
+/**
+ * Participant resolution result
+ */
+interface ParticipantResolutionResult {
+  resolved: ResolvedParticipant[];
+  notFound: string[];
+}
+
+/**
+ * Contact search result
+ */
+interface ContactSearchResult {
+  contactId: string;
+  contactName: string;
+  matchScore: number;
+  isGroup: boolean;
+  originalName?: string;
+  originalContactName?: string;
+  type?: string;
+}
 
 /**
  * Parse group creation prompt using Gemini
  * Extracts group name, participant names, and optional group picture description from natural language
  * 
- * @param {string} prompt - User's group creation request
- * @returns {Promise<Object>} - { groupName: string, participants: Array<string>, groupPicture?: string }
+ * @param prompt - User's group creation request
+ * @returns Parsed group creation data
  * 
  * Examples:
  * - "צור קבוצה בשם 'כדורגל בשכונה' עם קוקו, מכנה ומסיק"
  * - "create group called 'Project Team' with John, Sarah and Mike"
  * - "צור קבוצה עם קרלוס בשם 'כדורגל בשכונה' עם תמונה של ברבור"
  */
-async function parseGroupCreationPrompt(prompt) {
+export async function parseGroupCreationPrompt(prompt: string): Promise<ParsedGroupCreation> {
   try {
     console.log('🔍 Parsing group creation prompt with Gemini...');
     
-    // Use centralized prompt from config/prompts.js (SSOT - Phase 5.1)
+    // Use centralized prompt from config/prompts.ts (SSOT - Phase 5.1)
     const parsingPrompt = prompts.groupCreationParsingPrompt(prompt);
 
-    const result = await geminiText(parsingPrompt, [], { model: 'gemini-2.5-flash' });
+    const result = await geminiText(parsingPrompt, [], { model: 'gemini-2.5-flash' }) as GeminiTextResult | null;
     
     if (!result || !result.text) {
       throw new Error('No response from Gemini');
@@ -37,7 +108,7 @@ async function parseGroupCreationPrompt(prompt) {
     // Remove markdown code fences if present
     rawText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
     
-    const parsed = JSON.parse(rawText);
+    const parsed = JSON.parse(rawText) as ParsedGroupCreation;
     
     // Validate structure
     if (!parsed.groupName || !Array.isArray(parsed.participants) || parsed.participants.length === 0) {
@@ -50,9 +121,10 @@ async function parseGroupCreationPrompt(prompt) {
     
     return parsed;
     
-  } catch (error) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('❌ Error parsing group creation prompt:', error);
-    throw new Error(`Failed to parse group creation request: ${error.message}`);
+    throw new Error(`Failed to parse group creation request: ${errorMessage}`);
   }
 }
 
@@ -60,50 +132,52 @@ async function parseGroupCreationPrompt(prompt) {
  * Calculate Levenshtein distance between two strings
  * Used for fuzzy matching of contact names
  * 
- * @param {string} str1 - First string
- * @param {string} str2 - Second string
- * @returns {number} - Edit distance (lower is more similar)
+ * @param str1 - First string
+ * @param str2 - Second string
+ * @returns Edit distance (lower is more similar)
  */
-function levenshteinDistance(str1, str2) {
+export function levenshteinDistance(str1: string, str2: string): number {
   const s1 = str1.toLowerCase();
   const s2 = str2.toLowerCase();
   
-  const matrix = [];
+  const matrix: number[][] = [];
   
   for (let i = 0; i <= s2.length; i++) {
     matrix[i] = [i];
   }
   
   for (let j = 0; j <= s1.length; j++) {
-    matrix[0][j] = j;
+    if (matrix[0]) {
+      matrix[0][j] = j;
+    }
   }
   
   for (let i = 1; i <= s2.length; i++) {
     for (let j = 1; j <= s1.length; j++) {
       if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
+        matrix[i]![j] = matrix[i - 1]![j - 1]!;
       } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
+        matrix[i]![j] = Math.min(
+          (matrix[i - 1]?.[j - 1] ?? Infinity) + 1, // substitution
+          (matrix[i]?.[j - 1] ?? Infinity) + 1,     // insertion
+          (matrix[i - 1]?.[j] ?? Infinity) + 1      // deletion
         );
       }
     }
   }
   
-  return matrix[s2.length][s1.length];
+  return matrix[s2.length]?.[s1.length] ?? Infinity;
 }
 
 /**
  * Calculate similarity score between two strings (0-1)
  * 1 = identical, 0 = completely different
  * 
- * @param {string} str1 - First string
- * @param {string} str2 - Second string
- * @returns {number} - Similarity score (0-1)
+ * @param str1 - First string
+ * @param str2 - Second string
+ * @returns Similarity score (0-1)
  */
-function similarityScore(str1, str2) {
+export function similarityScore(str1: string, str2: string): number {
   const maxLength = Math.max(str1.length, str2.length);
   if (maxLength === 0) return 1.0;
   
@@ -116,13 +190,13 @@ function similarityScore(str1, str2) {
  * Searches in contact_name, name, and chatId fields
  * Includes both private contacts (@c.us) and groups (@g.us)
  * 
- * @param {string} searchName - Name to search for
- * @param {Array<Object>} contacts - All contacts from database
- * @param {number} threshold - Minimum similarity threshold (0-1, default 0.6)
- * @returns {Object|null} - Best matching contact or null if no good match
+ * @param searchName - Name to search for
+ * @param contacts - All contacts from database
+ * @param threshold - Minimum similarity threshold (0-1, default 0.6)
+ * @returns Best matching contact or null if no good match
  */
-function findBestContactMatch(searchName, contacts, threshold = 0.6) {
-  let bestMatch = null;
+function findBestContactMatch(searchName: string, contacts: Contact[], threshold: number = 0.6): ContactMatch | null {
+  let bestMatch: Contact | null = null;
   let bestScore = 0;
   
   for (const contact of contacts) {
@@ -180,15 +254,15 @@ function findBestContactMatch(searchName, contacts, threshold = 0.6) {
 /**
  * Resolve participant names to WhatsApp IDs using fuzzy matching
  * 
- * @param {Array<string>} participantNames - Array of names to resolve
- * @returns {Promise<Object>} - { resolved: Array<{name, contactId, contactName}>, notFound: Array<string> }
+ * @param participantNames - Array of names to resolve
+ * @returns Resolved participants and not found names
  */
-async function resolveParticipants(participantNames) {
+export async function resolveParticipants(participantNames: string[]): Promise<ParticipantResolutionResult> {
   try {
     console.log(`🔍 Resolving ${participantNames.length} participants...`);
     
     // Get all contacts from database
-    const contacts = await conversationManager.getAllContacts();
+    const contacts = await conversationManager.getAllContacts() as Contact[];
     
     if (!contacts || contacts.length === 0) {
       throw new Error('No contacts found in database. Please sync contacts first using "עדכן אנשי קשר"');
@@ -196,8 +270,8 @@ async function resolveParticipants(participantNames) {
     
     console.log(`📇 Searching through ${contacts.length} contacts in database`);
     
-    const resolved = [];
-    const notFound = [];
+    const resolved: ResolvedParticipant[] = [];
+    const notFound: string[] = [];
     
     for (const participantName of participantNames) {
       const match = findBestContactMatch(participantName, contacts);
@@ -206,7 +280,7 @@ async function resolveParticipants(participantNames) {
         resolved.push({
           searchName: participantName,
           contactId: match.contact.contact_id,
-          contactName: match.contact.contact_name || match.contact.name,
+          contactName: match.contact.contact_name || match.contact.name || '',
           matchScore: match.score
         });
       } else {
@@ -221,7 +295,7 @@ async function resolveParticipants(participantNames) {
     
     return { resolved, notFound };
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Error resolving participants:', error);
     throw error;
   }
@@ -231,21 +305,17 @@ async function resolveParticipants(participantNames) {
  * Find a single contact or group by name using fuzzy matching
  * Used for management commands that need to resolve a contact/group name
  * 
- * @param {string} searchName - Name to search for
- * @param {number} threshold - Minimum similarity threshold (0-1, default 0.6)
- * @returns {Promise<Object|null>} - { contactId, contactName, matchScore, isGroup } or null if not found
+ * @param searchName - Name to search for
+ * @param threshold - Minimum similarity threshold (0-1, default 0.6)
+ * @returns Contact search result or null if not found
  */
-async function findContactByName(searchName, threshold = 0.6) {
+export async function findContactByName(searchName: string, threshold: number = 0.6): Promise<ContactSearchResult | null> {
   try {
-    const logger = require('../utils/logger');
-    const cache = require('../utils/cache');
-    const { CacheKeys, CacheTTL } = require('../utils/cache');
-    
     logger.debug(`🔍 Searching for contact/group: "${searchName}"`);
     
     // Try cache first (cache key includes search name and threshold)
     const cacheKey = CacheKeys.contact(`${searchName}:${threshold}`);
-    const cached = cache.get(cacheKey);
+    const cached = get<ContactSearchResult | null>(cacheKey);
     if (cached !== null) {
       logger.debug(`✅ Contact found in cache`, { searchName });
       return cached;
@@ -253,7 +323,7 @@ async function findContactByName(searchName, threshold = 0.6) {
     
     // Get all contacts from database (includes both private contacts and groups)
     // This itself is cached, so it's fast
-    const contacts = await conversationManager.getAllContacts();
+    const contacts = await conversationManager.getAllContacts() as Contact[];
     
     if (!contacts || contacts.length === 0) {
       logger.warn('⚠️ No contacts/groups found in database');
@@ -266,12 +336,11 @@ async function findContactByName(searchName, threshold = 0.6) {
     
     if (match) {
       const isGroup = match.contact.contact_id.endsWith('@g.us');
-      const { getEntityType } = require('../config/messages');
       const entityType = getEntityType(isGroup);
       
-      const result = {
+      const result: ContactSearchResult = {
         contactId: match.contact.contact_id,
-        contactName: match.contact.contact_name || match.contact.name,
+        contactName: match.contact.contact_name || match.contact.name || '',
         matchScore: match.score,
         isGroup: isGroup,
         // Keep all original contact data for flexibility
@@ -281,7 +350,7 @@ async function findContactByName(searchName, threshold = 0.6) {
       };
       
       // Cache successful lookup for 5 minutes
-      cache.set(cacheKey, result, CacheTTL.MEDIUM);
+      set(cacheKey, result, CacheTTL.MEDIUM);
       
       logger.debug(`✅ Found ${entityType}`, {
         searchName,
@@ -295,26 +364,21 @@ async function findContactByName(searchName, threshold = 0.6) {
     
     logger.debug(`❌ No match found for "${searchName}"`);
     // Cache null results for shorter time (1 minute) to avoid repeated failed lookups
-    cache.set(cacheKey, null, CacheTTL.SHORT);
+    set(cacheKey, null, CacheTTL.SHORT);
     return null;
     
-  } catch (error) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
     logger.error('❌ Error finding contact by name', {
       searchName,
       error: {
-        message: error.message,
-        stack: error.stack
+        message: errorMessage,
+        stack: errorStack
       }
     });
+    void errorMessage; // Suppress unused variable warning (used in error object)
     return null;
   }
 }
-
-module.exports = {
-  parseGroupCreationPrompt,
-  resolveParticipants,
-  findContactByName,
-  similarityScore,
-  levenshteinDistance
-};
 

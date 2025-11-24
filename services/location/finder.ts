@@ -2,26 +2,56 @@
  * Location finder - finds random locations based on requested region
  */
 
-const { getLocationInfo } = require('../geminiService');
-const { continents } = require('./constants');
-const { isLandLocation } = require('./helpers');
-const { extractRequestedRegion } = require('./extraction');
-const { buildLocationAckMessage } = require('./helpers');
+import { continents } from './constants';
+import { isLandLocation } from './helpers';
+import { extractRequestedRegion, ExtractedRegion } from './extraction';
+import { buildLocationAckMessage } from './helpers';
+
+/**
+ * Requested region structure (alias for ExtractedRegion)
+ */
+type RequestedRegion = ExtractedRegion;
+
+/**
+ * Location finder parameters
+ */
+interface FindRandomLocationParams {
+  requestedRegion?: RequestedRegion | null;
+  maxAttempts?: number;
+  language?: string;
+}
+
+/**
+ * Location info structure
+ */
+interface LocationInfo {
+  success: boolean;
+  latitude?: string;
+  longitude?: string;
+  description?: string;
+  regionName?: string | null;
+  isCity?: boolean;
+  error?: string;
+}
+
+/**
+ * Location result with acknowledgment message
+ */
+interface LocationResultWithAck extends LocationInfo {
+  ackMessage?: string | null;
+  requestedRegion?: RequestedRegion | null;
+}
 
 /**
  * Find random location within requested region
- * @param {Object} params
- * @param {Object} params.requestedRegion - Requested region info
- * @param {number} params.maxAttempts - Max attempts
- * @param {string} params.language - Output language (default: 'he')
  */
-async function findRandomLocation({ requestedRegion, maxAttempts = 15, language = 'he' }) {
-  let locationInfo = null;
+export async function findRandomLocation({ requestedRegion, maxAttempts = 15, language = 'he' }: FindRandomLocationParams): Promise<LocationInfo> {
+  let locationInfo: { latitude: string; longitude: string; description: string; [key: string]: unknown } | null = null;
   let attempts = 0;
 
-  const hasSpecificBounds = requestedRegion && requestedRegion.bounds;
+  const hasSpecificBounds = !!(requestedRegion && requestedRegion.bounds);
 
-  let availableContinents = continents;
+  let availableContinents = [...continents];
 
   if (requestedRegion) {
     const requestedRegionName = requestedRegion.continentName;
@@ -29,26 +59,26 @@ async function findRandomLocation({ requestedRegion, maxAttempts = 15, language 
 
     if (requestedRegionName && !hasSpecificBounds) {
       if (hasMultiRegions) {
-        availableContinents = continents.filter(c => requestedRegion.multiRegions.includes(c.name));
+        availableContinents = continents.filter(c => requestedRegion.multiRegions!.includes(c.name));
         if (availableContinents.length === 0) {
-          availableContinents = continents;
+          availableContinents = [...continents];
         }
       } else {
         availableContinents = continents.filter(c => c.name === requestedRegionName);
         if (availableContinents.length === 0) {
-          availableContinents = continents;
+          availableContinents = [...continents];
         }
       }
     }
   }
 
-  let useBoundsForGeneration = hasSpecificBounds;
+  let useBoundsForGeneration: boolean = hasSpecificBounds;
 
   while (attempts < maxAttempts && !locationInfo) {
     attempts++;
 
-    let latitude;
-    let longitude;
+    let latitude: string | undefined;
+    let longitude: string | undefined;
 
     if (useBoundsForGeneration && requestedRegion && requestedRegion.bounds) {
       const bounds = requestedRegion.bounds;
@@ -65,12 +95,14 @@ async function findRandomLocation({ requestedRegion, maxAttempts = 15, language 
       } else {
         useBoundsForGeneration = false;
       }
+    } else {
+      useBoundsForGeneration = false;
     }
 
     if (!useBoundsForGeneration || !latitude || !longitude) {
       const totalWeight = availableContinents.reduce((sum, c) => sum + c.weight, 0) || 1;
       let randomWeight = Math.random() * totalWeight;
-      let selectedContinent = availableContinents[0] || continents[0];
+      let selectedContinent = availableContinents[0] || continents[0]!;
 
       for (const continent of availableContinents) {
         randomWeight -= continent.weight;
@@ -84,11 +116,13 @@ async function findRandomLocation({ requestedRegion, maxAttempts = 15, language 
       longitude = (Math.random() * (selectedContinent.maxLng - selectedContinent.minLng) + selectedContinent.minLng).toFixed(6);
     }
 
-    const tempLocationInfo = await getLocationInfo(parseFloat(latitude), parseFloat(longitude), language);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getLocationInfo: getLocationInfoFn } = require('../geminiService');
+    const tempLocationInfo = await getLocationInfoFn(parseFloat(latitude!), parseFloat(longitude!), language) as { success?: boolean; description?: string; [key: string]: unknown };
 
     if (tempLocationInfo.success && tempLocationInfo.description) {
-      if (isLandLocation(tempLocationInfo.description)) {
-        locationInfo = { ...tempLocationInfo, latitude, longitude };
+      if (isLandLocation(tempLocationInfo.description as string)) {
+        locationInfo = { ...tempLocationInfo, latitude: latitude!, longitude: longitude! } as { latitude: string; longitude: string; description: string; [key: string]: unknown };
       }
     }
   }
@@ -115,7 +149,7 @@ async function findRandomLocation({ requestedRegion, maxAttempts = 15, language 
 /**
  * Get random location for prompt
  */
-async function getRandomLocationForPrompt(prompt) {
+export async function getRandomLocationForPrompt(prompt: string | null | undefined): Promise<LocationResultWithAck> {
   const requestedRegion = await extractRequestedRegion(prompt || '');
   const ackMessage = buildLocationAckMessage(requestedRegion);
   const locationResult = await findRandomLocation({ requestedRegion });
@@ -125,9 +159,4 @@ async function getRandomLocationForPrompt(prompt) {
     requestedRegion
   };
 }
-
-module.exports = {
-  findRandomLocation,
-  getRandomLocationForPrompt
-};
 

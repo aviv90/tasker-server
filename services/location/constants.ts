@@ -3,9 +3,25 @@
  */
 
 import { loadJson } from './helpers';
+import path from 'path';
 
-const countryBoundsData = loadJson('../../utils/countryBounds.json');
-const cityBoundsData = loadJson('../../utils/cityBounds.json');
+// Load JSON files - handle both development and production (dist/) paths
+const getJsonPath = (relativePath: string): string => {
+  // In production (dist/), files are in project root, not in dist/utils/
+  const isInDist = __dirname.includes('dist');
+  if (isInDist) {
+    // dist/services/location -> project root
+    const projectRoot = path.join(__dirname, '..', '..', '..');
+    // Remove ../../ prefix and use project root
+    const cleanPath = relativePath.replace(/^\.\.\/\.\.\//, '');
+    return path.join(projectRoot, cleanPath);
+  }
+  // Development: use relative path
+  return relativePath;
+};
+
+const countryBoundsData = loadJson(getJsonPath('utils/countryBounds.json'));
+const cityBoundsData = loadJson(getJsonPath('utils/cityBounds.json'));
 
 const cityKeywords: Record<string, boolean> = {
   'תל אביב': true, 'tel aviv': true, 'תל-אביב': true,

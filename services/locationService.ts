@@ -5,14 +5,15 @@
  * Refactored to use modular components (Phase 5.3)
  */
 
-const { isLandLocation, buildLocationAckMessage } = require('./location/helpers');
-const { extractRequestedRegion } = require('./location/extraction');
-const { findRandomLocation, getRandomLocationForPrompt } = require('./location/finder');
+import { isLandLocation, buildLocationAckMessage } from './location/helpers';
+import { extractRequestedRegion } from './location/extraction';
+import { findRandomLocation, getRandomLocationForPrompt } from './location/finder';
 
-module.exports = {
+export {
   isLandLocation,
   extractRequestedRegion,
   buildLocationAckMessage,
   findRandomLocation,
   getRandomLocationForPrompt
 };
+
