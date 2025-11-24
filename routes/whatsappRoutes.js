@@ -5,7 +5,9 @@ const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory, getMessage
 const { getStaticFileUrl } = require('../utils/urlUtils');
 const { cleanMediaDescription } = require('../utils/textSanitizer');
 const locationService = require('../services/locationService');
-const conversationManager = require('../services/conversationManager');
+// Handle default export from TypeScript
+const conversationManagerModule = require('../services/conversationManager');
+const conversationManager = conversationManagerModule.default || conversationManagerModule;
 const { routeToAgent } = require('../services/agentRouter');
 const { executeAgentQuery } = require('../services/agentService');
 const logger = require('../utils/logger');

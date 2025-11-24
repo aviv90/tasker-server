@@ -6,7 +6,9 @@ const axios = require('axios');
 const { BASE_URL, GREEN_API_API_TOKEN_INSTANCE } = require('./constants');
 const { TIME } = require('../../utils/constants');
 const logger = require('../../utils/logger');
-const conversationManager = require('../../services/conversationManager');
+// Handle default export from TypeScript
+const conversationManagerModule = require('../../services/conversationManager');
+const conversationManager = conversationManagerModule.default || conversationManagerModule;
 
 /**
  * Send text message via Green API

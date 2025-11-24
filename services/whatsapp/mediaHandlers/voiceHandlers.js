@@ -5,7 +5,9 @@
  */
 
 const { sendTextMessage, sendFileByUrl, downloadFile } = require('../../greenApiService');
-const conversationManager = require('../../conversationManager');
+// Handle default export from TypeScript
+const conversationManagerModule = require('../../conversationManager');
+const conversationManager = conversationManagerModule.default || conversationManagerModule;
 const { formatProviderError } = require('../../../utils/errorHandler');
 const { sendErrorToUser, ERROR_MESSAGES } = require('../../../utils/errorSender');
 const { getStaticFileUrl } = require('../../../utils/urlUtils');
