@@ -1,9 +1,9 @@
-const { z } = require('zod');
+import { z } from 'zod';
 
 /**
  * Schema for Agent Context
  */
-const contextSchema = z.object({
+export const contextSchema = z.object({
   toolCalls: z.array(z.any()).default([]), // Can be refined further if toolCall structure is strict
   generatedAssets: z.object({
     images: z.array(z.any()).default([]),
@@ -11,6 +11,4 @@ const contextSchema = z.object({
     audio: z.array(z.any()).default([])
   }).default({ images: [], videos: [], audio: [] })
 });
-
-module.exports = { contextSchema };
 

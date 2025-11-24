@@ -1,9 +1,9 @@
-const { z } = require('zod');
+import { z } from 'zod';
 
 /**
  * Schema for Command storage
  */
-const commandSchema = z.object({
+export const commandSchema = z.object({
   chatId: z.string().min(1, "Chat ID is required"),
   messageId: z.string().min(1, "Message ID is required"),
   tool: z.string().nullable().optional(), // Tool name is optional (can be null)
@@ -20,6 +20,4 @@ const commandSchema = z.object({
   audioUrl: z.string().nullable().optional(), // Removed .url() validation to allow null/undefined
   timestamp: z.number().int().positive().optional() // usually generated on server side
 }).passthrough(); // Allow additional properties
-
-module.exports = { commandSchema };
 
