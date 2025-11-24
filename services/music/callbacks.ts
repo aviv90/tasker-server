@@ -12,13 +12,36 @@ import { sendErrorToUser } from '../../utils/errorSender';
  * Music service interface
  */
 interface MusicService {
-  pendingTasks?: Map<string, TaskInfo>;
-  videoManager: {
+  pendingTasks?: Map<string, unknown>;
+  pendingVideoTasks?: Map<string, unknown>;
+  videoManager?: {
     generateMusicVideo: (taskId: string, audioId: string, options: unknown) => Promise<unknown>;
   };
-  whatsappDelivery: {
+  whatsappDelivery?: {
     sendMusicToWhatsApp: (context: unknown, result: unknown) => Promise<void>;
   };
+}
+
+/**
+ * Task information structure (matches generation.ts)
+ */
+interface TaskInfo {
+  taskId: string;
+  type: string;
+  musicOptions?: {
+    prompt?: string;
+    title?: string;
+  };
+  timestamp: number;
+  whatsappContext?: {
+    chatId: string;
+    originalMessageId?: string;
+    senderName?: string;
+  } | null;
+  wantsVideo?: boolean;
+  extendOptions?: unknown;
+  coverOptions?: unknown;
+  instrumentalOptions?: unknown;
 }
 
 /**
@@ -38,6 +61,9 @@ interface TaskInfo {
     senderName?: string;
   } | null;
   wantsVideo?: boolean;
+  extendOptions?: unknown;
+  coverOptions?: unknown;
+  instrumentalOptions?: unknown;
 }
 
 /**
@@ -108,7 +134,7 @@ export class MusicCallbacks {
    */
   async handleCallbackCompletion(taskId: string, callbackData: CallbackData): Promise<CallbackResult | undefined> {
     try {
-      const taskInfo = this.musicService.pendingTasks?.get(taskId);
+      const taskInfo = this.musicService.pendingTasks?.get(taskId) as TaskInfo | undefined;
       if (!taskInfo) {
         console.warn(`⚠️ No task info found for callback: ${taskId}`);
         return;
@@ -175,7 +201,7 @@ export class MusicCallbacks {
             };
                     
             // If WhatsApp context exists, send result directly to WhatsApp client
-            if (taskInfo.whatsappContext) {
+            if (taskInfo.whatsappContext && this.musicService.whatsappDelivery) {
               console.log(`📱 Sending music to WhatsApp client: ${taskInfo.whatsappContext.chatId}`);
               
               try {
@@ -187,7 +213,7 @@ export class MusicCallbacks {
             }
                     
             // If video was requested, generate it now (separate API call)
-            if (taskInfo.wantsVideo && firstSong.id) {
+            if (taskInfo.wantsVideo && firstSong.id && this.musicService.videoManager) {
               console.log('🎬 Initiating video generation');
               
               try {

@@ -115,9 +115,10 @@ class VoiceRoutes {
 
         // Store the mapping between our task ID and Kie.ai task ID for callback handling
         const kieTaskMapping = callbacks.getKieTaskMapping();
-        if (result.taskId) {
-          kieTaskMapping.set(result.taskId, taskId);
-          console.log(`🔗 Mapped Kie task ${result.taskId} to our task ${taskId}`);
+        const resultWithTaskId = result as { taskId?: string };
+        if (resultWithTaskId.taskId) {
+          kieTaskMapping.set(resultWithTaskId.taskId, taskId);
+          console.log(`🔗 Mapped Kie task ${resultWithTaskId.taskId} to our task ${taskId}`);
         }
 
         if (isErrorResult(result)) {

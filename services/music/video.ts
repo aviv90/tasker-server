@@ -16,7 +16,7 @@ import { FILE_SIZE } from '../../utils/constants';
 interface MusicService {
   baseUrl: string;
   headers: Record<string, string>;
-  pendingVideoTasks?: Map<string, VideoTaskInfo>;
+  pendingVideoTasks?: Map<string, unknown>;
 }
 
 /**
@@ -197,7 +197,7 @@ export class MusicVideo {
     callbackData: { code?: number; msg?: string; data?: { video_url?: string } }
   ): Promise<VideoCallbackResult> {
     try {
-      const videoTaskInfo = this.musicService.pendingVideoTasks?.get(videoTaskId);
+      const videoTaskInfo = this.musicService.pendingVideoTasks?.get(videoTaskId) as VideoTaskInfo | undefined;
       if (!videoTaskInfo) {
         console.warn(`⚠️ No video task info found for callback: ${videoTaskId}`);
         return { error: 'No video task info found' };
