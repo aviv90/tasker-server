@@ -2,13 +2,29 @@ const { Pool } = require('pg');
 const logger = require('../utils/logger');
 const { TIME } = require('../utils/constants');
 
-// Repositories
-const CommandsRepository = require('../repositories/commandsRepository');
-const MessageTypesRepository = require('../repositories/messageTypesRepository');
-const AgentContextRepository = require('../repositories/agentContextRepository');
-const SummariesRepository = require('../repositories/summariesRepository');
-const AllowListsRepository = require('../repositories/allowListsRepository');
-const ContactsRepository = require('../repositories/contactsRepository');
+// Repositories (TypeScript files compiled to dist/ with default exports)
+// In production (Heroku), files are in dist/, so we need to check both locations
+const getRepository = (path) => {
+  try {
+    // Try dist/ first (production)
+    return require(`../dist/repositories/${path}`).default;
+  } catch (e) {
+    // Fallback to source (development with ts-node)
+    try {
+      return require(`../repositories/${path}`).default;
+    } catch (e2) {
+      // Last resort: direct require (for JS files)
+      return require(`../repositories/${path}`);
+    }
+  }
+};
+
+const CommandsRepository = getRepository('commandsRepository');
+const MessageTypesRepository = getRepository('messageTypesRepository');
+const AgentContextRepository = getRepository('agentContextRepository');
+const SummariesRepository = getRepository('summariesRepository');
+const AllowListsRepository = getRepository('allowListsRepository');
+const ContactsRepository = getRepository('contactsRepository');
 
 // Services
 const CommandsManager = require('./conversation/commands');
