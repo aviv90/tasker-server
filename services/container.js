@@ -152,7 +152,21 @@ class Container {
       };
 
       // 4. Run Migrations
-      const MigrationRunner = require('./conversation/migrationRunner');
+      // Load MigrationRunner (TypeScript file compiled to dist/ with default export)
+      let MigrationRunner;
+      try {
+        // Try dist/ first (production)
+        const distModule = require('./conversation/migrationRunner');
+        MigrationRunner = distModule.default || distModule;
+      } catch (e) {
+        // Fallback to source (development with ts-node or compiled JS)
+        try {
+          const sourceModule = require('./conversation/migrationRunner');
+          MigrationRunner = sourceModule.default || sourceModule;
+        } catch (e2) {
+          throw new Error(`Failed to load MigrationRunner. Errors: ${e.message}, ${e2.message}`);
+        }
+      }
       const migrationRunner = new MigrationRunner(this.pool);
       await migrationRunner.run();
 
