@@ -1,9 +1,11 @@
-const multer = require('multer');
-const { v4: uuidv4 } = require('uuid');
-const taskStore = require('../../store/taskStore');
-const { voiceService } = require('../../services/voiceService');
-const { isErrorResult, getTaskError } = require('../../utils/errorHandler');
-const callbacks = require('./callbacks');
+import multer from 'multer';
+import { v4 as uuidv4 } from 'uuid';
+import * as taskStore from '../../store/taskStore';
+import * as musicService from '../../services/musicService';
+import { voiceService } from '../../services/voiceService';
+import { isErrorResult, extractErrorMessage } from '../../utils/errorHandler';
+import callbacks from './callbacks';
+import { Request, Response, Router } from 'express';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -13,6 +15,20 @@ const upload = multer({
   }
 });
 
+interface VoiceUploadRequest extends Request {
+    file?: Express.Multer.File;
+    body: {
+        taskId?: string;
+        title?: string;
+        style?: string;
+        vocalGender?: string;
+        styleWeight?: string;
+        audioWeight?: string;
+        weirdnessConstraint?: string;
+        [key: string]: any;
+    };
+}
+
 /**
  * Voice routes
  */
@@ -20,19 +36,23 @@ class VoiceRoutes {
   /**
    * Setup voice routes
    */
-  setupRoutes(router) {
+  setupRoutes(router: Router, rateLimiter: any = null) {
+    const handlers: any[] = [upload.single('file')];
+    if (rateLimiter) handlers.push(rateLimiter);
+
     /**
      * Speech-to-Song endpoint
      */
-    router.post('/speech-to-song', upload.single('file'), async (req, res) => {
+    router.post('/speech-to-song', ...handlers, async (req: VoiceUploadRequest, res: Response) => {
       console.log(`🎤 Starting Speech-to-Song generation for task ${req.body.taskId || 'new'}`);
 
       // Validate required fields
       if (!req.file) {
-        return res.status(400).json({
+        res.status(400).json({
           status: 'error',
           error: 'Missing audio file'
         });
+        return;
       }
 
       // Validate file format and size
@@ -43,24 +63,27 @@ class VoiceRoutes {
       console.log(`📁 File received: ${req.file.originalname}, type: ${req.file.mimetype}, size: ${Math.round(req.file.size / 1024)}KB`);
 
       if (!supportedTypes.includes(req.file.mimetype)) {
-        return res.status(400).json({
+        res.status(400).json({
           status: 'error',
           error: `Unsupported file type: ${req.file.mimetype}. Supported: MP3, WAV, OGG, OPUS, WebM, M4A, AAC`
         });
+        return;
       }
 
       if (req.file.size > maxSize) {
-        return res.status(400).json({
+        res.status(400).json({
           status: 'error',
           error: `File too large: ${Math.round(req.file.size / 1024 / 1024)}MB. Max size: 10MB`
         });
+        return;
       }
 
       if (req.file.size < minSize) {
-        return res.status(400).json({
+        res.status(400).json({
           status: 'error',
           error: `File too small: ${Math.round(req.file.size / 1024)}KB. Please upload at least a few seconds of clear speech.`
         });
+        return;
       }
 
       const taskId = uuidv4();
@@ -68,8 +91,6 @@ class VoiceRoutes {
       res.json({ taskId }); // Send response immediately
 
       try {
-        const musicService = require('../../services/musicService');
-
         // Use original audio buffer directly (no conversion)
         const audioBuffer = req.file.buffer;
         const fileType = req.file.mimetype;
@@ -100,7 +121,7 @@ class VoiceRoutes {
         }
 
         if (isErrorResult(result)) {
-          const errorMessage = getTaskError(result);
+          const errorMessage = extractErrorMessage(result);
           console.error(`❌ Speech-to-Song generation failed for task ${taskId}:`, errorMessage);
           await taskStore.set(taskId, { status: 'failed', error: errorMessage });
         } else {
@@ -108,8 +129,8 @@ class VoiceRoutes {
 
           // Extract the first song URL for simple response format
           let songUrl = null;
-          if (result.songs && result.songs.length > 0) {
-            songUrl = result.songs[0].audioUrl;
+          if ((result as any).songs && (result as any).songs.length > 0) {
+            songUrl = (result as any).songs[0].audioUrl;
           }
 
           await taskStore.set(taskId, {
@@ -120,7 +141,7 @@ class VoiceRoutes {
           });
         }
 
-      } catch (error) {
+      } catch (error: any) {
         console.error(`❌ Speech-to-Song generation error for task ${taskId}:`, error);
         await taskStore.set(taskId, {
           status: 'failed',
@@ -132,20 +153,21 @@ class VoiceRoutes {
     /**
      * Cleanup endpoint - delete all custom voices
      */
-    router.post('/cleanup-voices', async (req, res) => {
+    router.post('/cleanup-voices', ...handlers, async (_req: Request, res: Response) => {
       try {
         console.log('🧹 Starting voice cleanup...');
 
         const result = await voiceService.getVoices();
         if (result.error) {
-          return res.status(500).json({ status: 'error', error: result.error });
+          res.status(500).json({ status: 'error', error: result.error });
+          return;
         }
 
         const voices = result.voices || [];
         console.log(`Found ${voices.length} total voices`);
 
         // Filter only custom voices (not built-in ElevenLabs voices)
-        const customVoices = voices.filter(voice =>
+        const customVoices = voices.filter((voice: any) =>
           voice.category === 'cloned' ||
           voice.category === 'premade' && voice.sharing?.status === 'private' ||
           voice.name?.startsWith('Voice_')
@@ -165,7 +187,7 @@ class VoiceRoutes {
               deletedCount++;
               console.log(`✅ Deleted voice: ${voice.name} (${voice.voice_id})`);
             }
-          } catch (error) {
+          } catch (error: any) {
             errors.push(`${voice.name}: ${error.message}`);
           }
         }
@@ -178,7 +200,7 @@ class VoiceRoutes {
           errors: errors.length > 0 ? errors : undefined
         });
 
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Voice cleanup error:', error);
         res.status(500).json({
           status: 'error',
@@ -189,5 +211,4 @@ class VoiceRoutes {
   }
 }
 
-module.exports = new VoiceRoutes();
-
+export default new VoiceRoutes();

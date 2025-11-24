@@ -4,8 +4,17 @@
  * Handles media extraction, URLs, and quoted message processing
  */
 
-const { handleQuotedMessage } = require('../quotedMessageHandler');
-const greenApiService = require('../../../services/greenApiService');
+import { handleQuotedMessage } from '../quotedMessageHandler';
+import * as greenApiService from '../../../services/greenApiService';
+
+interface MediaUrls {
+    hasImage: boolean;
+    hasVideo: boolean;
+    hasAudio: boolean;
+    imageUrl: string | null;
+    videoUrl: string | null;
+    audioUrl: string | null;
+}
 
 /**
  * Check if this is an actual quoted message (reply) vs media with caption
@@ -13,7 +22,7 @@ const greenApiService = require('../../../services/greenApiService');
  * @param {Object} quotedMessage - Quoted message data
  * @returns {boolean} True if actual quote, false otherwise
  */
-function isActualQuote(messageData, quotedMessage) {
+export function isActualQuote(messageData: any, quotedMessage: any): boolean {
   if (messageData.typeMessage !== 'quotedMessage' || !quotedMessage || !quotedMessage.stanzaId) {
     return false;
   }
@@ -34,7 +43,7 @@ function isActualQuote(messageData, quotedMessage) {
  * @param {Object} messageData - Message data
  * @returns {Object} Media info with URLs and flags
  */
-function extractDirectMediaUrls(messageData) {
+export function extractDirectMediaUrls(messageData: any): MediaUrls {
   let hasImage = messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage';
   let hasVideo = messageData.typeMessage === 'videoMessage';
   let hasAudio = messageData.typeMessage === 'audioMessage';
@@ -78,7 +87,7 @@ function extractDirectMediaUrls(messageData) {
  * @param {string} mediaType - Media type ('image', 'video', 'audio')
  * @returns {Promise<string|null>} Media URL or null
  */
-async function fetchMediaUrlFromAPI(chatId, messageId, mediaType) {
+export async function fetchMediaUrlFromAPI(chatId: string, messageId: string, mediaType: string): Promise<string | null> {
   console.log(`⚠️ ${mediaType} downloadUrl not found in webhook, fetching from Green API...`);
   try {
     const originalMessage = await greenApiService.getMessage(chatId, messageId);
@@ -98,7 +107,7 @@ async function fetchMediaUrlFromAPI(chatId, messageId, mediaType) {
         originalMessage?.audioMessageData?.downloadUrl;
     }
     return null;
-  } catch (err) {
+  } catch (err: any) {
     console.log(`❌ Failed to fetch ${mediaType} downloadUrl via getMessage: ${err.message}`);
     return null;
   }
@@ -111,7 +120,7 @@ async function fetchMediaUrlFromAPI(chatId, messageId, mediaType) {
  * @param {string} chatId - Chat ID
  * @returns {Promise<Object>} Media info with URLs
  */
-async function extractQuotedMediaUrls(messageData, webhookData, chatId) {
+export async function extractQuotedMediaUrls(messageData: any, webhookData: any, chatId: string): Promise<MediaUrls> {
   const quotedMessage = messageData.quotedMessage;
   if (!quotedMessage) {
     return { hasImage: false, hasVideo: false, hasAudio: false, imageUrl: null, videoUrl: null, audioUrl: null };
@@ -181,7 +190,7 @@ async function extractQuotedMediaUrls(messageData, webhookData, chatId) {
  * @param {string} chatId - Chat ID
  * @returns {Promise<Object>} Merged prompt and media info
  */
-async function processQuotedMessage(quotedMessage, basePrompt, chatId) {
+export async function processQuotedMessage(quotedMessage: any, basePrompt: string, chatId: string) {
   console.log(`🔗 Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
 
   // Handle quoted message - merge content
@@ -211,7 +220,7 @@ async function processQuotedMessage(quotedMessage, basePrompt, chatId) {
  * @param {string} audioUrl - Audio URL
  * @returns {Object} Quoted context object
  */
-function buildQuotedContext(quotedMessage, imageUrl, videoUrl, audioUrl) {
+export function buildQuotedContext(quotedMessage: any, imageUrl?: string | null, videoUrl?: string | null, audioUrl?: string | null) {
   if (!quotedMessage) return null;
 
   return {
@@ -226,13 +235,3 @@ function buildQuotedContext(quotedMessage, imageUrl, videoUrl, audioUrl) {
     stanzaId: quotedMessage.stanzaId
   };
 }
-
-module.exports = {
-  isActualQuote,
-  extractDirectMediaUrls,
-  fetchMediaUrlFromAPI,
-  extractQuotedMediaUrls,
-  processQuotedMessage,
-  buildQuotedContext
-};
-

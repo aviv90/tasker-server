@@ -3,18 +3,42 @@
  * Handles direct database interactions for agent short-term memory (context).
  */
 
+import { Pool } from 'pg';
+
+export interface ToolCall {
+    tool: string;
+    args: Record<string, unknown>;
+    result?: unknown;
+    timestamp?: Date;
+    [key: string]: unknown;
+}
+
+export interface GeneratedAssets {
+    images: string[];
+    videos: string[];
+    audio: string[];
+}
+
+export interface AgentContext {
+    toolCalls: ToolCall[];
+    generatedAssets: GeneratedAssets;
+    lastUpdated: Date;
+}
+
 class AgentContextRepository {
-  constructor(pool) {
+  private pool: Pool;
+
+  constructor(pool: Pool) {
     this.pool = pool;
   }
 
   /**
    * Upsert agent context
    * @param {string} chatId 
-   * @param {Array} toolCalls 
-   * @param {Object} generatedAssets 
+   * @param {ToolCall[]} toolCalls 
+   * @param {GeneratedAssets} generatedAssets 
    */
-  async upsert(chatId, toolCalls, generatedAssets) {
+  async upsert(chatId: string, toolCalls: ToolCall[], generatedAssets: GeneratedAssets): Promise<void> {
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -28,7 +52,7 @@ class AgentContextRepository {
       `, [
         chatId,
         JSON.stringify(toolCalls || []),
-        JSON.stringify(generatedAssets || { images: [], videos: [], audio: [] })
+        JSON.stringify(generatedAssets || { images: [], videos: [], audio: [] } as GeneratedAssets)
       ]);
     } finally {
       client.release();
@@ -40,7 +64,7 @@ class AgentContextRepository {
    * @param {string} chatId 
    * @returns {Promise<Object|null>}
    */
-  async findByChatId(chatId) {
+  async findByChatId(chatId: string): Promise<AgentContext | null> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -68,7 +92,7 @@ class AgentContextRepository {
    * Delete context for a chat
    * @param {string} chatId 
    */
-  async deleteByChatId(chatId) {
+  async deleteByChatId(chatId: string) {
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -85,7 +109,7 @@ class AgentContextRepository {
    * @param {number} days 
    * @returns {Promise<number>} count of deleted rows
    */
-  async deleteOlderThanDays(days) {
+  async deleteOlderThanDays(days: number): Promise<number> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -100,5 +124,4 @@ class AgentContextRepository {
   }
 }
 
-module.exports = AgentContextRepository;
-
+export default AgentContextRepository;

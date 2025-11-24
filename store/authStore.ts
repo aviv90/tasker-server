@@ -5,7 +5,14 @@
  * Maintains exact compatibility with voice transcription authorization system
  */
 
-const conversationManager = require('../services/conversationManager');
+import conversationManager from '../services/conversationManager';
+
+interface SenderData {
+    chatId?: string;
+    chatName?: string;
+    senderName?: string;
+    senderContactName?: string;
+}
 
 class AuthStore {
   constructor() {
@@ -18,7 +25,7 @@ class AuthStore {
    * @param {Object} senderData - WhatsApp sender data from Green API
    * @returns {Promise<boolean>} - True if user is authorized
    */
-  async isAuthorizedForMediaCreation(senderData) {
+  async isAuthorizedForMediaCreation(senderData: SenderData): Promise<boolean> {
     try {
       // Get the allow list from database
       const allowList = await conversationManager.getMediaAllowList();
@@ -67,7 +74,7 @@ class AuthStore {
         } else if (senderData.chatName && senderData.chatName.trim()) {
           contactName = senderData.chatName;
         } else {
-          contactName = senderData.senderName;
+          contactName = senderData.senderName || '';
         }
         
         console.log(`🔍 Checking media creation authorization for: "${contactName}" (private chat)`);
@@ -102,7 +109,7 @@ class AuthStore {
    * @param {string} identifier - User identifier (name, phone, etc.)
    * @returns {Promise<boolean>} - True if user was added (false if already existed)
    */
-  async addAuthorizedUser(identifier) {
+  async addAuthorizedUser(identifier: string): Promise<boolean> {
     try {
       const cleanId = identifier.trim();
       if (!cleanId) return false;
@@ -119,7 +126,7 @@ class AuthStore {
    * @param {string} identifier - User identifier (name, phone, etc.)
    * @returns {Promise<boolean>} - True if user was removed (false if didn't exist)
    */
-  async removeAuthorizedUser(identifier) {
+  async removeAuthorizedUser(identifier: string): Promise<boolean> {
     try {
       const cleanId = identifier.trim();
       if (!cleanId) return false;
@@ -135,7 +142,7 @@ class AuthStore {
    * Get list of all authorized users for media creation
    * @returns {Promise<Array<string>>} - Array of authorized user identifiers
    */
-  async getAuthorizedUsers() {
+  async getAuthorizedUsers(): Promise<string[]> {
     try {
       return await conversationManager.getMediaAllowList();
     } catch (error) {
@@ -172,4 +179,4 @@ class AuthStore {
 // Create and export singleton instance
 const authStore = new AuthStore();
 
-module.exports = authStore;
+export default authStore;

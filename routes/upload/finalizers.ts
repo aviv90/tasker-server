@@ -1,7 +1,8 @@
-const taskStore = require('../../store/taskStore');
-const { getTaskError } = require('../../utils/errorHandler');
-const fs = require('fs');
-const path = require('path');
+import * as taskStore from '../../store/taskStore';
+import { extractErrorMessage } from '../../utils/errorHandler';
+import fs from 'fs';
+import path from 'path';
+import { Request } from 'express';
 
 /**
  * Finalize helper functions for upload routes
@@ -10,10 +11,14 @@ class Finalizers {
   /**
    * Finalize image edit task
    */
-  async finalize(taskId, result, req) {
+  async finalize(taskId: string, result: any, req: Request) {
     try {
       if (!result || result.error) {
-        await taskStore.set(taskId, getTaskError(result));
+        const errorMessage = extractErrorMessage(result?.error || result || 'Image edit failed');
+        await taskStore.set(taskId, {
+          status: 'error',
+          error: errorMessage
+        });
         return;
       }
 
@@ -28,20 +33,24 @@ class Finalizers {
         result: `${host}/static/${filename}`,
         text: result.text
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`❌ Error in finalize:`, error);
-      await taskStore.set(taskId, getTaskError(error));
+      const errorMessage = extractErrorMessage(error);
+      await taskStore.set(taskId, {
+        status: 'error',
+        error: errorMessage
+      });
     }
   }
 
   /**
    * Finalize transcription task
    */
-  async finalizeTranscription(taskId, result) {
+  async finalizeTranscription(taskId: string, result: any) {
     try {
       // Check if there's an error
       if (!result || result.error) {
-        const errorResult = {
+        const errorResult: any = {
           status: 'error',
           error: result.error || 'Transcription failed'
         };
@@ -57,7 +66,7 @@ class Finalizers {
       }
 
       // Success case
-      const taskResult = {
+      const taskResult: any = {
         status: 'done',
         result: result.text,
         text: result.text,
@@ -72,20 +81,24 @@ class Finalizers {
 
       await taskStore.set(taskId, taskResult);
       console.log(`✅ Transcription completed. Text length: ${result.text?.length || 0} characters`);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`❌ Error in finalizeTranscription:`, error);
-      await taskStore.set(taskId, getTaskError(error));
+      const errorMessage = extractErrorMessage(error);
+      await taskStore.set(taskId, {
+        status: 'error',
+        error: errorMessage
+      });
     }
   }
 
   /**
    * Finalize voice processing task
    */
-  async finalizeVoiceProcessing(taskId, result, req = null) {
+  async finalizeVoiceProcessing(taskId: string, result: any, req: Request | null = null) {
     try {
       // Check if there's an error
       if (result.error) {
-        const errorResult = {
+        const errorResult: any = {
           status: 'error',
           error: result.error
         };
@@ -107,7 +120,7 @@ class Finalizers {
         audioURL = `${host}${audioURL}`;
       }
 
-      const taskResult = {
+      const taskResult: taskStore.TaskData = {
         status: 'done',
         text: result.text,
         result: audioURL
@@ -116,12 +129,15 @@ class Finalizers {
       console.log(`📝 Saving final result with text: "${result.text?.substring(0, 100) || 'MISSING TEXT'}..."`);
       await taskStore.set(taskId, taskResult);
       console.log(`✅ Voice processing completed: ${result.text?.length || 0} chars → ${audioURL}`);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`❌ Error in finalizeVoiceProcessing:`, error);
-      await taskStore.set(taskId, getTaskError(error));
+      const errorMessage = extractErrorMessage(error);
+      await taskStore.set(taskId, {
+        status: 'error',
+        error: errorMessage
+      });
     }
   }
 }
 
-module.exports = new Finalizers();
-
+export default new Finalizers();

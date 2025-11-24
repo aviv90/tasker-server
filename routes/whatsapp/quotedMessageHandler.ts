@@ -5,14 +5,24 @@
  * Extracted from whatsappRoutes.js (Phase 4.6)
  */
 
-const conversationManager = require('../../services/conversationManager');
-const { getMessage } = require('../../services/greenApiService');
-const { getStaticFileUrl } = require('../../utils/urlUtils');
-const path = require('path');
-const os = require('os');
-const fs = require('fs');
+import { getMessage } from '../../services/greenApiService';
+import { getStaticFileUrl } from '../../utils/urlUtils';
+import path from 'path';
+import os from 'os';
+import fs from 'fs';
 
-async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
+interface QuotedResult {
+    hasImage: boolean;
+    hasVideo: boolean;
+    hasAudio: boolean;
+    prompt: string;
+    imageUrl: string | null;
+    videoUrl: string | null;
+    audioUrl: string | null;
+    error?: string;
+}
+
+export async function handleQuotedMessage(quotedMessage: any, currentPrompt: string, chatId: string): Promise<QuotedResult> {
   try {
     console.log(`🔗 Processing quoted message: ${quotedMessage.stanzaId}`);
     
@@ -27,9 +37,11 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       return {
         hasImage: false,
         hasVideo: false,
+        hasAudio: false,
         prompt: combinedPrompt,
         imageUrl: null,
-        videoUrl: null
+        videoUrl: null,
+        audioUrl: null
       };
     }
     
@@ -88,7 +100,7 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
               console.log(`✅ Found downloadUrl via getMessage`);
             }
           }
-        } catch (getMessageError) {
+        } catch (getMessageError: any) {
           console.log(`⚠️ getMessage failed: ${getMessageError.message}`);
           // Continue to STEP 3 - try thumbnail
         }
@@ -108,7 +120,7 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
             fs.writeFileSync(tempFilePath, thumbnailBuffer);
             
             // Move to public/tmp for web access
-            const publicTmpDir = path.join(__dirname, '..', 'public', 'tmp');
+            const publicTmpDir = path.join(__dirname, '..', '..', 'public', 'tmp');
             if (!fs.existsSync(publicTmpDir)) {
               fs.mkdirSync(publicTmpDir, { recursive: true });
             }
@@ -118,7 +130,7 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
             // Generate public URL
             downloadUrl = getStaticFileUrl(`/tmp/${tempFileName}`);
             console.log(`✅ Created temporary image from thumbnail: ${downloadUrl}`);
-          } catch (thumbnailError) {
+          } catch (thumbnailError: any) {
             console.error(`❌ Failed to process thumbnail: ${thumbnailError.message}`);
           }
         }
@@ -182,7 +194,7 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
       audioUrl: null
     };
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error handling quoted message:', error.message);
     
     // If it's a downloadUrl error for bot's own messages, return a clear error
@@ -225,7 +237,3 @@ async function handleQuotedMessage(quotedMessage, currentPrompt, chatId) {
     };
   }
 }
-
-module.exports = {
-  handleQuotedMessage
-};

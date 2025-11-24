@@ -1,40 +1,66 @@
-const express = require('express');
+import express, { Request, Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import { expensiveOperationLimiter } from '../middleware/rateLimiter';
+import * as taskStore from '../store/taskStore';
+import * as geminiService from '../services/geminiService';
+import * as openaiService from '../services/openai';
+import * as replicateService from '../services/replicateService';
+import * as kieService from '../services/kieService';
+import * as musicService from '../services/musicService';
+import { validateAndSanitizePrompt } from '../utils/textSanitizer';
+import { isErrorResult } from '../utils/errorHandler';
+import { finalizeVideo } from '../utils/videoUtils';
+import fs from 'fs';
+import path from 'path';
+
 const router = express.Router();
-const { v4: uuidv4 } = require('uuid');
-const { expensiveOperationLimiter } = require('../middleware/rateLimiter');
-const taskStore = require('../store/taskStore');
-const geminiService = require('../services/geminiService');
-const openaiService = require('../services/openai');
-const replicateService = require('../services/replicateService');
-const kieService = require('../services/kieService');
-const musicService = require('../services/musicService');
-const { validateAndSanitizePrompt } = require('../utils/textSanitizer');
-const { isErrorResult } = require('../utils/errorHandler');
-const { finalizeVideo } = require('../utils/videoUtils');
-const fs = require('fs');
-const path = require('path');
+
+interface TaskRequestBody {
+    type: string;
+    prompt: string;
+    provider?: string;
+    model?: string;
+    style?: string;
+    duration?: number;
+    genre?: string;
+    mood?: string;
+    tempo?: string;
+    instruments?: string;
+    vocalStyle?: string;
+    language?: string;
+    key?: string;
+    timeSignature?: string;
+    quality?: string;
+    customMode?: boolean;
+    instrumental?: boolean;
+    advanced?: boolean;
+    conversationHistory?: any[];
+    [key: string]: any;
+}
 
 // Expensive operations (AI generation) - strict rate limiting
-router.post('/start-task', expensiveOperationLimiter, async (req, res) => {
-    const { type, prompt, provider, model } = req.body;
+router.post('/start-task', expensiveOperationLimiter, async (req: Request, res: Response) => {
+    const { type, prompt, provider, model } = req.body as TaskRequestBody;
     
     // Validate required fields
     if (!type || !prompt) {
-        return res.status(400).json({ 
+        res.status(400).json({ 
             status: 'error', 
             error: { message: 'Missing type or prompt', code: 'MISSING_FIELDS' }
         });
+        return;
     }
 
     // Validate and sanitize prompt
-    let sanitizedPrompt;
+    let sanitizedPrompt: string;
     try {
         sanitizedPrompt = validateAndSanitizePrompt(prompt);
     } catch (validationError) {
-        return res.status(400).json({ 
+        res.status(400).json({ 
             status: 'error', 
             error: validationError // Pass the entire error object
         });
+        return;
     }
 
     const taskId = uuidv4();
@@ -63,13 +89,13 @@ router.post('/start-task', expensiveOperationLimiter, async (req, res) => {
                 result = await replicateService.generateVideoWithText(sanitizedPrompt, model);
             }
             
-            await finalizeVideo(taskId, result, sanitizedPrompt, req);
+            await finalizeVideo(taskId, result, sanitizedPrompt, req as any);
         } else if (type === 'text-to-music') {
             let result;
             
             // Music generation is only supported through Kie.ai (Suno)
             // No need to specify provider - it's automatic
-            const options = {};
+            const options: Record<string, any> = {};
             
             // Allow model selection and advanced options
             if (req.body.model) options.model = req.body.model;
@@ -126,22 +152,29 @@ router.post('/start-task', expensiveOperationLimiter, async (req, res) => {
         } else {
             await taskStore.set(taskId, { 
                 status: 'error', 
-                error: { message: 'Unsupported task type', type: type, supportedTypes: ['text-to-image', 'text-to-video', 'text-to-music', 'gemini-chat', 'openai-chat'] }
+                error: `Unsupported task type: ${type}. Supported types: text-to-image, text-to-video, text-to-music, gemini-chat, openai-chat`
             });
         }
-    } catch (error) {
+    } catch (error: any) {
         // Service already logs the error, just store it
         await taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
     }
 });
 
-router.get('/task-status/:taskId', async (req, res) => {
+router.get('/task-status/:taskId', async (req: Request, res: Response) => {
+    if (!req.params.taskId) {
+        res.status(400).json({ error: 'Missing taskId' });
+        return;
+    }
     const task = await taskStore.get(req.params.taskId);
-    if (!task) return res.status(404).json({ error: 'Task not found' });
+    if (!task) {
+        res.status(404).json({ error: 'Task not found' });
+        return;
+    }
     res.json(task);
 });
 
-async function finalizeTask(taskId, result, req, fileExtension = 'png') {
+async function finalizeTask(taskId: string, result: any, req: Request, fileExtension = 'png') {
     try {
         if (isErrorResult(result)) {
             await taskStore.set(taskId, { status: 'error', ...result });
@@ -158,7 +191,7 @@ async function finalizeTask(taskId, result, req, fileExtension = 'png') {
         if (buffer) {
             fs.writeFileSync(outputPath, buffer);
         } else {
-            await taskStore.set(taskId, { status: 'error', error: { message: 'No buffer data', code: 'NO_BUFFER' } });
+            await taskStore.set(taskId, { status: 'error', error: 'No buffer data (NO_BUFFER)' });
             return;
         }
 
@@ -169,13 +202,13 @@ async function finalizeTask(taskId, result, req, fileExtension = 'png') {
             text: result.text,
             cost: result.cost
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error(`❌ Error in finalizeTask:`, error);
         await taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
     }
 }
 
-async function finalizeMusic(taskId, result, prompt, req) {
+async function finalizeMusic(taskId: string, result: any, prompt: string, req: Request) {
     try {
         if (isErrorResult(result)) {
             console.log(`❌ Music generation failed for task ${taskId}:`, result.error);
@@ -198,7 +231,7 @@ async function finalizeMusic(taskId, result, prompt, req) {
         }
 
         const host = `${req.protocol}://${req.get('host')}`;
-        const taskResult = {
+        const taskResult: any = {
             status: 'done',
             result: `${host}/static/${filename}`,
             text: result.text || prompt,
@@ -219,13 +252,13 @@ async function finalizeMusic(taskId, result, prompt, req) {
         await taskStore.set(taskId, taskResult);
         console.log(`✅ Music generation completed for task ${taskId}`);
         
-    } catch (error) {
+    } catch (error: any) {
         console.error(`❌ Error in finalizeMusic:`, error);
         await taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
     }
 }
 
-async function finalizeTextResponse(taskId, result, prompt, req) {
+async function finalizeTextResponse(taskId: string, result: any, prompt: string, _req: Request) {
     try {
         if (isErrorResult(result)) {
             console.log(`❌ Text generation failed for task ${taskId}:`, result.error);
@@ -235,7 +268,7 @@ async function finalizeTextResponse(taskId, result, prompt, req) {
         
         console.log(`✅ Text response generated for task ${taskId}`);
         
-        const taskResult = {
+        const taskResult: any = {
             status: 'done',
             result: result.text || prompt,
             text: result.text || prompt,
@@ -259,10 +292,10 @@ async function finalizeTextResponse(taskId, result, prompt, req) {
 
         await taskStore.set(taskId, taskResult);
         console.log(`📋 Task ${taskId} completed successfully`);
-    } catch (error) {
+    } catch (error: any) {
         console.error(`❌ Error in finalizeTextResponse:`, error);
         await taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
     }
 }
 
-module.exports = router;
+export default router;

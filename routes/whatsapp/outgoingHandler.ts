@@ -6,29 +6,26 @@
  */
 
 // Import services
-const { sendTextMessage } = require('../../services/greenApiService');
-const conversationManager = require('../../services/conversationManager');
-const { routeToAgent } = require('../../services/agentRouter');
-const { sendErrorToUser, ERROR_MESSAGES } = require('../../utils/errorSender');
-const logger = require('../../utils/logger');
+import * as greenApiService from '../../services/greenApiService';
+import conversationManager from '../../services/conversationManager';
+import { routeToAgent } from '../../services/agentRouter';
+import { sendErrorToUser, ERROR_MESSAGES } from '../../utils/errorSender';
+import logger from '../../utils/logger';
 
 // Import WhatsApp utilities
-const { isAdminCommand } = require('../../services/whatsapp/authorization');
-const { handleManagementCommand } = require('./managementHandler');
-const { handleQuotedMessage } = require('./quotedMessageHandler');
-const { sendAgentResults } = require('./incoming/resultHandling');
-const { detectManagementCommand } = require('./commandDetector');
-const { extractMessageText, extractMediaUrls, extractQuotedMediaUrls, isActualQuote, logMessageDetails, buildQuotedContext } = require('./messageParser');
-
-// Import Green API service (for getMessage fallback)
-const greenApiService = require('../../services/greenApiService');
+import { isAdminCommand } from '../../services/whatsapp/authorization';
+import { handleManagementCommand } from './managementHandler';
+import { handleQuotedMessage } from './quotedMessageHandler';
+import { sendAgentResults } from './incoming/resultHandling';
+import { detectManagementCommand } from './commandDetector';
+import { extractMessageText, extractMediaUrls, extractQuotedMediaUrls, isActualQuote, logMessageDetails, buildQuotedContext } from './messageParser';
 
 /**
  * Handle outgoing WhatsApp message
  * @param {Object} webhookData - Webhook data from Green API
  * @param {Set} processedMessages - Shared cache for message deduplication
  */
-async function handleOutgoingMessage(webhookData, processedMessages) {
+export async function handleOutgoingMessage(webhookData: any, processedMessages: Set<string>) {
   try {
     const messageData = webhookData.messageData;
     const senderData = webhookData.senderData;
@@ -88,7 +85,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
           const originalMessageId = webhookData.idMessage;
           await handleManagementCommand(managementCommand, chatId, senderId, senderName, senderContactName, chatName, originalMessageId);
           return; // Exit early after handling management command
-        } catch (error) {
+        } catch (error: any) {
           logger.error('❌ Management command error:', { error: error.message || error, stack: error.stack });
           // Get originalMessageId for quoting error
           const originalMessageId = webhookData.idMessage;
@@ -102,10 +99,6 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
     if (messageText && /^#\s+/.test(messageText.trim())) {
       try {
         const chatId = senderData.chatId;
-        const senderId = senderData.sender;
-        const senderName = senderData.senderName || senderId;
-        const senderContactName = senderData.senderContactName || "";
-        const chatName = senderData.chatName || "";
 
         // Extract the prompt (remove "# " prefix if exists)
         // For edited messages, # might be removed by WhatsApp/Green API
@@ -113,7 +106,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
         
         // Check if this is a quoted/replied message using centralized parser
         const quotedMessage = messageData.quotedMessage;
-        const actualQuote = isActualQuote(messageData);
+        const actualQuote = isActualQuote(messageData, quotedMessage);
         
         let finalPrompt = basePrompt;
         let hasImage = messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage';
@@ -145,11 +138,11 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
           // Check if there was an error processing the quoted message
           if (quotedResult.error) {
             const originalMessageId = webhookData.idMessage;
-            await sendTextMessage(chatId, quotedResult.error, originalMessageId, 1000);
+            await greenApiService.sendTextMessage(chatId, quotedResult.error, originalMessageId, 1000);
             return;
           }
           
-          finalPrompt = quotedResult.prompt;
+          finalPrompt = quotedResult.prompt || basePrompt;
           hasImage = quotedResult.hasImage;
           hasVideo = quotedResult.hasVideo;
           hasAudio = quotedResult.hasAudio;
@@ -163,15 +156,13 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
           
           const quotedMedia = await extractQuotedMediaUrls(
             messageData, 
-            quotedMessage, 
-            chatId, 
-            webhookData.idMessage,
-            greenApiService.getMessage.bind(greenApiService)
+            webhookData, 
+            chatId
           );
           
-          hasImage = quotedMedia.hasImage;
-          hasVideo = quotedMedia.hasVideo;
-          hasAudio = quotedMedia.hasAudio;
+          hasImage = quotedMedia.hasImage ?? false;
+          hasVideo = quotedMedia.hasVideo ?? false;
+          hasAudio = quotedMedia.hasAudio ?? false;
           imageUrl = quotedMedia.imageUrl || imageUrl;
           videoUrl = quotedMedia.videoUrl || videoUrl;
           audioUrl = quotedMedia.audioUrl || audioUrl;
@@ -186,7 +177,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
         // Save original message ID for quoting all bot responses
         const originalMessageId = webhookData.idMessage;
 
-        const normalized = {
+        const normalized: any = {
           userText: `# ${finalPrompt}`, // Add back the # prefix for router
           hasImage: hasImage,
           hasVideo: hasVideo,
@@ -216,7 +207,7 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
             // Commands are saved to DB (persistent) for retry functionality.
             logger.debug(`💾 [Agent - Outgoing] Processing command (not saving to DB - using Green API history)`);
             
-            const agentResult = await routeToAgent(normalized, chatId);
+            const agentResult: any = await routeToAgent(normalized, chatId);
             
             // Pass originalMessageId to agentResult for use in result handling
             if (agentResult) {
@@ -224,18 +215,18 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
             }
             
             // Get quotedMessageId from agentResult or normalized
-            const quotedMessageId = agentResult.originalMessageId || normalized?.originalMessageId || null;
+            const quotedMessageId = agentResult?.originalMessageId || normalized?.originalMessageId || null;
             
-            if (agentResult.success) {
+            if (agentResult?.success) {
               // Use centralized result handling (SSOT - eliminates code duplication)
               await sendAgentResults(chatId, agentResult, normalized);
               logger.info(`✅ [Agent - Outgoing] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
             } else {
-              await sendErrorToUser(chatId, agentResult.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId });
+              await sendErrorToUser(chatId, agentResult?.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId });
             }
             return; // Exit early - no need for regular flow
             
-          } catch (agentError) {
+          } catch (agentError: any) {
             logger.error('❌ [Agent - Outgoing] Error:', { error: agentError.message, stack: agentError.stack });
             const originalMessageId = webhookData.idMessage;
             await sendErrorToUser(chatId, agentError, { context: 'REQUEST', quotedMessageId: originalMessageId });
@@ -243,18 +234,13 @@ async function handleOutgoingMessage(webhookData, processedMessages) {
           }
         
 
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Command execution error (outgoing):', error.message || error);
         const originalMessageId = webhookData.idMessage;
         await sendErrorToUser(chatId, error, { context: 'EXECUTION', quotedMessageId: originalMessageId });
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error('❌ Error handling outgoing message:', { error: error.message || error, stack: error.stack });
   }
 }
-
-module.exports = {
-  handleOutgoingMessage
-};
-

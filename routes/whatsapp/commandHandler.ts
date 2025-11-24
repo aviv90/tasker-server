@@ -8,8 +8,16 @@
  * All messages are retrieved from Green API.
  */
 
-const conversationManager = require('../../services/conversationManager');
-const logger = require('../../utils/logger');
+import conversationManager from '../../services/conversationManager';
+import logger from '../../utils/logger';
+
+interface CommandOptions {
+    normalized?: any;
+    imageUrl?: string;
+    videoUrl?: string;
+    audioUrl?: string;
+    prompt?: string;
+}
 
 /**
  * Save last executed command for retry functionality (saved to DB)
@@ -18,7 +26,7 @@ const logger = require('../../utils/logger');
  * @param {Object} decision - Router decision object
  * @param {Object} options - Additional options (imageUrl, videoUrl, normalized)
  */
-async function saveLastCommand(chatId, messageId, decision, options = {}) {
+export async function saveLastCommand(chatId: string, messageId: string, decision: any, options: CommandOptions = {}) {
   // Don't save retry, clarification, or denial commands
   if (['retry_last_command', 'ask_clarification', 'deny_unauthorized'].includes(decision.tool)) {
     return;
@@ -44,10 +52,9 @@ async function saveLastCommand(chatId, messageId, decision, options = {}) {
 }
 
 // Provider override helper for retry (supports Hebrew/English variants)
-function applyProviderOverride(additionalInstructions, currentDecision, context = {}) {
+export function applyProviderOverride(additionalInstructions: string, currentDecision: any, _context: any = {}) {
   if (!additionalInstructions || !additionalInstructions.trim()) return null;
 
-  const text = additionalInstructions.toLowerCase();
   const wantsOpenAI = /openai|אוופנאי|אופן איי/i.test(additionalInstructions);
   const wantsGemini = /gemini|ג׳מיני|גמיני|גימיני/i.test(additionalInstructions);
   const wantsGrok   = /grok|גרוק/i.test(additionalInstructions);
@@ -60,7 +67,7 @@ function applyProviderOverride(additionalInstructions, currentDecision, context 
   const wantsSora2 = /sora\s*2(?!\s*pro)|sora-2(?!-pro)|סורה\s*2(?!\s*פרו)|סורה-?2(?!-?פרו)/i.test(additionalInstructions);
 
   // Helper to clone args safely
-  const cloneArgs = (args) => args ? JSON.parse(JSON.stringify(args)) : {};
+  const cloneArgs = (args: any) => args ? JSON.parse(JSON.stringify(args)) : {};
 
   // 1) Check original tool
   const originalTool = currentDecision?.tool;
@@ -96,8 +103,3 @@ function applyProviderOverride(additionalInstructions, currentDecision, context 
 
   return null;
 }
-
-module.exports = {
-  saveLastCommand,
-  applyProviderOverride
-};

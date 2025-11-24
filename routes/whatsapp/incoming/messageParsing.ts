@@ -9,7 +9,7 @@
  * @param {Object} messageData - Message data from webhook
  * @returns {Object} Parsed message with text and type info
  */
-function parseIncomingMessage(messageData) {
+export function parseIncomingMessage(messageData: any) {
   let messageText = null;
 
   // Handle text messages (regular, extended, quoted, and edited)
@@ -53,7 +53,7 @@ function parseIncomingMessage(messageData) {
  * @param {string} messageText - Raw message text
  * @returns {string} Cleaned prompt
  */
-function extractPrompt(messageText) {
+export function extractPrompt(messageText: string) {
   if (!messageText) return '';
   // Extract the prompt (remove "# " prefix if exists)
   // For edited messages, # might be removed by WhatsApp/Green API
@@ -66,7 +66,7 @@ function extractPrompt(messageText) {
  * @param {string} senderName - Sender name
  * @param {string} messageText - Extracted message text
  */
-function logIncomingMessage(messageData, senderName, messageText) {
+export function logIncomingMessage(messageData: any, senderName: string, messageText: string | null) {
   console.log(`📱 Incoming from ${senderName} | Type: ${messageData.typeMessage}${messageData.typeMessage === 'editedMessage' ? ' ✏️' : ''}`);
   if (messageText) {
     console.log(`   Text: ${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}`);
@@ -93,10 +93,3 @@ function logIncomingMessage(messageData, senderName, messageText) {
     }
   }
 }
-
-module.exports = {
-  parseIncomingMessage,
-  extractPrompt,
-  logIncomingMessage
-};
-

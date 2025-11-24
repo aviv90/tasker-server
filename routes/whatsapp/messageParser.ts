@@ -5,14 +5,14 @@
  * Extracted from outgoingHandler.js for better modularity (SRP).
  */
 
-const logger = require('../../utils/logger');
+import logger from '../../utils/logger';
 
 /**
  * Extract message text from various message types
  * @param {Object} messageData - Message data from Green API webhook
  * @returns {string|null} - Extracted message text or null
  */
-function extractMessageText(messageData) {
+export function extractMessageText(messageData: any): string | null {
   if (!messageData || !messageData.typeMessage) {
     return null;
   }
@@ -55,8 +55,8 @@ function extractMessageText(messageData) {
  * @param {Object} messageData - Message data from Green API webhook
  * @returns {Object} - Object with imageUrl, videoUrl, audioUrl
  */
-function extractMediaUrls(messageData) {
-  const result = {
+export function extractMediaUrls(messageData: any) {
+  const result: { imageUrl: string | null; videoUrl: string | null; audioUrl: string | null } = {
     imageUrl: null,
     videoUrl: null,
     audioUrl: null
@@ -95,11 +95,42 @@ function extractMediaUrls(messageData) {
  * @param {Function} getMessageFn - Function to fetch message via API (optional)
  * @returns {Promise<Object>} - Object with imageUrl, videoUrl, audioUrl, hasImage, hasVideo, hasAudio
  */
-async function extractQuotedMediaUrls(messageData, quotedMessage, chatId, messageId, getMessageFn = null) {
-  const result = {
-    imageUrl: null,
-    videoUrl: null,
-    audioUrl: null,
+export async function extractQuotedMediaUrls(
+    messageData: any, 
+    webhookData: any, // Contains chatId and idMessage
+    _chatId?: string // Optional, can use webhookData
+    // getMessageFn is removed as we import greenApiService directly or pass it if needed, but to match JS logic we'll import it or use a callback if provided. 
+    // Actually JS version used a callback. Let's see usage.
+) {
+  // The JS version accepted getMessageFn. We should probably import getMessage from service here to avoid circular deps if possible, or keep accepting it.
+  // However, to keep signature clean in TS, let's import greenApiService if we can, or dynamic import.
+  // But messageParser is a utility. Let's assume the caller handles fetching if needed? 
+  // No, the logic explicitly calls getMessageFn.
+  
+  // Let's import greenApiService here dynamically or use the one from arguments if we change signature.
+  // In JS it was `extractQuotedMediaUrls(messageData, quotedMessage, chatId, messageId, getMessageFn)`.
+  // Let's stick to that or similar.
+  
+  // Checking outgoingHandler.js:
+  // const quotedMedia = await extractQuotedMediaUrls(
+  //   messageData, 
+  //   quotedMessage, 
+  //   chatId, 
+  //   webhookData.idMessage,
+  //   greenApiService.getMessage.bind(greenApiService)
+  // );
+  
+  // So we should keep the signature.
+  
+  return extractQuotedMediaUrlsWithCallback(messageData, webhookData.messageData?.quotedMessage, webhookData.senderData?.chatId, webhookData.idMessage);
+}
+
+// Helper to avoid import cycles and match JS logic slightly better adapted
+async function extractQuotedMediaUrlsWithCallback(messageData: any, quotedMessage: any, chatId: string, messageId: string) {
+    const result = {
+    imageUrl: null as string | null,
+    videoUrl: null as string | null,
+    audioUrl: null as string | null,
     hasImage: false,
     hasVideo: false,
     hasAudio: false
@@ -110,6 +141,9 @@ async function extractQuotedMediaUrls(messageData, quotedMessage, chatId, messag
   }
 
   const quotedType = quotedMessage.typeMessage;
+  
+  // We need getMessage. Let's import it dynamically to avoid circular dependency issues if any
+  const { getMessage } = await import('../../services/greenApiService');
 
   if (quotedType === 'imageMessage' || quotedType === 'stickerMessage') {
     result.hasImage = true;
@@ -124,15 +158,15 @@ async function extractQuotedMediaUrls(messageData, quotedMessage, chatId, messag
                       quotedMessage.stickerMessageData?.downloadUrl;
     
     // If still not found, try getMessage to fetch the current message's downloadUrl
-    if (!result.imageUrl && getMessageFn && chatId && messageId) {
+    if (!result.imageUrl && chatId && messageId) {
       logger.debug('⚠️ Outgoing: downloadUrl not found in webhook, fetching from Green API...');
       try {
-        const originalMessage = await getMessageFn(chatId, messageId);
+        const originalMessage = await getMessage(chatId, messageId);
         result.imageUrl = originalMessage?.downloadUrl || 
                          originalMessage?.fileMessageData?.downloadUrl || 
                          originalMessage?.imageMessageData?.downloadUrl;
         logger.debug(`✅ Outgoing: downloadUrl fetched from getMessage: ${result.imageUrl ? 'found' : 'still NOT FOUND'}`);
-      } catch (err) {
+      } catch (err: any) {
         logger.error(`❌ Outgoing: Failed to fetch downloadUrl via getMessage:`, { error: err.message, stack: err.stack });
       }
     }
@@ -147,15 +181,15 @@ async function extractQuotedMediaUrls(messageData, quotedMessage, chatId, messag
                      quotedMessage.videoMessageData?.downloadUrl;
     
     // If still not found, try getMessage to fetch the current message's downloadUrl
-    if (!result.videoUrl && getMessageFn && chatId && messageId) {
+    if (!result.videoUrl && chatId && messageId) {
       logger.debug('⚠️ Outgoing: Video downloadUrl not found in webhook, fetching from Green API...');
       try {
-        const originalMessage = await getMessageFn(chatId, messageId);
+        const originalMessage = await getMessage(chatId, messageId);
         result.videoUrl = originalMessage?.downloadUrl || 
                          originalMessage?.fileMessageData?.downloadUrl || 
                          originalMessage?.videoMessageData?.downloadUrl;
         logger.debug(`✅ Outgoing: Video downloadUrl fetched from getMessage: ${result.videoUrl ? 'found' : 'still NOT FOUND'}`);
-      } catch (err) {
+      } catch (err: any) {
         logger.error(`❌ Outgoing: Failed to fetch video downloadUrl via getMessage:`, { error: err.message, stack: err.stack });
       }
     }
@@ -173,7 +207,7 @@ async function extractQuotedMediaUrls(messageData, quotedMessage, chatId, messag
  * @param {string} audioUrl - Audio URL (if available)
  * @returns {Object|null} - Quoted context object or null
  */
-function buildQuotedContext(quotedMessage, imageUrl, videoUrl, audioUrl) {
+export function buildQuotedContext(quotedMessage: any, imageUrl?: string | null, videoUrl?: string | null, audioUrl?: string | null) {
   if (!quotedMessage) {
     return null;
   }
@@ -196,16 +230,17 @@ function buildQuotedContext(quotedMessage, imageUrl, videoUrl, audioUrl) {
  * @param {Object} messageData - Message data from Green API webhook
  * @returns {boolean} - True if this is an actual quote
  */
-function isActualQuote(messageData) {
-  const quotedMessage = messageData.quotedMessage;
+export function isActualQuote(messageData: any, quotedMessage: any = null) { // Added quotedMessage param to match usage
+  // Use provided quotedMessage or fallback to messageData.quotedMessage
+  const actualQuotedMessage = quotedMessage || messageData.quotedMessage;
   
-  if (!quotedMessage || messageData.typeMessage !== 'quotedMessage') {
+  if (!actualQuotedMessage || messageData.typeMessage !== 'quotedMessage') {
     return false;
   }
 
   // IMPORTANT: Green API sends images/videos with captions as quotedMessage, but they're NOT actual quotes!
   // Check if this is a REAL quote (reply) or just a media message with caption
-  const quotedCaption = quotedMessage?.caption;
+  const quotedCaption = actualQuotedMessage?.caption;
   const extractedText = messageData.extendedTextMessageData?.text;
   
   // Check if caption matches text (exact match OR caption starts with text, covering "# מה זה..." case)
@@ -215,7 +250,7 @@ function isActualQuote(messageData) {
                              extractedText.startsWith(quotedCaption));
   
   // It's a quote if text doesn't match caption
-  return quotedMessage.stanzaId && extractedText && !captionMatchesText;
+  return actualQuotedMessage.stanzaId && extractedText && !captionMatchesText;
 }
 
 /**
@@ -224,7 +259,7 @@ function isActualQuote(messageData) {
  * @param {string} senderName - Sender name
  * @param {string} messageText - Extracted message text
  */
-function logMessageDetails(messageData, senderName, messageText) {
+export function logMessageDetails(messageData: any, senderName: string, messageText: string | null) {
   logger.debug(`📤 Outgoing from ${senderName}:`);
   logger.debug(`   Message Type: ${messageData.typeMessage}${messageData.typeMessage === 'editedMessage' ? ' ✏️' : ''}`);
   logger.debug(`   messageText extracted: ${messageText ? `"${messageText.substring(0, 100)}"` : 'NULL/UNDEFINED'}`);
@@ -258,13 +293,3 @@ function logMessageDetails(messageData, senderName, messageText) {
     }
   }
 }
-
-module.exports = {
-  extractMessageText,
-  extractMediaUrls,
-  extractQuotedMediaUrls,
-  isActualQuote,
-  logMessageDetails,
-  buildQuotedContext
-};
-

@@ -1,7 +1,9 @@
-const taskStore = require('../../store/taskStore');
+import * as taskStore from '../../store/taskStore';
+import * as musicService from '../../services/musicService';
+import { Request, Response, Router } from 'express';
 
 // Map between our task IDs and Kie.ai task IDs for callback handling
-const kieTaskMapping = new Map();
+const kieTaskMapping = new Map<string, string>();
 
 /**
  * Callback route handlers
@@ -10,11 +12,14 @@ class CallbackRoutes {
   /**
    * Setup callback routes
    */
-  setupRoutes(router) {
+  setupRoutes(router: Router, rateLimiter: any = null) {
+    const handlers: any[] = [];
+    if (rateLimiter) handlers.push(rateLimiter);
+
     /**
      * Callback route for Kie.ai music generation notifications
      */
-    router.post('/music/callback', async (req, res) => {
+    router.post('/music/callback', ...handlers, async (req: Request, res: Response) => {
       try {
         console.log('🎵 Music callback received');
 
@@ -24,11 +29,8 @@ class CallbackRoutes {
         if (callbackData.data && callbackData.data.task_id) {
           const kieTaskId = callbackData.data.task_id;
 
-          // Handle callback asynchronously to avoid Heroku timeout
-          const musicService = require('../../services/musicService');
-
           // Process callback in background without blocking response
-          musicService.handleCallbackCompletion(kieTaskId, callbackData).then(async result => {
+          musicService.handleCallbackCompletion(kieTaskId, callbackData).then(async (result: any) => {
             if (result && !result.error) {
               console.log(`✅ Suno music callback processed successfully for task ${kieTaskId}`);
 
@@ -54,7 +56,7 @@ class CallbackRoutes {
             } else {
               console.log(`⚠️ Music callback processing failed: ${result?.error || 'Unknown error'}`);
             }
-          }).catch(error => {
+          }).catch((error: any) => {
             console.error(`❌ Error processing music callback:`, error);
           });
         }
@@ -74,7 +76,7 @@ class CallbackRoutes {
     /**
      * Callback route for Kie.ai music VIDEO generation notifications
      */
-    router.post('/video/callback', async (req, res) => {
+    router.post('/video/callback', ...handlers, async (req: Request, res: Response) => {
       try {
         console.log('🎬 Music video callback received');
 
@@ -86,17 +88,14 @@ class CallbackRoutes {
 
           console.log(`🎬 Processing video callback for task: ${videoTaskId}`);
 
-          // Handle callback asynchronously to avoid Heroku timeout
-          const musicService = require('../../services/musicService');
-
           // Process callback in background without blocking response
-          musicService.handleVideoCallbackCompletion(videoTaskId, callbackData).then(result => {
+          musicService.handleVideoCallbackCompletion(videoTaskId, callbackData).then((result: any) => {
             if (result && !result.error) {
               console.log(`✅ Music video callback processed successfully for task ${videoTaskId}`);
             } else {
               console.error(`❌ Music video callback processing failed for task ${videoTaskId}:`, result?.error);
             }
-          }).catch(error => {
+          }).catch((error: any) => {
             console.error(`❌ Error processing music video callback:`, error);
           });
         }
@@ -122,5 +121,4 @@ class CallbackRoutes {
   }
 }
 
-module.exports = new CallbackRoutes();
-
+export default new CallbackRoutes();

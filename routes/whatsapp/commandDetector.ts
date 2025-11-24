@@ -5,6 +5,13 @@
  * Extracted from outgoingHandler.js for better modularity (DRY, SRP).
  */
 
+interface SenderData {
+    chatId: string;
+    chatName: string;
+    senderName: string;
+    senderContactName: string;
+}
+
 /**
  * Resolve current contact name based on chat type and sender data
  * @param {Object} params - Contact resolution parameters
@@ -14,7 +21,7 @@
  * @param {string} params.senderContactName - Sender contact name
  * @returns {string} - Resolved contact name
  */
-function resolveCurrentContact({ chatId, chatName, senderName, senderContactName }) {
+export function resolveCurrentContact({ chatId, chatName, senderName, senderContactName }: SenderData): string {
   const isGroupChat = chatId && chatId.endsWith('@g.us');
   const isPrivateChat = chatId && chatId.endsWith('@c.us');
   
@@ -39,7 +46,7 @@ function resolveCurrentContact({ chatId, chatName, senderName, senderContactName
  * @param {Object} senderData - Sender data for contact resolution
  * @returns {Object|null} - Management command object or null if not a command
  */
-function detectManagementCommand(messageText, senderData) {
+export function detectManagementCommand(messageText: string, senderData: SenderData) {
   if (!messageText || !messageText.trim() || /^#\s+/.test(messageText.trim())) {
     return null; // Not a management command (has # prefix or empty)
   }
@@ -174,9 +181,3 @@ function detectManagementCommand(messageText, senderData) {
 
   return null; // No command detected
 }
-
-module.exports = {
-  detectManagementCommand,
-  resolveCurrentContact
-};
-

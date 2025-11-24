@@ -6,7 +6,14 @@
  * Follows the same pattern as media authorization
  */
 
-const conversationManager = require('../services/conversationManager');
+import conversationManager from '../services/conversationManager';
+
+interface SenderData {
+    chatId?: string;
+    chatName?: string;
+    senderName?: string;
+    senderContactName?: string;
+}
 
 class GroupAuthStore {
   constructor() {
@@ -19,7 +26,7 @@ class GroupAuthStore {
    * @param {Object} senderData - WhatsApp sender data from Green API
    * @returns {Promise<boolean>} - True if user is authorized
    */
-  async isAuthorizedForGroupCreation(senderData) {
+  async isAuthorizedForGroupCreation(senderData: SenderData): Promise<boolean> {
     try {
       // Get the allow list from database
       const allowList = await conversationManager.getGroupCreationAllowList();
@@ -59,7 +66,7 @@ class GroupAuthStore {
         } else if (senderData.chatName && senderData.chatName.trim()) {
           contactName = senderData.chatName;
         } else {
-          contactName = senderData.senderName;
+          contactName = senderData.senderName || '';
         }
         
         // Check silently (logs only when actually creating a group)
@@ -89,7 +96,7 @@ class GroupAuthStore {
    * @param {string} contactName - Contact name to authorize
    * @returns {Promise<boolean>} - True if user was added, false if already existed
    */
-  async addAuthorizedUser(contactName) {
+  async addAuthorizedUser(contactName: string): Promise<boolean> {
     try {
       return await conversationManager.addToGroupCreationAllowList(contactName);
     } catch (error) {
@@ -103,7 +110,7 @@ class GroupAuthStore {
    * @param {string} contactName - Contact name to remove
    * @returns {Promise<boolean>} - True if user was removed, false if didn't exist
    */
-  async removeAuthorizedUser(contactName) {
+  async removeAuthorizedUser(contactName: string): Promise<boolean> {
     try {
       return await conversationManager.removeFromGroupCreationAllowList(contactName);
     } catch (error) {
@@ -116,7 +123,7 @@ class GroupAuthStore {
    * Get list of all authorized users
    * @returns {Promise<Array<string>>} - List of authorized contact names
    */
-  async getAuthorizedUsers() {
+  async getAuthorizedUsers(): Promise<string[]> {
     try {
       return await conversationManager.getGroupCreationAllowList();
     } catch (error) {
@@ -153,5 +160,4 @@ class GroupAuthStore {
 // Create and export singleton instance
 const groupAuthStore = new GroupAuthStore();
 
-module.exports = groupAuthStore;
-
+export default groupAuthStore;

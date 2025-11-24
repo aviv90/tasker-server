@@ -1,28 +1,26 @@
-require('dotenv').config();
+import 'dotenv/config';
 
 // Load centralized configuration
-const { config, validateConfig } = require('./config');
-const logger = require('./utils/logger');
+import { config, validateConfig } from './config';
+import logger from './utils/logger';
 
 // Validate configuration on startup
 try {
     validateConfig();
     logger.info('✅ Configuration validated successfully', { environment: config.env });
-} catch (error) {
+} catch (error: any) {
     logger.error('❌ Configuration validation failed', { error: error.message });
     process.exit(1);
 }
 
-const express = require('express');
-const app = express();
-const path = require('path');
-const fs = require('fs');
-const taskRoutes = require('./routes/taskRoutes');
-const uploadEditRoutes = require('./routes/uploadEditRoutes');
-const whatsappRoutes = require('./routes/whatsappRoutes');
+import express from 'express';
+import fs from 'fs';
+import taskRoutes from './routes/taskRoutes';
+import uploadEditRoutes from './routes/uploadEditRoutes';
+import whatsappRoutes from './routes/whatsappRoutes';
 
 // Initialize ConversationManager to ensure PostgreSQL connection is established
-const conversationManager = require('./services/conversationManager');
+import conversationManager from './services/conversationManager';
 
 // Ensure tmp directory exists (important for Heroku deployments)
 if (!fs.existsSync(config.paths.tmp)) {
@@ -30,19 +28,24 @@ if (!fs.existsSync(config.paths.tmp)) {
     logger.info('📁 Created tmp directory for static files', { path: config.paths.tmp });
 }
 
+const app = express();
+
 app.enable('trust proxy');
 app.use(express.json({ limit: config.limits.jsonBodySize }));
 app.use('/static', express.static(config.paths.static));
 
 // Apply rate limiting to routes
-const { apiLimiter } = require('./middleware/rateLimiter');
+import { apiLimiter } from './middleware/rateLimiter';
 app.use('/api', apiLimiter); // Apply to all /api routes
 
 app.use('/api', taskRoutes);
 app.use('/api', uploadEditRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 
-// Music callback is handled in uploadEditRoutes.js
+// Music callback is handled in uploadEditRoutes.ts
+
+// Ensure conversationManager is initialized
+void conversationManager;
 
 app.listen(config.server.port, config.server.host, () => {
     logger.info(`🚀 Server running`, {

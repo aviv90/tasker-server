@@ -6,31 +6,32 @@
  */
 
 // Import services
-const { sendTextMessage } = require('../../services/greenApiService');
-const { sendErrorToUser, ERROR_MESSAGES } = require('../../utils/errorSender');
-const conversationManager = require('../../services/conversationManager');
-const logger = require('../../utils/logger');
-const { routeToAgent } = require('../../services/agentRouter');
-const { isAuthorizedForMediaCreation } = require('../../services/whatsapp/authorization');
-const { processVoiceMessageAsync } = require('./asyncProcessors');
+import * as greenApiService from '../../services/greenApiService';
+import { sendErrorToUser, ERROR_MESSAGES } from '../../utils/errorSender';
+import conversationManager from '../../services/conversationManager';
+import logger from '../../utils/logger';
+import { routeToAgent } from '../../services/agentRouter';
+import { isAuthorizedForMediaCreation } from '../../services/whatsapp/authorization';
+import { processVoiceMessageAsync } from './asyncProcessors';
+import { TIME } from '../../utils/constants';
 
 // Import modular handlers
-const { parseIncomingMessage, extractPrompt, logIncomingMessage } = require('./incoming/messageParsing');
-const {
+import { parseIncomingMessage, extractPrompt, logIncomingMessage } from './incoming/messageParsing';
+import {
   isActualQuote,
   extractDirectMediaUrls,
   extractQuotedMediaUrls,
   processQuotedMessage,
   buildQuotedContext
-} = require('./incoming/mediaHandling');
-const { sendAgentResults } = require('./incoming/resultHandling');
+} from './incoming/mediaHandling';
+import { sendAgentResults } from './incoming/resultHandling';
 
 /**
  * Handle incoming WhatsApp message
  * @param {Object} webhookData - Webhook data from Green API
  * @param {Set} processedMessages - Shared cache for message deduplication
  */
-async function handleIncomingMessage(webhookData, processedMessages) {
+export async function handleIncomingMessage(webhookData: any, processedMessages: Set<string>) {
   try {
     const messageData = webhookData.messageData;
     const senderData = webhookData.senderData;
@@ -60,7 +61,7 @@ async function handleIncomingMessage(webhookData, processedMessages) {
     const chatName = senderData.chatName || "";
 
     // Parse incoming message
-    const { messageText, type } = parseIncomingMessage(messageData);
+    const { messageText } = parseIncomingMessage(messageData);
     logIncomingMessage(messageData, senderName, messageText);
 
     // Unified intent router for commands that start with "# "
@@ -92,23 +93,23 @@ async function handleIncomingMessage(webhookData, processedMessages) {
 
           if (quotedResult.error) {
             const originalMessageId = webhookData.idMessage;
-            await sendTextMessage(chatId, quotedResult.error, originalMessageId, TIME.TYPING_INDICATOR);
+            await greenApiService.sendTextMessage(chatId, quotedResult.error, originalMessageId, TIME.TYPING_INDICATOR);
             return;
           }
 
-          finalPrompt = quotedResult.prompt;
-          hasImage = quotedResult.hasImage;
-          hasVideo = quotedResult.hasVideo;
-          hasAudio = quotedResult.hasAudio;
-          imageUrl = quotedResult.imageUrl;
-          videoUrl = quotedResult.videoUrl;
-          audioUrl = quotedResult.audioUrl;
+          finalPrompt = quotedResult.prompt || basePrompt;
+          hasImage = quotedResult.hasImage ?? false;
+          hasVideo = quotedResult.hasVideo ?? false;
+          hasAudio = quotedResult.hasAudio ?? false;
+          imageUrl = quotedResult.imageUrl || null;
+          videoUrl = quotedResult.videoUrl || null;
+          audioUrl = quotedResult.audioUrl || null;
         } else if (messageData.typeMessage === 'quotedMessage' && quotedMessage) {
           // This is a media message with caption, NOT an actual quote
           const quotedMedia = await extractQuotedMediaUrls(messageData, webhookData, chatId);
-          hasImage = quotedMedia.hasImage;
-          hasVideo = quotedMedia.hasVideo;
-          hasAudio = quotedMedia.hasAudio;
+          hasImage = quotedMedia.hasImage ?? false;
+          hasVideo = quotedMedia.hasVideo ?? false;
+          hasAudio = quotedMedia.hasAudio ?? false;
           imageUrl = quotedMedia.imageUrl;
           videoUrl = quotedMedia.videoUrl;
           audioUrl = quotedMedia.audioUrl;
@@ -122,7 +123,7 @@ async function handleIncomingMessage(webhookData, processedMessages) {
         // Save original message ID for quoting all bot responses
         const originalMessageId = webhookData.idMessage;
 
-        const normalized = {
+        const normalized: any = {
           userText: `# ${finalPrompt}`, // Add back the # prefix for router
           hasImage: hasImage,
           hasVideo: hasVideo,
@@ -157,28 +158,28 @@ async function handleIncomingMessage(webhookData, processedMessages) {
           // Pass originalMessageId to normalized input so it's available for saveLastCommand
           normalized.originalMessageId = originalMessageId;
           
-          const agentResult = await routeToAgent(normalized, chatId);
+          const agentResult: any = await routeToAgent(normalized, chatId);
 
           // Pass originalMessageId to agentResult for use in result handling
           if (agentResult) {
             agentResult.originalMessageId = originalMessageId;
           }
 
-          if (agentResult.success) {
+          if (agentResult?.success) {
             // Send all results (text, media, polls, locations)
             await sendAgentResults(chatId, agentResult, normalized);
           } else {
-            await sendErrorToUser(chatId, agentResult.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId: originalMessageId });
+            await sendErrorToUser(chatId, agentResult?.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId: originalMessageId || undefined });
           }
           return; // Exit early - no need for regular flow
 
-        } catch (agentError) {
+        } catch (agentError: any) {
           logger.error('❌ [Agent] Error:', { error: agentError.message, stack: agentError.stack });
           await sendErrorToUser(chatId, agentError, { context: 'REQUEST', quotedMessageId: originalMessageId });
           return;
         }
 
-      } catch (error) {
+      } catch (error: any) {
         logger.error('❌ Command execution error:', { error: error.message || error, stack: error.stack });
         const originalMessageId = webhookData.idMessage;
         await sendErrorToUser(chatId, error, { context: 'EXECUTION', quotedMessageId: originalMessageId });
@@ -226,11 +227,7 @@ async function handleIncomingMessage(webhookData, processedMessages) {
         logger.warn(`❌ Audio message detected but no URL found`);
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error('❌ Error handling incoming message:', { error: error.message || error, stack: error.stack });
   }
 }
-
-module.exports = {
-  handleIncomingMessage
-};

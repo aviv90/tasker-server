@@ -1,11 +1,12 @@
-const multer = require('multer');
-const { v4: uuidv4 } = require('uuid');
-const taskStore = require('../../store/taskStore');
-const geminiService = require('../../services/geminiService');
-const openaiService = require('../../services/openai');
-const { validateAndSanitizePrompt } = require('../../utils/textSanitizer');
-const { getTaskError } = require('../../utils/errorHandler');
-const finalizers = require('./finalizers');
+import multer from 'multer';
+import { v4 as uuidv4 } from 'uuid';
+import * as taskStore from '../../store/taskStore';
+import * as geminiService from '../../services/geminiService';
+import * as openaiService from '../../services/openai';
+import { validateAndSanitizePrompt } from '../../utils/textSanitizer';
+import { extractErrorMessage } from '../../utils/errorHandler';
+import finalizers from './finalizers';
+import { Request, Response, Router } from 'express';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -15,6 +16,15 @@ const upload = multer({
   }
 });
 
+interface ImageUploadRequest extends Request {
+    file?: Express.Multer.File;
+    body: {
+        prompt: string;
+        provider?: string;
+        [key: string]: any;
+    };
+}
+
 /**
  * Image upload routes
  */
@@ -22,32 +32,35 @@ class ImageUploadRoutes {
   /**
    * Setup image upload routes
    */
-  setupRoutes(router, rateLimiter = null) {
+  setupRoutes(router: Router, rateLimiter: any = null) {
     /**
      * Upload and edit image
      */
-    const handlers = [upload.single('file')];
+    const handlers: any[] = [upload.single('file')];
     if (rateLimiter) handlers.push(rateLimiter);
-    handlers.push(async (req, res) => {
+    
+    handlers.push(async (req: ImageUploadRequest, res: Response) => {
       const { prompt, provider } = req.body;
 
       // Validate required fields
       if (!prompt || !req.file) {
-        return res.status(400).json({
+        res.status(400).json({
           status: 'error',
           error: 'Missing prompt or file'
         });
+        return;
       }
 
       // Validate and sanitize prompt
       let sanitizedPrompt;
       try {
         sanitizedPrompt = validateAndSanitizePrompt(prompt);
-      } catch (validationError) {
-        return res.status(400).json({
+      } catch (validationError: any) {
+        res.status(400).json({
           status: 'error',
           error: validationError.message
         });
+        return;
       }
 
       const taskId = uuidv4();
@@ -67,9 +80,13 @@ class ImageUploadRoutes {
         }
 
         await finalizers.finalize(taskId, result, req);
-      } catch (error) {
+      } catch (error: unknown) {
         console.error(`❌ Image edit error:`, error);
-        await taskStore.set(taskId, getTaskError(error));
+        const errorMessage = extractErrorMessage(error);
+        await taskStore.set(taskId, {
+          status: 'error',
+          error: errorMessage
+        });
       }
     });
     
@@ -77,5 +94,4 @@ class ImageUploadRoutes {
   }
 }
 
-module.exports = new ImageUploadRoutes();
-
+export default new ImageUploadRoutes();

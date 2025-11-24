@@ -3,10 +3,30 @@
  * Handles direct database interactions for commands history.
  */
 
-const logger = require('../utils/logger');
+import { Pool } from 'pg';
+
+interface CommandData {
+    chatId: string;
+    messageId: string;
+    tool?: string;
+    toolArgs?: any;
+    args?: any;
+    plan?: any;
+    isMultiStep?: boolean;
+    prompt?: string;
+    result?: any;
+    failed?: boolean;
+    normalized?: any;
+    imageUrl?: string;
+    videoUrl?: string;
+    audioUrl?: string;
+    timestamp: number;
+}
 
 class CommandsRepository {
-  constructor(pool) {
+  private pool: Pool;
+
+  constructor(pool: Pool) {
     this.pool = pool;
   }
 
@@ -14,7 +34,7 @@ class CommandsRepository {
    * Save or update a command
    * @param {Object} commandData 
    */
-  async save(commandData) {
+  async save(commandData: CommandData) {
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -66,7 +86,7 @@ class CommandsRepository {
    * @param {string} chatId 
    * @returns {Promise<Object|null>}
    */
-  async findLastByChatId(chatId) {
+  async findLastByChatId(chatId: string): Promise<CommandData | null> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -79,7 +99,26 @@ class CommandsRepository {
         LIMIT 1
       `, [chatId]);
       
-      return result.rows.length > 0 ? result.rows[0] : null;
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+      return {
+          chatId,
+          messageId: row.message_id,
+          tool: row.tool,
+          toolArgs: row.tool_args,
+          args: row.args,
+          plan: row.plan,
+          isMultiStep: row.is_multi_step,
+          prompt: row.prompt,
+          result: row.result,
+          failed: row.failed,
+          normalized: row.normalized,
+          imageUrl: row.image_url,
+          videoUrl: row.video_url,
+          audioUrl: row.audio_url,
+          timestamp: parseInt(row.timestamp)
+      };
     } finally {
       client.release();
     }
@@ -90,7 +129,7 @@ class CommandsRepository {
    * @param {number} cutoffTime 
    * @returns {Promise<number>} count of deleted rows
    */
-  async deleteOlderThan(cutoffTime) {
+  async deleteOlderThan(cutoffTime: number): Promise<number> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -116,5 +155,4 @@ class CommandsRepository {
   }
 }
 
-module.exports = CommandsRepository;
-
+export default CommandsRepository;

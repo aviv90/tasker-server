@@ -3,14 +3,18 @@
  * Handles direct database interactions for various allow lists (Voice, Media, Groups).
  */
 
+import { Pool } from 'pg';
+
 class AllowListsRepository {
-  constructor(pool) {
+  private pool: Pool;
+
+  constructor(pool: Pool) {
     this.pool = pool;
   }
 
   // ═══════════════════ VOICE SETTINGS ═══════════════════
 
-  async getVoiceSettings() {
+  async getVoiceSettings(): Promise<boolean> {
     const client = await this.pool.connect();
     try {
       const result = await client.query('SELECT enabled FROM voice_settings LIMIT 1');
@@ -20,7 +24,7 @@ class AllowListsRepository {
     }
   }
 
-  async setVoiceSettings(enabled) {
+  async setVoiceSettings(enabled: boolean) {
     const client = await this.pool.connect();
     try {
       // Try update first
@@ -47,7 +51,7 @@ class AllowListsRepository {
    * @param {string} tableName 
    * @param {string} contactName 
    */
-  async addToAllowList(tableName, contactName) {
+  async addToAllowList(tableName: string, contactName: string) {
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -65,7 +69,7 @@ class AllowListsRepository {
    * @param {string} tableName 
    * @param {string} contactName 
    */
-  async removeFromAllowList(tableName, contactName) {
+  async removeFromAllowList(tableName: string, contactName: string) {
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -82,7 +86,7 @@ class AllowListsRepository {
    * @param {string} tableName 
    * @returns {Promise<Array>}
    */
-  async getAllowList(tableName) {
+  async getAllowList(tableName: string): Promise<string[]> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`SELECT contact_name FROM ${tableName}`);
@@ -98,7 +102,7 @@ class AllowListsRepository {
    * @param {string} contactName 
    * @returns {Promise<boolean>}
    */
-  async isInAllowList(tableName, contactName) {
+  async isInAllowList(tableName: string, contactName: string): Promise<boolean> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -115,7 +119,7 @@ class AllowListsRepository {
    * Clear an allow list table
    * @param {string} tableName 
    */
-  async clearAllowList(tableName) {
+  async clearAllowList(tableName: string) {
     const client = await this.pool.connect();
     try {
       await client.query(`DELETE FROM ${tableName}`);
@@ -128,7 +132,7 @@ class AllowListsRepository {
    * Get database stats (row counts)
    * @returns {Promise<Object>}
    */
-  async getStats() {
+  async getStats(): Promise<Record<string, number | string>> {
     const client = await this.pool.connect();
     try {
       const tables = [
@@ -142,7 +146,7 @@ class AllowListsRepository {
         'last_commands'
       ];
       
-      const stats = {};
+      const stats: Record<string, number | string> = {};
       
       for (const table of tables) {
         try {
@@ -160,5 +164,4 @@ class AllowListsRepository {
   }
 }
 
-module.exports = AllowListsRepository;
-
+export default AllowListsRepository;

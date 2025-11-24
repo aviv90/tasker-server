@@ -1,12 +1,13 @@
-const multer = require('multer');
-const { v4: uuidv4 } = require('uuid');
-const taskStore = require('../../store/taskStore');
-const geminiService = require('../../services/geminiService');
-const speechService = require('../../services/speechService');
-const { voiceService } = require('../../services/voiceService');
-const { getTaskError } = require('../../utils/errorHandler');
-const path = require('path');
-const finalizers = require('./finalizers');
+import multer from 'multer';
+import { v4 as uuidv4 } from 'uuid';
+import * as taskStore from '../../store/taskStore';
+import * as geminiService from '../../services/geminiService';
+import * as speechService from '../../services/speechService';
+import { voiceService } from '../../services/voiceService';
+import { extractErrorMessage } from '../../utils/errorHandler';
+import path from 'path';
+import finalizers from './finalizers';
+import { Request, Response, Router } from 'express';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -16,6 +17,25 @@ const upload = multer({
   }
 });
 
+interface TranscriptionUploadRequest extends Request {
+    file?: Express.Multer.File;
+    body: {
+        model?: string;
+        language?: string;
+        removeNoise?: string;
+        removeFiller?: string;
+        optimizeLatency?: string;
+        voiceName?: string;
+        voiceDescription?: string;
+        removeBackgroundNoise?: string;
+        geminiModel?: string;
+        ttsModel?: string;
+        outputFormat?: string;
+        optimizeStreamingLatency?: string;
+        [key: string]: any;
+    };
+}
+
 /**
  * Transcription upload routes
  */
@@ -23,21 +43,26 @@ class TranscriptionUploadRoutes {
   /**
    * Setup transcription upload routes
    */
-  setupRoutes(router) {
+  setupRoutes(router: Router, rateLimiter: any = null) {
+    const handlers: any[] = [upload.single('file')];
+    if (rateLimiter) handlers.push(rateLimiter);
+
     /**
      * Upload audio and transcribe with voice processing pipeline
      */
-    router.post('/upload-transcribe', upload.single('file'), async (req, res) => {
+    router.post('/upload-transcribe', ...handlers, async (req: TranscriptionUploadRequest, res: Response) => {
       if (!req.file) {
-        return res.status(400).json({ status: 'error', error: 'Missing audio file' });
+        res.status(400).json({ status: 'error', error: 'Missing audio file' });
+        return;
       }
 
       // Validate file size for ElevenLabs (25MB limit)
       if (req.file.size > 25 * 1024 * 1024) {
-        return res.status(413).json({
+        res.status(413).json({
           status: 'error',
           error: `File too large: ${Math.round(req.file.size / 1024 / 1024)}MB. Maximum size is 25MB.`
         });
+        return;
       }
 
       const taskId = uuidv4();
@@ -58,16 +83,17 @@ class TranscriptionUploadRoutes {
           language: req.body.language === 'auto' ? null : req.body.language || null,
           removeNoise: req.body.removeNoise !== 'false',
           removeFiller: req.body.removeFiller !== 'false',
-          optimizeLatency: parseInt(req.body.optimizeLatency) || 0,
+          optimizeLatency: parseInt(req.body.optimizeLatency || '0') || 0,
           format: format
         };
 
         console.log(`🔄 Step 1: Transcribing speech...`);
-        const transcriptionResult = await speechService.speechToText(req.file.buffer, transcriptionOptions);
+        const transcriptionResult: any = await speechService.speechToText(req.file.buffer, transcriptionOptions);
 
         if (transcriptionResult.error) {
           console.error('❌ Transcription failed:', transcriptionResult.error);
-          return await finalizers.finalizeTranscription(taskId, transcriptionResult);
+          await finalizers.finalizeTranscription(taskId, transcriptionResult);
+          return;
         }
 
         const transcribedText = transcriptionResult.text;
@@ -97,15 +123,16 @@ class TranscriptionUploadRoutes {
           })
         };
 
-        const voiceCloneResult = await voiceService.createInstantVoiceClone(req.file.buffer, voiceCloneOptions);
+        const voiceCloneResult: any = await voiceService.createInstantVoiceClone(req.file.buffer, voiceCloneOptions);
 
         if (voiceCloneResult.error) {
           console.error('❌ Voice cloning failed:', voiceCloneResult.error);
           // If voice cloning fails, return error with transcription
-          return await finalizers.finalizeVoiceProcessing(taskId, {
+          await finalizers.finalizeVoiceProcessing(taskId, {
             text: transcribedText,
             error: voiceCloneResult.error
           }, req);
+          return;
         }
 
         const voiceId = voiceCloneResult.voiceId;
@@ -113,11 +140,9 @@ class TranscriptionUploadRoutes {
 
         // Step 3: Generate Gemini response (Chatbot)
         console.log(`🔄 Step 3: Generating Gemini response to transcribed text...`);
-        const geminiOptions = {
-          model: req.body.geminiModel || 'gemini-2.5-flash'
-        };
-
-        const geminiResult = await geminiService.generateTextResponse(transcribedText, geminiOptions);
+        // generateTextResponse expects conversationHistory array, but we pass options as second param
+        // Using type assertion to match JS behavior
+        const geminiResult = await (geminiService as any).generateTextResponse(transcribedText, []);
 
         let textForTTS = transcribedText; // Default to original text
 
@@ -138,7 +163,7 @@ class TranscriptionUploadRoutes {
         console.log(`   - Original (from transcription): ${originalLanguage}`);
         console.log(`   - TTS (forced same): ${ttsLanguage}`);
 
-        const ttsOptions = {
+        const ttsOptions: any = {
           modelId: req.body.ttsModel || 'eleven_v3',
           outputFormat: req.body.outputFormat || 'mp3_44100_128',
           languageCode: ttsLanguage
@@ -155,10 +180,11 @@ class TranscriptionUploadRoutes {
         if (ttsResult.error) {
           console.error('❌ Text-to-speech failed:', ttsResult.error);
           // If TTS fails, return error with transcription
-          return await finalizers.finalizeVoiceProcessing(taskId, {
+          await finalizers.finalizeVoiceProcessing(taskId, {
             text: transcribedText,
             error: ttsResult.error
           }, req);
+          return;
         }
 
         console.log(`✅ Step 4 complete: Audio generated at ${ttsResult.audioUrl}`);
@@ -170,10 +196,10 @@ class TranscriptionUploadRoutes {
           result: ttsResult.audioUrl,
           geminiResponse: geminiResult.error ? null : geminiResult.text,
           voiceId: voiceId,
-          transcriptionMetadata: transcriptionResult.metadata,
-          voiceCloneMetadata: voiceCloneResult.metadata,
-          geminiMetadata: geminiResult.error ? null : geminiResult.metadata,
-          ttsMetadata: ttsResult.metadata
+          transcriptionMetadata: (transcriptionResult as any).metadata,
+          voiceCloneMetadata: (voiceCloneResult as any).metadata,
+          geminiMetadata: geminiResult.error ? null : (geminiResult as any).metadata,
+          ttsMetadata: (ttsResult as any).metadata
         }, req);
 
         console.log(`🎉 Full voice processing pipeline completed successfully!`);
@@ -187,17 +213,20 @@ class TranscriptionUploadRoutes {
           } else {
             console.log(`✅ Voice clone ${voiceId} deleted successfully`);
           }
-        } catch (cleanupError) {
+        } catch (cleanupError: any) {
           console.warn(`⚠️ Warning: Voice cleanup failed:`, cleanupError.message);
         }
 
-      } catch (error) {
+      } catch (error: unknown) {
         console.error(`❌ Pipeline error:`, error);
-        await taskStore.set(taskId, getTaskError(error));
+        const errorMessage = extractErrorMessage(error);
+        await taskStore.set(taskId, {
+          status: 'error',
+          error: errorMessage
+        });
       }
     });
   }
 }
 
-module.exports = new TranscriptionUploadRoutes();
-
+export default new TranscriptionUploadRoutes();

@@ -5,16 +5,17 @@
  * Refactored to use modular components (Phase 5.3)
  */
 
-const express = require('express');
-const router = express.Router();
-const { uploadLimiter, callbackLimiter } = require('../middleware/rateLimiter');
+import express from 'express';
+import { uploadLimiter, callbackLimiter } from '../middleware/rateLimiter';
 
 // Import modular route handlers
-const imageUploadRoutes = require('./upload/imageUpload');
-const videoUploadRoutes = require('./upload/videoUpload');
-const transcriptionUploadRoutes = require('./upload/transcriptionUpload');
-const callbackRoutes = require('./upload/callbacks');
-const voiceRoutes = require('./upload/voiceRoutes');
+import imageUploadRoutes from './upload/imageUpload';
+import videoUploadRoutes from './upload/videoUpload';
+import transcriptionUploadRoutes from './upload/transcriptionUpload';
+import callbackRoutes from './upload/callbacks';
+import voiceRoutes from './upload/voiceRoutes';
+
+const router = express.Router();
 
 // Setup all routes
 // Note: Rate limiting is applied per-route in setupRoutes
@@ -24,4 +25,4 @@ transcriptionUploadRoutes.setupRoutes(router, uploadLimiter);
 voiceRoutes.setupRoutes(router, uploadLimiter);
 callbackRoutes.setupRoutes(router, callbackLimiter);
 
-module.exports = router;
+export default router;

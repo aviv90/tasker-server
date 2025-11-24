@@ -3,8 +3,21 @@
  * Handles direct database interactions for contacts and groups storage.
  */
 
+import { Pool } from 'pg';
+
+interface Contact {
+    id: string;
+    name?: string;
+    contactName?: string;
+    type?: string;
+    chatId?: string;
+    [key: string]: any;
+}
+
 class ContactsRepository {
-  constructor(pool) {
+  private pool: Pool;
+
+  constructor(pool: Pool) {
     this.pool = pool;
   }
 
@@ -12,7 +25,7 @@ class ContactsRepository {
    * Upsert a contact
    * @param {Object} contact 
    */
-  async upsert(contact) {
+  async upsert(contact: Contact) {
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -43,7 +56,7 @@ class ContactsRepository {
    * Get all contacts
    * @returns {Promise<Array>}
    */
-  async findAll() {
+  async findAll(): Promise<any[]> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -62,7 +75,7 @@ class ContactsRepository {
    * @param {string} type 
    * @returns {Promise<Array>}
    */
-  async findByType(type) {
+  async findByType(type: string): Promise<any[]> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -78,5 +91,4 @@ class ContactsRepository {
   }
 }
 
-module.exports = ContactsRepository;
-
+export default ContactsRepository;

@@ -3,10 +3,12 @@
  * Handles direct database interactions for message type identification.
  */
 
-const logger = require('../utils/logger');
+import { Pool } from 'pg';
 
 class MessageTypesRepository {
-  constructor(pool) {
+  private pool: Pool;
+
+  constructor(pool: Pool) {
     this.pool = pool;
   }
 
@@ -17,7 +19,7 @@ class MessageTypesRepository {
    * @param {string} type - 'bot' | 'user_outgoing'
    * @param {number} timestamp 
    */
-  async upsert(chatId, messageId, type, timestamp) {
+  async upsert(chatId: string, messageId: string, type: string, timestamp: number) {
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -37,7 +39,7 @@ class MessageTypesRepository {
    * @param {string} messageId 
    * @returns {Promise<string|null>}
    */
-  async findType(chatId, messageId) {
+  async findType(chatId: string, messageId: string): Promise<string | null> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -56,7 +58,7 @@ class MessageTypesRepository {
    * @param {number} cutoffTime 
    * @returns {Promise<number>} count of deleted rows
    */
-  async deleteOlderThan(cutoffTime) {
+  async deleteOlderThan(cutoffTime: number): Promise<number> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -82,5 +84,4 @@ class MessageTypesRepository {
   }
 }
 
-module.exports = MessageTypesRepository;
-
+export default MessageTypesRepository;

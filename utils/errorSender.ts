@@ -28,6 +28,7 @@ export const ERROR_MESSAGES = {
   VOICE_RESPONSE: 'לא הצלחתי ליצור תגובה קולית',
   PROCESSING_VOICE: 'שגיאה בעיבוד ההקלטה הקולית',
   PROCESSING_IMAGE: 'שגיאה בעריכת התמונה',
+  SHOW_HISTORY: 'שגיאה בקבלת היסטוריית השיחה',
   PROCESSING_VIDEO: 'שגיאה בעיבוד הווידאו',
   CREATING_VIDEO: 'שגיאה ביצירת וידאו מהתמונה',
   SENDING_SONG: 'שגיאה בשליחת השיר',

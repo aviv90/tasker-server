@@ -4,15 +4,37 @@
  * Handles sending agent results (text, media, polls, locations) to WhatsApp
  */
 
-const { sendTextMessage, sendFileByUrl, sendPoll, sendLocation } = require('../../../services/greenApiService');
-const { getStaticFileUrl } = require('../../../utils/urlUtils');
-const { cleanMediaDescription, cleanMultiStepText } = require('../../../utils/textSanitizer');
-const { cleanAgentText } = require('../../../services/whatsapp/utils');
-const conversationManager = require('../../../services/conversationManager');
-const { executeAgentQuery } = require('../../../services/agentService');
-const { sendErrorToUser, ERROR_MESSAGES } = require('../../../utils/errorSender');
-const { extractQuotedMessageId } = require('../../../utils/messageHelpers');
-const logger = require('../../../utils/logger');
+import * as greenApiService from '../../../services/greenApiService';
+import { getStaticFileUrl } from '../../../utils/urlUtils';
+import { cleanMediaDescription, cleanMultiStepText } from '../../../utils/textSanitizer';
+import { cleanAgentText } from '../../../services/whatsapp/utils';
+import { executeAgentQuery } from '../../../services/agentService';
+import { sendErrorToUser } from '../../../utils/errorSender';
+import { extractQuotedMessageId } from '../../../utils/messageHelpers';
+import logger from '../../../utils/logger';
+
+export interface AgentResult {
+    success?: boolean;
+    error?: string;
+    text?: string;
+    imageUrl?: string;
+    imageCaption?: string;
+    videoUrl?: string;
+    audioUrl?: string;
+    poll?: {
+        question: string;
+        options: string[];
+    };
+    latitude?: string;
+    longitude?: string;
+    locationInfo?: string;
+    multiStep?: boolean;
+    alreadySent?: boolean;
+    toolsUsed?: string[];
+    iterations?: number;
+    originalMessageId?: string;
+    [key: string]: unknown;
+}
 
 /**
  * Send multi-step text response
@@ -20,14 +42,14 @@ const logger = require('../../../utils/logger');
  * @param {string} text - Text to send
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
  */
-async function sendMultiStepText(chatId, text, quotedMessageId = null) {
+export async function sendMultiStepText(chatId: string, text: string, quotedMessageId: string | null = null) {
   if (!text || !text.trim()) return;
 
   // Use centralized text cleaning function (SSOT)
   const cleanText = cleanMultiStepText(text);
 
   if (cleanText) {
-    await sendTextMessage(chatId, cleanText, quotedMessageId, 1000);
+    await greenApiService.sendTextMessage(chatId, cleanText, quotedMessageId || undefined, 1000);
     logger.debug(`📤 [Multi-step] Text sent first (${cleanText.length} chars)`);
   } else {
     logger.warn(`⚠️ [Multi-step] Text exists but cleanText is empty`);
@@ -41,7 +63,7 @@ async function sendMultiStepText(chatId, text, quotedMessageId = null) {
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
  * @returns {boolean} True if sent
  */
-async function sendImageResult(chatId, agentResult, quotedMessageId = null) {
+export async function sendImageResult(chatId: string, agentResult: AgentResult, quotedMessageId: string | null = null): Promise<boolean> {
   if (!agentResult.imageUrl) return false;
 
   // For multi-step with alreadySent=true, image was already sent in agentService
@@ -80,7 +102,7 @@ async function sendImageResult(chatId, agentResult, quotedMessageId = null) {
     caption = cleanMediaDescription(caption);
   }
 
-  await sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId, 1000);
+  await greenApiService.sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId || undefined, 1000);
   return true;
 }
 
@@ -91,7 +113,7 @@ async function sendImageResult(chatId, agentResult, quotedMessageId = null) {
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
  * @returns {boolean} True if sent
  */
-async function sendVideoResult(chatId, agentResult, quotedMessageId = null) {
+export async function sendVideoResult(chatId: string, agentResult: AgentResult, quotedMessageId: string | null = null): Promise<boolean> {
   if (!agentResult.videoUrl) return false;
 
   // For multi-step, video is already sent in agentService - skip here
@@ -102,13 +124,13 @@ async function sendVideoResult(chatId, agentResult, quotedMessageId = null) {
 
   logger.debug(`🎬 [Agent] Sending generated video: ${agentResult.videoUrl}`);
   // Videos don't support captions well - send as file, text separately
-  await sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId, 1000);
+  await greenApiService.sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId || undefined, 1000);
 
   // If there's meaningful text (description/revised prompt), send it separately
   if (agentResult.text && agentResult.text.trim()) {
     const videoDescription = cleanMediaDescription(agentResult.text);
     if (videoDescription && videoDescription.length > 2) {
-      await sendTextMessage(chatId, videoDescription, quotedMessageId, 1000);
+      await greenApiService.sendTextMessage(chatId, videoDescription, quotedMessageId || undefined, 1000);
     }
   }
 
@@ -122,7 +144,7 @@ async function sendVideoResult(chatId, agentResult, quotedMessageId = null) {
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
  * @returns {boolean} True if sent
  */
-async function sendAudioResult(chatId, agentResult, quotedMessageId = null) {
+export async function sendAudioResult(chatId: string, agentResult: AgentResult, quotedMessageId: string | null = null): Promise<boolean> {
   if (!agentResult.audioUrl) return false;
 
   // For multi-step, audio is already sent in agentService - skip here
@@ -136,7 +158,7 @@ async function sendAudioResult(chatId, agentResult, quotedMessageId = null) {
   const fullAudioUrl = agentResult.audioUrl.startsWith('http')
     ? agentResult.audioUrl
     : getStaticFileUrl(agentResult.audioUrl.replace('/static/', ''));
-  await sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '', quotedMessageId, 1000);
+  await greenApiService.sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '', quotedMessageId || undefined, 1000);
 
   // For audio files (TTS/translate_and_speak), don't send text - the audio IS the response
   return true;
@@ -149,7 +171,7 @@ async function sendAudioResult(chatId, agentResult, quotedMessageId = null) {
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
  * @returns {boolean} True if sent
  */
-async function sendPollResult(chatId, agentResult, quotedMessageId = null) {
+export async function sendPollResult(chatId: string, agentResult: AgentResult, quotedMessageId: string | null = null): Promise<boolean> {
   if (!agentResult.poll) return false;
 
   // For multi-step, poll is already sent in agentService - skip here
@@ -161,17 +183,16 @@ async function sendPollResult(chatId, agentResult, quotedMessageId = null) {
   try {
     logger.debug(`📊 [Agent] Sending poll: ${agentResult.poll.question}`);
     // Convert options to Green API format
-    const pollOptions = agentResult.poll.options.map(opt => ({ optionName: opt }));
-    await sendPoll(chatId, agentResult.poll.question, pollOptions, false, quotedMessageId, 1000);
+    const pollOptions = agentResult.poll.options.map((opt: string) => ({ optionName: opt }));
+    await greenApiService.sendPoll(chatId, agentResult.poll.question, pollOptions, false, quotedMessageId || undefined, 1000);
     return true;
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`❌ [Agent] Failed to send poll:`, { error: error.message, stack: error.stack });
     
     // Send error to user
     try {
-      const { sendTextMessage } = require('../../services/greenApiService');
       await sendErrorToUser(chatId, error, { context: 'SENDING_POLL', quotedMessageId });
-    } catch (sendError) {
+    } catch (sendError: any) {
       logger.error(`❌ [Agent] Failed to send poll error message:`, { error: sendError.message, stack: sendError.stack });
     }
     
@@ -186,7 +207,7 @@ async function sendPollResult(chatId, agentResult, quotedMessageId = null) {
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
  * @returns {boolean} True if sent
  */
-async function sendLocationResult(chatId, agentResult, quotedMessageId = null) {
+export async function sendLocationResult(chatId: string, agentResult: AgentResult, quotedMessageId: string | null = null): Promise<boolean> {
   if (!agentResult.latitude || !agentResult.longitude) return false;
 
   // For multi-step, location is already sent in agentService - skip here
@@ -196,10 +217,10 @@ async function sendLocationResult(chatId, agentResult, quotedMessageId = null) {
   }
 
   logger.debug(`📍 [Agent] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
-  await sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '', quotedMessageId, 1000);
+  await greenApiService.sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '', quotedMessageId || undefined, 1000);
   // Send location info as separate text message
   if (agentResult.locationInfo && agentResult.locationInfo.trim()) {
-    await sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`, quotedMessageId, 1000);
+    await greenApiService.sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`, quotedMessageId || undefined, 1000);
   }
   return true;
 }
@@ -211,11 +232,11 @@ async function sendLocationResult(chatId, agentResult, quotedMessageId = null) {
  * @param {boolean} mediaSent - Whether media was already sent
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
  */
-async function sendSingleStepText(chatId, agentResult, mediaSent, quotedMessageId = null) {
+export async function sendSingleStepText(chatId: string, agentResult: AgentResult, mediaSent: boolean, quotedMessageId: string | null = null): Promise<void> {
   // CRITICAL: If tool failed and error was already sent, don't send Gemini's error text
   // This prevents duplicate error messages (one from tool, one from Gemini final response)
   const hasToolError = agentResult.toolResults && 
-                       Object.values(agentResult.toolResults).some(result => result?.error);
+                       Object.values(agentResult.toolResults).some((result: any) => result?.error);
   
   if (hasToolError) {
     logger.debug(`⚠️ [Result Handling] Tool error detected - skipping Gemini final text to avoid duplicate`);
@@ -230,7 +251,7 @@ async function sendSingleStepText(chatId, agentResult, mediaSent, quotedMessageI
       // Single tool → safe to send text
       const cleanText = cleanAgentText(agentResult.text);
       if (cleanText) {
-        await sendTextMessage(chatId, cleanText, quotedMessageId, 1000);
+        await greenApiService.sendTextMessage(chatId, cleanText, quotedMessageId || undefined, 1000);
       }
     } else {
       logger.debug(`ℹ️ Multiple tools detected - skipping general text to avoid mixing outputs`);
@@ -245,7 +266,23 @@ async function sendSingleStepText(chatId, agentResult, mediaSent, quotedMessageI
  * @param {Object} agentResult - Agent result
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
  */
-async function handlePostProcessing(chatId, normalized, agentResult, quotedMessageId = null) {
+export interface NormalizedInput {
+    userText?: string;
+    hasImage?: boolean;
+    hasVideo?: boolean;
+    hasAudio?: boolean;
+    imageUrl?: string | null;
+    videoUrl?: string | null;
+    audioUrl?: string | null;
+    quotedContext?: unknown;
+    originalMessageId?: string;
+    chatType?: string;
+    language?: string;
+    authorizations?: Record<string, boolean>;
+    [key: string]: unknown;
+}
+
+export async function handlePostProcessing(chatId: string, normalized: NormalizedInput, agentResult: AgentResult, quotedMessageId: string | null = null): Promise<void> {
   try {
     const userText = normalized.userText || '';
 
@@ -262,7 +299,11 @@ async function handlePostProcessing(chatId, normalized, agentResult, quotedMessa
       logger.debug('🎯 [Agent Post] Multi-step text+image request detected, but no image was generated. Creating image from text response...');
 
       // נבנה פרומפט לתמונה שמבוססת על הטקסט שהבוט כבר החזיר (למשל בדיחה)
-      const baseText = agentResult.text.trim();
+      const baseText = agentResult.text?.trim();
+      if (!baseText) {
+        logger.warn('⚠️ [Agent Post] No text in agentResult for image generation');
+        return;
+      }
       const imagePrompt = `צור תמונה שממחישה בצורה ברורה ומצחיקה את הטקסט הבא (אל תכתוב טקסט בתמונה): """${baseText}"""`;
 
       // קריאה שנייה לאג'נט – הפעם בקשת תמונה פשוטה בלבד
@@ -275,35 +316,38 @@ async function handlePostProcessing(chatId, normalized, agentResult, quotedMessa
         maxIterations: 4
       });
 
-      if (imageResult && imageResult.success && imageResult.imageUrl) {
-        logger.debug(`📸 [Agent Post] Sending complementary image generated from text: ${imageResult.imageUrl}`);
+      if (imageResult && (imageResult as AgentResult).success && (imageResult as AgentResult).imageUrl) {
+        const result = imageResult as AgentResult;
+        logger.debug(`📸 [Agent Post] Sending complementary image generated from text: ${result.imageUrl}`);
 
         // Clean caption before sending
-        let caption = (imageResult.imageCaption || '').trim();
+        let caption = (result.imageCaption || '').trim();
         caption = cleanMediaDescription(caption);
-        await sendFileByUrl(
+        await greenApiService.sendFileByUrl(
           chatId,
-          imageResult.imageUrl,
+          result.imageUrl!,
           `agent_image_${Date.now()}.png`,
           caption,
-          quotedMessageId,
+          quotedMessageId || undefined,
           1000
         );
       } else {
         logger.warn('⚠️ [Agent Post] Failed to generate complementary image for text+image request');
       }
     }
-  } catch (postError) {
-    logger.error('❌ [Agent Post] Error while handling text+image multi-step fallback:', { error: postError.message, stack: postError.stack });
+  } catch (postError: unknown) {
+    const errorMessage = postError instanceof Error ? postError.message : String(postError);
+    const errorStack = postError instanceof Error ? postError.stack : undefined;
+    logger.error('❌ [Agent Post] Error while handling text+image multi-step fallback:', { error: errorMessage, stack: errorStack });
   }
 }
 
 /**
  * Save bot response to conversation history
- * @param {string} chatId - Chat ID
- * @param {Object} agentResult - Agent result
+ * @param {string} _chatId - Chat ID
+ * @param {Object} _agentResult - Agent result
  */
-async function saveBotResponse(chatId, agentResult) {
+export async function saveBotResponse(_chatId: string, _agentResult: AgentResult): Promise<void> {
   // NOTE: Bot messages are no longer saved to DB to avoid duplication.
   // Bot messages are tracked in DB (message_types table) when sent through Green API,
   // and retrieved from Green API getChatHistory when needed.
@@ -324,7 +368,7 @@ async function saveBotResponse(chatId, agentResult) {
  * @param {Object} normalized - Normalized input
  * @returns {Promise<boolean>} True if results were sent successfully
  */
-async function sendAgentResults(chatId, agentResult, normalized) {
+export async function sendAgentResults(chatId: string, agentResult: AgentResult, normalized: NormalizedInput): Promise<boolean> {
   // For multi-step, results are sent immediately after each step in agentService
   // If alreadySent is true, skip sending here to avoid duplicates
   if (agentResult.multiStep && agentResult.alreadySent) {
@@ -384,17 +428,3 @@ async function sendAgentResults(chatId, agentResult, normalized) {
   logger.info(`✅ [Agent] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
   return true;
 }
-
-module.exports = {
-  sendAgentResults,
-  sendMultiStepText,
-  sendImageResult,
-  sendVideoResult,
-  sendAudioResult,
-  sendPollResult,
-  sendLocationResult,
-  sendSingleStepText,
-  handlePostProcessing,
-  saveBotResponse
-};
-

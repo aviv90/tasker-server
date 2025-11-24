@@ -3,8 +3,20 @@
  * Handles direct database interactions for long-term memory (summaries).
  */
 
+import { Pool } from 'pg';
+
+interface SummaryData {
+    chatId: string;
+    summary: string;
+    keyTopics?: string[];
+    userPreferences?: any;
+    messageCount: number;
+}
+
 class SummariesRepository {
-  constructor(pool) {
+  private pool: Pool;
+
+  constructor(pool: Pool) {
     this.pool = pool;
   }
 
@@ -12,7 +24,7 @@ class SummariesRepository {
    * Save conversation summary
    * @param {Object} summaryData 
    */
-  async save(summaryData) {
+  async save(summaryData: SummaryData) {
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -37,7 +49,7 @@ class SummariesRepository {
    * @param {number} limit 
    * @returns {Promise<Array>}
    */
-  async findByChatId(chatId, limit) {
+  async findByChatId(chatId: string, limit: number): Promise<any[]> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -67,7 +79,7 @@ class SummariesRepository {
    * @param {number} limit 
    * @returns {Promise<Array>}
    */
-  async findPreferences(chatId, limit) {
+  async findPreferences(chatId: string, limit: number): Promise<any[]> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -89,7 +101,7 @@ class SummariesRepository {
    * @param {number} id 
    * @param {Object} preferences 
    */
-  async updatePreferences(id, preferences) {
+  async updatePreferences(id: number, preferences: any) {
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -107,7 +119,7 @@ class SummariesRepository {
    * @param {number} keepPerChat 
    * @returns {Promise<number>} count of deleted rows
    */
-  async deleteOldSummaries(keepPerChat) {
+  async deleteOldSummaries(keepPerChat: number): Promise<number> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -129,5 +141,4 @@ class SummariesRepository {
   }
 }
 
-module.exports = SummariesRepository;
-
+export default SummariesRepository;
