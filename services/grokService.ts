@@ -3,9 +3,64 @@
  * Integration with x.ai Grok API for text and image workflows
  */
 
-const { sanitizeText, cleanMarkdown } = require('../utils/textSanitizer');
+import { sanitizeText, cleanMarkdown } from '../utils/textSanitizer';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { detectLanguage } = require('../utils/agentHelpers');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const prompts = require('../config/prompts');
+
+/**
+ * Conversation message structure
+ */
+interface ConversationMessage {
+  role: string;
+  content: string;
+}
+
+/**
+ * Text generation result
+ */
+interface TextGenerationResult {
+  text: string;
+  usage: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  } | null;
+  originalPrompt?: string;
+  error?: string;
+  metadata?: {
+    service: string;
+    model: string;
+    type: string;
+    characterCount?: number;
+    created_at: string;
+  };
+}
+
+/**
+ * Image generation result
+ */
+interface ImageGenerationResult {
+  success: boolean;
+  imageUrl?: string;
+  description?: string;
+  textOnly?: boolean;
+  error?: string;
+  originalPrompt?: string;
+  metadata?: {
+    service: string;
+    model: string;
+    type: string;
+    created_at: string;
+  };
+}
 
 class GrokService {
+  private apiKey: string | undefined;
+  private baseUrl: string;
+  private model: string;
+
   constructor() {
     this.apiKey = process.env.GROK_API_KEY;
     this.baseUrl = 'https://api.x.ai/v1';
@@ -20,11 +75,11 @@ class GrokService {
 
   /**
    * Generate text response using Grok with conversation history support
-   * @param {string} prompt - User's input text
-   * @param {Array} conversationHistory - Previous messages in conversation
-   * @returns {Promise<{text: string, usage: object}>}
+   * @param prompt - User's input text
+   * @param conversationHistory - Previous messages in conversation
+   * @returns Response with text and usage info
    */
-  async generateTextResponse(prompt, conversationHistory = []) {
+  async generateTextResponse(prompt: string, conversationHistory: ConversationMessage[] = []): Promise<TextGenerationResult> {
     try {
       if (!this.apiKey) {
         throw new Error('Grok API key not configured');
@@ -34,15 +89,13 @@ class GrokService {
       const cleanPrompt = sanitizeText(prompt);
 
       // Detect user's language to ensure response matches input language
-      const { detectLanguage } = require('../utils/agentHelpers');
       const detectedLang = detectLanguage(cleanPrompt);
       
-      // Build language-specific system prompt (SSOT - from config/prompts.js)
-      const prompts = require('../config/prompts');
+      // Build language-specific system prompt (SSOT - from config/prompts.ts)
       const systemContent = prompts.grokSystemInstruction(detectedLang);
 
       // Build messages array - OPTIMIZED
-      const messages = [
+      const messages: ConversationMessage[] = [
         {
           role: 'system',
           content: systemContent
@@ -85,14 +138,21 @@ class GrokService {
         throw new Error(`Grok API error: ${response.status} - ${errorData}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as {
+        choices?: Array<{ message?: { content?: string } }>;
+        usage?: {
+          prompt_tokens?: number;
+          completion_tokens?: number;
+          total_tokens?: number;
+        };
+      };
 
       if (!data.choices || data.choices.length === 0) {
         throw new Error('No response choices from Grok API');
       }
 
-      const aiResponse = data.choices[0].message.content;
-      const usage = data.usage;
+      const aiResponse = data.choices[0]?.message?.content || '';
+      const usage = data.usage || null;
 
       console.log('✅ Grok response received');
       console.log('💰 Tokens used:', usage);
@@ -110,13 +170,14 @@ class GrokService {
         }
       };
 
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('❌ Error generating Grok response:', error);
       
       // Emergency response
       return {
         text: 'מצטער, קרתה שגיאה בעיבוד הבקשה שלך עם Grok. נסה שוב מאוחר יותר.',
-        error: error.message || 'Text generation failed',
+        error: errorMessage,
         usage: null
       };
     }
@@ -124,10 +185,10 @@ class GrokService {
 
   /**
    * Generate image using Grok with prompt
-   * @param {string} prompt - User's image generation prompt
-   * @returns {Promise<{imageUrl?: string, description?: string, success: boolean}>}
+   * @param prompt - User's image generation prompt
+   * @returns Image generation result
    */
-  async generateImageForWhatsApp(prompt) {
+  async generateImageForWhatsApp(prompt: string): Promise<ImageGenerationResult> {
     try {
       if (!this.apiKey) {
         throw new Error('Grok API key not configured');
@@ -147,8 +208,8 @@ class GrokService {
         },
         body: JSON.stringify({
           prompt: cleanPrompt,
-          model: "grok-2-image",
-          response_format: "url",
+          model: 'grok-2-image',
+          response_format: 'url',
           n: 1
         })
       });
@@ -163,11 +224,22 @@ class GrokService {
         };
       }
 
-      const data = await response.json();
+      const data = await response.json() as {
+        data?: Array<{ url?: string; revised_prompt?: string }>;
+        choices?: Array<{ message?: { content?: string } }>;
+        text?: string;
+      };
 
       // Handle successful response - return whatever Grok provides
       if (data.data && data.data.length > 0) {
         const imageData = data.data[0];
+        if (!imageData) {
+          return {
+            success: false,
+            error: 'No image data received from Grok API',
+            originalPrompt: cleanPrompt
+          };
+        }
         const imageUrl = imageData.url;
         let description = imageData.revised_prompt || '';
         
@@ -217,22 +289,21 @@ class GrokService {
         }
       }
 
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('❌ Error generating Grok image:', error);
       return {
         success: false,
-        error: error.message || 'Unknown error occurred during image generation',
+        error: errorMessage || 'Unknown error occurred during image generation',
         originalPrompt: prompt
       };
     }
   }
-
 }
 
 // Create and export instance
 const grokService = new GrokService();
 
-module.exports = {
-  generateTextResponse: grokService.generateTextResponse.bind(grokService),
-  generateImageForWhatsApp: grokService.generateImageForWhatsApp.bind(grokService)
-};
+export const generateTextResponse = grokService.generateTextResponse.bind(grokService);
+export const generateImageForWhatsApp = grokService.generateImageForWhatsApp.bind(grokService);
+

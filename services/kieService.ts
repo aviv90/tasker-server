@@ -5,14 +5,15 @@
  * Refactored to use modular components (Phase 5.3)
  */
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const TextToVideoService = require('./kie/textToVideo');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const ImageToVideoService = require('./kie/imageToVideo');
 
 // Create instances
 const textToVideoService = new TextToVideoService();
 const imageToVideoService = new ImageToVideoService();
 
-module.exports = {
-  generateVideoWithText: textToVideoService.generateVideoWithText.bind(textToVideoService),
-  generateVideoWithImage: imageToVideoService.generateVideoWithImage.bind(imageToVideoService)
-};
+export const generateVideoWithText = textToVideoService.generateVideoWithText.bind(textToVideoService);
+export const generateVideoWithImage = imageToVideoService.generateVideoWithImage.bind(imageToVideoService);
+

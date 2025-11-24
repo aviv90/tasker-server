@@ -1,19 +1,22 @@
-const { ElevenLabsClient } = require('@elevenlabs/elevenlabs-js');
-const voiceCloning = require('./voice/voiceCloning');
-const voiceManagement = require('./voice/voiceManagement');
-const textToSpeechModule = require('./voice/textToSpeech');
-const voiceSelection = require('./voice/voiceSelection');
-
 /**
  * Voice Service orchestrator for ElevenLabs integration
  * Split into modular helpers (Phase 5.3)
  */
-class VoiceService {
-    constructor() {
-        this.client = null;
-    }
 
-    initializeClient() {
+import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const voiceCloning = require('./voice/voiceCloning');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const voiceManagement = require('./voice/voiceManagement');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const textToSpeechModule = require('./voice/textToSpeech');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const voiceSelection = require('./voice/voiceSelection');
+
+class VoiceService {
+    private client: ElevenLabsClient | null = null;
+
+    initializeClient(): ElevenLabsClient {
         if (!this.client) {
             if (!process.env.ELEVENLABS_API_KEY) {
                 throw new Error('ELEVENLABS_API_KEY environment variable is required');
@@ -28,54 +31,52 @@ class VoiceService {
     }
 
     // Voice cloning
-    async createInstantVoiceClone(audioBuffers, options = {}) {
+    async createInstantVoiceClone(audioBuffers: Buffer[], options: Record<string, unknown> = {}): Promise<unknown> {
         return voiceCloning.createInstantVoiceClone.call(this, audioBuffers, options);
     }
 
-    getAvailableOptions() {
+    getAvailableOptions(): unknown {
         return voiceCloning.getAvailableOptions();
     }
 
     // Voice management
-    async getVoices() {
+    async getVoices(): Promise<unknown> {
         return voiceManagement.getVoices.call(this);
     }
 
-    async getVoice(voiceId) {
+    async getVoice(voiceId: string): Promise<unknown> {
         return voiceManagement.getVoice.call(this, voiceId);
     }
 
-    async deleteVoice(voiceId) {
+    async deleteVoice(voiceId: string): Promise<unknown> {
         return voiceManagement.deleteVoice.call(this, voiceId);
     }
 
     // Text-to-speech
-    async textToSpeech(voiceId, text, options = {}) {
+    async textToSpeech(voiceId: string, text: string, options: Record<string, unknown> = {}): Promise<unknown> {
         return textToSpeechModule.textToSpeech.call(this, voiceId, text, options);
     }
 
     // Voice selection & language detection
-    async getRandomVoice() {
+    async getRandomVoice(): Promise<unknown> {
         return voiceSelection.getRandomVoice.call(this);
     }
 
-    async getVoiceForLanguage(languageCode) {
+    async getVoiceForLanguage(languageCode: string): Promise<unknown> {
         return voiceSelection.getVoiceForLanguage.call(this, languageCode);
     }
 
-    detectLanguage(text) {
+    detectLanguage(text: string): string {
         return voiceSelection.detectLanguage(text);
     }
 
-    async textToSpeechWithRandomVoice(text, options = {}) {
+    async textToSpeechWithRandomVoice(text: string, options: Record<string, unknown> = {}): Promise<unknown> {
         return voiceSelection.textToSpeechWithRandomVoice.call(this, text, options);
     }
 }
 
 const voiceService = new VoiceService();
 
-module.exports = {
-    voiceService,
-    VoiceService
-};
+export default voiceService;
+export { voiceService, VoiceService };
 

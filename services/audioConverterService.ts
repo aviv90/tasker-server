@@ -1,22 +1,58 @@
-const { exec } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const { promisify } = require('util');
-
-const execAsync = promisify(exec);
-
 /**
  * Audio Converter Service
  * Handles conversion between different audio formats using FFmpeg
  */
+
+import { exec } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import { promisify } from 'util';
+import { downloadFile } from './greenApiService';
+
+const execAsync = promisify(exec);
+
+/**
+ * Conversion options
+ */
+interface ConversionOptions {
+  bitrate?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Conversion result
+ */
+interface ConversionResult {
+  success: boolean;
+  opusBuffer?: Buffer;
+  size?: number;
+  format?: string;
+  error?: string;
+}
+
+/**
+ * Save result
+ */
+interface SaveResult {
+  success: boolean;
+  fileName?: string;
+  filePath?: string;
+  publicPath?: string;
+  buffer?: Buffer;
+  size?: number;
+  error?: string;
+}
+
 class AudioConverterService {
+    private tempDir: string;
+
     constructor() {
         this.tempDir = path.join(__dirname, '..', 'public', 'tmp');
         this.ensureTempDir();
     }
 
-    ensureTempDir() {
+    private ensureTempDir(): void {
         if (!fs.existsSync(this.tempDir)) {
             fs.mkdirSync(this.tempDir, { recursive: true });
         }
@@ -24,12 +60,12 @@ class AudioConverterService {
 
     /**
      * Convert audio buffer to Opus format for WhatsApp voice notes
-     * @param {Buffer} audioBuffer - Input audio buffer
-     * @param {string} inputFormat - Input format (mp3, wav, etc.)
-     * @param {Object} options - Conversion options
-     * @returns {Promise<Object>} - Result with opus buffer and file info
+     * @param audioBuffer - Input audio buffer
+     * @param inputFormat - Input format (mp3, wav, etc.)
+     * @param options - Conversion options
+     * @returns Result with opus buffer and file info
      */
-    async convertToOpus(audioBuffer, inputFormat = 'mp3', options = {}) {
+    async convertToOpus(audioBuffer: Buffer, inputFormat: string = 'mp3', options: ConversionOptions = {}): Promise<ConversionResult> {
         return new Promise(async (resolve, reject) => {
             try {
                 const inputFileName = `input_${uuidv4()}.${inputFormat}`;
@@ -60,9 +96,9 @@ class AudioConverterService {
                 console.log(`🎵 FFmpeg command: ${ffmpegCommand}`);
 
                 try {
-                    const { stdout, stderr } = await execAsync(ffmpegCommand);
+                    const { stderr } = await execAsync(ffmpegCommand);
                     
-                    if (stderr && stderr.includes('error')) {
+                    if (stderr && typeof stderr === 'string' && stderr.includes('error')) {
                         throw new Error(`FFmpeg error: ${stderr}`);
                     }
 
@@ -86,38 +122,40 @@ class AudioConverterService {
                         format: 'opus'
                     });
 
-                } catch (ffmpegError) {
+                } catch (ffmpegError: unknown) {
+                    const errorMessage = ffmpegError instanceof Error ? ffmpegError.message : String(ffmpegError);
                     console.error('❌ FFmpeg conversion error:', ffmpegError);
                     
                     // Clean up temporary files
                     this.cleanupFile(inputPath);
                     this.cleanupFile(outputPath);
                     
-                    reject(new Error(`Audio conversion failed: ${ffmpegError.message}`));
+                    reject(new Error(`Audio conversion failed: ${errorMessage}`));
                 }
 
-            } catch (err) {
+            } catch (err: unknown) {
+                const errorMessage = err instanceof Error ? err.message : String(err);
                 console.error('❌ Error in audio conversion setup:', err);
-                reject(new Error(`Conversion setup failed: ${err.message}`));
+                reject(new Error(`Conversion setup failed: ${errorMessage}`));
             }
         });
     }
 
     /**
      * Convert audio buffer to Opus and save to public directory
-     * @param {Buffer} audioBuffer - Input audio buffer
-     * @param {string} inputFormat - Input format (mp3, wav, etc.)
-     * @param {Object} options - Conversion options
-     * @returns {Promise<Object>} - Result with public file path
+     * @param audioBuffer - Input audio buffer
+     * @param inputFormat - Input format (mp3, wav, etc.)
+     * @param options - Conversion options
+     * @returns Result with public file path
      */
-    async convertAndSaveAsOpus(audioBuffer, inputFormat = 'mp3', options = {}) {
+    async convertAndSaveAsOpus(audioBuffer: Buffer, inputFormat: string = 'mp3', options: ConversionOptions = {}): Promise<SaveResult> {
         try {
             console.log(`🔄 Converting ${inputFormat.toUpperCase()} to Opus for voice note...`);
 
             // Convert to Opus
             const conversionResult = await this.convertToOpus(audioBuffer, inputFormat, options);
             
-            if (!conversionResult.success) {
+            if (!conversionResult.success || !conversionResult.opusBuffer) {
                 throw new Error('Conversion failed');
             }
 
@@ -151,34 +189,32 @@ class AudioConverterService {
                 size: conversionResult.opusBuffer.length
             };
 
-        } catch (err) {
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
             console.error('❌ Error in convertAndSaveAsOpus:', err);
             return {
                 success: false,
-                error: err.message || 'Audio conversion failed'
+                error: errorMessage || 'Audio conversion failed'
             };
         }
     }
 
     /**
      * Convert audio file from URL or local path to Opus
-     * @param {string} audioUrl - URL or local path of the audio file
-     * @param {string} inputFormat - Input format (mp3, wav, etc.)
-     * @param {Object} options - Conversion options
-     * @returns {Promise<Object>} - Result with opus buffer and file info
+     * @param audioUrl - URL or local path of the audio file
+     * @param inputFormat - Input format (mp3, wav, etc.)
+     * @param options - Conversion options
+     * @returns Result with opus buffer and file info
      */
-    async convertUrlToOpus(audioUrl, inputFormat = 'mp3', options = {}) {
+    async convertUrlToOpus(audioUrl: string, inputFormat: string = 'mp3', options: ConversionOptions = {}): Promise<SaveResult> {
         try {
             console.log(`🔄 Converting audio from URL to Opus: ${audioUrl}`);
 
-            let audioBuffer;
+            let audioBuffer: Buffer;
 
             // Check if it's a relative path (starts with /static/)
             if (audioUrl.startsWith('/static/')) {
                 // Read from local file system
-                const fs = require('fs');
-                const path = require('path');
-                
                 // Handle both /static/ and /static/tmp/ paths
                 let relativePath = audioUrl.replace('/static/', '');
                 let filePath = path.join(__dirname, '..', 'public', relativePath);
@@ -196,8 +232,7 @@ class AudioConverterService {
                 console.log(`📁 Read local file: ${filePath} (${audioBuffer.length} bytes)`);
             } else {
                 // Download from URL
-                const { downloadFile } = require('./greenApiService');
-                audioBuffer = await downloadFile(audioUrl);
+                audioBuffer = await downloadFile(audioUrl) as Buffer;
             }
 
             // Convert to Opus
@@ -205,45 +240,48 @@ class AudioConverterService {
 
             return conversionResult;
 
-        } catch (err) {
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
             console.error('❌ Error in convertUrlToOpus:', err);
             return {
                 success: false,
-                error: err.message || 'URL to Opus conversion failed'
+                error: errorMessage || 'URL to Opus conversion failed'
             };
         }
     }
 
     /**
      * Clean up temporary file
-     * @param {string} filePath - Path to file to delete
+     * @param filePath - Path to file to delete
      */
-    cleanupFile(filePath) {
+    cleanupFile(filePath: string): void {
         try {
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
                 console.log(`🧹 Cleaned up temporary file: ${path.basename(filePath)}`);
             }
-        } catch (err) {
-            console.warn(`⚠️ Failed to cleanup file ${filePath}:`, err.message);
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            console.warn(`⚠️ Failed to cleanup file ${filePath}:`, errorMessage);
         }
     }
 
     /**
      * Check if FFmpeg is available
-     * @returns {Promise<boolean>} - True if FFmpeg is available
+     * @returns True if FFmpeg is available
      */
-    async checkFFmpegAvailability() {
+    async checkFFmpegAvailability(): Promise<boolean> {
         try {
-            const { stdout, stderr } = await execAsync('ffmpeg -version');
-            if (stderr && stderr.includes('error')) {
+            const { stderr } = await execAsync('ffmpeg -version');
+            if (stderr && typeof stderr === 'string' && stderr.includes('error')) {
                 console.error('❌ FFmpeg error:', stderr);
                 return false;
             }
             console.log('✅ FFmpeg is available');
             return true;
-        } catch (err) {
-            console.error('❌ FFmpeg not available:', err.message);
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            console.error('❌ FFmpeg not available:', errorMessage);
             return false;
         }
     }
@@ -252,7 +290,6 @@ class AudioConverterService {
 // Create and export instance
 const audioConverterService = new AudioConverterService();
 
-module.exports = {
-    audioConverterService,
-    AudioConverterService
-};
+export default audioConverterService;
+export { audioConverterService, AudioConverterService };
+
