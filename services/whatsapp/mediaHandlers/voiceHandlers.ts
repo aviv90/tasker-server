@@ -4,25 +4,35 @@
  * Handles voice-to-voice processing (STT + Voice Clone + TTS)
  */
 
-const { sendTextMessage, sendFileByUrl, downloadFile } = require('../../greenApiService');
-// Handle default export from TypeScript
-const conversationManagerModule = require('../../conversationManager');
-const conversationManager = conversationManagerModule.default || conversationManagerModule;
-const { formatProviderError } = require('../../../utils/errorHandler');
-const { sendErrorToUser, ERROR_MESSAGES } = require('../../../utils/errorSender');
-const { getStaticFileUrl } = require('../../../utils/urlUtils');
-const { MIN_DURATION_FOR_CLONING, TRANSCRIPTION_DEFAULTS } = require('../constants');
-const { getAudioDuration } = require('../../agent/utils/audioUtils');
-const { generateTextResponse } = require('../../geminiService');
-const speechService = require('../../speechService');
-const { voiceService } = require('../../voiceService');
-const audioConverterService = require('../../audioConverterService');
+import { sendTextMessage, sendFileByUrl, downloadFile } from '../../greenApiService';
+import { formatProviderError } from '../../../utils/errorHandler';
+import { sendErrorToUser } from '../../../utils/errorSender';
+import { getStaticFileUrl } from '../../../utils/urlUtils';
+import { MIN_DURATION_FOR_CLONING, TRANSCRIPTION_DEFAULTS } from '../constants';
+import { getAudioDuration } from '../../agent/utils/audioUtils';
+import { generateTextResponse } from '../../geminiService';
+import speechService from '../../speechService';
+import { voiceService } from '../../voiceService';
+import audioConverterService from '../../audioConverterService';
+import logger from '../../../utils/logger';
+import { TIME } from '../../../utils/constants';
+
+/**
+ * Voice message handler parameters
+ */
+interface VoiceMessageParams {
+  chatId: string;
+  senderId?: string;
+  senderName?: string;
+  audioUrl: string;
+  originalMessageId?: string;
+}
 
 /**
  * Handle voice message with full voice-to-voice processing
  * Flow: Speech-to-Text → Voice Clone → Gemini Response → Text-to-Speech
  */
-async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, originalMessageId }) {
+export async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, originalMessageId }: VoiceMessageParams): Promise<void> {
   logger.info(`🎤 Processing voice-to-voice request from ${senderName}`);
 
   // Get originalMessageId for quoting all responses
@@ -30,17 +40,16 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
 
   try {
     // Send ACK message first (same as when transcribing quoted audio)
-    const { TIME } = require('../../../utils/constants');
     await sendTextMessage(chatId, 'מתמלל הקלטה... 🎤📝', quotedMessageId, TIME.TYPING_INDICATOR);
 
     // Step 1: Download audio file
-    const audioBuffer = await downloadFile(audioUrl);
+    const audioBuffer = await downloadFile(audioUrl) as Buffer;
 
     // Step 2: Speech-to-Text transcription
     logger.debug(`🔄 Step 1: Transcribing speech...`);
     const transcriptionOptions = TRANSCRIPTION_DEFAULTS;
 
-    const transcriptionResult = await speechService.speechToText(audioBuffer, transcriptionOptions);
+    const transcriptionResult = await speechService.speechToText(audioBuffer, transcriptionOptions) as { error?: string; text?: string; detectedLanguage?: string };
 
     if (transcriptionResult.error) {
       logger.error('❌ Transcription failed:', { error: transcriptionResult.error });
@@ -49,7 +58,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
       return;
     }
 
-    const transcribedText = transcriptionResult.text;
+    const transcribedText = transcriptionResult.text || '';
     logger.debug(`✅ Step 1 complete: Transcribed ${transcribedText.length} characters`);
     logger.debug(`📝 Transcription complete: "${transcribedText}"`);
 
@@ -60,6 +69,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
     // Try to route to agent to see if this is a command (let the Agent/Planner decide)
     logger.debug(`🔄 Routing transcribed text to agent for evaluation...`);
     
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { routeToAgent } = require('../../agentRouter');
     const normalized = {
       userText: `# ${transcribedText}`, // Add # prefix to route through agent
@@ -69,10 +79,10 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
       senderData: { chatId, senderId, senderName }
     };
     
-    const agentResult = await routeToAgent(normalized, chatId);
+    const agentResult = await routeToAgent(normalized, chatId) as { success?: boolean; toolsUsed?: unknown[]; imageUrl?: string; videoUrl?: string; audioUrl?: string; text?: string; error?: string };
     
     // If agent successfully executed a tool/command, send the result and exit
-    if (agentResult.success && (agentResult.toolsUsed?.length > 0 || agentResult.imageUrl || agentResult.videoUrl || agentResult.audioUrl)) {
+    if (agentResult.success && (agentResult.toolsUsed && agentResult.toolsUsed.length > 0 || agentResult.imageUrl || agentResult.videoUrl || agentResult.audioUrl)) {
       logger.info(`🎯 Agent identified and executed command/tool from voice message`);
       
       // NOTE: User messages are no longer saved to DB to avoid duplication.
@@ -81,9 +91,8 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
       logger.debug(`💾 [VoiceHandler] Voice message processed (not saving to DB - using Green API history)`);
       
       // Send agent result (text, image, video, audio, etc.) in parallel for better performance
-      const sendPromises = [];
+      const sendPromises: Promise<unknown>[] = [];
       if (agentResult.text && agentResult.text.trim()) {
-        const { TIME } = require('../../../utils/constants');
         sendPromises.push(sendTextMessage(chatId, agentResult.text, quotedMessageId, TIME.TYPING_INDICATOR));
       }
       if (agentResult.imageUrl) {
@@ -136,7 +145,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
       })()
     ]);
 
-    let voiceId = null;
+    let voiceId: string | null = null;
     let shouldCloneVoice = audioDuration >= MIN_DURATION_FOR_CLONING;
 
     if (shouldCloneVoice) {
@@ -155,13 +164,13 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
         })
       };
 
-      const voiceCloneResult = await voiceService.createInstantVoiceClone(audioBuffer, voiceCloneOptions);
+      const voiceCloneResult = await voiceService.createInstantVoiceClone([audioBuffer], voiceCloneOptions) as { error?: string; voiceId?: string };
 
       if (voiceCloneResult.error) {
         logger.warn(`⚠️ Voice cloning failed: ${voiceCloneResult.error}. Falling back to random voice.`);
         shouldCloneVoice = false;
       } else {
-        voiceId = voiceCloneResult.voiceId;
+        voiceId = voiceCloneResult.voiceId || null;
         logger.info(`✅ Step 2 complete: Voice cloned (ID: ${voiceId}), Language: ${originalLanguage}`);
       }
     } else {
@@ -172,11 +181,10 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
     // All messages are retrieved from Green API getChatHistory when needed.
     logger.debug(`💾 [VoiceHandler] Voice message processed (not saving to DB - using Green API history)`);
 
-    if (geminiResult.error) {
-      logger.error('❌ Gemini generation failed:', { error: geminiResult.error });
-      const errorMessage = originalLanguage === 'he'
-        ? formatProviderError('gemini', geminiResult.error)
-        : formatProviderError('gemini', geminiResult.error);
+    const geminiResultTyped = geminiResult as { error?: string; text?: string };
+    if (geminiResultTyped.error) {
+      logger.error('❌ Gemini generation failed:', { error: geminiResultTyped.error });
+      const errorMessage = formatProviderError('gemini', geminiResultTyped.error);
       await sendTextMessage(chatId, errorMessage, quotedMessageId, TIME.TYPING_INDICATOR);
 
       // Clean up voice clone before returning (only if we cloned)
@@ -184,14 +192,15 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
         try {
           await voiceService.deleteVoice(voiceId);
           logger.debug(`🧹 Voice clone ${voiceId} deleted (cleanup after Gemini error)`);
-        } catch (cleanupError) {
-          logger.warn('⚠️ Could not delete voice clone:', { error: cleanupError.message });
+        } catch (cleanupError: unknown) {
+          const errorMessage = cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
+          logger.warn('⚠️ Could not delete voice clone:', { error: errorMessage });
         }
       }
       return;
     }
 
-    const geminiResponse = geminiResult.text;
+    const geminiResponse = geminiResultTyped.text || '';
     logger.debug(`✅ Step 3 complete: Gemini response generated`);
 
     // NOTE: Bot messages are no longer saved to DB to avoid duplication.
@@ -207,13 +216,13 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
     // If voice wasn't cloned, get a random voice for the target language
     if (!shouldCloneVoice || !voiceId) {
       logger.debug(`🔄 Step 4: Getting random voice for ${responseLanguage} (no cloning)...`);
-      const randomVoiceResult = await voiceService.getVoiceForLanguage(responseLanguage);
+      const randomVoiceResult = await voiceService.getVoiceForLanguage(responseLanguage) as { error?: string; voiceId?: string };
       if (randomVoiceResult.error) {
         logger.error(`❌ Could not get random voice:`, { error: randomVoiceResult.error });
         await sendErrorToUser(chatId, null, { context: 'VOICE_RESPONSE', quotedMessageId });
         return;
       }
-      voiceId = randomVoiceResult.voiceId;
+      voiceId = randomVoiceResult.voiceId || null;
       logger.debug(`✅ Using random voice: ${voiceId} for language ${responseLanguage}`);
     } else {
       logger.debug(`🔄 Step 4: Converting text to speech with cloned voice...`);
@@ -225,7 +234,7 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
       languageCode: responseLanguage
     };
 
-    const ttsResult = await voiceService.textToSpeech(voiceId, geminiResponse, ttsOptions);
+    const ttsResult = await voiceService.textToSpeech(voiceId || '', geminiResponse, ttsOptions) as { error?: string; audioUrl?: string };
 
     if (ttsResult.error) {
       logger.error('❌ Text-to-speech failed:', { error: ttsResult.error });
@@ -240,8 +249,9 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
         try {
           await voiceService.deleteVoice(voiceId);
           logger.debug(`🧹 Voice clone ${voiceId} deleted (cleanup after TTS error)`);
-        } catch (cleanupError) {
-          logger.warn('⚠️ Could not delete voice clone:', { error: cleanupError.message });
+        } catch (cleanupError: unknown) {
+          const errorMessage = cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
+          logger.warn('⚠️ Could not delete voice clone:', { error: errorMessage });
         }
       }
       return;
@@ -251,19 +261,19 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
 
     // Step 5: Convert and send voice response back to user as voice note
     logger.debug(`🔄 Converting voice-to-voice to Opus format for voice note...`);
-    const conversionResult = await audioConverterService.audioConverterService.convertUrlToOpus(ttsResult.audioUrl, 'mp3');
+    const conversionResult = await audioConverterService.convertUrlToOpus(ttsResult.audioUrl || '', 'mp3') as { success: boolean; error?: string; fileName?: string };
 
     if (!conversionResult.success) {
       logger.error('❌ Audio conversion failed:', { error: conversionResult.error });
       // Fallback: send as regular MP3 file
-      const fullAudioUrl = ttsResult.audioUrl.startsWith('http')
+      const fullAudioUrl = ttsResult.audioUrl && ttsResult.audioUrl.startsWith('http')
         ? ttsResult.audioUrl
-        : getStaticFileUrl(ttsResult.audioUrl.replace('/static/', ''));
+        : getStaticFileUrl((ttsResult.audioUrl || '').replace('/static/', ''));
       await sendFileByUrl(chatId, fullAudioUrl, `voice_${Date.now()}.mp3`, '', quotedMessageId, TIME.TYPING_INDICATOR);
     } else {
       // Send as voice note with Opus format
-      const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
-      await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '', quotedMessageId, TIME.TYPING_INDICATOR);
+      const fullAudioUrl = getStaticFileUrl(conversionResult.fileName || '');
+      await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName || '', '', quotedMessageId, TIME.TYPING_INDICATOR);
       logger.debug(`✅ Voice-to-voice sent as voice note: ${conversionResult.fileName}`);
     }
 
@@ -274,20 +284,18 @@ async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, orig
       try {
         await voiceService.deleteVoice(voiceId);
         logger.debug(`🧹 Cleanup: Voice ${voiceId} deleted`);
-      } catch (cleanupError) {
-        logger.warn('⚠️ Voice cleanup failed:', { error: cleanupError.message });
+      } catch (cleanupError: unknown) {
+        const errorMessage = cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
+        logger.warn('⚠️ Voice cleanup failed:', { error: errorMessage });
       }
     }
 
-  } catch (error) {
-    logger.error('❌ Error in voice-to-voice processing:', { error: error.message || error, stack: error.stack });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('❌ Error in voice-to-voice processing:', { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
     // Get quotedMessageId for error response (preserve original message ID)
-    const quotedMessageId = originalMessageId || null;
-    await sendErrorToUser(chatId, error, { context: 'PROCESSING_VOICE', quotedMessageId });
+    const quotedMessageIdForError = originalMessageId || null;
+    await sendErrorToUser(chatId, error, { context: 'PROCESSING_VOICE', quotedMessageId: quotedMessageIdForError });
   }
 }
-
-module.exports = {
-  handleVoiceMessage
-};
 

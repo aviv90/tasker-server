@@ -161,10 +161,18 @@ async function extractQuotedMediaUrlsWithCallback(messageData: any, quotedMessag
     if (!result.imageUrl && chatId && messageId) {
       logger.debug('⚠️ Outgoing: downloadUrl not found in webhook, fetching from Green API...');
       try {
-        const originalMessage = await getMessage(chatId, messageId);
+        interface GreenApiMessage {
+          downloadUrl?: string;
+          fileMessageData?: { downloadUrl?: string };
+          imageMessageData?: { downloadUrl?: string };
+          videoMessageData?: { downloadUrl?: string };
+          [key: string]: unknown;
+        }
+        const originalMessage = await getMessage(chatId, messageId) as GreenApiMessage | null;
         result.imageUrl = originalMessage?.downloadUrl || 
                          originalMessage?.fileMessageData?.downloadUrl || 
-                         originalMessage?.imageMessageData?.downloadUrl;
+                         originalMessage?.imageMessageData?.downloadUrl ||
+                         null;
         logger.debug(`✅ Outgoing: downloadUrl fetched from getMessage: ${result.imageUrl ? 'found' : 'still NOT FOUND'}`);
       } catch (err: any) {
         logger.error(`❌ Outgoing: Failed to fetch downloadUrl via getMessage:`, { error: err.message, stack: err.stack });
@@ -184,10 +192,17 @@ async function extractQuotedMediaUrlsWithCallback(messageData: any, quotedMessag
     if (!result.videoUrl && chatId && messageId) {
       logger.debug('⚠️ Outgoing: Video downloadUrl not found in webhook, fetching from Green API...');
       try {
-        const originalMessage = await getMessage(chatId, messageId);
+        interface GreenApiMessage {
+          downloadUrl?: string;
+          fileMessageData?: { downloadUrl?: string };
+          videoMessageData?: { downloadUrl?: string };
+          [key: string]: unknown;
+        }
+        const originalMessage = await getMessage(chatId, messageId) as GreenApiMessage | null;
         result.videoUrl = originalMessage?.downloadUrl || 
                          originalMessage?.fileMessageData?.downloadUrl || 
-                         originalMessage?.videoMessageData?.downloadUrl;
+                         originalMessage?.videoMessageData?.downloadUrl ||
+                         null;
         logger.debug(`✅ Outgoing: Video downloadUrl fetched from getMessage: ${result.videoUrl ? 'found' : 'still NOT FOUND'}`);
       } catch (err: any) {
         logger.error(`❌ Outgoing: Failed to fetch video downloadUrl via getMessage:`, { error: err.message, stack: err.stack });

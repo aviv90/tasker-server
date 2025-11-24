@@ -67,15 +67,24 @@ export async function handleManagementCommand(
             });
             
             // Use for...of loop to support await
+            interface ChatMessage {
+              textMessage?: string;
+              caption?: string;
+              extendedTextMessage?: { text?: string };
+              typeMessage?: string;
+              idMessage?: string;
+              [key: string]: unknown;
+            }
             for (const msg of filteredMessages) {
-              const textContent = msg.textMessage || 
-                                msg.caption || 
-                                (msg.extendedTextMessage && msg.extendedTextMessage.text) ||
-                                (msg.typeMessage === 'extendedTextMessage' && msg.extendedTextMessage?.text) ||
+              const message = msg as ChatMessage;
+              const textContent = message.textMessage || 
+                                message.caption || 
+                                (message.extendedTextMessage && message.extendedTextMessage.text) ||
+                                (message.typeMessage === 'extendedTextMessage' && message.extendedTextMessage?.text) ||
                                 '[הודעה ללא טקסט]';
               
               // Determine role using conversationManager (DB-backed)
-              const isFromBot = msg.idMessage ? await conversationManager.isBotMessage(chatId, msg.idMessage) : false;
+              const isFromBot = message.idMessage ? await conversationManager.isBotMessage(chatId, message.idMessage) : false;
               const role = isFromBot ? '🤖' : '👤';
               
               historyText += `${role} ${textContent}\n\n`;

@@ -10,15 +10,16 @@
  * Refactored to use modular components (Phase 5.3)
  */
 
-const { handleImageEdit, handleImageToVideo } = require('./mediaHandlers/imageHandlers');
-const { handleVideoToVideo } = require('./mediaHandlers/videoHandlers');
-const { handleVoiceMessage } = require('./mediaHandlers/voiceHandlers');
-const { getAudioDuration } = require('../agent/utils/audioUtils');
+import { handleImageEdit, handleImageToVideo } from './mediaHandlers/imageHandlers';
+import { handleVideoToVideo } from './mediaHandlers/videoHandlers';
+import { handleVoiceMessage } from './mediaHandlers/voiceHandlers';
+import { getAudioDuration } from '../agent/utils/audioUtils';
 
-module.exports = {
+export {
   handleImageEdit,
   handleImageToVideo,
   handleVideoToVideo,
   handleVoiceMessage,
   getAudioDuration // Export for testing or reuse
 };
+

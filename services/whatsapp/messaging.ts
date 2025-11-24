@@ -7,18 +7,25 @@
  * Extracted from whatsappRoutes.js for better modularity and to avoid circular dependencies
  */
 
-const { sendTextMessage } = require('../greenApiService');
-const logger = require('../../utils/logger');
+import { sendTextMessage } from '../greenApiService';
+import logger from '../../utils/logger';
+
+/**
+ * Command object structure
+ */
+interface Command {
+  type: string;
+  model?: string;
+  withRhyme?: boolean;
+  originalMessageId?: string;
+}
 
 /**
  * Send acknowledgment message for a command
- * @param {string} chatId - WhatsApp chat ID
- * @param {Object} command - Command object with type and optional parameters
- * @param {string} command.type - Command type
- * @param {string} [command.model] - Model variant (for Sora commands)
- * @param {boolean} [command.withRhyme] - Whether to include rhyme (for polls)
+ * @param chatId - WhatsApp chat ID
+ * @param command - Command object with type and optional parameters
  */
-async function sendAck(chatId, command) {
+export async function sendAck(chatId: string, command: Command): Promise<void> {
   let ackMessage = '';
   
   switch (command.type) {
@@ -131,12 +138,9 @@ async function sendAck(chatId, command) {
     const quotedMessageId = command.originalMessageId || null;
     await sendTextMessage(chatId, ackMessage, quotedMessageId, 1000);
     logger.info(`✅ ACK sent for ${command.type}`, { chatId, commandType: command.type });
-  } catch (error) {
-    logger.error('❌ Error sending ACK:', { error: error.message || error, chatId, commandType: command.type });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('❌ Error sending ACK:', { error: errorMessage, chatId, commandType: command.type });
   }
 }
-
-module.exports = {
-  sendAck
-};
 

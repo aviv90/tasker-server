@@ -4,24 +4,51 @@
  * Handles image editing and image-to-video conversion
  */
 
-const { sendTextMessage, sendFileByUrl, downloadFile } = require('../../greenApiService');
-// Handle default export from TypeScript
-const conversationManagerModule = require('../../conversationManager');
-const conversationManager = conversationManagerModule.default || conversationManagerModule;
-const { formatProviderError } = require('../../../utils/errorHandler');
-const { TIME } = require('../../../utils/constants');
-const {
-  editImageForWhatsApp,
-  editOpenAIImage,
-  generateVideoFromImageForWhatsApp,
-  generateVideoWithSoraFromImageForWhatsApp,
-  generateKlingVideoFromImage
-} = require('../../geminiService');
+import { sendTextMessage, sendFileByUrl, downloadFile } from '../../greenApiService';
+import { formatProviderError } from '../../../utils/errorHandler';
+import { TIME } from '../../../utils/constants';
+import logger from '../../../utils/logger';
+import {
+  editImageForWhatsApp
+} from '../../geminiService';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const geminiService = require('../../geminiService');
+const editOpenAIImage = geminiService.editOpenAIImage;
+const generateVideoFromImageForWhatsApp = geminiService.generateVideoFromImageForWhatsApp;
+const generateVideoWithSoraFromImageForWhatsApp = geminiService.generateVideoWithSoraFromImageForWhatsApp;
+const generateKlingVideoFromImage = geminiService.generateKlingVideoFromImage;
+
+/**
+ * Image edit handler parameters
+ */
+interface ImageEditParams {
+  chatId: string;
+  senderId?: string;
+  senderName?: string;
+  imageUrl: string;
+  prompt: string;
+  service: 'gemini' | 'openai';
+  originalMessageId?: string;
+}
+
+/**
+ * Image to video handler parameters
+ */
+interface ImageToVideoParams {
+  chatId: string;
+  senderId?: string;
+  senderName?: string;
+  imageUrl: string;
+  prompt: string;
+  service?: 'veo3' | 'sora' | 'kling';
+  model?: string | null;
+  originalMessageId?: string;
+}
 
 /**
  * Handle image editing with Gemini or OpenAI
  */
-async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt, service, originalMessageId }) {
+export async function handleImageEdit({ chatId, senderName, imageUrl, prompt, service, originalMessageId }: ImageEditParams): Promise<void> {
   logger.info(`🎨 Processing ${service} image edit request from ${senderName}`);
 
   // Get originalMessageId for quoting all responses
@@ -41,16 +68,18 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
     }
 
     // Download the image
-    const imageBuffer = await downloadFile(imageUrl);
+    const imageBuffer = await downloadFile(imageUrl) as Buffer;
 
     const base64Image = imageBuffer.toString('base64');
 
     // Edit image with selected AI service
-    let editResult;
+    let editResult: { success: boolean; description?: string; imageUrl?: string; fileName?: string; error?: string };
     if (service === 'gemini') {
-      editResult = await editImageForWhatsApp(prompt, base64Image);
+      editResult = await editImageForWhatsApp(prompt, base64Image) as { success: boolean; description?: string; imageUrl?: string; fileName?: string; error?: string };
     } else if (service === 'openai') {
-      editResult = await editOpenAIImage(prompt, base64Image);
+      editResult = await editOpenAIImage(prompt, base64Image) as { success: boolean; description?: string; imageUrl?: string; fileName?: string; error?: string };
+    } else {
+      throw new Error(`Unknown service: ${service}`);
     }
 
     if (editResult.success) {
@@ -87,18 +116,19 @@ async function handleImageEdit({ chatId, senderId, senderName, imageUrl, prompt,
       await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
       logger.warn(`❌ ${service} image edit failed for ${senderName}: ${errorMsg}`);
     }
-  } catch (error) {
-    logger.error(`❌ Error in ${service} image editing:`, { error: error.message || error, stack: error.stack });
-    const formattedError = formatProviderError(service, error.message || error);
-      await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`❌ Error in ${service} image editing:`, { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
+    const formattedError = formatProviderError(service, errorMessage);
+    await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
   }
 }
 
 /**
  * Handle image-to-video conversion with Veo 3, Sora 2, or Kling
  */
-async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prompt, service = 'veo3', model = null, originalMessageId }) {
-  let serviceName;
+export async function handleImageToVideo({ chatId, senderName, imageUrl, prompt, service = 'veo3', model = null, originalMessageId }: ImageToVideoParams): Promise<void> {
+  let serviceName: string;
   if (service === 'veo3') {
     serviceName = 'Veo 3';
   } else if (service === 'sora') {
@@ -113,7 +143,7 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
 
   try {
     // Send immediate ACK
-    let ackMessage;
+    let ackMessage: string;
     if (service === 'veo3') {
       ackMessage = '🎬 יוצר וידאו עם Veo 3...';
     } else if (service === 'sora') {
@@ -132,18 +162,18 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
     }
 
     // Download the image
-    const imageBuffer = await downloadFile(imageUrl);
+    const imageBuffer = await downloadFile(imageUrl) as Buffer;
 
     // Generate video with selected service
-    let videoResult;
+    let videoResult: { success: boolean; videoUrl?: string; error?: string };
     if (service === 'veo3') {
-      videoResult = await generateVideoFromImageForWhatsApp(prompt, imageBuffer);
+      videoResult = await generateVideoFromImageForWhatsApp(prompt, imageBuffer) as { success: boolean; videoUrl?: string; error?: string };
     } else if (service === 'sora') {
       // Sora 2 image-to-video with image_reference
       const options = model ? { model } : {};
-      videoResult = await generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, options);
+      videoResult = await generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, options) as { success: boolean; videoUrl?: string; error?: string };
     } else {
-      videoResult = await generateKlingVideoFromImage(imageBuffer, prompt);
+      videoResult = await generateKlingVideoFromImage(imageBuffer, prompt) as { success: boolean; videoUrl?: string; error?: string };
     }
 
     if (videoResult.success && videoResult.videoUrl) {
@@ -165,17 +195,13 @@ async function handleImageToVideo({ chatId, senderId, senderName, imageUrl, prom
       await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
       logger.warn(`❌ ${serviceName} image-to-video failed for ${senderName}: ${errorMsg}`);
     }
-  } catch (error) {
-    logger.error(`❌ Error in ${serviceName} image-to-video:`, { error: error.message || error, stack: error.stack });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`❌ Error in ${serviceName} image-to-video:`, { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
     // Map service to provider name for formatting
     const providerName = service === 'veo3' ? 'veo3' : service === 'sora' ? 'sora' : 'kling';
-    const formattedError = formatProviderError(providerName, error.message || error);
-      await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
+    const formattedError = formatProviderError(providerName, errorMessage);
+    await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
   }
 }
-
-module.exports = {
-  handleImageEdit,
-  handleImageToVideo
-};
 

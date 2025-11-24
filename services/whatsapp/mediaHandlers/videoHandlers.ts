@@ -4,17 +4,30 @@
  * Handles video-to-video processing
  */
 
-const { sendTextMessage, sendFileByUrl, downloadFile } = require('../../greenApiService');
+import { sendTextMessage, sendFileByUrl, downloadFile } from '../../greenApiService';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { generateRunwayVideoFromVideo } = require('../../geminiService');
-const { sendAck } = require('../messaging');
-const { formatProviderError } = require('../../../utils/errorHandler');
-const { TIME } = require('../../../utils/constants');
-const logger = require('../../../utils/logger');
+import { sendAck } from '../messaging';
+import { formatProviderError } from '../../../utils/errorHandler';
+import { TIME } from '../../../utils/constants';
+import logger from '../../../utils/logger';
+
+/**
+ * Video to video handler parameters
+ */
+interface VideoToVideoParams {
+  chatId: string;
+  senderId?: string;
+  senderName?: string;
+  videoUrl: string;
+  prompt: string;
+  originalMessageId?: string;
+}
 
 /**
  * Handle video-to-video processing with RunwayML Gen4
  */
-async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prompt, originalMessageId }) {
+export async function handleVideoToVideo({ chatId, senderName, videoUrl, prompt, originalMessageId }: VideoToVideoParams): Promise<void> {
   logger.info(`🎬 Processing RunwayML Gen4 video-to-video request from ${senderName}`);
 
   // Get originalMessageId for quoting all responses
@@ -31,10 +44,10 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
     }
 
     // Download the video
-    const videoBuffer = await downloadFile(videoUrl);
+    const videoBuffer = await downloadFile(videoUrl) as Buffer;
 
     // Generate video with RunwayML Gen4
-    const videoResult = await generateRunwayVideoFromVideo(videoBuffer, prompt);
+    const videoResult = await generateRunwayVideoFromVideo(videoBuffer, prompt) as { success: boolean; videoUrl?: string; error?: string };
 
     if (videoResult.success && videoResult.videoUrl) {
       // Send the generated video without caption
@@ -51,14 +64,11 @@ async function handleVideoToVideo({ chatId, senderId, senderName, videoUrl, prom
       await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
       logger.warn(`❌ RunwayML Gen4 video-to-video failed for ${senderName}: ${errorMsg}`);
     }
-  } catch (error) {
-    logger.error('❌ Error in RunwayML Gen4 video-to-video:', { error: error.message || error, stack: error.stack });
-    const formattedError = formatProviderError('runway', error.message || error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('❌ Error in RunwayML Gen4 video-to-video:', { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
+    const formattedError = formatProviderError('runway', errorMessage);
     await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
   }
 }
-
-module.exports = {
-  handleVideoToVideo
-};
 

@@ -18,6 +18,7 @@ interface ImageData {
     prompt: string;
     originalMessageId: string;
     service: string;
+    model?: string | null;
 }
 
 interface VoiceData {
@@ -40,7 +41,14 @@ interface VideoData {
 
 export function processImageEditAsync(imageData: ImageData) {
   // Run in background without blocking webhook response
-  mediaHandlers.handleImageEdit(imageData).catch(async (error: any) => {
+  mediaHandlers.handleImageEdit({
+    chatId: imageData.chatId,
+    senderName: imageData.senderName,
+    imageUrl: imageData.imageUrl,
+    prompt: imageData.prompt,
+    service: imageData.service as 'gemini' | 'openai',
+    originalMessageId: imageData.originalMessageId
+  }).catch(async (error: any) => {
     logger.error('❌ Error in async image edit processing:', { error: error.message || error });
     try {
       const quotedMessageId = extractQuotedMessageId({ originalMessageId: imageData.originalMessageId });
@@ -56,7 +64,15 @@ export function processImageEditAsync(imageData: ImageData) {
  */
 export function processImageToVideoAsync(imageData: ImageData) {
   // Run in background without blocking webhook response
-  mediaHandlers.handleImageToVideo(imageData).catch(async (error: any) => {
+  mediaHandlers.handleImageToVideo({
+    chatId: imageData.chatId,
+    senderName: imageData.senderName,
+    imageUrl: imageData.imageUrl,
+    prompt: imageData.prompt,
+    service: imageData.service as 'veo3' | 'sora' | 'kling' | undefined,
+    model: imageData.model,
+    originalMessageId: imageData.originalMessageId
+  }).catch(async (error: any) => {
     logger.error('❌ Error in async image-to-video processing:', { error: error.message || error });
     try {
       const quotedMessageId = extractQuotedMessageId({ originalMessageId: imageData.originalMessageId });

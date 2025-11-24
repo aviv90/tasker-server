@@ -3,34 +3,45 @@
  * Handles user permissions for media creation, group creation, and admin commands
  */
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const authStore = require('../../store/authStore');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const groupAuthStore = require('../../store/groupAuthStore');
-const { sendTextMessage } = require('../greenApiService');
+import { sendTextMessage } from '../greenApiService';
+
+/**
+ * Sender data structure from Green API
+ */
+interface SenderData {
+  chatId?: string;
+  senderId?: string;
+  [key: string]: unknown;
+}
 
 /**
  * Check if user is authorized for media creation (images, videos, music)
- * @param {Object} senderData - WhatsApp sender data from Green API
- * @returns {Promise<boolean>} - True if user is authorized
+ * @param senderData - WhatsApp sender data from Green API
+ * @returns True if user is authorized
  */
-async function isAuthorizedForMediaCreation(senderData) {
+export async function isAuthorizedForMediaCreation(senderData: SenderData): Promise<boolean> {
   return await authStore.isAuthorizedForMediaCreation(senderData);
 }
 
 /**
  * Check if user is authorized for group creation
- * @param {Object} senderData - WhatsApp sender data from Green API
- * @returns {Promise<boolean>} - True if user is authorized
+ * @param senderData - WhatsApp sender data from Green API
+ * @returns True if user is authorized
  */
-async function isAuthorizedForGroupCreation(senderData) {
+export async function isAuthorizedForGroupCreation(senderData: SenderData): Promise<boolean> {
   return await groupAuthStore.isAuthorizedForGroupCreation(senderData);
 }
 
 /**
  * Check if command requires media creation authorization
- * @param {string} commandType - Command type
- * @returns {boolean} - True if command requires authorization
+ * @param commandType - Command type
+ * @returns True if command requires authorization
  */
-function requiresMediaAuthorization(commandType) {
+export function requiresMediaAuthorization(commandType: string): boolean {
   const mediaCommands = [
     'gemini_image',
     'openai_image',
@@ -50,10 +61,10 @@ function requiresMediaAuthorization(commandType) {
 
 /**
  * Check if a command is an admin/management command (should only work from outgoing messages)
- * @param {string} commandType - Command type
- * @returns {boolean} - True if command is admin-only
+ * @param commandType - Command type
+ * @returns True if command is admin-only
  */
-function isAdminCommand(commandType) {
+export function isAdminCommand(commandType: string): boolean {
   const adminCommands = [
     'include_in_transcription',
     'exclude_from_transcription',
@@ -76,21 +87,13 @@ function isAdminCommand(commandType) {
 
 /**
  * Send unauthorized access message
- * @param {string} chatId - WhatsApp chat ID
- * @param {string} feature - Feature name (for logging)
- * @param {string} [originalMessageId] - Optional: ID of original message for quoting
+ * @param chatId - WhatsApp chat ID
+ * @param feature - Feature name (for logging)
+ * @param originalMessageId - Optional: ID of original message for quoting
  */
-async function sendUnauthorizedMessage(chatId, feature, originalMessageId = null) {
+export async function sendUnauthorizedMessage(chatId: string, feature: string, originalMessageId: string | null = null): Promise<void> {
   const message = '🔒 סליחה, אין לך הרשאה להשתמש בתכונה זו. פנה למנהל המערכת.';
   await sendTextMessage(chatId, message, originalMessageId, 1000);
   console.log(`🚫 Unauthorized access attempt to ${feature}`);
 }
-
-module.exports = {
-  isAuthorizedForMediaCreation,
-  isAuthorizedForGroupCreation,
-  requiresMediaAuthorization,
-  isAdminCommand,
-  sendUnauthorizedMessage
-};
 

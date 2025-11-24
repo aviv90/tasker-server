@@ -71,7 +71,23 @@ export async function handleQuotedMessage(quotedMessage: any, currentPrompt: str
       if (!downloadUrl || downloadUrl === '') {
         console.log(`📨 Fetching message ${quotedMessage.stanzaId} from chat ${chatId}`);
         try {
-          const originalMessage = await getMessage(chatId, quotedMessage.stanzaId);
+          interface GreenApiMessage {
+            downloadUrl?: string;
+            fileMessageData?: { downloadUrl?: string };
+            imageMessageData?: { downloadUrl?: string };
+            videoMessageData?: { downloadUrl?: string };
+            audioMessageData?: { downloadUrl?: string };
+            stickerMessageData?: { downloadUrl?: string };
+            messageData?: {
+              fileMessageData?: { downloadUrl?: string };
+              imageMessageData?: { downloadUrl?: string };
+              videoMessageData?: { downloadUrl?: string };
+              audioMessageData?: { downloadUrl?: string };
+              stickerMessageData?: { downloadUrl?: string };
+            };
+            [key: string]: unknown;
+          }
+          const originalMessage = await getMessage(chatId, quotedMessage.stanzaId) as GreenApiMessage | null;
           
           if (originalMessage) {
             if (quotedType === 'imageMessage' || quotedType === 'stickerMessage') {
@@ -81,19 +97,22 @@ export async function handleQuotedMessage(quotedMessage: any, currentPrompt: str
                            originalMessage.stickerMessageData?.downloadUrl ||
                            originalMessage.messageData?.fileMessageData?.downloadUrl ||
                            originalMessage.messageData?.imageMessageData?.downloadUrl ||
-                           originalMessage.messageData?.stickerMessageData?.downloadUrl;
+                           originalMessage.messageData?.stickerMessageData?.downloadUrl ||
+                           null;
             } else if (quotedType === 'videoMessage') {
               downloadUrl = originalMessage.downloadUrl || 
                            originalMessage.fileMessageData?.downloadUrl || 
                            originalMessage.videoMessageData?.downloadUrl ||
                            originalMessage.messageData?.fileMessageData?.downloadUrl ||
-                           originalMessage.messageData?.videoMessageData?.downloadUrl;
+                           originalMessage.messageData?.videoMessageData?.downloadUrl ||
+                           null;
             } else if (quotedType === 'audioMessage') {
               downloadUrl = originalMessage.downloadUrl || 
                            originalMessage.fileMessageData?.downloadUrl || 
                            originalMessage.audioMessageData?.downloadUrl ||
                            originalMessage.messageData?.fileMessageData?.downloadUrl ||
-                           originalMessage.messageData?.audioMessageData?.downloadUrl;
+                           originalMessage.messageData?.audioMessageData?.downloadUrl ||
+                           null;
             }
             
             if (downloadUrl) {

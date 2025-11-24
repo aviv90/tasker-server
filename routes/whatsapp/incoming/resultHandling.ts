@@ -182,8 +182,8 @@ export async function sendPollResult(chatId: string, agentResult: AgentResult, q
 
   try {
     logger.debug(`📊 [Agent] Sending poll: ${agentResult.poll.question}`);
-    // Convert options to Green API format
-    const pollOptions = agentResult.poll.options.map((opt: string) => ({ optionName: opt }));
+    // Convert options to Green API format - sendPoll expects string[] not { optionName: string }[]
+    const pollOptions = agentResult.poll.options;
     await greenApiService.sendPoll(chatId, agentResult.poll.question, pollOptions, false, quotedMessageId || undefined, 1000);
     return true;
   } catch (error: any) {

@@ -87,24 +87,36 @@ export function extractDirectMediaUrls(messageData: any): MediaUrls {
  * @param {string} mediaType - Media type ('image', 'video', 'audio')
  * @returns {Promise<string|null>} Media URL or null
  */
+interface GreenApiMessage {
+  downloadUrl?: string;
+  fileMessageData?: { downloadUrl?: string };
+  imageMessageData?: { downloadUrl?: string };
+  videoMessageData?: { downloadUrl?: string };
+  audioMessageData?: { downloadUrl?: string };
+  [key: string]: unknown;
+}
+
 export async function fetchMediaUrlFromAPI(chatId: string, messageId: string, mediaType: string): Promise<string | null> {
   console.log(`⚠️ ${mediaType} downloadUrl not found in webhook, fetching from Green API...`);
   try {
-    const originalMessage = await greenApiService.getMessage(chatId, messageId);
+    const originalMessage = await greenApiService.getMessage(chatId, messageId) as GreenApiMessage | null;
     if (!originalMessage) return null;
 
     if (mediaType === 'image') {
       return originalMessage?.downloadUrl ||
         originalMessage?.fileMessageData?.downloadUrl ||
-        originalMessage?.imageMessageData?.downloadUrl;
+        originalMessage?.imageMessageData?.downloadUrl ||
+        null;
     } else if (mediaType === 'video') {
       return originalMessage?.downloadUrl ||
         originalMessage?.fileMessageData?.downloadUrl ||
-        originalMessage?.videoMessageData?.downloadUrl;
+        originalMessage?.videoMessageData?.downloadUrl ||
+        null;
     } else if (mediaType === 'audio') {
       return originalMessage?.downloadUrl ||
         originalMessage?.fileMessageData?.downloadUrl ||
-        originalMessage?.audioMessageData?.downloadUrl;
+        originalMessage?.audioMessageData?.downloadUrl ||
+        null;
     }
     return null;
   } catch (err: any) {
