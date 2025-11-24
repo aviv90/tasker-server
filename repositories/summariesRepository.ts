@@ -60,7 +60,14 @@ class SummariesRepository {
         LIMIT $2
       `, [chatId, limit]);
       
-      return result.rows.map(row => ({
+      return result.rows.map((row: { 
+        id: number; 
+        summary: string; 
+        key_topics?: string[]; 
+        user_preferences?: Record<string, unknown>; 
+        message_count: number; 
+        summary_date: Date 
+      }) => ({
         id: row.id,
         summary: row.summary,
         keyTopics: row.key_topics || [],
@@ -90,7 +97,7 @@ class SummariesRepository {
         LIMIT $2
       `, [chatId, limit]);
       
-      return result.rows.map(row => row.user_preferences || {});
+      return result.rows.map((row: { user_preferences?: Record<string, unknown> }) => row.user_preferences || {});
     } finally {
       client.release();
     }

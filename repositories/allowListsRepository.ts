@@ -90,7 +90,7 @@ class AllowListsRepository {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`SELECT contact_name FROM ${tableName}`);
-      return result.rows.map(row => row.contact_name);
+      return result.rows.map((row: { contact_name: string }) => row.contact_name);
     } finally {
       client.release();
     }

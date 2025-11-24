@@ -64,7 +64,7 @@ class ContactsRepository {
         FROM contacts 
         ORDER BY name ASC
       `);
-      return result.rows.map(row => row.raw_data);
+      return result.rows.map((row: { raw_data: unknown }) => row.raw_data);
     } finally {
       client.release();
     }
@@ -84,7 +84,7 @@ class ContactsRepository {
         WHERE type = $1
         ORDER BY name ASC
       `, [type]);
-      return result.rows.map(row => row.raw_data);
+      return result.rows.map((row: { raw_data: unknown }) => row.raw_data);
     } finally {
       client.release();
     }
