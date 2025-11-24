@@ -2,6 +2,15 @@ const { Pool } = require('pg');
 const logger = require('../utils/logger');
 const { TIME } = require('../utils/constants');
 
+// Register ts-node for TypeScript support in development
+if (process.env.NODE_ENV !== 'production' && !process.env.SKIP_TS_NODE) {
+  try {
+    require('ts-node/register');
+  } catch (e) {
+    // ts-node not available, will use compiled files
+  }
+}
+
 // Repositories (TypeScript files compiled to dist/ with default exports)
 // In production (Heroku), files are in dist/, so we need to check both locations
 const getRepository = (path) => {
@@ -26,16 +35,52 @@ const SummariesRepository = getRepository('summariesRepository');
 const AllowListsRepository = getRepository('allowListsRepository');
 const ContactsRepository = getRepository('contactsRepository');
 
-// Services
-const CommandsManager = require('./conversation/commands');
-const MessageTypesManager = require('./conversation/messageTypes');
-const AgentContextManager = require('./conversation/agentContext');
-const SummariesManager = require('./conversation/summaries');
-const AllowListsManager = require('./conversation/allowLists');
-const ContactsManager = require('./conversation/contacts');
-const DatabaseManager = require('./conversation/database');
-const MessagesManager = require('./conversation/messages'); // Legacy
-const TasksManager = require('./conversation/tasks'); // Legacy structure
+// Helper function to load services (TypeScript files compiled to dist/ with default exports)
+const getService = (path) => {
+  // In production (Heroku), files are in dist/
+  // In development, try dist/ first, then source/ (with ts-node support)
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  if (isProduction) {
+    // Production: always use dist/
+    try {
+      const distModule = require(`../dist/services/${path}`);
+      return distModule.default || distModule;
+    } catch (e) {
+      throw new Error(`Failed to load service from dist/: ${path}. Error: ${e.message}`);
+    }
+  } else {
+    // Development: try dist/ first (if exists), then source/ (with ts-node)
+    try {
+      const distModule = require(`../dist/services/${path}`);
+      return distModule.default || distModule;
+    } catch (e) {
+      // Fallback to source (ts-node will handle .ts files)
+      try {
+        const sourceModule = require(`../services/${path}`);
+        return sourceModule.default || sourceModule;
+      } catch (e2) {
+        // Last resort: try without .default (for old JS files)
+        try {
+          return require(`../services/${path}`);
+        } catch (e3) {
+          throw new Error(`Failed to load service: ${path}. Tried dist/, source/, and direct require. Errors: ${e.message}, ${e2.message}, ${e3.message}`);
+        }
+      }
+    }
+  }
+};
+
+// Services (TypeScript files compiled to dist/ with default exports)
+const CommandsManager = getService('conversation/commands');
+const MessageTypesManager = getService('conversation/messageTypes');
+const AgentContextManager = getService('conversation/agentContext');
+const SummariesManager = getService('conversation/summaries');
+const AllowListsManager = getService('conversation/allowLists');
+const ContactsManager = getService('conversation/contacts');
+const DatabaseManager = getService('conversation/database');
+const MessagesManager = getService('conversation/messages'); // Legacy
+const TasksManager = getService('conversation/tasks'); // Legacy structure
 
 /**
  * Dependency Injection Container
