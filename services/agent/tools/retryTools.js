@@ -3,7 +3,9 @@
  * Clean, modular tool definitions following SOLID principles
  */
 
-const conversationManager = require('../../conversationManager');
+// Handle default export from TypeScript
+const conversationManagerModule = require('../../conversationManager');
+const conversationManager = conversationManagerModule.default || conversationManagerModule;
 const { getServices } = require('../utils/serviceLoader');
 const { getToolAckMessage } = require('../utils/ackUtils');
 const { extractQuotedMessageId } = require('../../../utils/messageHelpers');

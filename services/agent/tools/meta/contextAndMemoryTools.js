@@ -7,7 +7,9 @@
  * Extracted from metaTools.js (Phase 5.2)
  */
 
-const conversationManager = require('../../../conversationManager');
+// Handle default export from TypeScript
+const conversationManagerModule = require('../../../conversationManager');
+const conversationManager = conversationManagerModule.default || conversationManagerModule;
 const { getServices } = require('../../utils/serviceLoader');
 
 const contextAndMemoryTools = {

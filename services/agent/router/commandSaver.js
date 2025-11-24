@@ -6,7 +6,9 @@
  * All messages are retrieved from Green API.
  */
 
-const conversationManager = require('../../../services/conversationManager');
+// Handle default export from TypeScript
+const conversationManagerModule = require('../../../services/conversationManager');
+const conversationManager = conversationManagerModule.default || conversationManagerModule;
 const { NON_PERSISTED_TOOLS } = require('../config/constants');
 const { sanitizeToolResult } = require('../utils/resultUtils');
 const logger = require('../../../utils/logger');

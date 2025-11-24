@@ -1,5 +1,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const conversationManager = require('../../conversationManager');
+// Handle default export from TypeScript
+const conversationManagerModule = require('../../conversationManager');
+const conversationManager = conversationManagerModule.default || conversationManagerModule;
 const { cleanThinkingPatterns } = require('../../../utils/agentHelpers');
 const { allTools: agentTools } = require('../tools');
 const { sendToolAckMessage } = require('../utils/ackUtils');

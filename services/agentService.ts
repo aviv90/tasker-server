@@ -1,18 +1,3 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const conversationManager = require('./conversationManager');
-const prompts = require('../config/prompts');
-const { detectLanguage, extractDetectionText } = require('../utils/agentHelpers');
-const { getLanguageInstruction } = require('./agent/utils/languageUtils');
-const { planMultiStepExecution } = require('./multiStepPlanner');
-
-// Import execution modules
-const multiStepExecution = require('./agent/execution/multiStep');
-const agentLoop = require('./agent/execution/agentLoop');
-const contextManager = require('./agent/execution/context');
-const { allTools: agentTools } = require('./agent/tools');
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
 /**
  * Agent Service - Autonomous AI agent that can use tools dynamically
  * 
@@ -23,20 +8,89 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
  * - And more...
  */
 
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import prompts from '../config/prompts';
+import { detectLanguage, extractDetectionText } from '../utils/agentHelpers';
+import { getLanguageInstruction } from './agent/utils/languageUtils';
+import { planMultiStepExecution } from './multiStepPlanner';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const multiStepExecution = require('./agent/execution/multiStep');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const agentLoop = require('./agent/execution/agentLoop');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const contextManager = require('./agent/execution/context');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { allTools: agentTools } = require('./agent/tools');
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+/**
+ * Agent configuration
+ */
+interface AgentConfig {
+  model: string;
+  maxIterations: number;
+  timeoutMs: number;
+  contextMemoryEnabled: boolean;
+}
+
+/**
+ * Agent input options
+ */
+interface AgentInput {
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+  audioUrl?: string | null;
+  quotedMessageId?: string | null;
+  lastCommand?: unknown;
+  originalMessageId?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Agent execution options
+ */
+interface AgentOptions {
+  input?: AgentInput;
+  lastCommand?: unknown;
+  maxIterations?: number;
+  [key: string]: unknown;
+}
+
+/**
+ * Agent execution result
+ */
+interface AgentResult {
+  success?: boolean;
+  text?: string;
+  error?: string;
+  toolsUsed?: string[];
+  timeout?: boolean;
+  toolCalls?: unknown[];
+  toolResults?: Record<string, unknown>;
+  multiStep?: boolean;
+  alreadySent?: boolean;
+  originalMessageId?: string;
+  plan?: unknown;
+  stepsCompleted?: number;
+  totalSteps?: number;
+  [key: string]: unknown;
+}
+
 /**
  * Execute an agent query with autonomous tool usage
- * @param {string} prompt - User's question/request
- * @param {string} chatId - Chat ID for context
- * @param {Object} options - Additional options
- * @returns {Object} - Response with text and tool usage info
+ * @param prompt - User's question/request
+ * @param chatId - Chat ID for context
+ * @param options - Additional options
+ * @returns Response with text and tool usage info
  */
-async function executeAgentQuery(prompt, chatId, options = {}) {
+export async function executeAgentQuery(prompt: string, chatId: string, options: AgentOptions = {}): Promise<AgentResult> {
   // Detect user's language
   const userLanguage = detectLanguage(prompt);
   const languageInstruction = getLanguageInstruction(userLanguage);
   
   // ⚙️ Configuration: Load from env or use defaults
-  const agentConfig = {
+  const agentConfig: AgentConfig = {
     model: process.env.AGENT_MODEL || 'gemini-2.5-flash',
     maxIterations: Number(process.env.AGENT_MAX_ITERATIONS) || 8,
     timeoutMs: Number(process.env.AGENT_TIMEOUT_MS) || 240000, // 4 minutes
@@ -69,7 +123,11 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     isMultiStep: plan.isMultiStep,
     stepsLength: plan.steps?.length,
     fallback: plan.fallback,
-    steps: plan.steps?.map(s => ({ stepNumber: s.stepNumber, tool: s.tool, action: s.action?.substring(0, 50) }))
+    steps: plan.steps?.map((s: { stepNumber?: number; tool?: string | null; action?: string }) => ({ 
+      stepNumber: s.stepNumber, 
+      tool: s.tool, 
+      action: s.action?.substring(0, 50) 
+    }))
   }, null, 2));
   
   // If planner failed, treat as single-step (no heuristic fallback - rely on LLM only)
@@ -80,7 +138,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   
   // 🔄 Multi-step execution - execute each step sequentially
   if (plan.isMultiStep && plan.steps && plan.steps.length > 1) {
-    return await multiStepExecution.execute(plan, chatId, options, languageInstruction, agentConfig);
+    return await multiStepExecution.execute(plan, chatId, options, languageInstruction, agentConfig) as AgentResult;
   }
   
   // Continue with single-step execution if not multi-step
@@ -88,9 +146,9 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   const model = genAI.getGenerativeModel({ model: agentConfig.model });
   
   // Prepare tool declarations for Gemini
-  const functionDeclarations = Object.values(agentTools).map(tool => tool.declaration);
+  const functionDeclarations = Object.values(agentTools as Record<string, { declaration: unknown }>).map((tool) => tool.declaration) as unknown[];
   
-  // System prompt for the agent (SSOT - from config/prompts.js)
+  // System prompt for the agent (SSOT - from config/prompts.ts)
   const systemInstruction = prompts.agentSystemInstruction(languageInstruction);
 
   // 🧠 Context for tool execution (load previous context if enabled)
@@ -100,7 +158,7 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   // Conversation history for the agent
   const chat = model.startChat({
     history: [],
-    tools: [{ functionDeclarations }],
+    tools: [{ functionDeclarations: functionDeclarations as never[] }],
     systemInstruction: {
       role: 'system',
       parts: [{ text: systemInstruction }]
@@ -108,17 +166,17 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   });
 
   // ⏱️ Wrap entire agent execution with timeout
-  const agentExecution = async () => {
-    return await agentLoop.execute(chat, prompt, chatId, context, maxIterations, agentConfig);
+  const agentExecution = async (): Promise<AgentResult> => {
+    return await agentLoop.execute(chat, prompt, chatId, context, maxIterations, agentConfig) as AgentResult;
   };
   
   // ⏱️ Execute agent with timeout
-  const timeoutPromise = new Promise((_, reject) => 
+  const timeoutPromise = new Promise<never>((_, reject) => 
     setTimeout(() => reject(new Error('Agent timeout')), agentConfig.timeoutMs)
   );
   
   try {
-    const result = await Promise.race([agentExecution(), timeoutPromise]);
+    const result = await Promise.race([agentExecution(), timeoutPromise]) as AgentResult;
     
     // Save context after execution if enabled
     if (result.success && agentConfig.contextMemoryEnabled) {
@@ -126,13 +184,13 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
     }
     
     return result;
-  } catch (error) {
-    if (error.message === 'Agent timeout') {
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message === 'Agent timeout') {
       console.error(`⏱️ [Agent] Timeout after ${agentConfig.timeoutMs}ms`);
       return {
         success: false,
         error: `⏱️ הפעולה ארכה יותר מדי. נסה בקשה פשוטה יותר או נסה שוב מאוחר יותר.`,
-        toolsUsed: Object.keys(context.previousToolResults),
+        toolsUsed: Object.keys((context.previousToolResults as Record<string, unknown>) || {}),
         timeout: true,
         toolCalls: context.toolCalls,
         toolResults: context.previousToolResults,
@@ -144,6 +202,3 @@ async function executeAgentQuery(prompt, chatId, options = {}) {
   }
 }
 
-module.exports = {
-  executeAgentQuery
-};

@@ -1,14 +1,38 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const prompts = require('../config/prompts');
+/**
+ * Multi-step execution planner using LLM (Gemini)
+ */
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import prompts from '../config/prompts';
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+/**
+ * Step in multi-step plan
+ */
+interface PlanStep {
+  stepNumber: number;
+  tool: string | null;
+  action: string;
+  parameters: Record<string, unknown>;
+}
+
+/**
+ * Multi-step plan result
+ */
+interface MultiStepPlan {
+  isMultiStep: boolean;
+  steps?: PlanStep[];
+  reasoning?: string;
+  fallback?: boolean;
+}
 
 /**
  * Use LLM (Gemini) to plan multi-step execution
- * @param {string} userRequest - The user's request
- * @returns {Promise<{isMultiStep: boolean, steps?: Array, fallback?: boolean}>}
+ * @param userRequest - The user's request
+ * @returns Plan result with steps if multi-step, or single-step indication
  */
-async function planMultiStepExecution(userRequest) {
+export async function planMultiStepExecution(userRequest: string): Promise<MultiStepPlan> {
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
     
@@ -93,24 +117,26 @@ async function planMultiStepExecution(userRequest) {
     // Final cleanup - remove trailing commas
     jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
     
-    let plan;
+    let plan: { isMultiStep?: boolean; steps?: unknown[]; reasoning?: string };
     try {
-      plan = JSON.parse(jsonStr);
-    } catch (parseError) {
-      console.error(`❌ [Planner] JSON parse failed:`, parseError.message);
+      plan = JSON.parse(jsonStr) as { isMultiStep?: boolean; steps?: unknown[]; reasoning?: string };
+    } catch (parseError: unknown) {
+      const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
+      console.error(`❌ [Planner] JSON parse failed:`, errorMessage);
       console.log(`   Raw JSON (first 500 chars): ${jsonStr.substring(0, 500)}`);
       return { isMultiStep: false, fallback: true };
     }
     
     if (plan.isMultiStep && Array.isArray(plan.steps) && plan.steps.length > 1) {
       // Validate and normalize plan steps
-      const validatedSteps = plan.steps.map((step, index) => {
+      const validatedSteps: PlanStep[] = plan.steps.map((step: unknown, index: number) => {
+        const stepObj = step as Partial<PlanStep>;
         // Ensure step has required fields
         return {
-          stepNumber: step.stepNumber || (index + 1),
-          tool: step.tool || null,
-          action: step.action || `Step ${index + 1}`,
-          parameters: step.parameters || {}
+          stepNumber: stepObj.stepNumber || (index + 1),
+          tool: stepObj.tool || null,
+          action: stepObj.action || `Step ${index + 1}`,
+          parameters: (stepObj.parameters as Record<string, unknown>) || {}
         };
       });
       
@@ -125,12 +151,10 @@ async function planMultiStepExecution(userRequest) {
     console.log(`✅ [Planner] Single-step request detected`);
     return { isMultiStep: false };
     
-  } catch (error) {
-    console.error(`❌ [Planner] Error:`, error.message);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`❌ [Planner] Error:`, errorMessage);
     return { isMultiStep: false, fallback: true };
   }
 }
 
-module.exports = {
-  planMultiStepExecution
-};

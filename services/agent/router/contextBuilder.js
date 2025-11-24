@@ -3,7 +3,9 @@
  * Builds contextual prompts for the agent based on input
  */
 
-const conversationManager = require('../../conversationManager');
+// Handle default export from TypeScript
+const conversationManagerModule = require('../../conversationManager');
+const conversationManager = conversationManagerModule.default || conversationManagerModule;
 const { summarizeLastCommand } = require('../utils/resultUtils');
 const { parseJSONSafe } = require('../utils/resultUtils');
 
