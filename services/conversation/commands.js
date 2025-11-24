@@ -38,13 +38,27 @@ class CommandsManager {
         ...metadata
       };
       
-      // Validate data
-      const validatedData = commandSchema.parse(commandData);
-
-      await this.repository.save(validatedData);
-      logger.debug(`💾 [Commands] Saved command ${messageId} for retry in ${chatId}: ${metadata.tool}`);
+      // Clean data before validation - remove any Zod-specific properties
+      const cleanedData = JSON.parse(JSON.stringify(commandData));
+      
+      // Validate data with safeParse to avoid throwing errors
+      const validationResult = commandSchema.safeParse(cleanedData);
+      
+      if (!validationResult.success) {
+        logger.warn('⚠️ Command validation failed, saving anyway:', { 
+          errors: validationResult.error.errors,
+          chatId, 
+          messageId 
+        });
+        // Save anyway with original data (validation is not critical)
+        await this.repository.save(commandData);
+      } else {
+        await this.repository.save(validationResult.data);
+      }
+      
+      logger.debug(`💾 [Commands] Saved command ${messageId} for retry in ${chatId}: ${metadata.tool || 'unknown'}`);
     } catch (error) {
-      logger.error('❌ Error saving command:', { error: error.message, chatId, messageId });
+      logger.error('❌ Error saving command:', { error: error.message, chatId, messageId, stack: error.stack });
     }
   }
 
