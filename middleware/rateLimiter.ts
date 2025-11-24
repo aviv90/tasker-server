@@ -11,7 +11,7 @@
  * - Callback endpoints: Lower limit (expected from external services)
  */
 
-import rateLimit, { RateLimitRequestHandler } from 'express-rate-limit';
+import rateLimit, { RateLimitRequestHandler, ipKeyGenerator } from 'express-rate-limit';
 import { Request, Response } from 'express';
 import logger from '../utils/logger';
 import { config } from '../config';
@@ -65,6 +65,7 @@ const RATE_LIMIT_CONFIG = {
 /**
  * Key generator for rate limiting (by IP or custom identifier)
  * Prioritizes chatId/userId over IP for better rate limiting accuracy
+ * Uses ipKeyGenerator helper for proper IPv6 support
  */
 function generateKey(req: Request): string {
   const body = req.body as WhatsAppRequestBody;
@@ -80,8 +81,10 @@ function generateKey(req: Request): string {
     return `user:${authReq.user.id}`;
   }
   
-  // Fallback to IP address (handles IPv6 properly)
-  return req.ip || req.socket.remoteAddress || 'unknown';
+  // Fallback to IP address using ipKeyGenerator helper for IPv6 support
+  // ipKeyGenerator takes an IP string, not the request object
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  return ipKeyGenerator(ip);
 }
 
 /**
@@ -195,8 +198,9 @@ export const callbackLimiter: RateLimitRequestHandler = rateLimit({
     if (origin) {
       return origin;
     }
-    // Fallback to generateKey for IP-based identification
-    return generateKey(req);
+    // Fallback to IP using ipKeyGenerator helper for IPv6 support
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    return ipKeyGenerator(ip);
   },
   handler: (req: Request, res: Response): void => {
     logger.warn('⚠️ Callback rate limit exceeded', {
