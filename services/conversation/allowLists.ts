@@ -2,17 +2,41 @@
  * Allow lists and authorization management
  */
 
-const logger = require('../../utils/logger');
+import logger from '../../utils/logger';
+import AllowListsRepository from '../../repositories/allowListsRepository';
+
+/**
+ * Sender data structure from Green API
+ */
+interface SenderData {
+  chatId?: string;
+  chatName?: string;
+  senderName?: string;
+  senderContactName?: string;
+}
+
+/**
+ * Database statistics
+ */
+interface DatabaseStats {
+  conversations?: number;
+  voiceAllowList?: number;
+  mediaAllowList?: number;
+  groupCreationAllowList?: number;
+  error?: string;
+}
 
 class AllowListsManager {
-  constructor(repository) {
+  private repository: AllowListsRepository | null;
+
+  constructor(repository: AllowListsRepository | null) {
     this.repository = repository;
   }
 
   /**
    * Set voice transcription status
    */
-  async setVoiceTranscriptionStatus(enabled) {
+  async setVoiceTranscriptionStatus(enabled: boolean): Promise<void> {
     if (!this.repository) {
       throw new Error('Repository not initialized');
     }
@@ -20,8 +44,9 @@ class AllowListsManager {
     try {
       await this.repository.setVoiceSettings(enabled);
       logger.info(`💾 Voice transcription status updated: ${enabled ? 'enabled' : 'disabled'}`);
-    } catch (error) {
-      logger.error('❌ Error setting voice transcription status:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Error setting voice transcription status:', { error: errorMessage });
       throw error;
     }
   }
@@ -29,15 +54,16 @@ class AllowListsManager {
   /**
    * Get voice transcription status
    */
-  async getVoiceTranscriptionStatus() {
+  async getVoiceTranscriptionStatus(): Promise<boolean> {
     if (!this.repository) {
       return false;
     }
 
     try {
       return await this.repository.getVoiceSettings();
-    } catch (error) {
-      logger.error('❌ Error getting voice transcription status:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Error getting voice transcription status:', { error: errorMessage });
       return false;
     }
   }
@@ -45,7 +71,7 @@ class AllowListsManager {
   /**
    * Add contact to voice allow list
    */
-  async addToVoiceAllowList(contactName) {
+  async addToVoiceAllowList(contactName: string): Promise<boolean> {
     if (!this.repository) {
       throw new Error('Repository not initialized');
     }
@@ -54,8 +80,9 @@ class AllowListsManager {
       await this.repository.addToAllowList('voice_allow_list', contactName);
       logger.info(`✅ Added ${contactName} to voice allow list`);
       return true;
-    } catch (error) {
-      logger.error('❌ Error adding to voice allow list:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Error adding to voice allow list:', { error: errorMessage });
       return false;
     }
   }
@@ -63,7 +90,7 @@ class AllowListsManager {
   /**
    * Remove contact from voice allow list
    */
-  async removeFromVoiceAllowList(contactName) {
+  async removeFromVoiceAllowList(contactName: string): Promise<boolean> {
     if (!this.repository) {
       throw new Error('Repository not initialized');
     }
@@ -72,8 +99,9 @@ class AllowListsManager {
       await this.repository.removeFromAllowList('voice_allow_list', contactName);
       logger.info(`🚫 Removed ${contactName} from voice allow list`);
       return true;
-    } catch (error) {
-      logger.error('❌ Error removing from voice allow list:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Error removing from voice allow list:', { error: errorMessage });
       return false;
     }
   }
@@ -81,15 +109,16 @@ class AllowListsManager {
   /**
    * Get all contacts in voice allow list
    */
-  async getVoiceAllowList() {
+  async getVoiceAllowList(): Promise<string[]> {
     if (!this.repository) {
       return [];
     }
 
     try {
       return await this.repository.getAllowList('voice_allow_list');
-    } catch (error) {
-      logger.error('❌ Error getting voice allow list:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Error getting voice allow list:', { error: errorMessage });
       return [];
     }
   }
@@ -97,15 +126,16 @@ class AllowListsManager {
   /**
    * Check if contact is in voice allow list (simple name check)
    */
-  async isInVoiceAllowList(contactName) {
+  async isInVoiceAllowList(contactName: string): Promise<boolean> {
     if (!this.repository) {
       return false;
     }
 
     try {
       return await this.repository.isInAllowList('voice_allow_list', contactName);
-    } catch (error) {
-      logger.error('❌ Error checking voice allow list:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Error checking voice allow list:', { error: errorMessage });
       return false;
     }
   }
@@ -113,10 +143,10 @@ class AllowListsManager {
   /**
    * Check if user is authorized for voice transcription
    * Similar to media/group authorization - checks both group and individual sender
-   * @param {Object} senderData - WhatsApp sender data from Green API
-   * @returns {Promise<boolean>} - True if authorized
+   * @param senderData - WhatsApp sender data from Green API
+   * @returns True if authorized
    */
-  async isAuthorizedForVoiceTranscription(senderData) {
+  async isAuthorizedForVoiceTranscription(senderData: SenderData): Promise<boolean> {
     try {
       const allowList = await this.getVoiceAllowList();
       
@@ -133,8 +163,8 @@ class AllowListsManager {
         const senderContact = senderData.senderContactName || senderData.senderName || '';
         
         // Allow if EITHER the group is authorized OR the individual sender is authorized
-        const groupAuthorized = groupName && allowList.includes(groupName);
-        const senderAuthorized = senderContact && allowList.includes(senderContact);
+        const groupAuthorized = !!(groupName && allowList.includes(groupName));
+        const senderAuthorized = !!(senderContact && allowList.includes(senderContact));
         
         return groupAuthorized || senderAuthorized;
         
@@ -146,17 +176,18 @@ class AllowListsManager {
         } else if (senderData.chatName && senderData.chatName.trim()) {
           contactName = senderData.chatName;
         } else {
-          contactName = senderData.senderName;
+          contactName = senderData.senderName || '';
         }
         
         return allowList.includes(contactName);
       } else {
         // Fallback
-        const contactName = senderData.senderContactName || senderData.chatName || senderData.senderName;
+        const contactName = senderData.senderContactName || senderData.chatName || senderData.senderName || '';
         return allowList.includes(contactName);
       }
-    } catch (error) {
-      logger.error('❌ Error checking voice transcription authorization:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Error checking voice transcription authorization:', { error: errorMessage });
       return false;
     }
   }
@@ -164,7 +195,7 @@ class AllowListsManager {
   /**
    * Add contact to media allow list
    */
-  async addToMediaAllowList(contactName) {
+  async addToMediaAllowList(contactName: string): Promise<boolean> {
     if (!this.repository) {
       throw new Error('Repository not initialized');
     }
@@ -173,8 +204,9 @@ class AllowListsManager {
       await this.repository.addToAllowList('media_allow_list', contactName);
       logger.info(`✅ Added ${contactName} to media allow list`);
       return true;
-    } catch (error) {
-      logger.error('❌ Error adding to media allow list:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Error adding to media allow list:', { error: errorMessage });
       return false;
     }
   }
@@ -182,7 +214,7 @@ class AllowListsManager {
   /**
    * Remove contact from media allow list
    */
-  async removeFromMediaAllowList(contactName) {
+  async removeFromMediaAllowList(contactName: string): Promise<boolean> {
     if (!this.repository) {
       throw new Error('Repository not initialized');
     }
@@ -191,8 +223,9 @@ class AllowListsManager {
       await this.repository.removeFromAllowList('media_allow_list', contactName);
       logger.info(`🚫 Removed ${contactName} from media allow list`);
       return true;
-    } catch (error) {
-      logger.error('❌ Error removing from media allow list:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Error removing from media allow list:', { error: errorMessage });
       return false;
     }
   }
@@ -200,15 +233,16 @@ class AllowListsManager {
   /**
    * Get all contacts in media allow list
    */
-  async getMediaAllowList() {
+  async getMediaAllowList(): Promise<string[]> {
     if (!this.repository) {
       return [];
     }
 
     try {
       return await this.repository.getAllowList('media_allow_list');
-    } catch (error) {
-      logger.error('❌ Error getting media allow list:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Error getting media allow list:', { error: errorMessage });
       return [];
     }
   }
@@ -216,7 +250,7 @@ class AllowListsManager {
   /**
    * Add contact to group creation allow list
    */
-  async addToGroupCreationAllowList(contactName) {
+  async addToGroupCreationAllowList(contactName: string): Promise<boolean> {
     if (!this.repository) {
       throw new Error('Repository not initialized');
     }
@@ -225,8 +259,9 @@ class AllowListsManager {
       await this.repository.addToAllowList('group_creation_allow_list', contactName);
       logger.info(`✅ Added ${contactName} to group creation allow list`);
       return true;
-    } catch (error) {
-      logger.error('❌ Error adding to group creation allow list:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Error adding to group creation allow list:', { error: errorMessage });
       throw error;
     }
   }
@@ -234,7 +269,7 @@ class AllowListsManager {
   /**
    * Remove contact from group creation allow list
    */
-  async removeFromGroupCreationAllowList(contactName) {
+  async removeFromGroupCreationAllowList(contactName: string): Promise<boolean> {
     if (!this.repository) {
       throw new Error('Repository not initialized');
     }
@@ -243,8 +278,9 @@ class AllowListsManager {
       await this.repository.removeFromAllowList('group_creation_allow_list', contactName);
       logger.info(`🚫 Removed ${contactName} from group creation allow list`);
       return true;
-    } catch (error) {
-      logger.error('❌ Error removing from group creation allow list:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Error removing from group creation allow list:', { error: errorMessage });
       return false;
     }
   }
@@ -252,15 +288,16 @@ class AllowListsManager {
   /**
    * Get all contacts in group creation allow list
    */
-  async getGroupCreationAllowList() {
+  async getGroupCreationAllowList(): Promise<string[]> {
     if (!this.repository) {
       return [];
     }
 
     try {
       return await this.repository.getAllowList('group_creation_allow_list');
-    } catch (error) {
-      logger.error('❌ Error getting group creation allow list:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Error getting group creation allow list:', { error: errorMessage });
       return [];
     }
   }
@@ -268,15 +305,16 @@ class AllowListsManager {
   /**
    * Check if contact is in group creation allow list
    */
-  async isInGroupCreationAllowList(contactName) {
+  async isInGroupCreationAllowList(contactName: string): Promise<boolean> {
     if (!this.repository) {
       return false;
     }
 
     try {
       return await this.repository.isInAllowList('group_creation_allow_list', contactName);
-    } catch (error) {
-      logger.error('❌ Error checking group creation allow list:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Error checking group creation allow list:', { error: errorMessage });
       return false;
     }
   }
@@ -284,23 +322,24 @@ class AllowListsManager {
   /**
    * Get database statistics
    */
-  async getDatabaseStats() {
+  async getDatabaseStats(): Promise<DatabaseStats> {
     if (!this.repository) {
       return { conversations: 0, voiceAllowList: 0, mediaAllowList: 0, groupCreationAllowList: 0 };
     }
 
     try {
       return await this.repository.getStats();
-    } catch (error) {
-      logger.error('❌ Error getting database stats:', error);
-      return { error: error.message };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Error getting database stats:', { error: errorMessage });
+      return { error: errorMessage };
     }
   }
 
   /**
    * Clear all conversations from database
    */
-  async clearAllConversations() {
+  async clearAllConversations(): Promise<number> {
     // Note: conversations table clearing is a special case, might need a direct query or a specific repository method
     // For now, assuming repository doesn't have this, or we move it to a specific Migration/Admin repo.
     // If needed, we can add deleteConversations to AllowListsRepository or a new AdminRepository.
@@ -320,4 +359,5 @@ class AllowListsManager {
   }
 }
 
-module.exports = AllowListsManager;
+export default AllowListsManager;
+

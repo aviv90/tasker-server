@@ -36,15 +36,17 @@ const AllowListsRepository = getRepository('allowListsRepository');
 const ContactsRepository = getRepository('contactsRepository');
 
 // Helper function to load services (TypeScript files compiled to dist/ with default exports)
+// Note: In production, container.js is in dist/services/, so paths are relative to that
 const getService = (path) => {
-  // In production (Heroku), files are in dist/
-  // In development, try dist/ first, then source/ (with ts-node support)
+  // In production (Heroku), container.js is in dist/services/container.js
+  // In development, container.js is in services/container.js
   const isProduction = process.env.NODE_ENV === 'production';
+  const isInDist = __dirname.includes('dist');
   
-  if (isProduction) {
-    // Production: always use dist/
+  if (isProduction || isInDist) {
+    // Production or running from dist/: use relative path from dist/services/
     try {
-      const distModule = require(`../dist/services/${path}`);
+      const distModule = require(`./${path}`);
       return distModule.default || distModule;
     } catch (e) {
       throw new Error(`Failed to load service from dist/: ${path}. Error: ${e.message}`);
@@ -57,12 +59,12 @@ const getService = (path) => {
     } catch (e) {
       // Fallback to source (ts-node will handle .ts files)
       try {
-        const sourceModule = require(`../services/${path}`);
+        const sourceModule = require(`./${path}`);
         return sourceModule.default || sourceModule;
       } catch (e2) {
         // Last resort: try without .default (for old JS files)
         try {
-          return require(`../services/${path}`);
+          return require(`./${path}`);
         } catch (e3) {
           throw new Error(`Failed to load service: ${path}. Tried dist/, source/, and direct require. Errors: ${e.message}, ${e2.message}, ${e3.message}`);
         }

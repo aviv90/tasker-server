@@ -7,12 +7,16 @@
  * 3. Executes pending migrations in order.
  */
 
-const fs = require('fs').promises;
-const path = require('path');
-const logger = require('../../utils/logger');
+import { promises as fs } from 'fs';
+import path from 'path';
+import logger from '../../utils/logger';
+import { Pool, PoolClient } from 'pg';
 
 class MigrationRunner {
-  constructor(pool) {
+  private pool: Pool;
+  private migrationsTable: string;
+
+  constructor(pool: Pool) {
     this.pool = pool;
     this.migrationsTable = 'migrations';
   }
@@ -20,7 +24,7 @@ class MigrationRunner {
   /**
    * Initialize migrations table
    */
-  async initTable(client) {
+  private async initTable(client: PoolClient): Promise<void> {
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${this.migrationsTable} (
         id SERIAL PRIMARY KEY,
@@ -33,14 +37,14 @@ class MigrationRunner {
   /**
    * Run all pending migrations
    */
-  async run() {
+  async run(): Promise<void> {
     const client = await this.pool.connect();
     try {
       await this.initTable(client);
 
       // Get list of already applied migrations
       const result = await client.query(`SELECT name FROM ${this.migrationsTable}`);
-      const appliedMigrations = new Set(result.rows.map(row => row.name));
+      const appliedMigrations = new Set(result.rows.map((row: { name: string }) => row.name));
 
       // Get all migration files
       const migrationsDir = path.join(__dirname, '..', '..', '..', 'migrations');
@@ -48,7 +52,7 @@ class MigrationRunner {
       // Check if directory exists
       try {
         await fs.access(migrationsDir);
-      } catch (error) {
+      } catch (error: unknown) {
         logger.warn('⚠️ Migrations directory not found, skipping migrations.');
         return;
       }
@@ -77,9 +81,10 @@ class MigrationRunner {
             
             logger.info(`✅ Migration completed: ${file}`);
             runCount++;
-          } catch (error) {
+          } catch (error: unknown) {
             await client.query('ROLLBACK');
-            logger.error(`❌ Migration failed: ${file}`, { error: error.message });
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            logger.error(`❌ Migration failed: ${file}`, { error: errorMessage });
             throw error; // Stop execution on failure
           }
         }
@@ -97,5 +102,5 @@ class MigrationRunner {
   }
 }
 
-module.exports = MigrationRunner;
+export default MigrationRunner;
 

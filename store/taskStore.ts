@@ -34,7 +34,12 @@ export async function set(taskId: string, data: TaskData): Promise<void> {
 
 export async function get(taskId: string): Promise<TaskData | null> {
     try {
-        return await conversationManager.getTask(taskId);
+        const result = await conversationManager.getTask(taskId);
+        // Ensure result matches TaskData interface
+        if (result === null || result === undefined) {
+            return null;
+        }
+        return result as TaskData;
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error('❌ Error getting task from taskStore:', { error: errorMessage, taskId });
