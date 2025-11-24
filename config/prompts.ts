@@ -5,7 +5,7 @@
 
 import { getPlannerTools, formatToolsCompact, getCriticalRules } from './tools-list';
 
-export const prompts = {
+const prompts = {
   /**
    * Multi-step planner prompt - instructs Gemini to analyze and plan execution
    */
@@ -325,12 +325,11 @@ Output: {"groupName":"Friends","participants":["John","Lisa","Tom"],"groupPictur
   } as Record<string, string>
 };
 
-// Backward compatibility: CommonJS export
+// Export for ES modules
 export default prompts;
 
-// Also export as CommonJS for require() compatibility
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = prompts;
-  module.exports.default = prompts;
-}
+// CommonJS compatibility - this ensures require() works correctly
+// This must come after the export default
+module.exports = prompts;
+module.exports.default = prompts;
 
