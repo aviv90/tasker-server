@@ -202,7 +202,8 @@ export const create_group = {
           )) as ImageGenerationResult;
 
           if (imageResult.success && imageResult.fileName) {
-            const imagePath = path.join(__dirname, '..', '..', '..', 'public', 'tmp', imageResult.fileName);
+            // Use process.cwd() for safe path resolution
+            const imagePath = path.join(process.cwd(), 'public', 'tmp', imageResult.fileName);
 
             if (fs.existsSync(imagePath)) {
               const imageBuffer = fs.readFileSync(imagePath);

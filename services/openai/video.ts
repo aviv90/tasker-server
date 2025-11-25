@@ -236,7 +236,8 @@ export async function generateVideoWithSoraForWhatsApp(
         
         // Save video to tmp folder
         const fileName = `sora2_video_${uuidv4()}.mp4`;
-        const filePath = path.join(__dirname, '..', '..', 'public', 'tmp', fileName);
+        // Use process.cwd() for safe path resolution
+        const filePath = path.join(process.cwd(), 'public', 'tmp', fileName);
         const tmpDir = path.dirname(filePath);
         
         if (!fs.existsSync(tmpDir)) {
@@ -403,7 +404,8 @@ export async function generateVideoWithSoraFromImageForWhatsApp(
         
         // Save video to tmp folder
         const fileName = `sora2_image_video_${uuidv4()}.mp4`;
-        const filePath = path.join(__dirname, '..', '..', 'public', 'tmp', fileName);
+        // Use process.cwd() for safe path resolution
+        const filePath = path.join(process.cwd(), 'public', 'tmp', fileName);
         const tmpDir = path.dirname(filePath);
         
         if (!fs.existsSync(tmpDir)) {

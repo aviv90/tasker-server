@@ -9,8 +9,10 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { promisify } from 'util';
 import { downloadFile } from './greenApiService';
+import ffmpegPath from 'ffmpeg-static';
 
 const execAsync = promisify(exec);
+const ffmpeg = ffmpegPath as unknown as string;
 
 /**
  * Conversion options
@@ -82,7 +84,7 @@ class AudioConverterService {
 
                 // FFmpeg command for voice note conversion
                 const ffmpegCommand = [
-                    'ffmpeg',
+                    ffmpeg,
                     '-i', inputPath,
                     '-c:a', 'libopus',
                     '-b:a', options.bitrate || '32k',
@@ -276,7 +278,7 @@ class AudioConverterService {
      */
     async checkFFmpegAvailability(): Promise<boolean> {
         try {
-            const { stderr } = await execAsync('ffmpeg -version');
+            const { stderr } = await execAsync(`${ffmpeg} -version`);
             if (stderr && typeof stderr === 'string' && stderr.includes('error')) {
                 console.error('❌ FFmpeg error:', stderr);
                 return false;

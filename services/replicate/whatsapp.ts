@@ -31,7 +31,8 @@ class ReplicateWhatsApp {
    * Download and save video for WhatsApp
    */
   async downloadAndSaveVideo(videoUrl: string, fileName: string, req: Request | null): Promise<string> {
-    const filePath = path.join(__dirname, '../..', 'public', 'tmp', fileName);
+    // Use process.cwd() for safe path resolution
+    const filePath = path.join(process.cwd(), 'public', 'tmp', fileName);
 
     const tmpDir = path.dirname(filePath);
     if (!fs.existsSync(tmpDir)) {
@@ -132,7 +133,8 @@ class ReplicateWhatsApp {
       console.log('🎬 Starting RunwayML Gen4 video-to-video generation');
 
       // Create temporary file for video processing
-      const tempDir = path.join(__dirname, '../..', 'public', 'tmp');
+      // Use process.cwd() for safe path resolution
+      const tempDir = path.join(process.cwd(), 'public', 'tmp');
       if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
       }

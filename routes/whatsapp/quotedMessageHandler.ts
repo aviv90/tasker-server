@@ -140,7 +140,8 @@ export async function handleQuotedMessage(quotedMessage: MessageData, currentPro
             fs.writeFileSync(tempFilePath, thumbnailBuffer);
             
             // Move to public/tmp for web access
-            const publicTmpDir = path.join(__dirname, '..', '..', 'public', 'tmp');
+            // Use process.cwd() for safe path resolution
+            const publicTmpDir = path.join(process.cwd(), 'public', 'tmp');
             if (!fs.existsSync(publicTmpDir)) {
               fs.mkdirSync(publicTmpDir, { recursive: true });
             }

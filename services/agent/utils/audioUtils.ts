@@ -3,8 +3,10 @@ import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import { exec } from 'child_process';
+import ffprobePath from 'ffprobe-static';
 
 const execAsync = promisify(exec);
+const ffprobe = ffprobePath.path;
 
 /**
  * Get audio duration via ffprobe
@@ -18,7 +20,7 @@ export async function getAudioDuration(audioBuffer: Buffer): Promise<number> {
 
     try {
       const { stdout } = await execAsync(
-        `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${tempFilePath}"`
+        `${ffprobe} -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${tempFilePath}"`
       );
       const duration = parseFloat(stdout.trim());
       fs.unlinkSync(tempFilePath);

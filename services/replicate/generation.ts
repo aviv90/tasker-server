@@ -203,7 +203,8 @@ class ReplicateGeneration {
     try {
       console.log('🎬 Starting video-to-video generation');
 
-      const tempDir = path.join(__dirname, '../..', 'public', 'tmp');
+      // Use process.cwd() for safe path resolution
+      const tempDir = path.join(process.cwd(), 'public', 'tmp');
       if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
       }
@@ -254,7 +255,8 @@ class ReplicateGeneration {
 
           const videoBuffer = Buffer.concat(chunks.map(chunk => Buffer.from(chunk)));
           const outputFilename = `video_${Date.now()}.mp4`;
-          const outputDir = path.join(__dirname, '../..', 'public', 'tmp');
+          // Use process.cwd() for safe path resolution
+          const outputDir = path.join(process.cwd(), 'public', 'tmp');
           const outputPath = path.join(outputDir, outputFilename);
 
           if (!fs.existsSync(outputDir)) {

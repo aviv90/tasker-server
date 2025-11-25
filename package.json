@@ -25,6 +25,8 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "express-rate-limit": "^8.2.1",
+    "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0",
     "form-data": "^4.0.4",
     "multer": "^2.0.2",
     "node-cache": "^5.1.2",

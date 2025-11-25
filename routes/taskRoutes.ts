@@ -184,7 +184,8 @@ async function finalizeTask(taskId: string, result: any, req: Request, fileExten
         }
         
         const filename = `${taskId}.${fileExtension}`;
-        const outputDir = path.join(__dirname, '..', 'public', 'tmp');
+        // Use process.cwd() for safe path resolution
+        const outputDir = path.join(process.cwd(), 'public', 'tmp');
         if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
         const outputPath = path.join(outputDir, filename);
         
@@ -219,7 +220,8 @@ async function finalizeMusic(taskId: string, result: any, prompt: string, req: R
         }
         
         const filename = `${taskId}.mp3`;
-        const outputDir = path.join(__dirname, '..', 'public', 'tmp');
+        // Use process.cwd() for safe path resolution
+        const outputDir = path.join(process.cwd(), 'public', 'tmp');
         if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
         const outputPath = path.join(outputDir, filename);
         

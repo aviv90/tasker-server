@@ -7,7 +7,8 @@ import fs from 'fs';
 import path from 'path';
 import logger from '../../utils/logger';
 
-const STATIC_DIR = path.join(__dirname, '../..', 'public', 'tmp');
+// Use process.cwd() for safe path resolution
+const STATIC_DIR = path.join(process.cwd(), 'public', 'tmp');
 
 /**
  * Resolve local static file path from download URL

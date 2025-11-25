@@ -115,7 +115,8 @@ class VeoGeneration {
    */
   async downloadVideoFile(videoFile: unknown, fileNamePrefix = 'temp'): Promise<DownloadResult> {
     const tempFileName = `${fileNamePrefix}_video_${uuidv4()}.mp4`;
-    const tempFilePath = path.join(__dirname, '../../..', 'public', 'tmp', tempFileName);
+    // Use process.cwd() for safe path resolution
+    const tempFilePath = path.join(process.cwd(), 'public', 'tmp', tempFileName);
     const tmpDir = path.dirname(tempFilePath);
 
     if (!fs.existsSync(tmpDir)) {

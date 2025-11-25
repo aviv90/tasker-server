@@ -164,7 +164,8 @@ export class MusicCallbacks {
             
             // Save to temp file
             const tempFileName = `temp_music_${uuidv4()}.mp3`;
-            const tempFilePath = path.join(__dirname, '..', '..', 'public', 'tmp', tempFileName);
+            // Use process.cwd() for safe path resolution
+            const tempFilePath = path.join(process.cwd(), 'public', 'tmp', tempFileName);
             const tmpDir = path.dirname(tempFilePath);
 
             if (!fs.existsSync(tmpDir)) {

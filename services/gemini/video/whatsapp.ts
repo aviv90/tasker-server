@@ -9,8 +9,10 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { TIME } from '../../../utils/constants';
 import { Request } from 'express';
+import ffmpegPath from 'ffmpeg-static';
 
 const execAsync = promisify(exec);
+const ffmpeg = ffmpegPath as unknown as string;
 const veoClient = new genai.GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
 });
@@ -161,7 +163,8 @@ class WhatsAppVideoGeneration {
    */
   async downloadVideoFile(videoFile: unknown, fileNamePrefix = 'veo3'): Promise<DownloadResult> {
     const fileName = `${fileNamePrefix}_video_${uuidv4()}.mp4`;
-    const filePath = path.join(__dirname, '../../..', 'public', 'tmp', fileName);
+    // Use process.cwd() for safe path resolution
+    const filePath = path.join(process.cwd(), 'public', 'tmp', fileName);
     const tmpDir = path.dirname(filePath);
 
     if (!fs.existsSync(tmpDir)) {
@@ -229,10 +232,11 @@ class WhatsAppVideoGeneration {
   async convertVideoForWhatsApp(filePath: string, fileName: string, _req: Request | null): Promise<ConvertResult> {
     console.log('🎬 Converting video to WhatsApp-compatible format...');
     const convertedFileName = fileName.replace('.mp4', '_converted.mp4');
-    const convertedFilePath = path.join(__dirname, '../../..', 'public', 'tmp', convertedFileName);
+    // Use process.cwd() for safe path resolution
+    const convertedFilePath = path.join(process.cwd(), 'public', 'tmp', convertedFileName);
 
     try {
-      await execAsync(`ffmpeg -i "${filePath}" -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -movflags +faststart "${convertedFilePath}" -y`);
+      await execAsync(`${ffmpeg} -i "${filePath}" -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -movflags +faststart "${convertedFilePath}" -y`);
       console.log('✅ Video converted successfully');
       
       // Delete original file

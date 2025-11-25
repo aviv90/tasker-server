@@ -33,7 +33,7 @@ export interface FileVerifyResult {
  * @returns Path to the temporary directory
  */
 export function getTempDir(): string {
-  return path.join(__dirname, '..', 'public', 'tmp');
+  return path.join(process.cwd(), 'public', 'tmp');
 }
 
 /**

@@ -394,7 +394,8 @@ class SpeechService {
             }
 
             const filename = `temp_speech_${uuidv4()}.${format.toLowerCase()}`;
-            const tempDir = path.join(__dirname, '..', 'public', 'tmp');
+            // Use process.cwd() for safe path resolution
+            const tempDir = path.join(process.cwd(), 'public', 'tmp');
             const filePath = path.join(tempDir, filename);
 
             // Ensure temp directory exists
