@@ -2,14 +2,25 @@
  * Kie Service Download Logic
  */
 
-const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
-const { createTempFilePath, verifyFileWritten } = require('../../utils/tempFileUtils');
+import fs from 'fs';
+import { v4 as uuidv4 } from 'uuid';
+import { createTempFilePath, verifyFileWritten } from '../../utils/tempFileUtils';
+import { TIME } from '../../utils/constants';
+import path from 'path';
+
+/**
+ * Download result
+ */
+interface DownloadResult {
+  videoBuffer?: Buffer;
+  result?: string;
+  error?: string;
+}
 
 /**
  * Download video from URL and save to temp file
  */
-async function downloadVideoFile(videoUrl, model) {
+export async function downloadVideoFile(videoUrl: string, model: string): Promise<DownloadResult> {
   console.log(`✅ Kie.ai ${model} video generation completed! Downloading...`);
 
   const tempFileName = `temp_video_${uuidv4()}.mp4`;
@@ -25,7 +36,6 @@ async function downloadVideoFile(videoUrl, model) {
     fs.writeFileSync(tempFilePath, videoBuffer);
 
     // Verify file was written correctly
-    const { TIME } = require('../../utils/constants');
     const verifyResult = await verifyFileWritten(tempFilePath, TIME.FILE_VERIFY_TIMEOUT, TIME.FILE_VERIFY_RETRIES);
 
     if (!verifyResult.success) {
@@ -34,7 +44,7 @@ async function downloadVideoFile(videoUrl, model) {
     }
 
     const finalVideoBuffer = fs.readFileSync(tempFilePath);
-    const filename = require('path').basename(tempFilePath);
+    const filename = path.basename(tempFilePath);
     const publicPath = `/static/${filename}`;
 
     return {
@@ -42,13 +52,10 @@ async function downloadVideoFile(videoUrl, model) {
       result: publicPath
     };
 
-  } catch (downloadError) {
+  } catch (downloadError: unknown) {
+    const errorMessage = downloadError instanceof Error ? downloadError.message : String(downloadError);
     console.error(`❌ Kie.ai ${model} video download failed:`, downloadError);
-    return { error: `Video download failed: ${downloadError.message}` };
+    return { error: `Video download failed: ${errorMessage}` };
   }
 }
-
-module.exports = {
-  downloadVideoFile
-};
 

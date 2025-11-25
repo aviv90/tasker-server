@@ -2,16 +2,26 @@
  * Kie Service Text-to-Video Generation
  */
 
-const { sanitizeText } = require('../../utils/textSanitizer');
-const KieServiceBase = require('./base');
-const { pollVideoGeneration, extractVideoUrls } = require('./polling');
-const { downloadVideoFile } = require('./download');
+import { sanitizeText } from '../../utils/textSanitizer';
+import { KieServiceBase } from './base';
+import { pollVideoGeneration, extractVideoUrls } from './polling';
+import { downloadVideoFile } from './download';
+
+/**
+ * Text-to-video result
+ */
+interface TextToVideoResult {
+  text?: string;
+  videoBuffer?: Buffer;
+  result?: string;
+  error?: string;
+}
 
 class TextToVideoService extends KieServiceBase {
   /**
    * Generate video from text prompt
    */
-  async generateVideoWithText(prompt, model = 'veo3') {
+  async generateVideoWithText(prompt: string, model = 'veo3'): Promise<TextToVideoResult> {
     try {
       console.log(`🎬 Starting Kie.ai ${model} text-to-video generation`);
 
@@ -28,14 +38,24 @@ class TextToVideoService extends KieServiceBase {
         })
       });
 
-      const generateData = await generateResponse.json();
+      const generateData = await generateResponse.json() as {
+        code?: number;
+        msg?: string;
+        data?: {
+          taskId?: string;
+        };
+      };
 
       if (!generateResponse.ok || generateData.code !== 200) {
         console.error(`❌ Kie.ai ${model} task submission failed:`, generateData.msg);
         return { error: generateData.msg || 'Task submission failed' };
       }
 
-      const taskId = generateData.data.taskId;
+      const taskId = generateData.data?.taskId;
+      if (!taskId) {
+        return { error: 'No task ID received' };
+      }
+
       console.log(`✅ Kie.ai ${model} task submitted successfully. Task ID: ${taskId}`);
 
       // Step 2: Poll for completion
@@ -46,14 +66,21 @@ class TextToVideoService extends KieServiceBase {
       }
 
       // Step 3: Extract video URLs
-      const responseData = pollResult.status.response;
+      const responseData = pollResult.status?.response;
+      if (!responseData) {
+        return { error: 'No response data in poll result' };
+      }
+
       const urlResult = extractVideoUrls(responseData, model);
 
       if (urlResult.error) {
         return { error: urlResult.error };
       }
 
-      const videoUrl = urlResult.videoUrls[0];
+      const videoUrl = urlResult.videoUrls?.[0];
+      if (!videoUrl) {
+        return { error: 'No video URL found' };
+      }
 
       // Step 4: Download the video
       const downloadResult = await downloadVideoFile(videoUrl, model);
@@ -70,12 +97,13 @@ class TextToVideoService extends KieServiceBase {
         result: downloadResult.result
       };
 
-    } catch (err) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       console.error(`❌ Kie.ai ${model} text-to-video generation error:`, err);
-      return { error: err.message || 'Unknown error' };
+      return { error: errorMessage };
     }
   }
 }
 
-module.exports = TextToVideoService;
+export default TextToVideoService;
 

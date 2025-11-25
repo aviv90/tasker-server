@@ -5,19 +5,41 @@
  * Extracted from openaiService.js (Phase 5.3)
  */
 
-const OpenAI = require('openai');
+import OpenAI from 'openai';
+import { detectLanguage } from '../../utils/agentHelpers';
+import prompts from '../../config/prompts';
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
 /**
- * Generate text response using OpenAI Chat API with conversation history
- * @param {string} prompt - User's input text
- * @param {Array} conversationHistory - Previous messages in conversation
- * @returns {Promise<{text: string, usage: object}>}
+ * Message in conversation history
  */
-async function generateTextResponse(prompt, conversationHistory = []) {
+interface ConversationMessage {
+    role: 'system' | 'user' | 'assistant';
+    content: string;
+}
+
+/**
+ * Text generation result
+ */
+interface TextGenerationResult {
+    text: string;
+    usage: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        total_tokens?: number;
+    } | null;
+}
+
+/**
+ * Generate text response using OpenAI Chat API with conversation history
+ */
+export async function generateTextResponse(
+    prompt: string,
+    conversationHistory: ConversationMessage[] = []
+): Promise<TextGenerationResult> {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
     
@@ -26,15 +48,13 @@ async function generateTextResponse(prompt, conversationHistory = []) {
     }
 
     // Detect user's language to ensure response matches input language
-    const { detectLanguage } = require('../../utils/agentHelpers');
-    const prompts = require('../../config/prompts');
     const detectedLang = detectLanguage(prompt);
     
     // Build language-specific system prompt (SSOT - from config/prompts.js)
     const systemContent = prompts.openaiSystemInstruction(detectedLang);
 
     // Build messages array - OPTIMIZED
-    const messages = [
+    const messages: ConversationMessage[] = [
       {
         role: 'system',
         content: systemContent
@@ -62,19 +82,24 @@ async function generateTextResponse(prompt, conversationHistory = []) {
       temperature: 0.7
     });
 
-    const aiResponse = response.choices[0].message.content;
+    const aiResponse = response.choices[0]?.message?.content;
     const usage = response.usage;
+
+    if (!aiResponse) {
+      throw new Error('No response from OpenAI');
+    }
 
     console.log('✅ OpenAI Chat response received');
     console.log('💰 Tokens used:', usage);
 
     return {
       text: aiResponse,
-      usage: usage
+      usage: usage || null
     };
 
-  } catch (error) {
-    console.error('❌ Error generating OpenAI response:', error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('❌ Error generating OpenAI response:', errorMessage);
     
     // Emergency response
     return {
@@ -83,8 +108,4 @@ async function generateTextResponse(prompt, conversationHistory = []) {
     };
   }
 }
-
-module.exports = {
-    generateTextResponse
-};
 

@@ -5,28 +5,56 @@
  * Extracted from openaiService.js (Phase 5.3)
  */
 
-const OpenAI = require('openai');
-const { sanitizeText } = require('../../utils/textSanitizer');
-const { getStaticFileUrl } = require('../../utils/urlUtils');
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const sharp = require('sharp');
+import OpenAI from 'openai';
+import { sanitizeText } from '../../utils/textSanitizer';
+import { getStaticFileUrl } from '../../utils/urlUtils';
+import fs from 'fs';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import sharp from 'sharp';
+import { TIME } from '../../utils/constants';
+import { Request } from 'express';
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
 /**
- * Generate video using Sora 2 from text prompt (returns buffer)
- * @param {string} prompt - Video description
- * @param {Object} options - Video generation options:
- *   - model: 'sora-2' (default) or 'sora-2-pro'
- *   - size: '1280x720' (landscape, default), '720x1280' (portrait), '1920x1080', '1080x1920', etc.
- *   - seconds: 4, 8 (default), or 12
- * @returns {Promise<{text: string, videoBuffer: Buffer}|{error: string}>}
+ * Video generation options
  */
-async function generateVideoWithSora(prompt, options = {}) {
+interface VideoGenerationOptions {
+    model?: 'sora-2' | 'sora-2-pro';
+    size?: string;
+    seconds?: number;
+}
+
+/**
+ * Video generation result (buffer)
+ */
+interface VideoGenerationResult {
+    text?: string;
+    videoBuffer?: Buffer;
+    error?: string;
+}
+
+/**
+ * WhatsApp video result
+ */
+interface WhatsAppVideoResult {
+    success: boolean;
+    videoUrl?: string;
+    description?: string;
+    fileName?: string;
+    error?: string;
+}
+
+/**
+ * Generate video using Sora 2 from text prompt (returns buffer)
+ */
+export async function generateVideoWithSora(
+    prompt: string,
+    options: VideoGenerationOptions = {}
+): Promise<VideoGenerationResult> {
     try {
         console.log('🎬 Starting Sora 2 video generation');
         
@@ -51,11 +79,12 @@ async function generateVideoWithSora(prompt, options = {}) {
         }
         
         // Create video generation job using SDK
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const video = await openai.videos.create({
             model: model,
             prompt: cleanPrompt,
-            size: size,
-            seconds: validSeconds.toString()
+            size: size as any,
+            seconds: validSeconds.toString() as any
         });
         
         const jobId = video.id;
@@ -63,7 +92,6 @@ async function generateVideoWithSora(prompt, options = {}) {
         
         // Poll for completion
         console.log('⏳ Waiting for video generation to complete...');
-        const { TIME } = require('../../utils/constants');
         const maxWaitTime = TIME.VIDEO_GENERATION_TIMEOUT;
         const startTime = Date.now();
         let pollAttempts = 0;
@@ -107,23 +135,21 @@ async function generateVideoWithSora(prompt, options = {}) {
             text: cleanPrompt, 
             videoBuffer: videoBuffer 
         };
-    } catch (err) {
-        console.error('❌ Sora 2 video generation error:', err);
+    } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.error('❌ Sora 2 video generation error:', errorMessage);
         throw err;
     }
 }
 
 /**
  * Generate video using Sora 2 for WhatsApp (with URL)
- * @param {string} prompt - Video description
- * @param {Object} req - Express request object (for URL generation)
- * @param {Object} options - Video generation options:
- *   - model: 'sora-2' (default) or 'sora-2-pro'
- *   - size: '1280x720' (landscape, default), '720x1280' (portrait), '1920x1080', '1080x1920', etc.
- *   - seconds: 4, 8 (default), or 12
- * @returns {Promise<{success: boolean, videoUrl?: string, description?: string, fileName?: string, error?: string}>}
  */
-async function generateVideoWithSoraForWhatsApp(prompt, req = null, options = {}) {
+export async function generateVideoWithSoraForWhatsApp(
+    prompt: string,
+    req: Request | null = null,
+    options: VideoGenerationOptions = {}
+): Promise<WhatsAppVideoResult> {
     try {
         console.log('🎬 Starting Sora 2 video generation for WhatsApp');
         
@@ -148,11 +174,12 @@ async function generateVideoWithSoraForWhatsApp(prompt, req = null, options = {}
         }
         
         // Create video generation job using SDK
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const video = await openai.videos.create({
             model: model,
             prompt: cleanPrompt,
-            size: size,
-            seconds: validSeconds.toString()
+            size: size as any,
+            seconds: validSeconds.toString() as any
         });
         
         const jobId = video.id;
@@ -160,7 +187,6 @@ async function generateVideoWithSoraForWhatsApp(prompt, req = null, options = {}
         
         // Poll for completion
         console.log('⏳ Waiting for video generation to complete...');
-        const { TIME } = require('../../utils/constants');
         const maxWaitTime = TIME.VIDEO_GENERATION_TIMEOUT;
         const startTime = Date.now();
         let pollAttempts = 0;
@@ -232,11 +258,12 @@ async function generateVideoWithSoraForWhatsApp(prompt, req = null, options = {}
             description: cleanPrompt,
             fileName: fileName
         };
-    } catch (err) {
-        console.error('❌ Sora 2 video generation error:', err);
+    } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during video generation';
+        console.error('❌ Sora 2 video generation error:', errorMessage);
         return { 
             success: false, 
-            error: err.message || 'Unknown error occurred during video generation' 
+            error: errorMessage
         };
     }
 }
@@ -244,14 +271,12 @@ async function generateVideoWithSoraForWhatsApp(prompt, req = null, options = {}
 /**
  * Generate video from image using Sora 2 / Sora 2 Pro
  * Uses input_reference parameter to animate a static image
- * @param {string} prompt - Video description
- * @param {Buffer} imageBuffer - Original image buffer
- * @param {Object} options - Video generation options:
- *   - model: 'sora-2' (default) or 'sora-2-pro'
- *   - seconds: 4, 8 (default), or 12
- * @returns {Promise<{success: boolean, videoUrl?: string, description?: string, fileName?: string, error?: string}>}
  */
-async function generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, options = {}) {
+export async function generateVideoWithSoraFromImageForWhatsApp(
+    prompt: string,
+    imageBuffer: Buffer,
+    options: VideoGenerationOptions = {}
+): Promise<WhatsAppVideoResult> {
     try {
         console.log('🎬 Starting Sora 2 image-to-video generation for WhatsApp');
         
@@ -281,7 +306,8 @@ async function generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, op
         // Sora 2 supported sizes: 720x1280 (portrait), 1280x720 (landscape), 1024x1792 (portrait), 1792x1024 (landscape)
         // ALWAYS prefer portrait format to avoid cropping important elements
         // If original is landscape, we'll resize to 720x1280 (portrait) to avoid cropping
-        let targetWidth, targetHeight;
+        let targetWidth: number;
+        let targetHeight: number;
         
         // Use portrait format (720x1280) for all images to maximize detail preservation
         // This is safer than landscape because:
@@ -314,20 +340,20 @@ async function generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, op
         
         // Create video generation job with input_reference
         console.log('🎬 Creating Sora video with input_reference...');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const video = await openai.videos.create({
             model: model,
             prompt: cleanPrompt,
-            size: targetSize, // MUST match resized image dimensions
-            seconds: validSeconds.toString(),
+            size: targetSize as any, // MUST match resized image dimensions
+            seconds: validSeconds.toString() as any,
             input_reference: imageFile // Pass the File object directly
-        });
+        } as any);
         
         const jobId = video.id;
         console.log(`📋 Job created: ${jobId}, Status: ${video.status}`);
         
         // Poll for completion
         console.log('⏳ Waiting for video generation to complete...');
-        const { TIME } = require('../../utils/constants');
         const maxWaitTime = TIME.VIDEO_GENERATION_TIMEOUT;
         const startTime = Date.now();
         let pollAttempts = 0;
@@ -387,7 +413,7 @@ async function generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, op
         fs.writeFileSync(filePath, videoBuffer);
         
         // Create public URL
-        const publicVideoUrl = getStaticFileUrl(fileName);
+        const publicVideoUrl = getStaticFileUrl(fileName, null);
         
         console.log('✅ Sora 2 image-to-video generated successfully');
         console.log(`🎬 Video saved to: ${filePath}`);
@@ -399,18 +425,13 @@ async function generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, op
             description: cleanPrompt,
             fileName: fileName
         };
-    } catch (err) {
-        console.error('❌ Sora 2 image-to-video error:', err);
+    } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during image-to-video generation';
+        console.error('❌ Sora 2 image-to-video error:', errorMessage);
         return { 
             success: false, 
-            error: err.message || 'Unknown error occurred during image-to-video generation' 
+            error: errorMessage
         };
     }
 }
-
-module.exports = {
-    generateVideoWithSora,
-    generateVideoWithSoraForWhatsApp,
-    generateVideoWithSoraFromImageForWhatsApp
-};
 

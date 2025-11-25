@@ -2,20 +2,30 @@
  * Kie Service Image-to-Video Generation
  */
 
-const { sanitizeText } = require('../../utils/textSanitizer');
-const { getStaticFileUrl } = require('../../utils/urlUtils');
-const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
-const KieServiceBase = require('./base');
-const { pollVideoGeneration, extractVideoUrls } = require('./polling');
-const { downloadVideoFile } = require('./download');
-const { createTempFilePath, cleanupTempFile } = require('../../utils/tempFileUtils');
+import { sanitizeText } from '../../utils/textSanitizer';
+import { getStaticFileUrl } from '../../utils/urlUtils';
+import fs from 'fs';
+import { v4 as uuidv4 } from 'uuid';
+import { KieServiceBase } from './base';
+import { pollVideoGeneration, extractVideoUrls } from './polling';
+import { downloadVideoFile } from './download';
+import { createTempFilePath, cleanupTempFile } from '../../utils/tempFileUtils';
+
+/**
+ * Image-to-video result
+ */
+interface ImageToVideoResult {
+  text?: string;
+  videoBuffer?: Buffer;
+  result?: string;
+  error?: string;
+}
 
 class ImageToVideoService extends KieServiceBase {
   /**
    * Generate video from image and text prompt
    */
-  async generateVideoWithImage(prompt, imageBuffer, model = 'veo3') {
+  async generateVideoWithImage(prompt: string, imageBuffer: Buffer, model = 'veo3'): Promise<ImageToVideoResult> {
     try {
       console.log(`🎬 Starting Kie.ai ${model} image-to-video generation`);
 
@@ -27,7 +37,7 @@ class ImageToVideoService extends KieServiceBase {
       fs.writeFileSync(tempImagePath, imageBuffer);
 
       // Create public URL for the image
-      const imageUrl = getStaticFileUrl(`tmp/${tempImageName}`);
+      const imageUrl = getStaticFileUrl(`tmp/${tempImageName}`, null);
 
       // Step 2: Submit video generation task with image
       const generateResponse = await fetch(`${this.baseUrl}/api/v1/veo/generate`, {
@@ -41,7 +51,13 @@ class ImageToVideoService extends KieServiceBase {
         })
       });
 
-      const generateData = await generateResponse.json();
+      const generateData = await generateResponse.json() as {
+        code?: number;
+        msg?: string;
+        data?: {
+          taskId?: string;
+        };
+      };
 
       if (!generateResponse.ok || generateData.code !== 200) {
         console.error(`❌ Kie.ai ${model} image-to-video task submission failed:`, generateData.msg);
@@ -50,7 +66,12 @@ class ImageToVideoService extends KieServiceBase {
         return { error: generateData.msg || 'Task submission failed' };
       }
 
-      const taskId = generateData.data.taskId;
+      const taskId = generateData.data?.taskId;
+      if (!taskId) {
+        cleanupTempFile(tempImagePath);
+        return { error: 'No task ID received' };
+      }
+
       console.log(`✅ Kie.ai ${model} image-to-video task submitted successfully. Task ID: ${taskId}`);
 
       // Step 3: Poll for completion
@@ -63,7 +84,12 @@ class ImageToVideoService extends KieServiceBase {
       }
 
       // Step 4: Extract video URLs
-      const responseData = pollResult.status.response;
+      const responseData = pollResult.status?.response;
+      if (!responseData) {
+        cleanupTempFile(tempImagePath);
+        return { error: 'No response data in poll result' };
+      }
+
       const urlResult = extractVideoUrls(responseData, model);
 
       if (urlResult.error) {
@@ -72,7 +98,11 @@ class ImageToVideoService extends KieServiceBase {
         return { error: urlResult.error };
       }
 
-      const videoUrl = urlResult.videoUrls[0];
+      const videoUrl = urlResult.videoUrls?.[0];
+      if (!videoUrl) {
+        cleanupTempFile(tempImagePath);
+        return { error: 'No video URL found' };
+      }
 
       // Step 5: Download and process video
       const downloadResult = await downloadVideoFile(videoUrl, model);
@@ -92,12 +122,13 @@ class ImageToVideoService extends KieServiceBase {
         result: downloadResult.result
       };
 
-    } catch (err) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       console.error(`❌ Kie.ai ${model} image-to-video generation error:`, err);
-      return { error: err.message || 'Unknown error' };
+      return { error: errorMessage };
     }
   }
 }
 
-module.exports = ImageToVideoService;
+export default ImageToVideoService;
 

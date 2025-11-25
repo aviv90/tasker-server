@@ -6,27 +6,27 @@
  */
 
 // Import image functions
-const {
+import {
     generateImageWithText,
     editImageWithText,
     generateImageForWhatsApp,
     editImageForWhatsApp
-} = require('./image');
+} from './image';
 
 // Import text functions
-const {
+import {
     generateTextResponse
-} = require('./text');
+} from './text';
 
 // Import video functions
-const {
+import {
     generateVideoWithSora,
     generateVideoWithSoraForWhatsApp,
     generateVideoWithSoraFromImageForWhatsApp
-} = require('./video');
+} from './video';
 
 // Re-export all functions (maintains backward compatibility)
-module.exports = {
+export {
     // Image functions
     generateImageWithText,
     editImageWithText,
