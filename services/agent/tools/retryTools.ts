@@ -4,31 +4,39 @@
  */
 
 // Handle default export from TypeScript
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const conversationManagerModule = require('../../conversationManager');
 const conversationManager = conversationManagerModule.default || conversationManagerModule;
-const { getServices } = require('../utils/serviceLoader');
+import { getServices } from '../utils/serviceLoader';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { getToolAckMessage } = require('../utils/ackUtils');
-const { extractQuotedMessageId } = require('../../../utils/messageHelpers');
-const logger = require('../../../utils/logger');
+import { extractQuotedMessageId } from '../../../utils/messageHelpers';
+import logger from '../../../utils/logger';
 
 // Reference to agentTools (will be injected)
-let agentTools = null;
+let agentTools: Record<string, { execute: (args: unknown, context: unknown) => Promise<unknown> }> | null = null;
 
 /**
  * Set agent tools reference (needed for retry)
- * @param {Object} tools - Agent tools object
+ * @param tools - Agent tools object
  */
-function setAgentToolsReference(tools) {
+export function setAgentToolsReference(tools: Record<string, { execute: (args: unknown, context: unknown) => Promise<unknown> }>): void {
   agentTools = tools;
 }
 
 /**
  * Send specific ACK message for retry based on tool and provider
- * @param {string} chatId - Chat ID
- * @param {string} tool - Tool name being retried
- * @param {string} provider - Provider to use (optional)
+ * @param chatId - Chat ID
+ * @param tool - Tool name being retried
+ * @param provider - Provider to use (optional)
+ * @param quotedMessageId - Quoted message ID (optional)
  */
-async function sendRetryAck(chatId, tool, provider, quotedMessageId = null) {
+async function sendRetryAck(
+  chatId: string,
+  tool: string,
+  provider: string | null | undefined,
+  quotedMessageId: string | null = null
+): Promise<void> {
   try {
     // Skip ACK for location (no ACK needed)
     if (tool === 'send_location') {
@@ -36,18 +44,100 @@ async function sendRetryAck(chatId, tool, provider, quotedMessageId = null) {
     }
     
     // Use centralized ACK message function (SSOT - Single Source of Truth)
-    const ackMessage = getToolAckMessage(tool, provider);
+    const ackMessage = getToolAckMessage(tool, provider || undefined);
     
     if (ackMessage) {
       logger.debug(`📢 [RETRY ACK] ${ackMessage}`);
       const { greenApiService } = getServices();
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { TIME } = require('../../../utils/constants');
-      await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId, TIME.TYPING_INDICATOR);
+      await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId || undefined, TIME.TYPING_INDICATOR);
     }
   } catch (error) {
-    logger.error('❌ Error sending retry ACK:', { error: error.message, stack: error.stack });
+    const err = error as Error;
+    logger.error('❌ Error sending retry ACK:', { error: err.message, stack: err.stack });
     // Don't throw - ACK failure shouldn't break retry
   }
+}
+
+interface RetryArgs {
+  provider_override?: string;
+  modifications?: string;
+  step_numbers?: number[];
+  step_tools?: string[];
+}
+
+interface ToolContext {
+  chatId?: string;
+  originalInput?: {
+    originalMessageId?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+interface LastCommand {
+  tool: string;
+  toolArgs?: {
+    prompt?: string;
+    text?: string;
+    provider?: string;
+    service?: string;
+    edit_instruction?: string;
+    image_url?: string;
+    topic?: string;
+    target_language?: string;
+    language?: string;
+    [key: string]: unknown;
+  };
+  args?: {
+    prompt?: string;
+    text?: string;
+    provider?: string;
+    service?: string;
+    edit_instruction?: string;
+    image_url?: string;
+    topic?: string;
+    target_language?: string;
+    language?: string;
+    [key: string]: unknown;
+  };
+  isMultiStep?: boolean;
+  plan?: {
+    steps: Array<{
+      tool?: string;
+      action?: string;
+      parameters?: {
+        provider?: string;
+        service?: string;
+        [key: string]: unknown;
+      };
+      [key: string]: unknown;
+    }>;
+    [key: string]: unknown;
+  };
+  prompt?: string;
+  result?: {
+    translation?: string;
+    translatedText?: string;
+    prompt?: string;
+    provider?: string;
+    service?: string;
+    imageUrl?: string;
+    target_language?: string;
+    language?: string;
+    originalText?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+interface ToolResult {
+  success: boolean;
+  data?: string;
+  error?: string;
+  lastTool?: string;
+  lastArgs?: Record<string, unknown>;
 }
 
 /**
@@ -90,7 +180,7 @@ const retry_last_command = {
       required: []
     }
   },
-  execute: async (args, context) => {
+  execute: async (args: RetryArgs = {}, context: ToolContext = {}): Promise<ToolResult> => {
     logger.debug(`🔧 [Agent Tool] retry_last_command called with provider: ${args.provider_override || 'none'}`);
     
     if (!agentTools) {
@@ -101,8 +191,16 @@ const retry_last_command = {
     }
     
     try {
+      const chatId = context.chatId;
+      if (!chatId) {
+        return {
+          success: false,
+          error: 'לא נמצא chatId לביצוע retry'
+        };
+      }
+
       // Get last command from DB (persistent)
-      const lastCommand = await conversationManager.getLastCommand(context.chatId);
+      const lastCommand = (await conversationManager.getLastCommand(chatId)) as LastCommand | null;
       
       if (!lastCommand) {
         return {
@@ -128,7 +226,15 @@ const retry_last_command = {
       // For multi-step, plan and isMultiStep are at top level of lastCommand
       if (tool === 'multi_step' || lastCommand.isMultiStep === true || storedWrapper.isMultiStep === true) {
         // Multi-step retry: re-execute steps from the plan
-        const plan = lastCommand.plan || storedWrapper.plan;
+        const plan = (lastCommand.plan || storedWrapper.plan) as {
+          steps?: Array<{
+            tool?: string;
+            action?: string;
+            parameters?: Record<string, unknown>;
+            [key: string]: unknown;
+          }>;
+          [key: string]: unknown;
+        } | undefined;
         if (!plan || !plan.steps || !Array.isArray(plan.steps) || plan.steps.length === 0) {
           logger.error('❌ [Retry] Plan validation failed:', {
             hasPlan: !!plan,
@@ -144,22 +250,23 @@ const retry_last_command = {
           };
         }
         
-        logger.info(`🔄 [Retry] Found multi-step plan with ${plan.steps.length} steps:`, 
-          plan.steps.map((s, idx) => `${idx + 1}. ${s.tool || s.action || 'unknown'}`).join(', '));
+        const planSteps = plan.steps;
+        logger.info(`🔄 [Retry] Found multi-step plan with ${planSteps.length} steps:`, 
+          planSteps.map((s, idx) => `${idx + 1}. ${s.tool || s.action || 'unknown'}`).join(', '));
         
         // Check if user requested specific steps to retry
         const stepNumbers = args.step_numbers || null;
         const stepTools = args.step_tools || null;
         
         // Filter steps if specific steps were requested
-        let stepsToRetry = plan.steps;
+        let stepsToRetry = planSteps;
         if (stepNumbers && Array.isArray(stepNumbers) && stepNumbers.length > 0) {
           // Retry specific step numbers (1-based)
-          stepsToRetry = plan.steps.filter((step, idx) => stepNumbers.includes(idx + 1));
-          logger.debug(`🔄 [Retry] Filtering by step numbers ${stepNumbers.join(', ')}: ${stepsToRetry.length} of ${plan.steps.length} steps`);
+          stepsToRetry = planSteps.filter((_step, idx) => stepNumbers.includes(idx + 1));
+          logger.debug(`🔄 [Retry] Filtering by step numbers ${stepNumbers.join(', ')}: ${stepsToRetry.length} of ${planSteps.length} steps`);
         } else if (stepTools && Array.isArray(stepTools) && stepTools.length > 0) {
           // Retry steps with specific tools
-          stepsToRetry = plan.steps.filter(step => {
+          stepsToRetry = planSteps.filter(step => {
             const stepTool = step.tool || '';
             return stepTools.some(requestedTool => 
               stepTool.includes(requestedTool) || 
@@ -167,40 +274,52 @@ const retry_last_command = {
               stepTool === requestedTool
             );
           });
-          logger.debug(`🔄 [Retry] Filtering by step tools ${stepTools.join(', ')}: ${stepsToRetry.length} of ${plan.steps.length} steps`);
+          logger.debug(`🔄 [Retry] Filtering by step tools ${stepTools.join(', ')}: ${stepsToRetry.length} of ${planSteps.length} steps`);
         } else {
           // Retry all steps (no filtering)
-          logger.debug(`🔄 [Retry] Retrying all ${plan.steps.length} steps (no filter specified)`);
+          logger.debug(`🔄 [Retry] Retrying all ${planSteps.length} steps (no filter specified)`);
         }
         
         // Validate that we have steps to retry
         if (!stepsToRetry || !Array.isArray(stepsToRetry) || stepsToRetry.length === 0) {
           logger.error('❌ [Retry] No steps to retry after filtering:', {
-            originalStepsCount: plan.steps.length,
+            originalStepsCount: planSteps.length,
             stepNumbers,
             stepTools,
             filteredStepsCount: stepsToRetry ? stepsToRetry.length : 0
           });
           return {
             success: false,
-            error: `לא נמצאו שלבים תואמים. השלבים הזמינים: ${plan.steps.map((s, idx) => `${idx + 1}. ${s.tool || s.action?.substring(0, 30) || 'unknown'}`).join(', ')}`
+            error: `לא נמצאו שלבים תואמים. השלבים הזמינים: ${planSteps.map((s: { tool?: string; action?: string }, idx: number) => `${idx + 1}. ${s.tool || (typeof s.action === 'string' ? s.action.substring(0, 30) : 'unknown') || 'unknown'}`).join(', ')}`
           };
         }
         
         // Create a new plan with only the steps to retry
-        const filteredPlan = {
+        const filteredPlan: {
+          steps: Array<{
+            tool?: string;
+            action?: string;
+            parameters?: Record<string, unknown>;
+            stepNumber?: number;
+            [key: string]: unknown;
+          }>;
+          [key: string]: unknown;
+        } = {
           ...plan,
-          steps: stepsToRetry.map((step, idx) => ({
+          steps: stepsToRetry.map((step, idx: number) => ({
             ...step,
             stepNumber: idx + 1 // Renumber steps starting from 1
           }))
         };
         
-        logger.info(`🔄 Retrying multi-step command: ${filteredPlan.steps.length} of ${plan.steps.length} steps`);
+        logger.info(`🔄 Retrying multi-step command: ${filteredPlan.steps.length} of ${planSteps.length} steps`);
         
         // Get multi-step execution handler
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const multiStepExecution = require('../execution/multiStep');
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { getLanguageInstruction } = require('../utils/languageUtils');
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { detectLanguage } = require('../../../utils/agentHelpers');
         
         // Detect language from original prompt
@@ -221,8 +340,11 @@ const retry_last_command = {
         if (args.modifications && args.modifications.trim()) {
           // Modify the first step's action to include modifications
           if (filteredPlan.steps && filteredPlan.steps.length > 0) {
-            filteredPlan.steps[0].action = `${filteredPlan.steps[0].action} ${args.modifications}`;
-            logger.debug(`📝 Applied modifications to multi-step plan: ${args.modifications}`);
+            const firstStep = filteredPlan.steps[0];
+            if (firstStep) {
+              firstStep.action = `${firstStep.action || ''} ${args.modifications}`;
+              logger.debug(`📝 Applied modifications to multi-step plan: ${args.modifications}`);
+            }
           }
         }
         
@@ -256,11 +378,11 @@ const retry_last_command = {
         
         let ackMessage = '';
         if (stepNumbers && stepNumbers.length > 0) {
-          ackMessage = `🔄 חוזר על שלבים ${stepNumbers.join(', ')} מתוך ${plan.steps.length} שלבים...`;
+          ackMessage = `🔄 חוזר על שלבים ${stepNumbers.join(', ')} מתוך ${planSteps.length} שלבים...`;
         } else if (stepTools && stepTools.length > 0) {
           const toolNames = stepTools.map(t => {
             // Translate tool names to Hebrew for user-friendly display
-            const toolTranslations = {
+            const toolTranslations: Record<string, string> = {
               'create_poll': 'סקר',
               'send_location': 'מיקום',
               'create_image': 'תמונה',
@@ -275,37 +397,37 @@ const retry_last_command = {
         }
         
         await greenApiService.sendTextMessage(
-          context.chatId,
+          chatId,
           ackMessage,
-          quotedMessageId,
+          quotedMessageId || undefined,
           1000
         );
         
         // Re-execute the filtered multi-step plan (only selected steps)
         const result = await multiStepExecution.execute(
           filteredPlan,
-          context.chatId,
+          chatId,
           {
             input: {
               ...context.originalInput,
-              originalMessageId: quotedMessageId
+              originalMessageId: quotedMessageId || undefined
             }
           },
           languageInstruction,
           agentConfig
         );
         
-        return result;
+        return result as ToolResult;
       }
       
       // Single-step command handling
       // storedWrapper is already toolArgs (from commandSaver), or args (backward compatibility)
       // result is stored at top level of lastCommand, not inside toolArgs
-      const originalArgs = storedWrapper || {};
-      const storedResult = lastCommand.result || storedWrapper?.result || {};
+      const originalArgs = storedWrapper as Record<string, unknown>;
+      const storedResult = (lastCommand.result || storedWrapper?.result || {}) as Record<string, unknown>;
       
       // Build modified prompt if needed
-      let modifiedPrompt = originalArgs.prompt || originalArgs.text || storedResult.translation || storedResult.translatedText || '';
+      let modifiedPrompt = (originalArgs.prompt || originalArgs.text || storedResult.translation || storedResult.translatedText || '') as string;
       if (args.modifications && args.modifications.trim()) {
         modifiedPrompt = modifiedPrompt
           ? `${modifiedPrompt} ${args.modifications}`
@@ -316,15 +438,15 @@ const retry_last_command = {
       // Determine provider override
       // CRITICAL: For manual retry, use the SAME provider as the original command
       // Only change provider if user explicitly specified provider_override
-      let provider = args.provider_override;
+      let provider: string | null = args.provider_override || null;
       if (provider === 'none' || !provider) {
         // Keep original provider from the saved command
         // Try multiple sources to find the original provider
-        provider = originalArgs.provider || 
+        provider = (originalArgs.provider || 
                    originalArgs.service || 
                    storedResult.provider ||
                    storedResult.service ||
-                   null; // Don't use default - keep null if not found
+                   null) as string | null; // Don't use default - keep null if not found
         
         // If we still don't have a provider, try to infer from tool name
         if (!provider) {
@@ -338,13 +460,13 @@ const retry_last_command = {
       }
       
       // Send specific ACK based on the tool and provider being retried
-      const quotedMessageId = extractQuotedMessageId({ context });
-      await sendRetryAck(context.chatId, tool, provider, quotedMessageId);
+      const quotedMessageIdForAck = extractQuotedMessageId({ context });
+      await sendRetryAck(chatId, tool, provider, quotedMessageIdForAck || null);
       
       // Route to appropriate tool based on last command
       if (tool === 'gemini_image' || tool === 'openai_image' || tool === 'grok_image' || tool === 'create_image') {
         // Image generation retry
-        const promptToUse = modifiedPrompt || originalArgs.prompt || originalArgs.text || storedResult.prompt || '';
+        const promptToUse = modifiedPrompt || (originalArgs.prompt || originalArgs.text || storedResult.prompt || '') as string;
         if (!promptToUse) {
           return {
             success: false,
@@ -365,11 +487,14 @@ const retry_last_command = {
         }
         
         logger.debug(`🎨 Retrying image generation with:`, imageArgs);
-        return await agentTools.create_image.execute(imageArgs, context);
+        if (!agentTools.create_image) {
+          return { success: false, error: 'כלי יצירת תמונה לא זמין' };
+        }
+        return await agentTools.create_image.execute(imageArgs, context) as ToolResult;
         
       } else if (tool === 'veo3_video' || tool === 'sora_video' || tool === 'kling_text_to_video' || tool === 'create_video') {
         // Video generation retry
-        const promptToUse = modifiedPrompt || originalArgs.prompt || originalArgs.text || storedResult.prompt || '';
+        const promptToUse = modifiedPrompt || (originalArgs.prompt || originalArgs.text || storedResult.prompt || '') as string;
         if (!promptToUse) {
           return {
             success: false,
@@ -390,12 +515,15 @@ const retry_last_command = {
         }
         
         logger.debug(`🎬 Retrying video generation with:`, videoArgs);
-        return await agentTools.create_video.execute(videoArgs, context);
+        if (!agentTools.create_video) {
+          return { success: false, error: 'כלי יצירת וידאו לא זמין' };
+        }
+        return await agentTools.create_video.execute(videoArgs, context) as ToolResult;
         
       } else if (tool === 'edit_image') {
         // Image editing retry
-        const editInstruction = modifiedPrompt || originalArgs.edit_instruction || originalArgs.prompt || '';
-        const imageUrl = originalArgs.image_url || storedResult.imageUrl;
+        const editInstruction = modifiedPrompt || (originalArgs.edit_instruction || originalArgs.prompt || '') as string;
+        const imageUrl = (originalArgs.image_url || storedResult.imageUrl || '') as string;
         
         if (!editInstruction || !imageUrl) {
           return {
@@ -407,7 +535,7 @@ const retry_last_command = {
         const editArgs = {
           image_url: imageUrl,
           edit_instruction: editInstruction,
-          service: provider || originalArgs.service || 'openai' // Only use default if provider truly not found
+          service: provider || (originalArgs.service || 'openai') as string // Only use default if provider truly not found
         };
         
         // Log provider being used for debugging
@@ -418,7 +546,10 @@ const retry_last_command = {
         }
         
         logger.debug(`✏️ Retrying image edit with:`, editArgs);
-        return await agentTools.edit_image.execute(editArgs, context);
+        if (!agentTools.edit_image) {
+          return { success: false, error: 'כלי עריכת תמונה לא זמין' };
+        }
+        return await agentTools.edit_image.execute(editArgs, context) as ToolResult;
         
       } else if (tool === 'gemini_chat' || tool === 'openai_chat' || tool === 'grok_chat') {
         // Chat retry
@@ -437,42 +568,48 @@ const retry_last_command = {
         }
         
         return {
-          success: !result.error,
-          data: result.text || result.error,
-          error: result.error
+          success: !(result as { error?: string }).error,
+          data: ((result as { text?: string; error?: string }).text || (result as { error?: string }).error) as string,
+          error: (result as { error?: string }).error
         };
         
       } else if (tool === 'text_to_speech') {
         // TTS retry
-        const textToSpeak = modifiedPrompt || originalArgs.text || storedResult.translation || storedResult.translatedText;
+        const textToSpeak = modifiedPrompt || (originalArgs.text || storedResult.translation || storedResult.translatedText || '') as string;
         if (!textToSpeak) {
           return {
             success: false,
             error: 'לא הצלחתי לשחזר את הטקסט להמרה לדיבור.'
           };
         }
+        if (!agentTools.text_to_speech) {
+          return { success: false, error: 'כלי TTS לא זמין' };
+        }
         return await agentTools.text_to_speech.execute({
           text: textToSpeak,
-          target_language: originalArgs.target_language || originalArgs.language || 'he'
-        }, context);
+          target_language: (originalArgs.target_language || originalArgs.language || 'he') as string
+        }, context) as ToolResult;
         
       } else if (tool === 'music_generation' || tool === 'create_music') {
         // Music retry
-        const promptToUse = modifiedPrompt || originalArgs.prompt || storedResult.prompt || originalArgs.text || '';
+        const promptToUse = modifiedPrompt || (originalArgs.prompt || storedResult.prompt || originalArgs.text || '') as string;
         if (!promptToUse) {
           return {
             success: false,
             error: 'לא הצלחתי לשחזר את הפרומפט ליצירת המוזיקה.'
           };
         }
+        if (!agentTools.create_music) {
+          return { success: false, error: 'כלי יצירת מוזיקה לא זמין' };
+        }
         return await agentTools.create_music.execute({
           prompt: promptToUse
-        }, context);
+        }, context) as ToolResult;
         
       } else if (tool === 'translate_text') {
         const translationArgs = {
-          text: originalArgs.text || storedResult.originalText || originalArgs.prompt || '',
-          target_language: originalArgs.target_language || originalArgs.language || storedResult.target_language || storedResult.language || 'he'
+          text: (originalArgs.text || storedResult.originalText || originalArgs.prompt || '') as string,
+          target_language: (originalArgs.target_language || originalArgs.language || storedResult.target_language || storedResult.language || 'he') as string
         };
         
         if (!translationArgs.text || !translationArgs.target_language) {
@@ -481,21 +618,26 @@ const retry_last_command = {
             error: 'לא הצלחתי לאחזר את הטקסט או את שפת היעד של הפקודה הקודמת.'
           };
         }
-        
-        return await agentTools.translate_text.execute(translationArgs, context);
+        if (!agentTools.translate_text) {
+          return { success: false, error: 'כלי תרגום לא זמין' };
+        }
+        return await agentTools.translate_text.execute(translationArgs, context) as ToolResult;
         
       } else if (tool === 'create_poll') {
         // Poll retry
-        const topicToUse = modifiedPrompt || originalArgs.topic || originalArgs.prompt || '';
+        const topicToUse = modifiedPrompt || (originalArgs.topic || originalArgs.prompt || '') as string;
         if (!topicToUse) {
           return {
             success: false,
             error: 'לא הצלחתי לשחזר את נושא הסקר הקודם.'
           };
         }
+        if (!agentTools.create_poll) {
+          return { success: false, error: 'כלי יצירת סקר לא זמין' };
+        }
         return await agentTools.create_poll.execute({
           topic: topicToUse
-        }, context);
+        }, context) as ToolResult;
         
       } else {
         // Generic retry - just return info about what was done
@@ -508,10 +650,11 @@ const retry_last_command = {
       }
       
     } catch (error) {
-      logger.error('❌ Error in retry_last_command:', { error: error.message, stack: error.stack });
+      const err = error as Error;
+      logger.error('❌ Error in retry_last_command:', { error: err.message, stack: err.stack });
       return {
         success: false,
-        error: `שגיאה בביצוע חוזר: ${error.message}`
+        error: `שגיאה בביצוע חוזר: ${err.message}`
       };
     }
   }
@@ -521,4 +664,3 @@ module.exports = {
   retry_last_command,
   setAgentToolsReference
 };
-

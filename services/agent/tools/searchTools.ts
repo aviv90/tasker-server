@@ -3,12 +3,32 @@
  * Clean, modular tool definitions following SOLID principles
  */
 
-const { getServices } = require('../utils/serviceLoader');
+import { getServices } from '../utils/serviceLoader';
+
+type AgentToolContext = {
+  chatId?: string;
+  originalInput?: {
+    language?: string;
+  };
+  normalized?: {
+    language?: string;
+  };
+};
+
+type SearchWebArgs = {
+  query?: string;
+};
+
+type ToolResult = Promise<{
+  success: boolean;
+  data?: string;
+  error?: string;
+}>;
 
 /**
  * Tool: Search Web
  */
-const search_web = {
+export const search_web = {
   declaration: {
     name: 'search_web',
     description: `חפש מידע או לינקים באינטרנט באמצעות Google Search. 
@@ -35,47 +55,57 @@ const search_web = {
       properties: {
         query: {
           type: 'string',
-          description: 'שאילתת החיפוש (לדוגמה: "שיר של אריאל זילבר", "BBC news Israel", "Tel Aviv weather forecast")',
+          description:
+            'שאילתת החיפוש (לדוגמה: "שיר של אריאל זילבר", "BBC news Israel", "Tel Aviv weather forecast")'
         }
       },
       required: ['query']
     }
   },
-  execute: async (args, context) => {
+  execute: async (args: SearchWebArgs = {}, context: AgentToolContext = {}): ToolResult => {
     console.log(`🔧 [Agent Tool] search_web called with query: ${args.query}`);
-    
-    try {
-      // Determine language from context
-      const language = context?.originalInput?.language || context?.normalized?.language || 'he';
-      const isHebrew = language === 'he' || language === 'Hebrew';
-      const langInstruction = isHebrew ? 'בעברית' : `in ${language === 'en' ? 'English' : language}`;
 
-      // Use Gemini with Google Search
+    try {
+      if (!args.query) {
+        return {
+          success: false,
+          error: 'חובה לציין שאילתת חיפוש'
+        };
+      }
+
+      const language = context?.originalInput?.language || context?.normalized?.language || 'he';
+      const normalizedLanguage = typeof language === 'string' ? language.toLowerCase() : 'he';
+      const isHebrew = normalizedLanguage === 'he' || normalizedLanguage === 'hebrew';
+      const langInstruction =
+        isHebrew || !language
+          ? 'בעברית'
+          : `in ${normalizedLanguage === 'en' ? 'English' : language}`;
+
       const { geminiService } = getServices();
-      const result = await geminiService.generateTextResponse(args.query, [], {
+      const result = (await geminiService.generateTextResponse(args.query, [], {
         useGoogleSearch: true,
         systemInstruction: `You are a helpful search assistant. Search for "${args.query}" and answer ${langInstruction}. Provide relevant links if found.`
-      });
-      
+      })) as { text: string; error?: string };
+
       if (result.error) {
         return {
           success: false,
           error: result.error
         };
       }
-      
-      // Ensure links are included in the response
-      console.log(`✅ [search_web] Got result (${result.text.length} chars)`);
-      
+
+      console.log(`✅ [search_web] Got result (${result.text?.length || 0} chars)`);
+
       return {
         success: true,
         data: result.text
       };
     } catch (error) {
-      console.error('❌ Error in search_web tool:', error);
+      const err = error as Error;
+      console.error('❌ Error in search_web tool:', err);
       return {
         success: false,
-        error: `שגיאה בחיפוש: ${error.message}`
+        error: `שגיאה בחיפוש: ${err.message}`
       };
     }
   }

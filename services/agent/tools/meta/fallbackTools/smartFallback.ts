@@ -4,10 +4,64 @@
  * Executes tasks with intelligent fallback strategies when initial attempts fail.
  */
 
-const { getServices } = require('../../../../utils/serviceLoader');
-const { VIDEO_PROVIDER_FALLBACK_ORDER } = require('../../../../config/constants');
-const { simplifyPrompt, makePromptMoreGeneric } = require('../../../../utils/promptUtils');
-const helpers = require('./helpers');
+import { getServices } from '../../../utils/serviceLoader';
+import { VIDEO_PROVIDER_FALLBACK_ORDER } from '../../../config/constants';
+import { simplifyPrompt, makePromptMoreGeneric } from '../../../utils/promptUtils';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const helpersModule = require('./helpers');
+const helpers = helpersModule.default || helpersModule;
+
+type TaskType = 'image_creation' | 'video_creation' | 'audio_creation';
+type Provider = 'gemini' | 'openai' | 'grok';
+
+interface SmartFallbackArgs {
+  task_type: TaskType;
+  original_prompt: string;
+  failure_reason: string;
+  provider_tried?: Provider;
+  providers_tried?: string[];
+}
+
+interface AgentToolContext {
+  chatId?: string;
+  expectedMediaType?: string | null;
+  [key: string]: unknown;
+}
+
+interface ImageResult {
+  textOnly?: boolean;
+  error?: string;
+  description?: string;
+  revisedPrompt?: string;
+  imageUrl?: string;
+}
+
+interface VideoResult {
+  error?: string;
+  videoUrl?: string;
+  url?: string;
+}
+
+interface AudioResult {
+  error?: string;
+  url?: string;
+}
+
+interface ToolResult {
+  success: boolean;
+  data?: string;
+  error?: string;
+  strategy_used?: string;
+  provider?: string;
+  imageUrl?: string;
+  imageCaption?: string;
+  caption?: string;
+  videoUrl?: string;
+  audioUrl?: string;
+  original_prompt?: string;
+  simplified_prompt?: string;
+  generic_prompt?: string;
+}
 
 const smartExecuteWithFallback = {
   declaration: {
@@ -38,7 +92,7 @@ const smartExecuteWithFallback = {
       required: ['task_type', 'original_prompt', 'failure_reason']
     }
   },
-  execute: async (args, context) => {
+  execute: async (args: SmartFallbackArgs, context: AgentToolContext = {}): Promise<ToolResult> => {
     console.log(`🧠 [Agent Tool] smart_execute_with_fallback called for ${args.task_type}`);
 
     try {
@@ -58,58 +112,62 @@ const smartExecuteWithFallback = {
         console.log(`   → Attempting with ${provider}...`);
 
         try {
-          let result;
-
           if (args.task_type === 'image_creation') {
             // Image generation with different providers
+            let imageResult: ImageResult | undefined;
             if (provider === 'openai') {
-              result = await openaiService.generateImageForWhatsApp(args.original_prompt);
+              imageResult = (await openaiService.generateImageForWhatsApp(args.original_prompt, null)) as ImageResult;
             } else if (provider === 'grok') {
-              result = await grokService.generateImageForWhatsApp(args.original_prompt);
+              imageResult = (await grokService.generateImageForWhatsApp(args.original_prompt)) as ImageResult;
             } else {
-              result = await geminiService.generateImageForWhatsApp(args.original_prompt);
+              imageResult = (await geminiService.generateImageForWhatsApp(args.original_prompt)) as ImageResult;
             }
 
             // Handle text-only response (no image but text returned)
-            if (result.textOnly) {
+            if (imageResult?.textOnly) {
               return {
                 success: true,
-                data: result.description || '',
+                data: imageResult.description || '',
                 strategy_used: 'different_provider',
                 provider: provider
               };
             }
 
-            if (!result.error) {
+            if (imageResult && !imageResult.error) {
               return {
                 success: true,
                 data: `✅ הצלחתי עם ${helpers.formatProviderName(provider)}!`,
-                imageUrl: result.imageUrl,
-                imageCaption: result.description || result.revisedPrompt || '',
+                imageUrl: imageResult.imageUrl,
+                imageCaption: imageResult.description || imageResult.revisedPrompt || '',
                 strategy_used: 'different_provider',
                 provider: provider
               };
             }
           } else if (args.task_type === 'video_creation') {
             // Video generation with different providers
-            const replicateService = require('../../../../replicateService');
-            const videoProviderLabelMap = {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const replicateServiceModule = require('../../../../replicateService');
+            const replicateService = replicateServiceModule.default || replicateServiceModule;
+            const videoProviderLabelMap: Record<string, string> = {
               gemini: 'veo3',
               openai: 'sora',
               grok: 'kling'
             };
 
+            let videoResult: VideoResult | undefined;
             if (provider === 'gemini') {
-              result = await geminiService.generateVideoForWhatsApp(args.original_prompt);
+              videoResult = (await geminiService.generateVideoForWhatsApp(args.original_prompt)) as VideoResult;
             } else if (provider === 'openai') {
-              result = await openaiService.generateVideoWithSoraForWhatsApp(args.original_prompt, null, { model: 'sora-2' });
-            } else if (provider === 'grok') {
-              result = await replicateService.generateVideoWithTextForWhatsApp(args.original_prompt);
+              videoResult = (await openaiService.generateVideoWithSoraForWhatsApp(
+                args.original_prompt,
+                null,
+                { model: 'sora-2' }
+              )) as VideoResult;
             } else {
-              result = await replicateService.generateVideoWithTextForWhatsApp(args.original_prompt);
+              videoResult = (await replicateService.generateVideoWithTextForWhatsApp(args.original_prompt)) as VideoResult;
             }
 
-            if (!result.error) {
+            if (videoResult && !videoResult.error) {
               if (args.task_type === 'video_creation') {
                 context.expectedMediaType = null;
               }
@@ -117,28 +175,31 @@ const smartExecuteWithFallback = {
               return {
                 success: true,
                 data: `✅ הצלחתי ליצור וידאו עם ${helpers.formatProviderName(providerLabel)}! (אסטרטגיה: מודל חלופי)`,
-                videoUrl: result.videoUrl || result.url,
+                videoUrl: videoResult.videoUrl || videoResult.url,
                 strategy_used: 'different_provider',
                 provider: providerLabel
               };
             }
           } else if (args.task_type === 'audio_creation') {
             // Audio/TTS - only one main provider (ElevenLabs)
-            const voiceService = require('../../../../voiceService');
-            result = await voiceService.textToSpeechForBot(args.original_prompt);
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const voiceServiceModule = require('../../../../voiceService');
+            const voiceService = voiceServiceModule.default || voiceServiceModule;
+            const audioResult = (await voiceService.textToSpeechForBot(args.original_prompt)) as AudioResult;
 
-            if (!result.error) {
+            if (audioResult && !audioResult.error) {
               return {
                 success: true,
                 data: `✅ הצלחתי ליצור אודיו! (אסטרטגיה: הגדרות משופרות)`,
-                audioUrl: result.url,
+                audioUrl: audioResult.url,
                 strategy_used: 'improved_settings',
                 provider: 'elevenlabs'
               };
             }
           }
         } catch (e) {
-          console.log(`   ✗ ${provider} failed: ${e.message}`);
+          const error = e as Error;
+          console.log(`   ✗ ${provider} failed: ${error.message}`);
         }
       }
 
@@ -146,61 +207,64 @@ const smartExecuteWithFallback = {
       console.log(`📊 Strategy 2: Simplifying prompt...`);
       const simplifiedPrompt = simplifyPrompt(args.original_prompt);
 
-      if (simplifiedPrompt !== args.original_prompt) {
+      if (simplifiedPrompt && simplifiedPrompt !== args.original_prompt) {
         console.log(`   → Original: "${args.original_prompt}"`);
         console.log(`   → Simplified: "${simplifiedPrompt}"`);
 
         try {
-          let result;
-
           if (args.task_type === 'image_creation') {
-            result = await geminiService.generateImageForWhatsApp(simplifiedPrompt);
+            const imageResult = (await geminiService.generateImageForWhatsApp(simplifiedPrompt)) as ImageResult;
 
-            if (!result.error) {
+            if (imageResult && !imageResult.error) {
               return {
                 success: true,
                 data: `✅ הצלחתי עם פרומפט פשוט יותר! (אסטרטגיה: פישוט)`,
-                imageUrl: result.imageUrl,
-                caption: result.description || '',
+                imageUrl: imageResult.imageUrl,
+                caption: imageResult.description || '',
                 strategy_used: 'simplified_prompt',
                 original_prompt: args.original_prompt,
-                simplified_prompt: simplifiedPrompt
+                simplified_prompt: simplifiedPrompt || undefined
               };
             }
           } else if (args.task_type === 'video_creation') {
-            const replicateService = require('../../../../replicateService');
-            result = await replicateService.generateVideoWithTextForWhatsApp(simplifiedPrompt);
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const replicateServiceModule = require('../../../../replicateService');
+            const replicateService = replicateServiceModule.default || replicateServiceModule;
+            const videoResult = (await replicateService.generateVideoWithTextForWhatsApp(simplifiedPrompt || '')) as VideoResult;
 
-            if (!result.error) {
+            if (videoResult && !videoResult.error) {
               if (args.task_type === 'video_creation') {
                 context.expectedMediaType = null;
               }
               return {
                 success: true,
                 data: `✅ הצלחתי ליצור וידאו עם פרומפט פשוט יותר! (אסטרטגיה: פישוט)`,
-                videoUrl: result.videoUrl || result.url,
+                videoUrl: videoResult.videoUrl || videoResult.url,
                 strategy_used: 'simplified_prompt',
                 original_prompt: args.original_prompt,
                 simplified_prompt: simplifiedPrompt
               };
             }
           } else if (args.task_type === 'audio_creation') {
-            const voiceService = require('../../../../voiceService');
-            result = await voiceService.textToSpeechForBot(simplifiedPrompt);
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const voiceServiceModule = require('../../../../voiceService');
+            const voiceService = voiceServiceModule.default || voiceServiceModule;
+            const audioResult = (await voiceService.textToSpeechForBot(simplifiedPrompt || '')) as AudioResult;
 
-            if (!result.error) {
+            if (audioResult && !audioResult.error) {
               return {
                 success: true,
                 data: `✅ הצלחתי ליצור אודיו עם טקסט פשוט יותר! (אסטרטגיה: פישוט)`,
-                audioUrl: result.url,
+                audioUrl: audioResult.url,
                 strategy_used: 'simplified_prompt',
                 original_prompt: args.original_prompt,
-                simplified_prompt: simplifiedPrompt
+                simplified_prompt: simplifiedPrompt || undefined
               };
             }
           }
         } catch (e) {
-          console.log(`   ✗ Simplified prompt failed: ${e.message}`);
+          const error = e as Error;
+          console.log(`   ✗ Simplified prompt failed: ${error.message}`);
         }
       }
 
@@ -209,60 +273,63 @@ const smartExecuteWithFallback = {
       try {
         const genericPrompt = makePromptMoreGeneric(args.original_prompt);
 
-        if (genericPrompt !== args.original_prompt) {
+        if (genericPrompt && genericPrompt !== args.original_prompt) {
           console.log(`   → Generic version: "${genericPrompt}"`);
 
-          let result;
-
           if (args.task_type === 'image_creation') {
-            result = await openaiService.generateImageForWhatsApp(genericPrompt);
+            const imageResult = (await openaiService.generateImageForWhatsApp(genericPrompt, null)) as ImageResult;
 
-            if (!result.error) {
+            if (imageResult && !imageResult.error) {
               return {
                 success: true,
                 data: `✅ הצלחתי עם גרסה כללית יותר! (אסטרטגיה: הכללה)`,
-                imageUrl: result.imageUrl,
-                caption: result.description || '',
+                imageUrl: imageResult.imageUrl,
+                caption: imageResult.description || '',
                 strategy_used: 'generic_prompt',
                 original_prompt: args.original_prompt,
-                generic_prompt: genericPrompt
+                generic_prompt: genericPrompt || undefined
               };
             }
           } else if (args.task_type === 'video_creation') {
-            const replicateService = require('../../../../replicateService');
-            result = await replicateService.generateVideoWithTextForWhatsApp(genericPrompt);
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const replicateServiceModule = require('../../../../replicateService');
+            const replicateService = replicateServiceModule.default || replicateServiceModule;
+            const videoResult = (await replicateService.generateVideoWithTextForWhatsApp(genericPrompt || '')) as VideoResult;
 
-            if (!result.error) {
+            if (videoResult && !videoResult.error) {
               if (args.task_type === 'video_creation') {
                 context.expectedMediaType = null;
               }
               return {
                 success: true,
                 data: `✅ הצלחתי ליצור וידאו עם גרסה כללית יותר! (אסטרטגיה: הכללה)`,
-                videoUrl: result.videoUrl || result.url,
+                videoUrl: videoResult.videoUrl || videoResult.url,
                 strategy_used: 'generic_prompt',
                 original_prompt: args.original_prompt,
-                generic_prompt: genericPrompt
+                generic_prompt: genericPrompt || undefined
               };
             }
           } else if (args.task_type === 'audio_creation') {
-            const voiceService = require('../../../../voiceService');
-            result = await voiceService.textToSpeechForBot(genericPrompt);
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const voiceServiceModule = require('../../../../voiceService');
+            const voiceService = voiceServiceModule.default || voiceServiceModule;
+            const audioResult = (await voiceService.textToSpeechForBot(genericPrompt || '')) as AudioResult;
 
-            if (!result.error) {
+            if (audioResult && !audioResult.error) {
               return {
                 success: true,
                 data: `✅ הצלחתי ליצור אודיו עם טקסט כללי יותר! (אסטרטגיה: הכללה)`,
-                audioUrl: result.url,
+                audioUrl: audioResult.url,
                 strategy_used: 'generic_prompt',
                 original_prompt: args.original_prompt,
-                generic_prompt: genericPrompt
+                generic_prompt: genericPrompt || undefined
               };
             }
           }
         }
       } catch (e) {
-        console.log(`   ✗ Generic prompt failed: ${e.message}`);
+        const error = e as Error;
+        console.log(`   ✗ Generic prompt failed: ${error.message}`);
       }
 
       // All strategies failed
@@ -274,16 +341,15 @@ const smartExecuteWithFallback = {
         success: false,
         error: `${failureBase}${additionalHint}`
       };
-
     } catch (error) {
-      console.error('❌ Error in smart_execute_with_fallback:', error);
+      const err = error as Error;
+      console.error('❌ Error in smart_execute_with_fallback:', err);
       return {
         success: false,
-        error: `שגיאה במנגנון החכם: ${error.message}`
+        error: `שגיאה במנגנון החכם: ${err.message}`
       };
     }
   }
 };
 
 module.exports = smartExecuteWithFallback;
-
