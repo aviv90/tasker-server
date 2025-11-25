@@ -1,15 +1,27 @@
-const Replicate = require('replicate');
-const fs = require('fs');
-const path = require('path');
-const axios = require('axios');
-const { v4: uuidv4 } = require('uuid');
-const MODELS = require('./models');
-const helpers = require('./helpers');
-const { getStaticFileUrl } = require('../../utils/urlUtils');
+import Replicate from 'replicate';
+import fs from 'fs';
+import path from 'path';
+import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
+import { MODELS } from './models';
+import helpers from './helpers';
+import { getStaticFileUrl } from '../../utils/urlUtils';
+import { Request } from 'express';
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_KEY,
 });
+
+/**
+ * WhatsApp video generation result
+ */
+interface WhatsAppVideoResult {
+  success: boolean;
+  videoUrl?: string;
+  description?: string;
+  fileName?: string;
+  error?: string;
+}
 
 /**
  * Replicate WhatsApp-specific video generation operations
@@ -18,7 +30,7 @@ class ReplicateWhatsApp {
   /**
    * Download and save video for WhatsApp
    */
-  async downloadAndSaveVideo(videoUrl, fileName, req) {
+  async downloadAndSaveVideo(videoUrl: string, fileName: string, req: Request | null): Promise<string> {
     const filePath = path.join(__dirname, '../..', 'public', 'tmp', fileName);
 
     const tmpDir = path.dirname(filePath);
@@ -46,7 +58,7 @@ class ReplicateWhatsApp {
   /**
    * Generate video from image for WhatsApp
    */
-  async generateVideoFromImageForWhatsApp(imageBuffer, prompt, req = null) {
+  async generateVideoFromImageForWhatsApp(imageBuffer: Buffer, prompt: string, req: Request | null = null): Promise<WhatsAppVideoResult> {
     try {
       console.log('🎬 Starting Kling v2.1 Master image-to-video generation');
 
@@ -87,7 +99,7 @@ class ReplicateWhatsApp {
 
       console.log('✅ Kling v2.1 Master image-to-video generation completed');
 
-      const videoURL = helpers.extractVideoUrl(pollResult.result.output);
+      const videoURL = helpers.extractVideoUrl(pollResult.result?.output);
 
       const videoId = uuidv4();
       const fileName = `kling_image_video_${videoId}.mp4`;
@@ -102,11 +114,12 @@ class ReplicateWhatsApp {
         fileName: fileName
       };
 
-    } catch (err) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during image-to-video generation';
       console.error('❌ Kling v2.1 Master image-to-video generation error:', err);
       return {
         success: false,
-        error: err.message || 'Unknown error occurred during image-to-video generation'
+        error: errorMessage
       };
     }
   }
@@ -114,7 +127,7 @@ class ReplicateWhatsApp {
   /**
    * Generate video from video for WhatsApp
    */
-  async generateVideoFromVideoForWhatsApp(videoBuffer, prompt, req = null) {
+  async generateVideoFromVideoForWhatsApp(videoBuffer: Buffer, prompt: string, req: Request | null = null): Promise<WhatsAppVideoResult> {
     try {
       console.log('🎬 Starting RunwayML Gen4 video-to-video generation');
 
@@ -137,13 +150,15 @@ class ReplicateWhatsApp {
       };
 
       console.log('🔄 Calling RunwayML Gen4 API');
-      const output = await replicate.run(MODELS.VIDEO_TO_VIDEO, { input });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const output = await replicate.run(MODELS.VIDEO_TO_VIDEO, { input }) as any;
 
       // Clean up temp file
       try {
         fs.unlinkSync(tempVideoPath);
-      } catch (cleanupError) {
-        console.warn('Could not clean up temp file:', cleanupError.message);
+      } catch (cleanupError: unknown) {
+        const errorMessage = cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
+        console.warn('Could not clean up temp file:', errorMessage);
       }
 
       if (!output) {
@@ -154,23 +169,25 @@ class ReplicateWhatsApp {
       }
 
       // Handle different response types
-      let videoURL = null;
+      let videoURL: string | null = null;
 
       // Handle ReadableStream response
       if (output && typeof output.getReader === 'function') {
         console.log('🔄 Converting ReadableStream to file');
 
         const reader = output.getReader();
-        const chunks = [];
+        const chunks: Uint8Array[] = [];
 
         try {
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            chunks.push(value);
+            if (value) {
+              chunks.push(value);
+            }
           }
 
-          const processedVideoBuffer = Buffer.concat(chunks);
+          const processedVideoBuffer = Buffer.concat(chunks.map(chunk => Buffer.from(chunk)));
           const outputFilename = `runway_video_${Date.now()}.mp4`;
           const outputPath = path.join(tempDir, outputFilename);
 
@@ -180,10 +197,11 @@ class ReplicateWhatsApp {
 
           console.log('✅ RunwayML Gen4 video-to-video completed');
 
-        } catch (streamError) {
+        } catch (streamError: unknown) {
+          const errorMessage = streamError instanceof Error ? streamError.message : String(streamError);
           return {
             success: false,
-            error: `Failed to read video stream: ${streamError.message}`
+            error: `Failed to read video stream: ${errorMessage}`
           };
         }
       } else {
@@ -200,9 +218,12 @@ class ReplicateWhatsApp {
       }
 
       // If URL is external, download and save it
-      if (videoURL.startsWith('http') && !videoURL.includes(req?.get('host'))) {
-        const fileName = `runway_video_${Date.now()}.mp4`;
-        videoURL = await this.downloadAndSaveVideo(videoURL, fileName, req);
+      if (videoURL.startsWith('http') && req) {
+        const host = req.get('host') || '';
+        if (!videoURL.includes(host)) {
+          const fileName = `runway_video_${Date.now()}.mp4`;
+          videoURL = await this.downloadAndSaveVideo(videoURL, fileName, req);
+        }
       }
 
       return {
@@ -212,11 +233,12 @@ class ReplicateWhatsApp {
         fileName: `runway_video_${Date.now()}.mp4`
       };
 
-    } catch (err) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during video-to-video generation';
       console.error('❌ RunwayML Gen4 video-to-video generation error:', err);
       return {
         success: false,
-        error: err.message || 'Unknown error occurred during video-to-video generation'
+        error: errorMessage
       };
     }
   }
@@ -224,7 +246,7 @@ class ReplicateWhatsApp {
   /**
    * Generate video from text for WhatsApp
    */
-  async generateVideoWithTextForWhatsApp(prompt, req = null) {
+  async generateVideoWithTextForWhatsApp(prompt: string, _req: Request | null = null): Promise<WhatsAppVideoResult> {
     try {
       console.log('🎬 Starting Kling v2.1 Master text-to-video generation');
 
@@ -262,7 +284,7 @@ class ReplicateWhatsApp {
 
       console.log('✅ Kling text-to-video completed');
 
-      const videoURL = helpers.extractVideoUrl(pollResult.result.output);
+      const videoURL = helpers.extractVideoUrl(pollResult.result?.output);
 
       return {
         success: true,
@@ -271,15 +293,16 @@ class ReplicateWhatsApp {
         fileName: `kling_video_${Date.now()}.mp4`
       };
 
-    } catch (err) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during text-to-video generation';
       console.error('❌ Kling text-to-video generation error:', err);
       return {
         success: false,
-        error: err.message || 'Unknown error occurred during text-to-video generation'
+        error: errorMessage
       };
     }
   }
 }
 
-module.exports = new ReplicateWhatsApp();
+export default new ReplicateWhatsApp();
 

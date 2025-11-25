@@ -1,12 +1,38 @@
-const Replicate = require('replicate');
-const fs = require('fs');
-const path = require('path');
-const MODELS = require('./models');
-const helpers = require('./helpers');
+import Replicate from 'replicate';
+import fs from 'fs';
+import path from 'path';
+import { MODELS } from './models';
+import helpers from './helpers';
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_KEY,
 });
+
+/**
+ * Input parameters for video generation
+ */
+interface InputParams {
+  prompt?: string;
+  image?: string;
+  start_image?: string;
+  duration?: number;
+  aspect_ratio?: string;
+  width?: number;
+  height?: number;
+  negative_prompt?: string;
+  video?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Video generation result
+ */
+interface VideoGenerationResult {
+  text?: string;
+  result?: string;
+  cost?: string;
+  error?: string;
+}
 
 /**
  * Replicate video generation operations
@@ -15,12 +41,12 @@ class ReplicateGeneration {
   /**
    * Build input parameters based on model type
    */
-  buildInputParams(prompt, model, base64Image = null) {
+  buildInputParams(prompt: string, model: string, base64Image: string | null = null): InputParams {
     const isVeo3 = model === 'veo3';
 
     if (base64Image) {
       // Image-to-video
-      let input = {
+      let input: InputParams = {
         image: base64Image,
       };
 
@@ -48,7 +74,7 @@ class ReplicateGeneration {
       return input;
     } else {
       // Text-to-video
-      let inputParams = {
+      let inputParams: InputParams = {
         prompt: prompt,
       };
 
@@ -76,7 +102,7 @@ class ReplicateGeneration {
   /**
    * Generate video from text prompt
    */
-  async generateVideoWithText(prompt, model = 'kling') {
+  async generateVideoWithText(prompt: string, model = 'kling'): Promise<VideoGenerationResult> {
     try {
       const isVeo3 = model === 'veo3';
       const modelName = isVeo3 ? 'Veo 3' : 'Kling v2.1 Master';
@@ -106,7 +132,7 @@ class ReplicateGeneration {
 
       console.log('✅ Text-to-video completed');
 
-      const videoURL = helpers.extractVideoUrl(pollResult.result.output);
+      const videoURL = helpers.extractVideoUrl(pollResult.result?.output);
 
       return {
         text: prompt,
@@ -114,8 +140,9 @@ class ReplicateGeneration {
         cost: helpers.calculateCost(pollResult.result, isVeo3)
       };
 
-    } catch (err) {
-      console.error('❌ Text-to-video generation error:', err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('❌ Text-to-video generation error:', errorMessage);
       return { error: helpers.extractErrorDetails(err) };
     }
   }
@@ -123,7 +150,7 @@ class ReplicateGeneration {
   /**
    * Generate video from image and text prompt
    */
-  async generateVideoFromImage(imageBuffer, prompt = null, model = 'kling') {
+  async generateVideoFromImage(imageBuffer: Buffer, prompt: string | null = null, model = 'kling'): Promise<VideoGenerationResult> {
     try {
       const isVeo3 = model === 'veo3';
       const modelName = isVeo3 ? 'Veo 3' : 'Kling v2.1 Master';
@@ -132,7 +159,7 @@ class ReplicateGeneration {
       console.log(`🎬 Starting ${modelName} image-to-video generation`);
 
       const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
-      const input = this.buildInputParams(prompt, model, base64Image);
+      const input = this.buildInputParams(prompt || '', model, base64Image);
 
       const prediction = await replicate.predictions.create({
         version: modelVersion,
@@ -154,7 +181,7 @@ class ReplicateGeneration {
 
       console.log('✅ Image-to-video completed');
 
-      const videoURL = helpers.extractVideoUrl(pollResult.result.output);
+      const videoURL = helpers.extractVideoUrl(pollResult.result?.output);
 
       return {
         text: prompt || 'Image to video conversion',
@@ -162,8 +189,9 @@ class ReplicateGeneration {
         cost: helpers.calculateCost(pollResult.result, isVeo3)
       };
 
-    } catch (err) {
-      console.error('❌ Image-to-video generation error:', err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('❌ Image-to-video generation error:', errorMessage);
       return { error: helpers.extractErrorDetails(err) };
     }
   }
@@ -171,7 +199,7 @@ class ReplicateGeneration {
   /**
    * Generate video from video and text prompt
    */
-  async generateVideoFromVideo(inputVideoBuffer, prompt) {
+  async generateVideoFromVideo(inputVideoBuffer: Buffer, prompt: string): Promise<{ result?: string; error?: string }> {
     try {
       console.log('🎬 Starting video-to-video generation');
 
@@ -193,13 +221,15 @@ class ReplicateGeneration {
       };
 
       console.log('🔄 Calling Replicate API');
-      const output = await replicate.run(MODELS.VIDEO_TO_VIDEO, { input });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const output = await replicate.run(MODELS.VIDEO_TO_VIDEO, { input }) as any;
 
       // Clean up temp file
       try {
         fs.unlinkSync(tempVideoPath);
-      } catch (cleanupError) {
-        console.warn('Could not clean up temp file:', cleanupError.message);
+      } catch (cleanupError: unknown) {
+        const errorMessage = cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
+        console.warn('Could not clean up temp file:', errorMessage);
       }
 
       if (!output) {
@@ -211,16 +241,18 @@ class ReplicateGeneration {
         console.log('🔄 Converting ReadableStream to file');
 
         const reader = output.getReader();
-        const chunks = [];
+        const chunks: Uint8Array[] = [];
 
         try {
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            chunks.push(value);
+            if (value) {
+              chunks.push(value);
+            }
           }
 
-          const videoBuffer = Buffer.concat(chunks);
+          const videoBuffer = Buffer.concat(chunks.map(chunk => Buffer.from(chunk)));
           const outputFilename = `video_${Date.now()}.mp4`;
           const outputDir = path.join(__dirname, '../..', 'public', 'tmp');
           const outputPath = path.join(outputDir, outputFilename);
@@ -234,20 +266,22 @@ class ReplicateGeneration {
 
           return { result: `/static/${outputFilename}` };
 
-        } catch (streamError) {
-          throw new Error(`Failed to read video stream: ${streamError.message}`);
+        } catch (streamError: unknown) {
+          const errorMessage = streamError instanceof Error ? streamError.message : String(streamError);
+          throw new Error(`Failed to read video stream: ${errorMessage}`);
         }
       } else {
         // Handle direct URL response
         const videoURL = helpers.extractVideoUrl(output);
         return { result: videoURL };
       }
-    } catch (error) {
-      console.error('❌ Video-to-video generation error:', error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('❌ Video-to-video generation error:', errorMessage);
       throw error;
     }
   }
 }
 
-module.exports = new ReplicateGeneration();
+export default new ReplicateGeneration();
 

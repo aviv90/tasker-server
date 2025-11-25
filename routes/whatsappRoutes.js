@@ -11,8 +11,11 @@ const conversationManager = conversationManagerModule.default || conversationMan
 const { routeToAgent } = require('../services/agentRouter');
 const { executeAgentQuery } = require('../services/agentService');
 const logger = require('../utils/logger');
-const authStore = require('../store/authStore');
-const groupAuthStore = require('../store/groupAuthStore');
+// Handle default export from TypeScript
+const authStoreModule = require('../store/authStore');
+const authStore = authStoreModule.default || authStoreModule;
+const groupAuthStoreModule = require('../store/groupAuthStore');
+const groupAuthStore = groupAuthStoreModule.default || groupAuthStoreModule;
 const fs = require('fs');
 const path = require('path');
 const os = require('os');

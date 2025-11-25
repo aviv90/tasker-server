@@ -3,10 +3,8 @@
  * Handles user permissions for media creation, group creation, and admin commands
  */
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const authStore = require('../../store/authStore');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const groupAuthStore = require('../../store/groupAuthStore');
+import authStore from '../../store/authStore';
+import groupAuthStore from '../../store/groupAuthStore';
 import { sendTextMessage } from '../greenApiService';
 
 /**
