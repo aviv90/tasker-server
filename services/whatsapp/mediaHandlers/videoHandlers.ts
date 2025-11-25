@@ -5,8 +5,7 @@
  */
 
 import { sendTextMessage, sendFileByUrl, downloadFile } from '../../greenApiService';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { generateRunwayVideoFromVideo } = require('../../geminiService');
+import { generateRunwayVideoFromVideo } from '../../geminiService';
 import { sendAck } from '../messaging';
 import { formatProviderError } from '../../../utils/errorHandler';
 import { TIME } from '../../../utils/constants';

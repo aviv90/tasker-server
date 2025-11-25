@@ -4,14 +4,10 @@
  */
 
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const voiceCloning = require('./voice/voiceCloning');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const voiceManagement = require('./voice/voiceManagement');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const textToSpeechModule = require('./voice/textToSpeech');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const voiceSelection = require('./voice/voiceSelection');
+import * as voiceCloning from './voice/voiceCloning';
+import * as voiceManagement from './voice/voiceManagement';
+import * as textToSpeechModule from './voice/textToSpeech';
+import * as voiceSelection from './voice/voiceSelection';
 
 class VoiceService {
     private client: ElevenLabsClient | null = null;

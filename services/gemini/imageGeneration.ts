@@ -6,15 +6,9 @@
  */
 
 // Import modular components
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const imageGenerationModule = require('./image/generation');
-const imageGeneration = imageGenerationModule.default || imageGenerationModule;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const imageEditingModule = require('./image/editing');
-const imageEditing = imageEditingModule.default || imageEditingModule;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const imageAnalysisModule = require('./image/analysis');
-const imageAnalysis = imageAnalysisModule.default || imageAnalysisModule;
+import imageGeneration from './image/generation';
+import imageEditing from './image/editing';
+import imageAnalysis from './image/analysis';
 import { Request } from 'express';
 
 /**

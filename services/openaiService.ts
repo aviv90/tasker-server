@@ -9,8 +9,7 @@
 
 // Re-export all functions from the new modular structure
 // Handle named exports from TypeScript (openai/index.ts exports named functions)
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const openaiModule = require('./openai');
+import * as openaiModule from './openai';
 
 // Export everything for backward compatibility
 export default openaiModule;

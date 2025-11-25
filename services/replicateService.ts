@@ -6,12 +6,8 @@
  */
 
 // Handle default export from TypeScript
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const replicateGenerationModule = require('./replicate/generation');
-const replicateGeneration = replicateGenerationModule.default || replicateGenerationModule;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const replicateWhatsAppModule = require('./replicate/whatsapp');
-const replicateWhatsApp = replicateWhatsAppModule.default || replicateWhatsAppModule;
+import replicateGeneration from './replicate/generation';
+import replicateWhatsApp from './replicate/whatsapp';
 
 /**
  * Generate video from text prompt

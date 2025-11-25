@@ -6,18 +6,10 @@
  */
 
 // Import modular components
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const musicParserModule = require('./special/music');
-const musicParser = musicParserModule.default || musicParserModule;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ttsParserModule = require('./special/tts');
-const ttsParser = ttsParserModule.default || ttsParserModule;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pollGeneratorModule = require('./special/polls');
-const pollGenerator = pollGeneratorModule.default || pollGeneratorModule;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const locationServiceModule = require('./special/location');
-const locationService = locationServiceModule.default || locationServiceModule;
+import musicParser from './special/music';
+import ttsParser from './special/tts';
+import pollGenerator from './special/polls';
+import locationService from './special/location';
 
 /**
  * Parse music request to detect video requirement

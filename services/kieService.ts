@@ -6,12 +6,8 @@
  */
 
 // Handle default export from TypeScript
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const TextToVideoServiceModule = require('./kie/textToVideo');
-const TextToVideoService = TextToVideoServiceModule.default || TextToVideoServiceModule;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ImageToVideoServiceModule = require('./kie/imageToVideo');
-const ImageToVideoService = ImageToVideoServiceModule.default || ImageToVideoServiceModule;
+import TextToVideoService from './kie/textToVideo';
+import ImageToVideoService from './kie/imageToVideo';
 
 // Create instances
 const textToVideoService = new TextToVideoService();

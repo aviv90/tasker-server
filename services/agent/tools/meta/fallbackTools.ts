@@ -5,12 +5,8 @@
  * Refactored to use modular components (Phase 5.3)
  */
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const smartFallbackModule = require('./fallbackTools/smartFallback');
-const smartFallback = smartFallbackModule.default || smartFallbackModule;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const retryProviderModule = require('./fallbackTools/retryProvider');
-const retryProvider = retryProviderModule.default || retryProviderModule;
+import smartFallback from './fallbackTools/smartFallback';
+import retryProvider from './fallbackTools/retryProvider';
 
 const fallbackTools = {
   smart_execute_with_fallback: smartFallback,
@@ -18,4 +14,3 @@ const fallbackTools = {
 };
 
 export default fallbackTools;
-module.exports = fallbackTools;

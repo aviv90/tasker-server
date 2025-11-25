@@ -5,10 +5,12 @@
 
 import conversationManager from '../../conversationManager';
 import { getServices } from '../utils/serviceLoader';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { getToolAckMessage } = require('../utils/ackUtils');
+import { getToolAckMessage } from '../utils/ackUtils';
 import { extractQuotedMessageId } from '../../../utils/messageHelpers';
 import logger from '../../../utils/logger';
+import { TIME } from '../../../utils/constants';
+import { getLanguageInstruction } from '../utils/languageUtils';
+import { detectLanguage } from '../../../utils/agentHelpers';
 
 // Reference to agentTools (will be injected)
 let agentTools: Record<string, { execute: (args: unknown, context: unknown) => Promise<unknown> }> | null = null;
@@ -46,8 +48,6 @@ async function sendRetryAck(
     if (ackMessage) {
       logger.debug(`📢 [RETRY ACK] ${ackMessage}`);
       const { greenApiService } = getServices();
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { TIME } = require('../../../utils/constants');
       await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId || undefined, TIME.TYPING_INDICATOR);
     }
   } catch (error) {
@@ -104,11 +104,7 @@ interface LastCommand {
     steps: Array<{
       tool?: string;
       action?: string;
-      parameters?: {
-        provider?: string;
-        service?: string;
-        [key: string]: unknown;
-      };
+      parameters?: Record<string, unknown>;
       [key: string]: unknown;
     }>;
     [key: string]: unknown;
@@ -311,13 +307,10 @@ export const retry_last_command = {
         
         logger.info(`🔄 Retrying multi-step command: ${filteredPlan.steps.length} of ${planSteps.length} steps`);
         
-        // Get multi-step execution handler
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const multiStepExecution = require('../execution/multiStep');
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { getLanguageInstruction } = require('../utils/languageUtils');
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { detectLanguage } = require('../../../utils/agentHelpers');
+        // Get multi-step execution handler (lazy load to avoid circular dependency)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const multiStepModule = await import('../execution/multiStep');
+        const multiStepExecution = multiStepModule.default || multiStepModule;
         
         // Detect language from original prompt
         // For multi-step, prompt is at top level of lastCommand

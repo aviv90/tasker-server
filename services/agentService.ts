@@ -13,14 +13,10 @@ import prompts from '../config/prompts';
 import { detectLanguage, extractDetectionText } from '../utils/agentHelpers';
 import { getLanguageInstruction } from './agent/utils/languageUtils';
 import { planMultiStepExecution } from './multiStepPlanner';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const multiStepExecution = require('./agent/execution/multiStep');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const agentLoop = require('./agent/execution/agentLoop');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const contextManager = require('./agent/execution/context');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { allTools: agentTools } = require('./agent/tools');
+import multiStepExecution from './agent/execution/multiStep';
+import agentLoop from './agent/execution/agentLoop';
+import contextManager from './agent/execution/context';
+import { allTools as agentTools } from './agent/tools';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 

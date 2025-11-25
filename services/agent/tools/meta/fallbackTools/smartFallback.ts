@@ -7,9 +7,9 @@
 import { getServices } from '../../../utils/serviceLoader';
 import { VIDEO_PROVIDER_FALLBACK_ORDER } from '../../../config/constants';
 import { simplifyPrompt, makePromptMoreGeneric } from '../../../utils/promptUtils';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const helpersModule = require('./helpers');
-const helpers = helpersModule.default || helpersModule;
+import * as helpers from './helpers';
+import replicateService from '../../../../replicateService';
+import voiceService from '../../../../voiceService';
 
 type TaskType = 'image_creation' | 'video_creation' | 'audio_creation';
 type Provider = 'gemini' | 'openai' | 'grok';
@@ -145,9 +145,6 @@ const smartExecuteWithFallback = {
             }
           } else if (args.task_type === 'video_creation') {
             // Video generation with different providers
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const replicateServiceModule = require('../../../../replicateService');
-            const replicateService = replicateServiceModule.default || replicateServiceModule;
             const videoProviderLabelMap: Record<string, string> = {
               gemini: 'veo3',
               openai: 'sora',
@@ -182,9 +179,6 @@ const smartExecuteWithFallback = {
             }
           } else if (args.task_type === 'audio_creation') {
             // Audio/TTS - only one main provider (ElevenLabs)
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const voiceServiceModule = require('../../../../voiceService');
-            const voiceService = voiceServiceModule.default || voiceServiceModule;
             const audioResult = (await voiceService.textToSpeechForBot(args.original_prompt)) as AudioResult;
 
             if (audioResult && !audioResult.error) {
@@ -227,9 +221,6 @@ const smartExecuteWithFallback = {
               };
             }
           } else if (args.task_type === 'video_creation') {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const replicateServiceModule = require('../../../../replicateService');
-            const replicateService = replicateServiceModule.default || replicateServiceModule;
             const videoResult = (await replicateService.generateVideoWithTextForWhatsApp(simplifiedPrompt || '')) as VideoResult;
 
             if (videoResult && !videoResult.error) {
@@ -246,9 +237,6 @@ const smartExecuteWithFallback = {
               };
             }
           } else if (args.task_type === 'audio_creation') {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const voiceServiceModule = require('../../../../voiceService');
-            const voiceService = voiceServiceModule.default || voiceServiceModule;
             const audioResult = (await voiceService.textToSpeechForBot(simplifiedPrompt || '')) as AudioResult;
 
             if (audioResult && !audioResult.error) {
@@ -291,9 +279,6 @@ const smartExecuteWithFallback = {
               };
             }
           } else if (args.task_type === 'video_creation') {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const replicateServiceModule = require('../../../../replicateService');
-            const replicateService = replicateServiceModule.default || replicateServiceModule;
             const videoResult = (await replicateService.generateVideoWithTextForWhatsApp(genericPrompt || '')) as VideoResult;
 
             if (videoResult && !videoResult.error) {
@@ -310,9 +295,6 @@ const smartExecuteWithFallback = {
               };
             }
           } else if (args.task_type === 'audio_creation') {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const voiceServiceModule = require('../../../../voiceService');
-            const voiceService = voiceServiceModule.default || voiceServiceModule;
             const audioResult = (await voiceService.textToSpeechForBot(genericPrompt || '')) as AudioResult;
 
             if (audioResult && !audioResult.error) {
@@ -352,4 +334,4 @@ const smartExecuteWithFallback = {
   }
 };
 
-module.exports = smartExecuteWithFallback;
+export default smartExecuteWithFallback;

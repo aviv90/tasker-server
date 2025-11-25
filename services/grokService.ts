@@ -4,10 +4,8 @@
  */
 
 import { sanitizeText, cleanMarkdown } from '../utils/textSanitizer';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { detectLanguage } = require('../utils/agentHelpers');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const prompts = require('../config/prompts');
+import { detectLanguage } from '../utils/agentHelpers';
+import prompts from '../config/prompts';
 
 /**
  * Conversation message structure

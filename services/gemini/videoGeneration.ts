@@ -6,15 +6,9 @@
  */
 
 // Import modular components
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const videoAnalysisModule = require('./video/analysis');
-const videoAnalysis = videoAnalysisModule.default || videoAnalysisModule;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const veoGenerationModule = require('./video/veoGeneration');
-const veoGeneration = veoGenerationModule.default || veoGenerationModule;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const whatsappVideoGenerationModule = require('./video/whatsapp');
-const whatsappVideoGeneration = whatsappVideoGenerationModule.default || whatsappVideoGenerationModule;
+import videoAnalysis from './video/analysis';
+import veoGeneration from './video/veoGeneration';
+import whatsappVideoGeneration from './video/whatsapp';
 import { Request } from 'express';
 
 /**

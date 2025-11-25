@@ -5,9 +5,8 @@
  */
 
 import { getServices } from '../../../utils/serviceLoader';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const helpersModule = require('./helpers');
-const helpers = helpersModule.default || helpersModule;
+import * as helpers from './helpers';
+import replicateService from '../../../../replicateService';
 
 type TaskType = 'image' | 'image_edit' | 'video';
 
@@ -96,9 +95,6 @@ const retryWithDifferentProvider = {
       const avoidProvider = helpers.normalizeProviderKey(avoidProviderRaw);
 
       const { geminiService, openaiService, greenApiService, grokService } = getServices();
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const replicateServiceModule = require('../../../../replicateService');
-      const replicateService = replicateServiceModule.default || replicateServiceModule;
 
       const providers = helpers.getProviderOrder(taskType, avoidProvider);
 
@@ -297,4 +293,4 @@ const retryWithDifferentProvider = {
   }
 };
 
-module.exports = retryWithDifferentProvider;
+export default retryWithDifferentProvider;

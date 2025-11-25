@@ -8,9 +8,7 @@
  */
 
 // Re-export everything from gemini module for backward compatibility
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const geminiModuleRaw = require('./gemini');
-const geminiModule = geminiModuleRaw.default || geminiModuleRaw;
+import geminiModule from './gemini';
 
 // Export all functions individually for TypeScript compatibility
 export const generateTextResponse = geminiModule.generateTextResponse;

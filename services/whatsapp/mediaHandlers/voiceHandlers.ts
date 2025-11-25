@@ -16,6 +16,7 @@ import { voiceService } from '../../voiceService';
 import audioConverterService from '../../audioConverterService';
 import logger from '../../../utils/logger';
 import { TIME } from '../../../utils/constants';
+import { routeToAgent } from '../../agentRouter';
 
 /**
  * Voice message handler parameters
@@ -69,8 +70,6 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
     // Try to route to agent to see if this is a command (let the Agent/Planner decide)
     logger.debug(`🔄 Routing transcribed text to agent for evaluation...`);
     
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { routeToAgent } = require('../../agentRouter');
     const normalized = {
       userText: `# ${transcribedText}`, // Add # prefix to route through agent
       hasAudio: false, // Audio already transcribed - don't send audioUrl to agent
