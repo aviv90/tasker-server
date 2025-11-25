@@ -6,49 +6,46 @@
  */
 
 // Import modular components
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const imageGeneration = require('./image/generation');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const imageEditing = require('./image/editing');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const imageAnalysis = require('./image/analysis');
+import { Request } from 'express';
 
 /**
  * Generate image from text prompt
  */
-async function generateImageWithText(prompt) {
+export async function generateImageWithText(prompt: string): Promise<unknown> {
   return await imageGeneration.generateImageWithText(prompt);
 }
 
 /**
  * Generate image for WhatsApp from text prompt
  */
-async function generateImageForWhatsApp(prompt, req = null) {
+export async function generateImageForWhatsApp(prompt: string, req: Request | null = null): Promise<unknown> {
   return await imageGeneration.generateImageForWhatsApp(prompt, req);
 }
 
 /**
  * Edit image with text prompt
  */
-async function editImageWithText(prompt, base64Image) {
+export async function editImageWithText(prompt: string, base64Image: string): Promise<unknown> {
   return await imageEditing.editImageWithText(prompt, base64Image);
 }
 
 /**
  * Edit image for WhatsApp
  */
-async function editImageForWhatsApp(prompt, base64Image, req) {
+export async function editImageForWhatsApp(prompt: string, base64Image: string, req: Request | null): Promise<unknown> {
   return await imageEditing.editImageForWhatsApp(prompt, base64Image, req);
 }
 
 /**
  * Analyze image with text prompt
  */
-async function analyzeImageWithText(prompt, base64Image) {
+export async function analyzeImageWithText(prompt: string, base64Image: string): Promise<unknown> {
   return await imageAnalysis.analyzeImageWithText(prompt, base64Image);
 }
 
-module.exports = {
-  generateImageWithText,
-  generateImageForWhatsApp,
-  editImageWithText,
-  editImageForWhatsApp,
-  analyzeImageWithText
-};

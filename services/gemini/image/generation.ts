@@ -1,12 +1,35 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { sanitizeText, cleanMarkdown, cleanMediaDescription } = require('../../../utils/textSanitizer');
-const { getStaticFileUrl } = require('../../../utils/urlUtils');
-const { getGeminiErrorMessage } = require('../utils');
-const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
-const { createTempFilePath } = require('../../../utils/tempFileUtils');
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { sanitizeText, cleanMarkdown, cleanMediaDescription } from '../../../utils/textSanitizer';
+import { getStaticFileUrl } from '../../../utils/urlUtils';
+import { getGeminiErrorMessage } from '../utils';
+import fs from 'fs';
+import { v4 as uuidv4 } from 'uuid';
+import { createTempFilePath } from '../../../utils/tempFileUtils';
+import { Request } from 'express';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+/**
+ * Image generation result
+ */
+interface ImageGenerationResult {
+  text?: string;
+  imageBuffer?: Buffer;
+  textOnly?: boolean;
+  error?: string;
+}
+
+/**
+ * WhatsApp image result
+ */
+interface WhatsAppImageResult {
+  success: boolean;
+  imageUrl?: string;
+  description?: string;
+  fileName?: string;
+  textOnly?: boolean;
+  error?: string;
+}
 
 /**
  * Image generation operations
@@ -15,7 +38,7 @@ class ImageGeneration {
   /**
    * Clean prompt by removing image creation instructions
    */
-  cleanPrompt(prompt) {
+  cleanPrompt(prompt: string): string {
     let cleanPrompt = sanitizeText(prompt);
 
     // Remove image creation instructions from prompt (Gemini Image gets confused by them)
@@ -30,16 +53,18 @@ class ImageGeneration {
   /**
    * Process Gemini image response
    */
-  processImageResponse(response, prompt) {
-    if (!response.candidates || response.candidates.length === 0) {
+  processImageResponse(response: unknown, prompt: string): ImageGenerationResult {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const responseAny = response as any;
+    if (!responseAny.candidates || responseAny.candidates.length === 0) {
       console.log('❌ Gemini: No candidates returned');
-      const errorMsg = getGeminiErrorMessage(null, response.promptFeedback);
+      const errorMsg = getGeminiErrorMessage(null, responseAny.promptFeedback);
       return { error: errorMsg };
     }
 
-    const cand = response.candidates[0];
+    const cand = responseAny.candidates[0];
     let text = '';
-    let imageBuffer = null;
+    let imageBuffer: Buffer | null = null;
 
     if (!cand.content || !cand.content.parts) {
       console.log('❌ Gemini: No content or parts found in candidate');
@@ -79,7 +104,7 @@ class ImageGeneration {
   /**
    * Save image to file and return URL
    */
-  saveImageForWhatsApp(imageBuffer, req, prefix = 'gemini') {
+  saveImageForWhatsApp(imageBuffer: Buffer, req: Request | null, prefix = 'gemini'): { imageUrl: string; fileName: string; description: string } {
     const imageId = uuidv4();
     const fileName = `${prefix}_${imageId}.png`;
     const filePath = createTempFilePath(fileName);
@@ -96,7 +121,7 @@ class ImageGeneration {
   /**
    * Generate image from text prompt
    */
-  async generateImageWithText(prompt) {
+  async generateImageWithText(prompt: string): Promise<ImageGenerationResult> {
     try {
       console.log('🎨 Starting Gemini image generation');
 
@@ -106,11 +131,12 @@ class ImageGeneration {
         model: "gemini-3-pro-image-preview"
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: cleanPrompt }] }],
         generationConfig: {
           responseModalities: ["IMAGE", "TEXT"]
-        }
+        } as any
       });
 
       const response = result.response;
@@ -130,8 +156,9 @@ class ImageGeneration {
 
       console.log('✅ Gemini image generated successfully');
       return processResult;
-    } catch (err) {
-      console.error('❌ Gemini image generation error:', err);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('❌ Gemini image generation error:', errorMessage);
       throw err;
     }
   }
@@ -139,7 +166,7 @@ class ImageGeneration {
   /**
    * Generate image for WhatsApp from text prompt
    */
-  async generateImageForWhatsApp(prompt, req = null) {
+  async generateImageForWhatsApp(prompt: string, req: Request | null = null): Promise<WhatsAppImageResult> {
     try {
       console.log('🎨 Starting Gemini image generation');
 
@@ -149,11 +176,12 @@ class ImageGeneration {
         model: "gemini-3-pro-image-preview"
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: cleanPrompt }] }],
         generationConfig: {
           responseModalities: ["IMAGE", "TEXT"]
-        }
+        } as any
       });
 
       const response = result.response;
@@ -176,10 +204,17 @@ class ImageGeneration {
       }
 
       const { imageBuffer, text } = processResult;
+      if (!imageBuffer) {
+        return {
+          success: false,
+          error: 'No image buffer in result'
+        };
+      }
+
       const saveResult = this.saveImageForWhatsApp(imageBuffer, req, 'gemini');
 
       // Clean markdown, image markers, and media descriptions from text
-      let cleanDescription = text.trim() || "";
+      let cleanDescription = text?.trim() || "";
       if (cleanDescription) {
         // First clean markdown
         cleanDescription = cleanMarkdown(cleanDescription);
@@ -203,15 +238,16 @@ class ImageGeneration {
         description: cleanDescription,
         fileName: saveResult.fileName
       };
-    } catch (err) {
-      console.error('❌ Gemini image generation error:', err);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during image generation';
+      console.error('❌ Gemini image generation error:', errorMessage);
       return {
         success: false,
-        error: err.message || 'Unknown error occurred during image generation'
+        error: errorMessage
       };
     }
   }
 }
 
-module.exports = new ImageGeneration();
+export default new ImageGeneration();
 

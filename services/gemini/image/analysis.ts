@@ -1,8 +1,18 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { sanitizeText } = require('../../../utils/textSanitizer');
-const { detectLanguage } = require('../../../utils/agentHelpers');
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { sanitizeText } from '../../../utils/textSanitizer';
+import { detectLanguage } from '../../../utils/agentHelpers';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+/**
+ * Image analysis result
+ */
+interface ImageAnalysisResult {
+  success: boolean;
+  text?: string;
+  description?: string;
+  error?: string;
+}
 
 /**
  * Image analysis operations
@@ -11,7 +21,7 @@ class ImageAnalysis {
   /**
    * Build language instruction for image analysis
    */
-  buildLanguageInstruction(detectedLang) {
+  buildLanguageInstruction(detectedLang: string): string {
     switch (detectedLang) {
       case 'he':
         return '\n\nחשוב מאוד: עליך לענות בעברית בלבד. התשובה חייבת להיות בעברית, ללא מילים באנגלית אלא אם כן זה שם פרטי או מונח טכני שאין לו תרגום.';
@@ -29,7 +39,7 @@ class ImageAnalysis {
   /**
    * Analyze image with text prompt
    */
-  async analyzeImageWithText(prompt, base64Image) {
+  async analyzeImageWithText(prompt: string, base64Image: string): Promise<ImageAnalysisResult> {
     try {
       console.log('🔍 Starting Gemini image analysis (text-only response)');
 
@@ -41,6 +51,7 @@ class ImageAnalysis {
         model: "gemini-2.5-flash"
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await model.generateContent({
         contents: [
           {
@@ -54,19 +65,21 @@ class ImageAnalysis {
         generationConfig: {
           responseModalities: ["TEXT"],
           temperature: 0.7
-        }
+        } as any
       });
 
       const response = result.response;
-      if (!response.candidates || response.candidates.length === 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const responseAny = response as any;
+      if (!responseAny.candidates || responseAny.candidates.length === 0) {
         console.log('❌ Gemini image analysis: No candidates returned');
         return {
           success: false,
-          error: response.promptFeedback?.blockReasonMessage || 'No candidate returned'
+          error: responseAny.promptFeedback?.blockReasonMessage || 'No candidate returned'
         };
       }
 
-      const cand = response.candidates[0];
+      const cand = responseAny.candidates[0];
       let text = '';
 
       if (cand.content && cand.content.parts) {
@@ -91,15 +104,16 @@ class ImageAnalysis {
         text: text.trim(),
         description: text.trim()
       };
-    } catch (err) {
-      console.error('❌ Gemini image analysis error:', err);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during image analysis';
+      console.error('❌ Gemini image analysis error:', errorMessage);
       return {
         success: false,
-        error: err.message || 'Unknown error occurred during image analysis'
+        error: errorMessage
       };
     }
   }
 }
 
-module.exports = new ImageAnalysis();
+export default new ImageAnalysis();
 

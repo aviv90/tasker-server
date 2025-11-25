@@ -1,13 +1,36 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { sanitizeText, cleanMarkdown, cleanMediaDescription } = require('../../../utils/textSanitizer');
-const { getStaticFileUrl } = require('../../../utils/urlUtils');
-const { getGeminiErrorMessage } = require('../utils');
-const { detectLanguage } = require('../../../utils/agentHelpers');
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { sanitizeText, cleanMarkdown, cleanMediaDescription } from '../../../utils/textSanitizer';
+import { getStaticFileUrl } from '../../../utils/urlUtils';
+import { getGeminiErrorMessage } from '../utils';
+import { detectLanguage } from '../../../utils/agentHelpers';
+import fs from 'fs';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import { Request } from 'express';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+/**
+ * Image editing result
+ */
+interface ImageEditingResult {
+  text?: string;
+  imageBuffer?: Buffer;
+  error?: string;
+}
+
+/**
+ * WhatsApp edit result
+ */
+interface WhatsAppEditResult {
+  success: boolean;
+  imageUrl?: string;
+  description?: string;
+  fileName?: string;
+  text?: string;
+  imageBuffer?: Buffer;
+  error?: string;
+}
 
 /**
  * Image editing operations
@@ -16,7 +39,7 @@ class ImageEditing {
   /**
    * Build language instruction for image editing
    */
-  buildLanguageInstruction(detectedLang) {
+  buildLanguageInstruction(detectedLang: string): string {
     switch (detectedLang) {
       case 'he':
         return '\n\nחשוב מאוד: עליך לענות בעברית בלבד. התשובה חייבת להיות בעברית, ללא מילים באנגלית אלא אם כן זה שם פרטי או מונח טכני שאין לו תרגום.';
@@ -34,15 +57,17 @@ class ImageEditing {
   /**
    * Process Gemini image editing response
    */
-  processEditResponse(response, prompt) {
-    if (!response.candidates || response.candidates.length === 0) {
+  processEditResponse(response: unknown, prompt: string): ImageEditingResult {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const responseAny = response as any;
+    if (!responseAny.candidates || responseAny.candidates.length === 0) {
       console.log('❌ Gemini edit: No candidates returned');
-      return { error: response.promptFeedback?.blockReasonMessage || 'No candidate returned' };
+      return { error: responseAny.promptFeedback?.blockReasonMessage || 'No candidate returned' };
     }
 
-    const cand = response.candidates[0];
+    const cand = responseAny.candidates[0];
     let text = '';
-    let imageBuffer = null;
+    let imageBuffer: Buffer | null = null;
 
     console.log(`   Finish reason: ${cand.finishReason}`);
 
@@ -82,19 +107,21 @@ class ImageEditing {
   /**
    * Process WhatsApp edit response with better error handling
    */
-  processWhatsAppEditResponse(response) {
-    if (!response.candidates || response.candidates.length === 0) {
+  processWhatsAppEditResponse(response: unknown): WhatsAppEditResult {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const responseAny = response as any;
+    if (!responseAny.candidates || responseAny.candidates.length === 0) {
       console.log('❌ Gemini edit: No candidates returned');
-      console.log('   Prompt feedback:', JSON.stringify(response.promptFeedback));
+      console.log('   Prompt feedback:', JSON.stringify(responseAny.promptFeedback));
       return {
         success: false,
-        error: response.promptFeedback?.blockReasonMessage || 'No candidate returned'
+        error: responseAny.promptFeedback?.blockReasonMessage || 'No candidate returned'
       };
     }
 
-    const cand = response.candidates[0];
+    const cand = responseAny.candidates[0];
     let text = '';
-    let imageBuffer = null;
+    let imageBuffer: Buffer | null = null;
 
     console.log(`   Finish reason: ${cand.finishReason}`);
     if (cand.safetyRatings) {
@@ -166,7 +193,7 @@ class ImageEditing {
   /**
    * Save edited image to file and return URL
    */
-  saveEditedImageForWhatsApp(imageBuffer, req) {
+  saveEditedImageForWhatsApp(imageBuffer: Buffer, req: Request | null): { imageUrl: string; fileName: string } {
     const fileName = `gemini_edit_${uuidv4()}.png`;
     const filePath = path.join(__dirname, '../../..', 'public', 'tmp', fileName);
 
@@ -187,7 +214,7 @@ class ImageEditing {
   /**
    * Edit image with text prompt
    */
-  async editImageWithText(prompt, base64Image) {
+  async editImageWithText(prompt: string, base64Image: string): Promise<ImageEditingResult> {
     try {
       console.log('🖼️ Starting Gemini image editing');
 
@@ -199,11 +226,12 @@ class ImageEditing {
         model: "gemini-3-pro-image-preview"
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await model.generateContent({
         contents: [
           { role: "user", parts: [{ inlineData: { mimeType: "image/jpeg", data: base64Image } }, { text: cleanPrompt + languageInstruction }] }
         ],
-        generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
+        generationConfig: { responseModalities: ["TEXT", "IMAGE"] } as any
       });
 
       const response = result.response;
@@ -215,8 +243,9 @@ class ImageEditing {
 
       console.log('✅ Gemini image edited successfully');
       return processResult;
-    } catch (err) {
-      console.error('❌ Gemini image edit error:', err);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('❌ Gemini image edit error:', errorMessage);
       throw err;
     }
   }
@@ -224,7 +253,7 @@ class ImageEditing {
   /**
    * Edit image for WhatsApp
    */
-  async editImageForWhatsApp(prompt, base64Image, req) {
+  async editImageForWhatsApp(prompt: string, base64Image: string, req: Request | null): Promise<WhatsAppEditResult> {
     try {
       console.log('🖼️ Starting Gemini image editing');
 
@@ -236,11 +265,12 @@ class ImageEditing {
         model: "gemini-3-pro-image-preview"
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await model.generateContent({
         contents: [
           { role: "user", parts: [{ inlineData: { mimeType: "image/jpeg", data: base64Image } }, { text: cleanPrompt + languageInstruction }] }
         ],
-        generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
+        generationConfig: { responseModalities: ["TEXT", "IMAGE"] } as any
       });
 
       const response = result.response;
@@ -251,10 +281,17 @@ class ImageEditing {
       }
 
       const { imageBuffer, text } = processResult;
+      if (!imageBuffer) {
+        return {
+          success: false,
+          error: 'No image buffer in result'
+        };
+      }
+
       const saveResult = this.saveEditedImageForWhatsApp(imageBuffer, req);
 
       // Clean markdown, image markers, and media descriptions from text
-      let cleanDescription = text.trim() || "";
+      let cleanDescription = text?.trim() || "";
       if (cleanDescription) {
         // First clean markdown
         cleanDescription = cleanMarkdown(cleanDescription);
@@ -278,15 +315,16 @@ class ImageEditing {
         description: cleanDescription,
         fileName: saveResult.fileName
       };
-    } catch (err) {
-      console.error('❌ Gemini image edit error:', err);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during image editing';
+      console.error('❌ Gemini image edit error:', errorMessage);
       return {
         success: false,
-        error: err.message || 'Unknown error occurred during image editing'
+        error: errorMessage
       };
     }
   }
 }
 
-module.exports = new ImageEditing();
+export default new ImageEditing();
 

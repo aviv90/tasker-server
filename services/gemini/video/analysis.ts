@@ -1,15 +1,40 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+import { GoogleGenerativeAI } from '@google/generative-ai';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const genai = require('@google/genai');
-const { sanitizeText } = require('../../../utils/textSanitizer');
-const { detectLanguage } = require('../../../utils/agentHelpers');
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
+import { sanitizeText } from '../../../utils/textSanitizer';
+import { detectLanguage } from '../../../utils/agentHelpers';
+import fs from 'fs';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const veoClient = new genai.GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
 });
+
+/**
+ * Video analysis result
+ */
+interface VideoAnalysisResult {
+  success: boolean;
+  text?: string;
+  description?: string;
+  error?: string;
+}
+
+/**
+ * Video part
+ */
+interface VideoPart {
+  fileData?: {
+    fileUri: string;
+    mimeType: string;
+  };
+  inlineData?: {
+    mimeType: string;
+    data: string;
+  };
+}
 
 /**
  * Video analysis operations
@@ -18,7 +43,7 @@ class VideoAnalysis {
   /**
    * Build language instruction for video analysis
    */
-  buildLanguageInstruction(detectedLang) {
+  buildLanguageInstruction(detectedLang: string): string {
     switch (detectedLang) {
       case 'he':
         return '\n\nחשוב מאוד: עליך לענות בעברית בלבד. התשובה חייבת להיות בעברית, ללא מילים באנגלית אלא אם כן זה שם פרטי או מונח טכני שאין לו תרגום.';
@@ -36,7 +61,7 @@ class VideoAnalysis {
   /**
    * Prepare video part for Gemini API (Files API for large videos, inline for small)
    */
-  async prepareVideoPart(videoBuffer) {
+  async prepareVideoPart(videoBuffer: Buffer): Promise<VideoPart> {
     // For videos larger than 2MB, use Files API; otherwise use inline data
     if (videoBuffer.length > 2 * 1024 * 1024) {
       console.log('📤 Video is large, uploading to Files API first...');
@@ -52,12 +77,13 @@ class VideoAnalysis {
       fs.writeFileSync(tempFilePath, videoBuffer);
 
       try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const uploadResult = await veoClient.files.upload({
           file: {
             path: tempFilePath,
             mimeType: 'video/mp4'
           }
-        });
+        } as any);
 
         console.log('✅ Video uploaded to Files API');
 
@@ -65,17 +91,19 @@ class VideoAnalysis {
         try {
           fs.unlinkSync(tempFilePath);
           console.log('🧹 Cleaned up temporary video file');
-        } catch (cleanupErr) {
-          console.warn('⚠️ Could not delete temp file:', cleanupErr.message);
+        } catch (cleanupErr: unknown) {
+          console.warn('⚠️ Could not delete temp file:', cleanupErr);
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const uploadResultAny = uploadResult as any;
         return {
           fileData: {
-            fileUri: uploadResult.file.uri,
-            mimeType: uploadResult.file.mimeType
+            fileUri: uploadResultAny.file.uri,
+            mimeType: uploadResultAny.file.mimeType
           }
         };
-      } catch (uploadErr) {
+      } catch (uploadErr: unknown) {
         console.error('❌ Failed to upload video to Files API:', uploadErr);
         console.log('🔄 Falling back to inline data...');
         const base64Video = videoBuffer.toString('base64');
@@ -91,7 +119,7 @@ class VideoAnalysis {
   /**
    * Analyze video with text prompt
    */
-  async analyzeVideoWithText(prompt, videoBuffer) {
+  async analyzeVideoWithText(prompt: string, videoBuffer: Buffer): Promise<VideoAnalysisResult> {
     try {
       console.log('🔍 Starting Gemini video analysis (text-only response)');
       console.log(`📹 Video size: ${(videoBuffer.length / 1024 / 1024).toFixed(2)} MB`);
@@ -106,12 +134,13 @@ class VideoAnalysis {
 
       const videoPart = await this.prepareVideoPart(videoBuffer);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await model.generateContent({
         contents: [
           {
             role: "user",
             parts: [
-              videoPart,
+              videoPart as any,
               { text: cleanPrompt + languageInstruction }
             ]
           }
@@ -119,19 +148,21 @@ class VideoAnalysis {
         generationConfig: {
           responseModalities: ["TEXT"],
           temperature: 0.7
-        }
-      });
+        } as any
+      } as any);
 
       const response = result.response;
-      if (!response.candidates || response.candidates.length === 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const responseAny = response as any;
+      if (!responseAny.candidates || responseAny.candidates.length === 0) {
         console.log('❌ Gemini video analysis: No candidates returned');
         return {
           success: false,
-          error: response.promptFeedback?.blockReasonMessage || 'No candidate returned'
+          error: responseAny.promptFeedback?.blockReasonMessage || 'No candidate returned'
         };
       }
 
-      const cand = response.candidates[0];
+      const cand = responseAny.candidates[0];
       let text = '';
 
       if (cand.content && cand.content.parts) {
@@ -156,15 +187,16 @@ class VideoAnalysis {
         text: text.trim(),
         description: text.trim()
       };
-    } catch (err) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during video analysis';
       console.error('❌ Gemini video analysis error:', err);
       return {
         success: false,
-        error: err.message || 'Unknown error occurred during video analysis'
+        error: errorMessage
       };
     }
   }
 }
 
-module.exports = new VideoAnalysis();
+export default new VideoAnalysis();
 

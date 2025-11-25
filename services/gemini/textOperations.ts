@@ -5,24 +5,67 @@
  * Refactored to use modular components (Phase 5.3)
  */
 
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { getGeminiErrorMessage, cleanThinkingPatterns } = require('./utils');
-const { sanitizeText } = require('../../utils/textSanitizer');
-const { detectLanguage } = require('../../utils/agentHelpers');
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { getGeminiErrorMessage, cleanThinkingPatterns } from './utils';
+import { sanitizeText } from '../../utils/textSanitizer';
+import { detectLanguage } from '../../utils/agentHelpers';
 
 // Import modular components
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const promptBuilder = require('./text/promptBuilder');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const googleSearchProcessor = require('./text/googleSearch');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const thinkingCleanup = require('./text/thinkingCleanup');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const summaryService = require('./text/summary');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const translationService = require('./text/translation');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+/**
+ * Conversation message
+ */
+interface ConversationMessage {
+  role: string;
+  parts: Array<{ text: string }>;
+  [key: string]: unknown;
+}
+
+/**
+ * Text generation options
+ */
+interface TextGenerationOptions {
+  useGoogleSearch?: boolean;
+  model?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Text generation result
+ */
+interface TextGenerationResult {
+  text?: string;
+  originalPrompt?: string;
+  metadata?: {
+    service: string;
+    model: string;
+    type: string;
+    characterCount: number;
+    created_at: string;
+  };
+  error?: string;
+}
 
 /**
  * Generate text response using Gemini
  */
-async function generateTextResponse(prompt, conversationHistory = [], options = {}) {
+export async function generateTextResponse(
+  prompt: string,
+  conversationHistory: ConversationMessage[] = [],
+  options: TextGenerationOptions = {}
+): Promise<TextGenerationResult> {
   try {
     console.log('💬 Gemini text generation');
 
@@ -53,7 +96,8 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
     console.log(`🔮 Gemini processing (${Array.isArray(conversationHistory) ? conversationHistory.length : 0} context messages)`);
 
     // Build generation config
-    const generateConfig = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const generateConfig: any = {
       contents,
       generationConfig: {
         temperature: useGoogleSearch ? 0.3 : 0.7,
@@ -76,14 +120,17 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
     const response = result.response;
 
     // Log if Google Search was actually used and extract grounding metadata
-    let groundingMetadata = null;
+    let groundingMetadata: unknown = null;
     if (useGoogleSearch) {
-      groundingMetadata = response.candidates?.[0]?.groundingMetadata;
-      const searchQueries = response.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const responseAny = response as any;
+      groundingMetadata = responseAny.candidates?.[0]?.groundingMetadata;
+      const searchQueries = responseAny.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent;
 
       if (groundingMetadata) {
         console.log('✅ Google Search was used by Gemini');
-        const chunksCount = groundingMetadata.groundingChunks?.length || 0;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const chunksCount = (groundingMetadata as any).groundingChunks?.length || 0;
         console.log(`🔍 Found ${chunksCount} grounding chunks`);
 
         if (searchQueries) {
@@ -96,9 +143,11 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
       }
     }
 
-    if (!response.candidates || response.candidates.length === 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const responseAny = response as any;
+    if (!responseAny.candidates || responseAny.candidates.length === 0) {
       console.log('❌ Gemini: No candidates returned');
-      const errorMsg = getGeminiErrorMessage(null, response.promptFeedback);
+      const errorMsg = getGeminiErrorMessage(null, responseAny.promptFeedback);
       return { error: errorMsg };
     }
 
@@ -140,13 +189,14 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
       }
     };
 
-  } catch (err) {
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : 'Text generation failed';
     console.error('❌ Gemini text generation error:', err);
 
     // Emergency response
     return {
       text: 'מצטער, קרתה שגיאה בעיבוד הבקשה שלך עם Gemini. נסה שוב מאוחר יותר.',
-      error: err.message || 'Text generation failed'
+      error: errorMessage
     };
   }
 }
@@ -154,19 +204,14 @@ async function generateTextResponse(prompt, conversationHistory = [], options = 
 /**
  * Generate chat summary using Gemini
  */
-async function generateChatSummary(messages) {
+export async function generateChatSummary(messages: ConversationMessage[]): Promise<unknown> {
   return await summaryService.generateChatSummary(messages);
 }
 
 /**
  * Translate text to target language
  */
-async function translateText(text, targetLanguage) {
+export async function translateText(text: string, targetLanguage: string): Promise<unknown> {
   return await translationService.translateText(text, targetLanguage);
 }
 
-module.exports = {
-  generateTextResponse,
-  generateChatSummary,
-  translateText
-};

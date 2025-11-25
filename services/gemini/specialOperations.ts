@@ -6,50 +6,47 @@
  */
 
 // Import modular components
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const musicParser = require('./special/music');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const ttsParser = require('./special/tts');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const pollGenerator = require('./special/polls');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const locationService = require('./special/location');
 
 /**
  * Parse music request to detect video requirement
  */
-async function parseMusicRequest(prompt) {
+export async function parseMusicRequest(prompt: string): Promise<unknown> {
   return await musicParser.parseMusicRequest(prompt);
 }
 
 /**
  * Parse text-to-speech request to detect if translation is needed
  */
-async function parseTextToSpeechRequest(prompt) {
+export async function parseTextToSpeechRequest(prompt: string): Promise<unknown> {
   return await ttsParser.parseTextToSpeechRequest(prompt);
 }
 
 /**
  * Generate creative poll with optional rhyming
  */
-async function generateCreativePoll(topic, withRhyme = true) {
+export async function generateCreativePoll(topic: string, withRhyme = true): Promise<unknown> {
   return await pollGenerator.generateCreativePoll(topic, withRhyme);
 }
 
 /**
  * Get location information using Google Maps grounding
  */
-async function getLocationInfo(latitude, longitude) {
+export async function getLocationInfo(latitude: number, longitude: number): Promise<unknown> {
   return await locationService.getLocationInfo(latitude, longitude);
 }
 
 /**
  * Get bounds for a city/location name using Google Maps Geocoding
  */
-async function getLocationBounds(locationName) {
+export async function getLocationBounds(locationName: string): Promise<unknown> {
   return await locationService.getLocationBounds(locationName);
 }
 
-module.exports = {
-  parseMusicRequest,
-  parseTextToSpeechRequest,
-  generateCreativePoll,
-  getLocationInfo,
-  getLocationBounds
-};
