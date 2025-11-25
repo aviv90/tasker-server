@@ -155,10 +155,14 @@ export async function sendPoll(
   try {
     const url = `${BASE_URL}/sendPoll/${GREEN_API_API_TOKEN_INSTANCE}`;
 
+    // Green API expects options as an array of objects with 'optionName' key
+    // See: https://green-api.com/en/docs/api/sending/SendPoll/
+    const formattedOptions = options.map(opt => ({ optionName: opt }));
+
     const data: Record<string, unknown> = {
       chatId: chatId,
       message: message,
-      options: options,
+      options: formattedOptions,
       multipleAnswers: multipleAnswers
     };
 
