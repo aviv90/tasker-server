@@ -48,7 +48,9 @@ class AudioConverterService {
     private tempDir: string;
 
     constructor() {
-        this.tempDir = path.join(__dirname, '..', 'public', 'tmp');
+        // Use process.cwd() to ensure we point to the project root public directory,
+        // not the dist/ folder structure in production.
+        this.tempDir = path.join(process.cwd(), 'public', 'tmp');
         this.ensureTempDir();
     }
 
@@ -217,11 +219,13 @@ class AudioConverterService {
                 // Read from local file system
                 // Handle both /static/ and /static/tmp/ paths
                 let relativePath = audioUrl.replace('/static/', '');
-                let filePath = path.join(__dirname, '..', 'public', relativePath);
+                
+                // Use process.cwd() to resolve path relative to project root
+                let filePath = path.join(process.cwd(), 'public', relativePath);
                 
                 // If file not found in public/, try public/tmp/
                 if (!fs.existsSync(filePath)) {
-                    filePath = path.join(__dirname, '..', 'public', 'tmp', relativePath);
+                    filePath = path.join(process.cwd(), 'public', 'tmp', relativePath);
                 }
                 
                 if (!fs.existsSync(filePath)) {
