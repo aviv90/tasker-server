@@ -10,10 +10,11 @@ import * as greenApiService from '../../services/greenApiService';
 import { sendErrorToUser, ERROR_MESSAGES } from '../../utils/errorSender';
 import conversationManager from '../../services/conversationManager';
 import logger from '../../utils/logger';
-import { routeToAgent } from '../../services/agentRouter';
+import { routeToAgent, NormalizedInput, AgentResult } from '../../services/agentRouter';
 import { isAuthorizedForMediaCreation } from '../../services/whatsapp/authorization';
 import { processVoiceMessageAsync } from './asyncProcessors';
 import { TIME } from '../../utils/constants';
+import { WebhookData } from '../../services/whatsapp/types';
 
 // Import modular handlers
 import { parseIncomingMessage, extractPrompt, logIncomingMessage } from './incoming/messageParsing';
@@ -28,10 +29,10 @@ import { sendAgentResults } from './incoming/resultHandling';
 
 /**
  * Handle incoming WhatsApp message
- * @param {Object} webhookData - Webhook data from Green API
+ * @param {WebhookData} webhookData - Webhook data from Green API
  * @param {Set} processedMessages - Shared cache for message deduplication
  */
-export async function handleIncomingMessage(webhookData: any, processedMessages: Set<string>) {
+export async function handleIncomingMessage(webhookData: WebhookData, processedMessages: Set<string>): Promise<void> {
   try {
     const messageData = webhookData.messageData;
     const senderData = webhookData.senderData;
@@ -123,7 +124,7 @@ export async function handleIncomingMessage(webhookData: any, processedMessages:
         // Save original message ID for quoting all bot responses
         const originalMessageId = webhookData.idMessage;
 
-        const normalized: any = {
+        const normalized: NormalizedInput = {
           userText: `# ${finalPrompt}`, // Add back the # prefix for router
           hasImage: hasImage,
           hasVideo: hasVideo,
@@ -158,7 +159,7 @@ export async function handleIncomingMessage(webhookData: any, processedMessages:
           // Pass originalMessageId to normalized input so it's available for saveLastCommand
           normalized.originalMessageId = originalMessageId;
           
-          const agentResult: any = await routeToAgent(normalized, chatId);
+          const agentResult: AgentResult = await routeToAgent(normalized, chatId);
 
           // Pass originalMessageId to agentResult for use in result handling
           if (agentResult) {

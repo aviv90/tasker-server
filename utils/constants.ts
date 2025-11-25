@@ -23,7 +23,8 @@ export const TIME = {
   FILE_VERIFY_TIMEOUT: 10 * 1000, // 10 seconds
   FILE_VERIFY_RETRIES: 15, // Number of retries
   MULTI_STEP_MIN_TIMEOUT: 6 * 60 * 1000, // 6 minutes minimum
-  CLEANUP_INTERVAL: 30 * 24 * 60 * 60 * 1000 // 30 days
+  CLEANUP_INTERVAL: 30 * 24 * 60 * 60 * 1000, // 30 days
+  DB_CONNECTION_TIMEOUT: 10 * 1000 // 10 seconds
 } as const;
 
 /**
@@ -62,12 +63,3 @@ export type TimeConstants = typeof TIME;
 export type TextLimits = typeof TEXT_LIMITS;
 export type FileSizeConstants = typeof FILE_SIZE;
 export type AudioConstants = typeof AUDIO;
-
-// Backward compatibility: CommonJS export
-module.exports = {
-  TIME,
-  TEXT_LIMITS,
-  FILE_SIZE,
-  AUDIO
-};
-

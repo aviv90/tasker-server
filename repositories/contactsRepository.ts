@@ -5,13 +5,13 @@
 
 import { Pool } from 'pg';
 
-interface Contact {
+export interface Contact {
     id: string;
     name?: string;
     contactName?: string;
     type?: string;
     chatId?: string;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 class ContactsRepository {
@@ -23,9 +23,8 @@ class ContactsRepository {
 
   /**
    * Upsert a contact
-   * @param {Object} contact 
    */
-  async upsert(contact: Contact) {
+  async upsert(contact: Contact): Promise<void> {
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -54,9 +53,8 @@ class ContactsRepository {
 
   /**
    * Get all contacts
-   * @returns {Promise<Array>}
    */
-  async findAll(): Promise<any[]> {
+  async findAll(): Promise<Contact[]> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -64,7 +62,7 @@ class ContactsRepository {
         FROM contacts 
         ORDER BY name ASC
       `);
-      return result.rows.map((row: { raw_data: unknown }) => row.raw_data);
+      return result.rows.map((row) => row.raw_data as Contact);
     } finally {
       client.release();
     }
@@ -72,10 +70,8 @@ class ContactsRepository {
 
   /**
    * Get contacts by type (user/group)
-   * @param {string} type 
-   * @returns {Promise<Array>}
    */
-  async findByType(type: string): Promise<any[]> {
+  async findByType(type: string): Promise<Contact[]> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -84,7 +80,7 @@ class ContactsRepository {
         WHERE type = $1
         ORDER BY name ASC
       `, [type]);
-      return result.rows.map((row: { raw_data: unknown }) => row.raw_data);
+      return result.rows.map((row) => row.raw_data as Contact);
     } finally {
       client.release();
     }

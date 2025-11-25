@@ -5,6 +5,8 @@
 
 import { Pool } from 'pg';
 
+export type MessageType = 'bot' | 'user_outgoing' | string;
+
 class MessageTypesRepository {
   private pool: Pool;
 
@@ -14,12 +16,8 @@ class MessageTypesRepository {
 
   /**
    * Upsert a message type (bot/user_outgoing)
-   * @param {string} chatId 
-   * @param {string} messageId 
-   * @param {string} type - 'bot' | 'user_outgoing'
-   * @param {number} timestamp 
    */
-  async upsert(chatId: string, messageId: string, type: string, timestamp: number) {
+  async upsert(chatId: string, messageId: string, type: MessageType, timestamp: number): Promise<void> {
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -35,11 +33,8 @@ class MessageTypesRepository {
 
   /**
    * Get message type by ID
-   * @param {string} chatId 
-   * @param {string} messageId 
-   * @returns {Promise<string|null>}
    */
-  async findType(chatId: string, messageId: string): Promise<string | null> {
+  async findType(chatId: string, messageId: string): Promise<MessageType | null> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -55,8 +50,6 @@ class MessageTypesRepository {
 
   /**
    * Delete entries older than timestamp
-   * @param {number} cutoffTime 
-   * @returns {Promise<number>} count of deleted rows
    */
   async deleteOlderThan(cutoffTime: number): Promise<number> {
     const client = await this.pool.connect();
@@ -74,7 +67,7 @@ class MessageTypesRepository {
   /**
    * Clear all entries
    */
-  async deleteAll() {
+  async deleteAll(): Promise<void> {
     const client = await this.pool.connect();
     try {
       await client.query('DELETE FROM message_types');

@@ -5,12 +5,14 @@
 
 import { Pool } from 'pg';
 
-interface SummaryData {
-    chatId: string;
+export interface SummaryData {
+    id?: number;
+    chatId?: string;
     summary: string;
     keyTopics?: string[];
-    userPreferences?: any;
+    userPreferences?: Record<string, unknown>;
     messageCount: number;
+    summaryDate?: Date;
 }
 
 class SummariesRepository {
@@ -22,11 +24,15 @@ class SummariesRepository {
 
   /**
    * Save conversation summary
-   * @param {Object} summaryData 
    */
-  async save(summaryData: SummaryData) {
+  async save(summaryData: SummaryData): Promise<void> {
     const client = await this.pool.connect();
     try {
+      // Ensure chatId is present for saving
+      if (!summaryData.chatId) {
+        throw new Error('chatId is required for saving summary');
+      }
+
       await client.query(`
         INSERT INTO conversation_summaries 
         (chat_id, summary, key_topics, user_preferences, message_count, summary_date)
@@ -45,11 +51,8 @@ class SummariesRepository {
 
   /**
    * Get summaries for a chat
-   * @param {string} chatId 
-   * @param {number} limit 
-   * @returns {Promise<Array>}
    */
-  async findByChatId(chatId: string, limit: number): Promise<any[]> {
+  async findByChatId(chatId: string, limit: number): Promise<SummaryData[]> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -60,15 +63,9 @@ class SummariesRepository {
         LIMIT $2
       `, [chatId, limit]);
       
-      return result.rows.map((row: { 
-        id: number; 
-        summary: string; 
-        key_topics?: string[]; 
-        user_preferences?: Record<string, unknown>; 
-        message_count: number; 
-        summary_date: Date 
-      }) => ({
+      return result.rows.map((row) => ({
         id: row.id,
+        chatId, // Explicitly return chatId even if not in select (implied)
         summary: row.summary,
         keyTopics: row.key_topics || [],
         userPreferences: row.user_preferences || {},
@@ -82,11 +79,8 @@ class SummariesRepository {
 
   /**
    * Get user preferences from recent summaries
-   * @param {string} chatId 
-   * @param {number} limit 
-   * @returns {Promise<Array>}
    */
-  async findPreferences(chatId: string, limit: number): Promise<any[]> {
+  async findPreferences(chatId: string, limit: number): Promise<Record<string, unknown>[]> {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
@@ -97,7 +91,7 @@ class SummariesRepository {
         LIMIT $2
       `, [chatId, limit]);
       
-      return result.rows.map((row: { user_preferences?: Record<string, unknown> }) => row.user_preferences || {});
+      return result.rows.map((row) => row.user_preferences || {});
     } finally {
       client.release();
     }
@@ -105,10 +99,8 @@ class SummariesRepository {
 
   /**
    * Update user preferences for a specific summary
-   * @param {number} id 
-   * @param {Object} preferences 
    */
-  async updatePreferences(id: number, preferences: any) {
+  async updatePreferences(id: number, preferences: Record<string, unknown>): Promise<void> {
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -123,8 +115,6 @@ class SummariesRepository {
 
   /**
    * Delete old summaries, keeping only N most recent per chat
-   * @param {number} keepPerChat 
-   * @returns {Promise<number>} count of deleted rows
    */
   async deleteOldSummaries(keepPerChat: number): Promise<number> {
     const client = await this.pool.connect();

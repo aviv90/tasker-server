@@ -1,114 +1,45 @@
-// @ts-nocheck
-export {};
-const express = require('express');
+import express, { Request, Response } from 'express';
+import { whatsappLimiter } from '../middleware/rateLimiter';
+import logger from '../utils/logger';
+import { handleIncomingMessage } from './whatsapp/incomingHandler';
+import { handleOutgoingMessage } from './whatsapp/outgoingHandler';
+
 const router = express.Router();
-const { whatsappLimiter } = require('../middleware/rateLimiter');
-const { sendTextMessage, sendFileByUrl, downloadFile, getChatHistory, getMessage, sendPoll, sendLocation } = require('../services/greenApiService');
-const { getStaticFileUrl } = require('../utils/urlUtils');
-const { cleanMediaDescription } = require('../utils/textSanitizer');
-const locationService = require('../services/locationService');
-// Handle default export from TypeScript
-const conversationManagerModule = require('../services/conversationManager');
-const conversationManager = conversationManagerModule.default || conversationManagerModule;
-const { routeToAgent } = require('../services/agentRouter');
-const { executeAgentQuery } = require('../services/agentService');
-const logger = require('../utils/logger');
-// Handle default export from TypeScript
-const authStoreModule = require('../store/authStore');
-const authStore = authStoreModule.default || authStoreModule;
-const groupAuthStoreModule = require('../store/groupAuthStore');
-const groupAuthStore = groupAuthStoreModule.default || groupAuthStoreModule;
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const { exec } = require('child_process');
-const { promisify } = require('util');
-const execAsync = promisify(exec);
-
-// Import WhatsApp service constants
-const {
-  IMAGE_EDIT_PATTERN,
-  IMAGE_IMPLICIT_EDIT_PATTERN,
-  TTS_KEYWORDS_PATTERN,
-  TRANSLATE_KEYWORDS_PATTERN,
-  JUST_TRANSCRIPTION_PATTERN,
-  MIN_DURATION_FOR_CLONING,
-  ELEVENLABS_TTS_DEFAULTS,
-  TRANSCRIPTION_DEFAULTS,
-  CHAT_HISTORY_LIMIT
-} = require('../services/whatsapp/constants');
-
-// Import WhatsApp utility functions
-const {
-  cleanAgentText,
-  cleanForLogging,
-  isLandLocation,
-  formatChatHistoryForContext
-} = require('../services/whatsapp/utils');
-
-// Import WhatsApp authorization functions
-const {
-  isAuthorizedForMediaCreation,
-  isAuthorizedForGroupCreation,
-  requiresMediaAuthorization,
-  isAdminCommand,
-  sendUnauthorizedMessage
-} = require('../services/whatsapp/authorization');
-
-// Import WhatsApp media handlers
-const {
-  handleImageEdit,
-  handleImageToVideo,
-  handleVideoToVideo,
-  handleVoiceMessage
-} = require('../services/whatsapp/mediaHandlers');
-
-// Import WhatsApp messaging functions
-const { sendAck } = require('../services/whatsapp/messaging');
-
-// Import WhatsApp route handlers (Phase 4.6)
-const { saveLastCommand, applyProviderOverride } = require('./whatsapp/commandHandler');
-const { handleQuotedMessage } = require('./whatsapp/quotedMessageHandler');
-const { processImageEditAsync, processImageToVideoAsync, processVoiceMessageAsync, processVideoToVideoAsync } = require('./whatsapp/asyncProcessors');
-
-// Import WhatsApp handlers (Phase 5.3)
-const { handleIncomingMessage } = require('./whatsapp/incomingHandler');
-const { handleOutgoingMessage } = require('./whatsapp/outgoingHandler');
-const { handleManagementCommand } = require('./whatsapp/managementHandler');
 
 // Message deduplication cache - prevent processing duplicate messages
-const processedMessages = new Set();
+const processedMessages = new Set<string>();
 
 // Clean up old processed messages cache every 30 minutes
 setInterval(() => {
   if (processedMessages.size > 1000) {
     processedMessages.clear();
-    console.log('🧹 Cleared processed messages cache');
+    logger.info('🧹 Cleared processed messages cache');
   }
 }, 30 * 60 * 1000);
 
-// @ts-nocheck
 /**
  * Webhook endpoint for receiving WhatsApp messages from Green API
  * Higher rate limit for legitimate WhatsApp traffic
  */
-router.post('/webhook', whatsappLimiter, async (req: any, res: any) => {
+router.post('/webhook', whatsappLimiter, async (req: Request, res: Response) => {
   try {
     // Security check: Verify webhook token
-    const token = req.headers['authorization']?.replace('Bearer ', '') ||
-                  req.query.token || 
+    const token = (req.headers['authorization'] as string)?.replace('Bearer ', '') ||
+                  (req.query.token as string) || 
                   req.body.token;
     
     const expectedToken = process.env.GREEN_API_WEBHOOK_TOKEN;
     
     if (!expectedToken) {
-      console.error('❌ GREEN_API_WEBHOOK_TOKEN not configured in environment');
-      return res.status(500).json({ error: 'Webhook token not configured' });
+      logger.error('❌ GREEN_API_WEBHOOK_TOKEN not configured in environment');
+      res.status(500).json({ error: 'Webhook token not configured' });
+      return;
     }
     
     if (token !== expectedToken) {
-      console.error('❌ Unauthorized webhook request - invalid token');
-      return res.status(401).json({ error: 'Unauthorized' });
+      logger.error('❌ Unauthorized webhook request - invalid token');
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const webhookData = req.body;
@@ -119,27 +50,27 @@ router.post('/webhook', whatsappLimiter, async (req: any, res: any) => {
     // Handle different webhook types asynchronously
     if (webhookData.typeWebhook === 'incomingMessageReceived') {
       // Process in background - don't await
-      handleIncomingMessage(webhookData, processedMessages).catch(error => {
-        logger.error('❌ Error in async webhook processing:', { error: error.message || error, stack: error.stack });
+      handleIncomingMessage(webhookData, processedMessages).catch((error: unknown) => {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        logger.error('❌ Error in async webhook processing:', { error: errorMessage, stack: errorStack });
       });
     } else if (webhookData.typeWebhook === 'outgoingMessageReceived') {
       // Process outgoing messages (commands sent by you)
-      handleOutgoingMessage(webhookData, processedMessages).catch(error => {
-        logger.error('❌ Error in async outgoing message processing:', { error: error.message || error, stack: error.stack });
+      handleOutgoingMessage(webhookData, processedMessages).catch((error: unknown) => {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        logger.error('❌ Error in async outgoing message processing:', { error: errorMessage, stack: errorStack });
       });
     }
 
     // Return 200 OK immediately
     res.status(200).json({ status: 'ok' });
-  } catch (error: any) {
-    console.error('❌ Error processing webhook:', error.message || error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('❌ Error processing webhook:', errorMessage);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// handleIncomingMessage extracted to routes/whatsapp/incomingHandler.js (Phase 5.3)
-// handleOutgoingMessage extracted to routes/whatsapp/outgoingHandler.js (Phase 5.3)
-// handleManagementCommand extracted to routes/whatsapp/managementHandler.js (Phase 5.3)
-
-module.exports = router;
 export default router;

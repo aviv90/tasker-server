@@ -1,24 +1,42 @@
-// @ts-nocheck
 /**
  * Creative Audio Background Music
  * 
  * Handles background music generation (synthetic and Suno instrumental)
  */
 
-const { exec } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const { promisify } = require('util');
-const musicService = require('../musicService');
-const { getTempDir, ensureTempDir } = require('../../utils/tempFileUtils');
+import { exec } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import { promisify } from 'util';
+import musicService from '../musicService';
+import { getTempDir, ensureTempDir } from '../../utils/tempFileUtils';
 
 const execAsync = promisify(exec);
+
+interface InstrumentalStyle {
+  name: string;
+  prompt: string;
+  style: string;
+  mood: string;
+  tempo: string;
+}
+
+interface BackgroundMusicConfig {
+  name: string;
+  command: string;
+  description: string;
+}
+
+interface PendingCallback {
+  resolve: (value: string) => void;
+  reject: (reason?: unknown) => void;
+}
 
 /**
  * Suno instrumental music styles
  */
-export const INSTRUMENTAL_STYLES = {
+export const INSTRUMENTAL_STYLES: Record<string, InstrumentalStyle> = {
   chill_lofi: {
     name: '🌙 Chill Lofi',
     prompt: 'chill lofi hip hop instrumental, soft piano, gentle drums, relaxing atmosphere',
@@ -80,7 +98,7 @@ export const INSTRUMENTAL_STYLES = {
 /**
  * Background music templates (short loops)
  */
-export const BACKGROUND_MUSIC = {
+export const BACKGROUND_MUSIC: Record<string, BackgroundMusicConfig> = {
   upbeat: {
     name: '🎉 Upbeat Pop',
     command: '-filter:a "volume=0.3"',
@@ -109,7 +127,7 @@ export const BACKGROUND_MUSIC = {
 };
 
 // Store pending callbacks for Suno instrumental generation
-const pendingCallbacks = new Map();
+const pendingCallbacks = new Map<string, PendingCallback>();
 
 /**
  * Get random background music
@@ -117,7 +135,11 @@ const pendingCallbacks = new Map();
  */
 export function getRandomBackground() {
   const backgroundKeys = Object.keys(BACKGROUND_MUSIC);
+  if (backgroundKeys.length === 0) throw new Error("No background music defined");
   const randomKey = backgroundKeys[Math.floor(Math.random() * backgroundKeys.length)];
+  
+  if (!randomKey) throw new Error("Failed to select random background music");
+
   return {
     key: randomKey,
     ...BACKGROUND_MUSIC[randomKey]
@@ -130,7 +152,11 @@ export function getRandomBackground() {
  */
 export function getRandomInstrumentalStyle() {
   const styleKeys = Object.keys(INSTRUMENTAL_STYLES);
+  if (styleKeys.length === 0) throw new Error("No instrumental styles defined");
   const randomKey = styleKeys[Math.floor(Math.random() * styleKeys.length)];
+  
+  if (!randomKey) throw new Error("Failed to select random instrumental style");
+
   return INSTRUMENTAL_STYLES[randomKey];
 }
 
@@ -140,7 +166,7 @@ export function getRandomInstrumentalStyle() {
  * @param {string} style - Music style
  * @returns {Promise<string>} Path to generated music file
  */
-export async function generateBackgroundMusic(duration, style = 'upbeat') {
+export async function generateBackgroundMusic(duration: number, style: string = 'upbeat'): Promise<string> {
   try {
     const tempDir = getTempDir();
     ensureTempDir();
@@ -186,7 +212,7 @@ export async function generateBackgroundMusic(duration, style = 'upbeat') {
     console.log(`✅ Background music generated: ${fileName}`);
     return filePath;
 
-  } catch (err) {
+  } catch (err: any) {
     console.error('❌ Error generating background music:', err);
     throw new Error(`Background music generation failed: ${err.message}`);
   }
@@ -198,12 +224,13 @@ export async function generateBackgroundMusic(duration, style = 'upbeat') {
  * @param {Object} style - Instrumental style configuration
  * @returns {Promise<string>} Path to generated music file
  */
-export async function generateSunoInstrumental(duration, style) {
+export async function generateSunoInstrumental(duration: number, style: InstrumentalStyle): Promise<string> {
   try {
     console.log(`🎵 Generating Suno instrumental: ${style.name}`);
 
     // Generate music with Suno
-    const musicResult = await musicService.generateInstrumentalMusic(style.prompt, {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const musicResult: any = await musicService.generateInstrumentalMusic(style.prompt, {
       duration: Math.min(duration, 30), // Suno max duration
       style: style.style,
       mood: style.mood,
@@ -240,17 +267,9 @@ export async function generateSunoInstrumental(duration, style) {
         }, 5 * 60 * 1000);
 
         pendingCallbacks.set(musicResult.taskId, {
-          resolve: (audioBuffer) => {
+          resolve: (filePath) => {
             clearTimeout(timeout);
-            try {
-              const fileName = `suno_instrumental_${uuidv4()}.mp3`;
-              const filePath = path.join(tempDir, fileName);
-              fs.writeFileSync(filePath, audioBuffer);
-              console.log(`✅ Suno instrumental generated via callback: ${fileName}`);
-              resolve(filePath);
-            } catch (err) {
-              reject(new Error(`Failed to save Suno instrumental: ${err.message}`));
-            }
+            resolve(filePath);
           },
           reject: (error) => {
             clearTimeout(timeout);
@@ -262,7 +281,7 @@ export async function generateSunoInstrumental(duration, style) {
 
     throw new Error(`Suno music generation failed: Unexpected result format`);
 
-  } catch (err) {
+  } catch (err: any) {
     console.error('❌ Error generating Suno instrumental:', err);
     throw new Error(`Suno instrumental generation failed: ${err.message}`);
   }
@@ -273,23 +292,22 @@ export async function generateSunoInstrumental(duration, style) {
  * @param {string} taskId - Task ID
  * @param {Buffer} audioBuffer - Generated audio buffer
  */
-export function handleSunoCallback(taskId, audioBuffer) {
+export function handleSunoCallback(taskId: string, audioBuffer: Buffer): void {
   const callback = pendingCallbacks.get(taskId);
   if (callback) {
-    callback.resolve(audioBuffer);
+    const tempDir = getTempDir();
+    ensureTempDir();
+    
+    try {
+      const fileName = `suno_instrumental_${uuidv4()}.mp3`;
+      const filePath = path.join(tempDir, fileName);
+      fs.writeFileSync(filePath, audioBuffer);
+      console.log(`✅ Suno instrumental generated via callback: ${fileName}`);
+      callback.resolve(filePath);
+    } catch (err: any) {
+      callback.reject(new Error(`Failed to save Suno instrumental: ${err.message}`));
+    }
+    
     pendingCallbacks.delete(taskId);
   }
 }
-
-module.exports = {
-  INSTRUMENTAL_STYLES,
-  BACKGROUND_MUSIC,
-  getRandomBackground,
-  getRandomInstrumentalStyle,
-  generateBackgroundMusic,
-  generateSunoInstrumental,
-  handleSunoCallback
-};
-
-export {};
-

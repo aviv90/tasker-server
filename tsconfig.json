@@ -33,7 +33,7 @@
     "noUncheckedIndexedAccess": true,
     
     /* JavaScript Support */
-    "allowJs": true,
+    "allowJs": false,
     "checkJs": false,
     
     /* Completeness */
@@ -44,8 +44,7 @@
     "types": ["node"]
   },
   "include": [
-    "**/*.ts",
-    "**/*.js"
+    "**/*.ts"
   ],
   "exclude": [
     "node_modules",
@@ -54,4 +53,3 @@
     "*.config.js"
   ]
 }
-

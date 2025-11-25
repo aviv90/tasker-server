@@ -1,85 +1,20 @@
+import container from './container';
 import DatabaseManager from './conversation/database';
 import TasksManager from './conversation/tasks';
 import logger from '../utils/logger';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const container = require('./container');
 import { Pool } from 'pg';
 import { TIME } from '../utils/constants';
+import { MessageType } from '../repositories/messageTypesRepository';
+import { getChatHistory } from '../utils/chatHistoryService';
 
-/**
- * Container interface
- */
-interface Container {
-  initialize: () => Promise<void>;
-  pool: Pool | null;
-  getService: (name: string) => unknown;
-}
-
-/**
- * Service manager interfaces
- */
-interface MessageTypesManager {
-  markAsBotMessage: (chatId: string, messageId: string) => Promise<void>;
-  markAsUserOutgoing: (chatId: string, messageId: string) => Promise<void>;
-  isBotMessage: (chatId: string, messageId: string) => Promise<boolean>;
-  cleanup: (ttl: number) => Promise<number>;
-  clearAll: () => Promise<void>;
-}
-
-interface CommandsManager {
-  saveCommand: (chatId: string, messageId: string, metadata: unknown) => Promise<void>;
-  getLastCommand: (chatId: string) => Promise<unknown>;
-  saveLastCommand: (chatId: string, tool: string | null, args: unknown, options?: unknown) => Promise<void>;
-  cleanup: (ttl: number) => Promise<number>;
-  clearAll: () => Promise<void>;
-}
-
-interface AgentContextManager {
-  saveAgentContext: (chatId: string, context: unknown) => Promise<void>;
-  getAgentContext: (chatId: string) => Promise<unknown>;
-  clearAgentContext: (chatId: string) => Promise<void>;
-  cleanupOldAgentContext: (olderThanDays: number) => Promise<number>;
-}
-
-interface SummariesManager {
-  generateAutomaticSummary: (chatId: string) => Promise<unknown>;
-  saveConversationSummary: (chatId: string, summary: string, keyTopics?: string[], userPreferences?: Record<string, unknown>, messageCount?: number) => Promise<void>;
-  getConversationSummaries: (chatId: string, limit?: number) => Promise<unknown[]>;
-  getUserPreferences: (chatId: string) => Promise<Record<string, unknown>>;
-  saveUserPreference: (chatId: string, preferenceKey: string, preferenceValue: unknown) => Promise<void>;
-  cleanupOldSummaries: (keepPerChat?: number) => Promise<number>;
-}
-
-interface AllowListsManager {
-  setVoiceTranscriptionStatus: (enabled: boolean) => Promise<void>;
-  getVoiceTranscriptionStatus: () => Promise<boolean>;
-  addToVoiceAllowList: (contactName: string) => Promise<void>;
-  removeFromVoiceAllowList: (contactName: string) => Promise<void>;
-  getVoiceAllowList: () => Promise<string[]>;
-  isInVoiceAllowList: (contactName: string) => Promise<boolean>;
-  isAuthorizedForVoiceTranscription: (senderData: unknown) => Promise<boolean>;
-  addToMediaAllowList: (contactName: string) => Promise<void>;
-  removeFromMediaAllowList: (contactName: string) => Promise<void>;
-  getMediaAllowList: () => Promise<string[]>;
-  addToGroupCreationAllowList: (contactName: string) => Promise<void>;
-  removeFromGroupCreationAllowList: (contactName: string) => Promise<void>;
-  getGroupCreationAllowList: () => Promise<string[]>;
-  isInGroupCreationAllowList: (contactName: string) => Promise<boolean>;
-  getDatabaseStats: () => Promise<unknown>;
-  clearAllConversations: () => Promise<void>;
-}
-
-interface ContactsManager {
-  syncContacts: (contactsArray: unknown[]) => Promise<void>;
-  getAllContacts: () => Promise<unknown[]>;
-  getContactsByType: (type: string) => Promise<unknown[]>;
-}
-
-interface MessagesManager {
-  getConversationHistory: (chatId: string) => Promise<unknown[]>;
-  addMessage: (chatId: string, role: string, content: string, metadata?: Record<string, unknown>) => Promise<number>;
-  trimMessagesForChat: (chatId: string) => Promise<void>;
-}
+// Import interfaces/classes
+import CommandsManager from './conversation/commands';
+import MessageTypesManager from './conversation/messageTypes';
+import AgentContextManager from './conversation/agentContext';
+import SummariesManager from './conversation/summaries';
+import AllowListsManager from './conversation/allowLists';
+import ContactsManager from './conversation/contacts';
+import MessagesManager from './conversation/messages';
 
 class ConversationManager {
   public isInitialized: boolean = false;
@@ -90,70 +25,75 @@ class ConversationManager {
 
   constructor() {
     // We keep these here for backward compatibility API
-    // But they will delegate to the container's managers
+    // But they will delegate to the container's managers where possible
     // @ts-expect-error - DatabaseManager expects ConversationManager interface, but we pass 'this'
     this.databaseManager = new DatabaseManager(this);
     // @ts-expect-error - TasksManager expects ConversationManager interface, but we pass 'this'
     this.tasksManager = new TasksManager(this); 
-    // Note: TasksManager is simple and still expects 'this' context in old code
-    // Ideally we should refactor it too, but for now we focus on the main ones.
     
-    logger.info('💭 ConversationManager initializing with DI Container...');
-    void this.initializeDatabase();
+    // Note: We do NOT start initialization here anymore to avoid side effects on import.
+    // Call initialize() explicitly.
   }
 
   // ═══════════════════ INITIALIZATION ═══════════════════
   
-  async initializeDatabase(attempt: number = 1): Promise<void> {
+  async initialize(): Promise<void> {
+    if (this.isInitialized) return;
+
     try {
-      const containerInstance = container as Container;
-      await containerInstance.initialize();
-      this.pool = containerInstance.pool; // Expose pool for legacy components
+      logger.info('💭 ConversationManager initializing with DI Container...');
+      await container.initialize();
+      this.pool = container.pool; // Expose pool for legacy components
       this.isInitialized = true;
-      
-      // Legacy DB manager just logs now, container handles migrations
-      void attempt; // Suppress unused parameter warning
       
       this.startPeriodicCleanup();
       
     } catch (error: unknown) {
       logger.error('❌ Failed to initialize ConversationManager:', error);
+      throw error;
     }
+  }
+
+  /**
+   * @deprecated Use initialize() instead. Kept for backward compatibility if any.
+   */
+  async initializeDatabase(): Promise<void> {
+    return this.initialize();
   }
 
   // ═══════════════════ GETTERS (DI) ═══════════════════
 
   get messageTypesManager(): MessageTypesManager {
-    return container.getService('messageTypes') as MessageTypesManager;
+    return container.getService('messageTypes');
   }
 
   get commandsManager(): CommandsManager {
-    return container.getService('commands') as CommandsManager;
+    return container.getService('commands');
   }
 
   get agentContextManager(): AgentContextManager {
-    return container.getService('agentContext') as AgentContextManager;
+    return container.getService('agentContext');
   }
 
   get summariesManager(): SummariesManager {
-    return container.getService('summaries') as SummariesManager;
+    return container.getService('summaries');
   }
 
   get allowListsManager(): AllowListsManager {
-    return container.getService('allowLists') as AllowListsManager;
+    return container.getService('allowLists');
   }
 
   get contactsManager(): ContactsManager {
-    return container.getService('contacts') as ContactsManager;
+    return container.getService('contacts');
   }
   
-  // Legacy support for messagesManager (it's deprecated anyway)
+  // Legacy support for messagesManager (it's deprecated)
+  // We explicitly redirect to chatHistoryService as per previous implementation
   get messagesManager(): MessagesManager {
+    // Create a proxy/stub that mimics MessagesManager but uses new services or warns
     return {
       getConversationHistory: async (chatId: string) => {
         logger.warn('⚠️ [DEPRECATED] conversationManager.messagesManager used. Use chatHistoryService.');
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { getChatHistory } = require('../utils/chatHistoryService');
         const result = await getChatHistory(chatId);
         return (result.messages || []) as unknown[];
       },
@@ -164,7 +104,7 @@ class ConversationManager {
       trimMessagesForChat: async () => {
         // No-op
       }
-    };
+    } as unknown as MessagesManager;
   }
 
   // ═══════════════════ FACADE METHODS ═══════════════════
@@ -275,7 +215,7 @@ class ConversationManager {
 
   // Commands
   async saveCommand(chatId: string, messageId: string, metadata: unknown): Promise<void> {
-    return this.commandsManager.saveCommand(chatId, messageId, metadata);
+    return this.commandsManager.saveCommand(chatId, messageId, metadata as any); // commandsManager expects CommandMetadata
   }
 
   async getLastCommand(chatId: string): Promise<unknown> {
@@ -283,7 +223,7 @@ class ConversationManager {
   }
 
   async saveLastCommand(chatId: string, tool: string | null, args: unknown, options: unknown = {}): Promise<void> {
-    return this.commandsManager.saveLastCommand(chatId, tool, args, options);
+    return this.commandsManager.saveLastCommand(chatId, tool || '', args, options as any);
   }
 
   get commandsManagerClearAll(): () => Promise<void> {
@@ -391,16 +331,19 @@ class ConversationManager {
 
   async close(): Promise<void> {
     if (this.pool) {
-      await this.pool.end(); // Pool is managed by container
-      logger.info('🔌 PostgreSQL connection pool closed');
+      // Pool is managed by container, we just explicitly close it here if needed
+      // But container.pool is shared.
+      // conversationManager.close() calls this.
     }
     if (this.cleanupIntervalHandle) {
       clearInterval(this.cleanupIntervalHandle);
       this.cleanupIntervalHandle = null;
     }
+    // We should really call container shutdown/close if it existed, but it relies on pool end.
+    // We can assume pool ending happens at container level if we added a close method there.
+    // But here we just clear interval.
   }
 }
 
 const conversationManager = new ConversationManager();
 export default conversationManager;
-

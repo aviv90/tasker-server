@@ -8,9 +8,10 @@
 // Import services
 import * as greenApiService from '../../services/greenApiService';
 import conversationManager from '../../services/conversationManager';
-import { routeToAgent } from '../../services/agentRouter';
+import { routeToAgent, NormalizedInput, AgentResult } from '../../services/agentRouter';
 import { sendErrorToUser, ERROR_MESSAGES } from '../../utils/errorSender';
 import logger from '../../utils/logger';
+import { WebhookData } from '../../services/whatsapp/types';
 
 // Import WhatsApp utilities
 import { isAdminCommand } from '../../services/whatsapp/authorization';
@@ -22,10 +23,10 @@ import { extractMessageText, extractMediaUrls, extractQuotedMediaUrls, isActualQ
 
 /**
  * Handle outgoing WhatsApp message
- * @param {Object} webhookData - Webhook data from Green API
+ * @param {WebhookData} webhookData - Webhook data from Green API
  * @param {Set} processedMessages - Shared cache for message deduplication
  */
-export async function handleOutgoingMessage(webhookData: any, processedMessages: Set<string>) {
+export async function handleOutgoingMessage(webhookData: WebhookData, processedMessages: Set<string>): Promise<void> {
   try {
     const messageData = webhookData.messageData;
     const senderData = webhookData.senderData;
@@ -98,8 +99,6 @@ export async function handleOutgoingMessage(webhookData: any, processedMessages:
     // Unified intent router for outgoing when text starts with "# "
     if (messageText && /^#\s+/.test(messageText.trim())) {
       try {
-        const chatId = senderData.chatId;
-
         // Extract the prompt (remove "# " prefix if exists)
         // For edited messages, # might be removed by WhatsApp/Green API
         const basePrompt = messageText.trim().replace(/^#\s+/, '').trim();
@@ -177,7 +176,7 @@ export async function handleOutgoingMessage(webhookData: any, processedMessages:
         // Save original message ID for quoting all bot responses
         const originalMessageId = webhookData.idMessage;
 
-        const normalized: any = {
+        const normalized: NormalizedInput = {
           userText: `# ${finalPrompt}`, // Add back the # prefix for router
           hasImage: hasImage,
           hasVideo: hasVideo,
@@ -194,7 +193,7 @@ export async function handleOutgoingMessage(webhookData: any, processedMessages:
             media_creation: true,
             group_creation: true,
             voice_allowed: true
-          }
+          },
         };
 
         // ═══════════════════ AGENT MODE (Gemini Function Calling - OUTGOING) ═══════════════════
@@ -207,7 +206,7 @@ export async function handleOutgoingMessage(webhookData: any, processedMessages:
             // Commands are saved to DB (persistent) for retry functionality.
             logger.debug(`💾 [Agent - Outgoing] Processing command (not saving to DB - using Green API history)`);
             
-            const agentResult: any = await routeToAgent(normalized, chatId);
+            const agentResult: AgentResult = await routeToAgent(normalized, chatId);
             
             // Pass originalMessageId to agentResult for use in result handling
             if (agentResult) {

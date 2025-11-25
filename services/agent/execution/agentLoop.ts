@@ -1,17 +1,33 @@
-// @ts-nocheck
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-// Handle default export from TypeScript
-const conversationManagerModule = require('../../conversationManager');
-const conversationManager = conversationManagerModule.default || conversationManagerModule;
-const { cleanThinkingPatterns } = require('../../../utils/agentHelpers');
-const { allTools: agentTools } = require('../tools');
-const { sendToolAckMessage } = require('../utils/ackUtils');
-const { getServices } = require('../utils/serviceLoader');
-const { extractQuotedMessageId } = require('../../../utils/messageHelpers');
-const { cleanJsonWrapper } = require('../../../utils/textSanitizer');
-const logger = require('../../../utils/logger');
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import conversationManager from '../../conversationManager';
+import { cleanThinkingPatterns } from '../../../utils/agentHelpers';
+import { allTools as agentTools } from '../tools';
+import { sendToolAckMessage } from '../utils/ackUtils';
+import { getServices } from '../utils/serviceLoader';
+import { extractQuotedMessageId } from '../../../utils/messageHelpers';
+import { cleanJsonWrapper } from '../../../utils/textSanitizer';
+import logger from '../../../utils/logger';
+import { TIME } from '../../../utils/constants';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Type definitions for better type safety
+interface AgentContext {
+  toolCalls: any[];
+  generatedAssets: {
+    images: any[];
+    videos: any[];
+    audio: any[];
+    polls?: any[];
+  };
+  previousToolResults: Record<string, any>;
+  suppressFinalResponse?: boolean;
+  chatId?: string;
+}
+
+interface AgentConfig {
+  contextMemoryEnabled: boolean;
+}
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 /**
  * Single-step agent execution loop
@@ -20,15 +36,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 class AgentLoop {
   /**
    * Execute agent loop
-   * @param {Object} chat - Gemini chat instance
-   * @param {string} prompt - User prompt
-   * @param {string} chatId - Chat ID
-   * @param {Object} context - Agent context
-   * @param {number} maxIterations - Maximum iterations
-   * @param {Object} agentConfig - Agent configuration
-   * @returns {Promise<Object>} - Execution result
    */
-  async execute(chat, prompt, chatId, context, maxIterations, agentConfig) {
+  async execute(chat: any, prompt: string, chatId: string, context: AgentContext, maxIterations: number, agentConfig: AgentConfig) {
     let response = await chat.sendMessage(prompt);
     let iterationCount = 0;
 
@@ -85,7 +94,7 @@ class AgentLoop {
         logger.debug(`🔍 [Agent] Extracted assets - Image: ${latestImageAsset?.url}, Video: ${latestVideoAsset?.url}, Audio: ${latestAudioAsset?.url}, Poll: ${latestPollAsset?.question}, Location: ${latitude}, ${longitude}`);
 
         // Clean JSON wrappers from final text
-        let finalText = context.suppressFinalResponse ? '' : cleanJsonWrapper(text);
+        const finalText = context.suppressFinalResponse ? '' : cleanJsonWrapper(text);
 
         // Get originalMessageId from context for quoting
         const originalMessageId = extractQuotedMessageId({ context });
@@ -120,7 +129,7 @@ class AgentLoop {
       await sendToolAckMessage(chatId, functionCalls, quotedMessageId);
 
       // Execute all tools in parallel
-      const toolPromises = functionCalls.map(async (call) => {
+      const toolPromises = functionCalls.map(async (call: any) => {
         return await this.executeTool(call, context);
       });
 
@@ -157,7 +166,7 @@ class AgentLoop {
   /**
    * Execute a single tool
    */
-  async executeTool(call, context) {
+  async executeTool(call: any, context: AgentContext) {
     const toolName = call.name;
     const toolArgs = call.args;
 
@@ -197,14 +206,13 @@ class AgentLoop {
       if (shouldSendError) {
         try {
           const { greenApiService } = getServices();
-          const { TIME } = require('../../../utils/constants');
           const errorMessage = toolResult.error.startsWith('❌')
             ? toolResult.error
             : `❌ ${toolResult.error}`;
           // Get originalMessageId from context for quoting
           const quotedMessageId = extractQuotedMessageId({ context });
           await greenApiService.sendTextMessage(context.chatId, errorMessage, quotedMessageId, TIME.TYPING_INDICATOR);
-        } catch (notifyError) {
+        } catch (notifyError: any) {
           logger.error(`❌ Failed to notify user about error:`, { error: notifyError.message, stack: notifyError.stack });
         }
       }
@@ -230,7 +238,7 @@ class AgentLoop {
           response: toolResult
         }
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Error executing tool ${toolName}:`, { error: error.message, stack: error.stack });
 
       // Track failed tool call
@@ -257,7 +265,7 @@ class AgentLoop {
   /**
    * Track generated assets in context
    */
-  trackGeneratedAssets(context, toolName, toolArgs, toolResult) {
+  trackGeneratedAssets(context: AgentContext, toolName: string, toolArgs: any, toolResult: any) {
     if (toolResult.imageUrl) {
       logger.debug(`✅ [Agent] Tracking image: ${toolResult.imageUrl}, caption: ${toolResult.caption || '(none)'}`);
       context.generatedAssets.images.push({
@@ -300,5 +308,4 @@ class AgentLoop {
   }
 }
 
-module.exports = new AgentLoop();
-
+export default new AgentLoop();

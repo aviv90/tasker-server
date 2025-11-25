@@ -17,7 +17,7 @@ import conversationManager from './conversationManager';
 /**
  * Normalized input structure
  */
-interface NormalizedInput {
+export interface NormalizedInput {
   userText?: string;
   imageUrl?: string | null;
   videoUrl?: string | null;
@@ -29,7 +29,7 @@ interface NormalizedInput {
 /**
  * Last command structure
  */
-interface LastCommand {
+export interface LastCommand {
   tool: string | null;
   toolArgs?: unknown;
   args?: unknown;
@@ -46,7 +46,7 @@ interface LastCommand {
 /**
  * Agent execution result
  */
-interface AgentResult {
+export interface AgentResult {
   text?: string;
   toolCalls?: ToolCall[];
   originalMessageId?: string;
@@ -58,6 +58,10 @@ interface AgentResult {
   imageUrl?: string | null;
   videoUrl?: string | null;
   audioUrl?: string | null;
+  success?: boolean;
+  error?: string;
+  iterations?: number;
+  toolsUsed?: string[];
   [key: string]: unknown;
 }
 
@@ -114,4 +118,3 @@ export async function routeToAgent(input: NormalizedInput, chatId: string): Prom
   
   return agentResult;
 }
-

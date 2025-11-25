@@ -5,21 +5,21 @@
 
 import { Pool } from 'pg';
 
-interface CommandData {
+export interface CommandData {
     chatId: string;
     messageId: string;
-    tool?: string;
-    toolArgs?: any;
-    args?: any;
-    plan?: any;
+    tool?: string | null;
+    toolArgs?: unknown;
+    args?: unknown;
+    plan?: unknown;
     isMultiStep?: boolean;
-    prompt?: string;
-    result?: any;
+    prompt?: string | null;
+    result?: unknown;
     failed?: boolean;
-    normalized?: any;
-    imageUrl?: string;
-    videoUrl?: string;
-    audioUrl?: string;
+    normalized?: unknown;
+    imageUrl?: string | null;
+    videoUrl?: string | null;
+    audioUrl?: string | null;
     timestamp: number;
 }
 
@@ -32,9 +32,8 @@ class CommandsRepository {
 
   /**
    * Save or update a command
-   * @param {Object} commandData 
    */
-  async save(commandData: CommandData) {
+  async save(commandData: CommandData): Promise<void> {
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -83,8 +82,6 @@ class CommandsRepository {
 
   /**
    * Get last command for a chat
-   * @param {string} chatId 
-   * @returns {Promise<Object|null>}
    */
   async findLastByChatId(chatId: string): Promise<CommandData | null> {
     const client = await this.pool.connect();
@@ -106,7 +103,7 @@ class CommandsRepository {
           chatId,
           messageId: row.message_id,
           tool: row.tool,
-          toolArgs: row.tool_args,
+          toolArgs: row.tool_args, // pg automatically parses JSON
           args: row.args,
           plan: row.plan,
           isMultiStep: row.is_multi_step,
@@ -126,8 +123,6 @@ class CommandsRepository {
 
   /**
    * Delete commands older than timestamp
-   * @param {number} cutoffTime 
-   * @returns {Promise<number>} count of deleted rows
    */
   async deleteOlderThan(cutoffTime: number): Promise<number> {
     const client = await this.pool.connect();
@@ -145,7 +140,7 @@ class CommandsRepository {
   /**
    * Clear all commands
    */
-  async deleteAll() {
+  async deleteAll(): Promise<void> {
     const client = await this.pool.connect();
     try {
       await client.query('DELETE FROM last_commands');
