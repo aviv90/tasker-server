@@ -5,10 +5,13 @@
  * Refactored to use modular components (Phase 5.3)
  */
 
+// Handle default export from TypeScript
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const replicateGeneration = require('./replicate/generation');
+const replicateGenerationModule = require('./replicate/generation');
+const replicateGeneration = replicateGenerationModule.default || replicateGenerationModule;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const replicateWhatsApp = require('./replicate/whatsapp');
+const replicateWhatsAppModule = require('./replicate/whatsapp');
+const replicateWhatsApp = replicateWhatsAppModule.default || replicateWhatsAppModule;
 
 /**
  * Generate video from text prompt

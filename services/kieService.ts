@@ -5,10 +5,13 @@
  * Refactored to use modular components (Phase 5.3)
  */
 
+// Handle default export from TypeScript
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const TextToVideoService = require('./kie/textToVideo');
+const TextToVideoServiceModule = require('./kie/textToVideo');
+const TextToVideoService = TextToVideoServiceModule.default || TextToVideoServiceModule;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const ImageToVideoService = require('./kie/imageToVideo');
+const ImageToVideoServiceModule = require('./kie/imageToVideo');
+const ImageToVideoService = ImageToVideoServiceModule.default || ImageToVideoServiceModule;
 
 // Create instances
 const textToVideoService = new TextToVideoService();
