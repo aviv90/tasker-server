@@ -89,7 +89,9 @@ router.post('/start-task', expensiveOperationLimiter, async (req: Request, res: 
                 result = await replicateService.generateVideoWithText(sanitizedPrompt, model);
             }
             
-            await finalizeVideo(taskId, result, sanitizedPrompt, req as any);
+            // Cast result to any to satisfy TS (VideoResult expected but result is inferred as unknown)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await finalizeVideo(taskId, result as any, sanitizedPrompt, req as any);
         } else if (type === 'text-to-music') {
             let result;
             

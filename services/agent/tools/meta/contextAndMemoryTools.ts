@@ -112,10 +112,11 @@ const contextAndMemoryTools = {
 
         const { geminiService, greenApiService } = getServices();
         imageBuffer = await greenApiService.downloadFile(imageUrl);
+        const base64Image = imageBuffer.toString('base64');
 
         const result = (await geminiService.analyzeImageWithText(
           args.question,
-          imageBuffer
+          base64Image
         )) as { success: boolean; text?: string; error?: string };
 
         imageBuffer = null;
@@ -300,4 +301,5 @@ const contextAndMemoryTools = {
 };
 
 export default contextAndMemoryTools;
-module.exports = contextAndMemoryTools;
+// For CommonJS compatibility if needed
+// module.exports = contextAndMemoryTools;

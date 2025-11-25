@@ -32,14 +32,39 @@ export const getLocationBounds = geminiModule.getLocationBounds;
 export const generatePoll = geminiModule.generateCreativePoll;
 
 // Legacy aliases for backward compatibility
-export const generateImage = geminiModule.generateImage || geminiModule.generateImageWithText;
-export const generateVideo = geminiModule.generateVideo || geminiModule.generateVideoWithText;
-export const generateMusic = geminiModule.generateMusic;
-export const generateTTS = geminiModule.generateTTS;
+// Use casting to any to avoid TS errors if properties don't exist on the imported module type
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const gm = geminiModule as any;
+export const generateImage = gm.generateImage || geminiModule.generateImageWithText;
+export const generateVideo = gm.generateVideo || geminiModule.generateVideoWithText;
+export const generateMusic = gm.generateMusic; // Might be undefined, which is fine if checked at runtime
+export const generateTTS = gm.generateTTS;
 
 // Export everything else as default for backward compatibility
 export default geminiModule;
 
 // Ensure CommonJS compatibility for existing require() calls
 module.exports = geminiModule;
-
+module.exports.generateTextResponse = generateTextResponse;
+module.exports.generateImageWithText = generateImageWithText;
+module.exports.generateImageForWhatsApp = generateImageForWhatsApp;
+module.exports.editImageWithText = editImageWithText;
+module.exports.editImageForWhatsApp = editImageForWhatsApp;
+module.exports.analyzeImageWithText = analyzeImageWithText;
+module.exports.generateVideoWithText = generateVideoWithText;
+module.exports.generateVideoWithImage = generateVideoWithImage;
+module.exports.generateVideoForWhatsApp = generateVideoForWhatsApp;
+module.exports.generateVideoFromImageForWhatsApp = generateVideoFromImageForWhatsApp;
+module.exports.analyzeVideoWithText = analyzeVideoWithText;
+module.exports.generateChatSummary = generateChatSummary;
+module.exports.translateText = translateText;
+module.exports.parseMusicRequest = parseMusicRequest;
+module.exports.parseTextToSpeechRequest = parseTextToSpeechRequest;
+module.exports.generateCreativePoll = generateCreativePoll;
+module.exports.getLocationInfo = getLocationInfo;
+module.exports.getLocationBounds = getLocationBounds;
+module.exports.generatePoll = generatePoll;
+module.exports.generateImage = generateImage;
+module.exports.generateVideo = generateVideo;
+module.exports.generateMusic = generateMusic;
+module.exports.generateTTS = generateTTS;

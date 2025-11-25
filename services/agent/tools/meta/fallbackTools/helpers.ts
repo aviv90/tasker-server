@@ -6,6 +6,9 @@ import { formatProviderName, normalizeProviderKey } from '../../../utils/provide
 import { VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP } from '../../../config/constants';
 import { extractQuotedMessageId } from '../../../../../utils/messageHelpers';
 
+// Export these for use by other modules
+export { formatProviderName, normalizeProviderKey };
+
 type ToolContext = {
   chatId?: string;
   originalInput?: {
@@ -113,4 +116,3 @@ export function getNextProviders(
 
   return providers;
 }
-

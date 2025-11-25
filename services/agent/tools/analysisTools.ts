@@ -54,7 +54,7 @@ export const analyze_image = {
       imageBuffer = await greenApiService.downloadFile(args.image_url);
       const base64Image = imageBuffer.toString('base64');
 
-      const result = await geminiService.analyzeImageWithText(args.question, base64Image);
+      const result = (await geminiService.analyzeImageWithText(args.question, base64Image)) as { success: boolean; text?: string; error?: string };
 
       imageBuffer = null;
 
@@ -115,7 +115,7 @@ export const analyze_video = {
 
       const { geminiService, greenApiService } = getServices();
       const videoBuffer: Buffer = await greenApiService.downloadFile(args.video_url);
-      const result = await geminiService.analyzeVideoWithText(args.question, videoBuffer);
+      const result = (await geminiService.analyzeVideoWithText(args.question, videoBuffer)) as { error?: string; text?: string };
 
       if (result.error) {
         return {
@@ -140,8 +140,7 @@ export const analyze_video = {
   }
 };
 
-module.exports = {
+export default {
   analyze_image,
   analyze_video
 };
-

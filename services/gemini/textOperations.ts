@@ -86,9 +86,10 @@ export async function generateTextResponse(
       if (msg.parts) return msg;
       return {
         role: msg.role,
-        parts: [{ text: msg.content || '' }]
+        parts: [{ text: msg.content || '' }],
+        content: msg.content || '' // Ensure content is present
       };
-    }) as Array<{ role: string; parts: Array<{ text: string }> }>;
+    }) as Array<ConversationMessage>;
 
     // Build conversation contents using prompt builder
     const contents = promptBuilder.buildConversationContents(
@@ -208,8 +209,10 @@ export async function generateTextResponse(
 
 /**
  * Generate chat summary using Gemini
+ * Accepts any[] because it handles GreenAPI message format
  */
-export async function generateChatSummary(messages: ConversationMessage[]): Promise<unknown> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function generateChatSummary(messages: any[]): Promise<unknown> {
   return await summaryService.generateChatSummary(messages);
 }
 

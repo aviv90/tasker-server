@@ -534,7 +534,8 @@ export const create_music = {
       let wantsVideo = Boolean(args.make_video);
       
       try {
-        const parsingResult = await parseMusicRequest(cleanedOriginal || args.prompt);
+        // Fix: ensure argument is string
+        const parsingResult = (await parseMusicRequest(cleanedOriginal || args.prompt || '')) as { cleanPrompt?: string; wantsVideo?: boolean };
         if (parsingResult?.cleanPrompt) {
           cleanPrompt = parsingResult.cleanPrompt.trim() || cleanPrompt;
         }
@@ -647,7 +648,8 @@ export const create_poll = {
       const withRhyme = args.with_rhyme !== false;
       const language = context?.originalInput?.language || context?.normalized?.language || 'he';
       
-      const pollData = await geminiService.generateCreativePoll(args.topic, withRhyme, language);
+      // Fix: cast pollData to expected type
+      const pollData = (await geminiService.generateCreativePoll(args.topic, withRhyme, language)) as { error?: string; question?: string; options?: string[] };
       
       if (pollData.error) {
         return {
@@ -691,4 +693,3 @@ module.exports = {
   create_music,
   create_poll
 };
-

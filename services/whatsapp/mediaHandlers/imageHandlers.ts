@@ -75,7 +75,8 @@ export async function handleImageEdit({ chatId, senderName, imageUrl, prompt, se
     // Edit image with selected AI service
     let editResult: { success: boolean; description?: string; imageUrl?: string; fileName?: string; error?: string };
     if (service === 'gemini') {
-      editResult = await editImageForWhatsApp(prompt, base64Image) as { success: boolean; description?: string; imageUrl?: string; fileName?: string; error?: string };
+      // Pass null for req as we are not in an express request context
+      editResult = await editImageForWhatsApp(prompt, base64Image, null) as { success: boolean; description?: string; imageUrl?: string; fileName?: string; error?: string };
     } else if (service === 'openai') {
       editResult = await editOpenAIImage(prompt, base64Image) as { success: boolean; description?: string; imageUrl?: string; fileName?: string; error?: string };
     } else {
@@ -204,4 +205,3 @@ export async function handleImageToVideo({ chatId, senderName, imageUrl, prompt,
     await sendTextMessage(chatId, formattedError, quotedMessageId, TIME.TYPING_INDICATOR);
   }
 }
-

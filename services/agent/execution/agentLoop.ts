@@ -8,7 +8,7 @@ import { extractQuotedMessageId } from '../../../utils/messageHelpers';
 import { cleanJsonWrapper } from '../../../utils/textSanitizer';
 import logger from '../../../utils/logger';
 import { TIME } from '../../../utils/constants';
-import { AgentContextState as AgentContext, ToolCall, GeneratedAsset, PollAsset } from './context';
+import { AgentContextState as AgentContext, ToolCall } from './context';
 
 // Type definitions for better type safety
 // AgentContext is now imported from context.ts
@@ -112,7 +112,9 @@ class AgentLoop {
         const finalText = context.suppressFinalResponse ? '' : cleanJsonWrapper(text);
 
         // Get originalMessageId from context for quoting
-        const originalMessageId = extractQuotedMessageId({ context });
+        // Cast context to any to avoid strict type checks with extractQuotedMessageId
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const originalMessageId = extractQuotedMessageId({ context: context as any });
 
         return {
           success: true,
@@ -140,7 +142,9 @@ class AgentLoop {
 
       // Send Ack message before executing tools
       // Get quotedMessageId from context if available
-      const quotedMessageId = extractQuotedMessageId({ context });
+      // Cast context to any to avoid strict type checks with extractQuotedMessageId
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const quotedMessageId = extractQuotedMessageId({ context: context as any });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await sendToolAckMessage(chatId, functionCalls, quotedMessageId || undefined);
 
@@ -167,7 +171,9 @@ class AgentLoop {
     // Max iterations reached
     logger.warn(`⚠️ [Agent] Max iterations (${maxIterations}) reached`);
     // Get originalMessageId from context for quoting
-    const originalMessageId = extractQuotedMessageId({ context });
+    // Cast context to any to avoid strict type checks with extractQuotedMessageId
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const originalMessageId = extractQuotedMessageId({ context: context as any });
     return {
       success: false,
       error: 'הגעתי למספר המקסימלי של ניסיונות. נסה לנסח את השאלה אחרת.',
@@ -231,7 +237,9 @@ class AgentLoop {
             ? typedToolResult.error
             : `❌ ${typedToolResult.error}`;
           // Get originalMessageId from context for quoting
-          const quotedMessageId = extractQuotedMessageId({ context });
+          // Cast context to any to avoid strict type checks with extractQuotedMessageId
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const quotedMessageId = extractQuotedMessageId({ context: context as any });
           await greenApiService.sendTextMessage(context.chatId!, errorMessage, quotedMessageId || undefined, TIME.TYPING_INDICATOR);
         } catch (notifyError: any) {
           logger.error(`❌ Failed to notify user about error:`, { error: notifyError.message, stack: notifyError.stack });

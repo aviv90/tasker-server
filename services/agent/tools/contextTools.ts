@@ -123,8 +123,9 @@ export const analyze_image_from_history = {
 
       const { geminiService, greenApiService } = getServices();
       imageBuffer = await greenApiService.downloadFile(imageUrl);
+      const base64Image = imageBuffer.toString('base64');
 
-      const result = await geminiService.analyzeImageWithText(args.question, imageBuffer);
+      const result = (await geminiService.analyzeImageWithText(args.question, base64Image)) as { success: boolean; text?: string; error?: string };
 
       imageBuffer = null;
 
@@ -228,7 +229,7 @@ export const get_long_term_memory = {
       const includeSummaries = args.include_summaries !== false;
       const includePreferences = args.include_preferences !== false;
 
-      const result: { success: boolean; data: string; [key: string]: unknown } = {
+      const result: { success: boolean; data: string; summaries?: unknown[]; preferences?: Record<string, string>; [key: string]: unknown } = {
         success: true,
         data: ''
       };
@@ -282,10 +283,9 @@ export const get_long_term_memory = {
   }
 };
 
-module.exports = {
+export default {
   get_chat_history,
   analyze_image_from_history,
   save_user_preference,
   get_long_term_memory
 };
-

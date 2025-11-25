@@ -101,7 +101,7 @@ export const translate_text = {
     try {
       const { geminiService } = getServices();
 
-      const result = await geminiService.translateText(args.text, args.target_language);
+      const result = (await geminiService.translateText(args.text, args.target_language)) as TranslationResponse;
 
       if (result.error) {
         return {
@@ -301,8 +301,7 @@ export const translate_and_speak = {
   }
 };
 
-module.exports = {
+export default {
   translate_text,
   translate_and_speak
 };
-

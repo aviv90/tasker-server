@@ -134,7 +134,9 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
   
   // 🔄 Multi-step execution - execute each step sequentially
   if (plan.isMultiStep && plan.steps && plan.steps.length > 1) {
-    return await multiStepExecution.execute(plan, chatId, options, languageInstruction, agentConfig) as AgentResult;
+    // Cast to any to bypass strict Plan type check (structure is compatible at runtime)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return await multiStepExecution.execute(plan as any, chatId, options, languageInstruction, agentConfig) as AgentResult;
   }
   
   // Continue with single-step execution if not multi-step
@@ -146,11 +148,11 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
   
   // System prompt for the agent (SSOT - from config/prompts.ts)
   const systemInstruction = prompts.agentSystemInstruction(languageInstruction);
-
+  
   // 🧠 Context for tool execution (load previous context if enabled)
   let context = contextManager.createInitialContext(chatId, options);
   context = await contextManager.loadPreviousContext(chatId, context, agentConfig.contextMemoryEnabled);
-
+  
   // Conversation history for the agent
   const chat = model.startChat({
     history: [],
@@ -160,7 +162,7 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
       parts: [{ text: systemInstruction }]
     }
   });
-
+  
   // ⏱️ Wrap entire agent execution with timeout
   const agentExecution = async (): Promise<AgentResult> => {
     return await agentLoop.execute(chat, prompt, chatId, context, maxIterations, agentConfig) as AgentResult;
@@ -197,4 +199,3 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
     throw error;
   }
 }
-

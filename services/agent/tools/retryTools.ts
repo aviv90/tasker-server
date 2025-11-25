@@ -293,7 +293,7 @@ export const retry_last_command = {
           ...plan,
           steps: stepsToRetry.map((step, idx: number) => ({
             tool: step.tool,
-            action: step.action,
+            action: step.action || '', // Ensure action is string (was string | undefined)
             parameters: step.parameters || {},
             stepNumber: idx + 1, // Renumber steps starting from 1
             ...step // Keep other properties but stepNumber overrides

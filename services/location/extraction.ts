@@ -24,6 +24,15 @@ export interface ExtractedRegion {
   [key: string]: unknown; // Allow additional properties
 }
 
+type BoundsResult = {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+  foundName?: string;
+  type?: string;
+};
+
 /**
  * Extract requested region/city from prompt
  */
@@ -69,13 +78,13 @@ export async function extractRequestedRegion(prompt: string | null | undefined):
     // If not in static data, try geocoding
     console.log(`🌍 City "${detectedCity}" not in static data, trying geocoding...`);
     try {
-      const bounds = await getLocationBounds(detectedCity);
+      const bounds = (await getLocationBounds(detectedCity)) as BoundsResult | null;
       if (bounds) {
         console.log(`✅ Found city bounds for "${detectedCity}" via geocoding`);
         return {
           continentName: null,
           displayName: (bounds.foundName as string) || detectedCity,
-          bounds: bounds as ExtractedRegion['bounds'],
+          bounds: bounds,
           isCity: true
         };
       }
@@ -233,13 +242,13 @@ export async function extractRequestedRegion(prompt: string | null | undefined):
   if (locationName) {
     console.log(`🌍 Attempting to geocode city/location: "${locationName}"`);
     try {
-      const bounds = await getLocationBounds(locationName);
+      const bounds = (await getLocationBounds(locationName)) as BoundsResult | null;
       if (bounds) {
         console.log(`✅ Found city/location bounds for "${locationName}"`);
         return {
           continentName: null,
           displayName: (bounds.foundName as string) || locationName,
-          bounds: bounds as ExtractedRegion['bounds'],
+          bounds: bounds,
           isCity: ((bounds.type as string) || '').toLowerCase().includes('city')
         };
       }
@@ -254,13 +263,13 @@ export async function extractRequestedRegion(prompt: string | null | undefined):
     const trimmedPrompt = prompt.trim();
     console.log(`🌍 Final geocode attempt for prompt: "${trimmedPrompt}"`);
     try {
-      const bounds = await getLocationBounds(trimmedPrompt);
+      const bounds = (await getLocationBounds(trimmedPrompt)) as BoundsResult | null;
       if (bounds) {
         console.log(`✅ Found bounds for prompt "${trimmedPrompt}" via geocode`);
         return {
           continentName: null,
           displayName: (bounds.foundName as string) || trimmedPrompt,
-          bounds: bounds as ExtractedRegion['bounds'],
+          bounds: bounds,
           isCity: ((bounds.type as string) || '').toLowerCase().includes('city')
         };
       }
@@ -273,4 +282,3 @@ export async function extractRequestedRegion(prompt: string | null | undefined):
   console.log(`❌ No region/city found in prompt: "${prompt}"`);
   return null;
 }
-

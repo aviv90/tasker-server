@@ -28,8 +28,8 @@ export async function parseTextToSpeechRequest(prompt: string): Promise<unknown>
 /**
  * Generate creative poll with optional rhyming
  */
-export async function generateCreativePoll(topic: string, withRhyme = true): Promise<unknown> {
-  return await pollGenerator.generateCreativePoll(topic, withRhyme);
+export async function generateCreativePoll(topic: string, withRhyme = true, language = 'he'): Promise<unknown> {
+  return await pollGenerator.generateCreativePoll(topic, withRhyme, language);
 }
 
 /**
@@ -45,4 +45,3 @@ export async function getLocationInfo(latitude: number, longitude: number): Prom
 export async function getLocationBounds(locationName: string): Promise<unknown> {
   return await locationService.getLocationBounds(locationName);
 }
-
