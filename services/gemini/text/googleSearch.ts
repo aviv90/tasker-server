@@ -1,6 +1,33 @@
-const https = require('https');
-const http = require('http');
-const { URL } = require('url');
+import https from 'https';
+import http from 'http';
+import { URL } from 'url';
+
+/**
+ * Grounding chunk
+ */
+interface GroundingChunk {
+  web?: {
+    uri?: string;
+    title?: string;
+  };
+}
+
+
+/**
+ * URL data
+ */
+interface UrlData {
+  redirectUrl: string;
+  title: string | null;
+}
+
+/**
+ * Resolved URL
+ */
+interface ResolvedUrl {
+  uri: string;
+  title: string | null;
+}
 
 /**
  * Google Search integration and URL processing
@@ -10,19 +37,21 @@ class GoogleSearchProcessor {
    * Process grounding metadata from Google Search
    * Resolves redirect URLs and removes hallucinated URLs
    */
-  async processGroundingMetadata(text, groundingMetadata) {
-    if (!groundingMetadata?.groundingChunks?.length) {
+  async processGroundingMetadata(text: string, groundingMetadata: unknown): Promise<string> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const metadata = groundingMetadata as any;
+    if (!metadata?.groundingChunks?.length) {
       return text;
     }
 
     console.log('🔗 Processing grounding metadata...');
 
     // Extract redirect URLs from groundingMetadata
-    const redirectUrls = groundingMetadata.groundingChunks
-      .filter(chunk => chunk.web?.uri)
-      .map(chunk => ({
-        redirectUrl: chunk.web.uri,
-        title: chunk.web.title || null
+    const redirectUrls: UrlData[] = metadata.groundingChunks
+      .filter((chunk: GroundingChunk) => chunk.web?.uri)
+      .map((chunk: GroundingChunk) => ({
+        redirectUrl: chunk.web!.uri!,
+        title: chunk.web!.title || null
       }));
 
     if (redirectUrls.length === 0) {
@@ -33,18 +62,15 @@ class GoogleSearchProcessor {
 
     // Resolve redirects to get actual URLs
     const realUrls = await Promise.all(
-      redirectUrls.map(async (urlData) => {
+      redirectUrls.map(async (urlData): Promise<ResolvedUrl | null> => {
         return new Promise((resolve) => {
           try {
-            const parsedUrl = new URL(urlData.redirectUrl);
-            const httpModule = parsedUrl.protocol === 'https:' ? https : http;
-
             let currentUrl = urlData.redirectUrl;
             let redirectCount = 0;
             const maxRedirects = 10; // Increased to handle more redirects
             let useGet = false; // Try HEAD first, then GET if needed
 
-            const followRedirect = (url, method = 'HEAD') => {
+            const followRedirect = (url: string, method: 'HEAD' | 'GET' = 'HEAD'): void => {
               // Skip vertexaisearch URLs - they're redirect URLs, not final destinations
               if (url.includes('vertexaisearch') || url.includes('google.com/url')) {
                 // Try to extract the actual URL from the redirect URL
@@ -57,7 +83,7 @@ class GoogleSearchProcessor {
                     followRedirect(currentUrl, 'HEAD');
                     return;
                   }
-                } catch (e) {
+                } catch (_e) {
                   // If extraction fails, continue with normal redirect following
                 }
               }
@@ -88,7 +114,7 @@ class GoogleSearchProcessor {
 
               const req = module.request(url, options, (res) => {
                 // Check if redirect
-                if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                   redirectCount++;
                   // Handle relative redirects
                   const newUrl = res.headers.location.startsWith('http')
@@ -117,7 +143,7 @@ class GoogleSearchProcessor {
                 }
               });
 
-              req.on('error', (error) => {
+              req.on('error', (error: Error) => {
                 // If HEAD failed and we haven't tried GET yet, try GET
                 if (method === 'HEAD' && !useGet) {
                   useGet = true;
@@ -156,8 +182,9 @@ class GoogleSearchProcessor {
             };
 
             followRedirect(currentUrl);
-          } catch (error) {
-            console.warn(`⚠️ Error resolving redirect for ${urlData.title}: ${error.message}`);
+          } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.warn(`⚠️ Error resolving redirect for ${urlData.title}: ${errorMessage}`);
             // Don't use vertexaisearch URLs as fallback
             if (urlData.redirectUrl.includes('vertexaisearch') || urlData.redirectUrl.includes('google.com/url')) {
               console.warn(`⚠️ Rejecting vertexaisearch URL due to error: ${urlData.redirectUrl.substring(0, 80)}...`);
@@ -182,9 +209,11 @@ class GoogleSearchProcessor {
 
     // Filter out null results (failed redirect resolutions) and vertexaisearch URLs
     const validUrls = realUrls
-      .filter(urlData => urlData && urlData.uri && 
-        !urlData.uri.includes('vertexaisearch') && 
-        !urlData.uri.includes('google.com/url'))
+      .filter((urlData): urlData is ResolvedUrl => {
+        if (!urlData || !urlData.uri) return false;
+        if (typeof urlData.uri !== 'string') return false;
+        return !urlData.uri.includes('vertexaisearch') && !urlData.uri.includes('google.com/url');
+      })
       .map((urlData) => urlData.uri);
 
     if (validUrls.length > 0) {
@@ -201,7 +230,7 @@ class GoogleSearchProcessor {
   /**
    * Fix URLs with parentheses and markdown syntax
    */
-  fixUrlFormatting(text) {
+  fixUrlFormatting(text: string): string {
     // 1. Convert Markdown links [text](url) to plain text with URL
     text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '$1: $2');
 
@@ -224,7 +253,7 @@ class GoogleSearchProcessor {
   /**
    * Detect and log suspicious YouTube URLs (likely hallucinated)
    */
-  validateYouTubeUrls(text) {
+  validateYouTubeUrls(text: string): void {
     const youtubeUrls = text.match(/https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([^\s&)]+)/g);
     
     if (!youtubeUrls) {
@@ -252,17 +281,23 @@ class GoogleSearchProcessor {
   /**
    * Process text with Google Search results
    */
-  async processTextWithGoogleSearch(text, groundingMetadata, useGoogleSearch) {
+  async processTextWithGoogleSearch(text: string, groundingMetadata: unknown, useGoogleSearch: boolean | string): Promise<string> {
+    const isGoogleSearchEnabled = useGoogleSearch === true || useGoogleSearch === 'true';
+    
     // Process grounding metadata (resolve redirects)
-    if (useGoogleSearch && groundingMetadata?.groundingChunks?.length > 0) {
-      text = await this.processGroundingMetadata(text, groundingMetadata);
+    if (isGoogleSearchEnabled && groundingMetadata) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const metadata = groundingMetadata as any;
+      if (metadata?.groundingChunks?.length > 0) {
+        text = await this.processGroundingMetadata(text, groundingMetadata);
+      }
     }
 
     // Fix URL formatting
     text = this.fixUrlFormatting(text);
 
     // Validate YouTube URLs
-    if (useGoogleSearch) {
+    if (isGoogleSearchEnabled) {
       this.validateYouTubeUrls(text);
     }
 
@@ -270,5 +305,5 @@ class GoogleSearchProcessor {
   }
 }
 
-module.exports = new GoogleSearchProcessor();
+export default new GoogleSearchProcessor();
 

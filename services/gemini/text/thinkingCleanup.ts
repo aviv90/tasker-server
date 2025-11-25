@@ -6,7 +6,7 @@ class ThinkingCleanup {
   /**
    * Check if text contains thinking patterns
    */
-  hasThinkingPattern(text) {
+  hasThinkingPattern(text: string): boolean {
     return text.includes('SPECIAL INSTRUCTION:') ||
       text.includes('Think step-by-step') ||
       text.startsWith('THOUGHT') ||
@@ -27,14 +27,16 @@ class ThinkingCleanup {
   /**
    * Extract final answer from text with thinking patterns
    */
-  extractFinalAnswer(text) {
+  extractFinalAnswer(text: string): string | null {
     const lines = text.split('\n');
     let inThinkingSection = false;
-    let answerLines = [];
+    const answerLines: string[] = [];
     let foundAnswerStart = false;
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
+      const currentLine = lines[i];
+      if (!currentLine) continue;
+      const line = currentLine.trim();
 
       // Skip empty lines at the start
       if (!foundAnswerStart && !line) continue;
@@ -62,9 +64,15 @@ class ThinkingCleanup {
         !line.includes('THOUGHT')) {
         foundAnswerStart = true;
         inThinkingSection = false;
-        answerLines.push(lines[i]);
+        const lineToAdd = lines[i];
+        if (lineToAdd !== undefined) {
+          answerLines.push(lineToAdd);
+        }
       } else if (foundAnswerStart && !inThinkingSection) {
-        answerLines.push(lines[i]);
+        const lineToAdd = lines[i];
+        if (lineToAdd !== undefined) {
+          answerLines.push(lineToAdd);
+        }
       }
     }
 
@@ -76,7 +84,7 @@ class ThinkingCleanup {
 
       // Remove surrounding quotes
       const quotedMatch = finalAnswer.match(/^"(.+)"$/s);
-      if (quotedMatch) {
+      if (quotedMatch && quotedMatch[1]) {
         finalAnswer = quotedMatch[1].trim();
         console.log('🧹 Removed surrounding quotes from answer');
       }
@@ -101,7 +109,7 @@ class ThinkingCleanup {
   /**
    * Check if line is a thinking marker
    */
-  isThinkingMarker(line) {
+  isThinkingMarker(line: string): boolean {
     return line.startsWith('THOUGHT') ||
       line.includes('SPECIAL INSTRUCTION') ||
       line.includes('Think step-by-step') ||
@@ -124,10 +132,10 @@ class ThinkingCleanup {
   /**
    * Check if line is meta/internal reasoning
    */
-  isMetaLine(line) {
+  isMetaLine(line: string): boolean {
     return (line.startsWith('*') && line.endsWith('*')) ||
-      line.match(/^\d+\.\s+\*.*\*:/) ||
-      line.match(/^\d+\.\s+/) ||
+      !!line.match(/^\d+\.\s+\*.*\*:/) ||
+      !!line.match(/^\d+\.\s+/) ||
       line.startsWith('-   ') ||
       line.includes('The user is') ||
       line.includes('My current instruction') ||
@@ -142,7 +150,7 @@ class ThinkingCleanup {
   /**
    * Check if line looks like meta-discussion
    */
-  isMetaDiscussion(line) {
+  isMetaDiscussion(line: string): boolean {
     return line.includes('translates to') ||
       line.includes('refers to') ||
       line.includes('means') ||
@@ -152,27 +160,32 @@ class ThinkingCleanup {
       line.includes('In the context') ||
       line.includes('Given') ||
       line.startsWith('The contrast is') ||
-      line.match(/^-\s+["'].*["']:/) ||
-      line.match(/^".*".*:$/);
+      !!line.match(/^-\s+["'].*["']:/) ||
+      !!line.match(/^".*".*:$/);
   }
 
   /**
    * Extract Hebrew content from mixed text
    */
-  extractHebrewContent(text) {
+  extractHebrewContent(text: string): string | null {
     const allLines = text.split('\n');
-    const hebrewLines = [];
+    const hebrewLines: string[] = [];
     let foundHebrewSection = false;
 
-    const hasHebrew = (str) => /[\u0590-\u05FF]/.test(str);
+    const hasHebrew = (str: string): boolean => /[\u0590-\u05FF]/.test(str);
 
     // Scan from bottom up for Hebrew content
     for (let i = allLines.length - 1; i >= 0; i--) {
-      const line = allLines[i].trim();
+      const currentLine = allLines[i];
+      if (!currentLine) continue;
+      const line = currentLine.trim();
       if (!line) continue;
 
       if (hasHebrew(line)) {
-        hebrewLines.unshift(allLines[i]);
+        const lineToAdd = allLines[i];
+        if (lineToAdd !== undefined) {
+          hebrewLines.unshift(lineToAdd);
+        }
         foundHebrewSection = true;
       } else if (foundHebrewSection) {
         break;
@@ -192,11 +205,12 @@ class ThinkingCleanup {
   /**
    * Extract last substantial paragraph
    */
-  extractLastParagraph(text) {
+  extractLastParagraph(text: string): string | null {
     const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 0);
 
     for (let i = paragraphs.length - 1; i >= 0; i--) {
-      const para = paragraphs[i].trim();
+      const para = paragraphs[i]?.trim();
+      if (!para) continue;
 
       const isMetaParagraph =
         para.includes('As an AI') ||
@@ -204,8 +218,8 @@ class ThinkingCleanup {
         para.includes('refers to') ||
         para.includes('Let\'s break down') ||
         para.includes('My response should') ||
-        para.match(/^\d+\.\s+\*/) ||
-        para.match(/^-\s+["'].*["']:/) ||
+        !!para.match(/^\d+\.\s+\*/) ||
+        !!para.match(/^-\s+["'].*["']:/) ||
         para.startsWith('THOUGHT');
 
       if (!isMetaParagraph && para.length > 20) {
@@ -221,7 +235,7 @@ class ThinkingCleanup {
   /**
    * Clean thinking patterns from text
    */
-  clean(text) {
+  clean(text: string): string {
     if (!this.hasThinkingPattern(text)) {
       return text;
     }
@@ -233,5 +247,5 @@ class ThinkingCleanup {
   }
 }
 
-module.exports = new ThinkingCleanup();
+export default new ThinkingCleanup();
 

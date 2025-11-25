@@ -1,7 +1,33 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { cleanJsonWrapper } = require('../../../utils/textSanitizer');
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { cleanJsonWrapper } from '../../../utils/textSanitizer';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+/**
+ * Location result
+ */
+interface LocationResult {
+  success: boolean;
+  description?: string;
+  latitude?: number;
+  longitude?: number;
+  usedMapsGrounding?: boolean;
+  error?: string;
+}
+
+/**
+ * Location bounds
+ */
+interface LocationBounds {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+  foundName: string;
+  city: string | null;
+  country: string | null;
+  type: string;
+}
 
 /**
  * Location services operations
@@ -11,18 +37,15 @@ class LocationService {
    * Clean JSON/snippets from response if Gemini accidentally returned structured data
    * Uses centralized cleanJsonWrapper utility for consistency
    */
-  cleanLocationResponse(text) {
+  cleanLocationResponse(text: string): string {
     // Use centralized JSON cleaning utility
     return cleanJsonWrapper(text);
   }
 
   /**
    * Get location information using Google Maps grounding
-   * @param {number} latitude - Latitude
-   * @param {number} longitude - Longitude
-   * @param {string} [language='he'] - Output language (e.g., 'he', 'en')
    */
-  async getLocationInfo(latitude, longitude, language = 'he') {
+  async getLocationInfo(latitude: number, longitude: number, language = 'he'): Promise<LocationResult> {
     try {
       console.log(`🗺️ Getting location info for: ${latitude}, ${longitude} (Language: ${language})`);
 
@@ -36,13 +59,12 @@ class LocationService {
       // Language-specific instructions
       const isHebrew = language === 'he' || language === 'Hebrew';
       const langName = isHebrew ? 'Hebrew' : (language === 'en' ? 'English' : language);
-      const langInstruction = isHebrew ? 'בעברית' : `in ${langName}`;
       
       try {
         console.log('🗺️ Trying Google Maps Grounding first...');
         
         // Dynamic prompt based on language
-        let mapsPrompt;
+        let mapsPrompt: string;
         if (isHebrew) {
           mapsPrompt = `תאר את המיקום בקואורדינטות: קו רוחב ${latitude}°, קו אורך ${longitude}°.
             
@@ -57,6 +79,7 @@ Which city or region is this in? Which country? What is interesting or famous ab
 Short and interesting answer in ${langName} (2-3 lines).`;
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mapsResult = await model.generateContent({
           contents: [{ role: "user", parts: [{ text: mapsPrompt }] }],
           tools: [{
@@ -70,11 +93,13 @@ Short and interesting answer in ${langName} (2-3 lines).`;
               }
             }
           }
-        });
+        } as any);
 
 
         const mapsResponse = mapsResult.response;
-        if (mapsResponse.candidates && mapsResponse.candidates.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mapsResponseAny = mapsResponse as any;
+        if (mapsResponseAny.candidates && mapsResponseAny.candidates.length > 0) {
           text = mapsResponse.text();
 
           // Check if Maps Grounding gave a useful answer
@@ -102,7 +127,7 @@ Short and interesting answer in ${langName} (2-3 lines).`;
             text = '';
           }
         }
-      } catch (mapsError) {
+      } catch (_mapsError) {
         // Google Maps Grounding often fails for coordinate-based queries, which is expected
         // Fall back to general knowledge without alarming logs
         console.log(`🔄 Google Maps Grounding unavailable, using general knowledge...`);
@@ -113,7 +138,7 @@ Short and interesting answer in ${langName} (2-3 lines).`;
       if (!text || text.trim().length === 0) {
         console.log('🌍 Using Gemini general geographic knowledge...');
         
-        let generalPrompt;
+        let generalPrompt: string;
         if (isHebrew) {
           generalPrompt = `תאר את המיקום הגיאוגרפי: קו רוחב ${latitude}°, קו אורך ${longitude}°.
 
@@ -137,7 +162,9 @@ Interesting answer in ${langName}.`;
         const generalResult = await model.generateContent(generalPrompt);
         const generalResponse = generalResult.response;
 
-        if (!generalResponse.candidates || generalResponse.candidates.length === 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const generalResponseAny = generalResponse as any;
+        if (!generalResponseAny.candidates || generalResponseAny.candidates.length === 0) {
           console.log('❌ Gemini: No candidates returned');
           return {
             success: false,
@@ -177,11 +204,12 @@ Interesting answer in ${langName}.`;
         usedMapsGrounding: usedMapsGrounding
       };
 
-    } catch (err) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to get location info';
       console.error('❌ Gemini error:', err);
       return {
         success: false,
-        error: err.message || 'Failed to get location info'
+        error: errorMessage
       };
     }
   }
@@ -189,8 +217,8 @@ Interesting answer in ${langName}.`;
   /**
    * Parse and validate location bounds from geocoding response
    */
-  parseLocationBounds(text, locationName) {
-    let locationData = null;
+  parseLocationBounds(text: string, locationName: string): LocationBounds | null {
+    let locationData: unknown = null;
 
     try {
       // First try: Extract JSON (might have markdown code blocks like ```json ... ```)
@@ -198,7 +226,7 @@ Interesting answer in ${langName}.`;
 
       // Remove markdown code blocks if present
       const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      if (codeBlockMatch) {
+      if (codeBlockMatch && codeBlockMatch[1]) {
         jsonText = codeBlockMatch[1];
       } else {
         // Extract JSON object
@@ -209,8 +237,7 @@ Interesting answer in ${langName}.`;
       }
 
       locationData = JSON.parse(jsonText);
-    } catch (parseErr) {
-      console.warn(`⚠️ Could not parse JSON from geocoding response:`, parseErr.message);
+    } catch (_parseErr) {
       // Fallback: Try to extract coordinates and bounds from text using regex
       const latMatch = text.match(/latitude[":\s]+(-?[0-9.]+)/i);
       const lngMatch = text.match(/longitude[":\s]+(-?[0-9.]+)/i);
@@ -221,47 +248,53 @@ Interesting answer in ${langName}.`;
       const eastMatch = text.match(/east[":\s]+(-?[0-9.]+)/i);
       const westMatch = text.match(/west[":\s]+(-?[0-9.]+)/i);
 
-      if (latMatch && lngMatch) {
-        locationData = {
+      if (latMatch && latMatch[1] && lngMatch && lngMatch[1]) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const data: any = {
           latitude: parseFloat(latMatch[1]),
           longitude: parseFloat(lngMatch[1]),
           found: true
         };
 
         // If viewport found, add it
-        if (northMatch && southMatch && eastMatch && westMatch) {
-          locationData.viewport = {
+        if (northMatch && northMatch[1] && southMatch && southMatch[1] && 
+            eastMatch && eastMatch[1] && westMatch && westMatch[1]) {
+          data.viewport = {
             north: parseFloat(northMatch[1]),
             south: parseFloat(southMatch[1]),
             east: parseFloat(eastMatch[1]),
             west: parseFloat(westMatch[1])
           };
         }
+
+        locationData = data;
       }
     }
 
-    if (!locationData || !locationData.found) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const locData = locationData as any;
+    if (!locData || !locData.found) {
       console.log(`❌ Location not found: ${locationName}`);
       return null;
     }
 
     // Extract metadata
-    const foundName = locationData.found_name || locationData.city || locationName;
-    const city = locationData.city || null;
-    const country = locationData.country || null;
-    const locationType = locationData.type || 'unknown';
+    const foundName = locData.found_name || locData.city || locationName;
+    const city = locData.city || null;
+    const country = locData.country || null;
+    const locationType = locData.type || 'unknown';
 
     // VALIDATION: Check if found location name reasonably matches requested name
     const requestedLower = locationName.toLowerCase().trim();
-    const foundLower = foundName.toLowerCase().trim();
+    const foundLower = String(foundName).toLowerCase().trim();
     const cityLower = (city || '').toLowerCase().trim();
 
     const isReasonableMatch =
       foundLower.includes(requestedLower) ||
       requestedLower.includes(foundLower) ||
-      cityLower.includes(requestedLower) ||
-      requestedLower.includes(cityLower) ||
-      (requestedLower.length >= 3 && foundLower.slice(0, 3) === requestedLower.slice(0, 3));
+      (cityLower && cityLower.includes(requestedLower)) ||
+      (cityLower && requestedLower.includes(cityLower)) ||
+      (requestedLower.length >= 3 && foundLower.length >= 3 && foundLower.slice(0, 3) === requestedLower.slice(0, 3));
 
     if (!isReasonableMatch) {
       console.warn(`⚠️ Location mismatch: requested "${locationName}" but got "${foundName}". Rejecting.`);
@@ -271,8 +304,8 @@ Interesting answer in ${langName}.`;
     console.log(`✅ Location validation passed: requested "${locationName}" → found "${foundName}" (${country || 'unknown country'})`);
 
     // Validate coordinates
-    const centerLat = parseFloat(locationData.latitude);
-    const centerLng = parseFloat(locationData.longitude);
+    const centerLat = parseFloat(locData.latitude);
+    const centerLng = parseFloat(locData.longitude);
 
     if (isNaN(centerLat) || isNaN(centerLng) ||
       centerLat < -90 || centerLat > 90 ||
@@ -282,15 +315,15 @@ Interesting answer in ${langName}.`;
     }
 
     // If viewport/bounds are available, use them (most accurate)
-    if (locationData.viewport &&
-      locationData.viewport.north && locationData.viewport.south &&
-      locationData.viewport.east && locationData.viewport.west) {
+    if (locData.viewport &&
+      locData.viewport.north && locData.viewport.south &&
+      locData.viewport.east && locData.viewport.west) {
 
-      const bounds = {
-        minLat: Math.min(locationData.viewport.south, locationData.viewport.north),
-        maxLat: Math.max(locationData.viewport.south, locationData.viewport.north),
-        minLng: Math.min(locationData.viewport.west, locationData.viewport.east),
-        maxLng: Math.max(locationData.viewport.west, locationData.viewport.east),
+      const bounds: LocationBounds = {
+        minLat: Math.min(locData.viewport.south, locData.viewport.north),
+        maxLat: Math.max(locData.viewport.south, locData.viewport.north),
+        minLng: Math.min(locData.viewport.west, locData.viewport.east),
+        maxLng: Math.max(locData.viewport.west, locData.viewport.east),
         foundName,
         city,
         country,
@@ -310,7 +343,7 @@ Interesting answer in ${langName}.`;
     const baseRadius = 0.4; // ~44km at equator
     const latAdjustment = Math.cos(centerLat * Math.PI / 180);
 
-    const bounds = {
+    const bounds: LocationBounds = {
       minLat: Math.max(-90, centerLat - baseRadius),
       maxLat: Math.min(90, centerLat + baseRadius),
       minLng: Math.max(-180, centerLng - (baseRadius / latAdjustment)),
@@ -328,7 +361,7 @@ Interesting answer in ${langName}.`;
   /**
    * Get bounds for a city/location name using Google Maps Geocoding
    */
-  async getLocationBounds(locationName) {
+  async getLocationBounds(locationName: string): Promise<LocationBounds | null> {
     try {
       console.log(`🔍 Getting bounds for location: "${locationName}"`);
 
@@ -370,7 +403,9 @@ Interesting answer in ${langName}.`;
       });
 
       const response = result.response;
-      if (!response.candidates || response.candidates.length === 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const responseAny = response as any;
+      if (!responseAny.candidates || responseAny.candidates.length === 0) {
         console.log(`❌ No response for location: ${locationName}`);
         return null;
       }
@@ -380,13 +415,15 @@ Interesting answer in ${langName}.`;
 
       return this.parseLocationBounds(text, locationName);
 
-    } catch (err) {
-      console.error(`❌ Error getting bounds for "${locationName}":`, err.message);
-      console.error(`   Stack: ${err.stack}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      const errorStack = err instanceof Error ? err.stack : '';
+      console.error(`❌ Error getting bounds for "${locationName}":`, errorMessage);
+      console.error(`   Stack: ${errorStack}`);
       return null;
     }
   }
 }
 
-module.exports = new LocationService();
+export default new LocationService();
 

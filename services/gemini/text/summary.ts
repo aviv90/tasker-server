@@ -1,6 +1,33 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+/**
+ * Chat message
+ */
+interface ChatMessage {
+  timestamp?: number | string;
+  timestampMessage?: number | string;
+  chatName?: string;
+  senderName?: string;
+  sender?: string;
+  textMessage?: string;
+  caption?: string;
+  typeMessage?: string;
+  extendedTextMessage?: {
+    text?: string;
+  };
+  [key: string]: unknown;
+}
+
+/**
+ * Summary result
+ */
+interface SummaryResult {
+  success: boolean;
+  text?: string;
+  error?: string;
+}
 
 /**
  * Chat summary generation
@@ -9,7 +36,7 @@ class SummaryService {
   /**
    * Generate chat summary using Gemini
    */
-  async generateChatSummary(messages) {
+  async generateChatSummary(messages: ChatMessage[]): Promise<SummaryResult> {
     try {
       console.log(`📝 Generating chat summary for ${messages.length} messages`);
       
@@ -17,14 +44,14 @@ class SummaryService {
       let formattedMessages = '';
       messages.forEach((msg, index) => {
         // Handle timestamp - Green API can return seconds or milliseconds
-        let timestamp;
+        let timestamp: Date;
         if (msg.timestamp) {
           // If timestamp is less than year 2000 in milliseconds, it's probably in seconds
-          const ts = typeof msg.timestamp === 'number' ? msg.timestamp : parseInt(msg.timestamp);
+          const ts = typeof msg.timestamp === 'number' ? msg.timestamp : parseInt(String(msg.timestamp));
           timestamp = ts < 946684800000 ? new Date(ts * 1000) : new Date(ts);
         } else if (msg.timestampMessage) {
           // Alternative timestamp field
-          const ts = typeof msg.timestampMessage === 'number' ? msg.timestampMessage : parseInt(msg.timestampMessage);
+          const ts = typeof msg.timestampMessage === 'number' ? msg.timestampMessage : parseInt(String(msg.timestampMessage));
           timestamp = ts < 946684800000 ? new Date(ts * 1000) : new Date(ts);
         } else {
           timestamp = new Date(); // Fallback to current time
@@ -39,8 +66,8 @@ class SummaryService {
           sender = msg.senderName;
         } else if (msg.sender) {
           // Extract phone number from sender ID (e.g., "972543995202@c.us" -> "972543995202")
-          const phoneMatch = msg.sender.match(/^(\d+)@/);
-          sender = phoneMatch ? phoneMatch[1] : msg.sender;
+          const phoneMatch = String(msg.sender).match(/^(\d+)@/);
+          sender = phoneMatch && phoneMatch[1] ? phoneMatch[1] : String(msg.sender);
         }
         
         // Get message text - Green API format
@@ -70,7 +97,8 @@ class SummaryService {
             mediaType = '[איש קשר]';
           } else if (msg.typeMessage) {
             // Generic media type based on typeMessage
-            mediaType = `[${msg.typeMessage.replace('Message', '')}]`;
+            const typeMsg = String(msg.typeMessage);
+            mediaType = `[${typeMsg.replace('Message', '')}]`;
           }
           
           // Add caption if exists (for media with caption)
@@ -126,15 +154,16 @@ ${formattedMessages}
         text: summaryText
       };
       
-    } catch (err) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Chat summary generation failed';
       console.error('❌ Chat summary generation error:', err);
       return {
         success: false,
-        error: err.message || 'Chat summary generation failed'
+        error: errorMessage
       };
     }
   }
 }
 
-module.exports = new SummaryService();
+export default new SummaryService();
 

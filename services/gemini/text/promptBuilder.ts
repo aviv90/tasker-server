@@ -1,4 +1,20 @@
-const { detectLanguage } = require('../../../utils/agentHelpers');
+
+/**
+ * Conversation message
+ */
+interface ConversationMessage {
+  role: string;
+  content: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Google Search example
+ */
+interface GoogleSearchExample {
+  user: string;
+  model: string;
+}
 
 /**
  * Prompt building utilities for Gemini text operations
@@ -7,7 +23,7 @@ class PromptBuilder {
   /**
    * Build language-specific instruction
    */
-  buildLanguageInstruction(detectedLang) {
+  buildLanguageInstruction(detectedLang: string): string {
     switch (detectedLang) {
       case 'he':
         return 'חשוב מאוד: עליך לענות בעברית בלבד. התשובה חייבת להיות בעברית, ללא מילים באנגלית אלא אם כן זה שם פרטי או מונח טכני שאין לו תרגום.';
@@ -25,7 +41,7 @@ class PromptBuilder {
   /**
    * Build system prompt
    */
-  buildSystemPrompt(languageInstruction, useGoogleSearch = false) {
+  buildSystemPrompt(languageInstruction: string, useGoogleSearch = false): string {
     let systemPrompt = `אתה עוזר AI ידידותי. תן תשובות ישירות וטבעיות.
 
 כללי תשובה:
@@ -63,7 +79,7 @@ class PromptBuilder {
   /**
    * Build model response for system prompt acknowledgment
    */
-  buildModelResponse(detectedLang, useGoogleSearch = false) {
+  buildModelResponse(detectedLang: string, useGoogleSearch = false): string {
     let modelResponse = '';
     
     switch (detectedLang) {
@@ -104,8 +120,9 @@ class PromptBuilder {
   /**
    * Build Google Search example for conversation
    */
-  buildGoogleSearchExample(detectedLang) {
-    let exampleUser, exampleModel;
+  buildGoogleSearchExample(detectedLang: string): GoogleSearchExample {
+    let exampleUser: string;
+    let exampleModel: string;
     
     switch (detectedLang) {
       case 'he':
@@ -138,8 +155,13 @@ class PromptBuilder {
   /**
    * Build conversation contents for Gemini
    */
-  buildConversationContents(cleanPrompt, conversationHistory = [], useGoogleSearch = false, detectedLang) {
-    const contents = [];
+  buildConversationContents(
+    cleanPrompt: string,
+    conversationHistory: ConversationMessage[] = [],
+    useGoogleSearch = false,
+    detectedLang: string
+  ): Array<{ role: string; parts: Array<{ text: string }> }> {
+    const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
     
     // Build system prompt
     const languageInstruction = this.buildLanguageInstruction(detectedLang);
@@ -183,9 +205,10 @@ class PromptBuilder {
       for (const msg of conversationHistory) {
         // Convert OpenAI format to Gemini format
         const role = msg.role === 'assistant' ? 'model' : 'user';
+        const content = msg.content || '';
         contents.push({
           role: role,
-          parts: [{ text: msg.content }]
+          parts: [{ text: content }]
         });
       }
     }
@@ -200,5 +223,5 @@ class PromptBuilder {
   }
 }
 
-module.exports = new PromptBuilder();
+export default new PromptBuilder();
 

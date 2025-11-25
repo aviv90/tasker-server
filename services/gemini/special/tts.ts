@@ -1,6 +1,16 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+/**
+ * TTS parse result
+ */
+interface TTSParseResult {
+  needsTranslation: boolean;
+  text: string;
+  targetLanguage?: string;
+  languageCode?: string;
+}
 
 /**
  * Text-to-speech request parsing
@@ -9,7 +19,7 @@ class TTSParser {
   /**
    * Parse text-to-speech request to detect if translation is needed
    */
-  async parseTextToSpeechRequest(prompt) {
+  async parseTextToSpeechRequest(prompt: string): Promise<TTSParseResult> {
     try {
       console.log('🔍 Parsing TTS request for translation needs');
 
@@ -54,7 +64,9 @@ Output: {"needsTranslation":false,"text":"read this text"}`;
       const result = await model.generateContent(analysisPrompt);
       const response = result.response;
 
-      if (!response.candidates || response.candidates.length === 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const responseAny = response as any;
+      if (!responseAny.candidates || responseAny.candidates.length === 0) {
         console.log('❌ Gemini TTS parsing: No candidates returned');
         return { needsTranslation: false, text: prompt };
       }
@@ -64,12 +76,12 @@ Output: {"needsTranslation":false,"text":"read this text"}`;
       // Remove markdown code fences if present
       rawText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
 
-      const parsed = JSON.parse(rawText);
+      const parsed = JSON.parse(rawText) as TTSParseResult;
 
       console.log('✅ TTS request parsed:', parsed);
       return parsed;
 
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('❌ Error parsing TTS request:', err);
       // Fallback: no translation
       return { needsTranslation: false, text: prompt };
@@ -77,5 +89,5 @@ Output: {"needsTranslation":false,"text":"read this text"}`;
   }
 }
 
-module.exports = new TTSParser();
+export default new TTSParser();
 

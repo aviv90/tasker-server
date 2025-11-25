@@ -1,6 +1,14 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+/**
+ * Music parse result
+ */
+interface MusicParseResult {
+  wantsVideo: boolean;
+  cleanPrompt: string;
+}
 
 /**
  * Music request parsing
@@ -9,7 +17,7 @@ class MusicParser {
   /**
    * Parse music request to detect video requirement
    */
-  async parseMusicRequest(prompt) {
+  async parseMusicRequest(prompt: string): Promise<MusicParseResult> {
     try {
       // First, try simple regex detection for common patterns (fast and reliable)
       const videoPatterns = /\b(with|and|plus|including|include)\s+(video|clip)\b|כולל\s+(וידאו|קליפ)|עם\s+(וידאו|קליפ)|גם\s+(וידאו|קליפ)|ועם\s+(וידאו|קליפ)|\bvideo\s*clip\b|\bmusic\s*video\b/i;
@@ -88,7 +96,9 @@ Output: {"wantsVideo":false,"cleanPrompt":"make a happy song"}`;
       const result = await model.generateContent(analysisPrompt);
       const response = result.response;
 
-      if (!response.candidates || response.candidates.length === 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const responseAny = response as any;
+      if (!responseAny.candidates || responseAny.candidates.length === 0) {
         console.log('❌ Gemini music parsing: No candidates returned');
         return { wantsVideo: false, cleanPrompt: prompt };
       }
@@ -98,14 +108,14 @@ Output: {"wantsVideo":false,"cleanPrompt":"make a happy song"}`;
       // Remove markdown code fences if present
       rawText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
 
-      const parsed = JSON.parse(rawText);
+      const parsed = JSON.parse(rawText) as MusicParseResult;
 
       if (parsed.wantsVideo) {
         console.log('🎬 Video requested with music (LLM detected)');
       }
       return parsed;
 
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('❌ Error parsing music request:', err);
       // Fallback: no video
       return { wantsVideo: false, cleanPrompt: prompt };
@@ -113,5 +123,5 @@ Output: {"wantsVideo":false,"cleanPrompt":"make a happy song"}`;
   }
 }
 
-module.exports = new MusicParser();
+export default new MusicParser();
 

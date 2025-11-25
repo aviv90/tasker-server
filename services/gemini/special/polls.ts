@@ -1,8 +1,19 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { sanitizeText } = require('../../../utils/textSanitizer');
-const crypto = require('crypto');
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { sanitizeText } from '../../../utils/textSanitizer';
+import crypto from 'crypto';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+/**
+ * Poll result
+ */
+interface PollResult {
+  success: boolean;
+  question?: string;
+  options?: string[];
+  numOptions?: number;
+  error?: string;
+}
 
 /**
  * Poll generation operations
@@ -11,7 +22,7 @@ class PollGenerator {
   /**
    * Build poll prompt with or without rhyming
    */
-  buildPollPrompt(cleanTopic, numOptions, withRhyme, language = 'he') {
+  buildPollPrompt(cleanTopic: string, numOptions: number, withRhyme: boolean, language = 'he'): string {
     const isHebrew = language === 'he' || language === 'Hebrew';
     const langName = isHebrew ? 'Hebrew' : (language === 'en' ? 'English' : language);
 
@@ -132,7 +143,7 @@ Return JSON only in this format:
   /**
    * Parse and validate poll response
    */
-  parsePollResponse(responseText, numOptions) {
+  parsePollResponse(responseText: string, numOptions: number): { question: string; options: string[] } {
     let jsonText = responseText.trim();
 
     // If wrapped in code fences, strip them
@@ -141,10 +152,10 @@ Return JSON only in this format:
       jsonText = fenceMatch[1].trim();
     }
 
-    let parsed;
+    let parsed: { question: string; options: string[] };
     try {
       parsed = JSON.parse(jsonText);
-    } catch (parseError) {
+    } catch (_parseError) {
       console.error('❌ Failed to parse Gemini poll response:', jsonText);
       throw new Error('Failed to parse poll data from Gemini');
     }
@@ -178,7 +189,7 @@ Return JSON only in this format:
   /**
    * Generate creative poll with optional rhyming
    */
-  async generateCreativePoll(topic, withRhyme = true, language = 'he') {
+  async generateCreativePoll(topic: string, withRhyme = true, language = 'he'): Promise<PollResult> {
     try {
       console.log(`📊 Generating creative poll about: ${topic} ${withRhyme ? '(with rhyme)' : '(without rhyme)'} (Language: ${language})`);
 
@@ -216,15 +227,16 @@ Return JSON only in this format:
         numOptions: parsed.options.length
       };
 
-    } catch (err) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate poll';
       console.error('❌ Poll generation error:', err);
       return {
         success: false,
-        error: err.message || 'Failed to generate poll'
+        error: errorMessage
       };
     }
   }
 }
 
-module.exports = new PollGenerator();
+export default new PollGenerator();
 

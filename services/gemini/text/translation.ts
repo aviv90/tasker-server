@@ -1,6 +1,15 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+/**
+ * Translation result
+ */
+interface TranslationResult {
+  success: boolean;
+  translatedText?: string;
+  error?: string;
+}
 
 /**
  * Translation operations
@@ -8,11 +17,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 class TranslationService {
   /**
    * Translate text to target language
-   * @param {string} text - Text to translate
-   * @param {string} targetLanguage - Target language
-   * @returns {Object} - Translation result
    */
-  async translateText(text, targetLanguage) {
+  async translateText(text: string, targetLanguage: string): Promise<TranslationResult> {
     try {
       console.log(`🌐 Translating "${text}" to ${targetLanguage}`);
       
@@ -29,7 +35,9 @@ Important: Return only the translation, no explanations, no quotes, no extra tex
       const result = await model.generateContent(translationPrompt);
       const response = result.response;
       
-      if (!response.candidates || response.candidates.length === 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const responseAny = response as any;
+      if (!responseAny.candidates || responseAny.candidates.length === 0) {
         console.log('❌ Gemini translation: No candidates returned');
         return { 
           success: false, 
@@ -46,15 +54,16 @@ Important: Return only the translation, no explanations, no quotes, no extra tex
         translatedText: translatedText
       };
       
-    } catch (err) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Translation failed';
       console.error('❌ Translation error:', err);
       return { 
         success: false, 
-        error: err.message || 'Translation failed' 
+        error: errorMessage
       };
     }
   }
 }
 
-module.exports = new TranslationService();
+export default new TranslationService();
 
