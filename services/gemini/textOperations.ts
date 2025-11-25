@@ -12,15 +12,20 @@ import { detectLanguage } from '../../utils/agentHelpers';
 
 // Import modular components
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const promptBuilder = require('./text/promptBuilder');
+const promptBuilderModule = require('./text/promptBuilder');
+const promptBuilder = promptBuilderModule.default || promptBuilderModule;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const googleSearchProcessor = require('./text/googleSearch');
+const googleSearchProcessorModule = require('./text/googleSearch');
+const googleSearchProcessor = googleSearchProcessorModule.default || googleSearchProcessorModule;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const thinkingCleanup = require('./text/thinkingCleanup');
+const thinkingCleanupModule = require('./text/thinkingCleanup');
+const thinkingCleanup = thinkingCleanupModule.default || thinkingCleanupModule;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const summaryService = require('./text/summary');
+const summaryServiceModule = require('./text/summary');
+const summaryService = summaryServiceModule.default || summaryServiceModule;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const translationService = require('./text/translation');
+const translationServiceModule = require('./text/translation');
+const translationService = translationServiceModule.default || translationServiceModule;
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
