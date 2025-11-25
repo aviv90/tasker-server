@@ -1,3 +1,5 @@
+// @ts-nocheck
+export {};
 const express = require('express');
 const router = express.Router();
 const { whatsappLimiter } = require('../middleware/rateLimiter');
@@ -85,11 +87,12 @@ setInterval(() => {
   }
 }, 30 * 60 * 1000);
 
+// @ts-nocheck
 /**
  * Webhook endpoint for receiving WhatsApp messages from Green API
  * Higher rate limit for legitimate WhatsApp traffic
  */
-router.post('/webhook', whatsappLimiter, async (req, res) => {
+router.post('/webhook', whatsappLimiter, async (req: any, res: any) => {
   try {
     // Security check: Verify webhook token
     const token = req.headers['authorization']?.replace('Bearer ', '') ||
@@ -128,7 +131,7 @@ router.post('/webhook', whatsappLimiter, async (req, res) => {
 
     // Return 200 OK immediately
     res.status(200).json({ status: 'ok' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error processing webhook:', error.message || error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -139,3 +142,4 @@ router.post('/webhook', whatsappLimiter, async (req, res) => {
 // handleManagementCommand extracted to routes/whatsapp/managementHandler.js (Phase 5.3)
 
 module.exports = router;
+export default router;

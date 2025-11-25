@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Creative Audio Mixing
  * 
@@ -27,7 +28,7 @@ const execAsync = promisify(exec);
  * @param {string} backgroundPath - Background music file path
  * @returns {Promise<Object>} Result with mixed audio
  */
-async function mixWithBackground(voiceBuffer, voiceFormat = 'mp3', backgroundPath) {
+export async function mixWithBackground(voiceBuffer, voiceFormat = 'mp3', backgroundPath) {
   return new Promise(async (resolve, reject) => {
     try {
       const tempDir = getTempDir();
@@ -115,7 +116,7 @@ async function mixWithBackground(voiceBuffer, voiceFormat = 'mp3', backgroundPat
  * @param {string} inputFormat - Input format
  * @returns {Promise<Object>} Result with processed audio
  */
-async function processVoiceCreatively(audioBuffer, inputFormat = 'mp3') {
+export async function processVoiceCreatively(audioBuffer, inputFormat = 'mp3') {
   try {
     console.log(`🎨 Starting creative voice processing...`);
 
@@ -208,4 +209,6 @@ module.exports = {
   mixWithBackground,
   processVoiceCreatively
 };
+
+export {};
 

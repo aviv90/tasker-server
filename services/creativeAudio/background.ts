@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Creative Audio Background Music
  * 
@@ -17,7 +18,7 @@ const execAsync = promisify(exec);
 /**
  * Suno instrumental music styles
  */
-const INSTRUMENTAL_STYLES = {
+export const INSTRUMENTAL_STYLES = {
   chill_lofi: {
     name: '🌙 Chill Lofi',
     prompt: 'chill lofi hip hop instrumental, soft piano, gentle drums, relaxing atmosphere',
@@ -79,7 +80,7 @@ const INSTRUMENTAL_STYLES = {
 /**
  * Background music templates (short loops)
  */
-const BACKGROUND_MUSIC = {
+export const BACKGROUND_MUSIC = {
   upbeat: {
     name: '🎉 Upbeat Pop',
     command: '-filter:a "volume=0.3"',
@@ -114,7 +115,7 @@ const pendingCallbacks = new Map();
  * Get random background music
  * @returns {Object} Random background music configuration
  */
-function getRandomBackground() {
+export function getRandomBackground() {
   const backgroundKeys = Object.keys(BACKGROUND_MUSIC);
   const randomKey = backgroundKeys[Math.floor(Math.random() * backgroundKeys.length)];
   return {
@@ -127,7 +128,7 @@ function getRandomBackground() {
  * Get random instrumental style
  * @returns {Object} Random instrumental style configuration
  */
-function getRandomInstrumentalStyle() {
+export function getRandomInstrumentalStyle() {
   const styleKeys = Object.keys(INSTRUMENTAL_STYLES);
   const randomKey = styleKeys[Math.floor(Math.random() * styleKeys.length)];
   return INSTRUMENTAL_STYLES[randomKey];
@@ -139,7 +140,7 @@ function getRandomInstrumentalStyle() {
  * @param {string} style - Music style
  * @returns {Promise<string>} Path to generated music file
  */
-async function generateBackgroundMusic(duration, style = 'upbeat') {
+export async function generateBackgroundMusic(duration, style = 'upbeat') {
   try {
     const tempDir = getTempDir();
     ensureTempDir();
@@ -197,7 +198,7 @@ async function generateBackgroundMusic(duration, style = 'upbeat') {
  * @param {Object} style - Instrumental style configuration
  * @returns {Promise<string>} Path to generated music file
  */
-async function generateSunoInstrumental(duration, style) {
+export async function generateSunoInstrumental(duration, style) {
   try {
     console.log(`🎵 Generating Suno instrumental: ${style.name}`);
 
@@ -272,7 +273,7 @@ async function generateSunoInstrumental(duration, style) {
  * @param {string} taskId - Task ID
  * @param {Buffer} audioBuffer - Generated audio buffer
  */
-function handleSunoCallback(taskId, audioBuffer) {
+export function handleSunoCallback(taskId, audioBuffer) {
   const callback = pendingCallbacks.get(taskId);
   if (callback) {
     callback.resolve(audioBuffer);
@@ -289,4 +290,6 @@ module.exports = {
   generateSunoInstrumental,
   handleSunoCallback
 };
+
+export {};
 

@@ -1,6 +1,24 @@
-// Handle default export from TypeScript
-const conversationManagerModule = require('../../conversationManager');
-const conversationManager = conversationManagerModule.default || conversationManagerModule;
+import conversationManager from '../../conversationManager';
+
+type GeneratedAssets = {
+  images: Array<{ url?: string; caption?: string; [key: string]: unknown }>;
+  videos: Array<{ url?: string; [key: string]: unknown }>;
+  audio: Array<{ url?: string; [key: string]: unknown }>;
+  polls: Array<Record<string, unknown>>;
+};
+
+export type AgentContextState = {
+  chatId: string;
+  previousToolResults: Record<string, unknown>;
+  toolCalls: Array<Record<string, unknown>>;
+  generatedAssets: GeneratedAssets;
+  lastCommand?: Record<string, unknown> | null;
+  originalInput?: Record<string, unknown> | null;
+  quotedContext?: Record<string, unknown> | null;
+  audioUrl?: string | null;
+  suppressFinalResponse: boolean;
+  expectedMediaType: string | null;
+};
 
 /**
  * Agent context management
@@ -13,7 +31,7 @@ class AgentContext {
    * @param {Object} options - Options
    * @returns {Object} - Initial context object
    */
-  createInitialContext(chatId, options = {}) {
+  createInitialContext(chatId: string, options: Record<string, any> = {}): AgentContextState {
     return {
       chatId,
       previousToolResults: {},
@@ -40,18 +58,26 @@ class AgentContext {
    * @param {boolean} contextMemoryEnabled - Whether context memory is enabled
    * @returns {Promise<Object>} - Updated context
    */
-  async loadPreviousContext(chatId, context, contextMemoryEnabled) {
+  async loadPreviousContext(
+    chatId: string,
+    context: AgentContextState,
+    contextMemoryEnabled: boolean
+  ): Promise<AgentContextState> {
     if (!contextMemoryEnabled) {
       console.log(`🧠 [Agent Context] Context memory disabled - starting fresh`);
       return context;
     }
 
-    const previousContext = await conversationManager.getAgentContext(chatId);
+    const previousContext = (await conversationManager.getAgentContext(chatId)) as
+      | Partial<AgentContextState>
+      | null;
     if (previousContext) {
-      console.log(`🧠 [Agent Context] Loaded previous context from DB with ${previousContext.toolCalls.length} tool calls`);
+      console.log(
+        `🧠 [Agent Context] Loaded previous context from DB with ${previousContext.toolCalls?.length || 0} tool calls`
+      );
       return {
         ...context,
-        toolCalls: previousContext.toolCalls || [],
+        toolCalls: previousContext.toolCalls || context.toolCalls,
         generatedAssets: previousContext.generatedAssets || context.generatedAssets
       };
     } else {
@@ -67,7 +93,7 @@ class AgentContext {
    * @param {boolean} contextMemoryEnabled - Whether context memory is enabled
    * @returns {Promise<void>}
    */
-  async saveContext(chatId, context, contextMemoryEnabled) {
+  async saveContext(chatId: string, context: AgentContextState, contextMemoryEnabled: boolean): Promise<void> {
     if (!contextMemoryEnabled) {
       return;
     }
@@ -80,5 +106,7 @@ class AgentContext {
   }
 }
 
-module.exports = new AgentContext();
+const agentContext = new AgentContext();
+export default agentContext;
+module.exports = agentContext;
 

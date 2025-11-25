@@ -3,159 +3,164 @@
  * Builds contextual prompts for the agent based on input
  */
 
-// Handle default export from TypeScript
-const conversationManagerModule = require('../../conversationManager');
-const conversationManager = conversationManagerModule.default || conversationManagerModule;
-const { summarizeLastCommand } = require('../utils/resultUtils');
-const { parseJSONSafe } = require('../utils/resultUtils');
+import conversationManager from '../../conversationManager';
+import { summarizeLastCommand } from '../utils/resultUtils';
+
+type QuotedContext = {
+  hasImage?: boolean;
+  imageUrl?: string;
+  hasVideo?: boolean;
+  videoUrl?: string;
+  hasAudio?: boolean;
+  audioUrl?: string;
+  text?: string;
+  type?: string;
+  [key: string]: unknown;
+};
+
+type NormalizedInput = {
+  userText?: string;
+  hasImage?: boolean;
+  hasVideo?: boolean;
+  hasAudio?: boolean;
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+  audioUrl?: string | null;
+  authorizations?: {
+    media_creation?: boolean;
+    group_creation?: boolean;
+    voice_allowed?: boolean;
+    [key: string]: unknown;
+  };
+  quotedContext?: QuotedContext;
+  [key: string]: unknown;
+};
+
+type LastCommandSummary = {
+  tool?: string;
+  args?: Record<string, unknown>;
+  normalized?: Record<string, unknown>;
+  prompt?: string;
+  failed?: boolean;
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+  audioUrl?: string | null;
+  isMultiStep?: boolean;
+  plan?: unknown;
+} | null;
 
 /**
  * Build contextual prompt for agent
- * @param {Object} input - Normalized input from webhook
- * @param {string} chatId - Chat ID for context
- * @returns {Promise<string>} - Contextual prompt
+ * @param input - Normalized input from webhook
+ * @param chatId - Chat ID for context
+ * @returns Contextual prompt
  */
-async function buildContextualPrompt(input, chatId) {
+export async function buildContextualPrompt(input: NormalizedInput, chatId: string): Promise<string> {
   const userText = input.userText || '';
-  
-  // Fetch last command for context-aware behaviour (from DB, persistent)
+
   const lastCommandRaw = await conversationManager.getLastCommand(chatId);
-  let parsedLastCommand = null;
+  let parsedLastCommand: LastCommandSummary = null;
   if (lastCommandRaw) {
+    const raw = lastCommandRaw as Record<string, any>;
     parsedLastCommand = {
-      tool: lastCommandRaw.tool,
-      args: lastCommandRaw.toolArgs || lastCommandRaw.args,
-      normalized: lastCommandRaw.normalized,
-      prompt: lastCommandRaw.prompt,
-      failed: lastCommandRaw.failed,
-      imageUrl: lastCommandRaw.imageUrl,
-      videoUrl: lastCommandRaw.videoUrl,
-      audioUrl: lastCommandRaw.audioUrl,
-      isMultiStep: lastCommandRaw.isMultiStep,
-      plan: lastCommandRaw.plan
+      tool: raw.tool,
+      args: raw.toolArgs || raw.args,
+      normalized: raw.normalized,
+      prompt: raw.prompt,
+      failed: raw.failed,
+      imageUrl: raw.imageUrl,
+      videoUrl: raw.videoUrl,
+      audioUrl: raw.audioUrl,
+      isMultiStep: raw.isMultiStep,
+      plan: raw.plan
     };
   }
-  
-  // Detect if we should skip loading conversation history
-  const shouldSkipHistory = 
-    input.hasImage || 
-    input.hasVideo || 
-    input.hasAudio ||
-    input.quotedContext;
-  
-  // NOTE: Conversation history is now retrieved from Green API via get_chat_history tool
-  // We no longer use DB for conversation history to avoid duplication
-  // History is loaded dynamically when needed by the agent via the get_chat_history tool
-  // This avoids duplication and ensures we always have the latest messages from Green API
-  let conversationHistory = '';
-  // History is loaded on-demand via get_chat_history tool, not pre-loaded here
-  
-  // Build context for the agent
+
   let contextualPrompt = buildMediaContext(input, userText);
-  
-  // Add authorization context
+
   const authContext = buildAuthContext(input);
   if (authContext) {
     contextualPrompt += `\n\n[הרשאות: ${authContext}]`;
   }
 
-  // Add last command summary
   if (parsedLastCommand) {
     const summary = summarizeLastCommand(parsedLastCommand);
     if (summary) {
       contextualPrompt += `\n\n[פקודה קודמת]: ${summary}`;
     }
   }
-  
-  // Add conversation history at the end
-  if (conversationHistory) {
-    contextualPrompt += conversationHistory;
-  }
-  
+
   return contextualPrompt;
 }
 
-/**
- * Build media context from input
- */
-function buildMediaContext(input, userText) {
-  // Handle quoted messages
+function buildMediaContext(input: NormalizedInput, userText: string): string {
   if (input.quotedContext) {
     return buildQuotedMessageContext(input, userText);
   }
-  
-  // Handle current media attachments
-  if (input.hasImage && !input.quotedContext) {
+
+  if (input.hasImage) {
     return buildImageContext(input, userText);
-  } else if (input.hasVideo && !input.quotedContext) {
+  }
+  if (input.hasVideo) {
     return buildVideoContext(input, userText);
-  } else if (input.hasAudio && !input.quotedContext) {
+  }
+  if (input.hasAudio) {
     return buildAudioContext(input, userText);
   }
-  
+
   return userText;
 }
 
-/**
- * Build context for quoted messages
- */
-function buildQuotedMessageContext(input, userText) {
+function buildQuotedMessageContext(input: NormalizedInput, userText: string): string {
   const quoted = input.quotedContext;
-  
+  if (!quoted) {
+    return userText;
+  }
+
   if (quoted.hasImage && quoted.imageUrl) {
     return `[הודעה מצוטטת: תמונה - image_url: ${quoted.imageUrl}]\n${quoted.text || '(תמונה)'}\n\n[בקשה נוכחית:]\n${userText}\n\n**IMPORTANT: User quoted an image with image_url provided above. Based on the request:\n- For analysis/questions (מה זה, תאר, explain, analyze, describe, what is): use analyze_image with image_url: "${quoted.imageUrl}"\n- For edits (ערוך, שנה, הסר, הוסף, edit, change, remove, add): use edit_image with image_url: "${quoted.imageUrl}"\n- DO NOT use retry_last_command unless user explicitly said "נסה שוב" or "שוב"**`;
-  } else if (quoted.hasImage) {
+  }
+  if (quoted.hasImage) {
     return `[הודעה מצוטטת: תמונה]\n${quoted.text || '(תמונה)'}\n\n[בקשה נוכחית:]\n${userText}`;
   }
-  
+
   if (quoted.hasVideo && quoted.videoUrl) {
     return `[הודעה מצוטטת: וידאו - video_url: ${quoted.videoUrl}]\n${quoted.text || '(וידאו)'}\n\n[בקשה נוכחית:]\n${userText}\n\n**IMPORTANT: User quoted a video with video_url provided above. Use analyze_video with video_url: "${quoted.videoUrl}" and question parameter from the current request.**`;
-  } else if (quoted.hasVideo) {
+  }
+  if (quoted.hasVideo) {
     return `[הודעה מצוטטת: וידאו]\n${quoted.text || '(וידאו)'}\n\n[בקשה נוכחית:]\n${userText}`;
   }
-  
+
   if (quoted.hasAudio && quoted.audioUrl) {
     return `[הודעה מצוטטת: הקלטה קולית - audio_url: ${quoted.audioUrl || 'לא זמין'}]\n${quoted.text || '(הקלטה)'}\n\n[בקשה נוכחית:]\n${userText}\n\n**IMPORTANT: User quoted audio. Use transcribe_audio with audio_url: "${quoted.audioUrl}" if available.**`;
   }
-  
+
   return `[הודעה מצוטטת: ${quoted.type}]\n${quoted.text || ''}\n\n[בקשה נוכחית:]\n${userText}`;
 }
 
-/**
- * Build context for image attachments
- */
-function buildImageContext(input, userText) {
+function buildImageContext(input: NormalizedInput, userText: string): string {
   if (input.imageUrl) {
     return `${userText}\n\n**IMPORTANT: User attached an image. Based on the request:\n- For analysis/questions (מה זה, תאר, explain, analyze, describe): use analyze_image with image_url: "${input.imageUrl}"\n- For edits/generation with image (ערוך, שנה, הסר, הוסף, edit, change): use edit_image with image_url: "${input.imageUrl}"**`;
   }
   return `[המשתמש שלח תמונה] ${userText}`;
 }
 
-/**
- * Build context for video attachments
- */
-function buildVideoContext(input, userText) {
+function buildVideoContext(input: NormalizedInput, userText: string): string {
   if (input.videoUrl) {
     return `${userText}\n\n**IMPORTANT: User attached a video. Use analyze_video with video_url: "${input.videoUrl}" and extract the question from the user's text above.**`;
   }
   return `[המשתמש שלח וידאו] ${userText}`;
 }
 
-/**
- * Build context for audio attachments
- */
-function buildAudioContext(input, userText) {
+function buildAudioContext(input: NormalizedInput, userText: string): string {
   if (input.audioUrl) {
     return `${userText}\n\n**IMPORTANT: User attached audio. Use transcribe_audio with audio_url: "${input.audioUrl}" to transcribe it first.**`;
   }
   return `[המשתמש שלח הקלטה קולית] ${userText}`;
 }
 
-/**
- * Build authorization context
- */
-function buildAuthContext(input) {
-  const authContext = [];
+function buildAuthContext(input: NormalizedInput): string | null {
+  const authContext: string[] = [];
   if (input.authorizations?.media_creation) {
     authContext.push('מורשה ליצירת מדיה (תמונות/וידאו/מוזיקה)');
   }

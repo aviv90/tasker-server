@@ -1,3 +1,4 @@
+// @ts-nocheck
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 // Handle default export from TypeScript
 const conversationManagerModule = require('../../conversationManager');

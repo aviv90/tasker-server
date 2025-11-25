@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Creative Audio Effects
  * 
@@ -16,7 +17,7 @@ const execAsync = promisify(exec);
 /**
  * Creative effects library
  */
-const EFFECTS = {
+export const EFFECTS = {
   // Voice effects
   robot: {
     name: '🤖 Robot Voice',
@@ -138,7 +139,7 @@ const EFFECTS = {
  * Get random creative effect
  * @returns {Object} Random effect configuration
  */
-function getRandomEffect() {
+export function getRandomEffect() {
   const effectKeys = Object.keys(EFFECTS);
   const randomKey = effectKeys[Math.floor(Math.random() * effectKeys.length)];
   return {
@@ -154,7 +155,7 @@ function getRandomEffect() {
  * @param {Object} effect - Effect configuration
  * @returns {Promise<Object>} Result with processed audio
  */
-async function applyCreativeEffect(audioBuffer, inputFormat = 'mp3', effect) {
+export async function applyCreativeEffect(audioBuffer, inputFormat = 'mp3', effect) {
   return new Promise(async (resolve, reject) => {
     try {
       const tempDir = getTempDir();
@@ -232,4 +233,6 @@ module.exports = {
   getRandomEffect,
   applyCreativeEffect
 };
+
+export {};
 

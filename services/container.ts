@@ -1,3 +1,4 @@
+// @ts-nocheck
 const { Pool } = require('pg');
 const logger = require('../utils/logger');
 const { TIME } = require('../utils/constants');

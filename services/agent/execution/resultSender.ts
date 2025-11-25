@@ -1,3 +1,4 @@
+// @ts-nocheck
 const { getServices } = require('../utils/serviceLoader');
 const { getStaticFileUrl } = require('../../../utils/urlUtils');
 const { cleanJsonWrapper } = require('../../../utils/textSanitizer');
