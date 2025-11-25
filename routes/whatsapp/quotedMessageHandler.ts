@@ -10,6 +10,7 @@ import { getStaticFileUrl } from '../../utils/urlUtils';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
+import { MessageData } from '../../services/whatsapp/types';
 
 interface QuotedResult {
     hasImage: boolean;
@@ -22,7 +23,7 @@ interface QuotedResult {
     error?: string;
 }
 
-export async function handleQuotedMessage(quotedMessage: any, currentPrompt: string, chatId: string): Promise<QuotedResult> {
+export async function handleQuotedMessage(quotedMessage: MessageData, currentPrompt: string, chatId: string): Promise<QuotedResult> {
   try {
     console.log(`🔗 Processing quoted message: ${quotedMessage.stanzaId}`);
     
@@ -31,7 +32,7 @@ export async function handleQuotedMessage(quotedMessage: any, currentPrompt: str
     
     // For text messages, combine both texts
     if (quotedType === 'textMessage' || quotedType === 'extendedTextMessage') {
-      const quotedText = quotedMessage.textMessage || '';
+      const quotedText = quotedMessage.textMessage || quotedMessage.textMessageData?.textMessage || quotedMessage.extendedTextMessageData?.text || '';
       const combinedPrompt = `${quotedText}\n\n${currentPrompt}`;
       console.log(`📝 Combined text prompt: ${combinedPrompt.substring(0, 100)}...`);
       return {
@@ -49,7 +50,7 @@ export async function handleQuotedMessage(quotedMessage: any, currentPrompt: str
     if (quotedType === 'imageMessage' || quotedType === 'videoMessage' || quotedType === 'audioMessage' || quotedType === 'stickerMessage') {
       console.log(`📸 Quoted ${quotedType}, attempting to extract media URL...`);
       
-      let downloadUrl = null;
+      let downloadUrl: string | null | undefined = null;
       
       // STEP 1: Try to get downloadUrl directly from quotedMessage (fastest path)
       if (quotedType === 'imageMessage' || quotedType === 'stickerMessage') {
@@ -87,7 +88,7 @@ export async function handleQuotedMessage(quotedMessage: any, currentPrompt: str
             };
             [key: string]: unknown;
           }
-          const originalMessage = await getMessage(chatId, quotedMessage.stanzaId) as GreenApiMessage | null;
+          const originalMessage = await getMessage(chatId, quotedMessage.stanzaId!) as GreenApiMessage | null;
           
           if (originalMessage) {
             if (quotedType === 'imageMessage' || quotedType === 'stickerMessage') {
@@ -127,7 +128,7 @@ export async function handleQuotedMessage(quotedMessage: any, currentPrompt: str
       
       // STEP 3: If still no downloadUrl and there's a thumbnail, use it (for images only)
       if ((!downloadUrl || downloadUrl === '') && (quotedType === 'imageMessage' || quotedType === 'stickerMessage')) {
-        const thumbnail = quotedMessage.jpegThumbnail || quotedMessage.thumbnail;
+        const thumbnail = quotedMessage.jpegThumbnail as string | undefined; // || quotedMessage.thumbnail (not on MessageData)
         if (thumbnail) {
           console.log(`🖼️ No downloadUrl found, converting jpegThumbnail to temporary image...`);
           try {

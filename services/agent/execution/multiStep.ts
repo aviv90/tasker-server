@@ -1,20 +1,65 @@
-// @ts-nocheck
-const { executeSingleStep } = require('./singleStep');
-const { sendToolAckMessage } = require('../utils/ackUtils');
-const { formatProviderName } = require('../utils/providerUtils');
-const { formatProviderError } = require('../../../utils/errorHandler');
-const { TOOL_ACK_MESSAGES } = require('../config/constants');
-const { getServices } = require('../utils/serviceLoader');
-const { getStaticFileUrl } = require('../../../utils/urlUtils');
-const { extractQuotedMessageId } = require('../../../utils/messageHelpers');
-const { allTools: agentTools } = require('../tools');
-const prompts = require('../../../config/prompts');
-const resultSender = require('./resultSender');
-
 /**
  * Multi-step execution handler
  * Executes multiple steps sequentially with proper context and result handling
  */
+
+import { executeSingleStep } from './singleStep';
+import { sendToolAckMessage } from '../utils/ackUtils';
+import { formatProviderError } from '../../../utils/errorHandler';
+import { getServices } from '../utils/serviceLoader';
+import { getStaticFileUrl } from '../../../utils/urlUtils';
+import { extractQuotedMessageId } from '../../../utils/messageHelpers';
+import { allTools as agentTools } from '../tools';
+import prompts from '../../../config/prompts';
+import resultSender from './resultSender';
+import { TIME } from '../../../utils/constants';
+import { cleanJsonWrapper } from '../../../utils/textSanitizer';
+import logger from '../../../utils/logger';
+
+interface Step {
+    tool?: string;
+    parameters?: Record<string, unknown>;
+    stepNumber: number;
+    action: string;
+}
+
+interface Plan {
+    steps: Step[];
+}
+
+interface ExecutionOptions {
+    input?: {
+        originalMessageId?: string;
+        [key: string]: unknown;
+    };
+    [key: string]: unknown;
+}
+
+interface AgentConfig {
+    model: string;
+    maxIterations: number;
+    timeoutMs: number;
+    contextMemoryEnabled?: boolean;
+}
+
+interface StepResult {
+    success: boolean;
+    text?: string;
+    imageUrl?: string | null;
+    imageCaption?: string;
+    caption?: string;
+    videoUrl?: string | null;
+    audioUrl?: string | null;
+    poll?: { question: string; options: string[] } | null;
+    latitude?: string | null;
+    longitude?: string | null;
+    locationInfo?: string | null;
+    toolsUsed?: string[];
+    iterations?: number;
+    error?: string;
+    [key: string]: unknown;
+}
+
 class MultiStepExecution {
   /**
    * Execute multi-step plan
@@ -25,20 +70,28 @@ class MultiStepExecution {
    * @param {Object} agentConfig - Agent configuration
    * @returns {Promise<Object>} - Execution result
    */
-  async execute(plan, chatId, options, languageInstruction, agentConfig) {
-    console.log(`✅ [Planner] Entering multi-step execution with ${plan.steps.length} steps`);
+  async execute(plan: Plan, chatId: string, options: ExecutionOptions, languageInstruction: string, agentConfig: AgentConfig): Promise<StepResult> {
+    logger.info(`✅ [Planner] Entering multi-step execution with ${plan.steps.length} steps`);
     
     // Adjust config for multi-step
     agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 15);
-    const { TIME } = require('../../../utils/constants');
     agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, TIME.MULTI_STEP_MIN_TIMEOUT);
     
     const functionDeclarations = Object.values(agentTools).map(tool => tool.declaration);
-    const systemInstruction = prompts.agentSystemInstruction(languageInstruction);
     
-    const stepResults = [];
-    let accumulatedText = '';
-    const finalAssets = {
+    const stepResults: StepResult[] = [];
+    const accumulatedText = '';
+    const finalAssets: {
+        imageUrl: string | null;
+        imageCaption: string;
+        videoUrl: string | null;
+        audioUrl: string | null;
+        poll: { question: string; options: string[] } | null;
+        latitude: string | null;
+        longitude: string | null;
+        locationInfo: string | null;
+        error?: string;
+    } = {
       imageUrl: null,
       imageCaption: '',
       videoUrl: null,
@@ -51,15 +104,17 @@ class MultiStepExecution {
     
     for (let i = 0; i < plan.steps.length; i++) {
       const step = plan.steps[i];
+      if (!step) continue; // Safety check for TypeScript
       const toolName = step.tool || null;
       const toolParams = step.parameters || {};
       
       // Send Ack BEFORE executing the step
       if (toolName) {
-        console.log(`📢 [Multi-step] Sending Ack for Step ${step.stepNumber}/${plan.steps.length} (${toolName}) BEFORE execution`);
+        logger.debug(`📢 [Multi-step] Sending Ack for Step ${step.stepNumber}/${plan.steps.length} (${toolName}) BEFORE execution`);
         // Get quotedMessageId from options.input if available
         const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
-        await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }], quotedMessageId);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }] as any[], quotedMessageId || undefined);
       }
       
       // Build focused prompt for this step
@@ -91,7 +146,7 @@ class MultiStepExecution {
       
       // Execute this step
       try {
-        console.log(`🔄 [Multi-step] Executing Step ${step.stepNumber}/${plan.steps.length}: ${step.action}`);
+        logger.debug(`🔄 [Multi-step] Executing Step ${step.stepNumber}/${plan.steps.length}: ${step.action}`);
         const stepResult = await executeSingleStep(stepPrompt, chatId, {
           ...options,
           maxIterations: 5,
@@ -102,7 +157,7 @@ class MultiStepExecution {
           expectedTool: toolName
         });
         
-        console.log(`🔍 [Multi-step] Step ${step.stepNumber} executeSingleStep returned:`, {
+        logger.debug(`🔍 [Multi-step] Step ${step.stepNumber} executeSingleStep returned:`, {
           success: stepResult.success,
           hasLocation: !!(stepResult.latitude && stepResult.longitude),
           hasPoll: !!stepResult.poll,
@@ -119,42 +174,43 @@ class MultiStepExecution {
           
           // Get quotedMessageId from options.input if available
           const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
-          console.log(`🔍 [MultiStep] quotedMessageId for step ${step.stepNumber}: ${quotedMessageId}, from options.input: ${options.input?.originalMessageId}`);
+          logger.debug(`🔍 [MultiStep] quotedMessageId for step ${step.stepNumber}: ${quotedMessageId}, from options.input: ${options.input?.originalMessageId}`);
           
           // Send ALL results immediately in order
-          await resultSender.sendStepResults(chatId, stepResult, step.stepNumber, quotedMessageId);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await resultSender.sendStepResults(chatId, stepResult as any, step.stepNumber, quotedMessageId);
           
-          console.log(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed and ALL results sent`);
+          logger.info(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed and ALL results sent`);
         } else {
           // Step failed - try fallback
-          console.error(`❌ [Agent] Step ${step.stepNumber}/${plan.steps.length} failed:`, stepResult.error);
+          logger.error(`❌ [Agent] Step ${step.stepNumber}/${plan.steps.length} failed:`, { error: stepResult.error });
           
           // Get quotedMessageId to pass to fallback
           const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
           
-          const fallbackResult = await this.tryFallback(chatId, toolName, toolParams, step, stepResult, quotedMessageId);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const fallbackResult = await this.tryFallback(chatId, toolName, toolParams, step, stepResult as any, quotedMessageId || null);
           if (fallbackResult) {
             stepResults.push(fallbackResult);
           } else {
             // Send error for non-creation tools
-            if (!this.isCreationTool(toolName)) {
-              await this.sendError(chatId, stepResult.error, step.stepNumber, quotedMessageId);
+            if (!this.isCreationTool(toolName || '')) {
+              await this.sendError(chatId, stepResult.error || 'Unknown error', step.stepNumber, quotedMessageId || null);
             }
           }
         }
-      } catch (stepError) {
-        console.error(`❌ [Agent] Error executing step ${step.stepNumber}:`, stepError.message);
+      } catch (stepError: any) {
+        logger.error(`❌ [Agent] Error executing step ${step.stepNumber}:`, { error: stepError.message });
         const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
-        await this.sendError(chatId, stepError.message || stepError.toString(), step.stepNumber, quotedMessageId, true);
+        await this.sendError(chatId, stepError.message || stepError.toString(), step.stepNumber, quotedMessageId || null, true);
       }
     }
     
     // Clean and process final text
-    const { cleanJsonWrapper } = require('../../../utils/textSanitizer');
     let finalText = cleanJsonWrapper(accumulatedText.trim());
     const lines = finalText.split('\n').filter(line => line.trim());
-    const uniqueLines = [];
-    const seen = new Set();
+    const uniqueLines: string[] = [];
+    const seen = new Set<string>();
     for (const line of lines) {
       const normalized = line.trim().toLowerCase();
       if (!seen.has(normalized)) {
@@ -164,7 +220,7 @@ class MultiStepExecution {
     }
     finalText = uniqueLines.join('\n').trim();
     
-    console.log(`🏁 [Agent] Multi-step execution completed: ${stepResults.length}/${plan.steps.length} steps successful`);
+    logger.info(`🏁 [Agent] Multi-step execution completed: ${stepResults.length}/${plan.steps.length} steps successful`);
     
     // Get originalMessageId from options.input for quoting
     const originalMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
@@ -180,50 +236,50 @@ class MultiStepExecution {
       stepsCompleted: stepResults.length,
       totalSteps: plan.steps.length,
       alreadySent: true,
-      originalMessageId: originalMessageId // Pass originalMessageId for quoting
+      originalMessageId: originalMessageId || undefined // Pass originalMessageId for quoting
     };
   }
 
   /**
    * Try fallback for creation tools
    */
-  async tryFallback(chatId, toolName, toolParams, step, stepResult, quotedMessageId = null) {
-    const creationTools = ['create_image', 'create_video', 'edit_image', 'edit_video'];
+  async tryFallback(chatId: string, toolName: string | null, toolParams: Record<string, unknown>, step: Step, stepResult: StepResult, quotedMessageId: string | null = null): Promise<StepResult | null> {
     
-    if (!this.isCreationTool(toolName)) {
+    if (!toolName || !this.isCreationTool(toolName)) {
       return null;
     }
     
     // Don't send initial error here - it's already sent by the tool itself
     // Just log it
     if (stepResult.error) {
-      console.log(`🔍 [Multi-step Fallback] Initial error: ${stepResult.error.toString()}`);
+      logger.debug(`🔍 [Multi-step Fallback] Initial error: ${stepResult.error}`);
     }
     
-    console.log(`🔄 [Multi-step Fallback] Attempting automatic fallback for ${toolName}...`);
+    logger.debug(`🔄 [Multi-step Fallback] Attempting automatic fallback for ${toolName}...`);
     
     try {
       const { greenApiService } = getServices();
       
       // Determine provider order based on what failed
-      const avoidProvider = toolParams.provider || 'gemini';
+      const avoidProvider = (toolParams.provider as string) || 'gemini';
       const imageProviders = ['gemini', 'openai', 'grok'].filter(p => p !== avoidProvider);
       const videoProviders = ['veo3', 'sora', 'kling'].filter(p => p !== avoidProvider);
       
-      let providersToTry = toolName.includes('image') ? imageProviders : videoProviders;
+      const providersToTry = toolName.includes('image') ? imageProviders : videoProviders;
       
       // Try each provider with Ack
       for (const provider of providersToTry) {
-        console.log(`🔄 [Multi-step Fallback] Trying ${provider}...`);
+        logger.debug(`🔄 [Multi-step Fallback] Trying ${provider}...`);
         
         // Send Ack for this fallback attempt
-        await sendToolAckMessage(chatId, [{ name: toolName, args: { provider } }], quotedMessageId);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await sendToolAckMessage(chatId, [{ name: toolName, args: { provider } }] as any[], quotedMessageId || undefined);
         
         try {
           const result = await this.executeFallbackTool(toolName, provider, toolParams, step, chatId);
           
           if (result && result.success) {
-            console.log(`✅ [Multi-step Fallback] ${provider} succeeded!`);
+            logger.info(`✅ [Multi-step Fallback] ${provider} succeeded!`);
             
             // Send the result
             if (result.imageUrl) {
@@ -231,49 +287,52 @@ class MultiStepExecution {
                 ? result.imageUrl
                 : getStaticFileUrl(result.imageUrl.replace('/static/', ''));
               const caption = result.caption || result.imageCaption || '';
-              await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId, 1000);
-              console.log(`✅ [Multi-step Fallback] Image sent successfully`);
+              await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId || undefined, 1000);
+              logger.debug(`✅ [Multi-step Fallback] Image sent successfully`);
             }
             
             if (result.videoUrl) {
               const fullVideoUrl = result.videoUrl.startsWith('http')
                 ? result.videoUrl
                 : getStaticFileUrl(result.videoUrl.replace('/static/', ''));
-              await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId, 1000);
-              console.log(`✅ [Multi-step Fallback] Video sent successfully`);
+              await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId || undefined, 1000);
+              logger.debug(`✅ [Multi-step Fallback] Video sent successfully`);
             }
             
             // Success message (optional)
-            if (result.data && !result.imageUrl && !result.videoUrl) {
-              await greenApiService.sendTextMessage(chatId, result.data, quotedMessageId, 1000);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if ((result as any).data && !result.imageUrl && !result.videoUrl) {
+               // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              await greenApiService.sendTextMessage(chatId, (result as any).data, quotedMessageId || undefined, 1000);
             }
             
             return result;
           } else {
             const errorMsg = result?.error || 'Unknown error';
-            console.log(`❌ [Multi-step Fallback] ${provider} failed: ${errorMsg}`);
+            logger.warn(`❌ [Multi-step Fallback] ${provider} failed: ${errorMsg}`);
             // Don't send error if it was already sent by ProviderFallback
-            if (!result?.errorsAlreadySent) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if (!(result as any)?.errorsAlreadySent) {
               const formattedError = formatProviderError(provider, errorMsg);
-              await greenApiService.sendTextMessage(chatId, formattedError, quotedMessageId, 1000);
+              await greenApiService.sendTextMessage(chatId, formattedError, quotedMessageId || undefined, 1000);
             }
           }
-        } catch (providerError) {
+        } catch (providerError: any) {
           const errorMsg = providerError.message || 'Unknown error';
-          console.error(`❌ [Multi-step Fallback] ${provider} threw error:`, errorMsg);
+          logger.error(`❌ [Multi-step Fallback] ${provider} threw error:`, { error: errorMsg });
           // Only send error if it wasn't already sent by ProviderFallback
           // (ProviderFallback sends errors in _handleProviderError)
           const formattedError = formatProviderError(provider, errorMsg);
-          await greenApiService.sendTextMessage(chatId, formattedError, quotedMessageId, 1000);
+          await greenApiService.sendTextMessage(chatId, formattedError, quotedMessageId || undefined, 1000);
         }
       }
       
       // All fallbacks failed
-      console.log(`❌ [Multi-step Fallback] All providers failed for ${toolName}`);
-      await greenApiService.sendTextMessage(chatId, `❌ כל הספקים נכשלו עבור ${toolName}`, quotedMessageId, 1000);
+      logger.warn(`❌ [Multi-step Fallback] All providers failed for ${toolName}`);
+      await greenApiService.sendTextMessage(chatId, `❌ כל הספקים נכשלו עבור ${toolName}`, quotedMessageId || undefined, 1000);
       return null;
-    } catch (fallbackError) {
-      console.error(`❌ [Multi-step Fallback] Critical error during fallback:`, fallbackError.message);
+    } catch (fallbackError: any) {
+      logger.error(`❌ [Multi-step Fallback] Critical error during fallback:`, { error: fallbackError.message });
       return null;
     }
   }
@@ -281,25 +340,29 @@ class MultiStepExecution {
   /**
    * Execute fallback tool with different provider
    */
-  async executeFallbackTool(toolName, provider, toolParams, step, chatId) {
-    const promptToUse = toolParams.prompt || toolParams.text || step.action;
+  async executeFallbackTool(toolName: string, provider: string, toolParams: Record<string, unknown>, step: Step, chatId: string): Promise<StepResult | null> {
+    const promptToUse = (toolParams.prompt as string) || (toolParams.text as string) || step.action;
     
     if (toolName === 'create_image') {
-      return await agentTools.create_image.execute({ prompt: promptToUse, provider }, { chatId });
+      if (!agentTools.create_image) return null;
+      return await agentTools.create_image.execute({ prompt: promptToUse, provider }, { chatId }) as StepResult;
     } else if (toolName === 'create_video') {
-      return await agentTools.create_video.execute({ prompt: promptToUse, provider }, { chatId });
+      if (!agentTools.create_video) return null;
+      return await agentTools.create_video.execute({ prompt: promptToUse, provider }, { chatId }) as StepResult;
     } else if (toolName === 'edit_image') {
+      if (!agentTools.edit_image) return null;
       return await agentTools.edit_image.execute({
         image_url: toolParams.image_url,
         edit_instruction: promptToUse,
         service: provider
-      }, { chatId });
+      }, { chatId }) as StepResult;
     } else if (toolName === 'edit_video') {
+      if (!agentTools.edit_video) return null;
       return await agentTools.edit_video.execute({
         video_url: toolParams.video_url,
         edit_instruction: promptToUse,
         provider
-      }, { chatId });
+      }, { chatId }) as StepResult;
     }
     
     return null;
@@ -308,7 +371,7 @@ class MultiStepExecution {
   /**
    * Check if tool is a creation tool
    */
-  isCreationTool(toolName) {
+  isCreationTool(toolName: string): boolean {
     const creationTools = ['create_image', 'create_video', 'edit_image', 'edit_video'];
     return creationTools.includes(toolName);
   }
@@ -316,20 +379,18 @@ class MultiStepExecution {
   /**
    * Send error message to user
    */
-  async sendError(chatId, error, stepNumber = null, quotedMessageId = null, isException = false) {
+  async sendError(chatId: string, error: string, stepNumber: number | null = null, quotedMessageId: string | null = null, isException: boolean = false): Promise<void> {
     try {
       const { greenApiService } = getServices();
       const stepInfo = stepNumber ? ` שגיאה בביצוע שלב ${stepNumber}:` : '';
       const prefix = isException ? `❌${stepInfo}` : '❌';
       const errorMessage = error.startsWith('❌') ? error : `${prefix} ${error}`;
-      const { TIME } = require('../../../utils/constants');
-      await greenApiService.sendTextMessage(chatId, errorMessage, quotedMessageId, TIME.TYPING_INDICATOR);
-      console.log(`📤 [Multi-step] Error sent to user${stepNumber ? ` for step ${stepNumber}` : ''}`);
-    } catch (errorSendError) {
-      console.error(`❌ [Multi-step] Failed to send error message:`, errorSendError.message);
+      await greenApiService.sendTextMessage(chatId, errorMessage, quotedMessageId || undefined, TIME.TYPING_INDICATOR);
+      logger.debug(`📤 [Multi-step] Error sent to user${stepNumber ? ` for step ${stepNumber}` : ''}`);
+    } catch (errorSendError: any) {
+      logger.error(`❌ [Multi-step] Failed to send error message:`, { error: errorSendError.message });
     }
   }
 }
 
-module.exports = new MultiStepExecution();
-
+export default new MultiStepExecution();

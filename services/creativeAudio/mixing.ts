@@ -1,25 +1,39 @@
-// @ts-nocheck
 /**
  * Creative Audio Mixing
  * 
  * Handles audio mixing with background music and creative voice processing
  */
 
-const { exec } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const { promisify } = require('util');
-const { getTempDir, ensureTempDir, cleanupTempFile } = require('../../utils/tempFileUtils');
-const { getRandomEffect, applyCreativeEffect } = require('./effects');
-const {
+import { exec } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import { promisify } from 'util';
+import { getTempDir, ensureTempDir, cleanupTempFile } from '../../utils/tempFileUtils';
+import { getRandomEffect, applyCreativeEffect } from './effects';
+import {
   getRandomBackground,
   getRandomInstrumentalStyle,
   generateBackgroundMusic,
   generateSunoInstrumental
-} = require('./background');
+} from './background';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { AUDIO } = require('../../utils/constants');
 
 const execAsync = promisify(exec);
+
+interface MixedAudio {
+  success: boolean;
+  audioBuffer?: Buffer;
+  size?: number;
+}
+
+interface ProcessedVoice extends MixedAudio {
+  effect?: string;
+  background?: string;
+  description?: string;
+  error?: string;
+}
 
 /**
  * Mix voice with background music
@@ -28,7 +42,7 @@ const execAsync = promisify(exec);
  * @param {string} backgroundPath - Background music file path
  * @returns {Promise<Object>} Result with mixed audio
  */
-export async function mixWithBackground(voiceBuffer, voiceFormat = 'mp3', backgroundPath) {
+export async function mixWithBackground(voiceBuffer: Buffer, voiceFormat: string = 'mp3', backgroundPath: string): Promise<MixedAudio> {
   return new Promise(async (resolve, reject) => {
     try {
       const tempDir = getTempDir();
@@ -92,7 +106,7 @@ export async function mixWithBackground(voiceBuffer, voiceFormat = 'mp3', backgr
           size: mixedBuffer.length
         });
 
-      } catch (ffmpegError) {
+      } catch (ffmpegError: any) {
         console.error('❌ FFmpeg mixing error:', ffmpegError);
 
         // Clean up temporary files
@@ -103,7 +117,7 @@ export async function mixWithBackground(voiceBuffer, voiceFormat = 'mp3', backgr
         reject(new Error(`Audio mixing failed: ${ffmpegError.message}`));
       }
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('❌ Error in audio mixing setup:', err);
       reject(new Error(`Mixing setup failed: ${err.message}`));
     }
@@ -116,7 +130,7 @@ export async function mixWithBackground(voiceBuffer, voiceFormat = 'mp3', backgr
  * @param {string} inputFormat - Input format
  * @returns {Promise<Object>} Result with processed audio
  */
-export async function processVoiceCreatively(audioBuffer, inputFormat = 'mp3') {
+export async function processVoiceCreatively(audioBuffer: Buffer, inputFormat: string = 'mp3'): Promise<ProcessedVoice> {
   try {
     console.log(`🎨 Starting creative voice processing...`);
 
@@ -127,7 +141,7 @@ export async function processVoiceCreatively(audioBuffer, inputFormat = 'mp3') {
     // Apply creative effect
     const effectResult = await applyCreativeEffect(audioBuffer, inputFormat, effect);
 
-    if (!effectResult.success) {
+    if (!effectResult.success || !effectResult.audioBuffer) {
       throw new Error('Creative effect failed');
     }
 
@@ -135,7 +149,6 @@ export async function processVoiceCreatively(audioBuffer, inputFormat = 'mp3') {
     console.log(`🎵 Adding background music...`);
 
     // Get audio duration (approximate)
-    const { AUDIO } = require('../../utils/constants');
     const duration = Math.max(AUDIO.MIN_DURATION_ESTIMATE, Math.min(AUDIO.MAX_DURATION_ESTIMATE, audioBuffer.length / AUDIO.BYTES_PER_SECOND_ESTIMATE)); // Rough estimate
 
     // Choose background music type: 50% synthetic, 50% Suno
@@ -154,19 +167,28 @@ export async function processVoiceCreatively(audioBuffer, inputFormat = 'mp3') {
     } else {
       // Suno instrumental music (50%)
       const instrumentalStyle = getRandomInstrumentalStyle();
-      console.log(`🎲 Selected Suno instrumental: ${instrumentalStyle.name}`);
+      
+      if (!instrumentalStyle) {
+         // Fallback if no style found
+         console.warn(`⚠️ No instrumental style found, using default`);
+         const background = getRandomBackground();
+         backgroundPath = await generateBackgroundMusic(duration, background.key);
+         backgroundName = background.name;
+      } else {
+        console.log(`🎲 Selected Suno instrumental: ${instrumentalStyle.name}`);
 
-      try {
-        backgroundPath = await generateSunoInstrumental(duration, instrumentalStyle);
-        backgroundName = instrumentalStyle.name;
-        console.log(`✅ Suno instrumental path: ${backgroundPath}`);
-      } catch (sunoError) {
-        console.warn(`⚠️ Suno instrumental failed, falling back to synthetic: ${sunoError.message}`);
-        // Fallback to synthetic background music
-        const background = getRandomBackground();
-        console.log(`🎲 Fallback to synthetic background: ${background.name}`);
-        backgroundPath = await generateBackgroundMusic(duration, background.key);
-        backgroundName = `${background.name} (fallback)`;
+        try {
+            backgroundPath = await generateSunoInstrumental(duration, instrumentalStyle);
+            backgroundName = instrumentalStyle.name;
+            console.log(`✅ Suno instrumental path: ${backgroundPath}`);
+        } catch (sunoError: any) {
+            console.warn(`⚠️ Suno instrumental failed, falling back to synthetic: ${sunoError.message}`);
+            // Fallback to synthetic background music
+            const background = getRandomBackground();
+            console.log(`🎲 Fallback to synthetic background: ${background.name}`);
+            backgroundPath = await generateBackgroundMusic(duration, background.key);
+            backgroundName = `${background.name} (fallback)`;
+        }
       }
     }
 
@@ -196,7 +218,7 @@ export async function processVoiceCreatively(audioBuffer, inputFormat = 'mp3') {
       description: `Applied ${effect.name}`
     };
 
-  } catch (err) {
+  } catch (err: any) {
     console.error('❌ Error in creative voice processing:', err);
     return {
       success: false,
@@ -204,11 +226,3 @@ export async function processVoiceCreatively(audioBuffer, inputFormat = 'mp3') {
     };
   }
 }
-
-module.exports = {
-  mixWithBackground,
-  processVoiceCreatively
-};
-
-export {};
-

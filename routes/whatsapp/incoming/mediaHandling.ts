@@ -6,6 +6,8 @@
 
 import { handleQuotedMessage } from '../quotedMessageHandler';
 import * as greenApiService from '../../../services/greenApiService';
+import logger from '../../../utils/logger';
+import { MessageData, WebhookData } from '../../../services/whatsapp/types';
 
 interface MediaUrls {
     hasImage: boolean;
@@ -22,7 +24,7 @@ interface MediaUrls {
  * @param {Object} quotedMessage - Quoted message data
  * @returns {boolean} True if actual quote, false otherwise
  */
-export function isActualQuote(messageData: any, quotedMessage: any): boolean {
+export function isActualQuote(messageData: MessageData, quotedMessage: MessageData | undefined): boolean {
   if (messageData.typeMessage !== 'quotedMessage' || !quotedMessage || !quotedMessage.stanzaId) {
     return false;
   }
@@ -30,10 +32,10 @@ export function isActualQuote(messageData: any, quotedMessage: any): boolean {
   const quotedCaption = quotedMessage?.caption;
   const extractedText = messageData.extendedTextMessageData?.text;
   // Check if caption matches text (exact match OR caption starts with text, covering "# מה זה..." case)
-  const captionMatchesText = quotedCaption && extractedText &&
+  const captionMatchesText = !!(quotedCaption && extractedText &&
     (quotedCaption === extractedText ||
       quotedCaption.startsWith(extractedText) ||
-      extractedText.startsWith(quotedCaption));
+      extractedText.startsWith(quotedCaption)));
 
   return !captionMatchesText; // It's a quote if text doesn't match caption
 }
@@ -43,31 +45,31 @@ export function isActualQuote(messageData: any, quotedMessage: any): boolean {
  * @param {Object} messageData - Message data
  * @returns {Object} Media info with URLs and flags
  */
-export function extractDirectMediaUrls(messageData: any): MediaUrls {
-  let hasImage = messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage';
-  let hasVideo = messageData.typeMessage === 'videoMessage';
-  let hasAudio = messageData.typeMessage === 'audioMessage';
-  let imageUrl = null;
-  let videoUrl = null;
-  let audioUrl = null;
+export function extractDirectMediaUrls(messageData: MessageData): MediaUrls {
+  const hasImage = messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage';
+  const hasVideo = messageData.typeMessage === 'videoMessage';
+  const hasAudio = messageData.typeMessage === 'audioMessage';
+  let imageUrl: string | null = null;
+  let videoUrl: string | null = null;
+  let audioUrl: string | null = null;
 
   // Extract URLs for direct media messages (imageMessage/videoMessage/audioMessage)
   if (messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage') {
     imageUrl = messageData.downloadUrl ||
       messageData.fileMessageData?.downloadUrl ||
       messageData.imageMessageData?.downloadUrl ||
-      messageData.stickerMessageData?.downloadUrl;
-    console.log(`📸 Incoming: Direct image message, downloadUrl: ${imageUrl ? 'found' : 'NOT FOUND'}`);
+      messageData.stickerMessageData?.downloadUrl || null;
+    logger.debug(`📸 Incoming: Direct image message, downloadUrl: ${imageUrl ? 'found' : 'NOT FOUND'}`);
   } else if (messageData.typeMessage === 'videoMessage') {
     videoUrl = messageData.downloadUrl ||
       messageData.fileMessageData?.downloadUrl ||
-      messageData.videoMessageData?.downloadUrl;
-    console.log(`🎥 Incoming: Direct video message, downloadUrl: ${videoUrl ? 'found' : 'NOT FOUND'}`);
+      messageData.videoMessageData?.downloadUrl || null;
+    logger.debug(`🎥 Incoming: Direct video message, downloadUrl: ${videoUrl ? 'found' : 'NOT FOUND'}`);
   } else if (messageData.typeMessage === 'audioMessage') {
     audioUrl = messageData.downloadUrl ||
       messageData.fileMessageData?.downloadUrl ||
-      messageData.audioMessageData?.downloadUrl;
-    console.log(`🎵 Incoming: Direct audio message, downloadUrl: ${audioUrl ? 'found' : 'NOT FOUND'}`);
+      messageData.audioMessageData?.downloadUrl || null;
+    logger.debug(`🎵 Incoming: Direct audio message, downloadUrl: ${audioUrl ? 'found' : 'NOT FOUND'}`);
   }
 
   return {
@@ -97,7 +99,7 @@ interface GreenApiMessage {
 }
 
 export async function fetchMediaUrlFromAPI(chatId: string, messageId: string, mediaType: string): Promise<string | null> {
-  console.log(`⚠️ ${mediaType} downloadUrl not found in webhook, fetching from Green API...`);
+  logger.warn(`⚠️ ${mediaType} downloadUrl not found in webhook, fetching from Green API...`);
   try {
     const originalMessage = await greenApiService.getMessage(chatId, messageId) as GreenApiMessage | null;
     if (!originalMessage) return null;
@@ -120,7 +122,7 @@ export async function fetchMediaUrlFromAPI(chatId: string, messageId: string, me
     }
     return null;
   } catch (err: any) {
-    console.log(`❌ Failed to fetch ${mediaType} downloadUrl via getMessage: ${err.message}`);
+    logger.error(`❌ Failed to fetch ${mediaType} downloadUrl via getMessage: ${err.message}`);
     return null;
   }
 }
@@ -132,20 +134,20 @@ export async function fetchMediaUrlFromAPI(chatId: string, messageId: string, me
  * @param {string} chatId - Chat ID
  * @returns {Promise<Object>} Media info with URLs
  */
-export async function extractQuotedMediaUrls(messageData: any, webhookData: any, chatId: string): Promise<MediaUrls> {
+export async function extractQuotedMediaUrls(messageData: MessageData, webhookData: WebhookData, chatId: string): Promise<MediaUrls> {
   const quotedMessage = messageData.quotedMessage;
   if (!quotedMessage) {
     return { hasImage: false, hasVideo: false, hasAudio: false, imageUrl: null, videoUrl: null, audioUrl: null };
   }
 
-  console.log(`📸 Media message with caption (not a quote) - Type: ${quotedMessage.typeMessage || 'unknown'}`);
+  logger.debug(`📸 Media message with caption (not a quote) - Type: ${quotedMessage.typeMessage || 'unknown'}`);
 
   let hasImage = false;
   let hasVideo = false;
   let hasAudio = false;
-  let imageUrl = null;
-  let videoUrl = null;
-  let audioUrl = null;
+  let imageUrl: string | null = null;
+  let videoUrl: string | null = null;
+  const audioUrl: string | null = null;
 
   if (quotedMessage.typeMessage === 'imageMessage' || quotedMessage.typeMessage === 'stickerMessage') {
     hasImage = true;
@@ -157,19 +159,19 @@ export async function extractQuotedMediaUrls(messageData: any, webhookData: any,
       quotedMessage.downloadUrl ||
       quotedMessage.fileMessageData?.downloadUrl ||
       quotedMessage.imageMessageData?.downloadUrl ||
-      quotedMessage.stickerMessageData?.downloadUrl;
+      quotedMessage.stickerMessageData?.downloadUrl || null;
 
     // If still not found, try getMessage to fetch the current message's downloadUrl
     if (!imageUrl) {
       const fetchedUrl = await fetchMediaUrlFromAPI(chatId, webhookData.idMessage, 'image');
       if (fetchedUrl) {
         imageUrl = fetchedUrl;
-        console.log(`✅ downloadUrl fetched from getMessage: found`);
+        logger.debug(`✅ downloadUrl fetched from getMessage: found`);
       } else {
-        console.log(`✅ downloadUrl fetched from getMessage: still NOT FOUND`);
+        logger.debug(`✅ downloadUrl fetched from getMessage: still NOT FOUND`);
       }
     }
-    console.log(`📸 Image with caption detected, final downloadUrl: ${imageUrl ? 'found' : 'NOT FOUND'}`);
+    logger.debug(`📸 Image with caption detected, final downloadUrl: ${imageUrl ? 'found' : 'NOT FOUND'}`);
   } else if (quotedMessage.typeMessage === 'videoMessage') {
     hasVideo = true;
     videoUrl = messageData.downloadUrl ||
@@ -177,19 +179,19 @@ export async function extractQuotedMediaUrls(messageData: any, webhookData: any,
       messageData.videoMessageData?.downloadUrl ||
       quotedMessage.downloadUrl ||
       quotedMessage.fileMessageData?.downloadUrl ||
-      quotedMessage.videoMessageData?.downloadUrl;
+      quotedMessage.videoMessageData?.downloadUrl || null;
 
     // If still not found, try getMessage to fetch the current message's downloadUrl
     if (!videoUrl) {
       const fetchedUrl = await fetchMediaUrlFromAPI(chatId, webhookData.idMessage, 'video');
       if (fetchedUrl) {
         videoUrl = fetchedUrl;
-        console.log(`✅ Video downloadUrl fetched from getMessage: found`);
+        logger.debug(`✅ Video downloadUrl fetched from getMessage: found`);
       } else {
-        console.log(`✅ Video downloadUrl fetched from getMessage: still NOT FOUND`);
+        logger.debug(`✅ Video downloadUrl fetched from getMessage: still NOT FOUND`);
       }
     }
-    console.log(`🎥 Video with caption detected, final downloadUrl: ${videoUrl ? 'found' : 'NOT FOUND'}`);
+    logger.debug(`🎥 Video with caption detected, final downloadUrl: ${videoUrl ? 'found' : 'NOT FOUND'}`);
   }
 
   return { hasImage, hasVideo, hasAudio, imageUrl, videoUrl, audioUrl };
@@ -202,8 +204,8 @@ export async function extractQuotedMediaUrls(messageData: any, webhookData: any,
  * @param {string} chatId - Chat ID
  * @returns {Promise<Object>} Merged prompt and media info
  */
-export async function processQuotedMessage(quotedMessage: any, basePrompt: string, chatId: string) {
-  console.log(`🔗 Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
+export async function processQuotedMessage(quotedMessage: MessageData, basePrompt: string, chatId: string) {
+  logger.debug(`🔗 Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
 
   // Handle quoted message - merge content
   const quotedResult = await handleQuotedMessage(quotedMessage, basePrompt, chatId);
@@ -232,7 +234,7 @@ export async function processQuotedMessage(quotedMessage: any, basePrompt: strin
  * @param {string} audioUrl - Audio URL
  * @returns {Object} Quoted context object
  */
-export function buildQuotedContext(quotedMessage: any, imageUrl?: string | null, videoUrl?: string | null, audioUrl?: string | null) {
+export function buildQuotedContext(quotedMessage: MessageData, imageUrl?: string | null, videoUrl?: string | null, audioUrl?: string | null) {
   if (!quotedMessage) return null;
 
   return {

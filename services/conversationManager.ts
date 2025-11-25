@@ -4,7 +4,6 @@ import TasksManager from './conversation/tasks';
 import logger from '../utils/logger';
 import { Pool } from 'pg';
 import { TIME } from '../utils/constants';
-import { MessageType } from '../repositories/messageTypesRepository';
 import { getChatHistory } from '../utils/chatHistoryService';
 
 // Import interfaces/classes
@@ -15,6 +14,15 @@ import SummariesManager from './conversation/summaries';
 import AllowListsManager from './conversation/allowLists';
 import ContactsManager from './conversation/contacts';
 import MessagesManager from './conversation/messages';
+
+interface AgentContext {
+  toolCalls?: unknown[];
+  generatedAssets?: {
+    images?: unknown[];
+    videos?: unknown[];
+    audio?: unknown[];
+  };
+}
 
 class ConversationManager {
   public isInitialized: boolean = false;
@@ -138,7 +146,8 @@ class ConversationManager {
   }
 
   async isAuthorizedForVoiceTranscription(senderData: unknown): Promise<boolean> {
-    return this.allowListsManager.isAuthorizedForVoiceTranscription(senderData);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return this.allowListsManager.isAuthorizedForVoiceTranscription(senderData as any);
   }
   
   async addToMediaAllowList(contactName: string): Promise<boolean> {
@@ -178,12 +187,13 @@ class ConversationManager {
   }
 
   async clearAllConversations(): Promise<void> {
-    return this.allowListsManager.clearAllConversations();
+    await this.allowListsManager.clearAllConversations();
   }
 
   // Contacts
   async syncContacts(contactsArray: unknown[]): Promise<{ inserted: number; updated: number; total: number }> {
-    await this.contactsManager.syncContacts(contactsArray);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await this.contactsManager.syncContacts(contactsArray as unknown as any[]); // Cast to expected type
     // Return default stats for backward compatibility
     return { inserted: 0, updated: 0, total: contactsArray.length };
   }
@@ -215,6 +225,7 @@ class ConversationManager {
 
   // Commands
   async saveCommand(chatId: string, messageId: string, metadata: unknown): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return this.commandsManager.saveCommand(chatId, messageId, metadata as any); // commandsManager expects CommandMetadata
   }
 
@@ -223,6 +234,7 @@ class ConversationManager {
   }
 
   async saveLastCommand(chatId: string, tool: string | null, args: unknown, options: unknown = {}): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return this.commandsManager.saveLastCommand(chatId, tool || '', args, options as any);
   }
 
@@ -241,7 +253,7 @@ class ConversationManager {
 
   // Agent Context
   async saveAgentContext(chatId: string, context: unknown): Promise<void> {
-    return this.agentContextManager.saveAgentContext(chatId, context);
+    return this.agentContextManager.saveAgentContext(chatId, context as AgentContext);
   }
 
   async getAgentContext(chatId: string): Promise<unknown> {

@@ -4,13 +4,15 @@
  * Handles parsing of incoming WhatsApp messages (text, captions, types)
  */
 
+import { MessageData } from '../../../services/whatsapp/types';
+
 /**
  * Parse incoming message and extract text content
  * @param {Object} messageData - Message data from webhook
  * @returns {Object} Parsed message with text and type info
  */
-export function parseIncomingMessage(messageData: any) {
-  let messageText = null;
+export function parseIncomingMessage(messageData: MessageData) {
+  let messageText: string | undefined | null = null;
 
   // Handle text messages (regular, extended, quoted, and edited)
   if (messageData.typeMessage === 'textMessage') {
@@ -66,7 +68,7 @@ export function extractPrompt(messageText: string) {
  * @param {string} senderName - Sender name
  * @param {string} messageText - Extracted message text
  */
-export function logIncomingMessage(messageData: any, senderName: string, messageText: string | null) {
+export function logIncomingMessage(messageData: MessageData, senderName: string, messageText: string | null | undefined) {
   console.log(`📱 Incoming from ${senderName} | Type: ${messageData.typeMessage}${messageData.typeMessage === 'editedMessage' ? ' ✏️' : ''}`);
   if (messageText) {
     console.log(`   Text: ${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}`);
@@ -85,9 +87,11 @@ export function logIncomingMessage(messageData: any, senderName: string, message
   }
   if (messageData.typeMessage === 'quotedMessage' && messageData.quotedMessage) {
     console.log(`   Quoted Message Type: ${messageData.quotedMessage.typeMessage}`);
-    if (messageData.quotedMessage.textMessage) {
-      console.log(`   Quoted Text: ${messageData.quotedMessage.textMessage.substring(0, 50)}...`);
+    if (messageData.quotedMessage.textMessageData?.textMessage) {
+      console.log(`   Quoted Text: ${messageData.quotedMessage.textMessageData.textMessage.substring(0, 50)}...`);
     }
+    // Note: textMessage on recursive type is not defined in interface but might be there in raw data
+    // or inside textMessageData. Let's use textMessageData.
     if (messageData.quotedMessage.caption) {
       console.log(`   Quoted Caption: ${messageData.quotedMessage.caption.substring(0, 50)}...`);
     }

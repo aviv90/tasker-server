@@ -1,23 +1,27 @@
-// @ts-nocheck
 /**
  * Creative Audio Effects
  * 
  * Handles creative audio effects library and application
  */
 
-const { exec } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const { promisify } = require('util');
-const { getTempDir, ensureTempDir, cleanupTempFile } = require('../../utils/tempFileUtils');
+import { exec } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import { promisify } from 'util';
+import { getTempDir, ensureTempDir, cleanupTempFile } from '../../utils/tempFileUtils';
 
 const execAsync = promisify(exec);
+
+export interface Effect {
+  name: string;
+  command: string;
+}
 
 /**
  * Creative effects library
  */
-export const EFFECTS = {
+export const EFFECTS: Record<string, Effect> = {
   // Voice effects
   robot: {
     name: '🤖 Robot Voice',
@@ -135,16 +139,34 @@ export const EFFECTS = {
   }
 };
 
+interface EffectWithKey extends Effect {
+  key: string;
+}
+
+interface ProcessedAudio {
+  success: boolean;
+  audioBuffer?: Buffer;
+  size?: number;
+  effect?: string;
+  error?: string;
+}
+
 /**
  * Get random creative effect
  * @returns {Object} Random effect configuration
  */
-export function getRandomEffect() {
+export function getRandomEffect(): EffectWithKey {
   const effectKeys = Object.keys(EFFECTS);
+  if (effectKeys.length === 0) throw new Error("No effects defined");
   const randomKey = effectKeys[Math.floor(Math.random() * effectKeys.length)];
+  if (!randomKey) throw new Error("Failed to select random effect");
+  
+  const effect = EFFECTS[randomKey];
+  if (!effect) throw new Error(`Effect not found for key: ${randomKey}`);
+
   return {
     key: randomKey,
-    ...EFFECTS[randomKey]
+    ...effect
   };
 }
 
@@ -155,7 +177,7 @@ export function getRandomEffect() {
  * @param {Object} effect - Effect configuration
  * @returns {Promise<Object>} Result with processed audio
  */
-export async function applyCreativeEffect(audioBuffer, inputFormat = 'mp3', effect) {
+export async function applyCreativeEffect(audioBuffer: Buffer, inputFormat: string = 'mp3', effect: Effect): Promise<ProcessedAudio> {
   return new Promise(async (resolve, reject) => {
     try {
       const tempDir = getTempDir();
@@ -185,7 +207,7 @@ export async function applyCreativeEffect(audioBuffer, inputFormat = 'mp3', effe
       console.log(`🎵 FFmpeg command: ${ffmpegCommand}`);
 
       try {
-        const { stdout, stderr } = await execAsync(ffmpegCommand);
+        const { stderr } = await execAsync(ffmpegCommand);
 
         if (stderr && stderr.includes('error')) {
           throw new Error(`FFmpeg error: ${stderr}`);
@@ -211,7 +233,7 @@ export async function applyCreativeEffect(audioBuffer, inputFormat = 'mp3', effe
           effect: effect.name
         });
 
-      } catch (ffmpegError) {
+      } catch (ffmpegError: any) {
         console.error('❌ FFmpeg processing error:', ffmpegError);
 
         // Clean up temporary files
@@ -221,18 +243,9 @@ export async function applyCreativeEffect(audioBuffer, inputFormat = 'mp3', effe
         reject(new Error(`Creative processing failed: ${ffmpegError.message}`));
       }
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('❌ Error in creative effect setup:', err);
       reject(new Error(`Creative setup failed: ${err.message}`));
     }
   });
 }
-
-module.exports = {
-  EFFECTS,
-  getRandomEffect,
-  applyCreativeEffect
-};
-
-export {};
-

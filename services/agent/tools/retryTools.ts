@@ -3,10 +3,7 @@
  * Clean, modular tool definitions following SOLID principles
  */
 
-// Handle default export from TypeScript
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const conversationManagerModule = require('../../conversationManager');
-const conversationManager = conversationManagerModule.default || conversationManagerModule;
+import conversationManager from '../../conversationManager';
 import { getServices } from '../utils/serviceLoader';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { getToolAckMessage } = require('../utils/ackUtils');
@@ -143,7 +140,7 @@ interface ToolResult {
 /**
  * Tool: Retry Last Command
  */
-const retry_last_command = {
+export const retry_last_command = {
   declaration: {
     name: 'retry_last_command',
     description: `חזור על הפקודה האחרונה של המשתמש (retry בלבד!). השתמש רק כשהמשתמש אומר במפורש "נסה שוב", "שוב", "תקן", "retry", "again". אם המשתמש מבקש ליצור משהו חדש (תמונה, וידאו, מוזיקה) עם ספק ספציפי (כמו "צור וידאו עם Veo 3") - זו בקשה חדשה, לא retry! השתמש ב-create_image/create_video/create_music במקום.
@@ -658,9 +655,4 @@ const retry_last_command = {
       };
     }
   }
-};
-
-module.exports = {
-  retry_last_command,
-  setAgentToolsReference
 };

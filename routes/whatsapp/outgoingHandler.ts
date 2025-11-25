@@ -8,7 +8,7 @@
 // Import services
 import * as greenApiService from '../../services/greenApiService';
 import conversationManager from '../../services/conversationManager';
-import { routeToAgent, NormalizedInput, AgentResult } from '../../services/agentRouter';
+import { routeToAgent, NormalizedInput, AgentResult as RouterAgentResult } from '../../services/agentRouter';
 import { sendErrorToUser, ERROR_MESSAGES } from '../../utils/errorSender';
 import logger from '../../utils/logger';
 import { WebhookData } from '../../services/whatsapp/types';
@@ -17,7 +17,7 @@ import { WebhookData } from '../../services/whatsapp/types';
 import { isAdminCommand } from '../../services/whatsapp/authorization';
 import { handleManagementCommand } from './managementHandler';
 import { handleQuotedMessage } from './quotedMessageHandler';
-import { sendAgentResults } from './incoming/resultHandling';
+import { sendAgentResults, AgentResult as HandlerAgentResult } from './incoming/resultHandling';
 import { detectManagementCommand } from './commandDetector';
 import { extractMessageText, extractMediaUrls, extractQuotedMediaUrls, isActualQuote, logMessageDetails, buildQuotedContext } from './messageParser';
 
@@ -128,7 +128,7 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
           logger.debug(`🎵 Outgoing: Direct audio message, downloadUrl: found`);
         }
         
-        if (actualQuote) {
+        if (actualQuote && quotedMessage) {
           logger.debug(`🔗 Outgoing: Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
           
           // Handle quoted message - merge content
@@ -206,7 +206,9 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
             // Commands are saved to DB (persistent) for retry functionality.
             logger.debug(`💾 [Agent - Outgoing] Processing command (not saving to DB - using Green API history)`);
             
-            const agentResult: AgentResult = await routeToAgent(normalized, chatId);
+            const agentResult = await routeToAgent(normalized, chatId);
+            // Cast RouterAgentResult to HandlerAgentResult if structure is compatible or suppress unused
+            void (agentResult as RouterAgentResult); 
             
             // Pass originalMessageId to agentResult for use in result handling
             if (agentResult) {
@@ -214,14 +216,21 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
             }
             
             // Get quotedMessageId from agentResult or normalized
-            const quotedMessageId = agentResult?.originalMessageId || normalized?.originalMessageId || null;
+            const quotedMessageId = (agentResult?.originalMessageId || normalized?.originalMessageId || null) as string | null;
             
             if (agentResult?.success) {
               // Use centralized result handling (SSOT - eliminates code duplication)
-              await sendAgentResults(chatId, agentResult, normalized);
+              // Cast to HandlerAgentResult to handle type mismatches
+              const handlerResult: HandlerAgentResult = {
+                ...agentResult,
+                imageUrl: agentResult.imageUrl || undefined,
+                videoUrl: agentResult.videoUrl || undefined,
+                audioUrl: agentResult.audioUrl || undefined
+              };
+              await sendAgentResults(chatId, handlerResult, normalized);
               logger.info(`✅ [Agent - Outgoing] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
             } else {
-              await sendErrorToUser(chatId, agentResult?.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId });
+              await sendErrorToUser(chatId, agentResult?.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId: quotedMessageId || undefined });
             }
             return; // Exit early - no need for regular flow
             

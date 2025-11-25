@@ -17,7 +17,6 @@ import AgentContextManager from './conversation/agentContext';
 import SummariesManager from './conversation/summaries';
 import AllowListsManager from './conversation/allowLists';
 import ContactsManager from './conversation/contacts';
-import DatabaseManager from './conversation/database';
 import MessagesManager from './conversation/messages';
 import TasksManager from './conversation/tasks';
 import MigrationRunner from './conversation/migrationRunner';
@@ -31,8 +30,6 @@ interface Services {
     contacts: ContactsManager;
     messages: MessagesManager;
     tasks: TasksManager;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [key: string]: any; // Allow dynamic access if strictly needed, but prefer typed
 }
 
 interface Repositories {
@@ -42,8 +39,6 @@ interface Repositories {
     summaries: SummariesRepository;
     allowLists: AllowListsRepository;
     contacts: ContactsRepository;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [key: string]: any;
 }
 
 class Container {
@@ -98,7 +93,7 @@ class Container {
                 messageTypes: new MessageTypesManager(conversationManagerMock, this.repositories.messageTypes!),
                 agentContext: new AgentContextManager(conversationManagerMock, this.repositories.agentContext!),
                 summaries: new SummariesManager(conversationManagerMock, this.repositories.summaries!),
-                allowLists: new AllowListsManager(conversationManagerMock, this.repositories.allowLists!),
+                allowLists: new AllowListsManager(this.repositories.allowLists!),
                 contacts: new ContactsManager(conversationManagerMock, this.repositories.contacts!),
                 messages: new MessagesManager(conversationManagerMock),
                 tasks: new TasksManager(conversationManagerMock)
@@ -111,7 +106,7 @@ class Container {
             this.isInitialized = true;
             logger.info('🚀 [Container] Initialization complete');
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             logger.error('❌ [Container] Initialization failed:', error);
             throw error;
         }

@@ -10,7 +10,7 @@ import * as greenApiService from '../../services/greenApiService';
 import { sendErrorToUser, ERROR_MESSAGES } from '../../utils/errorSender';
 import conversationManager from '../../services/conversationManager';
 import logger from '../../utils/logger';
-import { routeToAgent, NormalizedInput, AgentResult } from '../../services/agentRouter';
+import { routeToAgent, NormalizedInput, AgentResult as RouterAgentResult } from '../../services/agentRouter';
 import { isAuthorizedForMediaCreation } from '../../services/whatsapp/authorization';
 import { processVoiceMessageAsync } from './asyncProcessors';
 import { TIME } from '../../utils/constants';
@@ -25,7 +25,7 @@ import {
   processQuotedMessage,
   buildQuotedContext
 } from './incoming/mediaHandling';
-import { sendAgentResults } from './incoming/resultHandling';
+import { sendAgentResults, AgentResult as HandlerAgentResult } from './incoming/resultHandling';
 
 /**
  * Handle incoming WhatsApp message
@@ -90,7 +90,7 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
         // Handle quoted message or media with caption
         if (actualQuote) {
           // Process actual quoted message
-          const quotedResult = await processQuotedMessage(quotedMessage, basePrompt, chatId);
+          const quotedResult = await processQuotedMessage(quotedMessage!, basePrompt, chatId);
 
           if (quotedResult.error) {
             const originalMessageId = webhookData.idMessage;
@@ -159,7 +159,9 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
           // Pass originalMessageId to normalized input so it's available for saveLastCommand
           normalized.originalMessageId = originalMessageId;
           
-          const agentResult: AgentResult = await routeToAgent(normalized, chatId);
+          const agentResult = await routeToAgent(normalized, chatId);
+          // Cast RouterAgentResult to HandlerAgentResult if structure is compatible or suppress unused
+          void (agentResult as RouterAgentResult); 
 
           // Pass originalMessageId to agentResult for use in result handling
           if (agentResult) {
@@ -168,7 +170,14 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
 
           if (agentResult?.success) {
             // Send all results (text, media, polls, locations)
-            await sendAgentResults(chatId, agentResult, normalized);
+            // Cast agentResult to HandlerAgentResult to handle potential type mismatches (e.g., null vs undefined)
+            const handlerResult: HandlerAgentResult = {
+              ...agentResult,
+              imageUrl: agentResult.imageUrl || undefined, // Convert null to undefined if needed
+              videoUrl: agentResult.videoUrl || undefined,
+              audioUrl: agentResult.audioUrl || undefined
+            };
+            await sendAgentResults(chatId, handlerResult, normalized);
           } else {
             await sendErrorToUser(chatId, agentResult?.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId: originalMessageId || undefined });
           }

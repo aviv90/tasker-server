@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Single Step Execution - Execute a single step in a workflow
  * 
@@ -11,31 +10,54 @@
  * Extracted from agentService.js (Phase 4.2)
  */
 
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const prompts = require('../../../config/prompts');
-const { cleanThinkingPatterns } = require('../../../utils/agentHelpers');
-const { allTools: agentTools } = require('../tools');
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import prompts from '../../../config/prompts';
+import { cleanThinkingPatterns } from '../../../utils/agentHelpers';
+import { allTools as agentTools } from '../tools';
+import { cleanJsonWrapper } from '../../../utils/textSanitizer';
+import logger from '../../../utils/logger';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+interface SingleStepOptions {
+    maxIterations?: number;
+    languageInstruction?: string;
+    agentConfig?: { model: string };
+    functionDeclarations?: unknown[];
+    systemInstruction?: string;
+    expectedTool?: string | null;
+}
+
+interface StepResult {
+    success: boolean;
+    text?: string;
+    imageUrl?: string | null;
+    imageCaption?: string;
+    caption?: string; // Alias for imageCaption
+    videoUrl?: string | null;
+    audioUrl?: string | null;
+    poll?: { question: string; options: string[] } | null;
+    latitude?: string | null;
+    longitude?: string | null;
+    locationInfo?: string | null;
+    error?: string;
+    toolsUsed?: string[];
+    iterations?: number;
+    [key: string]: unknown;
+}
 
 /**
  * Execute a single step in a multi-step workflow
  * @param {string} stepPrompt - Prompt for this specific step
  * @param {string} chatId - Chat ID for context
  * @param {Object} options - Configuration options
- * @param {number} options.maxIterations - Max iterations for tool calling loop (default: 5)
- * @param {string} options.languageInstruction - Language-specific instruction
- * @param {Object} options.agentConfig - Agent configuration (model, etc.)
- * @param {Array} options.functionDeclarations - Tool declarations for this step
- * @param {string} options.systemInstruction - Custom system instruction (optional)
- * @param {string} options.expectedTool - In multi-step, restrict execution to this tool only
  * @returns {Promise<Object>} - Step execution result
  */
-async function executeSingleStep(stepPrompt, chatId, options = {}) {
+export async function executeSingleStep(stepPrompt: string, chatId: string, options: SingleStepOptions = {}): Promise<StepResult> {
   const {
     maxIterations = 5,
     languageInstruction,
-    agentConfig,
+    agentConfig = { model: 'gemini-1.5-flash' },
     functionDeclarations,
     systemInstruction,
     expectedTool = null  // In multi-step, restrict execution to this tool only
@@ -44,12 +66,14 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
   const model = genAI.getGenerativeModel({ model: agentConfig.model });
   
   // Shorter system instruction for single steps
-  const stepSystemInstructionText = systemInstruction || prompts.singleStepInstruction(languageInstruction);
+  const stepSystemInstructionText = systemInstruction || prompts.singleStepInstruction(languageInstruction || 'he');
   
   // NO HISTORY for single steps - each step is isolated and focused on its specific task only
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chat = model.startChat({
     history: [], // Empty history to prevent confusion between steps
-    tools: [{ functionDeclarations }],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tools: [{ functionDeclarations: functionDeclarations as any }],
     systemInstruction: {
       role: 'system',
       parts: [{ text: stepSystemInstructionText }]
@@ -57,10 +81,21 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
   });
   
   let iterations = 0;
-  let currentPrompt = stepPrompt;
-  const toolsUsed = [];
+  const currentPrompt = stepPrompt;
+  const toolsUsed: string[] = [];
   let textResponse = '';
-  const assets = {
+  
+  const assets: {
+    imageUrl: string | null;
+    imageCaption: string;
+    videoUrl: string | null;
+    audioUrl: string | null;
+    poll: { question: string; options: string[] } | null;
+    latitude: string | null;
+    longitude: string | null;
+    locationInfo: string | null;
+    error?: string;
+  } = {
     imageUrl: null,
     imageCaption: '',
     videoUrl: null,
@@ -89,7 +124,8 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
       }
       
       // Execute function calls FIRST (don't send Ack yet - wait until step completes)
-      const functionResponses = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const functionResponses: any[] = [];
       let targetToolExecuted = false;
       
       for (const call of functionCalls) {
@@ -99,7 +135,7 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
         // CRITICAL: In multi-step execution, only execute the target tool for this step
         // Prevent calling additional tools like get_chat_history that are not in the plan
         if (expectedTool && toolName !== expectedTool) {
-          console.log(`⚠️ [Multi-step] Blocking unexpected tool call: ${toolName} (expected: ${expectedTool})`);
+          logger.warn(`⚠️ [Multi-step] Blocking unexpected tool call: ${toolName} (expected: ${expectedTool})`);
           functionResponses.push({
             name: toolName,
             response: { 
@@ -112,7 +148,7 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
         
         // If we already executed the target tool, stop (prevent multiple calls)
         if (expectedTool && targetToolExecuted && toolName === expectedTool) {
-          console.log(`⚠️ [Multi-step] Target tool ${expectedTool} already executed, stopping`);
+          logger.warn(`⚠️ [Multi-step] Target tool ${expectedTool} already executed, stopping`);
           break;
         }
         
@@ -129,7 +165,8 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
         }
         
         // Execute with proper context (chatId needed for some tools)
-        const toolResult = await toolFunction.execute(toolArgs, { chatId });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const toolResult = await toolFunction.execute(toolArgs, { chatId }) as any; // Cast result
         functionResponses.push({
           name: toolName,
           response: toolResult
@@ -151,12 +188,12 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
         if (toolResult.latitude) assets.latitude = toolResult.latitude;
         if (toolResult.longitude) assets.longitude = toolResult.longitude;
         if (toolResult.locationInfo) {
-          const { cleanJsonWrapper } = require('../../../utils/textSanitizer');
           assets.locationInfo = cleanJsonWrapper(toolResult.locationInfo);
         }
         
         // If tool failed and returned error, save it for return
-        if (toolResult.error && !toolResult.success) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (toolResult.error && toolResult.success === false) {
           assets.error = toolResult.error;
         }
       }
@@ -165,6 +202,7 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
       if (expectedTool && targetToolExecuted) {
         // Send function results back to get final text response
         const functionResponseParts = functionResponses
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .filter(fr => !fr.response.blocked)
           .map(fr => ({
             functionResponse: {
@@ -182,6 +220,7 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
       
       // Send function results back to the model (for non-multi-step or when no expected tool)
       const functionResponseParts = functionResponses
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .filter(fr => !fr.response.blocked)
         .map(fr => ({
           functionResponse: {
@@ -199,12 +238,13 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
       textResponse = continueResult.response.text();
       
       // Check if model wants to continue with more tools
-      if (!continueResult.response.functionCalls() || continueResult.response.functionCalls().length === 0) {
+      const nextCalls = continueResult.response.functionCalls();
+      if (!nextCalls || nextCalls.length === 0) {
         break;
       }
       
-    } catch (error) {
-      console.error(`  ❌ [Step Error]:`, error.message);
+    } catch (error: any) {
+      logger.error(`  ❌ [Step Error]:`, { error: error.message });
       return {
         success: false,
         error: error.message,
@@ -230,8 +270,3 @@ async function executeSingleStep(stepPrompt, chatId, options = {}) {
     iterations
   };
 }
-
-module.exports = {
-  executeSingleStep
-};
-

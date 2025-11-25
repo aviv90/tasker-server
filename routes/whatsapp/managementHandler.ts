@@ -15,6 +15,25 @@ import { findContactByName } from '../../services/groupService';
 import logger from '../../utils/logger';
 import { TIME } from '../../utils/constants';
 
+interface GreenApiMessage {
+  typeMessage?: string;
+  type?: string;
+  textMessage?: string;
+  caption?: string;
+  extendedTextMessage?: { text?: string };
+  idMessage?: string;
+  [key: string]: unknown;
+}
+
+interface ChatMessage {
+  textMessage?: string;
+  caption?: string;
+  extendedTextMessage?: { text?: string };
+  typeMessage?: string;
+  idMessage?: string;
+  [key: string]: unknown;
+}
+
 /**
  * Handle management commands
  * @param {Object} command - Command object with type and optional contactName
@@ -52,12 +71,12 @@ export async function handleManagementCommand(
       case 'show_history': {
         // Get history from Green API (not DB) - shows all messages
         try {
-          const greenApiHistory = await greenApiService.getChatHistory(chatId, 20);
+          const greenApiHistory = await greenApiService.getChatHistory(chatId, 20) as GreenApiMessage[];
           
           if (greenApiHistory && greenApiHistory.length > 0) {
             let historyText = '📜 **היסטוריית שיחה (20 הודעות אחרונות):**\n\n';
             
-            const filteredMessages = greenApiHistory.filter((msg: any) => {
+            const filteredMessages = greenApiHistory.filter((msg: GreenApiMessage) => {
               // Filter out system/notification messages
               const isSystemMessage = 
                 msg.typeMessage === 'notificationMessage' ||
@@ -67,14 +86,6 @@ export async function handleManagementCommand(
             });
             
             // Use for...of loop to support await
-            interface ChatMessage {
-              textMessage?: string;
-              caption?: string;
-              extendedTextMessage?: { text?: string };
-              typeMessage?: string;
-              idMessage?: string;
-              [key: string]: unknown;
-            }
             for (const msg of filteredMessages) {
               const message = msg as ChatMessage;
               const textContent = message.textMessage || 
@@ -94,8 +105,11 @@ export async function handleManagementCommand(
           } else {
             await greenApiService.sendTextMessage(chatId, 'ℹ️ אין היסטוריית שיחה', originalMessageId || undefined, TIME.TYPING_INDICATOR);
           }
-        } catch (error: any) {
-          logger.error('❌ Error fetching history from Green API:', { error: error.message, stack: error.stack });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          logger.error('❌ Error fetching history from Green API:', { error: errorMessage, stack: errorStack });
           await sendErrorToUser(chatId, error, { context: 'SHOW_HISTORY', quotedMessageId: originalMessageId || undefined });
         }
         break;
@@ -167,9 +181,12 @@ export async function handleManagementCommand(
           
           await greenApiService.sendTextMessage(chatId, resultMessage, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           logger.info(`✅ Contacts synced successfully by ${senderName}`);
-        } catch (error: any) {
-          logger.error('❌ Error syncing contacts:', { error: error.message, stack: error.stack });
-          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בעדכון אנשי קשר: ${error.message}`, quotedMessageId: originalMessageId || undefined });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          logger.error('❌ Error syncing contacts:', { error: errorMessage, stack: errorStack });
+          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בעדכון אנשי קשר: ${errorMessage}`, quotedMessageId: originalMessageId || undefined });
         }
         break;
       }
@@ -206,9 +223,12 @@ export async function handleManagementCommand(
           } else {
             await greenApiService.sendTextMessage(chatId, `ℹ️ ${exactName} כבר נמצא ברשימת המורשים ליצירת מדיה`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           }
-        } catch (error: any) {
-          logger.error('❌ Error in add_media_authorization:', { error: error.message, stack: error.stack });
-          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהוספת הרשאה: ${error.message}`, quotedMessageId: originalMessageId || undefined });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          logger.error('❌ Error in add_media_authorization:', { error: errorMessage, stack: errorStack });
+          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהוספת הרשאה: ${errorMessage}`, quotedMessageId: originalMessageId || undefined });
         }
         break;
       }
@@ -245,9 +265,12 @@ export async function handleManagementCommand(
           } else {
             await greenApiService.sendTextMessage(chatId, `ℹ️ ${exactName} לא נמצא ברשימת המורשים ליצירת מדיה`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           }
-        } catch (error: any) {
-          logger.error('❌ Error in remove_media_authorization:', { error: error.message, stack: error.stack });
-          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהסרת הרשאה: ${error.message}`, quotedMessageId: originalMessageId || undefined });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          logger.error('❌ Error in remove_media_authorization:', { error: errorMessage, stack: errorStack });
+          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהסרת הרשאה: ${errorMessage}`, quotedMessageId: originalMessageId || undefined });
         }
         break;
       }
@@ -284,9 +307,12 @@ export async function handleManagementCommand(
           } else {
             await greenApiService.sendTextMessage(chatId, `ℹ️ ${exactName} כבר נמצא ברשימת המורשים ליצירת קבוצות`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           }
-        } catch (error: any) {
-          logger.error('❌ Error in add_group_authorization:', { error: error.message, stack: error.stack });
-          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהוספת הרשאה: ${error.message}`, quotedMessageId: originalMessageId || undefined });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          logger.error('❌ Error in add_group_authorization:', { error: errorMessage, stack: errorStack });
+          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהוספת הרשאה: ${errorMessage}`, quotedMessageId: originalMessageId || undefined });
         }
         break;
       }
@@ -323,9 +349,12 @@ export async function handleManagementCommand(
           } else {
             await greenApiService.sendTextMessage(chatId, `ℹ️ ${exactName} לא נמצא ברשימת המורשים ליצירת קבוצות`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           }
-        } catch (error: any) {
-          logger.error('❌ Error in remove_group_authorization:', { error: error.message, stack: error.stack });
-          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהסרת הרשאה: ${error.message}`, quotedMessageId: originalMessageId || undefined });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          logger.error('❌ Error in remove_group_authorization:', { error: errorMessage, stack: errorStack });
+          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהסרת הרשאה: ${errorMessage}`, quotedMessageId: originalMessageId || undefined });
         }
         break;
       }
@@ -362,9 +391,12 @@ export async function handleManagementCommand(
           } else {
             await greenApiService.sendTextMessage(chatId, `ℹ️ ${exactName} כבר נמצא ברשימת המורשים לתמלול`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           }
-        } catch (error: any) {
-          logger.error('❌ Error in include_in_transcription:', { error: error.message, stack: error.stack });
-          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהוספת הרשאת תמלול: ${error.message}`, quotedMessageId: originalMessageId || undefined });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          logger.error('❌ Error in include_in_transcription:', { error: errorMessage, stack: errorStack });
+          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהוספת הרשאת תמלול: ${errorMessage}`, quotedMessageId: originalMessageId || undefined });
         }
         break;
       }
@@ -377,33 +409,36 @@ export async function handleManagementCommand(
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
             console.log(`✅ Using current contact directly: ${exactName}`);
-            await greenApiService.sendTextMessage(chatId, `✅ מסיר "${exactName}" מרשימת המורשים לתמלול...`, originalMessageId || undefined || undefined, TIME.TYPING_INDICATOR);
+            await greenApiService.sendTextMessage(chatId, `✅ מסיר "${exactName}" מרשימת המורשים לתמלול...`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           } else {
             // Use fuzzy search to find exact contact/group name
-            await greenApiService.sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`, originalMessageId || undefined || undefined, TIME.TYPING_INDICATOR);
+            await greenApiService.sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
             const foundContact = await findContactByName(command.contactName || '') as { contactName: string; isGroup?: boolean };
             
             if (!foundContact) {
-              await greenApiService.sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`, originalMessageId || undefined || undefined, TIME.TYPING_INDICATOR);
+              await greenApiService.sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
               break;
             }
             
             // Use the exact contact name found in DB
             exactName = foundContact.contactName;
             entityType = foundContact.isGroup ? '👥 קבוצה' : '👤 איש קשר';
-            await greenApiService.sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`, originalMessageId || undefined || undefined, TIME.TYPING_INDICATOR);
+            await greenApiService.sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           }
           
           const wasRemoved = await conversationManager.removeFromVoiceAllowList(exactName);
           if (wasRemoved) {
-            await greenApiService.sendTextMessage(chatId, `🚫 ${exactName} הוסר מרשימת המורשים לתמלול`, originalMessageId || undefined || undefined, TIME.TYPING_INDICATOR);
+            await greenApiService.sendTextMessage(chatId, `🚫 ${exactName} הוסר מרשימת המורשים לתמלול`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
             logger.info(`✅ Removed ${exactName} from voice allow list by ${senderName}`);
           } else {
-            await greenApiService.sendTextMessage(chatId, `ℹ️ ${exactName} לא נמצא ברשימת המורשים לתמלול`, originalMessageId || undefined || undefined, TIME.TYPING_INDICATOR);
+            await greenApiService.sendTextMessage(chatId, `ℹ️ ${exactName} לא נמצא ברשימת המורשים לתמלול`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           }
-        } catch (error: any) {
-          logger.error('❌ Error in exclude_from_transcription:', { error: error.message, stack: error.stack });
-          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהסרת הרשאת תמלול: ${error.message}`, quotedMessageId: originalMessageId || undefined || undefined });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          logger.error('❌ Error in exclude_from_transcription:', { error: errorMessage, stack: errorStack });
+          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהסרת הרשאת תמלול: ${errorMessage}`, quotedMessageId: originalMessageId || undefined });
         }
         break;
       }
@@ -420,32 +455,38 @@ export async function handleManagementCommand(
           } else if (isPrivateChat) {
             targetName = senderContactName || chatName || senderName;
           } else {
-            await greenApiService.sendTextMessage(chatId, '❌ לא ניתן לזהות את השיחה הנוכחית', originalMessageId || undefined || undefined, TIME.TYPING_INDICATOR);
+            await greenApiService.sendTextMessage(chatId, '❌ לא ניתן לזהות את השיחה הנוכחית', originalMessageId || undefined, TIME.TYPING_INDICATOR);
             break;
           }
           
-          await greenApiService.sendTextMessage(chatId, `📝 מזהה אוטומטית: "${targetName}"`, originalMessageId || undefined || undefined, TIME.TYPING_INDICATOR);
+          await greenApiService.sendTextMessage(chatId, `📝 מזהה אוטומטית: "${targetName}"`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           
           const wasAdded = await groupAuthStore.addAuthorizedUser(targetName);
           if (wasAdded) {
-            await greenApiService.sendTextMessage(chatId, `✅ ${targetName} נוסף לרשימת המורשים ליצירת קבוצות`, originalMessageId || undefined || undefined, TIME.TYPING_INDICATOR);
+            await greenApiService.sendTextMessage(chatId, `✅ ${targetName} נוסף לרשימת המורשים ליצירת קבוצות`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
             logger.info(`✅ Added ${targetName} (auto-detected from current chat) to group creation authorization by ${senderName}`);
           } else {
-            await greenApiService.sendTextMessage(chatId, `ℹ️ ${targetName} כבר נמצא ברשימת המורשים ליצירת קבוצות`, originalMessageId || undefined || undefined, TIME.TYPING_INDICATOR);
+            await greenApiService.sendTextMessage(chatId, `ℹ️ ${targetName} כבר נמצא ברשימת המורשים ליצירת קבוצות`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           }
-        } catch (error: any) {
-          logger.error('❌ Error in add_group_authorization_current:', { error: error.message, stack: error.stack });
-          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהוספת הרשאה: ${error.message}`, quotedMessageId: originalMessageId || undefined || undefined });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          logger.error('❌ Error in add_group_authorization_current:', { error: errorMessage, stack: errorStack });
+          await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהוספת הרשאה: ${errorMessage}`, quotedMessageId: originalMessageId || undefined });
         }
         break;
       }
 
       default:
         logger.warn(`⚠️ Unknown management command type: ${command.type}`);
-        await greenApiService.sendTextMessage(chatId, `⚠️ Unknown management command type: ${command.type}`, originalMessageId || undefined || undefined, TIME.TYPING_INDICATOR);
+        await greenApiService.sendTextMessage(chatId, `⚠️ Unknown management command type: ${command.type}`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
     }
-  } catch (error: any) {
-    logger.error(`❌ Error handling management command ${command.type}:`, { error: error.message, stack: error.stack });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    logger.error(`❌ Error handling management command ${command.type}:`, { error: errorMessage, stack: errorStack });
     await sendErrorToUser(chatId, error, { context: 'PROCESSING', quotedMessageId: originalMessageId || undefined });
   }
 }

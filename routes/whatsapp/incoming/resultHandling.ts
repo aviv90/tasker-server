@@ -33,6 +33,7 @@ export interface AgentResult {
     toolsUsed?: string[];
     iterations?: number;
     originalMessageId?: string;
+    toolResults?: Record<string, unknown>;
     [key: string]: unknown;
 }
 
@@ -183,7 +184,10 @@ export async function sendPollResult(chatId: string, agentResult: AgentResult, q
   try {
     logger.debug(`📊 [Agent] Sending poll: ${agentResult.poll.question}`);
     // Convert options to Green API format - sendPoll expects string[] not { optionName: string }[]
-    const pollOptions = agentResult.poll.options;
+    // Fix: Ensure options are strings
+    const pollOptions: string[] = agentResult.poll.options.map((opt: any) => 
+        typeof opt === 'string' ? opt : (opt?.optionName || String(opt))
+    );
     await greenApiService.sendPoll(chatId, agentResult.poll.question, pollOptions, false, quotedMessageId || undefined, 1000);
     return true;
   } catch (error: any) {
@@ -278,7 +282,7 @@ export interface NormalizedInput {
     originalMessageId?: string;
     chatType?: string;
     language?: string;
-    authorizations?: Record<string, boolean>;
+    authorizations?: Record<string, boolean | null>; // Updated to match usage
     [key: string]: unknown;
 }
 
@@ -307,7 +311,8 @@ export async function handlePostProcessing(chatId: string, normalized: Normalize
       const imagePrompt = `צור תמונה שממחישה בצורה ברורה ומצחיקה את הטקסט הבא (אל תכתוב טקסט בתמונה): """${baseText}"""`;
 
       // קריאה שנייה לאג'נט – הפעם בקשת תמונה פשוטה בלבד
-      const imageResult = await executeAgentQuery(imagePrompt, chatId, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const imageResult: any = await executeAgentQuery(imagePrompt, chatId, {
         input: {
           ...normalized,
           userText: imagePrompt

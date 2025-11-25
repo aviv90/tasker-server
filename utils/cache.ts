@@ -52,7 +52,7 @@ interface CacheStats {
 }
 
 // Track cache statistics
-let cacheStats: CacheStats = {
+const cacheStats: CacheStats = {
   hits: 0,
   misses: 0,
   sets: 0,
@@ -161,7 +161,8 @@ export function getStats(): CacheStats {
 /**
  * Key generator function type
  */
-export type KeyGenerator = (...args: unknown[]) => string;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type KeyGenerator = (...args: any[]) => string;
 
 /**
  * Wrap an async function with caching
@@ -170,16 +171,18 @@ export type KeyGenerator = (...args: unknown[]) => string;
  * @param ttl - Time-to-live in seconds (optional)
  * @returns Cached function
  */
-export function wrap<T extends (...args: unknown[]) => Promise<unknown>>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function wrap<T extends (...args: any[]) => Promise<any>>(
   fn: T,
   keyGenerator: KeyGenerator,
   ttl: number | null = null
 ): T {
-  return (async (...args: Parameters<T>) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (async (...args: Parameters<T>): Promise<Awaited<ReturnType<T>>> => {
     const key = keyGenerator(...args);
     
     // Try to get from cache
-    const cached = get<ReturnType<T>>(key);
+    const cached = get<Awaited<ReturnType<T>>>(key);
     if (cached !== null) {
       return cached;
     }
@@ -263,4 +266,3 @@ if (process.env.NODE_ENV !== 'production') {
     }
   }, 600000); // 10 minutes
 }
-

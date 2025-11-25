@@ -10,24 +10,72 @@ import logger from '../../../utils/logger';
 import { TIME } from '../../../utils/constants';
 
 // Type definitions for better type safety
+interface ToolCall {
+  tool: string;
+  args: Record<string, unknown>;
+  success: boolean;
+  error?: string;
+  timestamp: number;
+}
+
+interface GeneratedAsset {
+  url: string;
+  caption?: string;
+  prompt?: string;
+  provider?: string;
+  timestamp: number;
+}
+
+interface PollAsset {
+  question: string;
+  options: string[];
+  topic?: string;
+  timestamp: number;
+}
+
 interface AgentContext {
-  toolCalls: any[];
+  toolCalls: ToolCall[];
   generatedAssets: {
-    images: any[];
-    videos: any[];
-    audio: any[];
-    polls?: any[];
+    images: GeneratedAsset[];
+    videos: GeneratedAsset[];
+    audio: GeneratedAsset[];
+    polls?: PollAsset[];
   };
-  previousToolResults: Record<string, any>;
+  previousToolResults: Record<string, unknown>;
   suppressFinalResponse?: boolean;
   chatId?: string;
+  originalInput?: { originalMessageId?: string };
+  originalMessageId?: string;
 }
 
 interface AgentConfig {
   contextMemoryEnabled: boolean;
 }
 
+interface AgentResult {
+  success: boolean;
+  text?: string;
+  imageUrl?: string | null;
+  imageCaption?: string;
+  videoUrl?: string | null;
+  audioUrl?: string | null;
+  poll?: { question: string; options: string[] } | null;
+  latitude?: string | null;
+  longitude?: string | null;
+  locationInfo?: string | null;
+  toolsUsed: string[];
+  iterations: number;
+  toolCalls: ToolCall[];
+  toolResults: Record<string, unknown>;
+  multiStep: boolean;
+  alreadySent: boolean;
+  originalMessageId?: string;
+  error?: string;
+}
+
+// Note: genAI is initialized but currently unused in this specific file, kept for potential future direct use
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+void genAI; // Suppress unused warning
 
 /**
  * Single-step agent execution loop
@@ -37,7 +85,8 @@ class AgentLoop {
   /**
    * Execute agent loop
    */
-  async execute(chat: any, prompt: string, chatId: string, context: AgentContext, maxIterations: number, agentConfig: AgentConfig) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async execute(chat: any, prompt: string, chatId: string, context: AgentContext, maxIterations: number, agentConfig: AgentConfig): Promise<AgentResult> {
     let response = await chat.sendMessage(prompt);
     let iterationCount = 0;
 
@@ -81,7 +130,8 @@ class AgentLoop {
           : null;
 
         // Check if send_location was called
-        const locationResult = context.previousToolResults['send_location'];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const locationResult = context.previousToolResults['send_location'] as any;
         const latitude = locationResult?.latitude || null;
         const longitude = locationResult?.longitude || null;
         let locationInfo = locationResult?.locationInfo || locationResult?.data || null;
@@ -116,7 +166,7 @@ class AgentLoop {
           toolResults: context.previousToolResults,
           multiStep: false,
           alreadySent: false,
-          originalMessageId: originalMessageId // Pass originalMessageId for quoting
+          originalMessageId: originalMessageId || undefined // Pass originalMessageId for quoting
         };
       }
 
@@ -126,9 +176,11 @@ class AgentLoop {
       // Send Ack message before executing tools
       // Get quotedMessageId from context if available
       const quotedMessageId = extractQuotedMessageId({ context });
-      await sendToolAckMessage(chatId, functionCalls, quotedMessageId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await sendToolAckMessage(chatId, functionCalls, quotedMessageId || undefined);
 
       // Execute all tools in parallel
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const toolPromises = functionCalls.map(async (call: any) => {
         return await this.executeTool(call, context);
       });
@@ -137,7 +189,8 @@ class AgentLoop {
 
       // Log execution summary
       if (functionResponses.length > 0) {
-        const successCount = functionResponses.filter(fr => fr.functionResponse.response.success !== false).length;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const successCount = functionResponses.filter((fr: any) => fr.functionResponse.response.success !== false).length;
         const failCount = functionResponses.length - successCount;
         logger.debug(`📊 [Agent] Tool execution: ${successCount} succeeded, ${failCount} failed`);
       }
@@ -159,13 +212,14 @@ class AgentLoop {
       toolResults: context.previousToolResults,
       multiStep: false,
       alreadySent: false,
-      originalMessageId: originalMessageId // Pass originalMessageId for quoting error messages
+      originalMessageId: originalMessageId || undefined // Pass originalMessageId for quoting error messages
     };
   }
 
   /**
    * Execute a single tool
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async executeTool(call: any, context: AgentContext) {
     const toolName = call.name;
     const toolArgs = call.args;
@@ -197,27 +251,29 @@ class AgentLoop {
       // BUT: Skip if:
       // 1. Errors were already sent (e.g., by ProviderFallback during fallback attempts)
       // 2. Tool will be retried (suppressFinalResponse = true means fallback is happening)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const typedToolResult = toolResult as any;
       const shouldSendError = toolResult && 
-                             toolResult.error && 
+                             typedToolResult.error && 
                              context.chatId && 
-                             !toolResult.errorsAlreadySent &&
-                             !toolResult.suppressFinalResponse;
+                             !typedToolResult.errorsAlreadySent &&
+                             !typedToolResult.suppressFinalResponse;
       
       if (shouldSendError) {
         try {
           const { greenApiService } = getServices();
-          const errorMessage = toolResult.error.startsWith('❌')
-            ? toolResult.error
-            : `❌ ${toolResult.error}`;
+          const errorMessage = typedToolResult.error.startsWith('❌')
+            ? typedToolResult.error
+            : `❌ ${typedToolResult.error}`;
           // Get originalMessageId from context for quoting
           const quotedMessageId = extractQuotedMessageId({ context });
-          await greenApiService.sendTextMessage(context.chatId, errorMessage, quotedMessageId, TIME.TYPING_INDICATOR);
+          await greenApiService.sendTextMessage(context.chatId!, errorMessage, quotedMessageId || undefined, TIME.TYPING_INDICATOR);
         } catch (notifyError: any) {
           logger.error(`❌ Failed to notify user about error:`, { error: notifyError.message, stack: notifyError.stack });
         }
       }
 
-      if (toolResult && toolResult.suppressFinalResponse) {
+      if (toolResult && typedToolResult.suppressFinalResponse) {
         context.suppressFinalResponse = true;
       }
 
@@ -225,7 +281,7 @@ class AgentLoop {
       context.toolCalls.push({
         tool: toolName,
         args: toolArgs,
-        success: toolResult.success !== false,
+        success: typedToolResult.success !== false,
         timestamp: Date.now()
       });
 
@@ -265,6 +321,7 @@ class AgentLoop {
   /**
    * Track generated assets in context
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   trackGeneratedAssets(context: AgentContext, toolName: string, toolArgs: any, toolResult: any) {
     if (toolResult.imageUrl) {
       logger.debug(`✅ [Agent] Tracking image: ${toolResult.imageUrl}, caption: ${toolResult.caption || '(none)'}`);

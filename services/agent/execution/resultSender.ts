@@ -1,12 +1,34 @@
-// @ts-nocheck
-const { getServices } = require('../utils/serviceLoader');
-const { getStaticFileUrl } = require('../../../utils/urlUtils');
-const { cleanJsonWrapper } = require('../../../utils/textSanitizer');
-
 /**
  * Result sending utilities for agent execution
  * Handles sending various types of results to WhatsApp (location, poll, media, text)
  */
+
+import { getServices } from '../utils/serviceLoader';
+import { getStaticFileUrl } from '../../../utils/urlUtils';
+import { cleanJsonWrapper } from '../../../utils/textSanitizer';
+import logger from '../../../utils/logger';
+
+interface PollOptions {
+    options: string[];
+    question: string;
+    [key: string]: unknown;
+}
+
+interface StepResult {
+    latitude?: string | null;
+    longitude?: string | null;
+    locationInfo?: string | null;
+    poll?: PollOptions | null;
+    imageUrl?: string | null;
+    imageCaption?: string | null;
+    caption?: string | null;
+    videoUrl?: string | null;
+    audioUrl?: string | null;
+    text?: string | null;
+    toolsUsed?: string[];
+    [key: string]: unknown;
+}
+
 class ResultSender {
   /**
    * Send location result to WhatsApp
@@ -15,13 +37,13 @@ class ResultSender {
    * @param {number} [stepNumber] - Step number
    * @param {string} [quotedMessageId] - Optional: ID of message to quote
    */
-  async sendLocation(chatId, stepResult, stepNumber = null, quotedMessageId = null) {
+  async sendLocation(chatId: string, stepResult: StepResult, stepNumber: number | null = null, quotedMessageId: string | null = null): Promise<void> {
     if (!stepResult.latitude || !stepResult.longitude) return;
 
     try {
       const { greenApiService } = getServices();
       const stepInfo = stepNumber ? ` for step ${stepNumber}` : '';
-      console.log(`📍 [ResultSender] Sending location${stepInfo}`);
+      logger.debug(`📍 [ResultSender] Sending location${stepInfo}`);
 
       await greenApiService.sendLocation(
         chatId,
@@ -29,7 +51,7 @@ class ResultSender {
         parseFloat(stepResult.longitude),
         '',
         '',
-        quotedMessageId,
+        quotedMessageId || undefined,
         1000
       );
 
@@ -37,13 +59,14 @@ class ResultSender {
         // Clean JSON wrappers from locationInfo before sending
         const cleanLocationInfo = cleanJsonWrapper(stepResult.locationInfo);
         if (cleanLocationInfo) {
-          await greenApiService.sendTextMessage(chatId, `📍 ${cleanLocationInfo}`, quotedMessageId, 1000);
+          await greenApiService.sendTextMessage(chatId, `📍 ${cleanLocationInfo}`, quotedMessageId || undefined, 1000);
         }
       }
 
-      console.log(`✅ [ResultSender] Location sent${stepInfo}`);
-    } catch (error) {
-      console.error(`❌ [ResultSender] Failed to send location${stepNumber ? ` for step ${stepNumber}` : ''}:`, error.message);
+      logger.debug(`✅ [ResultSender] Location sent${stepInfo}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`❌ [ResultSender] Failed to send location${stepNumber ? ` for step ${stepNumber}` : ''}:`, { error: errorMessage });
     }
   }
 
@@ -54,28 +77,30 @@ class ResultSender {
    * @param {number} [stepNumber] - Step number
    * @param {string} [quotedMessageId] - Optional: ID of message to quote
    */
-  async sendPoll(chatId, stepResult, stepNumber = null, quotedMessageId = null) {
+  async sendPoll(chatId: string, stepResult: StepResult, stepNumber: number | null = null, quotedMessageId: string | null = null): Promise<void> {
     if (!stepResult.poll) return;
 
     try {
       const { greenApiService } = getServices();
       const stepInfo = stepNumber ? ` for step ${stepNumber}` : '';
-      console.log(`📊 [ResultSender] Sending poll${stepInfo}`);
+      logger.debug(`📊 [ResultSender] Sending poll${stepInfo}`);
 
-      const pollOptions = stepResult.poll.options.map(opt => ({ optionName: opt }));
-      await greenApiService.sendPoll(chatId, stepResult.poll.question, pollOptions, false, quotedMessageId, 1000);
+      const pollOptions = stepResult.poll.options;
+      await greenApiService.sendPoll(chatId, stepResult.poll.question, pollOptions, false, quotedMessageId || undefined, 1000);
 
-      console.log(`✅ [ResultSender] Poll sent${stepInfo}`);
-    } catch (error) {
-      console.error(`❌ [ResultSender] Failed to send poll${stepNumber ? ` for step ${stepNumber}` : ''}:`, error.message);
+      logger.debug(`✅ [ResultSender] Poll sent${stepInfo}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`❌ [ResultSender] Failed to send poll${stepNumber ? ` for step ${stepNumber}` : ''}:`, { error: errorMessage });
       
       // Send error to user
       try {
         const { greenApiService } = getServices();
-        const errorMsg = `❌ שגיאה בשליחת הסקר: ${error.message || 'שגיאה לא ידועה'}`;
-        await greenApiService.sendTextMessage(chatId, errorMsg, quotedMessageId, 1000);
-      } catch (sendError) {
-        console.error(`❌ [ResultSender] Failed to send poll error message:`, sendError.message);
+        const errorMsg = `❌ שגיאה בשליחת הסקר: ${errorMessage || 'שגיאה לא ידועה'}`;
+        await greenApiService.sendTextMessage(chatId, errorMsg, quotedMessageId || undefined, 1000);
+      } catch (sendError: unknown) {
+        const sendErrorMessage = sendError instanceof Error ? sendError.message : String(sendError);
+        logger.error(`❌ [ResultSender] Failed to send poll error message:`, { error: sendErrorMessage });
       }
     }
   }
@@ -87,24 +112,25 @@ class ResultSender {
    * @param {number} [stepNumber] - Step number
    * @param {string} [quotedMessageId] - Optional: ID of message to quote
    */
-  async sendImage(chatId, stepResult, stepNumber = null, quotedMessageId = null) {
+  async sendImage(chatId: string, stepResult: StepResult, stepNumber: number | null = null, quotedMessageId: string | null = null): Promise<void> {
     if (!stepResult.imageUrl) return;
 
     try {
       const { greenApiService } = getServices();
       const stepInfo = stepNumber ? ` for step ${stepNumber}` : '';
-      console.log(`🖼️ [ResultSender] Sending image${stepInfo}`);
+      logger.debug(`🖼️ [ResultSender] Sending image${stepInfo}`);
 
       const fullImageUrl = stepResult.imageUrl.startsWith('http')
         ? stepResult.imageUrl
         : getStaticFileUrl(stepResult.imageUrl.replace('/static/', ''));
-      const caption = stepResult.imageCaption || '';
+      const caption = stepResult.imageCaption || stepResult.caption || '';
 
-      await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId, 1000);
+      await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId || undefined, 1000);
 
-      console.log(`✅ [ResultSender] Image sent${stepInfo}`);
-    } catch (error) {
-      console.error(`❌ [ResultSender] Failed to send image${stepNumber ? ` for step ${stepNumber}` : ''}:`, error.message);
+      logger.debug(`✅ [ResultSender] Image sent${stepInfo}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`❌ [ResultSender] Failed to send image${stepNumber ? ` for step ${stepNumber}` : ''}:`, { error: errorMessage });
     }
   }
 
@@ -115,23 +141,24 @@ class ResultSender {
    * @param {number} [stepNumber] - Step number
    * @param {string} [quotedMessageId] - Optional: ID of message to quote
    */
-  async sendVideo(chatId, stepResult, stepNumber = null, quotedMessageId = null) {
+  async sendVideo(chatId: string, stepResult: StepResult, stepNumber: number | null = null, quotedMessageId: string | null = null): Promise<void> {
     if (!stepResult.videoUrl) return;
 
     try {
       const { greenApiService } = getServices();
       const stepInfo = stepNumber ? ` for step ${stepNumber}` : '';
-      console.log(`🎬 [ResultSender] Sending video${stepInfo}`);
+      logger.debug(`🎬 [ResultSender] Sending video${stepInfo}`);
 
       const fullVideoUrl = stepResult.videoUrl.startsWith('http')
         ? stepResult.videoUrl
         : getStaticFileUrl(stepResult.videoUrl.replace('/static/', ''));
 
-      await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId, 1000);
+      await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId || undefined, 1000);
 
-      console.log(`✅ [ResultSender] Video sent${stepInfo}`);
-    } catch (error) {
-      console.error(`❌ [ResultSender] Failed to send video${stepNumber ? ` for step ${stepNumber}` : ''}:`, error.message);
+      logger.debug(`✅ [ResultSender] Video sent${stepInfo}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`❌ [ResultSender] Failed to send video${stepNumber ? ` for step ${stepNumber}` : ''}:`, { error: errorMessage });
     }
   }
 
@@ -142,23 +169,24 @@ class ResultSender {
    * @param {number} [stepNumber] - Step number
    * @param {string} [quotedMessageId] - Optional: ID of message to quote
    */
-  async sendAudio(chatId, stepResult, stepNumber = null, quotedMessageId = null) {
+  async sendAudio(chatId: string, stepResult: StepResult, stepNumber: number | null = null, quotedMessageId: string | null = null): Promise<void> {
     if (!stepResult.audioUrl) return;
 
     try {
       const { greenApiService } = getServices();
       const stepInfo = stepNumber ? ` for step ${stepNumber}` : '';
-      console.log(`🎤 [ResultSender] Sending audio${stepInfo}`);
+      logger.debug(`🎤 [ResultSender] Sending audio${stepInfo}`);
 
       const fullAudioUrl = stepResult.audioUrl.startsWith('http')
         ? stepResult.audioUrl
         : getStaticFileUrl(stepResult.audioUrl.replace('/static/', ''));
 
-      await greenApiService.sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '', quotedMessageId, 1000);
+      await greenApiService.sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '', quotedMessageId || undefined, 1000);
 
-      console.log(`✅ [ResultSender] Audio sent${stepInfo}`);
-    } catch (error) {
-      console.error(`❌ [ResultSender] Failed to send audio${stepNumber ? ` for step ${stepNumber}` : ''}:`, error.message);
+      logger.debug(`✅ [ResultSender] Audio sent${stepInfo}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`❌ [ResultSender] Failed to send audio${stepNumber ? ` for step ${stepNumber}` : ''}:`, { error: errorMessage });
     }
   }
 
@@ -169,7 +197,7 @@ class ResultSender {
    * @param {number} [stepNumber] - Step number
    * @param {string} [quotedMessageId] - Optional: ID of message to quote
    */
-  async sendText(chatId, stepResult, stepNumber = null, quotedMessageId = null) {
+  async sendText(chatId: string, stepResult: StepResult, stepNumber: number | null = null, quotedMessageId: string | null = null): Promise<void> {
     // Check if structured output was already sent
     const hasStructuredOutput = stepResult.latitude || stepResult.poll ||
                                  stepResult.imageUrl || stepResult.videoUrl ||
@@ -177,7 +205,7 @@ class ResultSender {
 
     if (hasStructuredOutput || !stepResult.text || !stepResult.text.trim()) {
       if (hasStructuredOutput) {
-        console.log(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - structured output already sent`);
+        logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - structured output already sent`);
       }
       return;
     }
@@ -185,7 +213,7 @@ class ResultSender {
     try {
       const { greenApiService } = getServices();
       const stepInfo = stepNumber ? ` for step ${stepNumber}` : '';
-      console.log(`📝 [ResultSender] Sending text${stepInfo}`);
+      logger.debug(`📝 [ResultSender] Sending text${stepInfo}`);
 
       let cleanText = stepResult.text.trim();
 
@@ -201,11 +229,12 @@ class ResultSender {
       }
 
       if (cleanText) {
-        await greenApiService.sendTextMessage(chatId, cleanText, quotedMessageId, 1000);
-        console.log(`✅ [ResultSender] Text sent${stepInfo}`);
+        await greenApiService.sendTextMessage(chatId, cleanText, quotedMessageId || undefined, 1000);
+        logger.debug(`✅ [ResultSender] Text sent${stepInfo}`);
       }
-    } catch (error) {
-      console.error(`❌ [ResultSender] Failed to send text${stepNumber ? ` for step ${stepNumber}` : ''}:`, error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`❌ [ResultSender] Failed to send text${stepNumber ? ` for step ${stepNumber}` : ''}:`, { error: errorMessage });
     }
   }
 
@@ -217,7 +246,7 @@ class ResultSender {
    * @param {number} [stepNumber] - Step number
    * @param {string} [quotedMessageId] - Optional: ID of message to quote
    */
-  async sendStepResults(chatId, stepResult, stepNumber = null, quotedMessageId = null) {
+  async sendStepResults(chatId: string, stepResult: StepResult, stepNumber: number | null = null, quotedMessageId: string | null = null): Promise<void> {
     await this.sendLocation(chatId, stepResult, stepNumber, quotedMessageId);
     await this.sendPoll(chatId, stepResult, stepNumber, quotedMessageId);
     await this.sendImage(chatId, stepResult, stepNumber, quotedMessageId);
@@ -227,5 +256,4 @@ class ResultSender {
   }
 }
 
-module.exports = new ResultSender();
-
+export default new ResultSender();
