@@ -1,0 +1,94 @@
+import axios from 'axios';
+import speechService from '../../../speechService';
+import voiceService from '../../../voiceService';
+
+type TranscribeArgs = {
+  audio_url: string;
+};
+
+type TranscribeResultPayload = {
+  success: boolean;
+  data?: string;
+  transcription?: string;
+  language?: string;
+  error?: string;
+};
+
+type SpeechTranscriptionResponse = {
+  text?: string;
+  detectedLanguage?: string;
+  error?: string;
+};
+
+type TranscribeResult = Promise<TranscribeResultPayload>;
+
+export const transcribe_audio = {
+  declaration: {
+    name: 'transcribe_audio',
+    description:
+      'תמלל הקלטה קולית לטקסט (STT). CRITICAL: אם בפרומפט יש "Use this audio_url parameter directly", קח את ה-URL משם ישירות! אם לא, חלץ מהמבנה "[audioUrl: URL]" בפרומפט.',
+    parameters: {
+      type: 'object',
+      properties: {
+        audio_url: {
+          type: 'string',
+          description:
+            'URL של ההקלטה לתמלול. אם זמין בפרומפט (בשורה "Use this audio_url parameter directly"), קח אותו משם.'
+        }
+      },
+      required: ['audio_url']
+    }
+  },
+  execute: async (args: TranscribeArgs): TranscribeResult => {
+    console.log('🔧 [Agent Tool] transcribe_audio called');
+
+    try {
+      if (!args.audio_url) {
+        return {
+          success: false,
+          error: 'לא נמצא URL של הקלטה. צטט הודעה קולית ונסה שוב.'
+        };
+      }
+
+      console.log(`📥 Downloading audio: ${args.audio_url}`);
+      const audioResponse = await axios.get<ArrayBuffer>(args.audio_url, { responseType: 'arraybuffer' });
+      const audioBuffer = Buffer.from(audioResponse.data);
+
+      console.log('🎤 Transcribing audio...');
+      const transcriptionResult = (await speechService.speechToText(audioBuffer, {
+        response_format: 'verbose_json',
+        timestamp_granularities: ['word']
+      })) as SpeechTranscriptionResponse;
+
+      if (transcriptionResult.error) {
+        return {
+          success: false,
+          error: `תמלול נכשל: ${transcriptionResult.error}`
+        };
+      }
+
+      const transcribedText = transcriptionResult.text || '';
+      const detectedLanguage =
+        transcriptionResult.detectedLanguage || voiceService.detectLanguage(transcribedText);
+
+      console.log(`✅ Transcribed: "${transcribedText}" (${detectedLanguage})`);
+
+      return {
+        success: true,
+        data: `📝 תמלול:\n\n"${transcribedText}"`,
+        transcription: transcribedText,
+        language: detectedLanguage
+      };
+    } catch (error) {
+      const err = error as Error;
+      console.error('❌ Error in transcribe_audio:', err);
+      return {
+        success: false,
+        error: `שגיאה: ${err.message}`
+      };
+    }
+  }
+};
+
+module.exports = { transcribe_audio };
+

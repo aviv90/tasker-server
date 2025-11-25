@@ -1,40 +1,38 @@
-/**
- * Provider Utility Functions
- * Helper functions for provider name formatting and normalization
- */
+import { VIDEO_PROVIDER_DISPLAY_MAP } from '../config/constants';
 
-const { VIDEO_PROVIDER_DISPLAY_MAP } = require('../config/constants');
+type ProviderKey = string | null | undefined;
 
 /**
  * Helper function to format provider names nicely
  */
-function formatProviderName(provider) {
-  const providerNames = {
-    'gemini': 'Gemini',
-    'openai': 'OpenAI',
-    'grok': 'Grok',
-    'veo3': 'Veo 3',
+export function formatProviderName(provider?: string | null): string | null | undefined {
+  if (!provider) return provider;
+  const providerNames: Record<string, string> = {
+    gemini: 'Gemini',
+    openai: 'OpenAI',
+    grok: 'Grok',
+    veo3: 'Veo 3',
     'veo-3': 'Veo 3',
-    'veo': 'Veo 3',
-    'sora': 'Sora 2',
+    veo: 'Veo 3',
+    sora: 'Sora 2',
     'sora-2': 'Sora 2',
-    'sora2': 'Sora 2',
+    sora2: 'Sora 2',
     'sora-pro': 'Sora 2 Pro',
     'sora-2-pro': 'Sora 2 Pro',
-    'kling': 'Kling',
-    'runway': 'Runway',
-    'suno': 'Suno'
+    kling: 'Kling',
+    runway: 'Runway',
+    suno: 'Suno'
   };
-  return providerNames[provider?.toLowerCase()] || provider;
+  return providerNames[provider.toLowerCase()] || provider;
 }
 
 /**
  * Normalize provider key to standard format
  */
-function normalizeProviderKey(provider) {
+export function normalizeProviderKey(provider: ProviderKey): string | null {
   if (!provider) return null;
   const key = String(provider).toLowerCase();
-  const mapping = {
+  const mapping: Record<string, string> = {
     kling: 'grok',
     'kling-text-to-video': 'grok',
     grok: 'grok',
@@ -45,7 +43,7 @@ function normalizeProviderKey(provider) {
     'google-veo3': 'gemini',
     sora: 'openai',
     'sora-2': 'openai',
-    'sora2': 'openai',
+    sora2: 'openai',
     'sora-2-pro': 'openai',
     'sora-pro': 'openai',
     openai: 'openai'
@@ -56,9 +54,8 @@ function normalizeProviderKey(provider) {
 /**
  * Apply provider name to message (for ACK messages)
  */
-function applyProviderToMessage(message, providerName) {
+export function applyProviderToMessage(message: string, providerName?: string | null): string {
   if (message.includes('__PROVIDER__')) {
-    // If no provider, remove the entire " עם __PROVIDER__" part
     if (!providerName) {
       return message.replace(' עם __PROVIDER__', '').replace('עם __PROVIDER__ ', '');
     }
@@ -73,9 +70,20 @@ function applyProviderToMessage(message, providerName) {
   return message;
 }
 
+/**
+ * Map video provider key to display name if available
+ */
+export function mapVideoProviderDisplay(provider: string | null): string | null {
+  if (!provider) return provider;
+  const normalizedKey = normalizeProviderKey(provider);
+  if (!normalizedKey) return provider;
+  return VIDEO_PROVIDER_DISPLAY_MAP[normalizedKey] || provider;
+}
+
 module.exports = {
   formatProviderName,
   normalizeProviderKey,
-  applyProviderToMessage
+  applyProviderToMessage,
+  mapVideoProviderDisplay
 };
 

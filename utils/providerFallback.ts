@@ -211,7 +211,7 @@ export class ProviderFallback {
   private async _handleProviderError(provider: string, errorMessage: string, error: unknown = null): Promise<void> {
     if (!provider || !errorMessage) return; // Skip if provider or message is empty
     
-    const providerName = formatProviderName(provider);
+    const providerName = formatProviderName(provider) || provider;
     const message = errorMessage;
     
     this.errorStack.push({ provider: providerName, message });

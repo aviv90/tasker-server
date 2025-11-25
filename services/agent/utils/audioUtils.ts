@@ -1,22 +1,17 @@
-/**
- * Audio Utility Functions
- * Helper functions for audio processing
- */
-
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { promisify } = require('util');
-const { exec } = require('child_process');
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { promisify } from 'util';
+import { exec } from 'child_process';
 
 const execAsync = promisify(exec);
 
 /**
  * Get audio duration via ffprobe
- * @param {Buffer} audioBuffer - Audio buffer
- * @returns {Promise<number>} - Duration in seconds
+ * @param audioBuffer Audio buffer (`Buffer`)
+ * @returns Duration in seconds
  */
-async function getAudioDuration(audioBuffer) {
+export async function getAudioDuration(audioBuffer: Buffer): Promise<number> {
   try {
     const tempFilePath = path.join(os.tmpdir(), `agent_audio_check_${Date.now()}.ogg`);
     fs.writeFileSync(tempFilePath, audioBuffer);
@@ -33,11 +28,13 @@ async function getAudioDuration(audioBuffer) {
       if (fs.existsSync(tempFilePath)) {
         fs.unlinkSync(tempFilePath);
       }
-      console.error(`❌ [Agent] Could not get audio duration: ${err.message}`);
+      const error = err as Error;
+      console.error(`❌ [Agent] Could not get audio duration: ${error.message}`);
       return 0;
     }
   } catch (err) {
-    console.error(`❌ [Agent] Error in getAudioDuration: ${err.message}`);
+    const error = err as Error;
+    console.error(`❌ [Agent] Error in getAudioDuration: ${error.message}`);
     return 0;
   }
 }
