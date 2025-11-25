@@ -1,19 +1,40 @@
 /**
  * Location Tools - Random location generation
- * Clean, modular tool definitions following SOLID principles
  */
 
-const { getServices } = require('../utils/serviceLoader');
-const locationService = require('../../locationService');
-const { extractQuotedMessageId } = require('../../../utils/messageHelpers');
+import { getServices } from '../utils/serviceLoader';
+import {
+  extractRequestedRegion,
+  buildLocationAckMessage,
+  findRandomLocation
+} from '../../locationService';
+import { extractQuotedMessageId } from '../../../utils/messageHelpers';
 
-/**
- * Tool: Send Location
- */
-const send_location = {
+type SendLocationArgs = {
+  region?: string;
+};
+
+type ToolContext = {
+  chatId?: string;
+  originalInput?: { userText?: string; language?: string; originalMessageId?: string };
+  normalized?: { text?: string; language?: string };
+};
+
+type ToolResult = Promise<{
+  success: boolean;
+  latitude?: number;
+  longitude?: number;
+  locationInfo?: string;
+  data?: string;
+  suppressFinalResponse?: boolean;
+  error?: string;
+}>;
+
+export const send_location = {
   declaration: {
     name: 'send_location',
-    description: 'שלח מיקום אקראי במקום מסוים (עיר/מדינה/יבשת) או מיקום אקראי לגמרי. משתמש ב-Google Maps geocoding למציאת כל מקום בעולם.',
+    description:
+      'שלח מיקום אקראי במקום מסוים (עיר/מדינה/יבשת) או מיקום אקראי לגמרי. משתמש ב-Google Maps geocoding למציאת כל מקום בעולם.',
     parameters: {
       type: 'object',
       properties: {
@@ -48,37 +69,37 @@ const send_location = {
       required: []
     }
   },
-  execute: async (args, context) => {
+  execute: async (args: SendLocationArgs, context: ToolContext = {}): ToolResult => {
     console.log(`🔧 [Agent Tool] send_location called with region: ${args.region || 'none'}`);
     const { greenApiService } = getServices();
+    const chatId = context?.chatId;
 
     try {
-      // Build a comprehensive search string from all available sources
       const userText = context?.originalInput?.userText || context?.normalized?.text || '';
       const regionParam = args.region || '';
-      
-      // Combine region parameter with user text for better matching
-      const regionToSearch = regionParam ? regionParam : userText;
-      
-      console.log(`📍 [Location] Searching for region: "${regionToSearch}"`);
-      const requestedRegion = await locationService.extractRequestedRegion(regionToSearch);
-      const regionAckMessage = locationService.buildLocationAckMessage(requestedRegion);
 
-      if (regionAckMessage && context?.chatId) {
-        const quotedMessageId = extractQuotedMessageId({ context });
-        await greenApiService.sendTextMessage(context.chatId, regionAckMessage, quotedMessageId, 1000);
+      const regionToSearch = regionParam ? regionParam : userText;
+
+      console.log(`📍 [Location] Searching for region: "${regionToSearch}"`);
+      const requestedRegion = await extractRequestedRegion(regionToSearch);
+      const regionAckMessage = buildLocationAckMessage(requestedRegion);
+
+      if (regionAckMessage && chatId) {
+        const quotedMessageIdForAck = extractQuotedMessageId({ context });
+        await greenApiService.sendTextMessage(chatId, regionAckMessage, quotedMessageIdForAck, 1000);
       }
 
-      // Determine language from context
       const language = context?.originalInput?.language || context?.normalized?.language || 'he';
       console.log(`🌐 [Location] Using language: ${language}`);
 
-      const locationResult = await locationService.findRandomLocation({ requestedRegion, language });
+      const locationResult = await findRandomLocation({ requestedRegion, language });
       if (!locationResult.success) {
-        const errorMessage = locationResult.error || (language === 'he' ? 'לא הצלחתי למצוא מיקום תקין' : 'Could not find a valid location');
-        if (context?.chatId) {
-          const quotedMessageId = extractQuotedMessageId({ context });
-          await greenApiService.sendTextMessage(context.chatId, `❌ ${errorMessage}`, quotedMessageId, 1000);
+        const errorMessage =
+          locationResult.error ||
+          (language === 'he' ? 'לא הצלחתי למצוא מיקום תקין' : 'Could not find a valid location');
+        if (chatId) {
+          const quotedMessageIdForFailure = extractQuotedMessageId({ context });
+          await greenApiService.sendTextMessage(chatId, `❌ ${errorMessage}`, quotedMessageIdForFailure, 1000);
         }
         return {
           success: false,
@@ -86,8 +107,8 @@ const send_location = {
         };
       }
 
-      const latitude = parseFloat(locationResult.latitude);
-      const longitude = parseFloat(locationResult.longitude);
+      const latitude = parseFloat(String(locationResult.latitude ?? ''));
+      const longitude = parseFloat(String(locationResult.longitude ?? ''));
 
       if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
         throw new Error('Invalid coordinates returned from location service');
@@ -102,11 +123,12 @@ const send_location = {
         suppressFinalResponse: true
       };
     } catch (error) {
-      console.error('❌ Error in send_location:', error);
-      const errorMessage = error?.message || 'שגיאה לא ידועה בשליחת המיקום';
-      if (context?.chatId) {
-        const quotedMessageId = extractQuotedMessageId({ context });
-        await greenApiService.sendTextMessage(context.chatId, `❌ ${errorMessage}`, quotedMessageId, 1000);
+      const err = error as Error;
+      console.error('❌ Error in send_location:', err);
+      const errorMessage = err.message || 'שגיאה לא ידועה בשליחת המיקום';
+      if (chatId) {
+        const quotedMessageIdForError = extractQuotedMessageId({ context });
+        await greenApiService.sendTextMessage(chatId, `❌ ${errorMessage}`, quotedMessageIdForError, 1000);
       }
       return {
         success: false,

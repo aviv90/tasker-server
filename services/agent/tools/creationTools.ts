@@ -3,16 +3,102 @@
  * Clean, modular tool definitions following SOLID principles
  */
 
-const { formatProviderName } = require('../utils/providerUtils');
-const { getServices } = require('../utils/serviceLoader');
-const { cleanMarkdown } = require('../../../utils/textSanitizer');
-const { ProviderFallback } = require('../../../utils/providerFallback');
-const logger = require('../../../utils/logger');
+import { formatProviderName } from '../utils/providerUtils';
+import { getServices } from '../utils/serviceLoader';
+import { cleanMarkdown } from '../../../utils/textSanitizer';
+import { ProviderFallback, ProviderResult } from '../../../utils/providerFallback';
+import logger from '../../../utils/logger';
+import * as replicateService from '../../replicateService';
+import { generateMusicWithLyrics } from '../../musicService';
+import { parseMusicRequest } from '../../geminiService';
+
+type AgentToolContext = {
+  chatId?: string;
+  expectedMediaType?: string | null;
+  originalInput?: {
+    userText?: string;
+    language?: string;
+    originalMessageId?: string;
+    senderData?: {
+      senderId?: string;
+      sender?: string;
+      senderName?: string;
+      senderContactName?: string;
+      chatName?: string;
+    };
+  };
+  normalized?: {
+    text?: string;
+    language?: string;
+  };
+  [key: string]: unknown;
+};
+
+type ToolResult = Promise<{
+  success: boolean;
+  data?: string;
+  error?: string;
+  [key: string]: unknown;
+}>;
+
+type CreateImageArgs = {
+  prompt?: string;
+  provider?: 'gemini' | 'openai' | 'grok';
+};
+
+type CreateVideoArgs = {
+  prompt?: string;
+  provider?: 'veo3' | 'sora' | 'sora-pro' | 'kling';
+};
+
+type ImageToVideoArgs = {
+  image_url?: string;
+  prompt?: string;
+  provider?: 'veo3' | 'sora' | 'sora-pro' | 'kling';
+};
+
+type CreateMusicArgs = {
+  prompt?: string;
+  make_video?: boolean;
+};
+
+type CreatePollArgs = {
+  topic?: string;
+  with_rhyme?: boolean;
+  options?: unknown;
+};
+
+type ProviderTaggedResult = ProviderResult & {
+  providerUsed?: string;
+};
+
+type ImageProviderResult = ProviderTaggedResult & {
+  imageUrl?: string;
+  description?: string;
+  revisedPrompt?: string;
+  textOnly?: boolean;
+  fileName?: string;
+};
+
+type VideoProviderResult = ProviderTaggedResult & {
+  videoUrl?: string;
+  url?: string;
+};
+
+type MusicGenerationResponse = {
+  error?: string;
+  status?: 'pending' | 'completed' | string;
+  message?: string;
+  taskId?: string;
+  result?: string;
+  url?: string;
+  lyrics?: string;
+};
 
 /**
  * Tool: Create Image
  */
-const create_image = {
+export const create_image = {
   declaration: {
     name: 'create_image',
     description: 'צור תמונה חדשה. ברירת מחדל: Gemini. אם תרצה ספק אחר, ציין בפרמטר provider.',
@@ -32,7 +118,7 @@ const create_image = {
       required: ['prompt']
     }
   },
-  execute: async (args, context) => {
+  execute: async (args: CreateImageArgs = {}, context: AgentToolContext = {}): ToolResult => {
     logger.debug(`🔧 [Agent Tool] create_image called`, { 
       prompt: args.prompt?.substring(0, 100), 
       provider: args.provider,
@@ -40,6 +126,13 @@ const create_image = {
     });
     
     try {
+      if (!args.prompt) {
+        return {
+          success: false,
+          error: 'חובה לספק תיאור לתמונה'
+        };
+      }
+
       if (context?.expectedMediaType === 'video') {
         return {
           success: false,
@@ -47,7 +140,7 @@ const create_image = {
         };
       }
 
-      const requestedProvider = args.provider || null;
+      const requestedProvider = args.provider ?? null;
       // If user requested a specific provider, only try that one (no fallback)
       // If no provider specified (default), try all providers with fallback
       const providersToTry = requestedProvider
@@ -63,67 +156,87 @@ const create_image = {
         context
       });
       
-      const result = await fallback.tryWithFallback(async (provider, services) => {
-        let imageResult;
+      const prompt = args.prompt.trim();
+      const providerResult = (await fallback.tryWithFallback<ImageProviderResult>(async provider => {
+        let imageResult: ImageProviderResult;
         if (provider === 'openai') {
-          imageResult = await openaiService.generateImageForWhatsApp(args.prompt);
+          imageResult = (await openaiService.generateImageForWhatsApp(prompt, null)) as ImageProviderResult;
         } else if (provider === 'grok') {
-          imageResult = await grokService.generateImageForWhatsApp(args.prompt);
+          imageResult = (await grokService.generateImageForWhatsApp(prompt)) as ImageProviderResult;
         } else {
-          imageResult = await geminiService.generateImageForWhatsApp(args.prompt);
+          imageResult = (await geminiService.generateImageForWhatsApp(prompt, null)) as ImageProviderResult;
         }
+        imageResult.providerUsed = provider;
         return imageResult;
-      }, {
-        onSuccess: (imageResult, provider) => {
-          // Handle text-only response (no image but text returned)
-          if (imageResult.textOnly) {
-            // Clean markdown from text
-            let text = imageResult.description || '';
-            if (text) {
-              const { cleanMarkdown } = require('../../../utils/textSanitizer');
-              text = cleanMarkdown(text);
-            }
-            
-            return {
-              success: true,
-              data: text, // Just return the text, no error message
-              provider: provider
-            };
-          }
-          
-          // Normal image response
-          // Clean markdown code blocks from caption (AI services sometimes return markdown)
-          let caption = imageResult.description || imageResult.revisedPrompt || '';
-          if (caption) {
-            const { cleanMarkdown } = require('../../../utils/textSanitizer');
-            caption = cleanMarkdown(caption);
-          }
-          
-          return {
-            success: true,
-            data: `✅ תמונה נוצרה בהצלחה!`,
-            imageUrl: imageResult.imageUrl,
-            imageCaption: caption,
-            provider: provider
-          };
+      })) as ImageProviderResult;
+
+      if (!providerResult) {
+        return {
+          success: false,
+          error: 'לא התקבלה תשובה מהספקים'
+        };
+      }
+
+      if (providerResult.error) {
+        const errorMessage =
+          typeof providerResult.error === 'string'
+            ? providerResult.error
+            : 'הבקשה נכשלה אצל הספק המבוקש';
+        return {
+          success: false,
+          error: errorMessage
+        };
+      }
+
+      const providerKey =
+        (providerResult.providerUsed as string | undefined) ||
+        requestedProvider ||
+        providersToTry[0] ||
+        'gemini';
+      const formattedProviderName = formatProviderName(providerKey);
+      const providerName =
+        typeof formattedProviderName === 'string' && formattedProviderName.length > 0
+          ? formattedProviderName
+          : providerKey;
+
+      if (providerResult.textOnly) {
+        let text = providerResult.description || '';
+        if (text) {
+          text = cleanMarkdown(text);
         }
-      });
-      
-      return result;
+        return {
+          success: true,
+          data: text,
+          provider: providerName
+        };
+      }
+
+      let caption = providerResult.description || providerResult.revisedPrompt || '';
+      if (caption) {
+        caption = cleanMarkdown(caption);
+      }
+
+      return {
+        success: true,
+        data: '✅ תמונה נוצרה בהצלחה!',
+        imageUrl: providerResult.imageUrl,
+        imageCaption: caption,
+        provider: providerName
+      };
     } catch (error) {
       logger.error('❌ Error in create_image tool', {
-        error: {
+        error: error instanceof Error ? {
           message: error.message,
           stack: error.stack,
           name: error.name
-        },
+        } : error,
         prompt: args.prompt?.substring(0, 100),
         provider: args.provider,
         chatId: context?.chatId
       });
       return {
         success: false,
-        error: `שגיאה: ${error.message}`
+        error: `שגיאה: ${(error as Error).message}`
       };
     }
   }
@@ -132,7 +245,7 @@ const create_image = {
 /**
  * Tool: Create Video
  */
-const create_video = {
+export const create_video = {
   declaration: {
     name: 'create_video',
     description: 'צור סרטון וידאו מטקסט. תומך ב-Veo3 (Google), Sora (OpenAI), Kling (ברירת מחדל).',
@@ -152,7 +265,7 @@ const create_video = {
       required: ['prompt']
     }
   },
-  execute: async (args, context) => {
+  execute: async (args: CreateVideoArgs = {}, context: AgentToolContext = {}): ToolResult => {
     logger.debug(`🔧 [Agent Tool] create_video called with provider: ${args.provider || 'kling'}`, {
       prompt: args.prompt?.substring(0, 100),
       provider: args.provider || 'kling',
@@ -160,8 +273,15 @@ const create_video = {
     });
     
     try {
+      if (!args.prompt) {
+        return {
+          success: false,
+          error: 'חובה לספק תיאור לסרטון'
+        };
+      }
+
       const { geminiService, openaiService } = getServices();
-      const replicateService = require('../../replicateService');
+      const prompt = args.prompt.trim();
       const requestedProvider = args.provider || null;
       // If user requested a specific provider, only try that one (no fallback)
       // If no provider specified (default), try all providers with fallback
@@ -178,43 +298,78 @@ const create_video = {
         context
       });
       
-      const result = await fallback.tryWithFallback(async (provider, services) => {
+      const videoResult = (await fallback.tryWithFallback<VideoProviderResult>(async provider => {
         if (provider === 'veo3') {
-          return await geminiService.generateVideoForWhatsApp(args.prompt);
+          const result = (await geminiService.generateVideoForWhatsApp(prompt)) as VideoProviderResult;
+          result.providerUsed = provider;
+          return result;
         } else if (provider === 'sora' || provider === 'sora-pro') {
           const model = provider === 'sora-pro' ? 'sora-2-pro' : 'sora-2';
-          return await openaiService.generateVideoWithSoraForWhatsApp(args.prompt, null, { model });
+          const result = (await openaiService.generateVideoWithSoraForWhatsApp(
+            prompt,
+            null,
+            { model }
+          )) as VideoProviderResult;
+          result.providerUsed = provider;
+          return result;
         } else {
-          return await replicateService.generateVideoWithTextForWhatsApp(args.prompt);
+          const result = (await replicateService.generateVideoWithTextForWhatsApp(prompt)) as VideoProviderResult;
+          result.providerUsed = provider;
+          return result;
         }
-      }, {
-        onSuccess: (result, provider) => {
-          context.expectedMediaType = null;
-          return {
-            success: true,
-            data: `✅ הוידאו נוצר בהצלחה עם ${formatProviderName(provider)}!`,
-            videoUrl: result.videoUrl || result.url,
-            provider: provider
-          };
-        }
-      });
+      })) as VideoProviderResult;
       
       context.expectedMediaType = null;
-      return result;
+      if (!videoResult) {
+        return {
+          success: false,
+          error: 'לא התקבלה תשובה מהספקים'
+        };
+      }
+
+      if (videoResult.error) {
+        const errorMessage =
+          typeof videoResult.error === 'string'
+            ? videoResult.error
+            : 'הבקשה נכשלה אצל הספק המבוקש';
+        return {
+          success: false,
+          error: errorMessage
+        };
+      }
+
+      const videoProviderKey =
+        (videoResult.providerUsed as string | undefined) ||
+        requestedProvider ||
+        providersToTry[0] ||
+        'kling';
+      const formattedVideoProviderName = formatProviderName(videoProviderKey);
+      const providerName =
+        typeof formattedVideoProviderName === 'string' && formattedVideoProviderName.length > 0
+          ? formattedVideoProviderName
+          : videoProviderKey;
+
+      return {
+        success: true,
+        data: `✅ הוידאו נוצר בהצלחה עם ${providerName}!`,
+        videoUrl: videoResult.videoUrl || videoResult.url,
+        provider: providerName
+      };
     } catch (error) {
+      context.expectedMediaType = null;
       logger.error('❌ Error in create_video', {
-        error: {
+        error: error instanceof Error ? {
           message: error.message,
           stack: error.stack,
           name: error.name
-        },
+        } : error,
         prompt: args.prompt?.substring(0, 100),
         provider: args.provider,
         chatId: context?.chatId
       });
       return {
         success: false,
-        error: `שגיאה: ${error.message}`
+        error: `שגיאה: ${(error as Error).message}`
       };
     }
   }
@@ -223,7 +378,7 @@ const create_video = {
 /**
  * Tool: Image to Video
  */
-const image_to_video = {
+export const image_to_video = {
   declaration: {
     name: 'image_to_video',
     description: 'המר תמונה לסרטון וידאו מונפש. USE THIS TOOL when user says: "הפוך/המר לווידאו", "תמונה לוידאו", "הנפש", "image to video", "animate", or specifies provider like "עם Veo 3/Sora 2/Kling". CRITICAL: אם בפרומפט יש "Use this image_url parameter directly", קח את ה-URL משם ישירות ואל תקרא ל-get_chat_history! רק אם אין URL בפרומפט, קרא ל-get_chat_history תחילה.',
@@ -247,7 +402,7 @@ const image_to_video = {
       required: ['image_url', 'prompt']
     }
   },
-  execute: async (args, context) => {
+  execute: async (args: ImageToVideoArgs = {}, context: AgentToolContext = {}): ToolResult => {
     logger.debug(`🔧 [Agent Tool] image_to_video called`, {
       imageUrl: args.image_url?.substring(0, 50),
       prompt: args.prompt?.substring(0, 100),
@@ -257,22 +412,40 @@ const image_to_video = {
     
     try {
       const { geminiService, openaiService, greenApiService } = getServices();
-      const replicateService = require('../../replicateService');
       const provider = args.provider || 'kling';
+      if (!args.image_url) {
+        return {
+          success: false,
+          error: 'חובה להעביר קישור לתמונה להמרה'
+        };
+      }
+      if (!args.prompt) {
+        return {
+          success: false,
+          error: 'חובה להעביר תיאור לאנימציה'
+        };
+      }
+      
+      const imageUrl = args.image_url;
+      const prompt = args.prompt.trim();
       
       // CRITICAL: All providers need imageBuffer (not URL)!
       // Download the image once, then pass to provider
-      const imageBuffer = await greenApiService.downloadFile(args.image_url);
+      const imageBuffer = await greenApiService.downloadFile(imageUrl);
       
-      let result;
+      let result: VideoProviderResult & { error?: string };
       if (provider === 'veo3') {
-        result = await geminiService.generateVideoFromImageForWhatsApp(args.prompt, imageBuffer);
+        result = (await geminiService.generateVideoFromImageForWhatsApp(prompt, imageBuffer)) as VideoProviderResult & { error?: string };
       } else if (provider === 'sora' || provider === 'sora-pro') {
         const model = provider === 'sora-pro' ? 'sora-2-pro' : 'sora-2';
-        result = await openaiService.generateVideoWithSoraFromImageForWhatsApp(args.prompt, imageBuffer, { model });
+        result = (await openaiService.generateVideoWithSoraFromImageForWhatsApp(
+          prompt,
+          imageBuffer,
+          { model }
+        )) as VideoProviderResult & { error?: string };
       } else {
         // Kling also needs imageBuffer
-        result = await replicateService.generateVideoFromImageForWhatsApp(imageBuffer, args.prompt);
+        result = (await replicateService.generateVideoFromImageForWhatsApp(imageBuffer, prompt)) as VideoProviderResult & { error?: string };
       }
       
       if (result.error) {
@@ -290,11 +463,11 @@ const image_to_video = {
       };
     } catch (error) {
       logger.error('❌ Error in image_to_video', {
-        error: {
+        error: error instanceof Error ? {
           message: error.message,
           stack: error.stack,
           name: error.name
-        },
+        } : error,
         imageUrl: args.image_url?.substring(0, 50),
         prompt: args.prompt?.substring(0, 100),
         provider: args.provider,
@@ -302,7 +475,7 @@ const image_to_video = {
       });
       return {
         success: false,
-        error: `שגיאה: ${error.message}`
+        error: `שגיאה: ${(error as Error).message}`
       };
     }
   }
@@ -311,7 +484,7 @@ const image_to_video = {
 /**
  * Tool: Create Music
  */
-const create_music = {
+export const create_music = {
   declaration: {
     name: 'create_music',
     description: `יוצר שיר/מוזיקה חדש מאפס עם Suno AI (כולל מילים ומלודיה).
@@ -343,17 +516,21 @@ const create_music = {
       required: ['prompt']
     }
   },
-  execute: async (args, context) => {
+  execute: async (args: CreateMusicArgs = {}, context: AgentToolContext = {}): ToolResult => {
     console.log(`🔧 [Agent Tool] create_music called`);
     
     try {
-      const { generateMusicWithLyrics } = require('../../musicService');
-      const { parseMusicRequest } = require('../../geminiService');
+      if (!args.prompt && !context.originalInput?.userText) {
+        return {
+          success: false,
+          error: 'חובה לספק תיאור לשיר'
+        };
+      }
+
+      const originalUserText = context.originalInput?.userText || args.prompt || '';
+      const cleanedOriginal = String(originalUserText).replace(/^#\s*/, '').trim();
       
-      const originalUserText = context.originalInput?.userText || args.prompt;
-      const cleanedOriginal = originalUserText ? String(originalUserText).replace(/^#\s*/, '').trim() : args.prompt;
-      
-      let cleanPrompt = args.prompt;
+      let cleanPrompt = args.prompt || cleanedOriginal || '';
       let wantsVideo = Boolean(args.make_video);
       
       try {
@@ -365,26 +542,29 @@ const create_music = {
           wantsVideo = true;
         }
       } catch (parseError) {
+        const parseErr = parseError as Error;
         logger.warn('⚠️ create_music: Failed to parse music request for video detection', {
-          error: parseError.message,
+          error: parseErr.message || String(parseErr),
           prompt: args.prompt?.substring(0, 100),
           chatId: context?.chatId
         });
       }
       
       const senderData = context.originalInput?.senderData || {};
-      const whatsappContext = context.chatId ? {
-        chatId: context.chatId,
-        senderId: senderData.senderId || senderData.sender || null,
-        senderName: senderData.senderName || senderData.senderContactName || '',
-        senderContactName: senderData.senderContactName || '',
-        chatName: senderData.chatName || ''
-      } : null;
+      const whatsappContext = context.chatId
+        ? {
+            chatId: context.chatId,
+            senderId: senderData.senderId || senderData.sender || null,
+            senderName: senderData.senderName || senderData.senderContactName || '',
+            senderContactName: senderData.senderContactName || '',
+            chatName: senderData.chatName || ''
+          }
+        : null;
       
-      const result = await generateMusicWithLyrics(cleanPrompt, {
+      const result = (await generateMusicWithLyrics(cleanPrompt, {
         whatsappContext,
         makeVideo: wantsVideo
-      });
+      })) as MusicGenerationResponse;
       
       if (result.error) {
         return {
@@ -411,18 +591,18 @@ const create_music = {
       };
     } catch (error) {
       logger.error('❌ Error in create_music', {
-        error: {
+        error: error instanceof Error ? {
           message: error.message,
           stack: error.stack,
           name: error.name
-        },
+        } : error,
         prompt: args.prompt?.substring(0, 100),
         makeVideo: args.make_video,
         chatId: context?.chatId
       });
       return {
         success: false,
-        error: `שגיאה: ${error.message}`
+        error: `שגיאה: ${(error as Error).message}`
       };
     }
   }
@@ -431,7 +611,7 @@ const create_music = {
 /**
  * Tool: Create Poll
  */
-const create_poll = {
+export const create_poll = {
   declaration: {
     name: 'create_poll',
     description: 'צור סקר עם שאלה ותשובות יצירתיות. תומך בסקרים עם או בלי חרוזים!',
@@ -450,10 +630,17 @@ const create_poll = {
       required: ['topic']
     }
   },
-  execute: async (args, context) => {
+  execute: async (args: CreatePollArgs = {}, context: AgentToolContext = {}): ToolResult => {
     console.log(`🔧 [Agent Tool] create_poll called with topic: ${args.topic}, with_rhyme: ${args.with_rhyme !== false}`);
     
     try {
+      if (!args.topic) {
+        return {
+          success: false,
+          error: 'חובה לספק נושא לסקר'
+        };
+      }
+
       const { geminiService } = getServices();
       
       // Default to true (with rhyme) if not specified
@@ -480,18 +667,18 @@ const create_poll = {
       };
     } catch (error) {
       logger.error('❌ Error in create_poll', {
-        error: {
+        error: error instanceof Error ? {
           message: error.message,
           stack: error.stack,
           name: error.name
-        },
-        question: args.question?.substring(0, 100),
+        } : error,
+        topic: args.topic?.substring(0, 100),
         options: args.options,
         chatId: context?.chatId
       });
       return {
         success: false,
-        error: `שגיאה: ${error.message}`
+        error: `שגיאה: ${(error as Error).message}`
       };
     }
   }
