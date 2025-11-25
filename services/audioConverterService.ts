@@ -9,10 +9,11 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { promisify } from 'util';
 import { downloadFile } from './greenApiService';
-import ffmpegPath from 'ffmpeg-static';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ffmpegPath = require('ffmpeg-static');
 
 const execAsync = promisify(exec);
-const ffmpeg = ffmpegPath as unknown as string;
+const ffmpeg = (ffmpegPath as unknown as string);
 
 /**
  * Conversion options

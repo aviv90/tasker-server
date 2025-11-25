@@ -9,10 +9,11 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { TIME } from '../../../utils/constants';
 import { Request } from 'express';
-import ffmpegPath from 'ffmpeg-static';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ffmpegPath = require('ffmpeg-static');
 
 const execAsync = promisify(exec);
-const ffmpeg = ffmpegPath as unknown as string;
+const ffmpeg = (ffmpegPath as unknown as string);
 const veoClient = new genai.GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
 });
