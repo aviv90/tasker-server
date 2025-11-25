@@ -8,45 +8,10 @@ import { extractQuotedMessageId } from '../../../utils/messageHelpers';
 import { cleanJsonWrapper } from '../../../utils/textSanitizer';
 import logger from '../../../utils/logger';
 import { TIME } from '../../../utils/constants';
+import { AgentContextState as AgentContext, ToolCall, GeneratedAsset, PollAsset } from './context';
 
 // Type definitions for better type safety
-interface ToolCall {
-  tool: string;
-  args: Record<string, unknown>;
-  success: boolean;
-  error?: string;
-  timestamp: number;
-}
-
-interface GeneratedAsset {
-  url: string;
-  caption?: string;
-  prompt?: string;
-  provider?: string;
-  timestamp: number;
-}
-
-interface PollAsset {
-  question: string;
-  options: string[];
-  topic?: string;
-  timestamp: number;
-}
-
-interface AgentContext {
-  toolCalls: ToolCall[];
-  generatedAssets: {
-    images: GeneratedAsset[];
-    videos: GeneratedAsset[];
-    audio: GeneratedAsset[];
-    polls?: PollAsset[];
-  };
-  previousToolResults: Record<string, unknown>;
-  suppressFinalResponse?: boolean;
-  chatId?: string;
-  originalInput?: { originalMessageId?: string };
-  originalMessageId?: string;
-}
+// AgentContext is now imported from context.ts
 
 interface AgentConfig {
   contextMemoryEnabled: boolean;
@@ -156,7 +121,7 @@ class AgentLoop {
           imageCaption: latestImageAsset?.caption || '',
           videoUrl: latestVideoAsset?.url || null,
           audioUrl: latestAudioAsset?.url || null,
-          poll: latestPollAsset || null,
+          poll: (latestPollAsset as unknown as { question: string; options: string[] }) || null,
           latitude: latitude,
           longitude: longitude,
           locationInfo: locationInfo,

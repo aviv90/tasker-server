@@ -15,7 +15,7 @@ import * as openaiModule from './openai';
 export default openaiModule;
 
 // Also export individual functions if needed
-export const generateImage = openaiModule.generateImage;
-export const generateVideo = openaiModule.generateVideo;
-export const generateText = openaiModule.generateText;
+export const generateImage = openaiModule.generateImageWithText;
+export const generateVideo = openaiModule.generateVideoWithSora;
+export const generateText = openaiModule.generateTextResponse;
 

@@ -93,7 +93,7 @@ export function normalizeProviders(
  */
 export function getNextProviders(
   providersTried: string[],
-  providerOrder: string[],
+  providerOrder: string[] | readonly string[],
   lastTried: string | null = null
 ): string[] {
   const startIndex = lastTried ? providerOrder.indexOf(lastTried) : -1;
@@ -113,15 +113,4 @@ export function getNextProviders(
 
   return providers;
 }
-
-module.exports = {
-  sendFallbackAck,
-  sendFallbackError,
-  getProviderOrder,
-  getDisplayProvider,
-  normalizeProviders,
-  getNextProviders,
-  formatProviderName,
-  normalizeProviderKey
-};
 

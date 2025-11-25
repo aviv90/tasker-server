@@ -24,7 +24,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
  */
 interface ConversationMessage {
   role: string;
-  parts: Array<{ text: string }>;
+  parts?: Array<{ text: string }>;
+  content?: string; // For compatibility with other services
   [key: string]: unknown;
 }
 
@@ -80,10 +81,19 @@ export async function generateTextResponse(
     // Detect user's language
     const detectedLang = detectLanguage(cleanPrompt);
 
+    // Standardize conversation history
+    const standardizedHistory = conversationHistory.map(msg => {
+      if (msg.parts) return msg;
+      return {
+        role: msg.role,
+        parts: [{ text: msg.content || '' }]
+      };
+    }) as Array<{ role: string; parts: Array<{ text: string }> }>;
+
     // Build conversation contents using prompt builder
     const contents = promptBuilder.buildConversationContents(
       cleanPrompt,
-      conversationHistory,
+      standardizedHistory,
       useGoogleSearch,
       detectedLang
     );
@@ -209,4 +219,3 @@ export async function generateChatSummary(messages: ConversationMessage[]): Prom
 export async function translateText(text: string, targetLanguage: string): Promise<unknown> {
   return await translationService.translateText(text, targetLanguage);
 }
-

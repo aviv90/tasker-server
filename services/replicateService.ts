@@ -30,24 +30,38 @@ export async function generateVideoFromVideo(inputVideoBuffer: Buffer, prompt: s
   return await replicateGeneration.generateVideoFromVideo(inputVideoBuffer, prompt);
 }
 
+import { Request } from 'express';
+
+// ...
+
 /**
  * Generate video for WhatsApp from text prompt
  */
 export async function generateVideoWithTextForWhatsApp(prompt: string, req: unknown = null): Promise<unknown> {
-  return await replicateWhatsApp.generateVideoWithTextForWhatsApp(prompt, req);
+  return await replicateWhatsApp.generateVideoWithTextForWhatsApp(prompt, req as Request | null);
 }
 
 /**
  * Generate video for WhatsApp from image and text prompt
  */
 export async function generateVideoFromImageForWhatsApp(imageBuffer: Buffer, prompt: string | null = null, req: unknown = null): Promise<unknown> {
-  return await replicateWhatsApp.generateVideoFromImageForWhatsApp(imageBuffer, prompt, req);
+  return await replicateWhatsApp.generateVideoFromImageForWhatsApp(imageBuffer, prompt || '', req as Request | null);
 }
 
 /**
  * Generate video for WhatsApp from video and text prompt
  */
 export async function generateVideoFromVideoForWhatsApp(inputVideoBuffer: Buffer, prompt: string, req: unknown = null): Promise<unknown> {
-  return await replicateWhatsApp.generateVideoFromVideoForWhatsApp(inputVideoBuffer, prompt, req);
+  return await replicateWhatsApp.generateVideoFromVideoForWhatsApp(inputVideoBuffer, prompt, req as Request | null);
 }
 
+const replicateService = {
+  generateVideoWithText,
+  generateVideoFromImage,
+  generateVideoFromVideo,
+  generateVideoWithTextForWhatsApp,
+  generateVideoFromImageForWhatsApp,
+  generateVideoFromVideoForWhatsApp
+};
+
+export default replicateService;

@@ -45,6 +45,7 @@ interface VideoResult {
 interface AudioResult {
   error?: string;
   url?: string;
+  audioUrl?: string;
 }
 
 interface ToolResult {
@@ -103,7 +104,11 @@ const smartExecuteWithFallback = {
 
       // Strategy 1: Try different provider
       console.log(`📊 Strategy 1: Trying different provider...`);
-      const providersTried = helpers.normalizeProviders(args.providers_tried, args.provider_tried);
+      // Fix: normalizeProviders accepts readonly array for first argument
+      const providersTried = helpers.normalizeProviders(
+        args.providers_tried || (args.provider_tried ? [args.provider_tried] : []), 
+        null
+      );
       const providerOrder = VIDEO_PROVIDER_FALLBACK_ORDER;
       const lastTried = providersTried.length > 0 ? providersTried[providersTried.length - 1] : null;
       const providers = helpers.getNextProviders(providersTried, providerOrder, lastTried);
@@ -185,7 +190,7 @@ const smartExecuteWithFallback = {
               return {
                 success: true,
                 data: `✅ הצלחתי ליצור אודיו! (אסטרטגיה: הגדרות משופרות)`,
-                audioUrl: audioResult.url,
+                audioUrl: audioResult.url || audioResult.audioUrl,
                 strategy_used: 'improved_settings',
                 provider: 'elevenlabs'
               };
@@ -243,7 +248,7 @@ const smartExecuteWithFallback = {
               return {
                 success: true,
                 data: `✅ הצלחתי ליצור אודיו עם טקסט פשוט יותר! (אסטרטגיה: פישוט)`,
-                audioUrl: audioResult.url,
+                audioUrl: audioResult.url || audioResult.audioUrl,
                 strategy_used: 'simplified_prompt',
                 original_prompt: args.original_prompt,
                 simplified_prompt: simplifiedPrompt || undefined
@@ -301,7 +306,7 @@ const smartExecuteWithFallback = {
               return {
                 success: true,
                 data: `✅ הצלחתי ליצור אודיו עם טקסט כללי יותר! (אסטרטגיה: הכללה)`,
-                audioUrl: audioResult.url,
+                audioUrl: audioResult.url || audioResult.audioUrl,
                 strategy_used: 'generic_prompt',
                 original_prompt: args.original_prompt,
                 generic_prompt: genericPrompt || undefined

@@ -288,20 +288,15 @@ export const retry_last_command = {
         }
         
         // Create a new plan with only the steps to retry
-        const filteredPlan: {
-          steps: Array<{
-            tool?: string;
-            action?: string;
-            parameters?: Record<string, unknown>;
-            stepNumber?: number;
-            [key: string]: unknown;
-          }>;
-          [key: string]: unknown;
-        } = {
+        // Explicitly type the plan object to match what multiStepExecution expects
+        const filteredPlan = {
           ...plan,
           steps: stepsToRetry.map((step, idx: number) => ({
-            ...step,
-            stepNumber: idx + 1 // Renumber steps starting from 1
+            tool: step.tool,
+            action: step.action,
+            parameters: step.parameters || {},
+            stepNumber: idx + 1, // Renumber steps starting from 1
+            ...step // Keep other properties but stepNumber overrides
           }))
         };
         
@@ -349,8 +344,10 @@ export const retry_last_command = {
                 // Only override provider for creation tools
                 const toolName = step.tool || '';
                 if (toolName.includes('image') || toolName.includes('video') || toolName.includes('edit')) {
-                  step.parameters.provider = args.provider_override;
-                  step.parameters.service = args.provider_override;
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (step.parameters as any).provider = args.provider_override;
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (step.parameters as any).service = args.provider_override;
                   logger.debug(`🔄 [Multi-step Retry] Overriding provider for step ${idx + 1} to: ${args.provider_override}`);
                 }
               }
@@ -649,3 +646,5 @@ export const retry_last_command = {
     }
   }
 };
+
+export default retry_last_command;

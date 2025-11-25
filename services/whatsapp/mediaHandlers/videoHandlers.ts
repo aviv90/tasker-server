@@ -5,7 +5,7 @@
  */
 
 import { sendTextMessage, sendFileByUrl, downloadFile } from '../../greenApiService';
-import { generateRunwayVideoFromVideo } from '../../geminiService';
+import { generateVideoFromVideo } from '../../replicateService';
 import { sendAck } from '../messaging';
 import { formatProviderError } from '../../../utils/errorHandler';
 import { TIME } from '../../../utils/constants';
@@ -46,7 +46,7 @@ export async function handleVideoToVideo({ chatId, senderName, videoUrl, prompt,
     const videoBuffer = await downloadFile(videoUrl) as Buffer;
 
     // Generate video with RunwayML Gen4
-    const videoResult = await generateRunwayVideoFromVideo(videoBuffer, prompt) as { success: boolean; videoUrl?: string; error?: string };
+    const videoResult = await generateVideoFromVideo(videoBuffer, prompt) as { success: boolean; videoUrl?: string; error?: string };
 
     if (videoResult.success && videoResult.videoUrl) {
       // Send the generated video without caption

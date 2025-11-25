@@ -1,23 +1,51 @@
 import conversationManager from '../../conversationManager';
 
-type GeneratedAssets = {
-  images: Array<{ url?: string; caption?: string; [key: string]: unknown }>;
-  videos: Array<{ url?: string; [key: string]: unknown }>;
-  audio: Array<{ url?: string; [key: string]: unknown }>;
-  polls: Array<Record<string, unknown>>;
-};
+export interface ToolCall {
+  tool: string;
+  args: Record<string, unknown>;
+  success: boolean;
+  error?: string;
+  timestamp: number;
+  [key: string]: unknown;
+}
+
+export interface GeneratedAsset {
+  url: string;
+  caption?: string;
+  prompt?: string;
+  provider?: string;
+  timestamp: number;
+  [key: string]: unknown;
+}
+
+export interface PollAsset {
+  question: string;
+  options: string[];
+  topic?: string;
+  timestamp: number;
+  [key: string]: unknown;
+}
+
+export interface GeneratedAssets {
+  images: GeneratedAsset[];
+  videos: GeneratedAsset[];
+  audio: GeneratedAsset[];
+  polls?: PollAsset[];
+}
 
 export type AgentContextState = {
   chatId: string;
   previousToolResults: Record<string, unknown>;
-  toolCalls: Array<Record<string, unknown>>;
+  toolCalls: ToolCall[];
   generatedAssets: GeneratedAssets;
   lastCommand?: Record<string, unknown> | null;
   originalInput?: Record<string, unknown> | null;
   quotedContext?: Record<string, unknown> | null;
+  originalMessageId?: string;
   audioUrl?: string | null;
   suppressFinalResponse: boolean;
   expectedMediaType: string | null;
+  [key: string]: unknown;
 };
 
 /**
@@ -45,6 +73,7 @@ class AgentContext {
       lastCommand: options.lastCommand || null,
       originalInput: options.input || null,
       quotedContext: options.input?.quotedContext || null,
+      originalMessageId: options.input?.originalMessageId,
       audioUrl: options.input?.quotedContext?.audioUrl || null,
       suppressFinalResponse: false,
       expectedMediaType: null
@@ -77,8 +106,8 @@ class AgentContext {
       );
       return {
         ...context,
-        toolCalls: previousContext.toolCalls || context.toolCalls,
-        generatedAssets: previousContext.generatedAssets || context.generatedAssets
+        toolCalls: (previousContext.toolCalls || context.toolCalls) as ToolCall[],
+        generatedAssets: (previousContext.generatedAssets || context.generatedAssets) as GeneratedAssets
       };
     } else {
       console.log(`🧠 [Agent Context] No previous context found in DB (starting fresh)`);
@@ -108,5 +137,6 @@ class AgentContext {
 
 const agentContext = new AgentContext();
 export default agentContext;
+// Ensure CommonJS compatibility
 module.exports = agentContext;
-
+module.exports.default = agentContext;

@@ -10,10 +10,10 @@
  */
 
 // Import all functions from modular services
-import imageGeneration from './imageGeneration';
-import videoGeneration from './videoGeneration';
-import textOperations from './textOperations';
-import specialOperations from './specialOperations';
+import * as imageGeneration from './imageGeneration';
+import * as videoGeneration from './videoGeneration';
+import * as textOperations from './textOperations';
+import * as specialOperations from './specialOperations';
 
 // Re-export everything for backward compatibility
 export default {
@@ -22,4 +22,3 @@ export default {
   ...textOperations,
   ...specialOperations
 };
-

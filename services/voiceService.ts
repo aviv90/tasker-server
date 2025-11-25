@@ -28,7 +28,7 @@ class VoiceService {
 
     // Voice cloning
     async createInstantVoiceClone(audioBuffers: Buffer[], options: Record<string, unknown> = {}): Promise<unknown> {
-        return voiceCloning.createInstantVoiceClone.call(this, audioBuffers, options);
+        return voiceCloning.createInstantVoiceClone.call(this as any, audioBuffers, options);
     }
 
     getAvailableOptions(): unknown {
@@ -37,29 +37,29 @@ class VoiceService {
 
     // Voice management
     async getVoices(): Promise<unknown> {
-        return voiceManagement.getVoices.call(this);
+        return voiceManagement.getVoices.call(this as any);
     }
 
     async getVoice(voiceId: string): Promise<unknown> {
-        return voiceManagement.getVoice.call(this, voiceId);
+        return voiceManagement.getVoice.call(this as any, voiceId);
     }
 
     async deleteVoice(voiceId: string): Promise<unknown> {
-        return voiceManagement.deleteVoice.call(this, voiceId);
+        return voiceManagement.deleteVoice.call(this as any, voiceId);
     }
 
     // Text-to-speech
     async textToSpeech(voiceId: string, text: string, options: Record<string, unknown> = {}): Promise<unknown> {
-        return textToSpeechModule.textToSpeech.call(this, voiceId, text, options);
+        return textToSpeechModule.textToSpeech.call(this as any, voiceId, text, options);
     }
 
     // Voice selection & language detection
     async getRandomVoice(): Promise<unknown> {
-        return voiceSelection.getRandomVoice.call(this);
+        return voiceSelection.getRandomVoice.call(this as any);
     }
 
     async getVoiceForLanguage(languageCode: string): Promise<unknown> {
-        return voiceSelection.getVoiceForLanguage.call(this, languageCode);
+        return voiceSelection.getVoiceForLanguage.call(this as any, languageCode);
     }
 
     detectLanguage(text: string): string {
@@ -67,7 +67,12 @@ class VoiceService {
     }
 
     async textToSpeechWithRandomVoice(text: string, options: Record<string, unknown> = {}): Promise<unknown> {
-        return voiceSelection.textToSpeechWithRandomVoice.call(this, text, options);
+        return voiceSelection.textToSpeechWithRandomVoice.call(this as any, text, options);
+    }
+
+    // Alias for textToSpeechWithRandomVoice (used by smartFallback)
+    async textToSpeechForBot(text: string, options: Record<string, unknown> = {}): Promise<unknown> {
+        return this.textToSpeechWithRandomVoice(text, options);
     }
 }
 
@@ -75,4 +80,3 @@ const voiceService = new VoiceService();
 
 export default voiceService;
 export { voiceService, VoiceService };
-
