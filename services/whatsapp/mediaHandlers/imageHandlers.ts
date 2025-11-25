@@ -9,14 +9,12 @@ import { formatProviderError } from '../../../utils/errorHandler';
 import { TIME } from '../../../utils/constants';
 import logger from '../../../utils/logger';
 import {
-  editImageForWhatsApp
+  editImageForWhatsApp,
+  generateVideoFromImageForWhatsApp as generateVeoVideo
 } from '../../geminiService';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const geminiService = require('../../geminiService');
-const editOpenAIImage = geminiService.editOpenAIImage;
-const generateVideoFromImageForWhatsApp = geminiService.generateVideoFromImageForWhatsApp;
-const generateVideoWithSoraFromImageForWhatsApp = geminiService.generateVideoWithSoraFromImageForWhatsApp;
-const generateKlingVideoFromImage = geminiService.generateKlingVideoFromImage;
+import { editImageForWhatsApp as editOpenAIImage } from '../../openai/image';
+import { generateVideoWithSoraFromImageForWhatsApp } from '../../openai/video';
+import { generateVideoFromImageForWhatsApp as generateKlingVideo } from '../../replicateService';
 
 /**
  * Image edit handler parameters
@@ -78,7 +76,7 @@ export async function handleImageEdit({ chatId, senderName, imageUrl, prompt, se
       // Pass null for req as we are not in an express request context
       editResult = await editImageForWhatsApp(prompt, base64Image, null) as { success: boolean; description?: string; imageUrl?: string; fileName?: string; error?: string };
     } else if (service === 'openai') {
-      editResult = await editOpenAIImage(prompt, base64Image) as { success: boolean; description?: string; imageUrl?: string; fileName?: string; error?: string };
+      editResult = await editOpenAIImage(prompt, base64Image, null) as { success: boolean; description?: string; imageUrl?: string; fileName?: string; error?: string };
     } else {
       throw new Error(`Unknown service: ${service}`);
     }
@@ -168,13 +166,14 @@ export async function handleImageToVideo({ chatId, senderName, imageUrl, prompt,
     // Generate video with selected service
     let videoResult: { success: boolean; videoUrl?: string; error?: string };
     if (service === 'veo3') {
-      videoResult = await generateVideoFromImageForWhatsApp(prompt, imageBuffer) as { success: boolean; videoUrl?: string; error?: string };
+      videoResult = await generateVeoVideo(prompt, imageBuffer, null) as { success: boolean; videoUrl?: string; error?: string };
     } else if (service === 'sora') {
       // Sora 2 image-to-video with image_reference
-      const options = model ? { model } : {};
+      const options = model ? { model: model as 'sora-2' | 'sora-2-pro' } : {};
       videoResult = await generateVideoWithSoraFromImageForWhatsApp(prompt, imageBuffer, options) as { success: boolean; videoUrl?: string; error?: string };
     } else {
-      videoResult = await generateKlingVideoFromImage(imageBuffer, prompt) as { success: boolean; videoUrl?: string; error?: string };
+      // Kling (Replicate)
+      videoResult = await generateKlingVideo(imageBuffer, prompt, null) as { success: boolean; videoUrl?: string; error?: string };
     }
 
     if (videoResult.success && videoResult.videoUrl) {

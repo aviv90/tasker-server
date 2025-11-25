@@ -136,7 +136,7 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
   if (plan.isMultiStep && plan.steps && plan.steps.length > 1) {
     // Cast to any to bypass strict Plan type check (structure is compatible at runtime)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return await multiStepExecution.execute(plan as any, chatId, options, languageInstruction, agentConfig) as AgentResult;
+    return await multiStepExecution.execute(plan as any, chatId, options, languageInstruction, agentConfig) as unknown as AgentResult;
   }
   
   // Continue with single-step execution if not multi-step
@@ -165,7 +165,7 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
   
   // ⏱️ Wrap entire agent execution with timeout
   const agentExecution = async (): Promise<AgentResult> => {
-    return await agentLoop.execute(chat, prompt, chatId, context, maxIterations, agentConfig) as AgentResult;
+    return await agentLoop.execute(chat, prompt, chatId, context, maxIterations, agentConfig) as unknown as AgentResult;
   };
   
   // ⏱️ Execute agent with timeout

@@ -94,7 +94,7 @@ export async function generateTextResponse(
     // Build conversation contents using prompt builder
     const contents = promptBuilder.buildConversationContents(
       cleanPrompt,
-      standardizedHistory,
+      standardizedHistory as any,
       useGoogleSearch,
       detectedLang
     );
