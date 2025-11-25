@@ -17,6 +17,7 @@ import audioConverterService from '../../audioConverterService';
 import logger from '../../../utils/logger';
 import { TIME } from '../../../utils/constants';
 import { routeToAgent } from '../../agentRouter';
+import { sendAgentResults, NormalizedInput } from '../../../routes/whatsapp/incoming/resultHandling';
 
 /**
  * Voice message handler parameters
@@ -70,40 +71,26 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
     // Try to route to agent to see if this is a command (let the Agent/Planner decide)
     logger.debug(`🔄 Routing transcribed text to agent for evaluation...`);
     
-    const normalized = {
+    // Build normalized input - add # prefix to route through agent (same as text messages)
+    const normalized: NormalizedInput = {
       userText: `# ${transcribedText}`, // Add # prefix to route through agent
       hasAudio: false, // Audio already transcribed - don't send audioUrl to agent
       chatType: chatId && chatId.endsWith('@g.us') ? 'group' : 'private',
       language: originalLanguage,
-      senderData: { chatId, senderId, senderName }
+      senderData: { chatId, senderId, senderName },
+      originalMessageId: originalMessageId || undefined
     };
     
-    const agentResult = await routeToAgent(normalized, chatId) as { success?: boolean; toolsUsed?: unknown[]; imageUrl?: string; videoUrl?: string; audioUrl?: string; text?: string; error?: string };
+    const agentResult = await routeToAgent(normalized, chatId);
     
-    // If agent successfully executed a tool/command, send the result and exit
+    // If agent successfully executed a tool/command, use the centralized result handler
+    // This ensures identical behavior to text commands (multi-step, captions, etc.)
     if (agentResult.success && (agentResult.toolsUsed && agentResult.toolsUsed.length > 0 || agentResult.imageUrl || agentResult.videoUrl || agentResult.audioUrl)) {
       logger.info(`🎯 Agent identified and executed command/tool from voice message`);
       
-      // NOTE: User messages are no longer saved to DB to avoid duplication.
-      // All messages are retrieved from Green API getChatHistory when needed.
-      // Voice transcription is handled automatically and the result is sent to the user.
-      logger.debug(`💾 [VoiceHandler] Voice message processed (not saving to DB - using Green API history)`);
-      
-      // Send agent result (text, image, video, audio, etc.) in parallel for better performance
-      const sendPromises: Promise<unknown>[] = [];
-      if (agentResult.text && agentResult.text.trim()) {
-        sendPromises.push(sendTextMessage(chatId, agentResult.text, quotedMessageId, TIME.TYPING_INDICATOR));
-      }
-      if (agentResult.imageUrl) {
-        sendPromises.push(sendFileByUrl(chatId, agentResult.imageUrl, `image_${Date.now()}.jpg`, '', quotedMessageId, TIME.TYPING_INDICATOR));
-      }
-      if (agentResult.videoUrl) {
-        sendPromises.push(sendFileByUrl(chatId, agentResult.videoUrl, `video_${Date.now()}.mp4`, '', quotedMessageId, TIME.TYPING_INDICATOR));
-      }
-      if (agentResult.audioUrl) {
-        sendPromises.push(sendFileByUrl(chatId, agentResult.audioUrl, `audio_${Date.now()}.mp3`, '', quotedMessageId, TIME.TYPING_INDICATOR));
-      }
-      await Promise.all(sendPromises);
+      // Use the same result handling logic as text commands
+      // This ensures multi-step, captions, and all other features work identically
+      await sendAgentResults(chatId, agentResult as any, normalized);
       
       logger.info(`✅ Command from voice message processed successfully`);
       return;

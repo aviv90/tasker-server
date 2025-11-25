@@ -148,11 +148,11 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
   
   // System prompt for the agent (SSOT - from config/prompts.ts)
   const systemInstruction = prompts.agentSystemInstruction(languageInstruction);
-  
+
   // 🧠 Context for tool execution (load previous context if enabled)
   let context = contextManager.createInitialContext(chatId, options);
   context = await contextManager.loadPreviousContext(chatId, context, agentConfig.contextMemoryEnabled);
-  
+
   // Conversation history for the agent
   const chat = model.startChat({
     history: [],
@@ -162,7 +162,7 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
       parts: [{ text: systemInstruction }]
     }
   });
-  
+
   // ⏱️ Wrap entire agent execution with timeout
   const agentExecution = async (): Promise<AgentResult> => {
     return await agentLoop.execute(chat, prompt, chatId, context, maxIterations, agentConfig) as unknown as AgentResult;

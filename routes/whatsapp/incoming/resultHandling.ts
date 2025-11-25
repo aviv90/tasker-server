@@ -325,17 +325,8 @@ export async function handlePostProcessing(chatId: string, normalized: Normalize
         const result = imageResult as AgentResult;
         logger.debug(`📸 [Agent Post] Sending complementary image generated from text: ${result.imageUrl}`);
 
-        // Clean caption before sending
-        let caption = (result.imageCaption || '').trim();
-        caption = cleanMediaDescription(caption);
-        await greenApiService.sendFileByUrl(
-          chatId,
-          result.imageUrl!,
-          `agent_image_${Date.now()}.png`,
-          caption,
-          quotedMessageId || undefined,
-          1000
-        );
+        // Use centralized image sending function (same logic as regular agent results)
+        await sendImageResult(chatId, result, quotedMessageId);
       } else {
         logger.warn('⚠️ [Agent Post] Failed to generate complementary image for text+image request');
       }
