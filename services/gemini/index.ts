@@ -11,13 +11,17 @@
 
 // Import all functions from modular services
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const imageGeneration = require('./imageGeneration');
+const imageGenerationModule = require('./imageGeneration');
+const imageGeneration = imageGenerationModule.default || imageGenerationModule;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const videoGeneration = require('./videoGeneration');
+const videoGenerationModule = require('./videoGeneration');
+const videoGeneration = videoGenerationModule.default || videoGenerationModule;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const textOperations = require('./textOperations');
+const textOperationsModule = require('./textOperations');
+const textOperations = textOperationsModule.default || textOperationsModule;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const specialOperations = require('./specialOperations');
+const specialOperationsModule = require('./specialOperations');
+const specialOperations = specialOperationsModule.default || specialOperationsModule;
 
 // Re-export everything for backward compatibility
 export default {
