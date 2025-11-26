@@ -198,7 +198,7 @@ export async function handleManagementCommand(
           
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
-            console.log(`✅ Using current contact directly: ${exactName}`);
+            logger.info(`✅ Using current contact directly: ${exactName}`);
             await greenApiService.sendTextMessage(chatId, `✅ מוסיף "${exactName}" לרשימת המורשים ליצירת מדיה...`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           } else {
             // Use fuzzy search to find exact contact/group name
@@ -240,7 +240,7 @@ export async function handleManagementCommand(
           
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
-            console.log(`✅ Using current contact directly: ${exactName}`);
+            logger.info(`✅ Using current contact directly: ${exactName}`);
             await greenApiService.sendTextMessage(chatId, `✅ מסיר "${exactName}" מרשימת המורשים ליצירת מדיה...`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           } else {
             // Use fuzzy search to find exact contact/group name
@@ -261,7 +261,7 @@ export async function handleManagementCommand(
           const wasRemoved = await authStore.removeAuthorizedUser(exactName);
           if (wasRemoved) {
             await greenApiService.sendTextMessage(chatId, `🚫 ${exactName} הוסר מרשימת המורשים ליצירת מדיה`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
-            console.log(`✅ Removed ${exactName} from media creation authorization by ${senderName}`);
+            logger.info(`✅ Removed ${exactName} from media creation authorization by ${senderName}`);
           } else {
             await greenApiService.sendTextMessage(chatId, `ℹ️ ${exactName} לא נמצא ברשימת המורשים ליצירת מדיה`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           }
@@ -282,7 +282,7 @@ export async function handleManagementCommand(
           
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
-            console.log(`✅ Using current contact directly: ${exactName}`);
+            logger.info(`✅ Using current contact directly: ${exactName}`);
             await greenApiService.sendTextMessage(chatId, `✅ מוסיף "${exactName}" לרשימת המורשים ליצירת קבוצות...`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           } else {
             // Use fuzzy search to find exact contact/group name
@@ -324,7 +324,7 @@ export async function handleManagementCommand(
           
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
-            console.log(`✅ Using current contact directly: ${exactName}`);
+            logger.info(`✅ Using current contact directly: ${exactName}`);
             await greenApiService.sendTextMessage(chatId, `✅ מסיר "${exactName}" מרשימת המורשים ליצירת קבוצות...`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           } else {
             // Use fuzzy search to find exact contact/group name
@@ -366,7 +366,7 @@ export async function handleManagementCommand(
           
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
-            console.log(`✅ Using current contact directly: ${exactName}`);
+            logger.info(`✅ Using current contact directly: ${exactName}`);
             await greenApiService.sendTextMessage(chatId, `✅ מוסיף "${exactName}" לרשימת המורשים לתמלול...`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           } else {
             // Use fuzzy search to find exact contact/group name

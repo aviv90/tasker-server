@@ -3,6 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const genai = require('@google/genai');
 import { sanitizeText } from '../../../utils/textSanitizer';
 import { detectLanguage } from '../../../utils/agentHelpers';
+import logger from '../../../utils/logger';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -56,7 +57,7 @@ class VideoAnalysis {
   async prepareVideoPart(videoBuffer: Buffer): Promise<VideoPart> {
     // For videos larger than 2MB, use Files API; otherwise use inline data
     if (videoBuffer.length > 2 * 1024 * 1024) {
-      console.log('📤 Video is large, uploading to Files API first...');
+      logger.info('📤 Video is large, uploading to Files API first...');
 
       const tempFileName = `temp_analysis_video_${uuidv4()}.mp4`;
       // Use process.cwd() for safe path resolution
@@ -80,14 +81,14 @@ class VideoAnalysis {
           }
         } as any);
 
-        console.log('✅ Video uploaded to Files API');
+        logger.info('✅ Video uploaded to Files API');
 
         // Clean up temp file after upload
         try {
           fs.unlinkSync(tempFilePath);
-          console.log('🧹 Cleaned up temporary video file');
+          logger.info('🧹 Cleaned up temporary video file');
         } catch (cleanupErr: unknown) {
-          console.warn('⚠️ Could not delete temp file:', cleanupErr);
+          logger.warn('⚠️ Could not delete temp file:', cleanupErr as Error);
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -99,13 +100,13 @@ class VideoAnalysis {
           }
         };
       } catch (uploadErr: unknown) {
-        console.error('❌ Failed to upload video to Files API:', uploadErr);
-        console.log('🔄 Falling back to inline data...');
+        logger.error('❌ Failed to upload video to Files API:', uploadErr as Error);
+        logger.info('🔄 Falling back to inline data...');
         const base64Video = videoBuffer.toString('base64');
         return { inlineData: { mimeType: "video/mp4", data: base64Video } };
       }
     } else {
-      console.log('📦 Video is small enough, using inline data');
+      logger.info('📦 Video is small enough, using inline data');
       const base64Video = videoBuffer.toString('base64');
       return { inlineData: { mimeType: "video/mp4", data: base64Video } };
     }
@@ -116,8 +117,8 @@ class VideoAnalysis {
    */
   async analyzeVideoWithText(prompt: string, videoBuffer: Buffer): Promise<VideoAnalysisResult> {
     try {
-      console.log('🔍 Starting Gemini video analysis (text-only response)');
-      console.log(`📹 Video size: ${(videoBuffer.length / 1024 / 1024).toFixed(2)} MB`);
+      logger.info('🔍 Starting Gemini video analysis (text-only response)');
+      logger.info(`📹 Video size: ${(videoBuffer.length / 1024 / 1024).toFixed(2)} MB`);
 
       const cleanPrompt = sanitizeText(prompt);
       const detectedLang = detectLanguage(cleanPrompt);
@@ -150,7 +151,7 @@ class VideoAnalysis {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const responseAny = response as any;
       if (!responseAny.candidates || responseAny.candidates.length === 0) {
-        console.log('❌ Gemini video analysis: No candidates returned');
+        logger.warn('❌ Gemini video analysis: No candidates returned');
         return {
           success: false,
           error: responseAny.promptFeedback?.blockReasonMessage || 'No candidate returned'
@@ -169,14 +170,14 @@ class VideoAnalysis {
       }
 
       if (!text || text.trim().length === 0) {
-        console.log('❌ Gemini video analysis: No text found in response');
+        logger.warn('❌ Gemini video analysis: No text found in response');
         return {
           success: false,
           error: 'No text response from Gemini'
         };
       }
 
-      console.log('✅ Gemini video analysis completed');
+      logger.info('✅ Gemini video analysis completed');
       return {
         success: true,
         text: text.trim(),
@@ -184,7 +185,7 @@ class VideoAnalysis {
       };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during video analysis';
-      console.error('❌ Gemini video analysis error:', err);
+      logger.error('❌ Gemini video analysis error:', err as Error);
       return {
         success: false,
         error: errorMessage

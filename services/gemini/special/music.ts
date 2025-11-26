@@ -1,4 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import prompts from '../../../config/prompts';
+import logger from '../../../utils/logger';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -25,7 +27,7 @@ class MusicParser {
       const regexMatch = videoPatterns.test(prompt);
 
       if (regexMatch) {
-        console.log('🎬 Video requested with music');
+        logger.info('🎬 Video requested with music');
         // Clean the prompt by removing video/clip mentions
         const cleanPrompt = prompt
           .replace(/\s*(with|and|plus|including|include)\s+(video|clip)\s*/gi, ' ')
@@ -48,50 +50,7 @@ class MusicParser {
         model: "gemini-2.5-flash"
       });
 
-      const analysisPrompt = `Analyze this music generation request and determine if the user wants a video along with the song.
-
-User request: "${prompt}"
-
-Return ONLY a JSON object (no markdown, no extra text) with this exact structure:
-{
-  "wantsVideo": true/false,
-  "cleanPrompt": "the music description without video request"
-}
-
-Rules:
-1. If user explicitly requests video or clip (e.g., "with video", "כולל וידאו", "עם וידאו", "גם וידאו", "plus video", "and video", "ועם וידאו", "קליפ", "כולל קליפ", "עם קליפ", "clip", "with clip", "video clip", "music video"), set wantsVideo=true
-2. Extract the actual music description (without the video/clip instruction)
-3. Keep the cleanPrompt focused on music style, theme, mood, lyrics topic
-4. If no video/clip is mentioned, set wantsVideo=false and keep original prompt
-5. IMPORTANT: The presence of other words (like "Suno", "בעזרת", "באמצעות") should NOT affect video detection - focus ONLY on video/clip keywords
-
-Examples:
-Input: "צור שיר בסגנון רוק על אהבה כולל וידאו"
-Output: {"wantsVideo":true,"cleanPrompt":"צור שיר בסגנון רוק על אהבה"}
-
-Input: "צור שיר על הכלב דובי בעזרת Suno, כולל וידאו"
-Output: {"wantsVideo":true,"cleanPrompt":"צור שיר על הכלב דובי בעזרת Suno"}
-
-Input: "create a pop song about summer with video"
-Output: {"wantsVideo":true,"cleanPrompt":"create a pop song about summer"}
-
-Input: "שיר עצוב על פרידה עם קליפ"
-Output: {"wantsVideo":true,"cleanPrompt":"שיר עצוב על פרידה"}
-
-Input: "שיר רומנטי כולל קליפ"
-Output: {"wantsVideo":true,"cleanPrompt":"שיר רומנטי"}
-
-Input: "make a rock song with clip"
-Output: {"wantsVideo":true,"cleanPrompt":"make a rock song"}
-
-Input: "make a song with Suno and video"
-Output: {"wantsVideo":true,"cleanPrompt":"make a song with Suno"}
-
-Input: "צור שיר ג'אז"
-Output: {"wantsVideo":false,"cleanPrompt":"צור שיר ג'אז"}
-
-Input: "make a happy song"
-Output: {"wantsVideo":false,"cleanPrompt":"make a happy song"}`;
+      const analysisPrompt = prompts.musicVideoParsingPrompt(prompt);
 
       const result = await model.generateContent(analysisPrompt);
       const response = result.response;
@@ -99,7 +58,7 @@ Output: {"wantsVideo":false,"cleanPrompt":"make a happy song"}`;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const responseAny = response as any;
       if (!responseAny.candidates || responseAny.candidates.length === 0) {
-        console.log('❌ Gemini music parsing: No candidates returned');
+        logger.warn('❌ Gemini music parsing: No candidates returned');
         return { wantsVideo: false, cleanPrompt: prompt };
       }
 
@@ -111,12 +70,12 @@ Output: {"wantsVideo":false,"cleanPrompt":"make a happy song"}`;
       const parsed = JSON.parse(rawText) as MusicParseResult;
 
       if (parsed.wantsVideo) {
-        console.log('🎬 Video requested with music (LLM detected)');
+        logger.info('🎬 Video requested with music (LLM detected)');
       }
       return parsed;
 
     } catch (err: unknown) {
-      console.error('❌ Error parsing music request:', err);
+      logger.error('❌ Error parsing music request:', err as Error);
       // Fallback: no video
       return { wantsVideo: false, cleanPrompt: prompt };
     }

@@ -314,6 +314,93 @@ Input: "open group Friends with John, Lisa, Tom"
 Output: {"groupName":"Friends","participants":["John","Lisa","Tom"],"groupPicture":null}`,
 
   /**
+   * TTS parsing prompt - for Gemini to parse text-to-speech requests
+   * Extracted from services/gemini/special/tts.ts (SSOT enforcement)
+   */
+  ttsParsingPrompt: (userPrompt: string) => `Analyze this text-to-speech request and determine if the user wants the output in a specific language.
+
+User request: "${userPrompt}"
+
+Return ONLY a JSON object (no markdown, no extra text) with this exact structure:
+{
+  "needsTranslation": true/false,
+  "text": "the text to speak",
+  "targetLanguage": "language name in English (e.g., Japanese, French, Spanish)",
+  "languageCode": "ISO 639-1 code (e.g., ja, fr, es, he, en, ar)"
+}
+
+Rules:
+1. If user explicitly requests a language (e.g., "say X in Japanese", "אמור X ביפנית", "read X in French"), set needsTranslation=true
+2. Extract the actual text to speak (without the language instruction)
+3. Map the target language to its ISO code
+4. If no specific language is requested, set needsTranslation=false, use the original text, and omit targetLanguage/languageCode
+
+Examples:
+Input: "אמור היי מה נשמע ביפנית"
+Output: {"needsTranslation":true,"text":"היי מה נשמע","targetLanguage":"Japanese","languageCode":"ja"}
+
+Input: "say hello world in French"
+Output: {"needsTranslation":true,"text":"hello world","targetLanguage":"French","languageCode":"fr"}
+
+Input: "קרא את הטקסט הזה בערבית: שלום עולם"
+Output: {"needsTranslation":true,"text":"שלום עולם","targetLanguage":"Arabic","languageCode":"ar"}
+
+Input: "אמור שלום"
+Output: {"needsTranslation":false,"text":"אמור שלום"}
+
+Input: "read this text"
+Output: {"needsTranslation":false,"text":"read this text"}`,
+
+  /**
+   * Music video parsing prompt - for Gemini to detect if music request includes video
+   * Extracted from services/gemini/special/music.ts (SSOT enforcement)
+   */
+  musicVideoParsingPrompt: (userPrompt: string) => `Analyze this music generation request and determine if the user wants a video along with the song.
+
+User request: "${userPrompt}"
+
+Return ONLY a JSON object (no markdown, no extra text) with this exact structure:
+{
+  "wantsVideo": true/false,
+  "cleanPrompt": "the music description without video request"
+}
+
+Rules:
+1. If user explicitly requests video or clip (e.g., "with video", "כולל וידאו", "עם וידאו", "גם וידאו", "plus video", "and video", "ועם וידאו", "קליפ", "כולל קליפ", "עם קליפ", "clip", "with clip", "video clip", "music video"), set wantsVideo=true
+2. Extract the actual music description (without the video/clip instruction)
+3. Keep the cleanPrompt focused on music style, theme, mood, lyrics topic
+4. If no video/clip is mentioned, set wantsVideo=false and keep original prompt
+5. IMPORTANT: The presence of other words (like "Suno", "בעזרת", "באמצעות") should NOT affect video detection - focus ONLY on video/clip keywords
+
+Examples:
+Input: "צור שיר בסגנון רוק על אהבה כולל וידאו"
+Output: {"wantsVideo":true,"cleanPrompt":"צור שיר בסגנון רוק על אהבה"}
+
+Input: "צור שיר על הכלב דובי בעזרת Suno, כולל וידאו"
+Output: {"wantsVideo":true,"cleanPrompt":"צור שיר על הכלב דובי בעזרת Suno"}
+
+Input: "create a pop song about summer with video"
+Output: {"wantsVideo":true,"cleanPrompt":"create a pop song about summer"}
+
+Input: "שיר עצוב על פרידה עם קליפ"
+Output: {"wantsVideo":true,"cleanPrompt":"שיר עצוב על פרידה"}
+
+Input: "שיר רומנטי כולל קליפ"
+Output: {"wantsVideo":true,"cleanPrompt":"שיר רומנטי"}
+
+Input: "make a rock song with clip"
+Output: {"wantsVideo":true,"cleanPrompt":"make a rock song"}
+
+Input: "make a song with Suno and video"
+Output: {"wantsVideo":true,"cleanPrompt":"make a song with Suno"}
+
+Input: "צור שיר ג'אז"
+Output: {"wantsVideo":false,"cleanPrompt":"צור שיר ג'אז"}
+
+Input: "make a happy song"
+Output: {"wantsVideo":false,"cleanPrompt":"make a happy song"}`,
+
+  /**
    * Language instructions mapping
    * These are used in system prompts to ensure responses match input language
    */

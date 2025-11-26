@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
 import { TIME } from '../../utils/constants';
 import { Request } from 'express';
+import logger from '../../utils/logger';
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
@@ -57,7 +58,7 @@ export async function generateVideoWithSora(
     options: VideoGenerationOptions = {}
 ): Promise<VideoGenerationResult> {
     try {
-        console.log('🎬 Starting Sora 2 video generation');
+        logger.info('🎬 Starting Sora 2 video generation');
         
         // Sanitize prompt
         const cleanPrompt = sanitizeText(prompt);
@@ -69,13 +70,13 @@ export async function generateVideoWithSora(
         //            sora-2-pro: 1920x1080, 1080x1920, 1792x1024, 1024x1792
         const seconds = options.seconds || 8; // Supported values: 4, 8, or 12
         
-        console.log(`   Model: ${model}, Size: ${size}, Seconds: ${seconds}s`);
+        logger.info(`   Model: ${model}, Size: ${size}, Seconds: ${seconds}s`);
         
         // Validate parameters - only 4, 8, or 12 seconds are supported
         let validSeconds = seconds;
         const supportedDurations = [4, 8, 12];
         if (!supportedDurations.includes(Number(seconds))) {
-            console.log(`⚠️ Invalid duration ${seconds}s. Using 8 seconds (supported: 4, 8, 12)`);
+            logger.warn(`⚠️ Invalid duration ${seconds}s. Using 8 seconds (supported: 4, 8, 12)`);
             validSeconds = 8;
         }
         
@@ -89,10 +90,10 @@ export async function generateVideoWithSora(
         });
         
         const jobId = video.id;
-        console.log(`📋 Job created: ${jobId}, Status: ${video.status}`);
+        logger.info(`📋 Job created: ${jobId}, Status: ${video.status}`);
         
         // Poll for completion
-        console.log('⏳ Waiting for video generation to complete...');
+        logger.info('⏳ Waiting for video generation to complete...');
         const maxWaitTime = TIME.VIDEO_GENERATION_TIMEOUT;
         const startTime = Date.now();
         let pollAttempts = 0;
@@ -100,7 +101,7 @@ export async function generateVideoWithSora(
         let currentVideo = video;
         while (currentVideo.status === 'in_progress' || currentVideo.status === 'queued') {
             if (Date.now() - startTime > maxWaitTime) {
-                console.error('❌ Sora 2 video generation timed out');
+                logger.error('❌ Sora 2 video generation timed out');
                 return { error: 'Video generation timed out after 10 minutes' };
             }
             
@@ -109,36 +110,36 @@ export async function generateVideoWithSora(
             
             currentVideo = await openai.videos.retrieve(jobId);
             const progress = currentVideo.progress || 0;
-            console.log(`🔄 Polling attempt ${pollAttempts}: Status=${currentVideo.status}, Progress=${progress}%`);
+            logger.info(`🔄 Polling attempt ${pollAttempts}: Status=${currentVideo.status}, Progress=${progress}%`);
             
             if (currentVideo.status === 'failed') {
                 const errorMsg = currentVideo.error?.message || 'Video generation failed';
-                console.error('❌ Sora 2 video generation failed:', errorMsg);
+                logger.error('❌ Sora 2 video generation failed:', errorMsg);
                 return { error: errorMsg };
             }
         }
         
         if (currentVideo.status !== 'completed') {
-            console.error('❌ Unexpected status:', currentVideo.status);
+            logger.error('❌ Unexpected status:', currentVideo.status);
             return { error: `Unexpected status: ${currentVideo.status}` };
         }
         
-        console.log('✅ Video generation completed');
+        logger.info('✅ Video generation completed');
         
         // Download video content using SDK
-        console.log('📥 Downloading video content...');
+        logger.info('📥 Downloading video content...');
         const content = await openai.videos.downloadContent(jobId);
         const arrayBuffer = await content.arrayBuffer();
         const videoBuffer = Buffer.from(arrayBuffer);
         
-        console.log('✅ Sora 2 video downloaded successfully');
+        logger.info('✅ Sora 2 video downloaded successfully');
         return { 
             text: cleanPrompt, 
             videoBuffer: videoBuffer 
         };
     } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        console.error('❌ Sora 2 video generation error:', errorMessage);
+        logger.error('❌ Sora 2 video generation error:', errorMessage);
         throw err;
     }
 }
@@ -152,7 +153,7 @@ export async function generateVideoWithSoraForWhatsApp(
     options: VideoGenerationOptions = {}
 ): Promise<WhatsAppVideoResult> {
     try {
-        console.log('🎬 Starting Sora 2 video generation for WhatsApp');
+        logger.info('🎬 Starting Sora 2 video generation for WhatsApp');
         
         // Sanitize prompt
         const cleanPrompt = sanitizeText(prompt);
@@ -164,13 +165,13 @@ export async function generateVideoWithSoraForWhatsApp(
         //            sora-2-pro: 1920x1080, 1080x1920, 1792x1024, 1024x1792
         const seconds = options.seconds || 8; // Supported values: 4, 8, or 12
         
-        console.log(`   Model: ${model}, Size: ${size}, Seconds: ${seconds}s`);
+        logger.info(`   Model: ${model}, Size: ${size}, Seconds: ${seconds}s`);
         
         // Validate parameters - only 4, 8, or 12 seconds are supported
         let validSeconds = seconds;
         const supportedDurations = [4, 8, 12];
         if (!supportedDurations.includes(Number(seconds))) {
-            console.log(`⚠️ Invalid duration ${seconds}s. Using 8 seconds (supported: 4, 8, 12)`);
+            logger.warn(`⚠️ Invalid duration ${seconds}s. Using 8 seconds (supported: 4, 8, 12)`);
             validSeconds = 8;
         }
         
@@ -184,10 +185,10 @@ export async function generateVideoWithSoraForWhatsApp(
         });
         
         const jobId = video.id;
-        console.log(`📋 Job created: ${jobId}, Status: ${video.status}`);
+        logger.info(`📋 Job created: ${jobId}, Status: ${video.status}`);
         
         // Poll for completion
-        console.log('⏳ Waiting for video generation to complete...');
+        logger.info('⏳ Waiting for video generation to complete...');
         const maxWaitTime = TIME.VIDEO_GENERATION_TIMEOUT;
         const startTime = Date.now();
         let pollAttempts = 0;
@@ -195,7 +196,7 @@ export async function generateVideoWithSoraForWhatsApp(
         let currentVideo = video;
         while (currentVideo.status === 'in_progress' || currentVideo.status === 'queued') {
             if (Date.now() - startTime > maxWaitTime) {
-                console.error('❌ Sora 2 video generation timed out');
+                logger.error('❌ Sora 2 video generation timed out');
                 return { 
                     success: false, 
                     error: 'Video generation timed out after 10 minutes' 
@@ -207,11 +208,11 @@ export async function generateVideoWithSoraForWhatsApp(
             
             currentVideo = await openai.videos.retrieve(jobId);
             const progress = currentVideo.progress || 0;
-            console.log(`🔄 Polling attempt ${pollAttempts}: Status=${currentVideo.status}, Progress=${progress}%`);
+            logger.info(`🔄 Polling attempt ${pollAttempts}: Status=${currentVideo.status}, Progress=${progress}%`);
             
             if (currentVideo.status === 'failed') {
                 const errorMsg = currentVideo.error?.message || 'Video generation failed';
-                console.error('❌ Sora 2 video generation failed:', errorMsg);
+                logger.error('❌ Sora 2 video generation failed:', errorMsg);
                 return { 
                     success: false, 
                     error: errorMsg
@@ -220,17 +221,17 @@ export async function generateVideoWithSoraForWhatsApp(
         }
         
         if (currentVideo.status !== 'completed') {
-            console.error('❌ Unexpected status:', currentVideo.status);
+            logger.error('❌ Unexpected status:', currentVideo.status);
             return { 
                 success: false, 
                 error: `Unexpected status: ${currentVideo.status}` 
             };
         }
         
-        console.log('✅ Video generation completed');
+        logger.info('✅ Video generation completed');
         
         // Download video content using SDK
-        console.log('📥 Downloading video content...');
+        logger.info('📥 Downloading video content...');
         const content = await openai.videos.downloadContent(jobId);
         const arrayBuffer = await content.arrayBuffer();
         const videoBuffer = Buffer.from(arrayBuffer);
@@ -250,9 +251,9 @@ export async function generateVideoWithSoraForWhatsApp(
         // Create public URL
         const publicVideoUrl = getStaticFileUrl(fileName, req);
         
-        console.log('✅ Sora 2 video generated successfully');
-        console.log(`🎬 Video saved to: ${filePath}`);
-        console.log(`🔗 Public URL: ${publicVideoUrl}`);
+        logger.info('✅ Sora 2 video generated successfully');
+        logger.info(`🎬 Video saved to: ${filePath}`);
+        logger.info(`🔗 Public URL: ${publicVideoUrl}`);
         
         return { 
             success: true,
@@ -262,7 +263,7 @@ export async function generateVideoWithSoraForWhatsApp(
         };
     } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during video generation';
-        console.error('❌ Sora 2 video generation error:', errorMessage);
+        logger.error('❌ Sora 2 video generation error:', errorMessage);
         return { 
             success: false, 
             error: errorMessage
@@ -280,7 +281,7 @@ export async function generateVideoWithSoraFromImageForWhatsApp(
     options: VideoGenerationOptions = {}
 ): Promise<WhatsAppVideoResult> {
     try {
-        console.log('🎬 Starting Sora 2 image-to-video generation for WhatsApp');
+        logger.info('🎬 Starting Sora 2 image-to-video generation for WhatsApp');
         
         // Sanitize prompt
         const cleanPrompt = sanitizeText(prompt);
@@ -289,18 +290,18 @@ export async function generateVideoWithSoraFromImageForWhatsApp(
         const model = options.model || 'sora-2'; // sora-2 or sora-2-pro
         const seconds = options.seconds || 8; // Supported values: 4, 8, or 12
         
-        console.log(`   Model: ${model}, Seconds: ${seconds}s`);
+        logger.info(`   Model: ${model}, Seconds: ${seconds}s`);
         
         // Validate parameters
         let validSeconds = seconds;
         const supportedDurations = [4, 8, 12];
         if (!supportedDurations.includes(Number(seconds))) {
-            console.log(`⚠️ Invalid duration ${seconds}s. Using 8 seconds (supported: 4, 8, 12)`);
+            logger.warn(`⚠️ Invalid duration ${seconds}s. Using 8 seconds (supported: 4, 8, 12)`);
             validSeconds = 8;
         }
         
         // Get image dimensions and resize to supported Sora 2 format
-        console.log('📏 Reading image dimensions...');
+        logger.info('📏 Reading image dimensions...');
         const metadata = await sharp(imageBuffer).metadata();
         const imageWidth = metadata.width;
         const imageHeight = metadata.height;
@@ -320,7 +321,7 @@ export async function generateVideoWithSoraFromImageForWhatsApp(
         targetHeight = 1280;
         
         const targetSize = `${targetWidth}x${targetHeight}`;
-        console.log(`   Original: ${imageWidth}x${imageHeight}, Resizing to: ${targetSize}`);
+        logger.info(`   Original: ${imageWidth}x${imageHeight}, Resizing to: ${targetSize}`);
         
         // Resize image to supported format using 'inside' to preserve all content
         // 'inside' ensures the entire image fits within the bounds without cropping
@@ -334,14 +335,14 @@ export async function generateVideoWithSoraFromImageForWhatsApp(
             .jpeg({ quality: 95 })
             .toBuffer();
         
-        console.log(`✅ Image resized to ${targetSize}`);
+        logger.info(`✅ Image resized to ${targetSize}`);
         
         // Create File object from resized buffer
-        console.log('📤 Preparing image file...');
+        logger.info('📤 Preparing image file...');
         const imageFile = new File([resizedImageBuffer], 'image.jpg', { type: 'image/jpeg' });
         
         // Create video generation job with input_reference
-        console.log('🎬 Creating Sora video with input_reference...');
+        logger.info('🎬 Creating Sora video with input_reference...');
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const video = await openai.videos.create({
             model: model,
@@ -352,10 +353,10 @@ export async function generateVideoWithSoraFromImageForWhatsApp(
         } as any);
         
         const jobId = video.id;
-        console.log(`📋 Job created: ${jobId}, Status: ${video.status}`);
+        logger.info(`📋 Job created: ${jobId}, Status: ${video.status}`);
         
         // Poll for completion
-        console.log('⏳ Waiting for video generation to complete...');
+        logger.info('⏳ Waiting for video generation to complete...');
         const maxWaitTime = TIME.VIDEO_GENERATION_TIMEOUT;
         const startTime = Date.now();
         let pollAttempts = 0;
@@ -363,7 +364,7 @@ export async function generateVideoWithSoraFromImageForWhatsApp(
         let currentVideo = video;
         while (currentVideo.status === 'in_progress' || currentVideo.status === 'queued') {
             if (Date.now() - startTime > maxWaitTime) {
-                console.error('❌ Sora 2 image-to-video timed out');
+                logger.error('❌ Sora 2 image-to-video timed out');
                 return { 
                     success: false, 
                     error: 'Video generation timed out after 10 minutes' 
@@ -375,11 +376,11 @@ export async function generateVideoWithSoraFromImageForWhatsApp(
             
             currentVideo = await openai.videos.retrieve(jobId);
             const progress = currentVideo.progress || 0;
-            console.log(`🔄 Polling attempt ${pollAttempts}: Status=${currentVideo.status}, Progress=${progress}%`);
+            logger.info(`🔄 Polling attempt ${pollAttempts}: Status=${currentVideo.status}, Progress=${progress}%`);
             
             if (currentVideo.status === 'failed') {
                 const errorMsg = currentVideo.error?.message || 'Video generation failed';
-                console.error('❌ Sora 2 image-to-video failed:', errorMsg);
+                logger.error('❌ Sora 2 image-to-video failed:', errorMsg);
                 return { 
                     success: false, 
                     error: errorMsg
@@ -388,17 +389,17 @@ export async function generateVideoWithSoraFromImageForWhatsApp(
         }
         
         if (currentVideo.status !== 'completed') {
-            console.error('❌ Unexpected status:', currentVideo.status);
+            logger.error('❌ Unexpected status:', currentVideo.status);
             return { 
                 success: false, 
                 error: `Unexpected status: ${currentVideo.status}` 
             };
         }
         
-        console.log('✅ Video generation completed');
+        logger.info('✅ Video generation completed');
         
         // Download video content
-        console.log('📥 Downloading video content...');
+        logger.info('📥 Downloading video content...');
         const content = await openai.videos.downloadContent(jobId);
         const arrayBuffer = await content.arrayBuffer();
         const videoBuffer = Buffer.from(arrayBuffer);
@@ -418,9 +419,9 @@ export async function generateVideoWithSoraFromImageForWhatsApp(
         // Create public URL
         const publicVideoUrl = getStaticFileUrl(fileName, null);
         
-        console.log('✅ Sora 2 image-to-video generated successfully');
-        console.log(`🎬 Video saved to: ${filePath}`);
-        console.log(`🔗 Public URL: ${publicVideoUrl}`);
+        logger.info('✅ Sora 2 image-to-video generated successfully');
+        logger.info(`🎬 Video saved to: ${filePath}`);
+        logger.info(`🔗 Public URL: ${publicVideoUrl}`);
         
         return { 
             success: true,
@@ -430,7 +431,7 @@ export async function generateVideoWithSoraFromImageForWhatsApp(
         };
     } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during image-to-video generation';
-        console.error('❌ Sora 2 image-to-video error:', errorMessage);
+        logger.error('❌ Sora 2 image-to-video error:', errorMessage);
         return { 
             success: false, 
             error: errorMessage

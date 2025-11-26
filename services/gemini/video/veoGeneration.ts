@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { TIME, FILE_SIZE } from '../../../utils/constants';
+import logger from '../../../utils/logger';
 
 const veoClient = new genai.GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
@@ -67,7 +68,7 @@ class VeoGeneration {
    * Poll operation until completion
    */
   async pollOperation(operation: unknown, operationType = 'video generation'): Promise<PollResult> {
-    console.log('⏳ Polling for video generation completion...');
+    logger.info('⏳ Polling for video generation completion...');
     const maxWaitTime = TIME.VIDEO_GENERATION_TIMEOUT;
     const startTime = Date.now();
     let pollAttempts = 0;
@@ -76,12 +77,12 @@ class VeoGeneration {
     let currentOperation = operation as any;
     while (!currentOperation.done) {
       if (Date.now() - startTime > maxWaitTime) {
-        console.error(`❌ Veo 3 ${operationType} timed out`);
+        logger.error(`❌ Veo 3 ${operationType} timed out`);
         return { error: `Video generation timed out after 10 minutes` };
       }
       await new Promise(resolve => setTimeout(resolve, 10000));
       pollAttempts++;
-      console.log(`🔄 Polling attempt ${pollAttempts} for Veo 3 ${operationType}`);
+      logger.info(`🔄 Polling attempt ${pollAttempts} for Veo 3 ${operationType}`);
       currentOperation = await veoClient.operations.getVideosOperation({ operation: currentOperation });
     }
 
@@ -98,7 +99,7 @@ class VeoGeneration {
       !op.response.generatedVideos.length ||
       !op.response.generatedVideos[0] ||
       !op.response.generatedVideos[0].video) {
-      console.error('❌ Invalid Veo 3 response structure:', operation);
+      logger.error('❌ Invalid Veo 3 response structure:', operation as Error);
 
       let errorMessage = 'Invalid response from Veo 3 API';
       if (op.response && op.response.raiMediaFilteredReasons && op.response.raiMediaFilteredReasons.length > 0) {
@@ -126,10 +127,10 @@ class VeoGeneration {
 
     try {
       await veoClient.files.download({ file: videoFile, downloadPath: tempFilePath });
-      console.log('📥 SDK download completed');
+      logger.info('📥 SDK download completed');
     } catch (downloadError: unknown) {
       const errorMessage = downloadError instanceof Error ? downloadError.message : String(downloadError);
-      console.error('❌ SDK download failed:', downloadError);
+      logger.error('❌ SDK download failed:', downloadError as Error);
       return { error: `Failed to download video file: ${errorMessage}` };
     }
 
@@ -171,7 +172,7 @@ class VeoGeneration {
     }
 
     if (!fileReady) {
-      console.error('❌ Video file was not properly downloaded');
+      logger.error('❌ Video file was not properly downloaded');
       return { error: 'Video file was not downloaded successfully' };
     }
 
@@ -183,7 +184,7 @@ class VeoGeneration {
    */
   async generateVideoWithText(prompt: string): Promise<VideoGenerationResult> {
     try {
-      console.log('🎬 Starting Veo 3 text-to-video generation - Stable version');
+      logger.info('🎬 Starting Veo 3 text-to-video generation - Stable version');
       const cleanPrompt = sanitizeText(prompt);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -220,7 +221,7 @@ class VeoGeneration {
         return { error: fileReadyResult.error };
       }
 
-      console.log('✅ Veo 3 text-to-video generated successfully.');
+      logger.info('✅ Veo 3 text-to-video generated successfully.');
 
       const videoBuffer = fs.readFileSync(filePath);
       const filename = path.basename(filePath);
@@ -233,7 +234,7 @@ class VeoGeneration {
       };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.error('❌ Veo 3 text-to-video generation error:', err);
+      logger.error('❌ Veo 3 text-to-video generation error:', err as Error);
       return { error: errorMessage };
     }
   }
@@ -243,7 +244,7 @@ class VeoGeneration {
    */
   async generateVideoWithImage(prompt: string, imageBuffer: Buffer): Promise<VideoGenerationResult> {
     try {
-      console.log('🎬 Starting Veo 3 image-to-video generation');
+      logger.info('🎬 Starting Veo 3 image-to-video generation');
 
       const cleanPrompt = sanitizeText(prompt);
       const imageBase64 = imageBuffer.toString('base64');
@@ -286,7 +287,7 @@ class VeoGeneration {
         return { error: fileReadyResult.error };
       }
 
-      console.log('✅ Veo 3 image-to-video generated successfully.');
+      logger.info('✅ Veo 3 image-to-video generated successfully.');
 
       const videoBuffer = fs.readFileSync(filePath);
       const filename = path.basename(filePath);
@@ -299,7 +300,7 @@ class VeoGeneration {
       };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.error('❌ Veo 3 image-to-video generation error:', err);
+      logger.error('❌ Veo 3 image-to-video generation error:', err as Error);
       return { error: errorMessage };
     }
   }

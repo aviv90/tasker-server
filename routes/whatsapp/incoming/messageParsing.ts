@@ -5,6 +5,7 @@
  */
 
 import { MessageData } from '../../../services/whatsapp/types';
+import logger from '../../../utils/logger';
 
 /**
  * Parse incoming message and extract text content
@@ -32,7 +33,7 @@ export function parseIncomingMessage(messageData: MessageData) {
   } else if (messageData.typeMessage === 'editedMessage') {
     // Handle edited messages - treat them as regular messages
     messageText = messageData.editedMessageData?.textMessage;
-    console.log(`✏️ Edited message detected: "${messageText}"`);
+    logger.info(`✏️ Edited message detected: "${messageText}"`);
   } else if (messageData.typeMessage === 'imageMessage') {
     // Extract caption from image messages
     messageText = messageData.fileMessageData?.caption || messageData.imageMessageData?.caption;
@@ -69,31 +70,31 @@ export function extractPrompt(messageText: string) {
  * @param {string} messageText - Extracted message text
  */
 export function logIncomingMessage(messageData: MessageData, senderName: string, messageText: string | null | undefined) {
-  console.log(`📱 Incoming from ${senderName} | Type: ${messageData.typeMessage}${messageData.typeMessage === 'editedMessage' ? ' ✏️' : ''}`);
+  logger.info(`📱 Incoming from ${senderName} | Type: ${messageData.typeMessage}${messageData.typeMessage === 'editedMessage' ? ' ✏️' : ''}`);
   if (messageText) {
-    console.log(`   Text: ${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}`);
+    logger.info(`   Text: ${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}`);
   }
   if (messageData.typeMessage === 'imageMessage') {
     const caption = messageData.fileMessageData?.caption || messageData.imageMessageData?.caption;
-    console.log(`   Image Caption: ${caption || 'N/A'}`);
+    logger.info(`   Image Caption: ${caption || 'N/A'}`);
   }
   if (messageData.typeMessage === 'stickerMessage') {
     const caption = messageData.fileMessageData?.caption;
-    console.log(`   Sticker Caption: ${caption || 'N/A'} (treating as image)`);
+    logger.info(`   Sticker Caption: ${caption || 'N/A'} (treating as image)`);
   }
   if (messageData.typeMessage === 'videoMessage') {
     const caption = messageData.fileMessageData?.caption || messageData.videoMessageData?.caption;
-    console.log(`   Video Caption: ${caption || 'N/A'}`);
+    logger.info(`   Video Caption: ${caption || 'N/A'}`);
   }
   if (messageData.typeMessage === 'quotedMessage' && messageData.quotedMessage) {
-    console.log(`   Quoted Message Type: ${messageData.quotedMessage.typeMessage}`);
+    logger.info(`   Quoted Message Type: ${messageData.quotedMessage.typeMessage}`);
     if (messageData.quotedMessage.textMessageData?.textMessage) {
-      console.log(`   Quoted Text: ${messageData.quotedMessage.textMessageData.textMessage.substring(0, 50)}...`);
+      logger.info(`   Quoted Text: ${messageData.quotedMessage.textMessageData.textMessage.substring(0, 50)}...`);
     }
     // Note: textMessage on recursive type is not defined in interface but might be there in raw data
     // or inside textMessageData. Let's use textMessageData.
     if (messageData.quotedMessage.caption) {
-      console.log(`   Quoted Caption: ${messageData.quotedMessage.caption.substring(0, 50)}...`);
+      logger.info(`   Quoted Caption: ${messageData.quotedMessage.caption.substring(0, 50)}...`);
     }
   }
 }

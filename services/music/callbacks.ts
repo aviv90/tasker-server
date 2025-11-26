@@ -240,7 +240,7 @@ export class MusicCallbacks {
                   }
                 }
               } catch (videoError: unknown) {
-                console.error('❌ Error initiating video generation:', videoError);
+                logger.error('❌ Error initiating video generation:', videoError);
               }
             } else if (taskInfo.wantsVideo && !firstSong.id) {
               logger.warn('⚠️ Video was requested but no audio ID available');

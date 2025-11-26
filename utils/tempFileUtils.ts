@@ -9,6 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import { FILE_SIZE, TIME } from './constants';
 import { config } from '../config';
+import logger from './logger';
 
 /**
  * Result of saving a buffer to a temporary file
@@ -48,7 +49,7 @@ export function ensureTempDir(): string {
   const tempDir = getTempDir();
   if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
-    console.log(`📁 Created temp directory: ${tempDir}`);
+    logger.info(`📁 Created temp directory: ${tempDir}`);
   }
   return tempDir;
 }
@@ -72,7 +73,7 @@ export function createTempFilePath(filename: string): string {
 export function saveBufferToTempFile(buffer: Buffer, filename: string): TempFileResult {
   const filePath = createTempFilePath(filename);
   fs.writeFileSync(filePath, buffer);
-  console.log(`💾 Saved temp file: ${path.basename(filePath)} (${buffer.length} bytes)`);
+  logger.info(`💾 Saved temp file: ${path.basename(filePath)} (${buffer.length} bytes)`);
   return {
     filePath,
     fileName: path.basename(filePath),
@@ -89,12 +90,12 @@ export function cleanupTempFile(filePath: string): boolean {
   try {
     if (filePath && fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
-      console.log(`🧹 Cleaned up temporary file: ${path.basename(filePath)}`);
+      logger.debug(`🧹 Cleaned up temporary file: ${path.basename(filePath)}`);
       return true;
     }
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.warn(`⚠️ Failed to cleanup file ${filePath}:`, errorMessage);
+    logger.warn(`⚠️ Failed to cleanup file ${filePath}: ${errorMessage}`);
   }
   return false;
 }

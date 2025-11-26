@@ -6,6 +6,7 @@ import { voiceService } from '../../services/voiceService';
 import { isErrorResult, extractErrorMessage } from '../../utils/errorHandler';
 import callbacks from './callbacks';
 import { Request, Response, Router } from 'express';
+import logger from '../../utils/logger';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -44,7 +45,7 @@ class VoiceRoutes {
      * Speech-to-Song endpoint
      */
     router.post('/speech-to-song', ...handlers, async (req: VoiceUploadRequest, res: Response) => {
-      console.log(`🎤 Starting Speech-to-Song generation for task ${req.body.taskId || 'new'}`);
+      logger.info(`🎤 Starting Speech-to-Song generation for task ${req.body.taskId || 'new'}`);
 
       // Validate required fields
       if (!req.file) {
@@ -60,7 +61,7 @@ class VoiceRoutes {
       const maxSize = 10 * 1024 * 1024; // 10MB
       const minSize = 10 * 1024; // 10KB
 
-      console.log(`📁 File received: ${req.file.originalname}, type: ${req.file.mimetype}, size: ${Math.round(req.file.size / 1024)}KB`);
+      logger.info(`📁 File received: ${req.file.originalname}, type: ${req.file.mimetype}, size: ${Math.round(req.file.size / 1024)}KB`);
 
       if (!supportedTypes.includes(req.file.mimetype)) {
         res.status(400).json({
@@ -95,7 +96,7 @@ class VoiceRoutes {
         const audioBuffer = req.file.buffer;
         const fileType = req.file.mimetype;
 
-        console.log(`🎤 Using original audio format: ${fileType}, size: ${Math.round(audioBuffer.length / 1024)}KB`);
+        logger.info(`🎤 Using original audio format: ${fileType}, size: ${Math.round(audioBuffer.length / 1024)}KB`);
 
         // Extract options from request with optimized defaults
         const options = {
@@ -107,8 +108,8 @@ class VoiceRoutes {
           weirdnessConstraint: req.body.weirdnessConstraint ? parseFloat(req.body.weirdnessConstraint) : undefined
         };
 
-        console.log(`🎵 Starting speech-to-song generation`);
-        console.log(`🎤 Using audio format: ${fileType}, size: ${Math.round(audioBuffer.length / 1024)}KB`);
+        logger.info(`🎵 Starting speech-to-song generation`);
+        logger.info(`🎤 Using audio format: ${fileType}, size: ${Math.round(audioBuffer.length / 1024)}KB`);
 
         // Generate song from speech
         const result = await musicService.generateSongFromSpeech(audioBuffer, options);
@@ -118,15 +119,15 @@ class VoiceRoutes {
         const resultWithTaskId = result as { taskId?: string };
         if (resultWithTaskId.taskId) {
           kieTaskMapping.set(resultWithTaskId.taskId, taskId);
-          console.log(`🔗 Mapped Kie task ${resultWithTaskId.taskId} to our task ${taskId}`);
+          logger.info(`🔗 Mapped Kie task ${resultWithTaskId.taskId} to our task ${taskId}`);
         }
 
         if (isErrorResult(result)) {
           const errorMessage = extractErrorMessage(result);
-          console.error(`❌ Speech-to-Song generation failed for task ${taskId}:`, errorMessage);
+          logger.error(`❌ Speech-to-Song generation failed for task ${taskId}: ${errorMessage}`);
           await taskStore.set(taskId, { status: 'failed', error: errorMessage });
         } else {
-          console.log(`✅ Speech-to-Song generation completed for task ${taskId}`);
+          logger.info(`✅ Speech-to-Song generation completed for task ${taskId}`);
 
           // Extract the first song URL for simple response format
           let songUrl = null;
@@ -143,7 +144,7 @@ class VoiceRoutes {
         }
 
       } catch (error: any) {
-        console.error(`❌ Speech-to-Song generation error for task ${taskId}:`, error);
+        logger.error(`❌ Speech-to-Song generation error for task ${taskId}:`, { error: error.message || error, stack: error.stack });
         await taskStore.set(taskId, {
           status: 'failed',
           error: error.message || 'Speech-to-Song generation failed'
@@ -156,7 +157,7 @@ class VoiceRoutes {
      */
     router.post('/cleanup-voices', ...handlers, async (_req: Request, res: Response) => {
       try {
-        console.log('🧹 Starting voice cleanup...');
+        logger.info('🧹 Starting voice cleanup...');
 
         const result = await voiceService.getVoices() as { error?: string; voices?: Array<{ voice_id: string; name?: string; category?: string; sharing?: { status?: string } }> };
         if (result.error) {
@@ -165,7 +166,7 @@ class VoiceRoutes {
         }
 
         const voices = result.voices || [];
-        console.log(`Found ${voices.length} total voices`);
+        logger.info(`Found ${voices.length} total voices`);
 
         // Filter only custom voices (not built-in ElevenLabs voices)
         const customVoices = voices.filter((voice: any) =>
@@ -174,7 +175,7 @@ class VoiceRoutes {
           voice.name?.startsWith('Voice_')
         );
 
-        console.log(`Found ${customVoices.length} custom voices to delete`);
+        logger.info(`Found ${customVoices.length} custom voices to delete`);
 
         let deletedCount = 0;
         let errors = [];
@@ -186,7 +187,7 @@ class VoiceRoutes {
               errors.push(`${voice.name}: ${deleteResult.error}`);
             } else {
               deletedCount++;
-              console.log(`✅ Deleted voice: ${voice.name} (${voice.voice_id})`);
+              logger.info(`✅ Deleted voice: ${voice.name} (${voice.voice_id})`);
             }
           } catch (error: any) {
             errors.push(`${voice.name}: ${error.message}`);
@@ -202,7 +203,7 @@ class VoiceRoutes {
         });
 
       } catch (error: any) {
-        console.error('❌ Voice cleanup error:', error);
+        logger.error('❌ Voice cleanup error:', { error: error.message || error, stack: error.stack });
         res.status(500).json({
           status: 'error',
           error: error.message || 'Voice cleanup failed'

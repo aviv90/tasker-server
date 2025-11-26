@@ -64,7 +64,7 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
     
     // Log edited messages
     if (messageData.typeMessage === 'editedMessage' && messageText) {
-      console.log(`✏️ Edited message detected (outgoing): "${messageText}"`);
+      logger.info(`✏️ Edited message detected (outgoing): "${messageText}"`);
     }
     
     // Enhanced logging for outgoing messages
@@ -119,7 +119,7 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
         let audioUrl = mediaUrls.audioUrl;
         
         if (imageUrl) {
-          console.log(`📸 Outgoing: Direct image message, downloadUrl: found`);
+          logger.info(`📸 Outgoing: Direct image message, downloadUrl: found`);
         }
         if (videoUrl) {
           logger.debug(`🎥 Outgoing: Direct video message, downloadUrl: found`);
@@ -151,7 +151,7 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
         } else if (messageData.typeMessage === 'quotedMessage' && quotedMessage) {
           // This is a media message (image/video) with caption, NOT an actual quote
           // Extract downloadUrl from the message itself using centralized parser
-          console.log(`📸 Outgoing: Media message with caption (not a quote) - Type: ${quotedMessage.typeMessage || 'unknown'}`);
+          logger.info(`📸 Outgoing: Media message with caption (not a quote) - Type: ${quotedMessage.typeMessage || 'unknown'}`);
           
           const quotedMedia = await extractQuotedMediaUrls(
             messageData, 
@@ -198,7 +198,7 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
 
         // ═══════════════════ AGENT MODE (Gemini Function Calling - OUTGOING) ═══════════════════
         // All outgoing requests are routed directly to the Agent for intelligent tool selection
-        console.log('🤖 [AGENT - OUTGOING] Processing request with Gemini Function Calling');
+        logger.info('🤖 [AGENT - OUTGOING] Processing request with Gemini Function Calling');
         
         try {
             // NOTE: User messages are no longer saved to DB to avoid duplication.
@@ -243,7 +243,7 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
         
 
       } catch (error: any) {
-        console.error('❌ Command execution error (outgoing):', error.message || error);
+        logger.error('❌ Command execution error (outgoing):', { error: error.message || error, stack: error.stack });
         const originalMessageId = webhookData.idMessage;
         await sendErrorToUser(chatId, error, { context: 'EXECUTION', quotedMessageId: originalMessageId });
       }

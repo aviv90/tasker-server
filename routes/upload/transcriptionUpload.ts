@@ -8,6 +8,7 @@ import { extractErrorMessage } from '../../utils/errorHandler';
 import path from 'path';
 import finalizers from './finalizers';
 import { Request, Response, Router } from 'express';
+import logger from '../../utils/logger';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -70,8 +71,8 @@ class TranscriptionUploadRoutes {
       res.json({ taskId });
 
       try {
-        console.log(`🎤 Starting enhanced voice processing pipeline with Gemini integration...`);
-        console.log(`📋 Pipeline: Transcription → Voice Clone → Gemini Response → Text-to-Speech → Cleanup`);
+        logger.info('🎤 Starting enhanced voice processing pipeline with Gemini integration...');
+        logger.info('📋 Pipeline: Transcription → Voice Clone → Gemini Response → Text-to-Speech → Cleanup');
 
         // Step 1: Speech-to-Text transcription
         const originalExtension = path.extname(req.file.originalname).slice(1).toLowerCase();
@@ -87,28 +88,28 @@ class TranscriptionUploadRoutes {
           format: format
         };
 
-        console.log(`🔄 Step 1: Transcribing speech...`);
+        logger.info('🔄 Step 1: Transcribing speech...');
         const transcriptionResult: any = await speechService.speechToText(req.file.buffer, transcriptionOptions);
 
         if (transcriptionResult.error) {
-          console.error('❌ Transcription failed:', transcriptionResult.error);
+          logger.error('❌ Transcription failed:', transcriptionResult.error);
           await finalizers.finalizeTranscription(taskId, transcriptionResult);
           return;
         }
 
         const transcribedText = transcriptionResult.text;
-        console.log(`✅ Step 1 complete: Transcribed ${transcribedText.length} characters`);
+        logger.info(`✅ Step 1 complete: Transcribed ${transcribedText.length} characters`);
 
         // Step 2: Create Instant Voice Clone with optimal parameters
-        console.log(`🔄 Step 2: Creating voice clone with optimized parameters...`);
+        logger.info('🔄 Step 2: Creating voice clone with optimized parameters...');
         const voiceName = req.body.voiceName || `Voice_${Date.now()}`;
 
         // Use our own language detection on transcribed text for consistency
         const originalLanguage = voiceService.detectLanguage(transcribedText);
         const sttDetected = transcriptionResult.metadata?.language || 'auto';
-        console.log(`🌐 Language detection for voice clone:`);
-        console.log(`   - STT detected: ${sttDetected}`);
-        console.log(`   - Our detection: ${originalLanguage}`);
+        logger.info('🌐 Language detection for voice clone:');
+        logger.info(`   - STT detected: ${sttDetected}`);
+        logger.info(`   - Our detection: ${originalLanguage}`);
 
         const voiceCloneOptions = {
           name: voiceName,
@@ -126,7 +127,7 @@ class TranscriptionUploadRoutes {
         const voiceCloneResult: any = await voiceService.createInstantVoiceClone([req.file.buffer], voiceCloneOptions);
 
         if (voiceCloneResult.error) {
-          console.error('❌ Voice cloning failed:', voiceCloneResult.error);
+          logger.error('❌ Voice cloning failed:', voiceCloneResult.error);
           // If voice cloning fails, return error with transcription
           await finalizers.finalizeVoiceProcessing(taskId, {
             text: transcribedText,
@@ -136,10 +137,10 @@ class TranscriptionUploadRoutes {
         }
 
         const voiceId = voiceCloneResult.voiceId;
-        console.log(`✅ Step 2 complete: Voice clone created with ID ${voiceId}`);
+        logger.info(`✅ Step 2 complete: Voice clone created with ID ${voiceId}`);
 
         // Step 3: Generate Gemini response (Chatbot)
-        console.log(`🔄 Step 3: Generating Gemini response to transcribed text...`);
+        logger.info('🔄 Step 3: Generating Gemini response to transcribed text...');
         // generateTextResponse expects conversationHistory array, but we pass options as second param
         // Using type assertion to match JS behavior
         const geminiResult = await (geminiService as any).generateTextResponse(transcribedText, []);
@@ -147,21 +148,21 @@ class TranscriptionUploadRoutes {
         let textForTTS = transcribedText; // Default to original text
 
         if (geminiResult.error) {
-          console.warn('⚠️ Gemini generation failed:', geminiResult.error);
-          console.log('📝 Using original transcribed text for TTS');
+          logger.warn('⚠️ Gemini generation failed:', geminiResult.error);
+          logger.info('📝 Using original transcribed text for TTS');
         } else {
           textForTTS = geminiResult.text;
-          console.log(`✅ Step 3 complete: Gemini response generated`);
+          logger.info('✅ Step 3 complete: Gemini response generated');
         }
 
         // Step 4: Text-to-Speech with cloned voice
-        console.log(`🔄 Step 4: Converting text to speech with cloned voice...`);
+        logger.info('🔄 Step 4: Converting text to speech with cloned voice...');
 
         // For TTS, use the original language to maintain consistency throughout the flow
         const ttsLanguage = originalLanguage;
-        console.log(`🌐 Language consistency in upload-transcribe:`);
-        console.log(`   - Original (from transcription): ${originalLanguage}`);
-        console.log(`   - TTS (forced same): ${ttsLanguage}`);
+        logger.info('🌐 Language consistency in upload-transcribe:');
+        logger.info(`   - Original (from transcription): ${originalLanguage}`);
+        logger.info(`   - TTS (forced same): ${ttsLanguage}`);
 
         const ttsOptions: any = {
           modelId: req.body.ttsModel || 'eleven_v3',
@@ -172,13 +173,13 @@ class TranscriptionUploadRoutes {
         // Only add optimizeStreamingLatency if explicitly requested and not using eleven_v3
         if (req.body.optimizeStreamingLatency && (req.body.ttsModel && req.body.ttsModel !== 'eleven_v3')) {
           ttsOptions.optimizeStreamingLatency = parseInt(req.body.optimizeStreamingLatency);
-          console.log(`⚡ Added streaming latency optimization: ${ttsOptions.optimizeStreamingLatency}`);
+          logger.info(`⚡ Added streaming latency optimization: ${ttsOptions.optimizeStreamingLatency}`);
         }
 
         const ttsResult = await voiceService.textToSpeech(voiceId, textForTTS, ttsOptions) as { error?: string; audioUrl?: string; metadata?: unknown };
 
         if (ttsResult.error) {
-          console.error('❌ Text-to-speech failed:', ttsResult.error);
+          logger.error('❌ Text-to-speech failed:', ttsResult.error);
           // If TTS fails, return error with transcription
           await finalizers.finalizeVoiceProcessing(taskId, {
             text: transcribedText,
@@ -187,10 +188,10 @@ class TranscriptionUploadRoutes {
           return;
         }
 
-        console.log(`✅ Step 4 complete: Audio generated at ${ttsResult.audioUrl}`);
+        logger.info(`✅ Step 4 complete: Audio generated at ${ttsResult.audioUrl}`);
 
         // Final result: Complete pipeline success
-        console.log(`📝 Finalizing with transcribed text: "${transcribedText.substring(0, 100)}..."`);
+        logger.info(`📝 Finalizing with transcribed text: "${transcribedText.substring(0, 100)}..."`);
         await finalizers.finalizeVoiceProcessing(taskId, {
           text: transcribedText, // The original transcribed text - this is what should be returned
           result: ttsResult.audioUrl,
@@ -202,23 +203,23 @@ class TranscriptionUploadRoutes {
           ttsMetadata: ttsResult.metadata
         }, req);
 
-        console.log(`🎉 Full voice processing pipeline completed successfully!`);
+        logger.info('🎉 Full voice processing pipeline completed successfully!');
 
         // Step 4: Clean up - delete the temporary voice clone
-        console.log(`🧹 Step 4: Cleaning up voice clone ${voiceId}...`);
+        logger.info(`🧹 Step 4: Cleaning up voice clone ${voiceId}...`);
         try {
           const deleteResult = await voiceService.deleteVoice(voiceId) as { error?: string };
           if (deleteResult.error) {
-            console.warn(`⚠️ Warning: Could not delete voice clone ${voiceId}:`, deleteResult.error);
+            logger.warn(`⚠️ Warning: Could not delete voice clone ${voiceId}: ${deleteResult.error}`);
           } else {
-            console.log(`✅ Voice clone ${voiceId} deleted successfully`);
+            logger.info(`✅ Voice clone ${voiceId} deleted successfully`);
           }
         } catch (cleanupError: any) {
-          console.warn(`⚠️ Warning: Voice cleanup failed:`, cleanupError.message);
+          logger.warn(`⚠️ Warning: Voice cleanup failed: ${cleanupError.message}`);
         }
 
       } catch (error: unknown) {
-        console.error(`❌ Pipeline error:`, error);
+        logger.error('❌ Pipeline error:', error as Error);
         const errorMessage = extractErrorMessage(error);
         await taskStore.set(taskId, {
           status: 'error',

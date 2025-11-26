@@ -9,6 +9,7 @@ import { defaultSenderName } from '../../../config/messages';
 import { parseGroupCreationPrompt, resolveParticipants } from '../../groupService';
 import { createGroup, setGroupPicture, sendTextMessage } from '../../greenApiService';
 import { generateImageForWhatsApp } from '../../geminiService';
+import logger from '../../../utils/logger';
 
 type CreateGroupArgs = {
   group_name?: string;
@@ -94,7 +95,7 @@ export const create_group = {
     }
   },
   execute: async (args: CreateGroupArgs = {}, context: ToolContext = {}): ToolResult => {
-    console.log(`🔧 [Agent Tool] create_group called`);
+    logger.info(`🔧 [Agent Tool] create_group called`);
 
     try {
       const chatId = context.chatId;
@@ -116,7 +117,7 @@ export const create_group = {
         .trim();
       const promptForParsing = rawPrompt || args.participants_description || args.group_name || '';
 
-      console.log(`📋 Parsing group creation request from: "${promptForParsing}"`);
+      logger.info(`📋 Parsing group creation request from: "${promptForParsing}"`);
 
       await sendTextMessage(chatId, '👥 מתחיל יצירת קבוצה...', quotedMessageId, 1000);
       await sendTextMessage(chatId, '🔍 מנתח את הבקשה...', quotedMessageId, 1000);
@@ -211,11 +212,11 @@ export const create_group = {
               await setGroupPicture(groupResult.chatId, imageBuffer);
               await sendTextMessage(chatId, '✅ תמונת הקבוצה עודכנה בהצלחה!', quotedMessageId, 1000);
             } else {
-              console.warn(`⚠️ Generated group image not found at ${imagePath}`);
+              logger.warn(`⚠️ Generated group image not found at ${imagePath}`);
               await sendTextMessage(chatId, '⚠️ התמונה נוצרה אבל לא נמצאה בשרת', quotedMessageId, 1000);
             }
           } else if (imageResult.error) {
-            console.error('❌ Image generation failed:', imageResult.error);
+            logger.error('❌ Image generation failed:', imageResult.error);
             await sendTextMessage(
               chatId,
               `⚠️ הקבוצה נוצרה, אבל הייתה בעיה ביצירת התמונה: ${imageResult.error}`,
@@ -225,7 +226,7 @@ export const create_group = {
           }
         } catch (pictureError) {
           const err = pictureError as Error;
-          console.error('❌ Failed to set group picture:', err);
+          logger.error('❌ Failed to set group picture:', err);
           await sendTextMessage(
             chatId,
             `⚠️ הקבוצה נוצרה, אבל לא הצלחתי להעלות תמונה: ${err.message}`,
@@ -253,7 +254,7 @@ export const create_group = {
       };
     } catch (error) {
       const err = error as Error;
-      console.error('❌ Error in create_group:', err);
+      logger.error('❌ Error in create_group:', err);
       return {
         success: false,
         error: `שגיאה: ${err.message || 'אירעה שגיאה בלתי צפויה'}`

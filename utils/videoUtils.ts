@@ -8,6 +8,7 @@ import { isErrorResult, getTaskError, extractErrorMessage } from './errorHandler
 import * as taskStore from '../store/taskStore';
 import fs from 'fs';
 import path from 'path';
+import logger from './logger';
 
 /**
  * Video result structure from providers
@@ -81,7 +82,7 @@ export async function finalizeVideo(
       cost: result.cost || undefined
     });
   } catch (error) {
-    console.error('❌ Error in finalizeVideo:', error);
+    logger.error('❌ Error in finalizeVideo:', error as Error);
     const taskError = getTaskError(error, 'Failed to finalize video');
     await taskStore.set(taskId, {
       status: 'error',

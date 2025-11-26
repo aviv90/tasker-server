@@ -1,4 +1,5 @@
 import prompts from '../../../config/prompts';
+import logger from '../../../utils/logger';
 
 /**
  * Conversation message
@@ -196,8 +197,7 @@ class PromptBuilder {
     // Add conversation history if exists
     if (conversationHistory.length > 0) {
       // Keep this low-level log at debug level to avoid noisy production logs
-      // eslint-disable-next-line no-console
-      console.debug(`🧠 Using conversation history: ${conversationHistory.length} previous messages`);
+      logger.debug(`🧠 Using conversation history: ${conversationHistory.length} previous messages`);
       
       for (const msg of conversationHistory) {
         // Convert OpenAI format to Gemini format

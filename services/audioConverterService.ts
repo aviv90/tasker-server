@@ -9,6 +9,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { promisify } from 'util';
 import { downloadFile } from './greenApiService';
+import logger from '../utils/logger';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ffmpegPath = require('ffmpeg-static');
 
@@ -83,7 +84,7 @@ class AudioConverterService {
                 // Write input audio buffer to temporary file
                 fs.writeFileSync(inputPath, audioBuffer);
 
-                console.log(`🔄 Converting ${inputFormat.toUpperCase()} to Opus: ${inputFileName} → ${outputFileName}`);
+                logger.info(`🔄 Converting ${inputFormat.toUpperCase()} to Opus: ${inputFileName} → ${outputFileName}`);
 
                 // FFmpeg command for voice note conversion
                 const ffmpegCommand = [
@@ -100,7 +101,7 @@ class AudioConverterService {
                     outputPath
                 ].join(' ');
 
-                console.log(`🎵 FFmpeg command: ${ffmpegCommand}`);
+                logger.debug(`🎵 FFmpeg command: ${ffmpegCommand}`);
 
                 try {
                     const { stderr } = await execAsync(ffmpegCommand);
@@ -120,7 +121,7 @@ class AudioConverterService {
                     this.cleanupFile(inputPath);
                     this.cleanupFile(outputPath);
 
-                    console.log(`✅ Audio conversion completed: ${opusBuffer.length} bytes`);
+                    logger.info(`✅ Audio conversion completed: ${opusBuffer.length} bytes`);
 
                     resolve({
                         success: true,
@@ -131,7 +132,7 @@ class AudioConverterService {
 
                 } catch (ffmpegError: unknown) {
                     const errorMessage = ffmpegError instanceof Error ? ffmpegError.message : String(ffmpegError);
-                    console.error('❌ FFmpeg conversion error:', ffmpegError);
+                    logger.error('❌ FFmpeg conversion error:', ffmpegError as Error);
                     
                     // Clean up temporary files
                     this.cleanupFile(inputPath);
@@ -142,7 +143,7 @@ class AudioConverterService {
 
             } catch (err: unknown) {
                 const errorMessage = err instanceof Error ? err.message : String(err);
-                console.error('❌ Error in audio conversion setup:', err);
+                logger.error('❌ Error in audio conversion setup:', err as Error);
                 reject(new Error(`Conversion setup failed: ${errorMessage}`));
             }
         });
@@ -157,7 +158,7 @@ class AudioConverterService {
      */
     async convertAndSaveAsOpus(audioBuffer: Buffer, inputFormat: string = 'mp3', options: ConversionOptions = {}): Promise<SaveResult> {
         try {
-            console.log(`🔄 Converting ${inputFormat.toUpperCase()} to Opus for voice note...`);
+            logger.info(`🔄 Converting ${inputFormat.toUpperCase()} to Opus for voice note...`);
 
             // Convert to Opus
             const conversionResult = await this.convertToOpus(audioBuffer, inputFormat, options);
@@ -173,7 +174,7 @@ class AudioConverterService {
             // Ensure directory exists
             if (!fs.existsSync(this.tempDir)) {
                 fs.mkdirSync(this.tempDir, { recursive: true });
-                console.log(`📁 Created temp directory: ${this.tempDir}`);
+                logger.info(`📁 Created temp directory: ${this.tempDir}`);
             }
             
             fs.writeFileSync(opusFilePath, conversionResult.opusBuffer);
@@ -184,8 +185,8 @@ class AudioConverterService {
             }
             
             const fileStats = fs.statSync(opusFilePath);
-            console.log(`✅ Opus file saved: ${opusFileName} (${fileStats.size} bytes)`);
-            console.log(`📁 Full path: ${opusFilePath}`);
+            logger.info(`✅ Opus file saved: ${opusFileName} (${fileStats.size} bytes)`);
+            logger.debug(`📁 Full path: ${opusFilePath}`);
 
             return {
                 success: true,
@@ -198,7 +199,7 @@ class AudioConverterService {
 
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : String(err);
-            console.error('❌ Error in convertAndSaveAsOpus:', err);
+            logger.error('❌ Error in convertAndSaveAsOpus:', err as Error);
             return {
                 success: false,
                 error: errorMessage || 'Audio conversion failed'
@@ -215,7 +216,7 @@ class AudioConverterService {
      */
     async convertUrlToOpus(audioUrl: string, inputFormat: string = 'mp3', options: ConversionOptions = {}): Promise<SaveResult> {
         try {
-            console.log(`🔄 Converting audio from URL to Opus: ${audioUrl}`);
+            logger.info(`🔄 Converting audio from URL to Opus: ${audioUrl}`);
 
             let audioBuffer: Buffer;
 
@@ -240,7 +241,7 @@ class AudioConverterService {
                 }
                 
                 audioBuffer = fs.readFileSync(filePath);
-                console.log(`📁 Read local file: ${filePath} (${audioBuffer.length} bytes)`);
+                logger.info(`📁 Read local file: ${filePath} (${audioBuffer.length} bytes)`);
             } else {
                 // Download from URL
                 audioBuffer = await downloadFile(audioUrl) as Buffer;
@@ -253,7 +254,7 @@ class AudioConverterService {
 
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : String(err);
-            console.error('❌ Error in convertUrlToOpus:', err);
+            logger.error('❌ Error in convertUrlToOpus:', err as Error);
             return {
                 success: false,
                 error: errorMessage || 'URL to Opus conversion failed'
@@ -269,11 +270,11 @@ class AudioConverterService {
         try {
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
-                console.log(`🧹 Cleaned up temporary file: ${path.basename(filePath)}`);
+                logger.debug(`🧹 Cleaned up temporary file: ${path.basename(filePath)}`);
             }
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : String(err);
-            console.warn(`⚠️ Failed to cleanup file ${filePath}:`, errorMessage);
+            logger.warn(`⚠️ Failed to cleanup file ${filePath}: ${errorMessage}`);
         }
     }
 
@@ -285,14 +286,14 @@ class AudioConverterService {
         try {
             const { stderr } = await execAsync(`${ffmpeg} -version`);
             if (stderr && typeof stderr === 'string' && stderr.includes('error')) {
-                console.error('❌ FFmpeg error:', stderr);
+                logger.error('❌ FFmpeg error:', stderr);
                 return false;
             }
-            console.log('✅ FFmpeg is available');
+            logger.info('✅ FFmpeg is available');
             return true;
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : String(err);
-            console.error('❌ FFmpeg not available:', errorMessage);
+            logger.error('❌ FFmpeg not available:', errorMessage);
             return false;
         }
     }
