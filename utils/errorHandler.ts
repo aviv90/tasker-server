@@ -275,6 +275,59 @@ export function formatProviderError(provider: string, errorMessage: unknown): st
   return `❌ שגיאה ב-${providerName}: ${cleanError}`;
 }
 
+/**
+ * Extract error details for logging
+ * Returns a standardized object with error message and stack trace
+ * This is the SSOT for error logging format - ensures consistent error logging across the codebase
+ * @param error - The error object (can be Error, string, or unknown)
+ * @returns Object with error details for logging
+ */
+export function getErrorDetails(error: unknown): {
+  message: string;
+  stack?: string;
+  name?: string;
+} {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    };
+  }
+  
+  return {
+    message: typeof error === 'string' ? error : extractErrorMessage(error)
+  };
+}
+
+/**
+ * Format error for logger.error() calls
+ * Returns an object suitable for logger.error() second parameter
+ * This is the SSOT for error logging format - ensures consistent error logging
+ * @param error - The error object (can be Error, string, or unknown)
+ * @returns Object formatted for logger.error()
+ */
+export function formatErrorForLogging(error: unknown): {
+  error: string | { message: string; stack?: string; name?: string };
+  stack?: string;
+} {
+  if (error instanceof Error) {
+    return {
+      error: {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      },
+      stack: error.stack
+    };
+  }
+  
+  const errorMessage = typeof error === 'string' ? error : extractErrorMessage(error);
+  return {
+    error: errorMessage
+  };
+}
+
 // Backward compatibility: CommonJS export
 module.exports = {
   extractErrorMessage,
@@ -284,6 +337,8 @@ module.exports = {
   isErrorResult,
   getTaskError,
   isCriticalError,
-  serializeError
+  serializeError,
+  getErrorDetails,
+  formatErrorForLogging
 };
 

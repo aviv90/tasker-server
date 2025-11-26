@@ -70,28 +70,28 @@ class MusicService implements MusicServiceInterface {
 
   async generateMusicWithLyrics(prompt: string, options: MusicGenerationOptions = {}): Promise<unknown> {
     if (!this.generationManager) {
-      throw new Error('MusicService: generationManager is not initialized');
+      return { error: 'MusicService: generationManager is not initialized' };
     }
     return this.generationManager.generateMusicWithLyrics(prompt, options);
   }
 
   async generateInstrumentalMusic(prompt: string, options: MusicGenerationOptions = {}): Promise<unknown> {
     if (!this.generationManager) {
-      throw new Error('MusicService: generationManager is not initialized');
+      return { error: 'MusicService: generationManager is not initialized' };
     }
     return this.generationManager.generateInstrumentalMusic(prompt, options);
   }
 
   async generateAdvancedMusic(prompt: string, options: MusicGenerationOptions = {}): Promise<unknown> {
     if (!this.generationManager) {
-      throw new Error('MusicService: generationManager is not initialized');
+      return { error: 'MusicService: generationManager is not initialized' };
     }
     return this.generationManager.generateAdvancedMusic(prompt, options);
   }
 
   async generateSongFromSpeech(audioBuffer: Buffer, options: MusicGenerationOptions = {}): Promise<unknown> {
     if (!this.generationManager) {
-      throw new Error('MusicService: generationManager is not initialized');
+      return { error: 'MusicService: generationManager is not initialized' };
     }
     return this.generationManager.generateSongFromSpeech(audioBuffer, options);
   }

@@ -11,6 +11,7 @@ import logger from '../../../utils/logger';
 import { TIME } from '../../../utils/constants';
 import { getLanguageInstruction } from '../utils/languageUtils';
 import { detectLanguage } from '../../../utils/agentHelpers';
+import { formatErrorForLogging } from '../../../utils/errorHandler';
 
 // Reference to agentTools (will be injected)
 let agentTools: Record<string, { execute: (args: unknown, context: unknown) => Promise<unknown> }> | null = null;
@@ -51,8 +52,7 @@ async function sendRetryAck(
       await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId || undefined, TIME.TYPING_INDICATOR);
     }
   } catch (error) {
-    const err = error as Error;
-    logger.error('❌ Error sending retry ACK:', { error: err.message, stack: err.stack });
+    logger.error('❌ Error sending retry ACK:', formatErrorForLogging(error));
     // Don't throw - ACK failure shouldn't break retry
   }
 }
@@ -637,11 +637,10 @@ export const retry_last_command = {
       }
       
     } catch (error) {
-      const err = error as Error;
-      logger.error('❌ Error in retry_last_command:', { error: err.message, stack: err.stack });
+      logger.error('❌ Error in retry_last_command:', formatErrorForLogging(error));
       return {
         success: false,
-        error: `שגיאה בביצוע חוזר: ${err.message}`
+        error: `שגיאה בביצוע חוזר: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }

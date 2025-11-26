@@ -1,0 +1,140 @@
+/**
+ * Music Creation Tool
+ * Clean, modular tool definition following SOLID principles
+ */
+
+import logger from '../../../../utils/logger';
+import { generateMusicWithLyrics } from '../../../musicService';
+import { parseMusicRequest } from '../../../geminiService';
+import { formatErrorForLogging } from '../../../../utils/errorHandler';
+import type {
+  AgentToolContext,
+  ToolResult,
+  CreateMusicArgs,
+  MusicGenerationResponse
+} from './types';
+
+/**
+ * Tool: Create Music
+ */
+export const create_music = {
+  declaration: {
+    name: 'create_music',
+    description: `יוצר שיר/מוזיקה חדש מאפס עם Suno AI (כולל מילים ומלודיה).
+
+**מתי להשתמש בכלי הזה (חובה!):**
+• "צור שיר" / "יצירת שיר" / "create song" / "make music" / "generate song"
+• "שיר עם מנגינה" / "song with melody" / "music with tune"
+• "שיר עם Suno" / "song with Suno" / "create song with Suno"
+• כל בקשה מפורשת ליצירת מוזיקה/שיר עם מלודיה
+
+**מתי לא להשתמש בכלי הזה (חשוב!):**
+• "כתוב שיר" / "לכתוב שיר" / "write song" / "write lyrics" → זה רק מילים (טקסט), לא להשתמש בכלי! פשוט כתוב שיר בטקסט.
+• "שיר מילולי" / "lyrics only" / "just words" → רק טקסט, לא כלי.
+• בקשה ללינק לשיר קיים → השתמש ב-search_web במקום.
+
+**הכלי מייצר שיר מקורי עם מילים ומלודיה באמצעות Suno AI.`,
+    parameters: {
+      type: 'object',
+      properties: {
+        prompt: {
+          type: 'string',
+          description: 'תיאור השיר החדש - סגנון, נושא, מילים, מצב רוח'
+        },
+        make_video: {
+          type: 'boolean',
+          description: 'האם ליצור גם וידאו/קליפ לשיר (אם המשתמש ביקש)'
+        }
+      },
+      required: ['prompt']
+    }
+  },
+  execute: async (args: CreateMusicArgs = {}, context: AgentToolContext = {}): ToolResult => {
+    logger.debug(`🔧 [Agent Tool] create_music called`);
+    
+    try {
+      if (!args.prompt && !context.originalInput?.userText) {
+        return {
+          success: false,
+          error: 'חובה לספק תיאור לשיר'
+        };
+      }
+
+      const originalUserText = context.originalInput?.userText || args.prompt || '';
+      const cleanedOriginal = String(originalUserText).replace(/^#\s*/, '').trim();
+      
+      let cleanPrompt = args.prompt || cleanedOriginal || '';
+      let wantsVideo = Boolean(args.make_video);
+      
+      try {
+        // Fix: ensure argument is string
+        const parsingResult = (await parseMusicRequest(cleanedOriginal || args.prompt || '')) as { cleanPrompt?: string; wantsVideo?: boolean };
+        if (parsingResult?.cleanPrompt) {
+          cleanPrompt = parsingResult.cleanPrompt.trim() || cleanPrompt;
+        }
+        if (parsingResult?.wantsVideo) {
+          wantsVideo = true;
+        }
+      } catch (parseError) {
+        const parseErr = parseError as Error;
+        logger.warn('⚠️ create_music: Failed to parse music request for video detection', {
+          error: parseErr.message || String(parseErr),
+          prompt: args.prompt?.substring(0, 100),
+          chatId: context?.chatId
+        });
+      }
+      
+      const senderData = context.originalInput?.senderData || {};
+      const whatsappContext = context.chatId
+        ? {
+            chatId: context.chatId,
+            senderId: senderData.senderId || senderData.sender || null,
+            senderName: senderData.senderName || senderData.senderContactName || '',
+            senderContactName: senderData.senderContactName || '',
+            chatName: senderData.chatName || ''
+          }
+        : null;
+      
+      const result = (await generateMusicWithLyrics(cleanPrompt, {
+        whatsappContext,
+        makeVideo: wantsVideo
+      })) as MusicGenerationResponse;
+      
+      if (result.error) {
+        return {
+          success: false,
+          error: `יצירת מוזיקה נכשלה: ${result.error}`
+        };
+      }
+      
+      if (result.status === 'pending') {
+        return {
+          success: true,
+          data: result.message || '🎵 יצירת השיר בעיצומה! אשלח אותו מיד כשהוא יהיה מוכן.',
+          status: 'pending',
+          taskId: result.taskId || null,
+          makeVideo: wantsVideo
+        };
+      }
+      
+      return {
+        success: true,
+        data: `✅ השיר נוצר בהצלחה!`,
+        audioUrl: result.result || result.url,
+        lyrics: result.lyrics
+      };
+    } catch (error) {
+      logger.error('❌ Error in create_music', {
+        ...formatErrorForLogging(error),
+        prompt: args.prompt?.substring(0, 100),
+        makeVideo: args.make_video,
+        chatId: context?.chatId
+      });
+      return {
+        success: false,
+        error: `שגיאה: ${error instanceof Error ? error.message : String(error)}`
+      };
+    }
+  }
+};
+

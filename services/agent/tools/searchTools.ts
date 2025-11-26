@@ -5,6 +5,8 @@
 
 import { getServices } from '../utils/serviceLoader';
 import logger from '../../../utils/logger';
+import prompts from '../../../config/prompts';
+import { getLanguageInstruction } from '../utils/languageUtils';
 
 type AgentToolContext = {
   chatId?: string;
@@ -76,16 +78,15 @@ export const search_web = {
 
       const language = context?.originalInput?.language || context?.normalized?.language || 'he';
       const normalizedLanguage = typeof language === 'string' ? language.toLowerCase() : 'he';
-      const isHebrew = normalizedLanguage === 'he' || normalizedLanguage === 'hebrew';
-      const langInstruction =
-        isHebrew || !language
-          ? 'בעברית'
-          : `in ${normalizedLanguage === 'en' ? 'English' : language}`;
+      const languageInstruction = getLanguageInstruction(normalizedLanguage);
+
+      // Use SSOT from config/prompts.ts
+      const systemInstruction = prompts.searchSystemInstruction(args.query, languageInstruction);
 
       const { geminiService } = getServices();
       const result = (await geminiService.generateTextResponse(args.query, [], {
         useGoogleSearch: true,
-        systemInstruction: `You are a helpful search assistant. Search for "${args.query}" and answer ${langInstruction}. Provide relevant links if found.`
+        systemInstruction
       })) as { text: string; error?: string };
 
       if (result.error) {

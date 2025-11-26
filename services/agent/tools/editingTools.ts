@@ -8,6 +8,7 @@ import { getServices } from '../utils/serviceLoader';
 import { ProviderFallback, ProviderResult } from '../../../utils/providerFallback';
 import logger from '../../../utils/logger';
 import * as replicateService from '../../replicateService';
+import { formatErrorForLogging } from '../../../utils/errorHandler';
 
 type AgentToolContext = {
   chatId?: string;
@@ -165,7 +166,7 @@ export const edit_image = {
       };
     } catch (error) {
       logger.error('❌ Error in edit_image', {
-        error: error instanceof Error ? { message: error.message, stack: error.stack, name: error.name } : error,
+        ...formatErrorForLogging(error),
         imageUrl: args.image_url?.substring(0, 50),
         editInstruction: args.edit_instruction?.substring(0, 100),
         service: args.service,
@@ -173,7 +174,7 @@ export const edit_image = {
       });
       return {
         success: false,
-        error: `שגיאה: ${(error as Error).message}`
+        error: `שגיאה: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }
@@ -276,14 +277,14 @@ export const edit_video = {
       };
     } catch (error) {
       logger.error('❌ Error in edit_video', {
-        error: error instanceof Error ? { message: error.message, stack: error.stack, name: error.name } : error,
+        ...formatErrorForLogging(error),
         videoUrl: args.video_url?.substring(0, 50),
         editInstruction: args.edit_instruction?.substring(0, 100),
         chatId: context?.chatId
       });
       return {
         success: false,
-        error: `שגיאה: ${(error as Error).message}`
+        error: `שגיאה: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }

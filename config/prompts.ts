@@ -264,6 +264,21 @@ Be concise and focused.`,
   },
 
   /**
+   * Search assistant system instruction - for Google Search operations
+   * Extracted from services/agent/tools/searchTools.ts (SSOT enforcement)
+   */
+  searchSystemInstruction: (query: string, languageInstruction: string) => {
+    const isHebrew = languageInstruction.includes('עברית') || languageInstruction.includes('בעברית');
+    const langText = isHebrew ? 'בעברית' : languageInstruction.replace(/^.*?:\s*/, '').toLowerCase();
+    
+    if (isHebrew) {
+      return `אתה עוזר חיפוש מועיל. חפש "${query}" וענה בעברית. ספק קישורים רלוונטיים אם נמצאו.`;
+    } else {
+      return `You are a helpful search assistant. Search for "${query}" and answer ${langText}. Provide relevant links if found.`;
+    }
+  },
+
+  /**
    * Group creation parsing prompt - for Gemini to parse group creation requests
    * Extracted from services/groupService.ts (Phase 5.1 - SSOT enforcement)
    */
