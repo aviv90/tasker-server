@@ -6,6 +6,7 @@
 import { sanitizeText, cleanMarkdown } from '../utils/textSanitizer';
 import { detectLanguage } from '../utils/agentHelpers';
 import prompts from '../config/prompts';
+import logger from '../utils/logger';
 
 /**
  * Conversation message structure
@@ -65,9 +66,9 @@ class GrokService {
     this.model = 'grok-4'; // Latest and strongest model (upgraded from grok-3)
     
     if (!this.apiKey) {
-      console.warn('⚠️ GROK_API_KEY not found in environment variables');
+      logger.warn('⚠️ GROK_API_KEY not found in environment variables');
     } else {
-      console.log('🤖 Grok service initialized');
+      logger.info('🤖 Grok service initialized');
     }
   }
 
@@ -103,7 +104,7 @@ class GrokService {
       // Add conversation history if exists
       if (conversationHistory && conversationHistory.length > 0) {
         messages.push(...conversationHistory);
-        console.log(`🧠 Using conversation history: ${conversationHistory.length} previous messages`);
+        logger.debug(`🧠 Using conversation history: ${conversationHistory.length} previous messages`);
       }
 
       // Add current user message
@@ -112,7 +113,7 @@ class GrokService {
         content: cleanPrompt
       });
 
-      console.log(`🤖 Grok processing (${conversationHistory.length} context messages)`);
+      logger.debug(`🤖 Grok processing (${conversationHistory.length} context messages)`);
 
       // Make API request to Grok
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -132,7 +133,7 @@ class GrokService {
 
       if (!response.ok) {
         const errorData = await response.text();
-        console.error('❌ Grok API error:', response.status, errorData);
+        logger.error('❌ Grok API error:', { status: response.status, error: errorData });
         throw new Error(`Grok API error: ${response.status} - ${errorData}`);
       }
 
@@ -152,8 +153,7 @@ class GrokService {
       const aiResponse = data.choices[0]?.message?.content || '';
       const usage = data.usage || null;
 
-      console.log('✅ Grok response received');
-      console.log('💰 Tokens used:', usage);
+      logger.info('✅ Grok response received', { usage });
 
       return {
         text: aiResponse.trim(),
@@ -170,7 +170,7 @@ class GrokService {
 
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('❌ Error generating Grok response:', error);
+      logger.error('❌ Error generating Grok response:', { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
       
       // Emergency response
       return {
@@ -195,7 +195,7 @@ class GrokService {
       // Sanitize prompt
       const cleanPrompt = sanitizeText(prompt);
 
-      console.log(`🎨 Generating image with Grok: "${cleanPrompt}"`);
+      logger.debug(`🎨 Generating image with Grok: "${cleanPrompt}"`);
 
       // Call xAI image generation API
       const response = await fetch(`${this.baseUrl}/images/generations`, {
@@ -214,7 +214,7 @@ class GrokService {
 
       if (!response.ok) {
         const errorData = await response.text();
-        console.error('❌ Grok image generation error:', response.status, errorData);
+        logger.error('❌ Grok image generation error:', { status: response.status, error: errorData });
         return {
           success: false,
           error: `Grok image generation failed: ${response.status} - ${errorData}`,
@@ -246,7 +246,7 @@ class GrokService {
           description = cleanMarkdown(description);
         }
 
-        console.log('✅ Grok image generated successfully');
+        logger.info('✅ Grok image generated successfully');
 
         return {
           success: true,
@@ -265,7 +265,7 @@ class GrokService {
         const textContent = data.choices?.[0]?.message?.content || data.text || '';
         
         if (textContent) {
-          console.log('📝 Grok returned text response instead of image');
+          logger.info('📝 Grok returned text response instead of image');
           return {
             success: true,
             textOnly: true,
@@ -289,7 +289,7 @@ class GrokService {
 
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('❌ Error generating Grok image:', error);
+      logger.error('❌ Error generating Grok image:', { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
       return {
         success: false,
         error: errorMessage || 'Unknown error occurred during image generation',

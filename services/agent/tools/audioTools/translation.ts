@@ -1,6 +1,7 @@
 import { getServices } from '../../utils/serviceLoader';
 import voiceService from '../../../voiceService';
 import { getAudioDuration } from '../../utils/audioUtils';
+import logger from '../../../utils/logger';
 
 type TranslateArgs = {
   text: string;
@@ -96,7 +97,7 @@ export const translate_text = {
     }
   },
   execute: async (args: TranslateArgs): ToolResult => {
-    console.log('🔧 [Agent Tool] translate_text called');
+    logger.debug('🔧 [Agent Tool] translate_text called');
 
     try {
       const { geminiService } = getServices();
@@ -119,7 +120,7 @@ export const translate_text = {
       };
     } catch (error) {
       const err = error as Error;
-      console.error('❌ Error in translate_text:', err);
+      logger.error('❌ Error in translate_text:', err);
       return {
         success: false,
         error: `שגיאה: ${err.message}`
@@ -150,7 +151,7 @@ export const translate_and_speak = {
     }
   },
   execute: async (args: TranslateArgs, context?: ToolContext): ToolResult => {
-    console.log(`🔧 [Agent Tool] translate_and_speak called: "${args.text}" -> ${args.target_language}`);
+    logger.debug(`🔧 [Agent Tool] translate_and_speak called: "${args.text}" -> ${args.target_language}`);
 
     try {
       const { geminiService, greenApiService } = getServices();
@@ -159,7 +160,7 @@ export const translate_and_speak = {
       const targetLangCode =
         languageCodeMap[args.target_language?.toLowerCase() || ''] || 'en';
 
-      console.log(`🌐 Translating to ${args.target_language}...`);
+      logger.info(`🌐 Translating to ${args.target_language}...`);
       const translationResult = (await geminiService.translateText(
         args.text,
         args.target_language
@@ -173,7 +174,7 @@ export const translate_and_speak = {
       }
 
       const translatedText = translationResult.translatedText || args.text;
-      console.log(`✅ Translated: "${translatedText}"`);
+      logger.info(`✅ Translated: "${translatedText}"`);
 
       let voiceId: string | null = null;
       let shouldDeleteVoice = false;
@@ -181,17 +182,19 @@ export const translate_and_speak = {
       const quotedAudioUrl = context?.quotedContext?.audioUrl || context?.audioUrl;
 
       if (quotedAudioUrl) {
-        console.log(`🎤 Quoted audio detected for voice cloning: ${quotedAudioUrl.substring(0, 50)}...`);
+        logger.info(
+          `🎤 Quoted audio detected for voice cloning: ${quotedAudioUrl.substring(0, 50)}...`
+        );
 
         try {
           const audioBuffer: Buffer = await greenApiService.downloadFile(quotedAudioUrl);
           const audioDuration = await getAudioDuration(audioBuffer);
-          console.log(
+          logger.info(
             `🎵 Quoted audio duration: ${audioDuration.toFixed(2)}s (minimum for cloning: ${MIN_DURATION_FOR_CLONING}s)`
           );
 
           if (audioDuration >= MIN_DURATION_FOR_CLONING) {
-            console.log('🎤 Attempting voice clone from quoted audio...');
+            logger.info('🎤 Attempting voice clone from quoted audio...');
 
             const voiceCloneOptions = {
               name: `Translate Voice Clone ${Date.now()}`,
@@ -211,25 +214,31 @@ export const translate_and_speak = {
             )) as VoiceCloneResult;
 
             if (voiceCloneResult.error) {
-              console.log(`⚠️ Voice cloning failed: ${voiceCloneResult.error}, using random voice`);
+              logger.warn(
+                `⚠️ Voice cloning failed: ${voiceCloneResult.error}, using random voice`
+              );
             } else {
               voiceId = voiceCloneResult.voiceId ?? null;
               shouldDeleteVoice = true;
-              console.log(`✅ Voice cloned successfully: ${voiceId}`);
+              logger.info(`✅ Voice cloned successfully: ${voiceId}`);
             }
           } else {
-            console.log(
-              `⏭️ Quoted audio too short for cloning (${audioDuration.toFixed(2)}s < ${MIN_DURATION_FOR_CLONING}s), using random voice`
+            logger.info(
+              `⏭️ Quoted audio too short for cloning (${audioDuration.toFixed(
+                2
+              )}s < ${MIN_DURATION_FOR_CLONING}s), using random voice`
             );
           }
         } catch (cloneError) {
           const err = cloneError as Error;
-          console.log(`⚠️ Error during voice cloning process: ${err.message}, using random voice`);
+          logger.warn(
+            `⚠️ Error during voice cloning process: ${err.message}, using random voice`
+          );
         }
       }
 
       if (!voiceId) {
-        console.log(`🎤 Getting random voice for language: ${targetLangCode}...`);
+        logger.info(`🎤 Getting random voice for language: ${targetLangCode}...`);
         const voiceResult = (await voiceService.getVoiceForLanguage(targetLangCode)) as VoiceSelectionResult;
 
         if (voiceResult.error) {
@@ -242,7 +251,7 @@ export const translate_and_speak = {
         }
 
         voiceId = voiceResult.voiceId ?? null;
-        console.log(`✅ Using random voice: ${voiceId}`);
+        logger.info(`✅ Using random voice: ${voiceId}`);
       }
 
       if (!voiceId) {
@@ -254,7 +263,7 @@ export const translate_and_speak = {
         };
       }
 
-      console.log(`🗣️ Converting to speech with voice ${voiceId}...`);
+      logger.info(`🗣️ Converting to speech with voice ${voiceId}...`);
       const ttsResult = (await voiceService.textToSpeech(voiceId, translatedText, {
         model_id: 'eleven_v3',
         optimize_streaming_latency: 0,
@@ -265,10 +274,10 @@ export const translate_and_speak = {
       if (shouldDeleteVoice && voiceId) {
         try {
           await voiceService.deleteVoice(voiceId as string);
-          console.log(`🧹 Cleanup: Cloned voice ${voiceId} deleted`);
+          logger.info(`🧹 Cleanup: Cloned voice ${voiceId} deleted`);
         } catch (cleanupError) {
           const err = cleanupError as Error;
-          console.warn('⚠️ Voice cleanup failed:', err.message);
+          logger.warn('⚠️ Voice cleanup failed:', err.message);
         }
       }
 
@@ -292,7 +301,7 @@ export const translate_and_speak = {
       };
     } catch (error) {
       const err = error as Error;
-      console.error('❌ Error in translate_and_speak:', err);
+      logger.error('❌ Error in translate_and_speak:', err);
       return {
         success: false,
         error: `שגיאה: ${err.message}`

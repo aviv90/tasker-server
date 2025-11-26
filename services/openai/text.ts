@@ -8,6 +8,7 @@
 import OpenAI from 'openai';
 import { detectLanguage } from '../../utils/agentHelpers';
 import prompts from '../../config/prompts';
+import logger from '../../utils/logger';
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
@@ -64,7 +65,7 @@ export async function generateTextResponse(
     // Add conversation history if exists
     if (conversationHistory && conversationHistory.length > 0) {
       messages.push(...conversationHistory);
-      console.log(`🧠 Using conversation history: ${conversationHistory.length} previous messages`);
+      logger.debug(`🧠 Using conversation history: ${conversationHistory.length} previous messages`);
     }
 
     // Add current user message
@@ -73,7 +74,7 @@ export async function generateTextResponse(
       content: prompt
     });
 
-    console.log(`🤖 OpenAI processing (${conversationHistory.length} context messages)`);
+    logger.debug(`🤖 OpenAI processing (${conversationHistory.length} context messages)`);
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini', // Cost-effective and good model
@@ -89,8 +90,7 @@ export async function generateTextResponse(
       throw new Error('No response from OpenAI');
     }
 
-    console.log('✅ OpenAI Chat response received');
-    console.log('💰 Tokens used:', usage);
+    logger.info('✅ OpenAI Chat response received', { usage });
 
     return {
       text: aiResponse,
@@ -99,7 +99,7 @@ export async function generateTextResponse(
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('❌ Error generating OpenAI response:', errorMessage);
+    logger.error('❌ Error generating OpenAI response:', { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
     
     // Emergency response
     return {

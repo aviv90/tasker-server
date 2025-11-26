@@ -1,6 +1,7 @@
 import axios from 'axios';
 import speechService from '../../../speechService';
 import voiceService from '../../../voiceService';
+import logger from '../../../../utils/logger';
 
 type TranscribeArgs = {
   audio_url: string;
@@ -40,7 +41,7 @@ export const transcribe_audio = {
     }
   },
   execute: async (args: TranscribeArgs): TranscribeResult => {
-    console.log('🔧 [Agent Tool] transcribe_audio called');
+    logger.debug('🔧 [Agent Tool] transcribe_audio called');
 
     try {
       if (!args.audio_url) {
@@ -50,11 +51,11 @@ export const transcribe_audio = {
         };
       }
 
-      console.log(`📥 Downloading audio: ${args.audio_url}`);
+      logger.debug(`📥 Downloading audio: ${args.audio_url}`);
       const audioResponse = await axios.get<ArrayBuffer>(args.audio_url, { responseType: 'arraybuffer' });
       const audioBuffer = Buffer.from(audioResponse.data);
 
-      console.log('🎤 Transcribing audio...');
+      logger.debug('🎤 Transcribing audio...');
       const transcriptionResult = (await speechService.speechToText(audioBuffer, {
         response_format: 'verbose_json',
         timestamp_granularities: ['word']
@@ -71,7 +72,7 @@ export const transcribe_audio = {
       const detectedLanguage =
         transcriptionResult.detectedLanguage || voiceService.detectLanguage(transcribedText);
 
-      console.log(`✅ Transcribed: "${transcribedText}" (${detectedLanguage})`);
+      logger.info(`✅ Transcribed: "${transcribedText}" (${detectedLanguage})`);
 
       return {
         success: true,
@@ -81,7 +82,7 @@ export const transcribe_audio = {
       };
     } catch (error) {
       const err = error as Error;
-      console.error('❌ Error in transcribe_audio:', err);
+      logger.error('❌ Error in transcribe_audio:', { error: err.message, stack: err.stack });
       return {
         success: false,
         error: `שגיאה: ${err.message}`

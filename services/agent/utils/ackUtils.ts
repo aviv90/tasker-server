@@ -10,6 +10,7 @@ import {
   mapVideoProviderDisplay
 } from './providerUtils';
 import { TOOL_ACK_MESSAGES, VIDEO_PROVIDER_FALLBACK_ORDER } from '../config/constants';
+import logger from '../../../utils/logger';
 
 type ProviderKey = string | null | undefined;
 
@@ -117,12 +118,12 @@ export async function sendToolAckMessage(
 
     if (!ackMessage.trim()) return;
 
-    console.log(`📢 [ACK] Sending acknowledgment: "${ackMessage}"`);
+    logger.debug(`📢 [ACK] Sending acknowledgment: "${ackMessage}"`);
     const { greenApiService } = getServices();
     await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId, 1000);
   } catch (error) {
     const err = error as Error;
-    console.error('❌ [ACK] Failed to send acknowledgment:', err.message);
+    logger.error('❌ [ACK] Failed to send acknowledgment:', { error: err.message, stack: err.stack });
     // Ack failure should not break the agent
   }
 }

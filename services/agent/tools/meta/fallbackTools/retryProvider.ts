@@ -7,6 +7,7 @@
 import { getServices } from '../../../utils/serviceLoader';
 import * as helpers from './helpers';
 import replicateService from '../../../../replicateService';
+import logger from '../../../../../utils/logger';
 
 type TaskType = 'image' | 'image_edit' | 'video';
 
@@ -87,7 +88,7 @@ const retryWithDifferentProvider = {
     }
   },
   execute: async (args: RetryProviderArgs, context: AgentToolContext = {}): Promise<ToolResult> => {
-    console.log(`🔧 [Agent Tool] retry_with_different_provider called for ${args.task_type || 'image'}`);
+    logger.debug(`🔧 [Agent Tool] retry_with_different_provider called for ${args.task_type || 'image'}`);
 
     try {
       const taskType = args.task_type || 'image';
@@ -110,7 +111,7 @@ const retryWithDifferentProvider = {
         }
 
         for (const provider of providers) {
-          console.log(`🔄 Trying image edit provider: ${provider}`);
+          logger.debug(`🔄 Trying image edit provider: ${provider}`);
 
           const ackMessage = `🎨 מנסה לערוך עם ${helpers.formatProviderName(provider)}...`;
           await helpers.sendFallbackAck(context, ackMessage);
@@ -148,7 +149,7 @@ const retryWithDifferentProvider = {
             // Send error message to user as-is (Rule 2)
             const errorMessage = `❌ ${helpers.formatProviderName(provider)} נכשל בעריכה: ${editResult?.error || 'Unknown error'}`;
             errors.push(errorMessage);
-            console.log(`❌ ${provider} edit failed: ${editResult?.error}`);
+            logger.warn(`❌ ${provider} edit failed: ${editResult?.error}`);
 
             await helpers.sendFallbackError(context, errorMessage);
           } catch (providerError) {
@@ -156,7 +157,7 @@ const retryWithDifferentProvider = {
             const error = providerError as Error;
             const exceptionMessage = `❌ ${helpers.formatProviderName(provider)} נכשל בעריכה: ${error.message}`;
             errors.push(exceptionMessage);
-            console.error(`❌ ${provider} edit threw error:`, providerError);
+            logger.error(`❌ ${provider} edit threw error:`, { error: error.message, stack: error.stack });
 
             await helpers.sendFallbackError(context, exceptionMessage);
           }
@@ -175,7 +176,7 @@ const retryWithDifferentProvider = {
         for (let i = 0; i < providers.length; i++) {
           const provider = providers[i];
           const displayProvider = displayProviders[i];
-          console.log(`🔄 Trying video provider: ${displayProvider} (${provider})`);
+          logger.debug(`🔄 Trying video provider: ${displayProvider} (${provider})`);
 
           const ackMessage = `🎬 מנסה עם ${helpers.formatProviderName(displayProvider)}...`;
           await helpers.sendFallbackAck(context, ackMessage);
@@ -203,7 +204,7 @@ const retryWithDifferentProvider = {
             // Send error message to user as-is (Rule 2)
             const errorMessage = `❌ ${helpers.formatProviderName(displayProvider)} נכשל: ${result?.error || 'Unknown error'}`;
             errors.push(errorMessage);
-            console.log(`❌ ${displayProvider} failed: ${result?.error}`);
+            logger.warn(`❌ ${displayProvider} failed: ${result?.error}`);
 
             await helpers.sendFallbackError(context, errorMessage);
           } catch (providerError) {
@@ -211,7 +212,7 @@ const retryWithDifferentProvider = {
             const error = providerError as Error;
             const exceptionMessage = `❌ ${helpers.formatProviderName(displayProvider)} נכשל: ${error.message}`;
             errors.push(exceptionMessage);
-            console.error(`❌ ${displayProvider} threw error:`, providerError);
+            logger.error(`❌ ${displayProvider} threw error:`, { error: error.message, stack: error.stack });
 
             await helpers.sendFallbackError(context, exceptionMessage);
           }
@@ -226,7 +227,7 @@ const retryWithDifferentProvider = {
         const errors: string[] = [];
 
         for (const provider of providers) {
-          console.log(`🔄 Trying image provider: ${provider}`);
+          logger.debug(`🔄 Trying image provider: ${provider}`);
 
           const ackMessage = `🎨 מנסה עם ${helpers.formatProviderName(provider)}...`;
           await helpers.sendFallbackAck(context, ackMessage);
@@ -263,7 +264,7 @@ const retryWithDifferentProvider = {
             // Send error message to user as-is (Rule 2)
             const errorMessage = `❌ ${helpers.formatProviderName(provider)} נכשל: ${imageResult?.error || 'Unknown error'}`;
             errors.push(errorMessage);
-            console.log(`❌ ${provider} failed: ${imageResult?.error}`);
+            logger.warn(`❌ ${provider} failed: ${imageResult?.error}`);
 
             await helpers.sendFallbackError(context, errorMessage);
           } catch (providerError) {
@@ -271,7 +272,7 @@ const retryWithDifferentProvider = {
             const error = providerError as Error;
             const exceptionMessage = `❌ ${helpers.formatProviderName(provider)} נכשל: ${error.message}`;
             errors.push(exceptionMessage);
-            console.error(`❌ ${provider} threw error:`, providerError);
+            logger.error(`❌ ${provider} threw error:`, { error: error.message, stack: error.stack });
 
             await helpers.sendFallbackError(context, exceptionMessage);
           }
@@ -284,7 +285,7 @@ const retryWithDifferentProvider = {
       }
     } catch (error) {
       const err = error as Error;
-      console.error('❌ Error in retry_with_different_provider tool:', err);
+      logger.error('❌ Error in retry_with_different_provider tool:', { error: err.message, stack: err.stack });
       return {
         success: false,
         error: `שגיאה: ${err.message}`

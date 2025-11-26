@@ -4,6 +4,7 @@
  */
 
 import { getServices } from '../utils/serviceLoader';
+import logger from '../../../utils/logger';
 
 type AgentToolContext = {
   chatId?: string;
@@ -63,7 +64,7 @@ export const search_web = {
     }
   },
   execute: async (args: SearchWebArgs = {}, context: AgentToolContext = {}): ToolResult => {
-    console.log(`🔧 [Agent Tool] search_web called with query: ${args.query}`);
+    logger.debug(`🔧 [Agent Tool] search_web called with query: ${args.query}`);
 
     try {
       if (!args.query) {
@@ -94,7 +95,7 @@ export const search_web = {
         };
       }
 
-      console.log(`✅ [search_web] Got result (${result.text?.length || 0} chars)`);
+      logger.info(`✅ [search_web] Got result (${result.text?.length || 0} chars)`);
 
       return {
         success: true,
@@ -102,7 +103,7 @@ export const search_web = {
       };
     } catch (error) {
       const err = error as Error;
-      console.error('❌ Error in search_web tool:', err);
+      logger.error('❌ Error in search_web tool:', { error: err.message, stack: err.stack });
       return {
         success: false,
         error: `שגיאה בחיפוש: ${err.message}`

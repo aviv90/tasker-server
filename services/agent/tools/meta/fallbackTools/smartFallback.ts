@@ -1,6 +1,6 @@
 /**
  * Smart Execute with Fallback Tool
- * 
+ *
  * Executes tasks with intelligent fallback strategies when initial attempts fail.
  */
 
@@ -10,6 +10,7 @@ import { simplifyPrompt, makePromptMoreGeneric } from '../../../utils/promptUtil
 import * as helpers from './helpers';
 import replicateService from '../../../../replicateService';
 import voiceService from '../../../../voiceService';
+import logger from '../../../../utils/logger';
 
 type TaskType = 'image_creation' | 'video_creation' | 'audio_creation';
 type Provider = 'gemini' | 'openai' | 'grok';
@@ -94,7 +95,7 @@ const smartExecuteWithFallback = {
     }
   },
   execute: async (args: SmartFallbackArgs, context: AgentToolContext = {}): Promise<ToolResult> => {
-    console.log(`🧠 [Agent Tool] smart_execute_with_fallback called for ${args.task_type}`);
+    logger.debug(`🧠 [Agent Tool] smart_execute_with_fallback called for ${args.task_type}`);
 
     try {
       const { geminiService, openaiService, grokService } = getServices();
@@ -103,7 +104,7 @@ const smartExecuteWithFallback = {
       }
 
       // Strategy 1: Try different provider
-      console.log(`📊 Strategy 1: Trying different provider...`);
+      logger.info(`📊 Strategy 1: Trying different provider...`);
       // Fix: normalizeProviders accepts readonly array for first argument
       const providersTried = helpers.normalizeProviders(
         args.providers_tried || (args.provider_tried ? [args.provider_tried] : []), 
@@ -114,7 +115,7 @@ const smartExecuteWithFallback = {
       const providers = helpers.getNextProviders(providersTried, providerOrder, lastTried);
 
       for (const provider of providers) {
-        console.log(`   → Attempting with ${provider}...`);
+        logger.info(`   → Attempting with ${provider}...`);
 
         try {
           if (args.task_type === 'image_creation') {
@@ -198,17 +199,17 @@ const smartExecuteWithFallback = {
           }
         } catch (e) {
           const error = e as Error;
-          console.log(`   ✗ ${provider} failed: ${error.message}`);
+          logger.warn(`   ✗ ${provider} failed: ${error.message}`);
         }
       }
 
       // Strategy 2: Simplify prompt
-      console.log(`📊 Strategy 2: Simplifying prompt...`);
+      logger.info(`📊 Strategy 2: Simplifying prompt...`);
       const simplifiedPrompt = simplifyPrompt(args.original_prompt);
 
       if (simplifiedPrompt && simplifiedPrompt !== args.original_prompt) {
-        console.log(`   → Original: "${args.original_prompt}"`);
-        console.log(`   → Simplified: "${simplifiedPrompt}"`);
+        logger.info(`   → Original: "${args.original_prompt}"`);
+        logger.info(`   → Simplified: "${simplifiedPrompt}"`);
 
         try {
           if (args.task_type === 'image_creation') {
@@ -257,17 +258,17 @@ const smartExecuteWithFallback = {
           }
         } catch (e) {
           const error = e as Error;
-          console.log(`   ✗ Simplified prompt failed: ${error.message}`);
+          logger.warn(`   ✗ Simplified prompt failed: ${error.message}`);
         }
       }
 
       // Strategy 4: Try with relaxed parameters (less strict)
-      console.log(`📊 Strategy 4: Trying with relaxed parameters...`);
+      logger.info(`📊 Strategy 4: Trying with relaxed parameters...`);
       try {
         const genericPrompt = makePromptMoreGeneric(args.original_prompt);
 
         if (genericPrompt && genericPrompt !== args.original_prompt) {
-          console.log(`   → Generic version: "${genericPrompt}"`);
+          logger.info(`   → Generic version: "${genericPrompt}"`);
 
           if (args.task_type === 'image_creation') {
             const imageResult = (await openaiService.generateImageForWhatsApp(genericPrompt, null)) as ImageResult;
@@ -316,7 +317,7 @@ const smartExecuteWithFallback = {
         }
       } catch (e) {
         const error = e as Error;
-        console.log(`   ✗ Generic prompt failed: ${error.message}`);
+        logger.warn(`   ✗ Generic prompt failed: ${error.message}`);
       }
 
       // All strategies failed
@@ -330,7 +331,7 @@ const smartExecuteWithFallback = {
       };
     } catch (error) {
       const err = error as Error;
-      console.error('❌ Error in smart_execute_with_fallback:', err);
+      logger.error('❌ Error in smart_execute_with_fallback:', err);
       return {
         success: false,
         error: `שגיאה במנגנון החכם: ${err.message}`

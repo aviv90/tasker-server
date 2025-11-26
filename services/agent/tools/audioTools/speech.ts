@@ -1,6 +1,7 @@
 import { getServices } from '../../utils/serviceLoader';
 import voiceService from '../../../voiceService';
 import { getAudioDuration } from '../../utils/audioUtils';
+import logger from '../../../../utils/logger';
 
 type TextToSpeechArgs = {
   text: string;
@@ -64,7 +65,7 @@ export const text_to_speech = {
     }
   },
   execute: async (args: TextToSpeechArgs, context?: ToolContext): ToolResponse => {
-    console.log(`🔧 [Agent Tool] text_to_speech called: "${args.text}"`);
+    logger.debug(`🔧 [Agent Tool] text_to_speech called: "${args.text}"`);
 
     try {
       const { greenApiService } = getServices();
@@ -76,17 +77,17 @@ export const text_to_speech = {
       const quotedAudioUrl = context?.quotedContext?.audioUrl || context?.audioUrl;
 
       if (quotedAudioUrl) {
-        console.log(`🎤 Quoted audio detected for voice cloning: ${quotedAudioUrl.substring(0, 50)}...`);
+        logger.debug(`🎤 Quoted audio detected for voice cloning: ${quotedAudioUrl.substring(0, 50)}...`);
 
         try {
           const audioBuffer: Buffer = await greenApiService.downloadFile(quotedAudioUrl);
           const audioDuration = await getAudioDuration(audioBuffer);
-          console.log(
+          logger.debug(
             `🎵 Quoted audio duration: ${audioDuration.toFixed(2)}s (minimum for cloning: ${MIN_DURATION_FOR_CLONING}s)`
           );
 
           if (audioDuration >= MIN_DURATION_FOR_CLONING) {
-            console.log('🎤 Attempting voice clone from quoted audio...');
+            logger.debug('🎤 Attempting voice clone from quoted audio...');
 
             const voiceCloneOptions = {
               name: `TTS Voice Clone ${Date.now()}`,
@@ -106,25 +107,25 @@ export const text_to_speech = {
             )) as VoiceCloneResult;
 
             if (voiceCloneResult.error) {
-              console.log(`⚠️ Voice cloning failed: ${voiceCloneResult.error}, using random voice`);
+              logger.warn(`⚠️ Voice cloning failed: ${voiceCloneResult.error}, using random voice`);
             } else {
               voiceId = voiceCloneResult.voiceId ?? null;
               shouldDeleteVoice = true;
-              console.log(`✅ Voice cloned successfully: ${voiceId}`);
+              logger.info(`✅ Voice cloned successfully: ${voiceId}`);
             }
           } else {
-            console.log(
+            logger.debug(
               `⏭️ Quoted audio too short for cloning (${audioDuration.toFixed(2)}s < ${MIN_DURATION_FOR_CLONING}s), using random voice`
             );
           }
         } catch (cloneError) {
           const err = cloneError as Error;
-          console.log(`⚠️ Error during voice cloning process: ${err.message}, using random voice`);
+          logger.warn(`⚠️ Error during voice cloning process: ${err.message}, using random voice`);
         }
       }
 
       if (!voiceId) {
-        console.log(`🎤 Getting random voice for language: ${language}...`);
+        logger.debug(`🎤 Getting random voice for language: ${language}...`);
         const voiceResult = (await voiceService.getVoiceForLanguage(language)) as VoiceSelectionResult;
 
         if (voiceResult.error) {
@@ -135,7 +136,7 @@ export const text_to_speech = {
         }
 
         voiceId = voiceResult.voiceId ?? null;
-        console.log(`✅ Using random voice: ${voiceId}`);
+        logger.debug(`✅ Using random voice: ${voiceId}`);
       }
 
       if (!voiceId) {
@@ -154,10 +155,10 @@ export const text_to_speech = {
       if (shouldDeleteVoice && voiceId) {
         try {
           await voiceService.deleteVoice(voiceId);
-          console.log(`🧹 Cleanup: Cloned voice ${voiceId} deleted`);
+          logger.debug(`🧹 Cleanup: Cloned voice ${voiceId} deleted`);
         } catch (cleanupError) {
           const err = cleanupError as Error;
-          console.warn('⚠️ Voice cleanup failed:', err.message);
+          logger.warn('⚠️ Voice cleanup failed:', { error: err.message });
         }
       }
 
@@ -176,7 +177,7 @@ export const text_to_speech = {
       };
     } catch (error) {
       const err = error as Error;
-      console.error('❌ Error in text_to_speech:', err);
+      logger.error('❌ Error in text_to_speech:', { error: err.message, stack: err.stack });
       return {
         success: false,
         error: `שגיאה: ${err.message}`
@@ -211,7 +212,7 @@ export const voice_clone_and_speak = {
     }
   },
   execute: async (args: VoiceCloneArgs): ToolResponse => {
-    console.log('🔧 [Agent Tool] voice_clone_and_speak called');
+    logger.debug('🔧 [Agent Tool] voice_clone_and_speak called');
 
     try {
       const { greenApiService } = getServices();
@@ -263,7 +264,7 @@ export const voice_clone_and_speak = {
       };
     } catch (error) {
       const err = error as Error;
-      console.error('❌ Error in voice_clone_and_speak:', err);
+      logger.error('❌ Error in voice_clone_and_speak:', { error: err.message, stack: err.stack });
       return {
         success: false,
         error: `שגיאה: ${err.message}`

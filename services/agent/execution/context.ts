@@ -1,4 +1,5 @@
 import conversationManager from '../../conversationManager';
+import logger from '../../utils/logger';
 
 export interface ToolCall {
   tool: string;
@@ -93,7 +94,7 @@ class AgentContext {
     contextMemoryEnabled: boolean
   ): Promise<AgentContextState> {
     if (!contextMemoryEnabled) {
-      console.log(`🧠 [Agent Context] Context memory disabled - starting fresh`);
+      logger.info(`🧠 [Agent Context] Context memory disabled - starting fresh`);
       return context;
     }
 
@@ -101,7 +102,7 @@ class AgentContext {
       | Partial<AgentContextState>
       | null;
     if (previousContext) {
-      console.log(
+      logger.info(
         `🧠 [Agent Context] Loaded previous context from DB with ${previousContext.toolCalls?.length || 0} tool calls`
       );
       return {
@@ -110,7 +111,7 @@ class AgentContext {
         generatedAssets: (previousContext.generatedAssets || context.generatedAssets) as GeneratedAssets
       };
     } else {
-      console.log(`🧠 [Agent Context] No previous context found in DB (starting fresh)`);
+      logger.info(`🧠 [Agent Context] No previous context found in DB (starting fresh)`);
       return context;
     }
   }
@@ -131,7 +132,9 @@ class AgentContext {
       toolCalls: context.toolCalls,
       generatedAssets: context.generatedAssets
     });
-    console.log(`🧠 [Agent Context] Saved context to DB with ${context.toolCalls.length} tool calls`);
+    logger.info(
+      `🧠 [Agent Context] Saved context to DB with ${context.toolCalls.length} tool calls`
+    );
   }
 }
 

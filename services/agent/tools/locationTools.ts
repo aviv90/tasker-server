@@ -9,6 +9,7 @@ import {
   findRandomLocation
 } from '../../locationService';
 import { extractQuotedMessageId } from '../../../utils/messageHelpers';
+import logger from '../../../utils/logger';
 
 type SendLocationArgs = {
   region?: string;
@@ -70,7 +71,7 @@ export const send_location = {
     }
   },
   execute: async (args: SendLocationArgs, context: ToolContext = {}): ToolResult => {
-    console.log(`🔧 [Agent Tool] send_location called with region: ${args.region || 'none'}`);
+    logger.debug(`🔧 [Agent Tool] send_location called with region: ${args.region || 'none'}`);
     const { greenApiService } = getServices();
     const chatId = context?.chatId;
 
@@ -80,7 +81,7 @@ export const send_location = {
 
       const regionToSearch = regionParam ? regionParam : userText;
 
-      console.log(`📍 [Location] Searching for region: "${regionToSearch}"`);
+      logger.debug(`📍 [Location] Searching for region: "${regionToSearch}"`);
       const requestedRegion = await extractRequestedRegion(regionToSearch);
       const regionAckMessage = buildLocationAckMessage(requestedRegion);
 
@@ -90,7 +91,7 @@ export const send_location = {
       }
 
       const language = context?.originalInput?.language || context?.normalized?.language || 'he';
-      console.log(`🌐 [Location] Using language: ${language}`);
+      logger.debug(`🌐 [Location] Using language: ${language}`);
 
       const locationResult = await findRandomLocation({ requestedRegion, language });
       if (!locationResult.success) {
@@ -124,7 +125,7 @@ export const send_location = {
       };
     } catch (error) {
       const err = error as Error;
-      console.error('❌ Error in send_location:', err);
+      logger.error('❌ Error in send_location:', { error: err.message, stack: err.stack });
       const errorMessage = err.message || 'שגיאה לא ידועה בשליחת המיקום';
       if (chatId) {
         const quotedMessageIdForError = extractQuotedMessageId({ context });

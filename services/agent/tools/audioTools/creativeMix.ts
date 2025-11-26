@@ -2,6 +2,7 @@ import { getServices } from '../../utils/serviceLoader';
 import { creativeAudioService } from '../../../creativeAudioService';
 import { saveBufferToTempFile } from '../../../../utils/tempFileUtils';
 import { getStaticFileUrl } from '../../../../utils/urlUtils';
+import logger from '../../../../utils/logger';
 
 type CreativeMixArgs = {
   audio_url: string;
@@ -37,7 +38,7 @@ export const creative_audio_mix = {
     }
   },
   execute: async (args: CreativeMixArgs): CreativeMixResult => {
-    console.log('🔧 [Agent Tool] creative_audio_mix called');
+    logger.debug('🔧 [Agent Tool] creative_audio_mix called');
 
     try {
       const { greenApiService } = getServices();
@@ -63,7 +64,7 @@ export const creative_audio_mix = {
       };
     } catch (error) {
       const err = error as Error;
-      console.error('❌ Error in creative_audio_mix:', err);
+      logger.error('❌ Error in creative_audio_mix:', { error: err.message, stack: err.stack });
       return {
         success: false,
         error: `שגיאה: ${err.message}`

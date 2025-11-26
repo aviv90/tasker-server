@@ -9,6 +9,7 @@
 
 import conversationManager from '../../../conversationManager';
 import { getServices } from '../../utils/serviceLoader';
+import logger from '../../../utils/logger';
 
 type ToolContext = {
   chatId?: string;
@@ -75,7 +76,9 @@ const contextAndMemoryTools = {
       }
     },
     execute: async (args: AnalyzeImageArgs = {}, context: ToolContext = {}): ToolResult => {
-      console.log(`🔧 [Agent Tool] analyze_image_from_history called with image_id: ${args.image_id}`);
+      logger.debug(
+        `🔧 [Agent Tool] analyze_image_from_history called with image_id: ${args.image_id}`
+      );
 
       let imageBuffer: Buffer | null = null;
       try {
@@ -134,7 +137,7 @@ const contextAndMemoryTools = {
         };
       } catch (error) {
         const err = error as Error;
-        console.error('❌ Error in analyze_image_from_history tool:', err);
+        logger.error('❌ Error in analyze_image_from_history tool:', err);
         imageBuffer = null;
         return {
           success: false,
@@ -169,7 +172,7 @@ const contextAndMemoryTools = {
       }
     },
     execute: async (args: SavePreferenceArgs = {}, context: ToolContext = {}): ToolResult => {
-      console.log(
+      logger.debug(
         `🔧 [Agent Tool] save_user_preference called: ${args.preference_key} = ${args.preference_value}`
       );
 
@@ -200,7 +203,7 @@ const contextAndMemoryTools = {
         };
       } catch (error) {
         const err = error as Error;
-        console.error('❌ Error in save_user_preference tool:', err);
+        logger.error('❌ Error in save_user_preference tool:', err);
         return {
           success: false,
           error: `שגיאה בשמירת העדפה: ${err.message}`
@@ -230,7 +233,7 @@ const contextAndMemoryTools = {
       }
     },
     execute: async (args: GetLongTermMemoryArgs = {}, context: ToolContext = {}): ToolResult => {
-      console.log(`🔧 [Agent Tool] get_long_term_memory called`);
+      logger.debug(`🔧 [Agent Tool] get_long_term_memory called`);
 
       try {
         if (!context.chatId) {
@@ -290,7 +293,7 @@ const contextAndMemoryTools = {
         return result;
       } catch (error) {
         const err = error as Error;
-        console.error('❌ Error in get_long_term_memory tool:', err);
+        logger.error('❌ Error in get_long_term_memory tool:', err);
         return {
           success: false,
           error: `שגיאה בגישה לזיכרון ארוך טווח: ${err.message}`

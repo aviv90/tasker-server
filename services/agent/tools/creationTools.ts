@@ -517,7 +517,7 @@ export const create_music = {
     }
   },
   execute: async (args: CreateMusicArgs = {}, context: AgentToolContext = {}): ToolResult => {
-    console.log(`🔧 [Agent Tool] create_music called`);
+    logger.debug(`🔧 [Agent Tool] create_music called`);
     
     try {
       if (!args.prompt && !context.originalInput?.userText) {
@@ -632,7 +632,7 @@ export const create_poll = {
     }
   },
   execute: async (args: CreatePollArgs = {}, context: AgentToolContext = {}): ToolResult => {
-    console.log(`🔧 [Agent Tool] create_poll called with topic: ${args.topic}, with_rhyme: ${args.with_rhyme !== false}`);
+    logger.debug(`🔧 [Agent Tool] create_poll called with topic: ${args.topic}, with_rhyme: ${args.with_rhyme !== false}`);
     
     try {
       if (!args.topic) {

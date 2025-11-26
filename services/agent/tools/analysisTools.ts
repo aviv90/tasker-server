@@ -3,6 +3,7 @@
  */
 
 import { getServices } from '../utils/serviceLoader';
+import logger from '../../../utils/logger';
 
 type AnalyzeArgs = {
   image_url?: string;
@@ -39,7 +40,7 @@ export const analyze_image = {
     }
   },
   execute: async (args: AnalyzeArgs): ToolResult => {
-    console.log(`🔧 [Agent Tool] analyze_image called with image_url: ${args.image_url?.substring(0, 60)}...`);
+    logger.debug(`🔧 [Agent Tool] analyze_image called with image_url: ${args.image_url?.substring(0, 60)}...`);
 
     let imageBuffer: Buffer | null = null;
     try {
@@ -71,7 +72,7 @@ export const analyze_image = {
       }
     } catch (error) {
       const err = error as Error;
-      console.error('❌ Error in analyze_image tool:', err);
+      logger.error('❌ Error in analyze_image tool:', err);
       imageBuffer = null;
       return {
         success: false,
@@ -103,7 +104,7 @@ export const analyze_video = {
     }
   },
   execute: async (args: AnalyzeArgs): ToolResult => {
-    console.log('🔧 [Agent Tool] analyze_video called');
+    logger.debug('🔧 [Agent Tool] analyze_video called');
 
     try {
       if (!args.video_url) {
@@ -131,7 +132,7 @@ export const analyze_video = {
       };
     } catch (error) {
       const err = error as Error;
-      console.error('❌ Error in analyze_video:', err);
+      logger.error('❌ Error in analyze_video:', err);
       return {
         success: false,
         error: `שגיאה: ${err.message}`

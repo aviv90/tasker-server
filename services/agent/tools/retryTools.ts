@@ -468,9 +468,9 @@ export const retry_last_command = {
         
         // Log provider being used for debugging
         if (provider) {
-          console.log(`🔄 [Retry] Using original provider: ${provider}`);
+          logger.info(`🔄 [Retry] Using original provider: ${provider}`);
         } else {
-          console.log(`⚠️ [Retry] Original provider not found, using default: gemini`);
+          logger.warn(`⚠️ [Retry] Original provider not found, using default: gemini`);
         }
         
         logger.debug(`🎨 Retrying image generation with:`, imageArgs);
@@ -496,9 +496,9 @@ export const retry_last_command = {
         
         // Log provider being used for debugging
         if (provider) {
-          console.log(`🔄 [Retry] Using original provider: ${provider}`);
+          logger.info(`🔄 [Retry] Using original provider: ${provider}`);
         } else {
-          console.log(`⚠️ [Retry] Original provider not found, using default: kling`);
+          logger.warn(`⚠️ [Retry] Original provider not found, using default: kling`);
         }
         
         logger.debug(`🎬 Retrying video generation with:`, videoArgs);
@@ -527,9 +527,9 @@ export const retry_last_command = {
         
         // Log provider being used for debugging
         if (provider || originalArgs.service) {
-          console.log(`🔄 [Retry] Using original service: ${provider || originalArgs.service}`);
+          logger.info(`🔄 [Retry] Using original service: ${provider || originalArgs.service}`);
         } else {
-          console.log(`⚠️ [Retry] Original service not found, using default: openai`);
+          logger.warn(`⚠️ [Retry] Original service not found, using default: openai`);
         }
         
         logger.debug(`✏️ Retrying image edit with:`, editArgs);

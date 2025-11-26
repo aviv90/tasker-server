@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import logger from '../../../utils/logger';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -20,7 +21,7 @@ class TranslationService {
    */
   async translateText(text: string, targetLanguage: string): Promise<TranslationResult> {
     try {
-      console.log(`🌐 Translating "${text}" to ${targetLanguage}`);
+      logger.debug(`🌐 Translating "${text}" to ${targetLanguage}`);
       
       const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash" 
@@ -38,7 +39,7 @@ Important: Return only the translation, no explanations, no quotes, no extra tex
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const responseAny = response as any;
       if (!responseAny.candidates || responseAny.candidates.length === 0) {
-        console.log('❌ Gemini translation: No candidates returned');
+        logger.warn('❌ Gemini translation: No candidates returned');
         return { 
           success: false, 
           error: 'Translation failed: No response from Gemini' 
@@ -47,7 +48,7 @@ Important: Return only the translation, no explanations, no quotes, no extra tex
       
       const translatedText = response.text().trim();
       
-      console.log(`✅ Translation complete: "${translatedText}"`);
+      logger.info(`✅ Translation complete: "${translatedText}"`);
       
       return {
         success: true,
@@ -56,7 +57,7 @@ Important: Return only the translation, no explanations, no quotes, no extra tex
       
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Translation failed';
-      console.error('❌ Translation error:', err);
+      logger.error('❌ Translation error:', { error: err instanceof Error ? err.message : String(err), stack: err instanceof Error ? err.stack : undefined });
       return { 
         success: false, 
         error: errorMessage
