@@ -11,17 +11,18 @@ import { sendErrorToUser } from '../../utils/errorSender';
 
 /**
  * Music service interface
+ * Must match MusicServiceInterface from musicService.ts
  */
-interface MusicService {
-  pendingTasks?: Map<string, unknown>;
-  pendingVideoTasks?: Map<string, unknown>;
+import type { MusicServiceInterface } from '../musicService';
+
+type MusicService = MusicServiceInterface & {
   videoManager?: {
     generateMusicVideo: (taskId: string, audioId: string, options: unknown) => Promise<unknown>;
   };
   whatsappDelivery?: {
     sendMusicToWhatsApp: (context: unknown, result: unknown) => Promise<void>;
   };
-}
+};
 
 /**
  * Task information structure (matches generation.ts)
@@ -252,12 +253,9 @@ export class MusicCallbacks {
             // Notify creativeAudioService if it's waiting for this callback
             try {
               // eslint-disable-next-line @typescript-eslint/no-require-imports
-              const { creativeAudioService } = require('../creativeAudioService');
-              if (creativeAudioService.pendingCallbacks && creativeAudioService.pendingCallbacks.has(taskId)) {
-                const callback = creativeAudioService.pendingCallbacks.get(taskId) as { resolve: (buffer: Buffer) => void };
-                creativeAudioService.pendingCallbacks.delete(taskId);
-                callback.resolve(finalAudioBuffer);
-              }
+              const { handleSunoCallback } = require('../creativeAudio/background');
+              // The handleSunoCallback function handles the callback directly
+              handleSunoCallback(taskId, finalAudioBuffer);
             } catch (err: unknown) {
               const errorMessage = err instanceof Error ? err.message : String(err);
               logger.warn(`⚠️ Could not notify creativeAudioService: ${errorMessage}`);

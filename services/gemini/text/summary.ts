@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import logger from '../../../utils/logger';
+import prompts from '../../../config/prompts';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -126,19 +127,8 @@ class SummaryService {
         formattedMessages += `${index + 1}. ${timestampStr} - ${sender}: ${messageText}\n`;
       });
       
-      const summaryPrompt = `אנא צור סיכום קצר וברור של השיחה הבאה. התמקד בנושאים העיקריים, החלטות שהתקבלו, ונקודות חשובות.
-
-חשוב: הסיכום חייב להיות בעברית.
-
-הוראות:
-- אם יש הודעות מדיה (תמונה, וידאו, אודיו) - ציין שהשיחה כללה גם מדיה, אבל אל תנתח את תוכן המדיה אלא אם כן המשתמש ביקש זאת במפורש
-- התמקד בתוכן הטקסטואלי של השיחה
-- אם יש caption למדיה - השתמש בו כחלק מההקשר
-
-הודעות השיחה:
-${formattedMessages}
-
-סיכום השיחה:`;
+      // Use SSOT prompt from config/prompts.ts
+      const summaryPrompt = prompts.chatSummaryPrompt(formattedMessages);
 
       const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
       const result = await model.generateContent(summaryPrompt);

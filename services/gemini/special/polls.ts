@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { sanitizeText } from '../../../utils/textSanitizer';
 import crypto from 'crypto';
 import logger from '../../../utils/logger';
+import prompts from '../../../config/prompts';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -22,123 +23,10 @@ interface PollResult {
 class PollGenerator {
   /**
    * Build poll prompt with or without rhyming
+   * Uses SSOT from config/prompts.ts
    */
   buildPollPrompt(cleanTopic: string, numOptions: number, withRhyme: boolean, language = 'he'): string {
-    const isHebrew = language === 'he' || language === 'Hebrew';
-    const langName = isHebrew ? 'Hebrew' : (language === 'en' ? 'English' : language);
-
-    if (withRhyme) {
-      if (isHebrew) {
-        return `אתה יוצר סקרים יצירתיים ומשעשעים בעברית עם חריזה מושלמת.
-
-נושא הסקר: ${cleanTopic}
-
-צור סקר עם:
-1. שאלה מעניינת ויצירתית (יכולה להיות "מה היית מעדיפ/ה?" או כל שאלה אחרת)
-2. בדיוק ${numOptions} תשובות אפשריות
-3. ⭐ חשוב ביותר: כל התשובות חייבות לחרוז זו עם זו בחריזה מושלמת! ⭐
-4. החריזה חייבת להיות בסוף כל תשובה (המילה האחרונה)
-5. התשובות צריכות להיות קצרות (עד 100 תווים כל אחת)
-6. התשובות צריכות להיות קשורות לנושא
-7. התשובות חייבות להיות משעשעות ויצירתיות
-
-דוגמאות לחרוזים מושלמים:
-- נושא: חתולים (2 תשובות)
-  שאלה: "מה היית מעדיפ/ה?"
-  תשובה 1: "חתול כועס"
-  תשובה 2: "נמר לועס"
-  (חרוז: כועס / לועס)
-
-חוקים קפדניים:
-⭐ החרוז חייב להיות מושלם - המילה האחרונה בכל תשובה חייבת לחרוז!
-- התשובות חייבות להיות שונות זו מזו במשמעות
-- השאלה מקסימום 255 תווים
-- כל תשובה מקסימום 100 תווים
-- כל התשובות (${numOptions}) חייבות לחרוז ביחד!
-
-החזר JSON בלבד בפורמט:
-{
-  "question": "השאלה כאן",
-  "options": ["תשובה 1", "תשובה 2"${numOptions > 2 ? ', "תשובה 3"' : ''}${numOptions > 3 ? ', "תשובה 4"' : ''}]
-}`;
-      } else {
-        return `You create creative and entertaining polls in ${langName} with perfect rhymes.
-
-Poll Topic: ${cleanTopic}
-
-Create a poll with:
-1. An interesting and creative question
-2. Exactly ${numOptions} possible answers
-3. ⭐ MOST IMPORTANT: All answers must rhyme with each other perfectly! ⭐
-4. The rhyme must be at the end of each answer
-5. Answers should be short (max 100 chars)
-6. Answers should be related to the topic
-7. Answers must be entertaining and creative
-
-Strict Rules:
-⭐ The rhyme must be perfect - the last word of each answer must rhyme!
-- Answers must be different in meaning
-- Question max 255 chars
-- Each answer max 100 chars
-- All ${numOptions} answers must rhyme together!
-
-Return JSON only in this format:
-{
-  "question": "Question here",
-  "options": ["Answer 1", "Answer 2"${numOptions > 2 ? ', "Answer 3"' : ''}${numOptions > 3 ? ', "Answer 4"' : ''}]
-}`;
-      }
-    } else {
-      if (isHebrew) {
-        return `אתה יוצר סקרים יצירתיים ומשעשעים בעברית.
-
-נושא הסקר: ${cleanTopic}
-
-צור סקר עם:
-1. שאלה מעניינת ויצירתית
-2. בדיוק ${numOptions} תשובות אפשריות
-3. התשובות צריכות להיות קצרות (עד 100 תווים כל אחת)
-4. התשובות צריכות להיות קשורות לנושא
-5. התשובות חייבות להיות משעשעות, יצירתיות, ומעניינות
-6. ⭐ חשוב: התשובות לא צריכות לחרוז! ⭐
-
-חוקים קפדניים:
-- התשובות חייבות להיות שונות זו מזו במשמעות
-- השאלה מקסימום 255 תווים
-- כל תשובה מקסימום 100 תווים
-- התשובות לא צריכות לחרוז
-
-החזר JSON בלבד בפורמט:
-{
-  "question": "השאלה כאן",
-  "options": ["תשובה 1", "תשובה 2"${numOptions > 2 ? ', "תשובה 3"' : ''}${numOptions > 3 ? ', "תשובה 4"' : ''}]
-}`;
-      } else {
-        return `You create creative and entertaining polls in ${langName}.
-
-Poll Topic: ${cleanTopic}
-
-Create a poll with:
-1. An interesting and creative question
-2. Exactly ${numOptions} possible answers
-3. Answers should be short (max 100 chars)
-4. Answers should be related to the topic
-5. Answers must be entertaining, creative, and interesting
-6. ⭐ IMPORTANT: Answers should NOT rhyme! ⭐
-
-Strict Rules:
-- Answers must be different in meaning
-- Question max 255 chars
-- Each answer max 100 chars
-- Answers should NOT rhyme
-
-Return JSON only in this format:
-{
-  "question": "Question here",
-  "options": ["Answer 1", "Answer 2"${numOptions > 2 ? ', "Answer 3"' : ''}${numOptions > 3 ? ', "Answer 4"' : ''}]
-}`;
-      }
-    }
+    return prompts.pollGenerationPrompt(cleanTopic, numOptions, withRhyme, language);
   }
 
   /**

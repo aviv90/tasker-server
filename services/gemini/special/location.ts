@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { cleanJsonWrapper } from '../../../utils/textSanitizer';
 import logger from '../../../utils/logger';
+import prompts from '../../../config/prompts';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -57,28 +58,11 @@ class LocationService {
       let text = '';
       let usedMapsGrounding = false;
       
-      // Language-specific instructions
-      const isHebrew = language === 'he' || language === 'Hebrew';
-      const langName = isHebrew ? 'Hebrew' : (language === 'en' ? 'English' : language);
-      
       try {
         logger.debug('🗺️ Trying Google Maps Grounding first...');
         
-        // Dynamic prompt based on language
-        let mapsPrompt: string;
-        if (isHebrew) {
-          mapsPrompt = `תאר את המיקום בקואורדינטות: קו רוחב ${latitude}°, קו אורך ${longitude}°.
-            
-באיזו עיר או אזור זה נמצא? באיזו מדינה? מה מעניין או מפורסם במקום הזה?
-
-תשובה קצרה ומעניינת בעברית (2-3 שורות).`;
-        } else {
-          mapsPrompt = `Describe the location at coordinates: Latitude ${latitude}°, Longitude ${longitude}°.
-            
-Which city or region is this in? Which country? What is interesting or famous about this place?
-
-Short and interesting answer in ${langName} (2-3 lines).`;
-        }
+        // Use SSOT prompt from config/prompts.ts
+        const mapsPrompt = prompts.locationMapsPrompt(latitude, longitude, language);
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mapsResult = await model.generateContent({
@@ -139,26 +123,8 @@ Short and interesting answer in ${langName} (2-3 lines).`;
       if (!text || text.trim().length === 0) {
         logger.debug('🌍 Using Gemini general geographic knowledge...');
         
-        let generalPrompt: string;
-        if (isHebrew) {
-          generalPrompt = `תאר את המיקום הגיאוגרפי: קו רוחב ${latitude}°, קו אורך ${longitude}°.
-
-ספר בקצרה (2-3 שורות):
-- באיזו מדינה, אזור או אוקיינוס זה נמצא
-- מה האקלים והטבע של האזור
-- אם יש שם משהו מעניין או מפורסם, ציין את זה
-
-תשובה מעניינת בעברית.`;
-        } else {
-          generalPrompt = `Describe the geographic location: Latitude ${latitude}°, Longitude ${longitude}°.
-
-Briefly describe (2-3 lines):
-- Which country, region, or ocean is it in?
-- What is the climate and nature of the area?
-- If there is something interesting or famous there, mention it.
-
-Interesting answer in ${langName}.`;
-        }
+        // Use SSOT prompt from config/prompts.ts
+        const generalPrompt = prompts.locationGeneralPrompt(latitude, longitude, language);
 
         const generalResult = await model.generateContent(generalPrompt);
         const generalResponse = generalResult.response;
@@ -190,6 +156,7 @@ Interesting answer in ${langName}.`;
 
       // Final validation: ensure we still have meaningful text
       if (!text || text.length < 10) {
+        const isHebrew = language === 'he' || language === 'Hebrew';
         text = isHebrew 
           ? `מיקום: קו רוחב ${latitude}°, קו אורך ${longitude}°`
           : `Location: Latitude ${latitude}°, Longitude ${longitude}°`;
