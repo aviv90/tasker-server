@@ -6,6 +6,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import { saveBufferToTempFile } from '../../utils/tempFileUtils';
+import logger from '../../utils/logger';
 
 /**
  * Voice service context (for this binding)
@@ -53,8 +54,8 @@ async function textToSpeech(
   options: TTSOptions = {}
 ): Promise<TTSResult> {
   try {
-    console.log(`🗣️ Converting text to speech with voice: ${voiceId}`);
-    console.log(`📝 Text sample: "${text.substring(0, 100)}..."`);
+    logger.debug(`🗣️ Converting text to speech with voice: ${voiceId}`);
+    logger.debug(`📝 Text sample: "${text.substring(0, 100)}..."`);
     
     if (!voiceId || !text) {
       return { error: 'Voice ID and text are required' };
@@ -121,8 +122,8 @@ async function textToSpeech(
     
     let modelId = options.modelId || 'eleven_v3';
     
-    console.log(`🚀 Using Eleven v3 model for language: ${finalLanguageCode || 'auto-detect'}`);
-    console.log(`🌐 Language code: ${finalLanguageCode || 'auto-detect'}, Model: ${modelId}`);
+    logger.debug(`🚀 Using Eleven v3 model for language: ${finalLanguageCode || 'auto-detect'}`);
+    logger.debug(`🌐 Language code: ${finalLanguageCode || 'auto-detect'}, Model: ${modelId}`);
     
     interface TTSRequest {
       text: string;
@@ -143,12 +144,12 @@ async function textToSpeech(
 
     if (modelId !== 'eleven_v3' && options.optimizeStreamingLatency !== undefined) {
       ttsRequest.optimizeStreamingLatency = options.optimizeStreamingLatency || 0;
-      console.log(`⚡ Added streaming latency optimization: ${ttsRequest.optimizeStreamingLatency}`);
+      logger.debug(`⚡ Added streaming latency optimization: ${ttsRequest.optimizeStreamingLatency}`);
     } else if (modelId === 'eleven_v3') {
-      console.log(`⚡ Eleven v3 model - streaming latency optimization not supported (and not needed)`);
+      logger.debug(`⚡ Eleven v3 model - streaming latency optimization not supported (and not needed)`);
     }
 
-    console.log(`🔄 Generating speech for ${text.length} characters...`);
+    logger.debug(`🔄 Generating speech for ${text.length} characters...`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const audioStream = await (client.textToSpeech as any).convert(voiceId, ttsRequest);
 
@@ -178,8 +179,8 @@ async function textToSpeech(
     const audioFileName = `tts_${uuidv4()}.mp3`;
     const { publicPath: audioUrl } = saveBufferToTempFile(audioBuffer, audioFileName);
     
-    console.log('✅ Text-to-speech conversion completed');
-    console.log(`🔗 Audio available at: ${audioUrl}`);
+    logger.info('✅ Text-to-speech conversion completed');
+    logger.debug(`🔗 Audio available at: ${audioUrl}`);
     
     return {
       audioUrl: audioUrl,
@@ -199,7 +200,7 @@ async function textToSpeech(
 
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error('❌ Text-to-speech error:', errorMessage);
+    logger.error('❌ Text-to-speech error:', errorMessage);
     
     interface ErrorResponse {
       response?: {

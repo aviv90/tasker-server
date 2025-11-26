@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { MODELS } from './models';
 import helpers from './helpers';
+import { getTempDir } from '../../utils/tempFileUtils';
+import logger from '../../utils/logger';
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_KEY,
@@ -108,7 +110,7 @@ class ReplicateGeneration {
       const modelName = isVeo3 ? 'Veo 3' : 'Kling v2.1 Master';
       const modelVersion = isVeo3 ? MODELS.VEO3_TEXT_TO_VIDEO : MODELS.TEXT_TO_VIDEO;
 
-      console.log(`🎬 Starting ${modelName} text-to-video generation`);
+      logger.info(`🎬 Starting ${modelName} text-to-video generation`);
 
       const inputParams = this.buildInputParams(prompt, model);
 
@@ -121,7 +123,7 @@ class ReplicateGeneration {
         return { error: 'No prediction ID received from Replicate' };
       }
 
-      console.log('🔄 Polling for completion');
+      logger.debug('🔄 Polling for completion');
 
       const maxAttempts = isVeo3 ? 60 : 80;
       const pollResult = await helpers.pollPrediction(replicate, prediction.id, maxAttempts, 'text-to-video generation');
@@ -130,7 +132,7 @@ class ReplicateGeneration {
         return { error: pollResult.error };
       }
 
-      console.log('✅ Text-to-video completed');
+      logger.info('✅ Text-to-video completed');
 
       const videoURL = helpers.extractVideoUrl(pollResult.result?.output);
 
@@ -142,7 +144,7 @@ class ReplicateGeneration {
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('❌ Text-to-video generation error:', errorMessage);
+      logger.error('❌ Text-to-video generation error:', errorMessage);
       return { error: helpers.extractErrorDetails(err) };
     }
   }
@@ -156,7 +158,7 @@ class ReplicateGeneration {
       const modelName = isVeo3 ? 'Veo 3' : 'Kling v2.1 Master';
       const modelVersion = isVeo3 ? MODELS.VEO3_IMAGE_TO_VIDEO : MODELS.IMAGE_TO_VIDEO;
 
-      console.log(`🎬 Starting ${modelName} image-to-video generation`);
+      logger.info(`🎬 Starting ${modelName} image-to-video generation`);
 
       const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
       const input = this.buildInputParams(prompt || '', model, base64Image);
@@ -170,7 +172,7 @@ class ReplicateGeneration {
         return { error: 'No prediction ID received from Replicate' };
       }
 
-      console.log('🔄 Polling for completion');
+      logger.debug('🔄 Polling for completion');
 
       const maxAttempts = isVeo3 ? 60 : 80;
       const pollResult = await helpers.pollPrediction(replicate, prediction.id, maxAttempts, 'image-to-video generation');
@@ -179,7 +181,7 @@ class ReplicateGeneration {
         return { error: pollResult.error };
       }
 
-      console.log('✅ Image-to-video completed');
+      logger.info('✅ Image-to-video completed');
 
       const videoURL = helpers.extractVideoUrl(pollResult.result?.output);
 
@@ -191,7 +193,7 @@ class ReplicateGeneration {
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('❌ Image-to-video generation error:', errorMessage);
+      logger.error('❌ Image-to-video generation error:', errorMessage);
       return { error: helpers.extractErrorDetails(err) };
     }
   }
@@ -201,10 +203,10 @@ class ReplicateGeneration {
    */
   async generateVideoFromVideo(inputVideoBuffer: Buffer, prompt: string): Promise<{ result?: string; error?: string }> {
     try {
-      console.log('🎬 Starting video-to-video generation');
+      logger.info('🎬 Starting video-to-video generation');
 
-      // Use process.cwd() for safe path resolution
-      const tempDir = path.join(process.cwd(), 'public', 'tmp');
+      // Use centralized temp directory (SSOT with static route)
+      const tempDir = getTempDir();
       if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
       }
@@ -221,7 +223,7 @@ class ReplicateGeneration {
         aspect_ratio: "16:9"
       };
 
-      console.log('🔄 Calling Replicate API');
+      logger.debug('🔄 Calling Replicate API');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const output = await replicate.run(MODELS.VIDEO_TO_VIDEO, { input }) as any;
 
@@ -230,7 +232,7 @@ class ReplicateGeneration {
         fs.unlinkSync(tempVideoPath);
       } catch (cleanupError: unknown) {
         const errorMessage = cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
-        console.warn('Could not clean up temp file:', errorMessage);
+        logger.warn('Could not clean up temp file:', errorMessage);
       }
 
       if (!output) {
@@ -239,7 +241,7 @@ class ReplicateGeneration {
 
       // Handle ReadableStream response
       if (output && typeof output.getReader === 'function') {
-        console.log('🔄 Converting ReadableStream to file');
+        logger.debug('🔄 Converting ReadableStream to file');
 
         const reader = output.getReader();
         const chunks: Uint8Array[] = [];
@@ -255,8 +257,8 @@ class ReplicateGeneration {
 
           const videoBuffer = Buffer.concat(chunks.map(chunk => Buffer.from(chunk)));
           const outputFilename = `video_${Date.now()}.mp4`;
-          // Use process.cwd() for safe path resolution
-          const outputDir = path.join(process.cwd(), 'public', 'tmp');
+          // Use centralized temp directory (SSOT with static route)
+          const outputDir = getTempDir();
           const outputPath = path.join(outputDir, outputFilename);
 
           if (!fs.existsSync(outputDir)) {
@@ -264,7 +266,7 @@ class ReplicateGeneration {
           }
 
           fs.writeFileSync(outputPath, videoBuffer);
-          console.log('✅ Video-to-video completed');
+          logger.info('✅ Video-to-video completed');
 
           return { result: `/static/${outputFilename}` };
 
@@ -279,7 +281,7 @@ class ReplicateGeneration {
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('❌ Video-to-video generation error:', errorMessage);
+      logger.error('❌ Video-to-video generation error:', errorMessage);
       throw error;
     }
   }

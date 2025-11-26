@@ -189,13 +189,15 @@ class PromptBuilder {
     }
 
     // Normalize conversation history to an array
-    if (!Array.isArray(conversationHistory)) {
+      if (!Array.isArray(conversationHistory)) {
       conversationHistory = [];
     }
 
     // Add conversation history if exists
     if (conversationHistory.length > 0) {
-      console.log(`🧠 Using conversation history: ${conversationHistory.length} previous messages`);
+      // Keep this low-level log at debug level to avoid noisy production logs
+      // eslint-disable-next-line no-console
+      console.debug(`🧠 Using conversation history: ${conversationHistory.length} previous messages`);
       
       for (const msg of conversationHistory) {
         // Convert OpenAI format to Gemini format

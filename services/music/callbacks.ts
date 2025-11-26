@@ -3,7 +3,8 @@
  */
 
 import fs from 'fs';
-import path from 'path';
+import { saveBufferToTempFile } from '../../utils/tempFileUtils';
+import logger from '../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { extractQuotedMessageId } from '../../utils/messageHelpers';
 import { sendErrorToUser } from '../../utils/errorSender';
@@ -136,22 +137,22 @@ export class MusicCallbacks {
     try {
       const taskInfo = this.musicService.pendingTasks?.get(taskId) as TaskInfo | undefined;
       if (!taskInfo) {
-        console.warn(`⚠️ No task info found for callback: ${taskId}`);
+        logger.warn(`⚠️ No task info found for callback: ${taskId}`);
         return;
       }
 
-      console.log(`🎵 Processing callback for ${taskInfo.type} music task: ${taskId}`);
-      console.log(`📋 Callback received: ${callbackData.data?.callbackType} for task ${taskId}`);
+      logger.info(`🎵 Processing callback for ${taskInfo.type} music task: ${taskId}`);
+      logger.debug(`📋 Callback received: ${callbackData.data?.callbackType} for task ${taskId}`);
 
       if (callbackData.code === 200 && callbackData.data?.callbackType === 'complete') {
         const songs = callbackData.data.data || [];
-        console.log(`🎵 Found ${songs.length} songs in callback`);
+        logger.debug(`🎵 Found ${songs.length} songs in callback`);
         
         if (songs.length > 0) {
           const firstSong = songs[0] as SongData;
-          console.log(`🎵 First song: ${firstSong.title || 'Unknown'} (${firstSong.duration || 0}s)`);
+          logger.info(`🎵 First song: ${firstSong.title || 'Unknown'} (${firstSong.duration || 0}s)`);
           const songUrl = firstSong.audioUrl || firstSong.audio_url || firstSong.url || firstSong.stream_audio_url || firstSong.source_stream_audio_url;
-          console.log(`🎵 Song URL: ${songUrl}`);
+          logger.debug(`🎵 Song URL: ${songUrl}`);
           
           if (songUrl) {
             // Download and process the audio
@@ -162,17 +163,9 @@ export class MusicCallbacks {
 
             const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
             
-            // Save to temp file
+            // Save to temp file in centralized temp directory
             const tempFileName = `temp_music_${uuidv4()}.mp3`;
-            // Use process.cwd() for safe path resolution
-            const tempFilePath = path.join(process.cwd(), 'public', 'tmp', tempFileName);
-            const tmpDir = path.dirname(tempFilePath);
-
-            if (!fs.existsSync(tmpDir)) {
-              fs.mkdirSync(tmpDir, { recursive: true });
-            }
-
-            fs.writeFileSync(tempFilePath, audioBuffer);
+            const { filePath: tempFilePath, publicPath } = saveBufferToTempFile(audioBuffer, tempFileName);
 
             // Verify file
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -180,11 +173,9 @@ export class MusicCallbacks {
               throw new Error('Audio file was not downloaded successfully');
             }
 
-            console.log(`✅ Suno ${taskInfo.type} music generated successfully via callback`);
+            logger.info(`✅ Suno ${taskInfo.type} music generated successfully via callback`);
         
             const finalAudioBuffer = fs.readFileSync(tempFilePath);
-            const filename = path.basename(tempFilePath);
-            const publicPath = `/static/${filename}`;
                     
             const result: CallbackResult = {
               text: taskInfo.musicOptions?.prompt || taskInfo.musicOptions?.title || `Generated ${taskInfo.type} music`,
@@ -203,19 +194,19 @@ export class MusicCallbacks {
                     
             // If WhatsApp context exists, send result directly to WhatsApp client
             if (taskInfo.whatsappContext && this.musicService.whatsappDelivery) {
-              console.log(`📱 Sending music to WhatsApp client: ${taskInfo.whatsappContext.chatId}`);
+              logger.info(`📱 Sending music to WhatsApp client: ${taskInfo.whatsappContext.chatId}`);
               
               try {
                 await this.musicService.whatsappDelivery.sendMusicToWhatsApp(taskInfo.whatsappContext, result);
-                console.log('✅ Music sent to WhatsApp successfully');
+                logger.info('✅ Music sent to WhatsApp successfully');
               } catch (whatsappError: unknown) {
-                console.error('❌ Failed to send music to WhatsApp:', whatsappError);
+                logger.error('❌ Failed to send music to WhatsApp:', whatsappError);
               }
             }
                     
             // If video was requested, generate it now (separate API call)
             if (taskInfo.wantsVideo && firstSong.id && this.musicService.videoManager) {
-              console.log('🎬 Initiating video generation');
+              logger.info('🎬 Initiating video generation');
               
               try {
                 const videoResult = await this.musicService.videoManager.generateMusicVideo(taskId, firstSong.id, {
@@ -224,7 +215,7 @@ export class MusicCallbacks {
                 }) as { error?: string; videoTaskId?: string };
                 
                 if (videoResult.error) {
-                  console.error('❌ Failed to start video generation:', videoResult.error);
+                  logger.error('❌ Failed to start video generation:', videoResult.error);
                   // Send error message to user
                   if (taskInfo.whatsappContext) {
                     const quotedMessageId = extractQuotedMessageId({ originalMessageId: taskInfo.whatsappContext.originalMessageId });
@@ -234,7 +225,7 @@ export class MusicCallbacks {
                     });
                   }
                 } else {
-                  console.log(`✅ Video generation started: ${videoResult.videoTaskId}`);
+                  logger.info(`✅ Video generation started: ${videoResult.videoTaskId}`);
                   // Notify user that video is being generated
                   if (taskInfo.whatsappContext) {
                     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -252,7 +243,7 @@ export class MusicCallbacks {
                 console.error('❌ Error initiating video generation:', videoError);
               }
             } else if (taskInfo.wantsVideo && !firstSong.id) {
-              console.warn('⚠️ Video was requested but no audio ID available');
+              logger.warn('⚠️ Video was requested but no audio ID available');
             }
                     
             // Clean up task info
@@ -269,23 +260,23 @@ export class MusicCallbacks {
               }
             } catch (err: unknown) {
               const errorMessage = err instanceof Error ? err.message : String(err);
-              console.warn(`⚠️ Could not notify creativeAudioService: ${errorMessage}`);
+              logger.warn(`⚠️ Could not notify creativeAudioService: ${errorMessage}`);
             }
         
             return result;
           }
         }
       } else if (callbackData.data?.callbackType === 'text') {
-        console.log(`📝 Text generation completed for task ${taskId}, waiting for complete callback...`);
+        logger.info(`📝 Text generation completed for task ${taskId}, waiting for complete callback...`);
         // Don't process yet, wait for 'complete' callback
         return { status: 'text_complete', message: '📝 יצירת הטקסט הושלמה, ממתין לאודיו...' };
       } else if (callbackData.data?.callbackType === 'first') {
-        console.log(`🎵 First track completed for task ${taskId}, waiting for complete callback...`);
+        logger.info(`🎵 First track completed for task ${taskId}, waiting for complete callback...`);
         // Don't process yet, wait for 'complete' callback
         return { status: 'first_complete', message: '🎵 המסלול הראשון הושלם, ממתין לכל המסלולים...' };
       } else {
-        console.log('⚠️ No songs found in callback or callback type not supported');
-        console.log(`📋 Callback code: ${callbackData.code}, type: ${callbackData.data?.callbackType}`);
+        logger.warn('⚠️ No songs found in callback or callback type not supported');
+        logger.debug(`📋 Callback code: ${callbackData.code}, type: ${callbackData.data?.callbackType}`);
       }
 
       // Clean up task info
@@ -294,7 +285,7 @@ export class MusicCallbacks {
 
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`❌ Error processing callback for task ${taskId}:`, errorMessage);
+      logger.error(`❌ Error processing callback for task ${taskId}:`, errorMessage);
       this.musicService.pendingTasks?.delete(taskId);
       return { error: errorMessage || 'Callback processing failed' };
     }

@@ -13,6 +13,8 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import os from 'os';
+import logger from '../utils/logger';
+import { saveBufferToTempFile } from '../utils/tempFileUtils';
 
 /**
  * Speech-to-text options
@@ -141,7 +143,7 @@ class SpeechService {
      */
     async speechToText(audioBuffer: Buffer, options: SpeechToTextOptions = {}): Promise<TranscriptionResult> {
         try {
-            console.log(`🎤 ElevenLabs Speech-to-Text (${audioBuffer.length} bytes)`);
+            logger.info(`🎤 ElevenLabs Speech-to-Text (${audioBuffer.length} bytes)`);
             
             if (!audioBuffer || !Buffer.isBuffer(audioBuffer)) {
                 return { error: 'Invalid audio buffer provided' };
@@ -181,7 +183,7 @@ class SpeechService {
                     try {
                         fs.unlinkSync(tempPath);
                     } catch (cleanupError) {
-                        console.warn('⚠️ Could not clean up temp file');
+                        logger.warn('⚠️ Could not clean up temp file');
                     }
 
                     interface TranscriptionResponse {
@@ -198,7 +200,7 @@ class SpeechService {
                     }
 
                     const text = result.text.trim();
-                    console.log(`✅ Transcription completed (${text.length} chars)`);
+                    logger.info(`✅ Transcription completed (${text.length} chars)`);
 
                     return {
                         text: text,
@@ -232,7 +234,7 @@ class SpeechService {
 
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : String(err);
-            console.error('❌ ElevenLabs error:', errorMessage);
+            logger.error('❌ ElevenLabs error:', errorMessage);
             
             interface ErrorResponse {
                 response?: {
@@ -274,7 +276,7 @@ class SpeechService {
      */
     async batchSpeechToText(audioFiles: AudioFile[] = []): Promise<BatchResult> {
         try {
-            console.log(`🎤 Batch Speech-to-Text: ${audioFiles.length} files`);
+            logger.info(`🎤 Batch Speech-to-Text: ${audioFiles.length} files`);
             
             if (!Array.isArray(audioFiles) || audioFiles.length === 0) {
                 return { error: 'No audio files provided for batch processing' };
@@ -314,7 +316,7 @@ class SpeechService {
                 }
             }
 
-            console.log(`✅ Batch completed: ${results.length} success, ${errors.length} errors`);
+            logger.info(`✅ Batch completed: ${results.length} success, ${errors.length} errors`);
 
             return {
                 results: results,
@@ -330,7 +332,7 @@ class SpeechService {
 
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : String(err);
-            console.error('❌ Batch processing error:', errorMessage);
+            logger.error('❌ Batch processing error:', errorMessage);
             return { error: errorMessage || 'Batch processing failed' };
         }
     }
@@ -394,17 +396,7 @@ class SpeechService {
             }
 
             const filename = `temp_speech_${uuidv4()}.${format.toLowerCase()}`;
-            // Use process.cwd() for safe path resolution
-            const tempDir = path.join(process.cwd(), 'public', 'tmp');
-            const filePath = path.join(tempDir, filename);
-
-            // Ensure temp directory exists
-            if (!fs.existsSync(tempDir)) {
-                fs.mkdirSync(tempDir, { recursive: true });
-            }
-
-            // Write audio buffer to file
-            fs.writeFileSync(filePath, audioBuffer);
+            const { filePath } = saveBufferToTempFile(audioBuffer, filename);
 
             // Verify file was written
             const stats = fs.statSync(filePath);
@@ -412,7 +404,7 @@ class SpeechService {
                 return { error: 'Failed to write audio file' };
             }
 
-            console.log(`💾 Temporary audio file saved: ${filename} (${stats.size} bytes)`);
+            logger.debug(`💾 Temporary audio file saved: ${filename} (${stats.size} bytes)`);
 
             return {
                 path: filePath,
@@ -422,7 +414,7 @@ class SpeechService {
 
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : String(err);
-            console.error('❌ Error saving temporary audio file:', err);
+            logger.error('❌ Error saving temporary audio file:', errorMessage);
             return { error: errorMessage || 'Failed to save audio file' };
         }
     }
@@ -436,11 +428,11 @@ class SpeechService {
         try {
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
-                console.log(`🗑️ Temporary file cleaned up: ${path.basename(filePath)}`);
+                logger.debug(`🗑️ Temporary file cleaned up: ${path.basename(filePath)}`);
             }
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : String(err);
-            console.warn('⚠️ Failed to cleanup temporary file:', errorMessage);
+            logger.warn('⚠️ Failed to cleanup temporary file:', errorMessage);
         }
     }
 

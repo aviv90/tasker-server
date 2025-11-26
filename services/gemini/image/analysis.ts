@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { sanitizeText } from '../../../utils/textSanitizer';
 import { detectLanguage } from '../../../utils/agentHelpers';
+import logger from '../../../utils/logger';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -40,7 +41,7 @@ class ImageAnalysis {
    */
   async analyzeImageWithText(prompt: string, base64Image: string): Promise<ImageAnalysisResult> {
     try {
-      console.log('🔍 Starting Gemini image analysis (text-only response)');
+      logger.info('🔍 Starting Gemini image analysis (text-only response)');
 
       const cleanPrompt = sanitizeText(prompt);
       const detectedLang = detectLanguage(cleanPrompt);
@@ -71,7 +72,7 @@ class ImageAnalysis {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const responseAny = response as any;
       if (!responseAny.candidates || responseAny.candidates.length === 0) {
-        console.log('❌ Gemini image analysis: No candidates returned');
+        logger.warn('❌ Gemini image analysis: No candidates returned');
         return {
           success: false,
           error: responseAny.promptFeedback?.blockReasonMessage || 'No candidate returned'
@@ -90,14 +91,14 @@ class ImageAnalysis {
       }
 
       if (!text || text.trim().length === 0) {
-        console.log('❌ Gemini image analysis: No text found in response');
+        logger.warn('❌ Gemini image analysis: No text found in response');
         return {
           success: false,
           error: 'No text response from Gemini'
         };
       }
 
-      console.log('✅ Gemini image analysis completed');
+      logger.info('✅ Gemini image analysis completed');
       return {
         success: true,
         text: text.trim(),
@@ -105,7 +106,7 @@ class ImageAnalysis {
       };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during image analysis';
-      console.error('❌ Gemini image analysis error:', errorMessage);
+      logger.error('❌ Gemini image analysis error:', errorMessage);
       return {
         success: false,
         error: errorMessage

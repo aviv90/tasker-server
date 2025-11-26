@@ -4,6 +4,7 @@ import { getStaticFileUrl } from '../../../utils/urlUtils';
 import { createTempFilePath } from '../../../utils/tempFileUtils';
 import { getGeminiErrorMessage } from '../utils';
 import { detectLanguage } from '../../../utils/agentHelpers';
+import logger from '../../../utils/logger';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -54,7 +55,7 @@ class ImageEditing {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const responseAny = response as any;
     if (!responseAny.candidates || responseAny.candidates.length === 0) {
-      console.log('❌ Gemini edit: No candidates returned');
+      logger.warn('❌ Gemini edit: No candidates returned');
       return { error: responseAny.promptFeedback?.blockReasonMessage || 'No candidate returned' };
     }
 
@@ -62,11 +63,11 @@ class ImageEditing {
     let text = '';
     let imageBuffer: Buffer | null = null;
 
-    console.log(`   Finish reason: ${cand.finishReason}`);
+    logger.debug(`   Finish reason: ${cand.finishReason}`);
 
     if (!cand.content || !cand.content.parts) {
-      console.log('❌ Gemini edit: No content or parts found in candidate');
-      console.log('   Full candidate:', JSON.stringify(cand));
+      logger.warn('❌ Gemini edit: No content or parts found in candidate');
+      logger.debug('   Full candidate:', JSON.stringify(cand));
       const errorMsg = getGeminiErrorMessage(cand);
       return { error: errorMsg };
     }
@@ -81,11 +82,11 @@ class ImageEditing {
     }
 
     if (!imageBuffer) {
-      console.log('❌ Gemini edit: No image data found in response');
+      logger.warn('❌ Gemini edit: No image data found in response');
 
       if (text && text.trim().length > 0) {
-        console.log('📝 Gemini returned text instead of image - generation failed');
-        console.log(`   Gemini response: ${text.substring(0, 200)}...`);
+        logger.info('📝 Gemini returned text instead of image - generation failed');
+        logger.debug(`   Gemini response: ${text.substring(0, 200)}...`);
         return {
           error: 'Gemini לא הצליח ליצור תמונה. נסה prompt אחר או השתמש ב-OpenAI במקום.'
         };
@@ -104,8 +105,8 @@ class ImageEditing {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const responseAny = response as any;
     if (!responseAny.candidates || responseAny.candidates.length === 0) {
-      console.log('❌ Gemini edit: No candidates returned');
-      console.log('   Prompt feedback:', JSON.stringify(responseAny.promptFeedback));
+      logger.warn('❌ Gemini edit: No candidates returned');
+      logger.debug('   Prompt feedback:', JSON.stringify(responseAny.promptFeedback));
       return {
         success: false,
         error: responseAny.promptFeedback?.blockReasonMessage || 'No candidate returned'
@@ -116,14 +117,14 @@ class ImageEditing {
     let text = '';
     let imageBuffer: Buffer | null = null;
 
-    console.log(`   Finish reason: ${cand.finishReason}`);
+    logger.debug(`   Finish reason: ${cand.finishReason}`);
     if (cand.safetyRatings) {
-      console.log(`   Safety ratings:`, JSON.stringify(cand.safetyRatings));
+      logger.debug(`   Safety ratings:`, JSON.stringify(cand.safetyRatings));
     }
 
     if (!cand.content || !cand.content.parts) {
-      console.log('❌ Gemini edit: No content or parts found in candidate');
-      console.log('   Full candidate:', JSON.stringify(cand));
+      logger.warn('❌ Gemini edit: No content or parts found in candidate');
+      logger.debug('   Full candidate:', JSON.stringify(cand));
 
       // Check for safety/policy blocks
       if (cand.finishReason === 'SAFETY' ||
@@ -163,11 +164,11 @@ class ImageEditing {
     }
 
     if (!imageBuffer) {
-      console.log('❌ Gemini edit: No image data found in response');
-      console.log(`   Got text response (${text.length} chars): ${text.substring(0, 200)}...`);
+      logger.warn('❌ Gemini edit: No image data found in response');
+      logger.debug(`   Got text response (${text.length} chars): ${text.substring(0, 200)}...`);
 
       if (text && text.trim().length > 0) {
-        console.log('📝 Gemini returned text instead of image - edit failed');
+        logger.info('📝 Gemini returned text instead of image - edit failed');
         return {
           success: false,
           error: 'Gemini לא הצליח לערוך את התמונה. נסה prompt אחר או השתמש ב-OpenAI במקום.'
@@ -199,8 +200,8 @@ class ImageEditing {
     fs.writeFileSync(filePath, imageBuffer);
     const imageUrl = getStaticFileUrl(fileName, req);
 
-    console.log(`🖼️ Edited image saved to: ${filePath}`);
-    console.log(`🔗 Public URL: ${imageUrl}`);
+    logger.info(`🖼️ Edited image saved to: ${filePath}`);
+    logger.debug(`🔗 Public URL: ${imageUrl}`);
 
     return { imageUrl, fileName };
   }
@@ -210,7 +211,7 @@ class ImageEditing {
    */
   async editImageWithText(prompt: string, base64Image: string): Promise<ImageEditingResult> {
     try {
-      console.log('🖼️ Starting Gemini image editing');
+      logger.info('🖼️ Starting Gemini image editing');
 
       const cleanPrompt = sanitizeText(prompt);
       const detectedLang = detectLanguage(cleanPrompt);
@@ -235,11 +236,11 @@ class ImageEditing {
         return processResult;
       }
 
-      console.log('✅ Gemini image edited successfully');
+      logger.info('✅ Gemini image edited successfully');
       return processResult;
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('❌ Gemini image edit error:', errorMessage);
+      logger.error('❌ Gemini image edit error:', errorMessage);
       throw err;
     }
   }
@@ -249,7 +250,7 @@ class ImageEditing {
    */
   async editImageForWhatsApp(prompt: string, base64Image: string, req: Request | null): Promise<WhatsAppEditResult> {
     try {
-      console.log('🖼️ Starting Gemini image editing');
+      logger.info('🖼️ Starting Gemini image editing');
 
       const cleanPrompt = sanitizeText(prompt);
       const detectedLang = detectLanguage(cleanPrompt);
@@ -301,7 +302,7 @@ class ImageEditing {
         cleanDescription = cleanMediaDescription(cleanDescription);
       }
 
-      console.log('✅ Gemini image edited successfully');
+      logger.info('✅ Gemini image edited successfully');
 
       return {
         success: true,
@@ -311,7 +312,7 @@ class ImageEditing {
       };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during image editing';
-      console.error('❌ Gemini image edit error:', errorMessage);
+      logger.error('❌ Gemini image edit error:', errorMessage);
       return {
         success: false,
         error: errorMessage

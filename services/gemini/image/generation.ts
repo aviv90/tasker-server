@@ -6,6 +6,7 @@ import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { createTempFilePath } from '../../../utils/tempFileUtils';
 import { Request } from 'express';
+import logger from '../../../utils/logger';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -57,7 +58,7 @@ class ImageGeneration {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const responseAny = response as any;
     if (!responseAny.candidates || responseAny.candidates.length === 0) {
-      console.log('❌ Gemini: No candidates returned');
+      logger.warn('❌ Gemini: No candidates returned');
       const errorMsg = getGeminiErrorMessage(null, responseAny.promptFeedback);
       return { error: errorMsg };
     }
@@ -67,8 +68,8 @@ class ImageGeneration {
     let imageBuffer: Buffer | null = null;
 
     if (!cand.content || !cand.content.parts) {
-      console.log('❌ Gemini: No content or parts found in candidate');
-      console.log('   Full candidate:', JSON.stringify(cand));
+      logger.warn('❌ Gemini: No content or parts found in candidate');
+      logger.debug('   Full candidate:', JSON.stringify(cand));
       const errorMsg = getGeminiErrorMessage(cand);
       return { error: errorMsg };
     }
@@ -85,8 +86,8 @@ class ImageGeneration {
     if (!imageBuffer) {
       if (text && text.trim().length > 0) {
         const cleanText = text.trim();
-        console.log('📝 Gemini returned text instead of image');
-        console.log(`   Gemini response: ${cleanText.substring(0, 200)}...`);
+        logger.info('📝 Gemini returned text instead of image');
+        logger.debug(`   Gemini response: ${cleanText.substring(0, 200)}...`);
         return {
           textOnly: true,
           text: cleanText
@@ -94,7 +95,7 @@ class ImageGeneration {
       }
 
       // No image and no text - this is a real error
-      console.log('❌ Gemini: No image data found in response and no text returned');
+      logger.warn('❌ Gemini: No image data found in response and no text returned');
       return { error: 'לא חזרה תמונה ולא חזר טקסט' };
     }
 
@@ -112,8 +113,8 @@ class ImageGeneration {
     fs.writeFileSync(filePath, imageBuffer);
     const imageUrl = getStaticFileUrl(fileName, req);
 
-    console.log(`🖼️ Image saved to: ${filePath}`);
-    console.log(`🔗 Public URL: ${imageUrl}`);
+    logger.info(`🖼️ Image saved to: ${filePath}`);
+    logger.debug(`🔗 Public URL: ${imageUrl}`);
 
     return { imageUrl, fileName, description: '' };
   }
@@ -123,7 +124,7 @@ class ImageGeneration {
    */
   async generateImageWithText(prompt: string): Promise<ImageGenerationResult> {
     try {
-      console.log('🎨 Starting Gemini image generation');
+      logger.info('🎨 Starting Gemini image generation');
 
       const cleanPrompt = this.cleanPrompt(prompt);
 
@@ -154,11 +155,11 @@ class ImageGeneration {
         return processResult;
       }
 
-      console.log('✅ Gemini image generated successfully');
+      logger.info('✅ Gemini image generated successfully');
       return processResult;
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('❌ Gemini image generation error:', errorMessage);
+      logger.error('❌ Gemini image generation error:', errorMessage);
       throw err;
     }
   }
@@ -168,7 +169,7 @@ class ImageGeneration {
    */
   async generateImageForWhatsApp(prompt: string, req: Request | null = null): Promise<WhatsAppImageResult> {
     try {
-      console.log('🎨 Starting Gemini image generation');
+      logger.info('🎨 Starting Gemini image generation');
 
       const cleanPrompt = this.cleanPrompt(prompt);
 
@@ -230,7 +231,7 @@ class ImageGeneration {
         cleanDescription = cleanMediaDescription(cleanDescription);
       }
 
-      console.log('✅ Gemini image generated successfully');
+      logger.info('✅ Gemini image generated successfully');
 
       return {
         success: true,
@@ -240,7 +241,7 @@ class ImageGeneration {
       };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during image generation';
-      console.error('❌ Gemini image generation error:', errorMessage);
+      logger.error('❌ Gemini image generation error:', errorMessage);
       return {
         success: false,
         error: errorMessage

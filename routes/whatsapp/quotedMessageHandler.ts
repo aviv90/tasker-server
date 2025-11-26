@@ -7,10 +7,9 @@
 
 import { getMessage } from '../../services/greenApiService';
 import { getStaticFileUrl } from '../../utils/urlUtils';
-import path from 'path';
-import os from 'os';
-import fs from 'fs';
+import { saveBufferToTempFile } from '../../utils/tempFileUtils';
 import { MessageData } from '../../services/whatsapp/types';
+import logger from '../../utils/logger';
 
 interface QuotedResult {
     hasImage: boolean;
@@ -25,7 +24,7 @@ interface QuotedResult {
 
 export async function handleQuotedMessage(quotedMessage: MessageData, currentPrompt: string, chatId: string): Promise<QuotedResult> {
   try {
-    console.log(`🔗 Processing quoted message: ${quotedMessage.stanzaId}`);
+    logger.debug(`🔗 Processing quoted message: ${quotedMessage.stanzaId}`);
     
     // Extract quoted message type and content
     const quotedType = quotedMessage.typeMessage;
@@ -34,7 +33,7 @@ export async function handleQuotedMessage(quotedMessage: MessageData, currentPro
     if (quotedType === 'textMessage' || quotedType === 'extendedTextMessage') {
       const quotedText = quotedMessage.textMessage || quotedMessage.textMessageData?.textMessage || quotedMessage.extendedTextMessageData?.text || '';
       const combinedPrompt = `${quotedText}\n\n${currentPrompt}`;
-      console.log(`📝 Combined text prompt: ${combinedPrompt.substring(0, 100)}...`);
+      logger.debug(`📝 Combined text prompt: ${combinedPrompt.substring(0, 100)}...`);
       return {
         hasImage: false,
         hasVideo: false,
@@ -48,7 +47,7 @@ export async function handleQuotedMessage(quotedMessage: MessageData, currentPro
     
     // For media messages (image/video/audio/sticker), try to get downloadUrl
     if (quotedType === 'imageMessage' || quotedType === 'videoMessage' || quotedType === 'audioMessage' || quotedType === 'stickerMessage') {
-      console.log(`📸 Quoted ${quotedType}, attempting to extract media URL...`);
+      logger.debug(`📸 Quoted ${quotedType}, attempting to extract media URL...`);
       
       let downloadUrl: string | null | undefined = null;
       
@@ -70,7 +69,7 @@ export async function handleQuotedMessage(quotedMessage: MessageData, currentPro
       
       // STEP 2: If downloadUrl is empty or not found, try getMessage API
       if (!downloadUrl || downloadUrl === '') {
-        console.log(`📨 Fetching message ${quotedMessage.stanzaId} from chat ${chatId}`);
+        logger.debug(`📨 Fetching message ${quotedMessage.stanzaId} from chat ${chatId}`);
         try {
           interface GreenApiMessage {
             downloadUrl?: string;
@@ -117,11 +116,11 @@ export async function handleQuotedMessage(quotedMessage: MessageData, currentPro
             }
             
             if (downloadUrl) {
-              console.log(`✅ Found downloadUrl via getMessage`);
+              logger.debug(`✅ Found downloadUrl via getMessage`);
             }
           }
         } catch (getMessageError: any) {
-          console.log(`⚠️ getMessage failed: ${getMessageError.message}`);
+          logger.warn(`⚠️ getMessage failed: ${getMessageError.message}`);
           // Continue to STEP 3 - try thumbnail
         }
       }
@@ -130,40 +129,30 @@ export async function handleQuotedMessage(quotedMessage: MessageData, currentPro
       if ((!downloadUrl || downloadUrl === '') && (quotedType === 'imageMessage' || quotedType === 'stickerMessage')) {
         const thumbnail = quotedMessage.jpegThumbnail as string | undefined; // || quotedMessage.thumbnail (not on MessageData)
         if (thumbnail) {
-          console.log(`🖼️ No downloadUrl found, converting jpegThumbnail to temporary image...`);
+          logger.debug(`🖼️ No downloadUrl found, converting jpegThumbnail to temporary image...`);
           try {
             // Decode base64 thumbnail to buffer
             const thumbnailBuffer = Buffer.from(thumbnail, 'base64');
-            // Save to temporary file
+            // Save to temporary file in centralized temp directory
             const tempFileName = `quoted_image_${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
-            const tempFilePath = path.join(os.tmpdir(), tempFileName);
-            fs.writeFileSync(tempFilePath, thumbnailBuffer);
-            
-            // Move to public/tmp for web access
-            // Use process.cwd() for safe path resolution
-            const publicTmpDir = path.join(process.cwd(), 'public', 'tmp');
-            if (!fs.existsSync(publicTmpDir)) {
-              fs.mkdirSync(publicTmpDir, { recursive: true });
-            }
-            const publicFilePath = path.join(publicTmpDir, tempFileName);
-            fs.renameSync(tempFilePath, publicFilePath);
+            const { fileName } = saveBufferToTempFile(thumbnailBuffer, tempFileName);
             
             // Generate public URL
-            downloadUrl = getStaticFileUrl(`/tmp/${tempFileName}`);
-            console.log(`✅ Created temporary image from thumbnail: ${downloadUrl}`);
+            downloadUrl = getStaticFileUrl(`/tmp/${fileName}`);
+            logger.debug(`✅ Created temporary image from thumbnail: ${downloadUrl}`);
           } catch (thumbnailError: any) {
-            console.error(`❌ Failed to process thumbnail: ${thumbnailError.message}`);
+            logger.error(`❌ Failed to process thumbnail: ${thumbnailError.message}`);
           }
         }
       }
       
       // STEP 4: If still no downloadUrl, throw error
       if (!downloadUrl || downloadUrl === '') {
-        console.log(`❌ No downloadUrl or thumbnail found for quoted ${quotedType}`);
+        logger.warn(`❌ No downloadUrl or thumbnail found for quoted ${quotedType}`);
         throw new Error(`לא הצלחתי לגשת ל${quotedType === 'imageMessage' ? 'תמונה' : quotedType === 'videoMessage' ? 'וידאו' : 'מדיה'} המצוטטת. ייתכן שהיא נמחקה או ממספר אחר.`);
       }
       
-      console.log(`✅ Successfully extracted downloadUrl for quoted ${quotedType}`);
+      logger.debug(`✅ Successfully extracted downloadUrl for quoted ${quotedType}`);
       
       // Extract caption from media message (if exists)
       // Caption can be directly on quotedMessage or nested in fileMessageData/imageMessageData
@@ -174,8 +163,8 @@ export async function handleQuotedMessage(quotedMessage: MessageData, currentPro
         originalCaption = quotedMessage.caption || quotedMessage.fileMessageData?.caption || quotedMessage.videoMessageData?.caption;
       }
       
-      console.log(`📝 [handleQuotedMessage] Original caption found: "${originalCaption}"`);
-      console.log(`📝 [handleQuotedMessage] Current prompt (additional): "${currentPrompt}"`);
+      logger.debug(`📝 [handleQuotedMessage] Original caption found: "${originalCaption}"`);
+      logger.debug(`📝 [handleQuotedMessage] Current prompt (additional): "${currentPrompt}"`);
       
       // If there's a caption with a command (starts with #), merge it with additional instructions
       let finalPrompt = currentPrompt;
@@ -185,7 +174,7 @@ export async function handleQuotedMessage(quotedMessage: MessageData, currentPro
         // If there are additional instructions, append them
         if (currentPrompt && currentPrompt.trim()) {
           finalPrompt = `${cleanCaption}, ${currentPrompt}`;
-          console.log(`🔗 Merged caption with additional instructions: "${finalPrompt.substring(0, 100)}..."`);
+          logger.debug(`🔗 Merged caption with additional instructions: "${finalPrompt.substring(0, 100)}..."`);
         } else {
           finalPrompt = cleanCaption;
         }
@@ -204,7 +193,7 @@ export async function handleQuotedMessage(quotedMessage: MessageData, currentPro
     }
     
     // For other types, just use current prompt
-    console.log(`⚠️ Unsupported quoted message type: ${quotedType}, using current prompt only`);
+    logger.debug(`⚠️ Unsupported quoted message type: ${quotedType}, using current prompt only`);
     return {
       hasImage: false,
       hasVideo: false,
@@ -216,7 +205,7 @@ export async function handleQuotedMessage(quotedMessage: MessageData, currentPro
     };
     
   } catch (error: any) {
-    console.error('❌ Error handling quoted message:', error.message);
+    logger.error('❌ Error handling quoted message:', { error: error.message });
     
     // If it's a downloadUrl error for bot's own messages, return a clear error
     if (error.message.includes('Cannot process media from bot')) {

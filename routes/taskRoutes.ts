@@ -12,6 +12,8 @@ import { isErrorResult } from '../utils/errorHandler';
 import { finalizeVideo } from '../utils/videoUtils';
 import fs from 'fs';
 import path from 'path';
+import { getTempDir } from '../utils/tempFileUtils';
+import logger from '../utils/logger';
 
 const router = express.Router();
 
@@ -118,7 +120,7 @@ router.post('/start-task', expensiveOperationLimiter, async (req: Request, res: 
             const isInstrumental = req.body.instrumental === true;
             const isAdvanced = req.body.advanced === true;
             
-            console.log(`🎵 Generating ${isInstrumental ? 'instrumental' : 'vocal'} music ${isAdvanced ? 'with advanced V5 features' : ''}`);
+            logger.info(`🎵 Generating ${isInstrumental ? 'instrumental' : 'vocal'} music ${isAdvanced ? 'with advanced V5 features' : ''}`);
             
             if (isAdvanced) {
                 // Use advanced V5 mode with full control
@@ -137,7 +139,7 @@ router.post('/start-task', expensiveOperationLimiter, async (req: Request, res: 
             // Gemini text chat with conversation history
             const conversationHistory = req.body.conversationHistory || [];
             
-            console.log(`🔮 Gemini chat processing`);
+            logger.info(`🔮 Gemini chat processing`);
             result = await geminiService.generateTextResponse(sanitizedPrompt, conversationHistory);
             
             await finalizeTextResponse(taskId, result, sanitizedPrompt, req);
@@ -147,7 +149,7 @@ router.post('/start-task', expensiveOperationLimiter, async (req: Request, res: 
             // OpenAI text chat with conversation history
             const conversationHistory = req.body.conversationHistory || [];
             
-            console.log(`🤖 Generating OpenAI chat response`);
+            logger.info(`🤖 Generating OpenAI chat response`);
             result = await openaiService.generateTextResponse(sanitizedPrompt, conversationHistory);
             
             await finalizeTextResponse(taskId, result, sanitizedPrompt, req);
@@ -159,6 +161,7 @@ router.post('/start-task', expensiveOperationLimiter, async (req: Request, res: 
         }
     } catch (error: any) {
         // Service already logs the error, just store it
+        logger.error('❌ Error starting task:', { taskId, error: error.message || error.toString() });
         await taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
     }
 });
@@ -184,8 +187,8 @@ async function finalizeTask(taskId: string, result: any, req: Request, fileExten
         }
         
         const filename = `${taskId}.${fileExtension}`;
-        // Use process.cwd() for safe path resolution
-        const outputDir = path.join(process.cwd(), 'public', 'tmp');
+        // Use centralized temp directory (SSOT with static route)
+        const outputDir = getTempDir();
         if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
         const outputPath = path.join(outputDir, filename);
         
@@ -206,7 +209,7 @@ async function finalizeTask(taskId: string, result: any, req: Request, fileExten
             cost: result.cost
         });
     } catch (error: any) {
-        console.error(`❌ Error in finalizeTask:`, error);
+        logger.error(`❌ Error in finalizeTask: ${taskId}`, { error: error.message || error.toString() });
         await taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
     }
 }
@@ -214,22 +217,22 @@ async function finalizeTask(taskId: string, result: any, req: Request, fileExten
 async function finalizeMusic(taskId: string, result: any, prompt: string, req: Request) {
     try {
         if (isErrorResult(result)) {
-            console.log(`❌ Music generation failed for task ${taskId}:`, result.error);
+            logger.error(`❌ Music generation failed for task ${taskId}: ${result.error}`);
             await taskStore.set(taskId, { status: 'error', error: result.error });
             return;
         }
         
         const filename = `${taskId}.mp3`;
-        // Use process.cwd() for safe path resolution
-        const outputDir = path.join(process.cwd(), 'public', 'tmp');
+        // Use centralized temp directory (SSOT with static route)
+        const outputDir = getTempDir();
         if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
         const outputPath = path.join(outputDir, filename);
         
         if (result.audioBuffer) {
             fs.writeFileSync(outputPath, result.audioBuffer);
-            console.log(`✅ Music file saved: ${filename}`);
+            logger.info(`✅ Music file saved: ${filename}`);
         } else {
-            console.error(`❌ No audio buffer in result for task ${taskId}`);
+            logger.error(`❌ No audio buffer in result for task ${taskId}`);
             await taskStore.set(taskId, { status: 'error', error: 'No audio buffer data' });
             return;
         }
@@ -254,10 +257,10 @@ async function finalizeMusic(taskId: string, result: any, prompt: string, req: R
         }
 
         await taskStore.set(taskId, taskResult);
-        console.log(`✅ Music generation completed for task ${taskId}`);
+        logger.info(`✅ Music generation completed for task ${taskId}`);
         
     } catch (error: any) {
-        console.error(`❌ Error in finalizeMusic:`, error);
+        logger.error(`❌ Error in finalizeMusic: ${taskId}`, { error: error.message || error.toString() });
         await taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
     }
 }
@@ -265,12 +268,10 @@ async function finalizeMusic(taskId: string, result: any, prompt: string, req: R
 async function finalizeTextResponse(taskId: string, result: any, prompt: string, _req: Request) {
     try {
         if (isErrorResult(result)) {
-            console.log(`❌ Text generation failed for task ${taskId}:`, result.error);
+            logger.error(`❌ Text generation failed for task ${taskId}: ${result.error}`);
             await taskStore.set(taskId, { status: 'error', error: result.error });
             return;
         }
-        
-        console.log(`✅ Text response generated for task ${taskId}`);
         
         const taskResult: any = {
             status: 'done',
@@ -295,9 +296,9 @@ async function finalizeTextResponse(taskId: string, result: any, prompt: string,
         }
 
         await taskStore.set(taskId, taskResult);
-        console.log(`📋 Task ${taskId} completed successfully`);
+        logger.info(`📋 Task ${taskId} completed successfully`);
     } catch (error: any) {
-        console.error(`❌ Error in finalizeTextResponse:`, error);
+        logger.error(`❌ Error in finalizeTextResponse: ${taskId}`, { error: error.message || error.toString() });
         await taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
     }
 }

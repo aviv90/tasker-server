@@ -13,7 +13,8 @@ import { allTools as agentTools } from '../tools';
 import prompts from '../../../config/prompts';
 import resultSender from './resultSender';
 import { TIME } from '../../../utils/constants';
-import { cleanJsonWrapper } from '../../../utils/textSanitizer';
+import { cleanJsonWrapper, cleanMediaDescription } from '../../../utils/textSanitizer';
+import { cleanAgentText } from '../../../services/whatsapp/utils';
 import logger from '../../../utils/logger';
 
 interface Step {
@@ -278,21 +279,45 @@ class MultiStepExecution {
         try {
           const result = await this.executeFallbackTool(toolName, provider, toolParams, step, chatId);
           
-          if (result && result.success) {
+            if (result && result.success) {
             logger.info(`✅ [Multi-step Fallback] ${provider} succeeded!`);
             
             // Send the result
             if (result.imageUrl) {
               const fullImageUrl = normalizeStaticFileUrl(result.imageUrl);
               const caption = result.caption || result.imageCaption || '';
-              await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId || undefined, 1000);
+              const cleanCaption = cleanMediaDescription(caption || '');
+              await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, cleanCaption, quotedMessageId || undefined, 1000);
               logger.debug(`✅ [Multi-step Fallback] Image sent successfully`);
+
+              // If there's additional text beyond the caption, send it in a separate message
+              if (result.text && typeof result.text === 'string' && result.text.trim()) {
+                const textToCheck = cleanMediaDescription(result.text);
+                const captionToCheck = cleanCaption;
+
+                if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
+                  const additionalText = cleanAgentText(result.text);
+                  if (additionalText && additionalText.trim()) {
+                    logger.debug(`📝 [Multi-step Fallback] Sending additional text after image (${additionalText.length} chars)`);
+                    await greenApiService.sendTextMessage(chatId, additionalText, quotedMessageId || undefined, 1000);
+                  }
+                }
+              }
             }
             
             if (result.videoUrl) {
               const fullVideoUrl = normalizeStaticFileUrl(result.videoUrl);
               await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId || undefined, 1000);
               logger.debug(`✅ [Multi-step Fallback] Video sent successfully`);
+
+              // If there's meaningful text (description/revised prompt), send it separately
+              if (result.text && typeof result.text === 'string' && result.text.trim()) {
+                const videoDescription = cleanMediaDescription(result.text);
+                if (videoDescription && videoDescription.length > 2) {
+                  logger.debug(`📝 [Multi-step Fallback] Sending additional text after video (${videoDescription.length} chars)`);
+                  await greenApiService.sendTextMessage(chatId, videoDescription, quotedMessageId || undefined, 1000);
+                }
+              }
             }
             
             // Success message (optional)

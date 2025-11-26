@@ -6,9 +6,10 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import logger from '../../utils/logger';
+import { getTempDir } from '../../utils/tempFileUtils';
 
-// Use process.cwd() for safe path resolution
-const STATIC_DIR = path.join(process.cwd(), 'public', 'tmp');
+// Use centralized temp directory (SSOT with static route)
+const STATIC_DIR = getTempDir();
 
 /**
  * Resolve local static file path from download URL
