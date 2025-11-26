@@ -1,3 +1,4 @@
+import prompts from '../../../config/prompts';
 
 /**
  * Conversation message
@@ -18,24 +19,18 @@ interface GoogleSearchExample {
 
 /**
  * Prompt building utilities for Gemini text operations
+ * Uses SSOT from config/prompts.ts for all prompts
  */
+
 class PromptBuilder {
   /**
    * Build language-specific instruction
+   * Uses SSOT from config/prompts.ts
    */
   buildLanguageInstruction(detectedLang: string): string {
-    switch (detectedLang) {
-      case 'he':
-        return 'חשוב מאוד: עליך לענות בעברית בלבד. התשובה חייבת להיות בעברית, ללא מילים באנגלית אלא אם כן זה שם פרטי או מונח טכני שאין לו תרגום.';
-      case 'en':
-        return 'IMPORTANT: You must respond in English only. The answer must be in English.';
-      case 'ar':
-        return 'مهم جداً: يجب أن تجيب بالعربية فقط. يجب أن تكون الإجابة بالعربية.';
-      case 'ru':
-        return 'Очень важно: вы должны отвечать только на русском языке. Ответ должен быть на русском языке.';
-      default:
-        return 'חשוב מאוד: ענה בעברית בלבד.';
-    }
+    // Use SSOT from config/prompts.ts
+    const instruction = prompts.languageInstructions[detectedLang];
+    return instruction || prompts.languageInstructions['he'] || 'חשוב מאוד: ענה בעברית בלבד.';
   }
 
   /**

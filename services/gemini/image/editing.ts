@@ -39,20 +39,12 @@ interface WhatsAppEditResult {
 class ImageEditing {
   /**
    * Build language instruction for image editing
+   * Uses SSOT from config/prompts.ts
    */
   buildLanguageInstruction(detectedLang: string): string {
-    switch (detectedLang) {
-      case 'he':
-        return '\n\nחשוב מאוד: עליך לענות בעברית בלבד. התשובה חייבת להיות בעברית, ללא מילים באנגלית אלא אם כן זה שם פרטי או מונח טכני שאין לו תרגום.';
-      case 'en':
-        return '\n\nIMPORTANT: You must respond in English only. The answer must be in English.';
-      case 'ar':
-        return '\n\nمهم جداً: يجب أن تجيب بالعربية فقط. يجب أن تكون الإجابة بالعربية.';
-      case 'ru':
-        return '\n\nОчень важно: вы должны отвечать только на русском языке. Ответ должен быть на русском языке.';
-      default:
-        return '\n\nחשוב מאוד: ענה בעברית בלבד.';
-    }
+    // Use SSOT from config/prompts.ts
+    const { getLanguageInstruction } = require('../../agent/utils/languageUtils');
+    return '\n\n' + getLanguageInstruction(detectedLang);
   }
 
   /**
