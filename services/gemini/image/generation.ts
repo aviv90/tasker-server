@@ -37,32 +37,27 @@ interface WhatsAppImageResult {
 class ImageGeneration {
   /**
    * Clean prompt by removing image creation instructions
-   * CRITICAL: Always add explicit image generation instruction to ensure Gemini creates an image
+   * IMPORTANT: Only clean if image instruction exists - don't add instructions if user didn't request image
+   * If user didn't explicitly request image, Gemini should return text response (default behavior)
    */
   cleanPrompt(prompt: string): string {
     let cleanPrompt = sanitizeText(prompt);
 
-    // Check if prompt already contains image creation instruction
+    // Check if prompt contains image creation instruction
     const hasImageInstruction = /(צייר|צור|הפוך|צרי|תצייר|תצור|תמונה|draw|create|make|generate|produce|image|picture|photo)/i.test(cleanPrompt);
 
-    // Remove image creation instructions from prompt (Gemini Image gets confused by them)
-    cleanPrompt = cleanPrompt
-      .replace(/^(ל)?(צייר|צור|הפוך|צרי|תצייר|תצור)\s+(תמונה\s+)?(של\s+)?/i, '')
-      .replace(/^(to\s+)?(draw|create|make|generate|produce)\s+(an?\s+)?(image|picture|photo)\s+(of\s+)?/i, '')
-      .trim();
-
-    // CRITICAL: If no image instruction was found, add explicit instruction
-    // This ensures Gemini always creates an image, not just returns text
-    if (!hasImageInstruction && cleanPrompt) {
-      // Add explicit instruction in the language of the prompt
-      const isHebrew = /[\u0590-\u05FF]/.test(cleanPrompt);
-      if (isHebrew) {
-        cleanPrompt = `צור תמונה של ${cleanPrompt}`;
-      } else {
-        cleanPrompt = `Create an image of ${cleanPrompt}`;
-      }
+    // Only clean if image instruction exists - otherwise return as-is for text response
+    if (hasImageInstruction) {
+      // Remove image creation instructions from prompt (Gemini Image gets confused by them)
+      cleanPrompt = cleanPrompt
+        .replace(/^(ל)?(צייר|צור|הפוך|צרי|תצייר|תצור)\s+(תמונה\s+)?(של\s+)?/i, '')
+        .replace(/^(to\s+)?(draw|create|make|generate|produce)\s+(an?\s+)?(image|picture|photo)\s+(of\s+)?/i, '')
+        .trim();
     }
 
+    // If no image instruction found, return prompt as-is
+    // This allows Gemini to return text response (default behavior)
+    // The tool should only be called when user explicitly requests image creation
     return cleanPrompt;
   }
 
