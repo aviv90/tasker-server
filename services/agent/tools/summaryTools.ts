@@ -5,7 +5,7 @@
 
 import { getServices } from '../utils/serviceLoader';
 import logger from '../../../utils/logger';
-import { getChatHistory } from '../../../utils/chatHistoryService';
+import { getRawChatHistory } from '../../../utils/chatHistoryService';
 
 type AgentToolContext = {
   chatId?: string;
@@ -73,26 +73,18 @@ export const chat_summary = {
         };
       }
 
-      const { geminiService, greenApiService } = getServices();
+      const { geminiService } = getServices();
       const messageCount = Number(args.count) > 0 ? Number(args.count) : 50;
 
       logger.debug(`📜 Fetching last ${messageCount} messages for summary: ${chatId}`);
 
-      const historyResult = await getChatHistory(chatId, messageCount, { format: 'internal' });
-
-      if (!historyResult.success) {
-        return {
-          success: false,
-          error: historyResult.error || 'שגיאה בשליפת היסטוריית השיחה'
-        };
-      }
-
+      // Use SSOT to get raw Green API format (needed for generateChatSummary)
       let history: GreenApiMessage[];
       try {
-        history = (await greenApiService.getChatHistory(chatId, messageCount)) as GreenApiMessage[];
+        history = (await getRawChatHistory(chatId, messageCount, false)) as GreenApiMessage[];
       } catch (apiError) {
         const err = apiError as Error;
-        logger.error('❌ Error fetching raw Green API history for summary:', {
+        logger.error('❌ Error fetching chat history for summary:', {
           error: err.message,
           chatId
         });
@@ -109,37 +101,22 @@ export const chat_summary = {
         };
       }
 
-      logger.debug(`✅ Retrieved ${history.length} messages from Green API`);
+      logger.debug(`✅ Retrieved ${history.length} messages from Green API (via SSOT)`);
 
-      const filteredHistory = history.filter(msg => {
-        const isSystemMessage =
-          msg.typeMessage === 'notificationMessage' ||
-          msg.type === 'notification' ||
-          (typeof msg.textMessage === 'string' && msg.textMessage.startsWith('System:'));
-        return !isSystemMessage;
-      });
-
-      if (filteredHistory.length === 0) {
-        return {
-          success: false,
-          error: 'אין מספיק הודעות לסיכום. נסה לשלוח כמה הודעות קודם.'
-        };
-      }
-
-      const textMessages = filteredHistory.filter(
+      const textMessages = history.filter(
         msg =>
           msg.textMessage ||
           msg.caption ||
           msg.typeMessage === 'textMessage' ||
           (msg.typeMessage === 'extendedTextMessage' && msg.extendedTextMessage?.text)
       ).length;
-      const mediaMessages = filteredHistory.length - textMessages;
+      const mediaMessages = history.length - textMessages;
 
       logger.debug(
-        `📝 Including ${filteredHistory.length} messages for summary (${textMessages} text, ${mediaMessages} media)`
+        `📝 Including ${history.length} messages for summary (${textMessages} text, ${mediaMessages} media)`
       );
 
-      const summary = (await geminiService.generateChatSummary(filteredHistory)) as {
+      const summary = (await geminiService.generateChatSummary(history)) as {
         text?: string;
         error?: string;
       };

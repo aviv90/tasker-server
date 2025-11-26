@@ -78,7 +78,7 @@ export interface ChatHistoryResult {
 }
 
 /**
- * Get chat history from Green API
+ * Get chat history from Green API (SSOT - Single Source of Truth)
  * @param chatId - Chat ID
  * @param limit - Number of messages to retrieve
  * @param options - Additional options
@@ -250,5 +250,50 @@ export async function formatInternal(history: GreenApiMessage[], chatId: string)
     });
   }
   return formatted;
+}
+
+/**
+ * Get raw chat history from Green API (for services that need GreenApiMessage[] format)
+ * This is a convenience function that uses the SSOT getChatHistory but returns raw format
+ * @param chatId - Chat ID
+ * @param limit - Number of messages to retrieve
+ * @param includeSystemMessages - Whether to include system messages
+ * @returns Raw Green API messages array
+ */
+export async function getRawChatHistory(
+  chatId: string,
+  limit: number = 20,
+  includeSystemMessages: boolean = false
+): Promise<GreenApiMessage[]> {
+  try {
+    const { greenApiService } = getServices();
+    logger.debug(`📜 [ChatHistory] Fetching raw last ${limit} messages from Green API for chat: ${chatId}`);
+    
+    const greenApiHistory = await greenApiService.getChatHistory(chatId, limit) as GreenApiMessage[];
+    
+    if (!greenApiHistory || greenApiHistory.length === 0) {
+      return [];
+    }
+    
+    // Filter system messages if needed
+    if (!includeSystemMessages) {
+      return greenApiHistory.filter(msg => {
+        const isSystemMessage = 
+          msg.typeMessage === 'notificationMessage' ||
+          msg.type === 'notification' ||
+          (msg.textMessage && msg.textMessage.startsWith('System:'));
+        return !isSystemMessage;
+      });
+    }
+    
+    return greenApiHistory;
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('❌ [ChatHistory] Error fetching raw chat history from Green API:', {
+      error: errorMessage,
+      chatId
+    });
+    throw error;
+  }
 }
 
