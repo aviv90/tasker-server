@@ -408,7 +408,7 @@ export async function handleManagementCommand(
           
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
-            console.log(`✅ Using current contact directly: ${exactName}`);
+            logger.info(`✅ Using current contact directly: ${exactName}`);
             await greenApiService.sendTextMessage(chatId, `✅ מסיר "${exactName}" מרשימת המורשים לתמלול...`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           } else {
             // Use fuzzy search to find exact contact/group name

@@ -4,6 +4,7 @@
 
 import { getLocationBounds } from '../geminiService';
 import { countryBoundsData, cityBoundsData, cityKeywords, regionMap } from './constants';
+import logger from '../../utils/logger';
 
 /**
  * Extracted region information
@@ -40,8 +41,8 @@ export async function extractRequestedRegion(prompt: string | null | undefined):
   if (!prompt || typeof prompt !== 'string') return null;
 
   const promptLower = prompt.toLowerCase();
-  console.log(`🔍 extractRequestedRegion called with: "${prompt}"`);
-  console.log(`📍 Prompt lowercase: "${promptLower}"`);
+  logger.info(`🔍 extractRequestedRegion called with: "${prompt}"`);
+  logger.debug(`📍 Prompt lowercase: "${promptLower}"`);
 
   // Check for explicit city mentions first
   let detectedCity: string | null = null;
@@ -57,7 +58,7 @@ export async function extractRequestedRegion(prompt: string | null | undefined):
     ];
 
     if (cityPatterns.some(pattern => pattern.test(promptLower))) {
-      console.log(`🏙️ Detected explicit city mention: "${cityName}" - prioritizing over countries`);
+      logger.info(`🏙️ Detected explicit city mention: "${cityName}" - prioritizing over countries`);
       detectedCity = cityName;
       break;
     }
@@ -76,11 +77,11 @@ export async function extractRequestedRegion(prompt: string | null | undefined):
     }
 
     // If not in static data, try geocoding
-    console.log(`🌍 City "${detectedCity}" not in static data, trying geocoding...`);
+    logger.info(`🌍 City "${detectedCity}" not in static data, trying geocoding...`);
     try {
       const bounds = (await getLocationBounds(detectedCity)) as BoundsResult | null;
       if (bounds) {
-        console.log(`✅ Found city bounds for "${detectedCity}" via geocoding`);
+        logger.info(`✅ Found city bounds for "${detectedCity}" via geocoding`);
         return {
           continentName: null,
           displayName: (bounds.foundName as string) || detectedCity,
@@ -90,7 +91,7 @@ export async function extractRequestedRegion(prompt: string | null | undefined):
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.warn(`⚠️ Error geocoding city "${detectedCity}":`, errorMessage);
+      logger.warn(`⚠️ Error geocoding city "${detectedCity}": ${errorMessage}`);
     }
   }
 
@@ -196,7 +197,7 @@ export async function extractRequestedRegion(prompt: string | null | undefined):
   }
 
   // Try to extract location name from prompt
-  console.log(`🔍 No country/region found, trying to find city/location in prompt: "${prompt}"`);
+  logger.info(`🔍 No country/region found, trying to find city/location in prompt: "${prompt}"`);
 
   let cleanPrompt = prompt
     .replace(/^(שלח|שלחי|שלחו|תשלח|תשלחי|תשלחו)\s+(מיקום|location)/i, '')
@@ -233,18 +234,18 @@ export async function extractRequestedRegion(prompt: string | null | undefined):
         !skipWords.has(candidate.toLowerCase()) &&
         /[א-תa-z]/.test(candidate)) {
         locationName = candidate;
-        console.log(`🌍 Extracted location name: "${locationName}"`);
+        logger.info(`🌍 Extracted location name: "${locationName}"`);
         break;
       }
     }
   }
 
   if (locationName) {
-    console.log(`🌍 Attempting to geocode city/location: "${locationName}"`);
+    logger.info(`🌍 Attempting to geocode city/location: "${locationName}"`);
     try {
       const bounds = (await getLocationBounds(locationName)) as BoundsResult | null;
       if (bounds) {
-        console.log(`✅ Found city/location bounds for "${locationName}"`);
+        logger.info(`✅ Found city/location bounds for "${locationName}"`);
         return {
           continentName: null,
           displayName: (bounds.foundName as string) || locationName,
@@ -254,18 +255,18 @@ export async function extractRequestedRegion(prompt: string | null | undefined):
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.warn(`⚠️ Error geocoding "${locationName}":`, errorMessage);
+      logger.warn(`⚠️ Error geocoding "${locationName}": ${errorMessage}`);
     }
   }
 
   // Final fallback: try entire prompt
   if (prompt && prompt.trim()) {
     const trimmedPrompt = prompt.trim();
-    console.log(`🌍 Final geocode attempt for prompt: "${trimmedPrompt}"`);
+    logger.info(`🌍 Final geocode attempt for prompt: "${trimmedPrompt}"`);
     try {
       const bounds = (await getLocationBounds(trimmedPrompt)) as BoundsResult | null;
       if (bounds) {
-        console.log(`✅ Found bounds for prompt "${trimmedPrompt}" via geocode`);
+        logger.info(`✅ Found bounds for prompt "${trimmedPrompt}" via geocode`);
         return {
           continentName: null,
           displayName: (bounds.foundName as string) || trimmedPrompt,
@@ -275,10 +276,10 @@ export async function extractRequestedRegion(prompt: string | null | undefined):
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.warn(`⚠️ Final geocode attempt failed for "${trimmedPrompt}":`, errorMessage);
+      logger.warn(`⚠️ Final geocode attempt failed for "${trimmedPrompt}": ${errorMessage}`);
     }
   }
 
-  console.log(`❌ No region/city found in prompt: "${prompt}"`);
+  logger.warn(`❌ No region/city found in prompt: "${prompt}"`);
   return null;
 }

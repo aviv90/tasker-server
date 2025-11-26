@@ -17,6 +17,7 @@ import multiStepExecution from './agent/execution/multiStep';
 import agentLoop from './agent/execution/agentLoop';
 import contextManager from './agent/execution/context';
 import { allTools as agentTools } from './agent/tools';
+import logger from '../utils/logger';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -115,7 +116,7 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
   // 🧠 Use LLM-based planner to intelligently detect and plan multi-step execution
   let plan = await planMultiStepExecution(plannerContext);
   
-  console.log(`🔍 [Planner] Plan result:`, JSON.stringify({
+  logger.info(`🔍 [Planner] Plan result: ${JSON.stringify({
     isMultiStep: plan.isMultiStep,
     stepsLength: plan.steps?.length,
     fallback: plan.fallback,
@@ -124,11 +125,11 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
       tool: s.tool, 
       action: s.action?.substring(0, 50) 
     }))
-  }, null, 2));
+  }, null, 2)}`);
   
   // If planner failed, treat as single-step (no heuristic fallback - rely on LLM only)
   if (plan.fallback) {
-    console.log(`⚠️ [Planner] Planner failed, treating as single-step`);
+    logger.warn('⚠️ [Planner] Planner failed, treating as single-step');
     plan = { isMultiStep: false };
   }
   
@@ -184,7 +185,7 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
     return result;
   } catch (error: unknown) {
     if (error instanceof Error && error.message === 'Agent timeout') {
-      console.error(`⏱️ [Agent] Timeout after ${agentConfig.timeoutMs}ms`);
+      logger.error(`⏱️ [Agent] Timeout after ${agentConfig.timeoutMs}ms`);
       return {
         success: false,
         error: `⏱️ הפעולה ארכה יותר מדי. נסה בקשה פשוטה יותר או נסה שוב מאוחר יותר.`,

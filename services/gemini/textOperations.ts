@@ -9,6 +9,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getGeminiErrorMessage, cleanThinkingPatterns } from './utils';
 import { sanitizeText } from '../../utils/textSanitizer';
 import { detectLanguage } from '../../utils/agentHelpers';
+import logger from '../../utils/logger';
 
 // Import modular components
 import promptBuilder from './text/promptBuilder';
@@ -63,7 +64,7 @@ export async function generateTextResponse(
   options: TextGenerationOptions = {}
 ): Promise<TextGenerationResult> {
   try {
-    console.log('💬 Gemini text generation');
+    logger.info('💬 Gemini text generation');
 
     // Sanitize prompt
     const cleanPrompt = sanitizeText(prompt);
@@ -71,7 +72,7 @@ export async function generateTextResponse(
     // Check if Google Search should be enabled
     const useGoogleSearch = options.useGoogleSearch === true;
     if (useGoogleSearch) {
-      console.log('🔍 Google Search enabled for this request');
+      logger.info('🔍 Google Search enabled for this request');
     }
 
     const model = genAI.getGenerativeModel({
@@ -99,7 +100,7 @@ export async function generateTextResponse(
       detectedLang
     );
 
-    console.log(`🔮 Gemini processing (${Array.isArray(conversationHistory) ? conversationHistory.length : 0} context messages)`);
+    logger.info(`🔮 Gemini processing (${Array.isArray(conversationHistory) ? conversationHistory.length : 0} context messages)`);
 
     // Build generation config
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -118,7 +119,7 @@ export async function generateTextResponse(
       generateConfig.tools = [{
         googleSearch: {}
       }];
-      console.log('🔍 Google Search tool enabled');
+      logger.info('🔍 Google Search tool enabled');
     }
 
     // Generate response
@@ -134,25 +135,25 @@ export async function generateTextResponse(
       const searchQueries = responseAny.candidates?.[0]?.groundingMetadata?.searchEntryPoint?.renderedContent;
 
       if (groundingMetadata) {
-        console.log('✅ Google Search was used by Gemini');
+        logger.info('✅ Google Search was used by Gemini');
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const chunksCount = (groundingMetadata as any).groundingChunks?.length || 0;
-        console.log(`🔍 Found ${chunksCount} grounding chunks`);
+        logger.info(`🔍 Found ${chunksCount} grounding chunks`);
 
         if (searchQueries) {
-          console.log('🔎 Search query executed');
+          logger.info('🔎 Search query executed');
         }
       } else {
-        console.warn('⚠️ WARNING: Google Search tool was enabled but Gemini did NOT use it!');
-        console.warn('   Gemini likely answered from its training data (2023) instead of searching.');
-        console.warn('   User may receive old/broken links.');
+        logger.warn('⚠️ WARNING: Google Search tool was enabled but Gemini did NOT use it!');
+        logger.warn('   Gemini likely answered from its training data (2023) instead of searching.');
+        logger.warn('   User may receive old/broken links.');
       }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const responseAny = response as any;
     if (!responseAny.candidates || responseAny.candidates.length === 0) {
-      console.log('❌ Gemini: No candidates returned');
+      logger.warn('❌ Gemini: No candidates returned');
       const errorMsg = getGeminiErrorMessage(null, responseAny.promptFeedback);
       return { error: errorMsg };
     }
@@ -160,7 +161,7 @@ export async function generateTextResponse(
     let text = response.text();
 
     if (!text || text.trim().length === 0) {
-      console.log('❌ Gemini: Empty text response');
+      logger.warn('❌ Gemini: Empty text response');
       return { error: 'Empty response from Gemini' };
     }
 
@@ -181,7 +182,7 @@ export async function generateTextResponse(
       text = googleSearchProcessor.fixUrlFormatting(text);
     }
 
-    console.log(`✅ Gemini text generated: ${text.substring(0, 100)}...`);
+    logger.info(`✅ Gemini text generated: ${text.substring(0, 100)}...`);
 
     return {
       text: text,
@@ -197,7 +198,7 @@ export async function generateTextResponse(
 
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'Text generation failed';
-    console.error('❌ Gemini text generation error:', err);
+    logger.error('❌ Gemini text generation error:', err as Error);
 
     // Emergency response
     return {

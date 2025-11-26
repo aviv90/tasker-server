@@ -3,6 +3,7 @@ import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import { exec } from 'child_process';
+import logger from '../../../utils/logger';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ffprobePath = require('ffprobe-static');
 
@@ -25,19 +26,19 @@ export async function getAudioDuration(audioBuffer: Buffer): Promise<number> {
       );
       const duration = parseFloat(stdout.trim());
       fs.unlinkSync(tempFilePath);
-      console.log(`⏱️ [Agent] Audio duration: ${duration.toFixed(2)} seconds`);
+      logger.info(`⏱️ [Agent] Audio duration: ${duration.toFixed(2)} seconds`);
       return duration;
     } catch (err) {
       if (fs.existsSync(tempFilePath)) {
         fs.unlinkSync(tempFilePath);
       }
       const error = err as Error;
-      console.error(`❌ [Agent] Could not get audio duration: ${error.message}`);
+      logger.error(`❌ [Agent] Could not get audio duration: ${error.message}`);
       return 0;
     }
   } catch (err) {
     const error = err as Error;
-    console.error(`❌ [Agent] Error in getAudioDuration: ${error.message}`);
+    logger.error(`❌ [Agent] Error in getAudioDuration: ${error.message}`);
     return 0;
   }
 }

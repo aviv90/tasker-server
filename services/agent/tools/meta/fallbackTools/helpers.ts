@@ -5,6 +5,7 @@ import { getServices } from '../../../utils/serviceLoader';
 import { formatProviderName, normalizeProviderKey } from '../../../utils/providerUtils';
 import { VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP } from '../../../config/constants';
 import { extractQuotedMessageId } from '../../../../../utils/messageHelpers';
+import logger from '../../../../../utils/logger';
 
 // Export these for use by other modules
 export { formatProviderName, normalizeProviderKey };
@@ -27,9 +28,9 @@ export async function sendFallbackAck(context: ToolContext, message: string): Pr
     const { greenApiService } = getServices();
     const quotedMessageId = extractQuotedMessageId({ context } as { context: ToolContext });
     await greenApiService.sendTextMessage(context.chatId, message, quotedMessageId || undefined, 1000);
-    console.log(`📢 [Fallback Ack] Sent: "${message}"`);
+    logger.info(`📢 [Fallback Ack] Sent: "${message}"`);
   } catch (ackError) {
-    console.error('❌ Failed to send fallback Ack:', ackError);
+    logger.error('❌ Failed to send fallback Ack:', ackError as Error);
   }
 }
 
@@ -42,9 +43,9 @@ export async function sendFallbackError(context: ToolContext, message: string): 
     const { greenApiService } = getServices();
     const quotedMessageId = extractQuotedMessageId({ context } as { context: ToolContext });
     await greenApiService.sendTextMessage(context.chatId, message, quotedMessageId || undefined, 1000);
-    console.log(`📢 [Fallback Error] Sent to user: "${message}"`);
+    logger.info(`📢 [Fallback Error] Sent to user: "${message}"`);
   } catch (sendError) {
-    console.error('❌ Failed to send error to user:', sendError);
+    logger.error('❌ Failed to send error to user:', sendError as Error);
   }
 }
 
