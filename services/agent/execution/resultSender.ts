@@ -24,6 +24,7 @@ interface StepResult {
     imageCaption?: string | null;
     caption?: string | null;
     videoUrl?: string | null;
+    videoCaption?: string | null;
     audioUrl?: string | null;
     text?: string | null;
     toolsUsed?: string[];
@@ -122,19 +123,56 @@ class ResultSender {
       logger.debug(`🖼️ [ResultSender] Sending image${stepInfo}`);
 
       const fullImageUrl = normalizeStaticFileUrl(stepResult.imageUrl);
-      const caption = stepResult.imageCaption || stepResult.caption || '';
+      
+      // CRITICAL: Caption MUST be sent with the image, not in a separate message
+      // Priority: imageCaption > caption > text (if text is not generic success message)
+      let caption = stepResult.imageCaption || stepResult.caption || '';
+      
+      // If no caption but text exists and is not a generic success message, use text as caption
+      if (!caption && stepResult.text && stepResult.text.trim()) {
+        const textToCheck = cleanMediaDescription(stepResult.text);
+        const genericSuccessPatterns = [
+          /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
+          /^✅\s*תמונה\s*נוצרה/i,
+          /^✅\s*נוצרה\s*בהצלחה/i,
+          /^✅\s*image\s*created\s*successfully/i,
+          /^✅\s*successfully\s*created/i
+        ];
+        const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
+        
+        if (!isGenericSuccess) {
+          caption = stepResult.text;
+        }
+      }
+      
       const cleanCaption = cleanMediaDescription(caption);
 
+      // Send image WITH caption (caption is always sent with media, never separately)
       await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, cleanCaption, quotedMessageId || undefined, 1000);
 
-      // If there's additional text beyond the caption, send it in a separate message
-      // This ensures users get both the image with caption AND any additional context/description
+      // Only send additional text in a separate message if:
+      // 1. Text exists and is different from caption
+      // 2. Text is not a generic success message
+      // 3. Text is meaningfully different (more than just whitespace/formatting)
       if (stepResult.text && stepResult.text.trim()) {
         const textToCheck = cleanMediaDescription(stepResult.text);
         const captionToCheck = cleanMediaDescription(caption);
         
+        // Skip generic success messages - they're redundant when image is already sent
+        const genericSuccessPatterns = [
+          /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
+          /^✅\s*תמונה\s*נוצרה/i,
+          /^✅\s*נוצרה\s*בהצלחה/i,
+          /^✅\s*image\s*created\s*successfully/i,
+          /^✅\s*successfully\s*created/i
+        ];
+        const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
+        
+        if (isGenericSuccess) {
+          logger.debug(`⏭️ [ResultSender] Skipping generic success message after image${stepInfo}`);
+        }
         // Only send if text is meaningfully different from caption (more than just whitespace/formatting)
-        if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
+        else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
           const additionalText = cleanAgentText(stepResult.text);
           if (additionalText && additionalText.trim()) {
             logger.debug(`📝 [ResultSender] Sending additional text after image${stepInfo} (${additionalText.length} chars)`);
@@ -143,7 +181,7 @@ class ResultSender {
         }
       }
 
-      logger.debug(`✅ [ResultSender] Image sent${stepInfo}`);
+      logger.debug(`✅ [ResultSender] Image sent${stepInfo} with caption: ${cleanCaption.substring(0, 50)}...`);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error(`❌ [ResultSender] Failed to send image${stepNumber ? ` for step ${stepNumber}` : ''}:`, { error: errorMessage });
@@ -167,19 +205,62 @@ class ResultSender {
 
       const fullVideoUrl = normalizeStaticFileUrl(stepResult.videoUrl);
 
-      await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId || undefined, 1000);
+      // CRITICAL: Caption MUST be sent with the video, not in a separate message
+      // Priority: videoCaption > caption > text (if text is not generic success message)
+      let caption = stepResult.videoCaption || stepResult.caption || '';
+      
+      // If no caption but text exists and is not a generic success message, use text as caption
+      if (!caption && stepResult.text && stepResult.text.trim()) {
+        const textToCheck = cleanMediaDescription(stepResult.text);
+        const genericSuccessPatterns = [
+          /^✅\s*וידאו\s*נוצר\s*בהצלחה/i,
+          /^✅\s*וידאו\s*נוצר/i,
+          /^✅\s*video\s*created\s*successfully/i,
+          /^✅\s*successfully\s*created/i
+        ];
+        const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
+        
+        if (!isGenericSuccess) {
+          caption = stepResult.text;
+        }
+      }
+      
+      const cleanCaption = cleanMediaDescription(caption);
 
-      // If there's meaningful text (description/revised prompt), send it separately
-      // This ensures users get both the video AND any additional context/description
+      // Send video WITH caption (caption is always sent with media, never separately)
+      await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, cleanCaption, quotedMessageId || undefined, 1000);
+
+      // Only send additional text in a separate message if:
+      // 1. Text exists and is different from caption
+      // 2. Text is not a generic success message
+      // 3. Text is meaningfully different (more than just whitespace/formatting)
       if (stepResult.text && stepResult.text.trim()) {
-        const videoDescription = cleanMediaDescription(stepResult.text);
-        if (videoDescription && videoDescription.length > 2) {
-          logger.debug(`📝 [ResultSender] Sending additional text after video${stepInfo} (${videoDescription.length} chars)`);
-          await greenApiService.sendTextMessage(chatId, videoDescription, quotedMessageId || undefined, 1000);
+        const textToCheck = cleanMediaDescription(stepResult.text);
+        const captionToCheck = cleanMediaDescription(caption);
+        
+        // Skip generic success messages - they're redundant when video is already sent
+        const genericSuccessPatterns = [
+          /^✅\s*וידאו\s*נוצר\s*בהצלחה/i,
+          /^✅\s*וידאו\s*נוצר/i,
+          /^✅\s*video\s*created\s*successfully/i,
+          /^✅\s*successfully\s*created/i
+        ];
+        const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
+        
+        if (isGenericSuccess) {
+          logger.debug(`⏭️ [ResultSender] Skipping generic success message after video${stepInfo}`);
+        }
+        // Only send if text is meaningfully different from caption
+        else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
+          const additionalText = cleanAgentText(stepResult.text);
+          if (additionalText && additionalText.trim()) {
+            logger.debug(`📝 [ResultSender] Sending additional text after video${stepInfo} (${additionalText.length} chars)`);
+            await greenApiService.sendTextMessage(chatId, additionalText, quotedMessageId || undefined, 1000);
+          }
         }
       }
 
-      logger.debug(`✅ [ResultSender] Video sent${stepInfo}`);
+      logger.debug(`✅ [ResultSender] Video sent${stepInfo} with caption: ${cleanCaption.substring(0, 50)}...`);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error(`❌ [ResultSender] Failed to send video${stepNumber ? ` for step ${stepNumber}` : ''}:`, { error: errorMessage });
@@ -238,6 +319,28 @@ class ResultSender {
       if (stepResult.imageUrl && textToCheck.trim() === imageCaption.trim()) {
         logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - same as image caption`);
         return;
+      }
+      // For images: if text is just a generic success message (like "✅ תמונה נוצרה בהצלחה!"), don't send
+      // The image with caption is already sent, no need for additional generic text
+      if (stepResult.imageUrl) {
+        const genericSuccessPatterns = [
+          /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
+          /^✅\s*תמונה\s*נוצרה/i,
+          /^✅\s*נוצרה\s*בהצלחה/i,
+          /^✅\s*image\s*created\s*successfully/i,
+          /^✅\s*successfully\s*created/i
+        ];
+        const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
+        if (isGenericSuccess) {
+          logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - generic success message, image already sent`);
+          return;
+        }
+        // If sendImage already sent additional text (because it was different from caption), don't send again
+        // sendImage sends text if it's meaningfully different from caption, so we should skip it here
+        if (textToCheck.trim() !== imageCaption.trim() && textToCheck.length > imageCaption.length + 10) {
+          logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - already sent by sendImage`);
+          return;
+        }
       }
       // For videos: text is already sent separately in sendVideo
       else if (stepResult.videoUrl) {

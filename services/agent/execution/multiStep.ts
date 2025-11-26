@@ -285,17 +285,57 @@ class MultiStepExecution {
             // Send the result
             if (result.imageUrl) {
               const fullImageUrl = normalizeStaticFileUrl(result.imageUrl);
-              const caption = result.caption || result.imageCaption || '';
+              
+              // CRITICAL: Caption MUST be sent with the image, not in a separate message
+              // Priority: imageCaption > caption > text (if text is not generic success message)
+              let caption = result.caption || result.imageCaption || '';
+              
+              // If no caption but text exists and is not a generic success message, use text as caption
+              if (!caption && result.text && typeof result.text === 'string' && result.text.trim()) {
+                const textToCheck = cleanMediaDescription(result.text);
+                const genericSuccessPatterns = [
+                  /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
+                  /^✅\s*תמונה\s*נוצרה/i,
+                  /^✅\s*נוצרה\s*בהצלחה/i,
+                  /^✅\s*image\s*created\s*successfully/i,
+                  /^✅\s*successfully\s*created/i
+                ];
+                const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
+                
+                if (!isGenericSuccess) {
+                  caption = result.text;
+                }
+              }
+              
               const cleanCaption = cleanMediaDescription(caption || '');
+              
+              // Send image WITH caption (caption is always sent with media, never separately)
               await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, cleanCaption, quotedMessageId || undefined, 1000);
-              logger.debug(`✅ [Multi-step Fallback] Image sent successfully`);
+              logger.debug(`✅ [Multi-step Fallback] Image sent successfully with caption`);
 
-              // If there's additional text beyond the caption, send it in a separate message
+              // Only send additional text in a separate message if:
+              // 1. Text exists and is different from caption
+              // 2. Text is not a generic success message
+              // 3. Text is meaningfully different (more than just whitespace/formatting)
               if (result.text && typeof result.text === 'string' && result.text.trim()) {
                 const textToCheck = cleanMediaDescription(result.text);
-                const captionToCheck = cleanCaption;
+                const captionToCheck = cleanMediaDescription(caption);
 
-                if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
+                // Skip generic success messages - they're redundant when image is already sent
+                const genericSuccessPatterns = [
+                  /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
+                  /^✅\s*תמונה\s*נוצרה/i,
+                  /^✅\s*נוצרה\s*בהצלחה/i,
+                  /^✅\s*image\s*created\s*successfully/i,
+                  /^✅\s*successfully\s*created/i
+                ];
+                const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
+
+                if (isGenericSuccess) {
+                  logger.debug(`⏭️ [Multi-step Fallback] Skipping generic success message after image`);
+                }
+                // Only send if text is meaningfully different from caption
+                else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
                   const additionalText = cleanAgentText(result.text);
                   if (additionalText && additionalText.trim()) {
                     logger.debug(`📝 [Multi-step Fallback] Sending additional text after image (${additionalText.length} chars)`);
@@ -307,24 +347,85 @@ class MultiStepExecution {
             
             if (result.videoUrl) {
               const fullVideoUrl = normalizeStaticFileUrl(result.videoUrl);
-              await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId || undefined, 1000);
-              logger.debug(`✅ [Multi-step Fallback] Video sent successfully`);
+              
+              // CRITICAL: Caption MUST be sent with the video, not in a separate message
+              // Priority: videoCaption > caption > text (if text is not generic success message)
+              let caption = result.videoCaption || result.caption || '';
+              
+              // If no caption but text exists and is not a generic success message, use text as caption
+              if (!caption && result.text && typeof result.text === 'string' && result.text.trim()) {
+                const textToCheck = cleanMediaDescription(result.text);
+                const genericSuccessPatterns = [
+                  /^✅\s*וידאו\s*נוצר\s*בהצלחה/i,
+                  /^✅\s*וידאו\s*נוצר/i,
+                  /^✅\s*video\s*created\s*successfully/i,
+                  /^✅\s*successfully\s*created/i
+                ];
+                const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
+                
+                if (!isGenericSuccess) {
+                  caption = result.text;
+                }
+              }
+              
+              const cleanCaption = cleanMediaDescription(caption || '');
+              
+              // Send video WITH caption (caption is always sent with media, never separately)
+              await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, cleanCaption, quotedMessageId || undefined, 1000);
+              logger.debug(`✅ [Multi-step Fallback] Video sent successfully with caption`);
 
-              // If there's meaningful text (description/revised prompt), send it separately
+              // Only send additional text in a separate message if:
+              // 1. Text exists and is different from caption
+              // 2. Text is not a generic success message
+              // 3. Text is meaningfully different (more than just whitespace/formatting)
               if (result.text && typeof result.text === 'string' && result.text.trim()) {
-                const videoDescription = cleanMediaDescription(result.text);
-                if (videoDescription && videoDescription.length > 2) {
-                  logger.debug(`📝 [Multi-step Fallback] Sending additional text after video (${videoDescription.length} chars)`);
-                  await greenApiService.sendTextMessage(chatId, videoDescription, quotedMessageId || undefined, 1000);
+                const textToCheck = cleanMediaDescription(result.text);
+                const captionToCheck = cleanMediaDescription(caption);
+                
+                // Skip generic success messages - they're redundant when video is already sent
+                const genericSuccessPatterns = [
+                  /^✅\s*וידאו\s*נוצר\s*בהצלחה/i,
+                  /^✅\s*וידאו\s*נוצר/i,
+                  /^✅\s*video\s*created\s*successfully/i,
+                  /^✅\s*successfully\s*created/i
+                ];
+                const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
+                
+                if (isGenericSuccess) {
+                  logger.debug(`⏭️ [Multi-step Fallback] Skipping generic success message after video`);
+                }
+                // Only send if text is meaningfully different from caption
+                else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
+                  const additionalText = cleanAgentText(result.text);
+                  if (additionalText && additionalText.trim()) {
+                    logger.debug(`📝 [Multi-step Fallback] Sending additional text after video (${additionalText.length} chars)`);
+                    await greenApiService.sendTextMessage(chatId, additionalText, quotedMessageId || undefined, 1000);
+                  }
                 }
               }
             }
             
-            // Success message (optional)
+            // Success message (optional) - only if no media was sent
+            // Skip generic success messages if media was already sent
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             if ((result as any).data && !result.imageUrl && !result.videoUrl) {
-               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              await greenApiService.sendTextMessage(chatId, (result as any).data, quotedMessageId || undefined, 1000);
+              const dataText = String((result as any).data).trim();
+              // Skip generic success messages - they're redundant
+              const genericSuccessPatterns = [
+                /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
+                /^✅\s*תמונה\s*נוצרה/i,
+                /^✅\s*נוצרה\s*בהצלחה/i,
+                /^✅\s*image\s*created\s*successfully/i,
+                /^✅\s*successfully\s*created/i
+              ];
+              const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(dataText));
+              
+              if (!isGenericSuccess) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await greenApiService.sendTextMessage(chatId, (result as any).data, quotedMessageId || undefined, 1000);
+              } else {
+                logger.debug(`⏭️ [Multi-step Fallback] Skipping generic success message: ${dataText}`);
+              }
             }
             
             return result;
