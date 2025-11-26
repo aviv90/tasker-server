@@ -1,7 +1,7 @@
 import { getServices } from '../../utils/serviceLoader';
 import voiceService from '../../../voiceService';
 import { getAudioDuration } from '../../utils/audioUtils';
-import logger from '../../../utils/logger';
+import logger from '../../../../utils/logger';
 
 type TranslateArgs = {
   text: string;

@@ -1,5 +1,5 @@
 import conversationManager from '../../conversationManager';
-import logger from '../../utils/logger';
+import logger from '../../../utils/logger';
 
 export interface ToolCall {
   tool: string;

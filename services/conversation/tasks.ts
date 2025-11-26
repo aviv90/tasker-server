@@ -3,6 +3,7 @@
  */
 
 import { Pool } from 'pg';
+import logger from '../../utils/logger';
 
 /**
  * Conversation manager interface (for backward compatibility)
@@ -34,7 +35,7 @@ class TasksManager {
    */
   async saveTask(taskId: string, status: string, data: TaskData = {}): Promise<void> {
     if (!this.conversationManager.isInitialized || !this.conversationManager.pool) {
-      console.warn('⚠️ Database not initialized, cannot save task');
+      logger.warn('⚠️ Database not initialized, cannot save task');
       return;
     }
 
@@ -58,7 +59,7 @@ class TasksManager {
       ]);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('❌ Error saving task:', errorMessage);
+      logger.error('❌ Error saving task:', { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
     } finally {
       client.release();
     }
@@ -69,7 +70,7 @@ class TasksManager {
    */
   async getTask(taskId: string): Promise<TaskData | null> {
     if (!this.conversationManager.isInitialized || !this.conversationManager.pool) {
-      console.warn('⚠️ Database not initialized, cannot get task');
+      logger.warn('⚠️ Database not initialized, cannot get task');
       return null;
     }
 
@@ -108,7 +109,7 @@ class TasksManager {
       return taskData;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('❌ Error getting task:', errorMessage);
+      logger.error('❌ Error getting task:', { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
       return null;
     } finally {
       client.release();

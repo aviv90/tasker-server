@@ -92,7 +92,7 @@ interface ContactSearchResult {
  */
 export async function parseGroupCreationPrompt(prompt: string): Promise<ParsedGroupCreation> {
   try {
-    console.log('🔍 Parsing group creation prompt with Gemini...');
+    logger.debug('🔍 Parsing group creation prompt with Gemini...');
     
     // Use centralized prompt from config/prompts.ts (SSOT - Phase 5.1)
     const parsingPrompt = prompts.groupCreationParsingPrompt(prompt);
@@ -115,15 +115,16 @@ export async function parseGroupCreationPrompt(prompt: string): Promise<ParsedGr
       throw new Error('Invalid parsed structure');
     }
     
-    console.log(`✅ Parsed group creation request:`);
-    console.log(`   Group name: "${parsed.groupName}"`);
-    console.log(`   Participants: ${parsed.participants.join(', ')}`);
+    logger.info(`✅ Parsed group creation request:`, {
+      groupName: parsed.groupName,
+      participants: parsed.participants
+    });
     
     return parsed;
     
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('❌ Error parsing group creation prompt:', error);
+    logger.error('❌ Error parsing group creation prompt:', { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
     throw new Error(`Failed to parse group creation request: ${errorMessage}`);
   }
 }
@@ -243,11 +244,11 @@ function findBestContactMatch(searchName: string, contacts: Contact[], threshold
   
   // Return match only if it meets threshold
   if (bestMatch && bestScore >= threshold) {
-    console.log(`   ✓ Found match for "${searchName}": ${bestMatch.contact_name || bestMatch.name} (score: ${bestScore.toFixed(2)})`);
+    logger.debug(`   ✓ Found match for "${searchName}": ${bestMatch.contact_name || bestMatch.name} (score: ${bestScore.toFixed(2)})`);
     return { contact: bestMatch, score: bestScore };
   }
   
-  console.log(`   ✗ No match found for "${searchName}" (best score: ${bestScore.toFixed(2)})`);
+  logger.debug(`   ✗ No match found for "${searchName}" (best score: ${bestScore.toFixed(2)})`);
   return null;
 }
 
@@ -259,7 +260,7 @@ function findBestContactMatch(searchName: string, contacts: Contact[], threshold
  */
 export async function resolveParticipants(participantNames: string[]): Promise<ParticipantResolutionResult> {
   try {
-    console.log(`🔍 Resolving ${participantNames.length} participants...`);
+    logger.debug(`🔍 Resolving ${participantNames.length} participants...`);
     
     // Get all contacts from database
     const contacts = await conversationManager.getAllContacts() as Contact[];
@@ -268,7 +269,7 @@ export async function resolveParticipants(participantNames: string[]): Promise<P
       throw new Error('No contacts found in database. Please sync contacts first using "עדכן אנשי קשר"');
     }
     
-    console.log(`📇 Searching through ${contacts.length} contacts in database`);
+    logger.debug(`📇 Searching through ${contacts.length} contacts in database`);
     
     const resolved: ResolvedParticipant[] = [];
     const notFound: string[] = [];
@@ -288,15 +289,15 @@ export async function resolveParticipants(participantNames: string[]): Promise<P
       }
     }
     
-    console.log(`✅ Resolved ${resolved.length}/${participantNames.length} participants`);
+    logger.info(`✅ Resolved ${resolved.length}/${participantNames.length} participants`, { notFound: notFound.length > 0 ? notFound : undefined });
     if (notFound.length > 0) {
-      console.log(`⚠️ Could not find: ${notFound.join(', ')}`);
+      logger.warn(`⚠️ Could not find: ${notFound.join(', ')}`);
     }
     
     return { resolved, notFound };
     
   } catch (error: unknown) {
-    console.error('❌ Error resolving participants:', error);
+    logger.error('❌ Error resolving participants:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
     throw error;
   }
 }

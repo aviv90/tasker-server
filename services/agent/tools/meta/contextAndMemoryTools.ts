@@ -9,7 +9,7 @@
 
 import conversationManager from '../../../conversationManager';
 import { getServices } from '../../utils/serviceLoader';
-import logger from '../../../utils/logger';
+import logger from '../../../../utils/logger';
 
 type ToolContext = {
   chatId?: string;

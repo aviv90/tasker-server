@@ -4,6 +4,7 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import prompts from '../config/prompts';
+import logger from '../utils/logger';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -40,7 +41,7 @@ export async function planMultiStepExecution(userRequest: string): Promise<Multi
     const response = result.response;
     
     if (!response || !response.text()) {
-      console.warn(`⚠️ [Planner] No response from Gemini`);
+      logger.warn(`⚠️ [Planner] No response from Gemini`);
       return { isMultiStep: false, fallback: true };
     }
     
@@ -53,7 +54,7 @@ export async function planMultiStepExecution(userRequest: string): Promise<Multi
     // Extract JSON object (before removing ...)
     const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.warn(`⚠️ [Planner] No JSON found in response`);
+      logger.warn(`⚠️ [Planner] No JSON found in response`);
       return { isMultiStep: false, fallback: true };
     }
     
@@ -66,7 +67,7 @@ export async function planMultiStepExecution(userRequest: string): Promise<Multi
     // Simple detection and fix
     const stepsArrayPattern = /"steps"\s*:\s*\[[\s\n]*"stepNumber"/;
     if (stepsArrayPattern.test(jsonStr)) {
-      console.log(`🔧 [Planner] Detected malformed steps array - fixing...`);
+      logger.debug(`🔧 [Planner] Detected malformed steps array - fixing...`);
       
       // Add { after [ and before "stepNumber"
       jsonStr = jsonStr.replace(
@@ -85,7 +86,7 @@ export async function planMultiStepExecution(userRequest: string): Promise<Multi
         jsonStr = jsonStr.replace(/\s*\]\s*\}/, '\n    }\n  ]\n}');
       }
       
-      console.log(`✅ [Planner] Fixed malformed steps array`);
+      logger.debug(`✅ [Planner] Fixed malformed steps array`);
     }
     
     // Try to fix truncated JSON by Gemini
@@ -122,8 +123,7 @@ export async function planMultiStepExecution(userRequest: string): Promise<Multi
       plan = JSON.parse(jsonStr) as { isMultiStep?: boolean; steps?: unknown[]; reasoning?: string };
     } catch (parseError: unknown) {
       const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
-      console.error(`❌ [Planner] JSON parse failed:`, errorMessage);
-      console.log(`   Raw JSON (first 500 chars): ${jsonStr.substring(0, 500)}`);
+      logger.error(`❌ [Planner] JSON parse failed:`, { error: errorMessage, rawJson: jsonStr.substring(0, 500) });
       return { isMultiStep: false, fallback: true };
     }
     
@@ -140,7 +140,7 @@ export async function planMultiStepExecution(userRequest: string): Promise<Multi
         };
       });
       
-      console.log(`✅ [Planner] Multi-step plan generated with ${validatedSteps.length} steps`);
+      logger.info(`✅ [Planner] Multi-step plan generated with ${validatedSteps.length} steps`);
       return {
         isMultiStep: true,
         steps: validatedSteps,
@@ -148,12 +148,12 @@ export async function planMultiStepExecution(userRequest: string): Promise<Multi
       };
     }
     
-    console.log(`✅ [Planner] Single-step request detected`);
+    logger.debug(`✅ [Planner] Single-step request detected`);
     return { isMultiStep: false };
     
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`❌ [Planner] Error:`, errorMessage);
+    logger.error(`❌ [Planner] Error:`, { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
     return { isMultiStep: false, fallback: true };
   }
 }

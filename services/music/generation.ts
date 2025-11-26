@@ -8,6 +8,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import { getStaticFileUrl } from '../../utils/urlUtils';
+import logger from '../../utils/logger';
 
 /**
  * Music service interface
@@ -123,7 +124,7 @@ export class MusicGeneration {
 
   async generateMusicWithLyrics(prompt: string, options: MusicGenerationOptions = {}): Promise<GenerationResult> {
     try {
-      console.log('🎵 Starting Suno music generation with lyrics');
+      logger.info('🎵 Starting Suno music generation with lyrics');
       
       const cleanPrompt = sanitizeText(prompt);
       
@@ -142,7 +143,7 @@ export class MusicGeneration {
       if (options.tags && Array.isArray(options.tags)) musicOptions.tags = options.tags;
       if (options.duration) musicOptions.duration = options.duration;
       
-      console.log('🎼 Using automatic mode');
+      logger.debug('🎼 Using automatic mode');
 
       // Step 1: Submit music generation task
       const generateResponse = await fetch(`${this.musicService.baseUrl}/api/v1/generate`, {
@@ -154,7 +155,7 @@ export class MusicGeneration {
       const generateData = await generateResponse.json() as { code?: number; msg?: string; data?: { taskId?: string } };
       
       if (!generateResponse.ok || generateData.code !== 200) {
-        console.error('❌ Suno music generation task submission failed:', generateData.msg);
+        logger.error('❌ Suno music generation task submission failed:', { error: generateData.msg });
         return { error: generateData.msg || 'Music generation task submission failed' };
       }
 
@@ -163,9 +164,9 @@ export class MusicGeneration {
         return { error: 'No task ID returned from generation API' };
       }
 
-      console.log(`✅ Suno music generation task submitted successfully. Task ID: ${taskId}`);
+      logger.info(`✅ Suno music generation task submitted successfully. Task ID: ${taskId}`);
 
-      console.log('📞 Waiting for callback notification instead of polling...');
+      logger.debug('📞 Waiting for callback notification instead of polling...');
 
       // Store task info for callback handling
       const taskInfo: TaskInfo = {
@@ -194,14 +195,14 @@ export class MusicGeneration {
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('❌ Suno music generation error:', errorMessage);
+      logger.error('❌ Suno music generation error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
       return { error: errorMessage || 'Unknown error' };
     }
   }
 
   async generateInstrumentalMusic(prompt: string, options: MusicGenerationOptions = {}): Promise<GenerationResult> {
     try {
-      console.log('🎼 Starting Suno instrumental music generation');
+      logger.info('🎼 Starting Suno instrumental music generation');
       
       const cleanPrompt = sanitizeText(prompt);
       
@@ -220,14 +221,14 @@ export class MusicGeneration {
       if (options.tags && Array.isArray(options.tags)) musicOptions.tags = options.tags;
       if (options.duration) musicOptions.duration = options.duration;
 
-      console.log('🎹 Using automatic instrumental mode');
+      logger.debug('🎹 Using automatic instrumental mode');
 
       // Use the same logic as generateMusicWithLyrics but with instrumental settings
       return await this._generateMusic(musicOptions, 'instrumental');
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('❌ Suno instrumental music generation error:', errorMessage);
+      logger.error('❌ Suno instrumental music generation error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
       return { error: errorMessage || 'Unknown error' };
     }
   }
@@ -243,7 +244,7 @@ export class MusicGeneration {
     const generateData = await generateResponse.json() as { code?: number; msg?: string; data?: { taskId?: string } };
     
     if (!generateResponse.ok || generateData.code !== 200) {
-      console.error(`❌ Suno ${type} music task submission failed:`, generateData.msg);
+      logger.error(`❌ Suno ${type} music task submission failed:`, { error: generateData.msg });
       return { error: generateData.msg || `${type} music generation task submission failed` };
     }
 
@@ -252,9 +253,9 @@ export class MusicGeneration {
       return { error: `No task ID returned from ${type} generation API` };
     }
 
-    console.log(`✅ Suno ${type} music task submitted successfully. Task ID: ${taskId}`);
+    logger.info(`✅ Suno ${type} music task submitted successfully. Task ID: ${taskId}`);
 
-    console.log('📞 Waiting for callback notification instead of polling...');
+    logger.debug('📞 Waiting for callback notification instead of polling...');
 
     // Store task info for callback handling
     const taskInfo: TaskInfo = {
@@ -280,7 +281,7 @@ export class MusicGeneration {
 
   async generateAdvancedMusic(prompt: string, options: MusicGenerationOptions = {}): Promise<GenerationResult> {
     try {
-      console.log('🎵 Starting Suno V5 advanced music generation');
+      logger.info('🎵 Starting Suno V5 advanced music generation');
       
       const cleanPrompt = sanitizeText(prompt);
       
@@ -329,21 +330,21 @@ export class MusicGeneration {
         sampleRate: options.sampleRate || 44100
       };
       
-      console.log('🎼 Using advanced V5 mode');
+      logger.debug('🎼 Using advanced V5 mode');
 
       // Use the same generation logic but with advanced options
       return await this._generateMusic(musicOptions, 'advanced');
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('❌ Suno V5 advanced music generation error:', errorMessage);
+      logger.error('❌ Suno V5 advanced music generation error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
       return { error: errorMessage || 'Unknown error' };
     }
   }
 
   async generateSongFromSpeech(audioBuffer: Buffer, options: MusicGenerationOptions = {}): Promise<GenerationResult> {
     try {
-      console.log('🎤 Starting Speech-to-Song generation with Add Instrumental API');
+      logger.info('🎤 Starting Speech-to-Song generation with Add Instrumental API');
       
       // Step 1: Upload audio file and get public URL
       const uploadResult = await this._uploadAudioFile(audioBuffer);
@@ -376,19 +377,19 @@ export class MusicGeneration {
         callBackUrl: uploadResult.callbackUrl
       };
 
-      console.log('🎼 Using Upload-Extend API with speech preservation:', extendOptions);
+      logger.debug('🎼 Using Upload-Extend API with speech preservation:', { extendOptions });
 
       return await this._generateExtend(extendOptions);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('❌ Speech-to-Song generation error:', errorMessage);
+      logger.error('❌ Speech-to-Song generation error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
       return { error: errorMessage || 'Unknown error' };
     }
   }
 
   private async _generateExtend(extendOptions: Record<string, unknown>): Promise<GenerationResult> {
     try {
-      console.log('🎼 Submitting Upload-Extend request');
+      logger.debug('🎼 Submitting Upload-Extend request');
       
       // Submit upload-extend task
       const generateResponse = await fetch(`${this.musicService.baseUrl}/api/v1/generate/upload-extend`, {
@@ -400,7 +401,7 @@ export class MusicGeneration {
       const generateData = await generateResponse.json() as { code?: number; message?: string; data?: { taskId?: string } };
       
       if (!generateResponse.ok || generateData.code !== 200) {
-        console.error('❌ Upload-Extend API error:', generateData);
+        logger.error('❌ Upload-Extend API error:', { error: generateData });
         return { error: (generateData.message as string) || 'Upload-Extend request failed' };
       }
 
@@ -409,9 +410,9 @@ export class MusicGeneration {
         return { error: 'No task ID returned from Upload-Extend API' };
       }
 
-      console.log(`✅ Upload-Extend task submitted: ${taskId}`);
+      logger.info(`✅ Upload-Extend task submitted: ${taskId}`);
 
-      console.log('📞 Waiting for callback notification instead of polling...');
+      logger.debug('📞 Waiting for callback notification instead of polling...');
 
       // Store task info for callback handling
       const taskInfo: TaskInfo = {
@@ -435,7 +436,7 @@ export class MusicGeneration {
       };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('❌ Upload-Extend generation error:', errorMessage);
+      logger.error('❌ Upload-Extend generation error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
       return { error: errorMessage || 'Unknown error' };
     }
   }
@@ -462,18 +463,18 @@ export class MusicGeneration {
       
       // Verify file was written correctly
       const fileStats = fs.statSync(tempFilePath);
-      console.log(`💾 Audio file saved: ${filename}, size: ${fileStats.size} bytes`);
+      logger.debug(`💾 Audio file saved: ${filename}, size: ${fileStats.size} bytes`);
       
       // Create public URL for the uploaded file
       const uploadUrl = getStaticFileUrl(filename);
       const callbackUrl = this._getCallbackUrl();
       
-      console.log(`✅ Audio file uploaded: ${uploadUrl}`);
+      logger.info(`✅ Audio file uploaded: ${uploadUrl}`);
       
       return { uploadUrl, callbackUrl };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('❌ Audio upload error:', errorMessage);
+      logger.error('❌ Audio upload error:', { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
       return { error: errorMessage || 'Audio upload failed' };
     }
   }

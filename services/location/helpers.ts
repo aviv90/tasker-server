@@ -2,6 +2,8 @@
  * Location service helper functions
  */
 
+import logger from '../../utils/logger';
+
 /**
  * Load JSON file
  * Handles both development (source) and production (dist) paths
@@ -26,7 +28,7 @@ export function loadJson(filePath: string): unknown {
     } catch (err2: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       const errorMessage2 = err2 instanceof Error ? err2.message : String(err2);
-      console.warn(`⚠️ Could not load ${filePath}:`, errorMessage, errorMessage2);
+      logger.warn(`⚠️ Could not load ${filePath}:`, { error1: errorMessage, error2: errorMessage2 });
       return null;
     }
   }

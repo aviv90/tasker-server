@@ -10,7 +10,7 @@ import { simplifyPrompt, makePromptMoreGeneric } from '../../../utils/promptUtil
 import * as helpers from './helpers';
 import replicateService from '../../../../replicateService';
 import voiceService from '../../../../voiceService';
-import logger from '../../../../utils/logger';
+import logger from '../../../../../utils/logger';
 
 type TaskType = 'image_creation' | 'video_creation' | 'audio_creation';
 type Provider = 'gemini' | 'openai' | 'grok';
