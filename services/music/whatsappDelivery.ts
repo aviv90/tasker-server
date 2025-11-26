@@ -2,7 +2,7 @@
  * WhatsApp delivery for music results
  */
 
-import { getStaticFileUrl } from '../../utils/urlUtils';
+import { normalizeStaticFileUrl } from '../../utils/urlUtils';
 import { extractQuotedMessageId } from '../../utils/messageHelpers';
 import { sendErrorToUser } from '../../utils/errorSender';
 import logger from '../../utils/logger';
@@ -67,13 +67,11 @@ export class MusicWhatsAppDelivery {
         logger.error('❌ Audio conversion failed:', { error: conversionResult.error, chatId });
         // Fallback: send as regular MP3 file
         const fileName = `suno_music_${Date.now()}.mp3`;
-        const fullAudioUrl = musicResult.result.startsWith('http') 
-          ? musicResult.result 
-          : getStaticFileUrl(musicResult.result.replace('/static/', ''));
+        const fullAudioUrl = normalizeStaticFileUrl(musicResult.result);
         await sendFileByUrl(chatId, fullAudioUrl, fileName, '', quotedMessageId || undefined, 1000);
       } else {
         // Send as voice note with Opus format
-        const fullAudioUrl = getStaticFileUrl(conversionResult.fileName);
+        const fullAudioUrl = normalizeStaticFileUrl(conversionResult.fileName || '');
         await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName, '', quotedMessageId || undefined, 1000);
         logger.info(`✅ Music sent as voice note: ${conversionResult.fileName}`, { chatId });
       }

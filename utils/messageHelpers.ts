@@ -74,3 +74,21 @@ export function extractQuotedMessageId(options: ExtractQuotedMessageIdOptions = 
   return null;
 }
 
+/**
+ * Agent result interface for checking skip conditions
+ */
+export interface AgentResultSkipCheck {
+  multiStep?: boolean;
+  alreadySent?: boolean;
+}
+
+/**
+ * Check if agent result should be skipped (already sent in multi-step)
+ * DRY: Centralized check to avoid duplication across result handlers
+ * @param agentResult - Agent result to check
+ * @returns True if result should be skipped
+ */
+export function shouldSkipAgentResult(agentResult: AgentResultSkipCheck): boolean {
+  return !!(agentResult.multiStep && agentResult.alreadySent);
+}
+

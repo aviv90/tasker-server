@@ -7,7 +7,7 @@ import { executeSingleStep } from './singleStep';
 import { sendToolAckMessage } from '../utils/ackUtils';
 import { formatProviderError } from '../../../utils/errorHandler';
 import { getServices } from '../utils/serviceLoader';
-import { getStaticFileUrl } from '../../../utils/urlUtils';
+import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
 import { extractQuotedMessageId } from '../../../utils/messageHelpers';
 import { allTools as agentTools } from '../tools';
 import prompts from '../../../config/prompts';
@@ -283,18 +283,14 @@ class MultiStepExecution {
             
             // Send the result
             if (result.imageUrl) {
-              const fullImageUrl = result.imageUrl.startsWith('http')
-                ? result.imageUrl
-                : getStaticFileUrl(result.imageUrl.replace('/static/', ''));
+              const fullImageUrl = normalizeStaticFileUrl(result.imageUrl);
               const caption = result.caption || result.imageCaption || '';
               await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId || undefined, 1000);
               logger.debug(`✅ [Multi-step Fallback] Image sent successfully`);
             }
             
             if (result.videoUrl) {
-              const fullVideoUrl = result.videoUrl.startsWith('http')
-                ? result.videoUrl
-                : getStaticFileUrl(result.videoUrl.replace('/static/', ''));
+              const fullVideoUrl = normalizeStaticFileUrl(result.videoUrl);
               await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId || undefined, 1000);
               logger.debug(`✅ [Multi-step Fallback] Video sent successfully`);
             }

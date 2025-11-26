@@ -5,12 +5,12 @@
  */
 
 import * as greenApiService from '../../../services/greenApiService';
-import { getStaticFileUrl } from '../../../utils/urlUtils';
+import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
 import { cleanMediaDescription, cleanMultiStepText } from '../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../services/whatsapp/utils';
 import { executeAgentQuery } from '../../../services/agentService';
 import { sendErrorToUser } from '../../../utils/errorSender';
-import { extractQuotedMessageId } from '../../../utils/messageHelpers';
+import { extractQuotedMessageId, shouldSkipAgentResult } from '../../../utils/messageHelpers';
 import logger from '../../../utils/logger';
 
 export interface AgentResult {
@@ -68,7 +68,7 @@ export async function sendImageResult(chatId: string, agentResult: AgentResult, 
   if (!agentResult.imageUrl) return false;
 
   // For multi-step with alreadySent=true, image was already sent in agentService
-  if (agentResult.multiStep && agentResult.alreadySent) {
+  if (shouldSkipAgentResult(agentResult)) {
     logger.debug(`✅ [Multi-step] Image already sent in agentService - skipping duplicate`);
     return false;
   }
@@ -118,7 +118,7 @@ export async function sendVideoResult(chatId: string, agentResult: AgentResult, 
   if (!agentResult.videoUrl) return false;
 
   // For multi-step, video is already sent in agentService - skip here
-  if (agentResult.multiStep && agentResult.alreadySent) {
+  if (shouldSkipAgentResult(agentResult)) {
     logger.debug(`⏭️ [Agent] Skipping video send - already sent in multi-step`);
     return false;
   }
@@ -149,16 +149,14 @@ export async function sendAudioResult(chatId: string, agentResult: AgentResult, 
   if (!agentResult.audioUrl) return false;
 
   // For multi-step, audio is already sent in agentService - skip here
-  if (agentResult.multiStep && agentResult.alreadySent) {
+  if (shouldSkipAgentResult(agentResult)) {
     logger.debug(`⏭️ [Agent] Skipping audio send - already sent in multi-step`);
     return false;
   }
 
   logger.debug(`🎵 [Agent] Sending generated audio: ${agentResult.audioUrl}`);
   // Audio doesn't support captions - send as file only
-  const fullAudioUrl = agentResult.audioUrl.startsWith('http')
-    ? agentResult.audioUrl
-    : getStaticFileUrl(agentResult.audioUrl.replace('/static/', ''));
+    const fullAudioUrl = normalizeStaticFileUrl(agentResult.audioUrl);
   await greenApiService.sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '', quotedMessageId || undefined, 1000);
 
   // For audio files (TTS/translate_and_speak), don't send text - the audio IS the response
@@ -176,7 +174,7 @@ export async function sendPollResult(chatId: string, agentResult: AgentResult, q
   if (!agentResult.poll) return false;
 
   // For multi-step, poll is already sent in agentService - skip here
-  if (agentResult.multiStep && agentResult.alreadySent) {
+  if (shouldSkipAgentResult(agentResult)) {
     logger.debug(`⏭️ [Agent] Skipping poll send - already sent in multi-step`);
     return false;
   }
@@ -215,7 +213,7 @@ export async function sendLocationResult(chatId: string, agentResult: AgentResul
   if (!agentResult.latitude || !agentResult.longitude) return false;
 
   // For multi-step, location is already sent in agentService - skip here
-  if (agentResult.multiStep && agentResult.alreadySent) {
+  if (shouldSkipAgentResult(agentResult)) {
     logger.debug(`⏭️ [Agent] Skipping location send - already sent in multi-step`);
     return false;
   }
@@ -367,7 +365,7 @@ export async function saveBotResponse(_chatId: string, _agentResult: AgentResult
 export async function sendAgentResults(chatId: string, agentResult: AgentResult, normalized: NormalizedInput): Promise<boolean> {
   // For multi-step, results are sent immediately after each step in agentService
   // If alreadySent is true, skip sending here to avoid duplicates
-  if (agentResult.multiStep && agentResult.alreadySent) {
+  if (shouldSkipAgentResult(agentResult)) {
     logger.debug(`✅ [Multi-step] Results already sent immediately after each step - skipping duplicate sending`);
     
     // CRITICAL: Still save bot response to conversation history even if already sent!

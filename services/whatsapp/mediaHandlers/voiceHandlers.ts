@@ -7,7 +7,7 @@
 import { sendTextMessage, sendFileByUrl, downloadFile } from '../../greenApiService';
 import { formatProviderError } from '../../../utils/errorHandler';
 import { sendErrorToUser } from '../../../utils/errorSender';
-import { getStaticFileUrl } from '../../../utils/urlUtils';
+import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
 import { MIN_DURATION_FOR_CLONING, TRANSCRIPTION_DEFAULTS } from '../constants';
 import { getAudioDuration } from '../../agent/utils/audioUtils';
 import { generateTextResponse } from '../../geminiService';
@@ -252,13 +252,11 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
     if (!conversionResult.success) {
       logger.error('❌ Audio conversion failed:', { error: conversionResult.error });
       // Fallback: send as regular MP3 file
-      const fullAudioUrl = ttsResult.audioUrl && ttsResult.audioUrl.startsWith('http')
-        ? ttsResult.audioUrl
-        : getStaticFileUrl((ttsResult.audioUrl || '').replace('/static/', ''));
+      const fullAudioUrl = normalizeStaticFileUrl(ttsResult.audioUrl || '');
       await sendFileByUrl(chatId, fullAudioUrl, `voice_${Date.now()}.mp3`, '', quotedMessageId, TIME.TYPING_INDICATOR);
     } else {
       // Send as voice note with Opus format
-      const fullAudioUrl = getStaticFileUrl(conversionResult.fileName || '');
+      const fullAudioUrl = normalizeStaticFileUrl(conversionResult.fileName || '');
       await sendFileByUrl(chatId, fullAudioUrl, conversionResult.fileName || '', '', quotedMessageId, TIME.TYPING_INDICATOR);
       logger.debug(`✅ Voice-to-voice sent as voice note: ${conversionResult.fileName}`);
     }

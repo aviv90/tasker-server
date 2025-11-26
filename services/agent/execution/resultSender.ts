@@ -4,7 +4,7 @@
  */
 
 import { getServices } from '../utils/serviceLoader';
-import { getStaticFileUrl } from '../../../utils/urlUtils';
+import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
 import { cleanJsonWrapper } from '../../../utils/textSanitizer';
 import logger from '../../../utils/logger';
 
@@ -120,9 +120,7 @@ class ResultSender {
       const stepInfo = stepNumber ? ` for step ${stepNumber}` : '';
       logger.debug(`🖼️ [ResultSender] Sending image${stepInfo}`);
 
-      const fullImageUrl = stepResult.imageUrl.startsWith('http')
-        ? stepResult.imageUrl
-        : getStaticFileUrl(stepResult.imageUrl.replace('/static/', ''));
+      const fullImageUrl = normalizeStaticFileUrl(stepResult.imageUrl);
       const caption = stepResult.imageCaption || stepResult.caption || '';
 
       await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId || undefined, 1000);
@@ -149,9 +147,7 @@ class ResultSender {
       const stepInfo = stepNumber ? ` for step ${stepNumber}` : '';
       logger.debug(`🎬 [ResultSender] Sending video${stepInfo}`);
 
-      const fullVideoUrl = stepResult.videoUrl.startsWith('http')
-        ? stepResult.videoUrl
-        : getStaticFileUrl(stepResult.videoUrl.replace('/static/', ''));
+      const fullVideoUrl = normalizeStaticFileUrl(stepResult.videoUrl);
 
       await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId || undefined, 1000);
 
@@ -177,9 +173,7 @@ class ResultSender {
       const stepInfo = stepNumber ? ` for step ${stepNumber}` : '';
       logger.debug(`🎤 [ResultSender] Sending audio${stepInfo}`);
 
-      const fullAudioUrl = stepResult.audioUrl.startsWith('http')
-        ? stepResult.audioUrl
-        : getStaticFileUrl(stepResult.audioUrl.replace('/static/', ''));
+      const fullAudioUrl = normalizeStaticFileUrl(stepResult.audioUrl);
 
       await greenApiService.sendFileByUrl(chatId, fullAudioUrl, `agent_audio_${Date.now()}.mp3`, '', quotedMessageId || undefined, 1000);
 

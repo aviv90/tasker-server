@@ -74,10 +74,31 @@ export function getApiUrl(endpoint: string, req: Request | null = null): string 
   return `${baseUrl}${cleanEndpoint}`;
 }
 
+/**
+ * Normalize a static file URL/path to a full URL
+ * Handles both relative paths (with /static/) and full URLs
+ * @param urlOrPath - URL or path to normalize
+ * @param req - Express request object (optional)
+ * @returns Full URL to the static file
+ */
+export function normalizeStaticFileUrl(urlOrPath: string, req: Request | null = null): string {
+  // If already a full URL, return as-is
+  if (urlOrPath.startsWith('http')) {
+    return urlOrPath;
+  }
+  
+  // Remove /static/ prefix if present
+  const cleanPath = urlOrPath.replace(/^\/static\//, '');
+  
+  // Return full static file URL
+  return getStaticFileUrl(cleanPath, req);
+}
+
 // Backward compatibility: CommonJS export
 module.exports = {
   getServerBaseUrl,
   getStaticFileUrl,
-  getApiUrl
+  getApiUrl,
+  normalizeStaticFileUrl
 };
 
