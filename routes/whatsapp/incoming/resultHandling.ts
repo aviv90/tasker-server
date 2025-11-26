@@ -106,6 +106,24 @@ export async function sendImageResult(chatId: string, agentResult: AgentResult, 
   }
 
   await greenApiService.sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId || undefined, 1000);
+  
+  // If there's additional text beyond the caption, send it in a separate message
+  // This ensures users get both the image with caption AND any additional context/description
+  if (agentResult.text && agentResult.text.trim()) {
+    // Check if text is different from caption (to avoid duplicates)
+    const textToCheck = cleanMediaDescription(agentResult.text);
+    const captionToCheck = cleanMediaDescription(caption);
+    
+    // Only send if text is meaningfully different from caption (more than just whitespace/formatting)
+    if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
+      const additionalText = cleanAgentText(agentResult.text);
+      if (additionalText && additionalText.trim()) {
+        logger.debug(`📝 [Image] Sending additional text after image (${additionalText.length} chars)`);
+        await greenApiService.sendTextMessage(chatId, additionalText, quotedMessageId || undefined, 1000);
+      }
+    }
+  }
+  
   return true;
 }
 
@@ -247,15 +265,49 @@ export async function sendSingleStepText(chatId: string, agentResult: AgentResul
     return;
   }
   
-  // Single-step: If no media was sent and it's not multi-step, send text response
-  if (!agentResult.multiStep && !mediaSent && agentResult.text && agentResult.text.trim()) {
+  // Single-step: Send text response
+  // CRITICAL: Even if media was sent, we should send additional text if it exists
+  // This ensures users get both media (with caption) AND any additional context/description
+  if (!agentResult.multiStep && agentResult.text && agentResult.text.trim()) {
     const multipleTools = (agentResult.toolsUsed && agentResult.toolsUsed.length > 1);
 
     if (!multipleTools) {
-      // Single tool → safe to send text
-      const cleanText = cleanAgentText(agentResult.text);
-      if (cleanText) {
-        await greenApiService.sendTextMessage(chatId, cleanText, quotedMessageId || undefined, 1000);
+      // Single tool: Check if text is different from caption (to avoid duplicates)
+      let shouldSendText = true;
+      
+      if (mediaSent) {
+        // If media was sent, check if text is just the caption (already sent with media)
+        const textToCheck = cleanMediaDescription(agentResult.text);
+        const imageCaption = agentResult.imageCaption ? cleanMediaDescription(agentResult.imageCaption) : '';
+        
+        // For images: if text is same as caption, don't send again
+        if (agentResult.imageUrl && textToCheck.trim() === imageCaption.trim()) {
+          shouldSendText = false;
+          logger.debug(`ℹ️ [Text] Skipping text - same as image caption`);
+        }
+        // For videos: text is already sent separately in sendVideoResult
+        else if (agentResult.videoUrl) {
+          shouldSendText = false;
+          logger.debug(`ℹ️ [Text] Skipping text - already sent with video`);
+        }
+        // For audio: audio IS the response, no additional text needed
+        else if (agentResult.audioUrl) {
+          shouldSendText = false;
+          logger.debug(`ℹ️ [Text] Skipping text - audio is the response`);
+        }
+        // For other media: send text if it's meaningfully different
+        else if (textToCheck.trim().length < 20) {
+          shouldSendText = false;
+          logger.debug(`ℹ️ [Text] Skipping text - too short to be meaningful`);
+        }
+      }
+      
+      if (shouldSendText) {
+        const cleanText = cleanAgentText(agentResult.text);
+        if (cleanText && cleanText.trim()) {
+          logger.debug(`📝 [Text] Sending text ${mediaSent ? 'after media' : 'as response'} (${cleanText.length} chars)`);
+          await greenApiService.sendTextMessage(chatId, cleanText, quotedMessageId || undefined, 1000);
+        }
       }
     } else {
       logger.debug(`ℹ️ Multiple tools detected - skipping general text to avoid mixing outputs`);

@@ -5,7 +5,8 @@
 
 import { getServices } from '../utils/serviceLoader';
 import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
-import { cleanJsonWrapper } from '../../../utils/textSanitizer';
+import { cleanJsonWrapper, cleanMediaDescription } from '../../../utils/textSanitizer';
+import { cleanAgentText } from '../../../services/whatsapp/utils';
 import logger from '../../../utils/logger';
 
 interface PollOptions {
@@ -122,8 +123,25 @@ class ResultSender {
 
       const fullImageUrl = normalizeStaticFileUrl(stepResult.imageUrl);
       const caption = stepResult.imageCaption || stepResult.caption || '';
+      const cleanCaption = cleanMediaDescription(caption);
 
-      await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId || undefined, 1000);
+      await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, cleanCaption, quotedMessageId || undefined, 1000);
+
+      // If there's additional text beyond the caption, send it in a separate message
+      // This ensures users get both the image with caption AND any additional context/description
+      if (stepResult.text && stepResult.text.trim()) {
+        const textToCheck = cleanMediaDescription(stepResult.text);
+        const captionToCheck = cleanMediaDescription(caption);
+        
+        // Only send if text is meaningfully different from caption (more than just whitespace/formatting)
+        if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
+          const additionalText = cleanAgentText(stepResult.text);
+          if (additionalText && additionalText.trim()) {
+            logger.debug(`📝 [ResultSender] Sending additional text after image${stepInfo} (${additionalText.length} chars)`);
+            await greenApiService.sendTextMessage(chatId, additionalText, quotedMessageId || undefined, 1000);
+          }
+        }
+      }
 
       logger.debug(`✅ [ResultSender] Image sent${stepInfo}`);
     } catch (error: unknown) {
@@ -150,6 +168,16 @@ class ResultSender {
       const fullVideoUrl = normalizeStaticFileUrl(stepResult.videoUrl);
 
       await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId || undefined, 1000);
+
+      // If there's meaningful text (description/revised prompt), send it separately
+      // This ensures users get both the video AND any additional context/description
+      if (stepResult.text && stepResult.text.trim()) {
+        const videoDescription = cleanMediaDescription(stepResult.text);
+        if (videoDescription && videoDescription.length > 2) {
+          logger.debug(`📝 [ResultSender] Sending additional text after video${stepInfo} (${videoDescription.length} chars)`);
+          await greenApiService.sendTextMessage(chatId, videoDescription, quotedMessageId || undefined, 1000);
+        }
+      }
 
       logger.debug(`✅ [ResultSender] Video sent${stepInfo}`);
     } catch (error: unknown) {
@@ -192,16 +220,42 @@ class ResultSender {
    * @param {string} [quotedMessageId] - Optional: ID of message to quote
    */
   async sendText(chatId: string, stepResult: StepResult, stepNumber: number | null = null, quotedMessageId: string | null = null): Promise<void> {
+    if (!stepResult.text || !stepResult.text.trim()) {
+      return;
+    }
+
     // Check if structured output was already sent
     const hasStructuredOutput = stepResult.latitude || stepResult.poll ||
                                  stepResult.imageUrl || stepResult.videoUrl ||
                                  stepResult.audioUrl || stepResult.locationInfo;
 
-    if (hasStructuredOutput || !stepResult.text || !stepResult.text.trim()) {
-      if (hasStructuredOutput) {
-        logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - structured output already sent`);
+    // If structured output exists, check if text is just the caption/description (already sent)
+    if (hasStructuredOutput) {
+      const textToCheck = cleanMediaDescription(stepResult.text);
+      const imageCaption = stepResult.imageCaption ? cleanMediaDescription(stepResult.imageCaption) : '';
+      
+      // For images: if text is same as caption, don't send again
+      if (stepResult.imageUrl && textToCheck.trim() === imageCaption.trim()) {
+        logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - same as image caption`);
+        return;
       }
-      return;
+      // For videos: text is already sent separately in sendVideo
+      else if (stepResult.videoUrl) {
+        logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - already sent with video`);
+        return;
+      }
+      // For audio: audio IS the response, no additional text needed
+      else if (stepResult.audioUrl) {
+        logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - audio is the response`);
+        return;
+      }
+      // For other structured output: send text if it's meaningfully different
+      else if (textToCheck.trim().length < 20) {
+        logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - too short to be meaningful`);
+        return;
+      }
+      // Otherwise, send additional text even if structured output exists
+      logger.debug(`📝 [ResultSender] Sending additional text${stepNumber ? ` for step ${stepNumber}` : ''} after structured output`);
     }
 
     try {
