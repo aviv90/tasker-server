@@ -3,10 +3,9 @@
  * Extracted from voiceService.js (Phase 5.3)
  */
 
-import fs from 'fs';
-import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
+import { saveBufferToTempFile } from '../../utils/tempFileUtils';
 
 /**
  * Voice service context (for this binding)
@@ -175,16 +174,9 @@ async function textToSpeech(
       return Buffer.from(new Uint8Array(chunk));
     }));
     
-    const tmpDir = path.join(process.cwd(), 'public', 'tmp');
-    if (!fs.existsSync(tmpDir)) {
-      fs.mkdirSync(tmpDir, { recursive: true });
-    }
-    
+    // Save audio buffer to centralized temp directory (SSOT with static route)
     const audioFileName = `tts_${uuidv4()}.mp3`;
-    const audioFilePath = path.join(tmpDir, audioFileName);
-    fs.writeFileSync(audioFilePath, audioBuffer);
-    
-    const audioUrl = `/static/${audioFileName}`;
+    const { publicPath: audioUrl } = saveBufferToTempFile(audioBuffer, audioFileName);
     
     console.log('✅ Text-to-speech conversion completed');
     console.log(`🔗 Audio available at: ${audioUrl}`);
