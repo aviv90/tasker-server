@@ -124,10 +124,18 @@ export const create_video = {
           ? formattedVideoProviderName
           : videoProviderKey;
 
+      // Extract caption from video result (description or revisedPrompt)
+      let caption = videoResult.description || videoResult.revisedPrompt || videoResult.caption || '';
+      if (caption) {
+        const { cleanMarkdown } = require('../../../../utils/textSanitizer');
+        caption = cleanMarkdown(caption);
+      }
+
       return {
         success: true,
         data: `✅ הוידאו נוצר בהצלחה עם ${providerName}!`,
         videoUrl: videoResult.videoUrl || videoResult.url,
+        videoCaption: caption,
         provider: providerName
       };
     } catch (error) {

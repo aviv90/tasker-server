@@ -64,6 +64,9 @@ export type ImageProviderResult = ProviderTaggedResult & {
 export type VideoProviderResult = ProviderTaggedResult & {
   videoUrl?: string;
   url?: string;
+  description?: string;
+  revisedPrompt?: string;
+  caption?: string;
 };
 
 /**

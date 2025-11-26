@@ -35,6 +35,7 @@ interface StepResult {
     imageCaption?: string;
     caption?: string; // Alias for imageCaption
     videoUrl?: string | null;
+    videoCaption?: string;
     audioUrl?: string | null;
     poll?: { question: string; options: string[] } | null;
     latitude?: string | null;
@@ -89,6 +90,7 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
     imageUrl: string | null;
     imageCaption: string;
     videoUrl: string | null;
+    videoCaption: string;
     audioUrl: string | null;
     poll: { question: string; options: string[] } | null;
     latitude: string | null;
@@ -99,6 +101,7 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
     imageUrl: null,
     imageCaption: '',
     videoUrl: null,
+    videoCaption: '',
     audioUrl: null,
     poll: null,
     latitude: null,
@@ -182,7 +185,10 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
           assets.imageUrl = toolResult.imageUrl;
           assets.imageCaption = toolResult.caption || toolResult.imageCaption || '';
         }
-        if (toolResult.videoUrl) assets.videoUrl = toolResult.videoUrl;
+        if (toolResult.videoUrl) {
+          assets.videoUrl = toolResult.videoUrl;
+          assets.videoCaption = toolResult.videoCaption || toolResult.caption || '';
+        }
         if (toolResult.audioUrl) assets.audioUrl = toolResult.audioUrl;
         if (toolResult.poll) assets.poll = toolResult.poll;
         if (toolResult.latitude) assets.latitude = toolResult.latitude;
