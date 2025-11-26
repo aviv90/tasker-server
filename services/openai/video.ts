@@ -8,6 +8,7 @@
 import OpenAI from 'openai';
 import { sanitizeText } from '../../utils/textSanitizer';
 import { getStaticFileUrl } from '../../utils/urlUtils';
+import { createTempFilePath } from '../../utils/tempFileUtils';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -236,8 +237,8 @@ export async function generateVideoWithSoraForWhatsApp(
         
         // Save video to tmp folder
         const fileName = `sora2_video_${uuidv4()}.mp4`;
-        // Use process.cwd() for safe path resolution
-        const filePath = path.join(process.cwd(), 'public', 'tmp', fileName);
+        // Use createTempFilePath for consistent path resolution (uses config.paths.tmp)
+        const filePath = createTempFilePath(fileName);
         const tmpDir = path.dirname(filePath);
         
         if (!fs.existsSync(tmpDir)) {
@@ -405,7 +406,7 @@ export async function generateVideoWithSoraFromImageForWhatsApp(
         // Save video to tmp folder
         const fileName = `sora2_image_video_${uuidv4()}.mp4`;
         // Use process.cwd() for safe path resolution
-        const filePath = path.join(process.cwd(), 'public', 'tmp', fileName);
+        const filePath = createTempFilePath(fileName);
         const tmpDir = path.dirname(filePath);
         
         if (!fs.existsSync(tmpDir)) {

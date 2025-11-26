@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { sanitizeText, cleanMarkdown, cleanMediaDescription } from '../../../utils/textSanitizer';
 import { getStaticFileUrl } from '../../../utils/urlUtils';
+import { createTempFilePath } from '../../../utils/tempFileUtils';
 import { getGeminiErrorMessage } from '../utils';
 import { detectLanguage } from '../../../utils/agentHelpers';
 import fs from 'fs';
@@ -195,8 +196,8 @@ class ImageEditing {
    */
   saveEditedImageForWhatsApp(imageBuffer: Buffer, req: Request | null): { imageUrl: string; fileName: string } {
     const fileName = `gemini_edit_${uuidv4()}.png`;
-    // Use process.cwd() for safe path resolution
-    const filePath = path.join(process.cwd(), 'public', 'tmp', fileName);
+    // Use createTempFilePath for consistent path resolution (uses config.paths.tmp)
+    const filePath = createTempFilePath(fileName);
 
     const tmpDir = path.dirname(filePath);
     if (!fs.existsSync(tmpDir)) {

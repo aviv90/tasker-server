@@ -2,6 +2,7 @@
 const genai = require('@google/genai');
 import { sanitizeText } from '../../../utils/textSanitizer';
 import { getStaticFileUrl } from '../../../utils/urlUtils';
+import { createTempFilePath } from '../../../utils/tempFileUtils';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -164,8 +165,8 @@ class WhatsAppVideoGeneration {
    */
   async downloadVideoFile(videoFile: unknown, fileNamePrefix = 'veo3'): Promise<DownloadResult> {
     const fileName = `${fileNamePrefix}_video_${uuidv4()}.mp4`;
-    // Use process.cwd() for safe path resolution
-    const filePath = path.join(process.cwd(), 'public', 'tmp', fileName);
+    // Use createTempFilePath for consistent path resolution (uses config.paths.tmp)
+    const filePath = createTempFilePath(fileName);
     const tmpDir = path.dirname(filePath);
 
     if (!fs.existsSync(tmpDir)) {
@@ -233,8 +234,8 @@ class WhatsAppVideoGeneration {
   async convertVideoForWhatsApp(filePath: string, fileName: string, _req: Request | null): Promise<ConvertResult> {
     console.log('🎬 Converting video to WhatsApp-compatible format...');
     const convertedFileName = fileName.replace('.mp4', '_converted.mp4');
-    // Use process.cwd() for safe path resolution
-    const convertedFilePath = path.join(process.cwd(), 'public', 'tmp', convertedFileName);
+    // Use createTempFilePath for consistent path resolution (uses config.paths.tmp)
+    const convertedFilePath = createTempFilePath(convertedFileName);
 
     try {
       await execAsync(`${ffmpeg} -i "${filePath}" -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -movflags +faststart "${convertedFilePath}" -y`);

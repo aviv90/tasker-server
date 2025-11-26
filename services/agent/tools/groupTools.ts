@@ -4,7 +4,6 @@
  */
 
 import fs from 'fs';
-import path from 'path';
 import { extractQuotedMessageId } from '../../../utils/messageHelpers';
 import { defaultSenderName } from '../../../config/messages';
 import { parseGroupCreationPrompt, resolveParticipants } from '../../groupService';
@@ -202,8 +201,9 @@ export const create_group = {
           )) as ImageGenerationResult;
 
           if (imageResult.success && imageResult.fileName) {
-            // Use process.cwd() for safe path resolution
-            const imagePath = path.join(process.cwd(), 'public', 'tmp', imageResult.fileName);
+            // Use createTempFilePath for consistent path resolution (uses config.paths.tmp)
+            const { createTempFilePath } = require('../../../utils/tempFileUtils');
+            const imagePath = createTempFilePath(imageResult.fileName);
 
             if (fs.existsSync(imagePath)) {
               const imageBuffer = fs.readFileSync(imagePath);

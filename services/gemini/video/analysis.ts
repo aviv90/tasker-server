@@ -68,7 +68,9 @@ class VideoAnalysis {
 
       const tempFileName = `temp_analysis_video_${uuidv4()}.mp4`;
       // Use process.cwd() for safe path resolution
-      const tempFilePath = path.join(process.cwd(), 'public', 'tmp', tempFileName);
+      // Use createTempFilePath for consistent path resolution (uses config.paths.tmp)
+      const { createTempFilePath } = require('../../../utils/tempFileUtils');
+      const tempFilePath = createTempFilePath(tempFileName);
       const tmpDir = path.dirname(tempFilePath);
 
       if (!fs.existsSync(tmpDir)) {

@@ -53,7 +53,9 @@ class AudioConverterService {
     constructor() {
         // Use process.cwd() to ensure we point to the project root public directory,
         // not the dist/ folder structure in production.
-        this.tempDir = path.join(process.cwd(), 'public', 'tmp');
+        // Use config.paths.tmp for consistent path resolution
+        const { config } = require('../config');
+        this.tempDir = config.paths.tmp;
         this.ensureTempDir();
     }
 
@@ -228,7 +230,9 @@ class AudioConverterService {
                 
                 // If file not found in public/, try public/tmp/
                 if (!fs.existsSync(filePath)) {
-                    filePath = path.join(process.cwd(), 'public', 'tmp', relativePath);
+                    // Use config.paths.tmp for consistent path resolution
+                    const { config } = require('../config');
+                    filePath = path.join(config.paths.tmp, relativePath);
                 }
                 
                 if (!fs.existsSync(filePath)) {

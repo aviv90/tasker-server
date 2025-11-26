@@ -1,6 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const genai = require('@google/genai');
 import { sanitizeText } from '../../../utils/textSanitizer';
+import { createTempFilePath } from '../../../utils/tempFileUtils';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -115,8 +116,8 @@ class VeoGeneration {
    */
   async downloadVideoFile(videoFile: unknown, fileNamePrefix = 'temp'): Promise<DownloadResult> {
     const tempFileName = `${fileNamePrefix}_video_${uuidv4()}.mp4`;
-    // Use process.cwd() for safe path resolution
-    const tempFilePath = path.join(process.cwd(), 'public', 'tmp', tempFileName);
+    // Use createTempFilePath for consistent path resolution (uses config.paths.tmp)
+    const tempFilePath = createTempFilePath(tempFileName);
     const tmpDir = path.dirname(tempFilePath);
 
     if (!fs.existsSync(tmpDir)) {

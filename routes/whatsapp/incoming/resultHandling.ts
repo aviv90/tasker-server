@@ -95,8 +95,10 @@ export async function sendImageResult(chatId: string, agentResult: AgentResult, 
       caption = agentResult.imageCaption || '';
       logger.debug(`ℹ️ Multiple tools detected - using imageCaption only to avoid mixing outputs`);
     } else {
-      // Single tool → can use general text as fallback
-      caption = agentResult.imageCaption || agentResult.text || '';
+      // Single tool → use imageCaption if available, otherwise empty (don't use general text to avoid sending history)
+      // CRITICAL: For media creation commands, we should NOT send general text as caption
+      // General text might contain history or other context that shouldn't be in the caption
+      caption = agentResult.imageCaption || '';
     }
 
     // Clean the caption: remove URLs, markdown links, code blocks, and technical markers
@@ -385,8 +387,6 @@ export async function sendAgentResults(chatId: string, agentResult: AgentResult,
   // Multi-step: Send text FIRST, then media
   if (agentResult.multiStep && agentResult.text && agentResult.text.trim()) {
     await sendMultiStepText(chatId, agentResult.text, quotedMessageId);
-  } else {
-    logger.warn(`⚠️ [Multi-step] Text not sent - multiStep: ${agentResult.multiStep}, text: ${!!agentResult.text}, trimmed: ${!!agentResult.text?.trim()}`);
   }
 
   // CRITICAL: Send media if URLs exist (Rule: Media MUST be sent!)

@@ -8,6 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import { FILE_SIZE, TIME } from './constants';
+import { config } from '../config';
 
 /**
  * Result of saving a buffer to a temporary file
@@ -30,10 +31,12 @@ export interface FileVerifyResult {
 
 /**
  * Get the temporary directory path
+ * CRITICAL: Use config.paths.tmp to ensure consistency with static route
  * @returns Path to the temporary directory
  */
 export function getTempDir(): string {
-  return path.join(process.cwd(), 'public', 'tmp');
+  // Use config.paths.tmp to ensure consistency with static route (which uses __dirname)
+  return config.paths.tmp;
 }
 
 /**

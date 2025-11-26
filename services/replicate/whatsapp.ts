@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { MODELS } from './models';
 import helpers from './helpers';
 import { getStaticFileUrl } from '../../utils/urlUtils';
+import { createTempFilePath } from '../../utils/tempFileUtils';
 import { Request } from 'express';
 
 const replicate = new Replicate({
@@ -31,8 +32,8 @@ class ReplicateWhatsApp {
    * Download and save video for WhatsApp
    */
   async downloadAndSaveVideo(videoUrl: string, fileName: string, req: Request | null): Promise<string> {
-    // Use process.cwd() for safe path resolution
-    const filePath = path.join(process.cwd(), 'public', 'tmp', fileName);
+    // Use createTempFilePath for consistent path resolution (uses config.paths.tmp)
+    const filePath = createTempFilePath(fileName);
 
     const tmpDir = path.dirname(filePath);
     if (!fs.existsSync(tmpDir)) {
@@ -133,8 +134,9 @@ class ReplicateWhatsApp {
       console.log('🎬 Starting RunwayML Gen4 video-to-video generation');
 
       // Create temporary file for video processing
-      // Use process.cwd() for safe path resolution
-      const tempDir = path.join(process.cwd(), 'public', 'tmp');
+      // Use getTempDir for consistent path resolution (uses config.paths.tmp)
+      const { getTempDir } = require('../../utils/tempFileUtils');
+      const tempDir = getTempDir();
       if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
       }
