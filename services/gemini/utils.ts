@@ -3,6 +3,8 @@
  * Clean, reusable utilities for Gemini service
  */
 
+import logger from '../../utils/logger';
+
 const THINKING_SECTION_PATTERNS = [
   /\*\*My internal thoughts?:?\*\*[\s\S]*?(?=\n\n|\*\*[A-Z]|$)/gi,
   /\[Internal (thought|reasoning|analysis):[\s\S]*?\]/gi,
@@ -111,7 +113,7 @@ export function cleanThinkingPatterns(text: string | null | undefined): string {
       seenLines.add(trimmedLine);
       uniqueLines.push(line);
     } else {
-      console.log(`🧹 Removed duplicate line: "${trimmedLine.substring(0, 50)}..."`);
+      logger.debug(`🧹 Removed duplicate line: "${trimmedLine.substring(0, 50)}..."`);
     }
   }
   
@@ -128,7 +130,7 @@ export function cleanThinkingPatterns(text: string | null | undefined): string {
   
   // If primary language is Hebrew (Hebrew chars > English chars), remove English-only paragraphs
   if (hebrewChars > englishChars && hebrewChars > 10) {
-    console.log(`🌐 Detected Hebrew as primary language (${hebrewChars} Hebrew vs ${englishChars} English chars)`);
+    logger.debug(`🌐 Detected Hebrew as primary language (${hebrewChars} Hebrew vs ${englishChars} English chars)`);
     
     // Split by double newlines (paragraphs)
     const paragraphs = cleaned.split(/\n\n+/);
@@ -143,7 +145,7 @@ export function cleanThinkingPatterns(text: string | null | undefined): string {
         filteredParagraphs.push(para);
       } else if (paraEnglish > paraHebrew * 2) {
         // This paragraph is mostly English - likely meta-text
-        console.log(`🧹 Removed English-only paragraph: "${para.substring(0, 60)}..."`);
+        logger.debug(`🧹 Removed English-only paragraph: "${para.substring(0, 60)}..."`);
       } else {
         // Keep it if unclear
         filteredParagraphs.push(para);
@@ -159,7 +161,7 @@ export function cleanThinkingPatterns(text: string | null | undefined): string {
   
   // Log if significant cleaning happened
   if (cleaned.length < originalLength * 0.8) {
-    console.log(`🧹 Cleaned thinking patterns: ${originalLength} -> ${cleaned.length} chars (removed ${originalLength - cleaned.length})`);
+    logger.debug(`🧹 Cleaned thinking patterns: ${originalLength} -> ${cleaned.length} chars (removed ${originalLength - cleaned.length})`);
   }
   
   return cleaned;

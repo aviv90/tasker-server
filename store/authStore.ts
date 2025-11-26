@@ -6,6 +6,7 @@
  */
 
 import conversationManager from '../services/conversationManager';
+import logger from '../utils/logger';
 
 interface SenderData {
     chatId?: string;
@@ -16,7 +17,7 @@ interface SenderData {
 
 class AuthStore {
   constructor() {
-    console.log('🔐 AuthStore initialized with database backend');
+    logger.info('🔐 AuthStore initialized with database backend');
   }
 
   /**
@@ -32,7 +33,7 @@ class AuthStore {
       
       // If no users in allow list, deny access (closed by default like transcription)
       if (allowList.length === 0) {
-        console.log(`🚫 Media creation denied - no users in allow list (closed by default)`);
+        logger.debug(`🚫 Media creation denied - no users in allow list (closed by default)`);
         return false;
       }
 
@@ -47,23 +48,23 @@ class AuthStore {
         const groupName = senderData.chatName || '';
         const senderContact = senderData.senderContactName || senderData.senderName || '';
         
-        console.log(`🔍 Checking media creation authorization in group "${groupName}" for sender "${senderContact}"`);
+        logger.debug(`🔍 Checking media creation authorization in group "${groupName}" for sender "${senderContact}"`);
         
         // Allow if EITHER the group is authorized OR the individual sender is authorized
         const groupAuthorized = groupName && allowList.includes(groupName);
         const senderAuthorized = senderContact && allowList.includes(senderContact);
         
         if (groupAuthorized) {
-          console.log(`✅ Media creation allowed - group "${groupName}" is in allow list`);
+          logger.debug(`✅ Media creation allowed - group "${groupName}" is in allow list`);
           return true;
         }
         
         if (senderAuthorized) {
-          console.log(`✅ Media creation allowed - sender "${senderContact}" is in allow list (in group "${groupName}")`);
+          logger.debug(`✅ Media creation allowed - sender "${senderContact}" is in allow list (in group "${groupName}")`);
           return true;
         }
         
-        console.log(`🚫 Media creation denied - neither group "${groupName}" nor sender "${senderContact}" are in allow list`);
+        logger.debug(`🚫 Media creation denied - neither group "${groupName}" nor sender "${senderContact}" are in allow list`);
         return false;
         
       } else if (isPrivateChat) {
@@ -77,28 +78,28 @@ class AuthStore {
           contactName = senderData.senderName || '';
         }
         
-        console.log(`🔍 Checking media creation authorization for: "${contactName}" (private chat)`);
+        logger.debug(`🔍 Checking media creation authorization for: "${contactName}" (private chat)`);
         
         if (contactName && allowList.includes(contactName)) {
-          console.log(`✅ Media creation allowed for ${contactName} - user is in allow list`);
+          logger.debug(`✅ Media creation allowed for ${contactName} - user is in allow list`);
           return true;
         } else {
-          console.log(`🚫 Media creation not allowed for ${contactName} (not in allow list)`);
+          logger.debug(`🚫 Media creation not allowed for ${contactName} (not in allow list)`);
           return false;
         }
       } else {
         // Fallback for unknown chat types
         const contactName = senderData.senderContactName || senderData.chatName || senderData.senderName;
-        console.log(`🔍 Checking media creation authorization for: "${contactName}" (unknown chat type)`);
+        logger.debug(`🔍 Checking media creation authorization for: "${contactName}" (unknown chat type)`);
         
         if (contactName && allowList.includes(contactName)) {
-          console.log(`✅ Media creation allowed for ${contactName}`);
+          logger.debug(`✅ Media creation allowed for ${contactName}`);
           return true;
         }
         return false;
       }
     } catch (error) {
-      console.error('❌ Error checking media authorization:', error);
+      logger.error('❌ Error checking media authorization:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       // On error, default to denying (fail-closed for security, like transcription)
       return false;
     }
@@ -116,7 +117,7 @@ class AuthStore {
       
       return await conversationManager.addToMediaAllowList(cleanId);
     } catch (error) {
-      console.error('❌ Error adding authorized user:', error);
+      logger.error('❌ Error adding authorized user:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       return false;
     }
   }
@@ -133,7 +134,7 @@ class AuthStore {
       
       return await conversationManager.removeFromMediaAllowList(cleanId);
     } catch (error) {
-      console.error('❌ Error removing authorized user:', error);
+      logger.error('❌ Error removing authorized user:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       return false;
     }
   }
@@ -146,7 +147,7 @@ class AuthStore {
     try {
       return await conversationManager.getMediaAllowList();
     } catch (error) {
-      console.error('❌ Error getting authorized users:', error);
+      logger.error('❌ Error getting authorized users:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       return [];
     }
   }
@@ -165,7 +166,7 @@ class AuthStore {
         authorizedUsers: authorizedUsers
       };
     } catch (error) {
-      console.error('❌ Error getting authorization status:', error);
+      logger.error('❌ Error getting authorization status:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       return {
         mediaCreationUsers: 0,
         openToAll: false,

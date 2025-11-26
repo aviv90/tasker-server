@@ -4,6 +4,7 @@
  */
 
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
+import logger from '../../utils/logger';
 
 /**
  * Voice service context (for this binding)
@@ -49,7 +50,7 @@ export async function getVoices(this: VoiceServiceContext): Promise<VoiceListRes
     
     const voiceList = voices.voices || voices.data?.voices || [];
     
-    console.log(`🎤 Retrieved ${voiceList.length} voices from ElevenLabs`);
+    logger.debug(`🎤 Retrieved ${voiceList.length} voices from ElevenLabs`);
     
     return {
       voices: voiceList,
@@ -57,7 +58,7 @@ export async function getVoices(this: VoiceServiceContext): Promise<VoiceListRes
     };
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error('❌ Error fetching voices:', errorMessage);
+    logger.error('❌ Error fetching voices:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
     return { error: errorMessage || 'Failed to fetch voices' };
   }
 }
@@ -74,7 +75,7 @@ export async function getVoice(this: VoiceServiceContext, voiceId: string): Prom
     return (voice && typeof voice === 'object' && 'data' in voice ? voice.data : voice) as VoiceDetailsResult || {};
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error('❌ Error fetching voice:', errorMessage);
+    logger.error('❌ Error fetching voice:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
     return { error: errorMessage || 'Failed to fetch voice details' };
   }
 }
@@ -87,11 +88,11 @@ export async function deleteVoice(this: VoiceServiceContext, voiceId: string): P
     const client = this.initializeClient();
     await client.voices.delete(voiceId);
     
-    console.log(`✅ Voice deleted: ${voiceId}`);
+    logger.info(`✅ Voice deleted: ${voiceId}`);
     return { success: true, voiceId };
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error('❌ Error deleting voice:', errorMessage);
+    logger.error('❌ Error deleting voice:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
     return { error: errorMessage || 'Failed to delete voice' };
   }
 }

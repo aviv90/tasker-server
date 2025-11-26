@@ -354,7 +354,7 @@ export class MusicGeneration {
 
       // Test if upload URL is accessible externally
       if (uploadResult.uploadUrl) {
-        console.log(`🌐 Testing external accessibility: ${uploadResult.uploadUrl}`);
+        logger.debug(`🌐 Testing external accessibility: ${uploadResult.uploadUrl}`);
         try {
           const testResponse = await fetch(uploadResult.uploadUrl, { 
             method: 'HEAD',
@@ -362,10 +362,10 @@ export class MusicGeneration {
               'User-Agent': 'Mozilla/5.0 (compatible; KieAI-Test/1.0)'
             }
           });
-          console.log(`🌐 External access test: ${testResponse.status} ${testResponse.statusText}`);
+          logger.debug(`🌐 External access test: ${testResponse.status} ${testResponse.statusText}`);
         } catch (testError: unknown) {
           const errorMessage = testError instanceof Error ? testError.message : String(testError);
-          console.error('❌ Upload URL accessibility test failed:', errorMessage);
+          logger.warn('❌ Upload URL accessibility test failed:', { error: errorMessage });
         }
       }
 

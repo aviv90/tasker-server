@@ -3,6 +3,7 @@ import { extractErrorMessage } from '../../utils/errorHandler';
 import fs from 'fs';
 import path from 'path';
 import { Request } from 'express';
+import logger from '../../utils/logger';
 
 /**
  * Finalize helper functions for upload routes
@@ -34,7 +35,7 @@ class Finalizers {
         text: result.text
       });
     } catch (error: unknown) {
-      console.error(`❌ Error in finalize:`, error);
+      logger.error(`❌ Error in finalize:`, { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       const errorMessage = extractErrorMessage(error);
       await taskStore.set(taskId, {
         status: 'error',
@@ -61,7 +62,7 @@ class Finalizers {
         }
 
         await taskStore.set(taskId, errorResult);
-        console.log(`❌ Transcription failed: ${result?.error || 'Unknown error'}`);
+        logger.error(`❌ Transcription failed: ${result?.error || 'Unknown error'}`);
         return;
       }
 
@@ -80,9 +81,9 @@ class Finalizers {
       }
 
       await taskStore.set(taskId, taskResult);
-      console.log(`✅ Transcription completed. Text length: ${result.text?.length || 0} characters`);
+      logger.info(`✅ Transcription completed. Text length: ${result.text?.length || 0} characters`);
     } catch (error: unknown) {
-      console.error(`❌ Error in finalizeTranscription:`, error);
+      logger.error(`❌ Error in finalizeTranscription:`, { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       const errorMessage = extractErrorMessage(error);
       await taskStore.set(taskId, {
         status: 'error',
@@ -109,7 +110,7 @@ class Finalizers {
         }
 
         await taskStore.set(taskId, errorResult);
-        console.log(`❌ Voice processing failed: ${result.error}`);
+        logger.error(`❌ Voice processing failed: ${result.error}`);
         return;
       }
 
@@ -126,11 +127,11 @@ class Finalizers {
         result: audioURL
       };
 
-      console.log(`📝 Saving final result with text: "${result.text?.substring(0, 100) || 'MISSING TEXT'}..."`);
+      logger.debug(`📝 Saving final result with text: "${result.text?.substring(0, 100) || 'MISSING TEXT'}..."`);
       await taskStore.set(taskId, taskResult);
-      console.log(`✅ Voice processing completed: ${result.text?.length || 0} chars → ${audioURL}`);
+      logger.info(`✅ Voice processing completed: ${result.text?.length || 0} chars → ${audioURL}`);
     } catch (error: unknown) {
-      console.error(`❌ Error in finalizeVoiceProcessing:`, error);
+      logger.error(`❌ Error in finalizeVoiceProcessing:`, { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       const errorMessage = extractErrorMessage(error);
       await taskStore.set(taskId, {
         status: 'error',

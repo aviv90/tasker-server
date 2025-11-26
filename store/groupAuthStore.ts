@@ -7,6 +7,7 @@
  */
 
 import conversationManager from '../services/conversationManager';
+import logger from '../utils/logger';
 
 interface SenderData {
     chatId?: string;
@@ -17,7 +18,7 @@ interface SenderData {
 
 class GroupAuthStore {
   constructor() {
-    console.log('👥 GroupAuthStore initialized with database backend');
+    logger.info('👥 GroupAuthStore initialized with database backend');
   }
 
   /**
@@ -33,7 +34,7 @@ class GroupAuthStore {
       
       // If no users in allow list, deny access (closed by default)
       if (allowList.length === 0) {
-        console.log(`🚫 Group creation denied - no users in allow list (closed by default)`);
+        logger.debug(`🚫 Group creation denied - no users in allow list (closed by default)`);
         return false;
       }
 
@@ -85,7 +86,7 @@ class GroupAuthStore {
         return false;
       }
     } catch (error) {
-      console.error('❌ Error checking group creation authorization:', error);
+      logger.error('❌ Error checking group creation authorization:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       // Default to deny on error
       return false;
     }
@@ -100,7 +101,7 @@ class GroupAuthStore {
     try {
       return await conversationManager.addToGroupCreationAllowList(contactName);
     } catch (error) {
-      console.error('❌ Error adding authorized user:', error);
+      logger.error('❌ Error adding authorized user:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       throw error;
     }
   }
@@ -114,7 +115,7 @@ class GroupAuthStore {
     try {
       return await conversationManager.removeFromGroupCreationAllowList(contactName);
     } catch (error) {
-      console.error('❌ Error removing authorized user:', error);
+      logger.error('❌ Error removing authorized user:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       throw error;
     }
   }
@@ -127,7 +128,7 @@ class GroupAuthStore {
     try {
       return await conversationManager.getGroupCreationAllowList();
     } catch (error) {
-      console.error('❌ Error getting authorized users:', error);
+      logger.error('❌ Error getting authorized users:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       return [];
     }
   }
@@ -146,7 +147,7 @@ class GroupAuthStore {
         authorizedUsers: authorizedUsers
       };
     } catch (error) {
-      console.error('❌ Error getting authorization status:', error);
+      logger.error('❌ Error getting authorization status:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       return {
         groupCreationUsers: 0,
         openToAll: false,

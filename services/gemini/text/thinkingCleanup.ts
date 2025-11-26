@@ -2,6 +2,9 @@
  * Thinking pattern cleanup utilities
  * Removes verbose thinking/reasoning patterns from Gemini responses
  */
+
+import logger from '../../../utils/logger';
+
 class ThinkingCleanup {
   /**
    * Check if text contains thinking patterns
@@ -86,12 +89,11 @@ class ThinkingCleanup {
       const quotedMatch = finalAnswer.match(/^"(.+)"$/s);
       if (quotedMatch && quotedMatch[1]) {
         finalAnswer = quotedMatch[1].trim();
-        console.log('🧹 Removed surrounding quotes from answer');
+        logger.debug('🧹 Removed surrounding quotes from answer');
       }
 
       if (finalAnswer && finalAnswer.length > 10) {
-        console.log(`🎯 Extracted final answer (${finalAnswer.length} chars)`);
-        console.log(`   Preview: ${finalAnswer.substring(0, 100)}...`);
+        logger.debug(`🎯 Extracted final answer (${finalAnswer.length} chars)`, { preview: finalAnswer.substring(0, 100) });
         return finalAnswer;
       }
     }
@@ -194,8 +196,7 @@ class ThinkingCleanup {
 
     if (hebrewLines.length > 0 && hebrewLines.join('').length > 20) {
       const hebrewAnswer = hebrewLines.join('\n').trim();
-      console.log(`🎯 Extracted Hebrew final answer from mixed response (${hebrewAnswer.length} chars)`);
-      console.log(`   Preview: ${hebrewAnswer.substring(0, 100)}...`);
+      logger.debug(`🎯 Extracted Hebrew final answer from mixed response (${hebrewAnswer.length} chars)`, { preview: hebrewAnswer.substring(0, 100) });
       return hebrewAnswer;
     }
 
@@ -223,8 +224,7 @@ class ThinkingCleanup {
         para.startsWith('THOUGHT');
 
       if (!isMetaParagraph && para.length > 20) {
-        console.log('🎯 Found final answer paragraph (fallback method)');
-        console.log(`   Preview: ${para.substring(0, 100)}...`);
+        logger.debug('🎯 Found final answer paragraph (fallback method)', { preview: para.substring(0, 100) });
         return para;
       }
     }
@@ -240,7 +240,7 @@ class ThinkingCleanup {
       return text;
     }
 
-    console.log('🧹 Detected verbose thinking pattern, extracting final answer...');
+    logger.debug('🧹 Detected verbose thinking pattern, extracting final answer...');
 
     const cleaned = this.extractFinalAnswer(text);
     return cleaned || text;

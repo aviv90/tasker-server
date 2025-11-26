@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
+import logger from '../../utils/logger';
 
 /**
  * Voice cloning options
@@ -50,7 +51,7 @@ export async function createInstantVoiceClone(
   options: VoiceCloningOptions = {}
 ): Promise<VoiceCloningResult> {
   try {
-    console.log(`🎤 Creating instant voice clone: ${options.name || 'Unnamed Voice'}`);
+    logger.info(`🎤 Creating instant voice clone: ${options.name || 'Unnamed Voice'}`);
     
     if (!audioBuffers) {
       return { error: 'No audio provided for voice cloning' };
@@ -107,7 +108,7 @@ export async function createInstantVoiceClone(
         })
       };
 
-      console.log(`🔄 Sending ${buffers.length} audio samples to ElevenLabs...`);
+      logger.debug(`🔄 Sending ${buffers.length} audio samples to ElevenLabs...`);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await (client.voices.ivc as any).create(voiceRequest);
 
@@ -116,11 +117,11 @@ export async function createInstantVoiceClone(
         try {
           fs.unlinkSync(tempPath);
         } catch (cleanupError) {
-          console.warn('⚠️ Could not clean up temp file:', tempPath);
+          logger.warn('⚠️ Could not clean up temp file:', { tempPath });
         }
       });
 
-      console.log('🔍 Voice cloning result:', result);
+      logger.debug('🔍 Voice cloning result:', { result });
 
       interface VoiceCloningResponse {
         voiceId?: string;
@@ -133,11 +134,11 @@ export async function createInstantVoiceClone(
       const requiresVerification = response.requiresVerification || false;
 
       if (!voiceId) {
-        console.error('❌ No voice ID in response:', result);
+        logger.error('❌ No voice ID in response:', { result });
         return { error: 'Voice cloning failed - no voice ID returned' };
       }
 
-      console.log(`✅ Voice clone created successfully: ${voiceId}`);
+      logger.info(`✅ Voice clone created successfully: ${voiceId}`);
 
       return {
         success: true,
@@ -152,13 +153,13 @@ export async function createInstantVoiceClone(
           stream?.destroy();
         } catch (streamError: unknown) {
           const errorMessage = streamError instanceof Error ? streamError.message : String(streamError);
-          console.warn('⚠️ Error closing stream:', errorMessage);
+          logger.warn('⚠️ Error closing stream:', { error: errorMessage });
         }
       });
     }
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error('❌ Voice cloning error:', errorMessage);
+    logger.error('❌ Voice cloning error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
     return { error: errorMessage || 'Voice cloning failed' };
   }
 }

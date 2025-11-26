@@ -1,6 +1,7 @@
 import https from 'https';
 import http from 'http';
 import { URL } from 'url';
+import logger from '../../../utils/logger';
 
 /**
  * Grounding chunk
@@ -44,7 +45,7 @@ class GoogleSearchProcessor {
       return text;
     }
 
-    console.log('🔗 Processing grounding metadata...');
+    logger.debug('🔗 Processing grounding metadata...');
 
     // Extract redirect URLs from groundingMetadata
     const redirectUrls: UrlData[] = metadata.groundingChunks
@@ -58,7 +59,7 @@ class GoogleSearchProcessor {
       return text;
     }
 
-    console.log(`🔄 Found ${redirectUrls.length} redirect URLs, resolving to real URLs...`);
+    logger.debug(`🔄 Found ${redirectUrls.length} redirect URLs, resolving to real URLs...`);
 
     // Resolve redirects to get actual URLs
     const realUrls = await Promise.all(
@@ -79,7 +80,7 @@ class GoogleSearchProcessor {
                   const qParam = urlObj.searchParams.get('q') || urlObj.searchParams.get('url');
                   if (qParam && (qParam.startsWith('http://') || qParam.startsWith('https://'))) {
                     currentUrl = decodeURIComponent(qParam);
-                    console.log(`🔗 Extracted URL from redirect: ${currentUrl.substring(0, 80)}...`);
+                    logger.debug(`🔗 Extracted URL from redirect: ${currentUrl.substring(0, 80)}...`);
                     followRedirect(currentUrl, 'HEAD');
                     return;
                   }
@@ -91,11 +92,11 @@ class GoogleSearchProcessor {
               if (redirectCount >= maxRedirects) {
                 // If we still have a vertexaisearch URL after max redirects, reject it
                 if (currentUrl.includes('vertexaisearch') || currentUrl.includes('google.com/url')) {
-                  console.warn(`⚠️ Failed to resolve vertexaisearch redirect after ${maxRedirects} attempts for ${urlData.title}`);
+                  logger.warn(`⚠️ Failed to resolve vertexaisearch redirect after ${maxRedirects} attempts for ${urlData.title}`);
                   resolve(null); // Return null to indicate failure
                   return;
                 }
-                console.log(`✅ Resolved (max redirects): ${urlData.title} → ${currentUrl.substring(0, 80)}...`);
+                logger.debug(`✅ Resolved (max redirects): ${urlData.title} → ${currentUrl.substring(0, 80)}...`);
                 resolve({
                   uri: currentUrl,
                   title: urlData.title
@@ -131,11 +132,11 @@ class GoogleSearchProcessor {
                       followRedirect(url, 'GET');
                       return;
                     }
-                    console.warn(`⚠️ Final URL is still a redirect URL for ${urlData.title}`);
+                    logger.warn(`⚠️ Final URL is still a redirect URL for ${urlData.title}`);
                     resolve(null); // Reject vertexaisearch URLs
                     return;
                   }
-                  console.log(`✅ Resolved: ${urlData.title} → ${currentUrl.substring(0, 80)}...`);
+                  logger.debug(`✅ Resolved: ${urlData.title} → ${currentUrl.substring(0, 80)}...`);
                   resolve({
                     uri: currentUrl,
                     title: urlData.title
@@ -150,10 +151,10 @@ class GoogleSearchProcessor {
                   followRedirect(url, 'GET');
                   return;
                 }
-                console.warn(`⚠️ Failed to resolve redirect for ${urlData.title}: ${error.message}`);
+                logger.warn(`⚠️ Failed to resolve redirect for ${urlData.title}:`, { error: error.message });
                 // Don't use vertexaisearch URLs as fallback
                 if (urlData.redirectUrl.includes('vertexaisearch') || urlData.redirectUrl.includes('google.com/url')) {
-                  console.warn(`⚠️ Rejecting vertexaisearch URL: ${urlData.redirectUrl.substring(0, 80)}...`);
+                  logger.warn(`⚠️ Rejecting vertexaisearch URL: ${urlData.redirectUrl.substring(0, 80)}...`);
                   resolve(null);
                   return;
                 }
@@ -168,10 +169,10 @@ class GoogleSearchProcessor {
                   followRedirect(url, 'GET');
                   return;
                 }
-                console.warn(`⚠️ Timeout resolving redirect for ${urlData.title}`);
+                logger.warn(`⚠️ Timeout resolving redirect for ${urlData.title}`);
                 // Don't use vertexaisearch URLs as fallback
                 if (urlData.redirectUrl.includes('vertexaisearch') || urlData.redirectUrl.includes('google.com/url')) {
-                  console.warn(`⚠️ Rejecting vertexaisearch URL due to timeout: ${urlData.redirectUrl.substring(0, 80)}...`);
+                  logger.warn(`⚠️ Rejecting vertexaisearch URL due to timeout: ${urlData.redirectUrl.substring(0, 80)}...`);
                   resolve(null);
                   return;
                 }
@@ -184,10 +185,10 @@ class GoogleSearchProcessor {
             followRedirect(currentUrl);
           } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            console.warn(`⚠️ Error resolving redirect for ${urlData.title}: ${errorMessage}`);
+            logger.warn(`⚠️ Error resolving redirect for ${urlData.title}:`, { error: errorMessage });
             // Don't use vertexaisearch URLs as fallback
             if (urlData.redirectUrl.includes('vertexaisearch') || urlData.redirectUrl.includes('google.com/url')) {
-              console.warn(`⚠️ Rejecting vertexaisearch URL due to error: ${urlData.redirectUrl.substring(0, 80)}...`);
+              logger.warn(`⚠️ Rejecting vertexaisearch URL due to error: ${urlData.redirectUrl.substring(0, 80)}...`);
               resolve(null);
               return;
             }
@@ -202,7 +203,7 @@ class GoogleSearchProcessor {
     const foundUrls = text.match(urlRegex) || [];
 
     if (foundUrls.length > 0) {
-      console.log(`🔍 Found ${foundUrls.length} URLs in text, removing hallucinated ones...`);
+      logger.debug(`🔍 Found ${foundUrls.length} URLs in text, removing hallucinated ones...`);
       text = text.replace(urlRegex, '');
       text = text.replace(/\s+/g, ' ').trim();
     }
@@ -219,9 +220,9 @@ class GoogleSearchProcessor {
     if (validUrls.length > 0) {
       const sourcesText = validUrls.join('\n');
       text = `${text}\n${sourcesText}`;
-      console.log(`✅ Appended ${validUrls.length} resolved URLs (filtered out ${realUrls.length - validUrls.length} invalid/redirect URLs)`);
+      logger.info(`✅ Appended ${validUrls.length} resolved URLs (filtered out ${realUrls.length - validUrls.length} invalid/redirect URLs)`);
     } else {
-      console.warn(`⚠️ No valid URLs to append after filtering (all ${realUrls.length} URLs were invalid or redirect URLs)`);
+      logger.warn(`⚠️ No valid URLs to append after filtering (all ${realUrls.length} URLs were invalid or redirect URLs)`);
     }
 
     return text;
@@ -266,13 +267,11 @@ class GoogleSearchProcessor {
         const videoId = videoIdMatch[1];
         // YouTube video IDs should be 11 characters
         if (videoId.length < 10 || videoId.length > 12) {
-          console.warn(`⚠️ Suspicious YouTube URL detected (ID length: ${videoId.length}): ${url}`);
-          console.warn(`   This URL might be hallucinated by Gemini!`);
+          logger.warn(`⚠️ Suspicious YouTube URL detected (ID length: ${videoId.length}): ${url} - This URL might be hallucinated by Gemini!`);
         }
         // Check for obvious hallucination patterns (e.g., "abc123", "example", "xxx")
         if (/^(abc|test|example|xxx|demo|sample)/i.test(videoId)) {
-          console.warn(`⚠️ Likely hallucinated YouTube URL detected: ${url}`);
-          console.warn(`   Video ID "${videoId}" looks fake!`);
+          logger.warn(`⚠️ Likely hallucinated YouTube URL detected: ${url} - Video ID "${videoId}" looks fake!`);
         }
       }
     });

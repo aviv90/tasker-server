@@ -1,6 +1,7 @@
 import * as taskStore from '../../store/taskStore';
 import * as musicService from '../../services/musicService';
 import { Request, Response, Router } from 'express';
+import logger from '../../utils/logger';
 
 // Map between our task IDs and Kie.ai task IDs for callback handling
 const kieTaskMapping = new Map<string, string>();
@@ -21,7 +22,7 @@ class CallbackRoutes {
      */
     router.post('/music/callback', ...handlers, async (req: Request, res: Response) => {
       try {
-        console.log('🎵 Music callback received');
+        logger.info('🎵 Music callback received');
 
         const callbackData = req.body;
 
@@ -32,7 +33,7 @@ class CallbackRoutes {
           // Process callback in background without blocking response
           musicService.handleCallbackCompletion(kieTaskId, callbackData).then(async (result: any) => {
             if (result && !result.error) {
-              console.log(`✅ Suno music callback processed successfully for task ${kieTaskId}`);
+              logger.info(`✅ Suno music callback processed successfully for task ${kieTaskId}`);
 
               // Find our task ID based on the Kie.ai task ID
               const ourTaskId = kieTaskMapping.get(kieTaskId);
@@ -48,16 +49,16 @@ class CallbackRoutes {
                   timestamp: new Date().toISOString()
                 });
 
-                console.log(`✅ Task ${ourTaskId} completed successfully`);
+                logger.info(`✅ Task ${ourTaskId} completed successfully`);
 
                 // Clean up the mapping
                 kieTaskMapping.delete(kieTaskId);
               }
             } else {
-              console.log(`⚠️ Music callback processing failed: ${result?.error || 'Unknown error'}`);
+              logger.warn(`⚠️ Music callback processing failed: ${result?.error || 'Unknown error'}`);
             }
           }).catch((error: any) => {
-            console.error(`❌ Error processing music callback:`, error);
+            logger.error(`❌ Error processing music callback:`, { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
           });
         }
 
@@ -68,7 +69,7 @@ class CallbackRoutes {
         });
 
       } catch (error) {
-        console.error('❌ Error processing music callback:', error);
+        logger.error('❌ Error processing music callback:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
         res.status(500).json({ error: 'Callback processing failed' });
       }
     });
@@ -78,7 +79,7 @@ class CallbackRoutes {
      */
     router.post('/video/callback', ...handlers, async (req: Request, res: Response) => {
       try {
-        console.log('🎬 Music video callback received');
+        logger.info('🎬 Music video callback received');
 
         const callbackData = req.body;
 
@@ -86,17 +87,17 @@ class CallbackRoutes {
         if (callbackData.data && callbackData.data.task_id) {
           const videoTaskId = callbackData.data.task_id;
 
-          console.log(`🎬 Processing video callback for task: ${videoTaskId}`);
+          logger.info(`🎬 Processing video callback for task: ${videoTaskId}`);
 
           // Process callback in background without blocking response
           musicService.handleVideoCallbackCompletion(videoTaskId, callbackData).then((result: any) => {
             if (result && !result.error) {
-              console.log(`✅ Music video callback processed successfully for task ${videoTaskId}`);
+              logger.info(`✅ Music video callback processed successfully for task ${videoTaskId}`);
             } else {
-              console.error(`❌ Music video callback processing failed for task ${videoTaskId}:`, result?.error);
+              logger.error(`❌ Music video callback processing failed for task ${videoTaskId}:`, { error: result?.error });
             }
           }).catch((error: any) => {
-            console.error(`❌ Error processing music video callback:`, error);
+            logger.error(`❌ Error processing music video callback:`, { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
           });
         }
 
@@ -107,7 +108,7 @@ class CallbackRoutes {
         });
 
       } catch (error) {
-        console.error('❌ Error processing music video callback:', error);
+        logger.error('❌ Error processing music video callback:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
         res.status(500).json({ error: 'Video callback processing failed' });
       }
     });

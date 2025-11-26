@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import logger from '../../../utils/logger';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -38,7 +39,7 @@ class SummaryService {
    */
   async generateChatSummary(messages: ChatMessage[]): Promise<SummaryResult> {
     try {
-      console.log(`📝 Generating chat summary for ${messages.length} messages`);
+      logger.info(`📝 Generating chat summary for ${messages.length} messages`);
       
       // Format messages for Gemini
       let formattedMessages = '';
@@ -147,7 +148,7 @@ ${formattedMessages}
       }
       
       const summaryText = result.response.text();
-      console.log(`✅ Chat summary generated: ${summaryText.length} characters`);
+      logger.info(`✅ Chat summary generated: ${summaryText.length} characters`);
       
       return {
         success: true,
@@ -156,7 +157,7 @@ ${formattedMessages}
       
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Chat summary generation failed';
-      console.error('❌ Chat summary generation error:', err);
+      logger.error('❌ Chat summary generation error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
       return {
         success: false,
         error: errorMessage

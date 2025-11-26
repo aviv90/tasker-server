@@ -6,6 +6,7 @@
 import authStore from '../../store/authStore';
 import groupAuthStore from '../../store/groupAuthStore';
 import { sendTextMessage } from '../greenApiService';
+import logger from '../../utils/logger';
 
 /**
  * Sender data structure from Green API
@@ -92,6 +93,6 @@ export function isAdminCommand(commandType: string): boolean {
 export async function sendUnauthorizedMessage(chatId: string, feature: string, originalMessageId: string | null = null): Promise<void> {
   const message = '🔒 סליחה, אין לך הרשאה להשתמש בתכונה זו. פנה למנהל המערכת.';
   await sendTextMessage(chatId, message, originalMessageId, 1000);
-  console.log(`🚫 Unauthorized access attempt to ${feature}`);
+  logger.warn(`🚫 Unauthorized access attempt to ${feature}`, { chatId });
 }
 

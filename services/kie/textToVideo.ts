@@ -6,6 +6,7 @@ import { sanitizeText } from '../../utils/textSanitizer';
 import { KieServiceBase } from './base';
 import { pollVideoGeneration, extractVideoUrls } from './polling';
 import { downloadVideoFile } from './download';
+import logger from '../../utils/logger';
 
 /**
  * Text-to-video result
@@ -23,7 +24,7 @@ class TextToVideoService extends KieServiceBase {
    */
   async generateVideoWithText(prompt: string, model = 'veo3'): Promise<TextToVideoResult> {
     try {
-      console.log(`🎬 Starting Kie.ai ${model} text-to-video generation`);
+      logger.info(`🎬 Starting Kie.ai ${model} text-to-video generation`);
 
       const cleanPrompt = sanitizeText(prompt);
 
@@ -47,7 +48,7 @@ class TextToVideoService extends KieServiceBase {
       };
 
       if (!generateResponse.ok || generateData.code !== 200) {
-        console.error(`❌ Kie.ai ${model} task submission failed:`, generateData.msg);
+        logger.error(`❌ Kie.ai ${model} task submission failed:`, { error: generateData.msg });
         return { error: generateData.msg || 'Task submission failed' };
       }
 
@@ -56,7 +57,7 @@ class TextToVideoService extends KieServiceBase {
         return { error: 'No task ID received' };
       }
 
-      console.log(`✅ Kie.ai ${model} task submitted successfully. Task ID: ${taskId}`);
+      logger.info(`✅ Kie.ai ${model} task submitted successfully. Task ID: ${taskId}`);
 
       // Step 2: Poll for completion
       const pollResult = await pollVideoGeneration(this.apiKey, this.baseUrl, taskId, model);
@@ -89,7 +90,7 @@ class TextToVideoService extends KieServiceBase {
         return { error: downloadResult.error };
       }
 
-      console.log(`✅ Kie.ai ${model} text-to-video generated successfully.`);
+      logger.info(`✅ Kie.ai ${model} text-to-video generated successfully.`);
 
       return {
         text: cleanPrompt,
@@ -99,7 +100,7 @@ class TextToVideoService extends KieServiceBase {
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.error(`❌ Kie.ai ${model} text-to-video generation error:`, err);
+      logger.error(`❌ Kie.ai ${model} text-to-video generation error:`, { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
       return { error: errorMessage };
     }
   }

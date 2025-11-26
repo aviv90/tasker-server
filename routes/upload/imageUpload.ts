@@ -7,6 +7,7 @@ import { validateAndSanitizePrompt } from '../../utils/textSanitizer';
 import { extractErrorMessage } from '../../utils/errorHandler';
 import finalizers from './finalizers';
 import { Request, Response, Router } from 'express';
+import logger from '../../utils/logger';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -81,7 +82,7 @@ class ImageUploadRoutes {
 
         await finalizers.finalize(taskId, result, req);
       } catch (error: unknown) {
-        console.error(`❌ Image edit error:`, error);
+        logger.error(`❌ Image edit error:`, { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
         const errorMessage = extractErrorMessage(error);
         await taskStore.set(taskId, {
           status: 'error',

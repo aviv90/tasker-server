@@ -7,6 +7,7 @@ import * as kieService from '../../services/kieService';
 import { finalizeVideo } from '../../utils/videoUtils';
 import { extractErrorMessage } from '../../utils/errorHandler';
 import { Request, Response, Router } from 'express';
+import logger from '../../utils/logger';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -66,7 +67,7 @@ class VideoUploadRoutes {
 
         await finalizeVideo(taskId, result, prompt, req as any);
       } catch (error) {
-        console.error(`❌ Image-to-video error:`, error);
+        logger.error(`❌ Image-to-video error:`, { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
         const errorMessage = extractErrorMessage(error);
         await taskStore.set(taskId, {
           status: 'error',
@@ -93,7 +94,7 @@ class VideoUploadRoutes {
         const result = await replicateService.generateVideoFromVideo(req.file.buffer, prompt);
         await finalizeVideo(taskId, result as { videoUrl?: string; error?: string; cost?: number }, prompt, req as any);
       } catch (error) {
-        console.error(`❌ Video-to-video error:`, error);
+        logger.error(`❌ Video-to-video error:`, { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
         const errorMessage = extractErrorMessage(error);
         await taskStore.set(taskId, {
           status: 'error',

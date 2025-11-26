@@ -12,6 +12,7 @@ import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { createTempFilePath } from '../../utils/tempFileUtils';
 import { Request } from 'express';
+import logger from '../../utils/logger';
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
@@ -43,7 +44,7 @@ interface WhatsAppImageResult {
  */
 export async function generateImageWithText(prompt: string): Promise<ImageGenerationResult> {
     try {
-        console.log('🎨 Starting OpenAI image generation');
+        logger.info('🎨 Starting OpenAI image generation');
         
         // Sanitize prompt as an extra safety measure
         const cleanPrompt = sanitizeText(prompt);
@@ -59,7 +60,7 @@ export async function generateImageWithText(prompt: string): Promise<ImageGenera
         });
         
         if (!response.data || response.data.length === 0) {
-            console.log('❌ OpenAI: No image generated');
+            logger.warn('❌ OpenAI: No image generated');
             return { error: 'No image generated' };
         }
         
@@ -73,18 +74,18 @@ export async function generateImageWithText(prompt: string): Promise<ImageGenera
         // gpt-image-1 always returns b64_json (base64 data)
         if (imageData.b64_json) {
             const imageBuffer = Buffer.from(imageData.b64_json, 'base64');
-            console.log('✅ OpenAI image generated successfully');
+            logger.info('✅ OpenAI image generated successfully');
             return { 
                 text: revisedPrompt, 
                 imageBuffer 
             };
         }
         
-        console.log('❌ OpenAI: No base64 image data found');
+        logger.warn('❌ OpenAI: No base64 image data found');
         return { error: 'No base64 image data found in response' };
     } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        console.error('❌ OpenAI image generation error:', errorMessage);
+        logger.error('❌ OpenAI image generation error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
         // Throw the error so it gets caught by the route's catch block
         throw err;
     }
@@ -95,7 +96,7 @@ export async function generateImageWithText(prompt: string): Promise<ImageGenera
  */
 export async function editImageWithText(prompt: string, imageBuffer: Buffer): Promise<ImageGenerationResult> {
     try {
-        console.log('🖼️ Starting OpenAI image editing');
+        logger.info('🖼️ Starting OpenAI image editing');
         
         // Sanitize prompt as an extra safety measure
         const cleanPrompt = sanitizeText(prompt);
@@ -114,7 +115,7 @@ export async function editImageWithText(prompt: string, imageBuffer: Buffer): Pr
         });
         
         if (!response.data || response.data.length === 0) {
-            console.log('❌ OpenAI edit: No image generated');
+            logger.warn('❌ OpenAI edit: No image generated');
             return { error: 'No image generated' };
         }
         
@@ -128,18 +129,18 @@ export async function editImageWithText(prompt: string, imageBuffer: Buffer): Pr
         // gpt-image-1 always returns b64_json (base64 data)
         if (imageData.b64_json) {
             const editedImageBuffer = Buffer.from(imageData.b64_json, 'base64');
-            console.log('✅ OpenAI image edited successfully');
+            logger.info('✅ OpenAI image edited successfully');
             return { 
                 text: revisedPrompt, 
                 imageBuffer: editedImageBuffer
             };
         }
         
-        console.log('❌ OpenAI edit: No base64 image data found');
+        logger.warn('❌ OpenAI edit: No base64 image data found');
         return { error: 'No base64 image data found in response' };
     } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        console.error('❌ OpenAI image edit error:', errorMessage);
+        logger.error('❌ OpenAI image edit error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
         // Throw the error so it gets caught by the route's catch block
         throw err;
     }
@@ -150,7 +151,7 @@ export async function editImageWithText(prompt: string, imageBuffer: Buffer): Pr
  */
 export async function generateImageForWhatsApp(prompt: string, req: Request | null): Promise<WhatsAppImageResult> {
     try {
-        console.log('🎨 Starting OpenAI image generation');
+        logger.info('🎨 Starting OpenAI image generation');
         
         // Sanitize prompt as an extra safety measure
         const cleanPrompt = sanitizeText(prompt);
@@ -166,7 +167,7 @@ export async function generateImageForWhatsApp(prompt: string, req: Request | nu
         
         
         if (!response.data || response.data.length === 0) {
-            console.log('❌ OpenAI: No image generated');
+            logger.warn('❌ OpenAI: No image generated');
             return { 
                 success: false, 
                 error: 'No image generated' 
@@ -185,7 +186,7 @@ export async function generateImageForWhatsApp(prompt: string, req: Request | nu
         
         // OpenAI gpt-image-1 returns base64 data directly
         if (!imageData.b64_json) {
-            console.log('❌ OpenAI: No base64 data found');
+            logger.warn('❌ OpenAI: No base64 data found');
             return { 
                 success: false, 
                 error: 'No image data found' 
@@ -205,9 +206,7 @@ export async function generateImageForWhatsApp(prompt: string, req: Request | nu
         // Create public URL using centralized URL utility
         const imageUrl = getStaticFileUrl(fileName, req);
         
-        console.log('✅ OpenAI image generated successfully');
-        console.log(`🖼️ Image saved to: ${filePath}`);
-        console.log(`🔗 Public URL: ${imageUrl}`);
+        logger.info('✅ OpenAI image generated successfully', { filePath, imageUrl });
         
         // Clean markdown code blocks from description (OpenAI sometimes returns markdown)
         let cleanDescription = revisedPrompt || "";
@@ -223,7 +222,7 @@ export async function generateImageForWhatsApp(prompt: string, req: Request | nu
         };
     } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during image generation';
-        console.error('❌ OpenAI image generation error:', errorMessage);
+        logger.error('❌ OpenAI image generation error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
         return { 
             success: false, 
             error: errorMessage
@@ -236,7 +235,7 @@ export async function generateImageForWhatsApp(prompt: string, req: Request | nu
  */
 export async function editImageForWhatsApp(prompt: string, base64Image: string, req: Request | null): Promise<WhatsAppImageResult> {
     try {
-        console.log('🖼️ Starting OpenAI image editing');
+        logger.info('🖼️ Starting OpenAI image editing');
         
         // Sanitize prompt as an extra safety measure
         const cleanPrompt = sanitizeText(prompt);
@@ -257,7 +256,7 @@ export async function editImageForWhatsApp(prompt: string, base64Image: string, 
         });
         
         if (!response.data || response.data.length === 0) {
-            console.log('❌ OpenAI edit: No image generated');
+            logger.warn('❌ OpenAI edit: No image generated');
             return { 
                 success: false, 
                 error: 'No image generated' 
@@ -276,13 +275,13 @@ export async function editImageForWhatsApp(prompt: string, base64Image: string, 
         
         // gpt-image-1 always returns b64_json (base64 data)
         if (!imageData.b64_json) {
-            console.log('❌ OpenAI edit: No base64 data found');
+            logger.warn('❌ OpenAI edit: No base64 data found');
             
             // OpenAI doesn't typically return text-only for image edits,
             // but handle gracefully if it happens
             const revisedText = imageData.revised_prompt || cleanPrompt;
             if (revisedText && revisedText.trim().length > 0) {
-                console.log('📝 OpenAI edit returned text instead of image, sending text response');
+                logger.info('📝 OpenAI edit returned text instead of image, sending text response');
                 return { 
                     success: true,  // Changed to true since we have content
                     textOnly: true, // Flag to indicate this is text-only response
@@ -309,9 +308,7 @@ export async function editImageForWhatsApp(prompt: string, base64Image: string, 
         // Create public URL using centralized URL utility
         const imageUrl = getStaticFileUrl(fileName, req);
         
-        console.log('✅ OpenAI image edited successfully');
-        console.log(`🖼️ Edited image saved to: ${filePath}`);
-        console.log(`🔗 Public URL: ${imageUrl}`);
+        logger.info('✅ OpenAI image edited successfully', { filePath, imageUrl });
         
         // Clean markdown code blocks from description (OpenAI sometimes returns markdown)
         let cleanDescription = revisedPrompt || "";
@@ -327,7 +324,7 @@ export async function editImageForWhatsApp(prompt: string, base64Image: string, 
         };
     } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during image editing';
-        console.error('❌ OpenAI image edit error:', errorMessage);
+        logger.error('❌ OpenAI image edit error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
         return { 
             success: false, 
             error: errorMessage

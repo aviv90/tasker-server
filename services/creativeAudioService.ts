@@ -15,6 +15,7 @@ import {
   handleSunoCallback
 } from './creativeAudio/background';
 import { mixWithBackground, processVoiceCreatively } from './creativeAudio/mixing';
+import logger from '../utils/logger';
 
 interface InstrumentalStyle {
   name: string;
@@ -52,7 +53,7 @@ class CreativeAudioService {
          } else {
             // Default fallback or error?
             // For now, let's pick a default if unknown, or maybe 'robot'
-            console.warn(`Unknown effect '${effect}', defaulting to robot`);
+            logger.warn(`Unknown effect '${effect}', defaulting to robot`);
             effectObj = EFFECTS['robot']!;
          }
       }

@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { promisify } from 'util';
 import musicService from '../musicService';
 import { getTempDir, ensureTempDir } from '../../utils/tempFileUtils';
+import logger from '../../utils/logger';
 
 const execAsync = promisify(exec);
 
@@ -173,7 +174,7 @@ export async function generateBackgroundMusic(duration: number, style: string = 
     const fileName = `bg_music_${uuidv4()}.mp3`;
     const filePath = path.join(tempDir, fileName);
 
-    console.log(`🎵 Generating ${style} background music (${duration}s)...`);
+    logger.debug(`🎵 Generating ${style} background music (${duration}s)...`);
 
     // Generate melodic synthetic music using FFmpeg with chord progressions
     let musicCommand;
@@ -209,11 +210,11 @@ export async function generateBackgroundMusic(duration: number, style: string = 
       throw new Error('Background music generation failed');
     }
 
-    console.log(`✅ Background music generated: ${fileName}`);
+    logger.debug(`✅ Background music generated: ${fileName}`);
     return filePath;
 
   } catch (err: any) {
-    console.error('❌ Error generating background music:', err);
+    logger.error('❌ Error generating background music:', { error: err.message || String(err), stack: err.stack });
     throw new Error(`Background music generation failed: ${err.message}`);
   }
 }
@@ -226,7 +227,7 @@ export async function generateBackgroundMusic(duration: number, style: string = 
  */
 export async function generateSunoInstrumental(duration: number, style: InstrumentalStyle): Promise<string> {
   try {
-    console.log(`🎵 Generating Suno instrumental: ${style.name}`);
+    logger.info(`🎵 Generating Suno instrumental: ${style.name}`);
 
     // Generate music with Suno
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -250,13 +251,13 @@ export async function generateSunoInstrumental(duration: number, style: Instrume
       const fileName = `suno_instrumental_${uuidv4()}.mp3`;
       const filePath = path.join(tempDir, fileName);
       fs.writeFileSync(filePath, musicResult.audioBuffer);
-      console.log(`✅ Suno instrumental generated: ${fileName}`);
+      logger.info(`✅ Suno instrumental generated: ${fileName}`);
       return filePath;
     }
 
     // If status is pending, we need to wait for callback
     if (musicResult.status === 'pending' && musicResult.taskId) {
-      console.log(`⏳ Suno instrumental task submitted, waiting for callback: ${musicResult.taskId}`);
+      logger.info(`⏳ Suno instrumental task submitted, waiting for callback: ${musicResult.taskId}`);
 
       // Wait for callback completion using Promise-based approach with timeout
       return new Promise((resolve, reject) => {
@@ -282,7 +283,7 @@ export async function generateSunoInstrumental(duration: number, style: Instrume
     throw new Error(`Suno music generation failed: Unexpected result format`);
 
   } catch (err: any) {
-    console.error('❌ Error generating Suno instrumental:', err);
+    logger.error('❌ Error generating Suno instrumental:', { error: err.message || String(err), stack: err.stack });
     throw new Error(`Suno instrumental generation failed: ${err.message}`);
   }
 }
@@ -302,7 +303,7 @@ export function handleSunoCallback(taskId: string, audioBuffer: Buffer): void {
       const fileName = `suno_instrumental_${uuidv4()}.mp3`;
       const filePath = path.join(tempDir, fileName);
       fs.writeFileSync(filePath, audioBuffer);
-      console.log(`✅ Suno instrumental generated via callback: ${fileName}`);
+      logger.info(`✅ Suno instrumental generated via callback: ${fileName}`);
       callback.resolve(filePath);
     } catch (err: any) {
       callback.reject(new Error(`Failed to save Suno instrumental: ${err.message}`));

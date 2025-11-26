@@ -10,6 +10,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { promisify } from 'util';
 import { getTempDir, ensureTempDir, cleanupTempFile } from '../../utils/tempFileUtils';
+import logger from '../../utils/logger';
 
 const execAsync = promisify(exec);
 
@@ -191,7 +192,7 @@ export async function applyCreativeEffect(audioBuffer: Buffer, inputFormat: stri
       // Write input audio buffer to temporary file
       fs.writeFileSync(inputPath, audioBuffer);
 
-      console.log(`🎨 Applying creative effect: ${effect.name}`);
+      logger.debug(`🎨 Applying creative effect: ${effect.name}`);
 
       // FFmpeg command for creative effect
       const ffmpegCommand = [
@@ -204,7 +205,7 @@ export async function applyCreativeEffect(audioBuffer: Buffer, inputFormat: stri
         outputPath
       ].join(' ');
 
-      console.log(`🎵 FFmpeg command: ${ffmpegCommand}`);
+      logger.debug(`🎵 FFmpeg command: ${ffmpegCommand}`);
 
       try {
         const { stderr } = await execAsync(ffmpegCommand);
@@ -224,7 +225,7 @@ export async function applyCreativeEffect(audioBuffer: Buffer, inputFormat: stri
         cleanupTempFile(inputPath);
         cleanupTempFile(outputPath);
 
-        console.log(`✅ Creative effect applied: ${processedBuffer.length} bytes`);
+        logger.debug(`✅ Creative effect applied: ${processedBuffer.length} bytes`);
 
         resolve({
           success: true,
@@ -234,7 +235,7 @@ export async function applyCreativeEffect(audioBuffer: Buffer, inputFormat: stri
         });
 
       } catch (ffmpegError: any) {
-        console.error('❌ FFmpeg processing error:', ffmpegError);
+        logger.error('❌ FFmpeg processing error:', { error: ffmpegError.message || String(ffmpegError), stack: ffmpegError.stack });
 
         // Clean up temporary files
         cleanupTempFile(inputPath);
@@ -244,7 +245,7 @@ export async function applyCreativeEffect(audioBuffer: Buffer, inputFormat: stri
       }
 
     } catch (err: any) {
-      console.error('❌ Error in creative effect setup:', err);
+      logger.error('❌ Error in creative effect setup:', { error: err.message || String(err), stack: err.stack });
       reject(new Error(`Creative setup failed: ${err.message}`));
     }
   });

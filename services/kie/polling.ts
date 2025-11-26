@@ -2,6 +2,8 @@
  * Kie Service Polling Logic
  */
 
+import logger from '../../utils/logger';
+
 /**
  * Poll result
  */
@@ -34,13 +36,13 @@ export async function pollVideoGeneration(
   model: string,
   maxWaitTime = 15 * 60 * 1000
 ): Promise<PollResult> {
-  console.log('⏳ Polling for video generation completion...');
+  logger.info('⏳ Polling for video generation completion...');
   const startTime = Date.now();
   let pollAttempts = 0;
 
   while (Date.now() - startTime < maxWaitTime) {
     pollAttempts++;
-    console.log(`🔄 Polling attempt ${pollAttempts} for Kie.ai ${model} task ${taskId}`);
+    logger.debug(`🔄 Polling attempt ${pollAttempts} for Kie.ai ${model} task ${taskId}`);
 
     const statusResponse = await fetch(`${baseUrl}/api/v1/veo/record-info?taskId=${taskId}`, {
       method: 'GET',
@@ -59,7 +61,7 @@ export async function pollVideoGeneration(
     };
 
     if (!statusResponse.ok || statusData.code !== 200) {
-      console.error(`❌ Kie.ai ${model} status check failed:`, statusData.msg);
+      logger.error(`❌ Kie.ai ${model} status check failed:`, { error: statusData.msg });
       return { error: statusData.msg || 'Status check failed' };
     }
 
@@ -68,15 +70,14 @@ export async function pollVideoGeneration(
       return { error: 'No status data in response' };
     }
 
-    console.log(`📊 Kie.ai ${model} status check - successFlag: ${status.successFlag}`);
-    console.log(`📊 Status: ${status.status} (${status.progress}%)`);
+    logger.debug(`📊 Kie.ai ${model} status check - successFlag: ${status.successFlag}, Status: ${status.status} (${status.progress}%)`);
 
     if (status.successFlag === 1) {
       // Success - video is ready
       return { success: true, status: status as PollResult['status'] };
     } else if (status.successFlag === 2 || status.successFlag === 3) {
       // Failed
-      console.error(`❌ Kie.ai ${model} video generation failed`);
+      logger.error(`❌ Kie.ai ${model} video generation failed`);
       return { error: 'Video generation failed', status: status as PollResult['status'] };
     }
 
@@ -85,7 +86,7 @@ export async function pollVideoGeneration(
   }
 
   // Timeout
-  console.error(`❌ Kie.ai ${model} video generation timed out after 15 minutes`);
+  logger.error(`❌ Kie.ai ${model} video generation timed out after 15 minutes`);
   return { error: 'Video generation timed out after 15 minutes' };
 }
 
@@ -94,7 +95,7 @@ export async function pollVideoGeneration(
  */
 export function extractVideoUrls(responseData: { resultUrls?: string[] | string }, model: string): ExtractVideoUrlsResult {
   if (!responseData || !responseData.resultUrls) {
-    console.error(`❌ Kie.ai ${model} video generation completed but no URLs in response`);
+    logger.error(`❌ Kie.ai ${model} video generation completed but no URLs in response`);
     return { error: 'Video generation completed but no URLs in response' };
   }
 
@@ -108,16 +109,16 @@ export function extractVideoUrls(responseData: { resultUrls?: string[] | string 
       videoUrls = JSON.parse(responseData.resultUrls) as string[];
     } catch (parseError: unknown) {
       const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
-      console.error(`❌ Kie.ai ${model} failed to parse result URLs:`, parseError);
+      logger.error(`❌ Kie.ai ${model} failed to parse result URLs:`, { error: errorMessage, stack: parseError instanceof Error ? parseError.stack : undefined });
       return { error: `Failed to parse result URLs: ${errorMessage}` };
     }
   } else {
-    console.error(`❌ Kie.ai ${model} resultUrls is not array or string:`, typeof responseData.resultUrls);
+    logger.error(`❌ Kie.ai ${model} resultUrls is not array or string:`, { type: typeof responseData.resultUrls });
     return { error: 'Invalid resultUrls format' };
   }
 
   if (!videoUrls || !Array.isArray(videoUrls) || videoUrls.length === 0) {
-    console.error(`❌ Kie.ai ${model} no valid video URLs found`);
+    logger.error(`❌ Kie.ai ${model} no valid video URLs found`);
     return { error: 'No valid video URLs found' };
   }
 

@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { createTempFilePath, verifyFileWritten } from '../../utils/tempFileUtils';
 import { TIME } from '../../utils/constants';
 import path from 'path';
+import logger from '../../utils/logger';
 
 /**
  * Download result
@@ -21,7 +22,7 @@ interface DownloadResult {
  * Download video from URL and save to temp file
  */
 export async function downloadVideoFile(videoUrl: string, model: string): Promise<DownloadResult> {
-  console.log(`✅ Kie.ai ${model} video generation completed! Downloading...`);
+  logger.info(`✅ Kie.ai ${model} video generation completed! Downloading...`);
 
   const tempFileName = `temp_video_${uuidv4()}.mp4`;
   const tempFilePath = createTempFilePath(tempFileName);
@@ -39,7 +40,7 @@ export async function downloadVideoFile(videoUrl: string, model: string): Promis
     const verifyResult = await verifyFileWritten(tempFilePath, TIME.FILE_VERIFY_TIMEOUT, TIME.FILE_VERIFY_RETRIES);
 
     if (!verifyResult.success) {
-      console.error('❌ Video file was not properly downloaded');
+      logger.error('❌ Video file was not properly downloaded', { error: verifyResult.error });
       return { error: verifyResult.error || 'Video file was not downloaded successfully' };
     }
 
@@ -54,7 +55,7 @@ export async function downloadVideoFile(videoUrl: string, model: string): Promis
 
   } catch (downloadError: unknown) {
     const errorMessage = downloadError instanceof Error ? downloadError.message : String(downloadError);
-    console.error(`❌ Kie.ai ${model} video download failed:`, downloadError);
+    logger.error(`❌ Kie.ai ${model} video download failed:`, { error: errorMessage, stack: downloadError instanceof Error ? downloadError.stack : undefined });
     return { error: `Video download failed: ${errorMessage}` };
   }
 }

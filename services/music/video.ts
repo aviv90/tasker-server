@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getApiUrl, getStaticFileUrl } from '../../utils/urlUtils';
 import { extractQuotedMessageId } from '../../utils/messageHelpers';
 import { FILE_SIZE } from '../../utils/constants';
+import logger from '../../utils/logger';
 
 /**
  * Music service interface
@@ -85,9 +86,7 @@ export class MusicVideo {
    */
   async convertVideoForWhatsApp(inputPath: string, outputPath: string): Promise<boolean> {
     try {
-      console.log('🔄 Converting video to WhatsApp format...');
-      console.log(`   Input: ${inputPath}`);
-      console.log(`   Output: ${outputPath}`);
+      logger.debug('🔄 Converting video to WhatsApp format...', { inputPath, outputPath });
       
       // FFmpeg command for WhatsApp-compatible MP4:
       // - H.264 video codec (baseline profile for maximum compatibility)
@@ -109,12 +108,12 @@ export class MusicVideo {
       }
       
       const outputSize = fs.statSync(outputPath).size;
-      console.log(`✅ Video converted successfully (${(outputSize / 1024 / 1024).toFixed(2)} MB)`);
+      logger.info(`✅ Video converted successfully (${(outputSize / 1024 / 1024).toFixed(2)} MB)`);
       
       return true;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('❌ FFmpeg conversion error:', errorMessage);
+      logger.error('❌ FFmpeg conversion error:', { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
       return false;
     }
   }
@@ -129,7 +128,7 @@ export class MusicVideo {
     options: VideoGenerationOptions = {}
   ): Promise<VideoGenerationResult> {
     try {
-      console.log('🎬 Starting music video generation');
+      logger.info('🎬 Starting music video generation');
       
       const videoOptions: Record<string, unknown> = {
         taskId: musicTaskId,
@@ -151,7 +150,7 @@ export class MusicVideo {
       const generateData = await generateResponse.json() as { code?: number; msg?: string; data?: { taskId?: string } };
       
       if (!generateResponse.ok || generateData.code !== 200) {
-        console.error('❌ Music video generation task submission failed:', generateData.msg);
+        logger.error('❌ Music video generation task submission failed:', { error: generateData.msg });
         return { error: generateData.msg || 'Video generation task submission failed' };
       }
 
@@ -160,7 +159,7 @@ export class MusicVideo {
         return { error: 'No task ID returned from video generation API' };
       }
 
-      console.log(`✅ Music video generation task submitted successfully. Video Task ID: ${videoTaskId}`);
+      logger.info(`✅ Music video generation task submitted successfully. Video Task ID: ${videoTaskId}`);
       
       // Store video task info for callback handling
       const videoTaskInfo: VideoTaskInfo = {
@@ -184,7 +183,7 @@ export class MusicVideo {
       
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('❌ Music video generation error:', errorMessage);
+      logger.error('❌ Music video generation error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
       return { error: errorMessage || 'Unknown error' };
     }
   }
@@ -199,18 +198,17 @@ export class MusicVideo {
     try {
       const videoTaskInfo = this.musicService.pendingVideoTasks?.get(videoTaskId) as VideoTaskInfo | undefined;
       if (!videoTaskInfo) {
-        console.warn(`⚠️ No video task info found for callback: ${videoTaskId}`);
+        logger.warn(`⚠️ No video task info found for callback: ${videoTaskId}`);
         return { error: 'No video task info found' };
       }
       
-      console.log(`🎬 Processing video callback for task: ${videoTaskId}`);
+      logger.info(`🎬 Processing video callback for task: ${videoTaskId}`);
       
       if (callbackData.code === 200) {
         const videoUrl = callbackData.data?.video_url;
         
         if (videoUrl) {
-          console.log(`✅ Music video generated successfully: ${videoUrl}`);
-          console.log('⏰ Note: Video link is valid for 14 days');
+          logger.info(`✅ Music video generated successfully: ${videoUrl} - Note: Video link is valid for 14 days`);
           
           // Download video
           const videoResponse = await fetch(videoUrl);
@@ -231,7 +229,7 @@ export class MusicVideo {
             throw new Error('Original video file was not downloaded successfully');
           }
           
-          console.log(`✅ Original video saved: ${originalVideoFileName}`);
+          logger.debug(`✅ Original video saved: ${originalVideoFileName}`);
           
           // Convert to WhatsApp-compatible format
           const tempVideoFileName = `music_video_${uuidv4()}.mp4`;
@@ -240,25 +238,25 @@ export class MusicVideo {
           const conversionSuccess = await this.convertVideoForWhatsApp(originalVideoFilePath, tempVideoFilePath);
           
           if (!conversionSuccess) {
-            console.warn('⚠️ FFmpeg conversion failed, using original video');
+            logger.warn('⚠️ FFmpeg conversion failed, using original video');
             // If conversion fails, use original file
             fs.copyFileSync(originalVideoFilePath, tempVideoFilePath);
           } else {
-            console.log(`✅ Video converted to WhatsApp format: ${tempVideoFileName}`);
+            logger.info(`✅ Video converted to WhatsApp format: ${tempVideoFileName}`);
           }
           
           // Delete original file to save space
           try {
             fs.unlinkSync(originalVideoFilePath);
-            console.log('🗑️ Deleted original video file');
+            logger.debug('🗑️ Deleted original video file');
           } catch (deleteError: unknown) {
             const errorMessage = deleteError instanceof Error ? deleteError.message : String(deleteError);
-            console.warn('⚠️ Could not delete original file:', errorMessage);
+            logger.warn('⚠️ Could not delete original file:', { error: errorMessage });
           }
           
           // If WhatsApp context exists, send video
           if (videoTaskInfo.whatsappContext) {
-            console.log(`📱 Sending video to WhatsApp: ${videoTaskInfo.whatsappContext.chatId}`);
+            logger.info(`📱 Sending video to WhatsApp: ${videoTaskInfo.whatsappContext.chatId}`);
             
             try {
               // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -273,9 +271,9 @@ export class MusicVideo {
                 quotedMessageId || undefined,
                 1000
               );
-              console.log('✅ Video sent to WhatsApp successfully');
+              logger.info('✅ Video sent to WhatsApp successfully');
             } catch (whatsappError: unknown) {
-              console.error('❌ Failed to send video to WhatsApp:', whatsappError);
+              logger.error('❌ Failed to send video to WhatsApp:', { error: whatsappError instanceof Error ? whatsappError.message : String(whatsappError), stack: whatsappError instanceof Error ? whatsappError.stack : undefined });
             }
           }
           
@@ -289,7 +287,7 @@ export class MusicVideo {
           };
         }
       } else {
-        console.error('❌ Video generation failed:', callbackData.msg);
+        logger.error('❌ Video generation failed:', { error: callbackData.msg });
       }
       
       // Clean up task info
@@ -298,7 +296,7 @@ export class MusicVideo {
       
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`❌ Error processing video callback for task ${videoTaskId}:`, errorMessage);
+      logger.error(`❌ Error processing video callback for task ${videoTaskId}:`, { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
       this.musicService.pendingVideoTasks?.delete(videoTaskId);
       return { error: errorMessage || 'Video callback processing failed' };
     }

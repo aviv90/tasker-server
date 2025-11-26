@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { cleanJsonWrapper } from '../../../utils/textSanitizer';
+import logger from '../../../utils/logger';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -47,7 +48,7 @@ class LocationService {
    */
   async getLocationInfo(latitude: number, longitude: number, language = 'he'): Promise<LocationResult> {
     try {
-      console.log(`🗺️ Getting location info for: ${latitude}, ${longitude} (Language: ${language})`);
+      logger.debug(`🗺️ Getting location info for: ${latitude}, ${longitude} (Language: ${language})`);
 
       const model = genAI.getGenerativeModel({
         model: "gemini-2.5-flash"
@@ -61,7 +62,7 @@ class LocationService {
       const langName = isHebrew ? 'Hebrew' : (language === 'en' ? 'English' : language);
       
       try {
-        console.log('🗺️ Trying Google Maps Grounding first...');
+        logger.debug('🗺️ Trying Google Maps Grounding first...');
         
         // Dynamic prompt based on language
         let mapsPrompt: string;
@@ -120,23 +121,23 @@ Short and interesting answer in ${langName} (2-3 lines).`;
           );
 
           if (!isUnhelpful && text.trim().length > 20) {
-            console.log('✅ Google Maps Grounding provided useful info');
+            logger.debug('✅ Google Maps Grounding provided useful info');
             usedMapsGrounding = true;
           } else {
-            console.log('⚠️ Google Maps Grounding response not useful, falling back to general knowledge...');
+            logger.debug('⚠️ Google Maps Grounding response not useful, falling back to general knowledge...');
             text = '';
           }
         }
       } catch (_mapsError) {
         // Google Maps Grounding often fails for coordinate-based queries, which is expected
         // Fall back to general knowledge without alarming logs
-        console.log(`🔄 Google Maps Grounding unavailable, using general knowledge...`);
+        logger.debug(`🔄 Google Maps Grounding unavailable, using general knowledge...`);
         text = '';
       }
 
       // Fallback: Use Gemini's general geographic knowledge
       if (!text || text.trim().length === 0) {
-        console.log('🌍 Using Gemini general geographic knowledge...');
+        logger.debug('🌍 Using Gemini general geographic knowledge...');
         
         let generalPrompt: string;
         if (isHebrew) {
@@ -165,7 +166,7 @@ Interesting answer in ${langName}.`;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const generalResponseAny = generalResponse as any;
         if (!generalResponseAny.candidates || generalResponseAny.candidates.length === 0) {
-          console.log('❌ Gemini: No candidates returned');
+          logger.warn('❌ Gemini: No candidates returned');
           return {
             success: false,
             error: 'No response from Gemini'
@@ -176,7 +177,7 @@ Interesting answer in ${langName}.`;
       }
 
       if (!text || text.trim().length === 0) {
-        console.log('❌ Gemini: Empty text response');
+        logger.warn('❌ Gemini: Empty text response');
         return {
           success: false,
           error: 'Empty response from Gemini'
@@ -194,7 +195,7 @@ Interesting answer in ${langName}.`;
           : `Location: Latitude ${latitude}°, Longitude ${longitude}°`;
       }
 
-      console.log(`✅ Location info retrieved (${usedMapsGrounding ? 'Maps Grounding' : 'General Knowledge'}): ${text.substring(0, 100)}...`);
+      logger.info(`✅ Location info retrieved (${usedMapsGrounding ? 'Maps Grounding' : 'General Knowledge'}): ${text.substring(0, 100)}...`);
 
       return {
         success: true,
@@ -206,7 +207,7 @@ Interesting answer in ${langName}.`;
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to get location info';
-      console.error('❌ Gemini error:', err);
+      logger.error('❌ Gemini error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
       return {
         success: false,
         error: errorMessage
@@ -274,7 +275,7 @@ Interesting answer in ${langName}.`;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const locData = locationData as any;
     if (!locData || !locData.found) {
-      console.log(`❌ Location not found: ${locationName}`);
+      logger.warn(`❌ Location not found: ${locationName}`);
       return null;
     }
 
@@ -297,11 +298,11 @@ Interesting answer in ${langName}.`;
       (requestedLower.length >= 3 && foundLower.length >= 3 && foundLower.slice(0, 3) === requestedLower.slice(0, 3));
 
     if (!isReasonableMatch) {
-      console.warn(`⚠️ Location mismatch: requested "${locationName}" but got "${foundName}". Rejecting.`);
+      logger.warn(`⚠️ Location mismatch: requested "${locationName}" but got "${foundName}". Rejecting.`);
       return null;
     }
 
-    console.log(`✅ Location validation passed: requested "${locationName}" → found "${foundName}" (${country || 'unknown country'})`);
+    logger.debug(`✅ Location validation passed: requested "${locationName}" → found "${foundName}" (${country || 'unknown country'})`);
 
     // Validate coordinates
     const centerLat = parseFloat(locData.latitude);
@@ -310,7 +311,7 @@ Interesting answer in ${langName}.`;
     if (isNaN(centerLat) || isNaN(centerLng) ||
       centerLat < -90 || centerLat > 90 ||
       centerLng < -180 || centerLng > 180) {
-      console.log(`❌ Invalid coordinates for "${locationName}": lat=${centerLat}, lng=${centerLng}`);
+      logger.warn(`❌ Invalid coordinates for "${locationName}": lat=${centerLat}, lng=${centerLng}`);
       return null;
     }
 
@@ -334,7 +335,7 @@ Interesting answer in ${langName}.`;
       if (bounds.minLat >= -90 && bounds.maxLat <= 90 &&
         bounds.minLng >= -180 && bounds.maxLng <= 180 &&
         bounds.minLat < bounds.maxLat && bounds.minLng < bounds.maxLng) {
-        console.log(`✅ Found viewport bounds for "${locationName}" (${foundName}): ${JSON.stringify({ minLat: bounds.minLat, maxLat: bounds.maxLat, minLng: bounds.minLng, maxLng: bounds.maxLng })}`);
+        logger.debug(`✅ Found viewport bounds for "${locationName}" (${foundName}): ${JSON.stringify({ minLat: bounds.minLat, maxLat: bounds.maxLat, minLng: bounds.minLng, maxLng: bounds.maxLng })}`);
         return bounds;
       }
     }
@@ -354,7 +355,7 @@ Interesting answer in ${langName}.`;
       type: locationType
     };
 
-    console.log(`✅ Found center-point bounds for "${locationName}" (${foundName}): ${JSON.stringify({ minLat: bounds.minLat, maxLat: bounds.maxLat, minLng: bounds.minLng, maxLng: bounds.maxLng })}`);
+    logger.debug(`✅ Found center-point bounds for "${locationName}" (${foundName}): ${JSON.stringify({ minLat: bounds.minLat, maxLat: bounds.maxLat, minLng: bounds.minLng, maxLng: bounds.maxLng })}`);
     return bounds;
   }
 
@@ -363,7 +364,7 @@ Interesting answer in ${langName}.`;
    */
   async getLocationBounds(locationName: string): Promise<LocationBounds | null> {
     try {
-      console.log(`🔍 Getting bounds for location: "${locationName}"`);
+      logger.debug(`🔍 Getting bounds for location: "${locationName}"`);
 
       const model = genAI.getGenerativeModel({
         model: "gemini-2.5-flash"
@@ -406,20 +407,19 @@ Interesting answer in ${langName}.`;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const responseAny = response as any;
       if (!responseAny.candidates || responseAny.candidates.length === 0) {
-        console.log(`❌ No response for location: ${locationName}`);
+        logger.warn(`❌ No response for location: ${locationName}`);
         return null;
       }
 
       const text = response.text();
-      console.log(`📍 Geocoding response for "${locationName}": ${text.substring(0, 200)}`);
+      logger.debug(`📍 Geocoding response for "${locationName}": ${text.substring(0, 200)}`);
 
       return this.parseLocationBounds(text, locationName);
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       const errorStack = err instanceof Error ? err.stack : '';
-      console.error(`❌ Error getting bounds for "${locationName}":`, errorMessage);
-      console.error(`   Stack: ${errorStack}`);
+      logger.error(`❌ Error getting bounds for "${locationName}":`, { error: errorMessage, stack: errorStack });
       return null;
     }
   }

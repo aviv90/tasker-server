@@ -3,6 +3,7 @@
  */
 
 import Replicate from 'replicate';
+import logger from '../../utils/logger';
 
 /**
  * Replicate prediction result
@@ -103,7 +104,7 @@ class ReplicateHelpers {
       await new Promise(resolve => setTimeout(resolve, 10000));
       attempts++;
 
-      console.log(`🔄 Polling attempt ${attempts}/${maxAttempts} for ${operationType}`);
+      logger.debug(`🔄 Polling attempt ${attempts}/${maxAttempts} for ${operationType}`);
 
       try {
         const result = await replicate.predictions.get(predictionId) as PredictionResult;
@@ -119,7 +120,7 @@ class ReplicateHelpers {
 
       } catch (pollError: unknown) {
         const errorMessage = pollError instanceof Error ? pollError.message : String(pollError);
-        console.log(`❌ Polling attempt ${attempts} failed:`, errorMessage);
+        logger.warn(`❌ Polling attempt ${attempts} failed:`, { error: errorMessage });
         
         interface PollErrorResponse {
           response?: {

@@ -4,6 +4,7 @@
  */
 
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
+import logger from '../../utils/logger';
 
 /**
  * Voice service context (for this binding)
@@ -64,7 +65,7 @@ export async function getRandomVoice(this: VoiceServiceContext): Promise<VoiceRe
       if (!selectedVoice) {
         return { error: 'No voices available' };
       }
-      console.log(`🎲 Fallback: Selected any voice: ${selectedVoice.name}`);
+      logger.debug(`🎲 Fallback: Selected any voice: ${selectedVoice.name}`);
       
       return {
         voiceId: selectedVoice.voice_id || selectedVoice.voiceId || selectedVoice.id,
@@ -79,7 +80,7 @@ export async function getRandomVoice(this: VoiceServiceContext): Promise<VoiceRe
       return { error: 'No voices available' };
     }
     
-    console.log(`🎲 Selected random voice: ${selectedVoice.name}`);
+    logger.debug(`🎲 Selected random voice: ${selectedVoice.name}`);
     
     return {
       voiceId: selectedVoice.voice_id || selectedVoice.voiceId || selectedVoice.id,
@@ -88,7 +89,7 @@ export async function getRandomVoice(this: VoiceServiceContext): Promise<VoiceRe
     };
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error('❌ Error getting random voice:', errorMessage);
+    logger.error('❌ Error getting random voice:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
     return { error: errorMessage || 'Failed to get random voice' };
   }
 }
@@ -136,7 +137,7 @@ export async function getVoiceForLanguage(this: VoiceServiceContext, languageCod
       if (!selectedVoice) {
         return { error: 'No voices available' };
       }
-      console.log(`🎲 Fallback: Selected any voice: ${selectedVoice.name}`);
+      logger.debug(`🎲 Fallback: Selected any voice: ${selectedVoice.name}`);
       
       return {
         voiceId: selectedVoice.voice_id || selectedVoice.voiceId || selectedVoice.id,
@@ -151,7 +152,7 @@ export async function getVoiceForLanguage(this: VoiceServiceContext, languageCod
       );
       
       if (preferredVoice) {
-        console.log(`🎯 Found preferred voice for ${languageCode}: ${preferredVoice.name}`);
+        logger.debug(`🎯 Found preferred voice for ${languageCode}: ${preferredVoice.name}`);
         return {
           voiceId: preferredVoice.voice_id || preferredVoice.voiceId || preferredVoice.id,
           voiceName: preferredVoice.name,
@@ -166,7 +167,7 @@ export async function getVoiceForLanguage(this: VoiceServiceContext, languageCod
       return { error: 'No voices available' };
     }
     
-    console.log(`🎲 Selected random voice for ${languageCode}: ${selectedVoice.name}`);
+    logger.debug(`🎲 Selected random voice for ${languageCode}: ${selectedVoice.name}`);
     
     return {
       voiceId: selectedVoice.voice_id || selectedVoice.voiceId || selectedVoice.id,
@@ -175,7 +176,7 @@ export async function getVoiceForLanguage(this: VoiceServiceContext, languageCod
     };
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error('❌ Error getting voice for language:', errorMessage);
+    logger.error('❌ Error getting voice for language:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
     return { error: errorMessage || 'Failed to get voice for language' };
   }
 }
@@ -236,10 +237,10 @@ export async function textToSpeechWithRandomVoice(
   options: Record<string, unknown> = {}
 ): Promise<{ error?: string; [key: string]: unknown }> {
   try {
-    console.log(`🎲 Starting TTS with random voice for text: "${text.substring(0, 50)}..."`);
+    logger.debug(`🎲 Starting TTS with random voice for text: "${text.substring(0, 50)}..."`);
     
     const detectedLanguage = this.detectLanguage(text);
-    console.log(`🌐 Detected language: ${detectedLanguage}`);
+    logger.debug(`🌐 Detected language: ${detectedLanguage}`);
     
     const voiceResult = await this.getVoiceForLanguage(detectedLanguage);
     if (voiceResult.error || !voiceResult.voiceId) {
@@ -247,8 +248,8 @@ export async function textToSpeechWithRandomVoice(
     }
     
     const { voiceId, voiceName, voiceCategory } = voiceResult as VoiceResult;
-    console.log(`🎤 Using voice: ${voiceName} (category: ${voiceCategory}) for language: ${detectedLanguage}`);
-    console.log(`🔤 Text contains Hebrew: ${text.match(/[\u0590-\u05FF]|[א-ת]/) ? 'YES' : 'NO'}`);
+    logger.debug(`🎤 Using voice: ${voiceName} (category: ${voiceCategory}) for language: ${detectedLanguage}`);
+    logger.debug(`🔤 Text contains Hebrew: ${text.match(/[\u0590-\u05FF]|[א-ת]/) ? 'YES' : 'NO'}`);
     
     if (!voiceId) {
       return { error: 'No voice ID received from voice selection' };
@@ -276,7 +277,7 @@ export async function textToSpeechWithRandomVoice(
     };
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error('❌ Error in TTS with random voice:', errorMessage);
+    logger.error('❌ Error in TTS with random voice:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
     return { error: errorMessage || 'Text-to-speech with random voice failed' };
   }
 }

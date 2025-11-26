@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { sanitizeText } from '../../../utils/textSanitizer';
 import crypto from 'crypto';
+import logger from '../../../utils/logger';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -156,7 +157,7 @@ Return JSON only in this format:
     try {
       parsed = JSON.parse(jsonText);
     } catch (_parseError) {
-      console.error('❌ Failed to parse Gemini poll response:', jsonText);
+      logger.error('❌ Failed to parse Gemini poll response:', { jsonText });
       throw new Error('Failed to parse poll data from Gemini');
     }
 
@@ -191,13 +192,13 @@ Return JSON only in this format:
    */
   async generateCreativePoll(topic: string, withRhyme = true, language = 'he'): Promise<PollResult> {
     try {
-      console.log(`📊 Generating creative poll about: ${topic} ${withRhyme ? '(with rhyme)' : '(without rhyme)'} (Language: ${language})`);
+      logger.info(`📊 Generating creative poll about: ${topic} ${withRhyme ? '(with rhyme)' : '(without rhyme)'} (Language: ${language})`);
 
       const cleanTopic = sanitizeText(topic);
 
       // Randomly choose number of options (2-4)
       const numOptions = crypto.randomInt(2, 5); // 2, 3, or 4
-      console.log(`🎲 Randomly selected ${numOptions} poll options`);
+      logger.debug(`🎲 Randomly selected ${numOptions} poll options`);
 
       const pollPrompt = this.buildPollPrompt(cleanTopic, numOptions, withRhyme, language);
 
@@ -214,10 +215,9 @@ Return JSON only in this format:
       const responseText = result.response.text();
       const parsed = this.parsePollResponse(responseText, numOptions);
 
-      console.log(`✅ Poll generated successfully with ${parsed.options.length} ${withRhyme ? 'rhyming' : 'non-rhyming'} options:`);
-      console.log(`   Question: "${parsed.question}"`);
-      parsed.options.forEach((opt, idx) => {
-        console.log(`   Option ${idx + 1}: "${opt}"`);
+      logger.info(`✅ Poll generated successfully with ${parsed.options.length} ${withRhyme ? 'rhyming' : 'non-rhyming'} options:`, {
+        question: parsed.question,
+        options: parsed.options
       });
 
       return {
@@ -229,7 +229,7 @@ Return JSON only in this format:
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to generate poll';
-      console.error('❌ Poll generation error:', err);
+      logger.error('❌ Poll generation error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
       return {
         success: false,
         error: errorMessage
