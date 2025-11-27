@@ -212,18 +212,8 @@ ${args.question}`;
         }
       });
 
-      // In the new @google/genai SDK, response.text is likely a getter or property, not a function.
-      // If it is a function in some versions, we cast to any to be safe, but error suggests it's a String.
-      // Checking type to handle both cases safely.
-      let text = '';
-      if (typeof response.text === 'function') {
-        text = response.text();
-      } else if (typeof response.text === 'string') {
-        text = response.text;
-      } else {
-        // Fallback or if it's undefined
-        text = (response as any).text || '';
-      }
+      // In the new @google/genai SDK, response.text is a getter property
+      const text = response.text || '';
 
       if (!text) {
         logger.warn('⚠️ [search_building_plans] Empty response from Gemini File Search');
