@@ -3,7 +3,10 @@
  * Clean, modular tool definitions following SOLID principles
  */
 
-import { GoogleAI } from '@google/genai';
+// Gemini File Search (RAG) client
+// Note: Newer @google/genai exports `GoogleGenerativeAI`; keeping require-style import to avoid type issues.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { GoogleGenerativeAI } = require('@google/genai');
 import { config } from '../../../config';
 import { getServices } from '../utils/serviceLoader';
 import logger from '../../../utils/logger';
@@ -30,9 +33,9 @@ type ToolResult = Promise<{
   error?: string;
 }>;
 
-// Initialize GoogleAI client for File Search (RAG)
+// Initialize Gemini client for File Search (RAG)
 const geminiApiKey = process.env.GEMINI_API_KEY || '';
-const googleAI = geminiApiKey ? new GoogleAI({ apiKey: geminiApiKey }) : null;
+const googleAI = geminiApiKey ? new GoogleGenerativeAI({ apiKey: geminiApiKey }) : null;
 
 /**
  * Tool: search_web

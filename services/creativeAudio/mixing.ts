@@ -62,8 +62,9 @@ export async function mixWithBackground(voiceBuffer: Buffer, voiceFormat: string
       logger.debug(`🎵 Mixing voice with background music...`);
 
       // Step 1: Lower background music volume to make it subtle background
+      const ffmpegStatic = require('ffmpeg-static') as string;
       const volumeCommand = [
-        'ffmpeg',
+        ffmpegStatic,
         '-i', backgroundPath,
         '-filter:a', 'volume=0.3',
         '-c:a', 'libmp3lame',
@@ -82,7 +83,7 @@ export async function mixWithBackground(voiceBuffer: Buffer, voiceFormat: string
         }
 
         // Step 2: Mix voice with lowered background (voice louder, music quieter)
-        const mixCommand = `ffmpeg -i "${voicePath}" -i "${backgroundLowPath}" -filter_complex "[0:a]volume=1.2[voice];[1:a]volume=0.3[bg];[voice][bg]amix=inputs=2:duration=first" -c:a libmp3lame -b:a 128k -y "${outputPath}"`;
+        const mixCommand = `${ffmpegStatic} -i "${voicePath}" -i "${backgroundLowPath}" -filter_complex "[0:a]volume=1.2[voice];[1:a]volume=0.3[bg];[voice][bg]amix=inputs=2:duration=first" -c:a libmp3lame -b:a 128k -y "${outputPath}"`;
 
         logger.debug(`🎵 Mixing command: ${mixCommand}`);
 

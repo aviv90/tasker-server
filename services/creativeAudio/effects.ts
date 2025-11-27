@@ -11,8 +11,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { promisify } from 'util';
 import { getTempDir, ensureTempDir, cleanupTempFile } from '../../utils/tempFileUtils';
 import logger from '../../utils/logger';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ffmpegStatic = require('ffmpeg-static');
 
 const execAsync = promisify(exec);
+const ffmpegBin = ffmpegStatic as unknown as string;
 
 export interface Effect {
   name: string;
@@ -196,7 +199,7 @@ export async function applyCreativeEffect(audioBuffer: Buffer, inputFormat: stri
 
       // FFmpeg command for creative effect
       const ffmpegCommand = [
-        'ffmpeg',
+        ffmpegBin,
         '-i', inputPath,
         effect.command,
         '-c:a', 'libmp3lame',
