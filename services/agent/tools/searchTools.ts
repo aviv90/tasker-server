@@ -183,7 +183,9 @@ export const search_building_plans = {
         typeof language === 'string' ? language.toLowerCase() : 'he';
       const languageInstruction = getLanguageInstruction(normalizedLanguage);
 
-      const model = googleAI.getGenerativeModel({
+      // Type definitions for @google/genai may not yet expose getGenerativeModel,
+      // so we use a safe any-cast here to avoid TS errors while keeping runtime behavior.
+      const model = (googleAI as any).getGenerativeModel({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         model: ((config as any).models?.gemini?.defaultModel as string) || 'gemini-2.0-flash-exp'
       });
