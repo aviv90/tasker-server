@@ -1,8 +1,10 @@
 /**
- * Search Tools - Web search capabilities
+ * Search Tools - Web & RAG search capabilities
  * Clean, modular tool definitions following SOLID principles
  */
 
+import { GoogleAI } from '@google/genai';
+import { config } from '../../../config';
 import { getServices } from '../utils/serviceLoader';
 import logger from '../../../utils/logger';
 import prompts from '../../../config/prompts';
@@ -28,8 +30,12 @@ type ToolResult = Promise<{
   error?: string;
 }>;
 
+// Initialize GoogleAI client for File Search (RAG)
+const geminiApiKey = process.env.GEMINI_API_KEY || '';
+const googleAI = geminiApiKey ? new GoogleAI({ apiKey: geminiApiKey }) : null;
+
 /**
- * Tool: Search Web
+ * Tool: search_web
  */
 export const search_web = {
   declaration: {
@@ -113,7 +119,146 @@ export const search_web = {
   }
 };
 
-module.exports = {
-  search_web
+/**
+ * Tool: search_building_plans
+ * Use Gemini File Search Store with demo building plans PDF (RAG)
+ */
+type SearchBuildingPlansArgs = {
+  question?: string;
 };
+
+export const search_building_plans = {
+  declaration: {
+    name: 'search_building_plans',
+    description:
+      'חפש מידע בשרטוטי הבנייה של הדמו (PDF) באמצעות Gemini File Search. השתמש בכלי הזה רק כשברור שהמשתמש שואל על תוכנית הבנייה / שרטוט / קומות / חדרים בבניין הדמו.',
+    parameters: {
+      type: 'object',
+      properties: {
+        question: {
+          type: 'string',
+          description:
+            'השאלה המדויקת לגבי שרטוטי הבנייה (לדוגמה: "איפה חדר המדרגות בקומה 2?", "כמה חדרי שינה יש בתוכנית?")'
+        }
+      },
+      required: ['question']
+    }
+  },
+  execute: async (args: SearchBuildingPlansArgs = {}, context: AgentToolContext = {}): ToolResult => {
+    logger.debug('🔧 [Agent Tool] search_building_plans called', { question: args.question });
+
+    try {
+      if (!args.question) {
+        return {
+          success: false,
+          error: 'חובה לציין שאלה לגבי שרטוטי הבנייה'
+        };
+      }
+
+      if (!googleAI) {
+        logger.error('❌ GEMINI_API_KEY is not configured for File Search');
+        return {
+          success: false,
+          error: 'חסר מפתח GEMINI_API_KEY ל-Gemini File Search'
+        };
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const storeName =
+        (config as any).rag?.buildingDemoStoreName || (config as any).models?.gemini?.fileSearchStore || null;
+
+      if (!storeName) {
+        logger.error('❌ No File Search Store configured for building plans RAG');
+        return {
+          success: false,
+          error:
+            'לא הוגדר File Search Store לשרטוטי הבנייה (חסר GEMINI_BUILDING_DEMO_STORE או GEMINI_MODEL_FILE_SEARCH_STORE)'
+        };
+      }
+
+      const language =
+        context?.originalInput?.language || context?.normalized?.language || 'he';
+      const normalizedLanguage =
+        typeof language === 'string' ? language.toLowerCase() : 'he';
+      const languageInstruction = getLanguageInstruction(normalizedLanguage);
+
+      const model = googleAI.getGenerativeModel({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        model: ((config as any).models?.gemini?.defaultModel as string) || 'gemini-2.0-flash-exp'
+      });
+
+      const userPrompt = `${languageInstruction}
+
+אתה עוזר בתחום שרטוטי בנייה. התייחס רק למידע שנמצא בקובץ/ים שבמאגר File Search של שרטוט הבניין הדמו.
+אם המידע לא מופיע שם, תגיד שאין לך מספיק מידע מתוך השרטוט.
+
+שאלה:
+${args.question}`;
+
+      const result = await model.generateContent({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: userPrompt }]
+          }
+        ],
+        // Enable File Search tool
+        tools: [{ fileSearch: {} }],
+        // Configure which File Search Store to use
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        toolConfig: {
+          fileSearch: {
+            // According to @google/genai File Search API, we reference the store by name
+            // If API changes, adjust this shape accordingly.
+            fileSearchEntities: [
+              {
+                fileSearchStore: storeName
+              }
+            ]
+          }
+        } as any
+      });
+
+      const text =
+        result.response.candidates?.[0]?.content?.parts
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ?.map((part: any) => (part.text as string) || '')
+          .join('')
+          .trim() || '';
+
+      if (!text) {
+        logger.warn('⚠️ [search_building_plans] Empty response from Gemini File Search');
+        return {
+          success: false,
+          error: 'לא הצלחתי למצוא מידע רלוונטי בשרטוטי הבנייה'
+        };
+      }
+
+      logger.info(
+        `✅ [search_building_plans] Got RAG result (${text.substring(0, 80)}...)`
+      );
+
+      return {
+        success: true,
+        data: text
+      };
+    } catch (error) {
+      const err = error as Error;
+      logger.error('❌ Error in search_building_plans tool:', {
+        error: err.message,
+        stack: err.stack
+      });
+      return {
+        success: false,
+        error: `שגיאה בחיפוש בשרטוטי הבנייה: ${err.message}`
+      };
+    }
+  }
+};
+
+module.exports = {
+  search_web,
+  search_building_plans
+};
+
 

@@ -54,7 +54,8 @@ export const {
 } = audioTools;
 
 export const {
-  search_web
+  search_web,
+  search_building_plans
 } = searchTools;
 
 export const {
@@ -131,6 +132,7 @@ export const allTools: Record<string, Tool> = {
   
   // Search & Info
   search_web: searchTools.search_web as unknown as Tool,
+  search_building_plans: searchTools.search_building_plans as unknown as Tool,
   chat_summary: summaryTools.chat_summary as unknown as Tool,
   
   // Location & Social

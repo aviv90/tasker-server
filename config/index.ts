@@ -99,6 +99,8 @@ export const config = {
     gemini: {
       defaultModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp',
       apiVersion: 'v1beta',
+      // Optional: default File Search store for RAG scenarios
+      fileSearchStore: process.env.GEMINI_FILE_SEARCH_STORE || null
     },
     openai: {
       defaultModel: process.env.OPENAI_MODEL || 'gpt-4o',
@@ -167,6 +169,13 @@ export const config = {
   whatsapp: {
     // Add WhatsApp-specific config here if needed
   },
+
+  // RAG / File Search configuration
+  rag: {
+    // Default File Search Store for building plans demo
+    // Example: "fileSearchStores/buildingdemostore-lvrq00kcussx"
+    buildingDemoStoreName: process.env.GEMINI_BUILDING_DEMO_STORE || null
+  }
 };
 
 /**

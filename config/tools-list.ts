@@ -241,6 +241,29 @@ const TOOLS: Record<string, Tool> = {
     critical: 'Use ONLY for finding links/URLs to EXISTING content. NOT for creating new images/videos! "שלח תמונה של X" = create_image, NOT search_web!'
   },
 
+  search_building_plans: {
+    name: 'search_building_plans',
+    category: 'search',
+    description:
+      'חפש מידע בשרטוטי הבנייה של הדמו (PDF) באמצעות Gemini File Search Store. מיועד לשאלות על תוכנית/קומות/חדרים/מידות בבניין הדמו בלבד.',
+    usage: [
+      'שאלה על שרטוט הבניין',
+      'איפה חדר המדרגות בתוכנית',
+      'כמה חדרים יש בתוכנית',
+      'באיזה צד הממ״ד'
+    ],
+    parameters: {
+      question: {
+        type: 'string',
+        required: true,
+        description:
+          'השאלה המדויקת לגבי שרטוטי הבנייה (לדוגמה: "איפה חדר המדרגות בקומה 2?", "כמה חדרי שינה יש בתוכנית?")'
+      }
+    },
+    critical:
+      'השתמש בכלי הזה רק כשברור שהמשתמש מתייחס לשרטוט/תוכנית הבניין הדמו (PDF שהועלה ל-File Search). לשאלות כלליות על בנייה או חיפוש באינטרנט השתמש ב-search_web או בתשובה טקסטואלית רגילה.'
+  },
+
   get_chat_history: {
     name: 'get_chat_history',
     category: 'context',
