@@ -4,8 +4,9 @@
  */
 
 // Gemini File Search (RAG) client
-// Use the same SDK as the rest of the Gemini text stack for consistency
-import { GoogleGenerativeAI } from '@google/generative-ai';
+// Using the new @google/genai SDK for proper File Search support
+import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai'; // Keep for search_web compatibility
 import { config } from '../../../config';
 import { getServices } from '../utils/serviceLoader';
 import logger from '../../../utils/logger';
@@ -33,8 +34,11 @@ type ToolResult = Promise<{
 }>;
 
 // Initialize Gemini client for File Search (RAG)
-// Use same pattern as other Gemini services (textOperations, agentService, etc.)
-const googleAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const geminiApiKey = process.env.GEMINI_API_KEY || '';
+// Use new SDK for File Search (RAG)
+const googleGenAI = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
+// Use legacy SDK for search_web (Google Search) to maintain compatibility
+const googleAI = new GoogleGenerativeAI(geminiApiKey);
 
 /**
  * Tool: search_web
@@ -170,16 +174,19 @@ export const search_building_plans = {
         };
       }
 
+      if (!googleGenAI) {
+        logger.error('❌ Failed to initialize GoogleGenAI client');
+        return {
+          success: false,
+          error: 'שגיאה באתחול Gemini Client'
+        };
+      }
+
       const language =
         context?.originalInput?.language || context?.normalized?.language || 'he';
       const normalizedLanguage =
         typeof language === 'string' ? language.toLowerCase() : 'he';
       const languageInstruction = getLanguageInstruction(normalizedLanguage);
-
-      const model = googleAI.getGenerativeModel({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        model: ((config as any).models?.gemini?.defaultModel as string) || 'gemini-2.0-flash-exp'
-      });
 
       const userPrompt = `${languageInstruction}
 
@@ -189,42 +196,22 @@ export const search_building_plans = {
 שאלה:
 ${args.question}`;
 
-      // Build generateContent config as 'any' to allow File Search fields (not yet in @google/generative-ai types)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const generateConfig: any = {
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: userPrompt }]
-          }
-        ],
-        // Enable File Search tool for this request and bind it to the specific store
-        tools: [
-          {
-            // Use google_search_retrieval approach as fallback if direct file_search fails,
-            // but since we want File Search specifically, we must use the correct retrieval config.
-            // However, based on Gemini API v1beta documentation and errors,
-            // 'retrieval' with 'vertex_ai_search' is the standard way for RAG.
-            // BUT for Gemini File Search (not Vertex), the key IS 'file_search'.
-            // The issue might be that SDK doesn't support passing raw snake_case through 'tools'.
-            // Let's try 'retrieval' structure which is more standard in v1beta.
-            retrieval: {
-              vertex_ai_search: {
-                datastore: storeName
+      // Use the new SDK (@google/genai) structure which supports File Search properly
+      const response = await googleGenAI.models.generateContent({
+        model: ((config as any).models?.gemini?.defaultModel as string) || 'gemini-2.0-flash-exp',
+        contents: userPrompt,
+        config: {
+          tools: [
+            {
+              fileSearch: {
+                fileSearchStoreNames: [storeName]
               }
             }
-          }
-        ]
-      };
+          ]
+        }
+      });
 
-      const result = await model.generateContent(generateConfig);
-
-      const text =
-        result.response.candidates?.[0]?.content?.parts
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ?.map((part: any) => (part.text as string) || '')
-          .join('')
-          .trim() || '';
+      const text = response.text() || '';
 
       if (!text) {
         logger.warn('⚠️ [search_building_plans] Empty response from Gemini File Search');
