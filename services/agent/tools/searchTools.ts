@@ -197,8 +197,12 @@ export const search_building_plans = {
 שאלה:
 ${args.question}`;
 
+      // Use gemini-3-pro-preview for building plans analysis (best model for PDF/RAG analysis)
+      // This model is specifically optimized for complex document understanding and analysis
+      const modelForBuildingPlans = 'gemini-3-pro-preview';
+
       logger.info('🔧 [search_building_plans] Preparing request', {
-        model: (config as any).models?.gemini?.defaultModel || 'gemini-2.5-flash',
+        model: modelForBuildingPlans,
         storeName,
         // Check if storeName looks valid
         validFormat: storeName.startsWith('fileSearchStores/')
@@ -206,8 +210,9 @@ ${args.question}`;
 
       // Use the new SDK (@google/genai) structure which supports File Search properly
       // Explicitly construct content and tool objects to ensure correct serialization
+      // Using gemini-3-pro-preview for superior PDF analysis capabilities
       const response = await googleGenAI.models.generateContent({
-        model: ((config as any).models?.gemini?.defaultModel as string) || 'gemini-2.5-flash',
+        model: modelForBuildingPlans,
         contents: [
           {
             role: 'user',
