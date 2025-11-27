@@ -38,6 +38,7 @@ const geminiApiKey = process.env.GEMINI_API_KEY || '';
 // Use new SDK for File Search (RAG)
 const googleGenAI = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
 // Use legacy SDK for search_web (Google Search) to maintain compatibility
+// @ts-ignore
 const googleAI = new GoogleGenerativeAI(geminiApiKey);
 
 /**
@@ -211,7 +212,7 @@ ${args.question}`;
         }
       });
 
-      const text = response.text() || '';
+      const text = response.text ? response.text() : '';
 
       if (!text) {
         logger.warn('⚠️ [search_building_plans] Empty response from Gemini File Search');
