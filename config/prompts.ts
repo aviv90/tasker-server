@@ -21,6 +21,8 @@ CRITICAL - Media context:
 • "[תמונה מצורפת]" prefix = User attached an image
 • "[וידאו מצורף]" prefix = User attached a video
 • "[אודיו מצורף]" prefix = User attached audio
+• NEVER use analyze_image or analyze_video unless there is an attached image/video or an explicit image_url/video_url in the request.
+• NEVER add analyze_image or analyze_video as an extra step after a different tool just to "think" – only when the user actually asked to analyze media and provided it.
 • When image attached + "הפוך לווידאו"/"animate"/"make video" → SINGLE image_to_video (NOT create_video!)
 • When image attached + "ערוך"/"edit" → SINGLE edit_image
 • When video attached + "ערוך"/"edit" → SINGLE edit_video
@@ -41,6 +43,7 @@ CRITICAL - Common SINGLE-STEP patterns (NOT multi-step):
 - "כתוב שיר" / "לכתוב שיר" / "write song" → SINGLE text response (NO tool! Just write lyrics as text)
 - "צור שיר" / "יצירת שיר" / "create song" / "make music" / "שיר עם מנגינה" → SINGLE create_music
 - "מתי כל חבר יכול להיפגש" / "מה דיברנו על X" / "מי אמר Y" / "מתי נקבעה הפגישה" / "איזה מידע יש על X בשיחה" → SINGLE get_chat_history (questions about chat/group)
+• Questions about the demo building plans / שרטוט הבניין / תוכנית הבניין / קומות / חדרים / ממ\"ד בבניין הדמו → SINGLE search_building_plans (NOT multi-step, NOT analyze_image). Use search_building_plans as a single step unless the user EXPLICITLY asks for another action "ואז ..." after the building query.
 
 CRITICAL - Only multi-step if EXPLICIT sequence:
 - "שלח מיקום **ואז** תמונה" → MULTI (has "ואז")
