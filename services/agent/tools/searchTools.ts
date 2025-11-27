@@ -189,7 +189,7 @@ export const search_building_plans = {
 שאלה:
 ${args.question}`;
 
-      // Build generateContent config as 'any' to allow experimental File Search fields
+      // Build generateContent config as 'any' to allow File Search fields (not yet in @google/generative-ai types)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const generateConfig: any = {
         contents: [
@@ -202,11 +202,9 @@ ${args.question}`;
         tools: [
           {
             fileSearch: {
-              fileSearchEntities: [
-                {
-                  fileSearchStore: storeName
-                }
-              ]
+              // According to @google/genai types, FileSearch tool expects fileSearchStoreNames
+              // Example: fileSearchStoreNames: ['fileSearchStores/my-file-search-store-123']
+              fileSearchStoreNames: [storeName]
             }
           }
         ]
