@@ -6,7 +6,7 @@
 
 import * as greenApiService from '../../../services/greenApiService';
 import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
-import { cleanMediaDescription, cleanMultiStepText } from '../../../utils/textSanitizer';
+import { cleanMediaDescription, cleanMultiStepText, isGenericSuccessMessage } from '../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../services/whatsapp/utils';
 import { executeAgentQuery } from '../../../services/agentService';
 import { sendErrorToUser } from '../../../utils/errorSender';
@@ -62,15 +62,15 @@ export async function sendMultiStepText(chatId: string, text: string, quotedMess
  * @param {string} chatId - Chat ID
  * @param {Object} agentResult - Agent result
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
- * @returns {boolean} True if sent
+ * @returns {{sent: boolean, textSent: boolean}} Object with sent flag and textSent flag
  */
-export async function sendImageResult(chatId: string, agentResult: AgentResult, quotedMessageId: string | null = null): Promise<boolean> {
-  if (!agentResult.imageUrl) return false;
+export async function sendImageResult(chatId: string, agentResult: AgentResult, quotedMessageId: string | null = null): Promise<{sent: boolean, textSent: boolean}> {
+  if (!agentResult.imageUrl) return {sent: false, textSent: false};
 
   // For multi-step with alreadySent=true, image was already sent in agentService
   if (shouldSkipAgentResult(agentResult)) {
     logger.debug(`✅ [Multi-step] Image already sent in agentService - skipping duplicate`);
-    return false;
+    return {sent: false, textSent: false};
   }
 
   logger.debug(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}`);
@@ -107,6 +107,9 @@ export async function sendImageResult(chatId: string, agentResult: AgentResult, 
 
   await greenApiService.sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId || undefined, 1000);
   
+  // Track if additional text was sent (to prevent duplicate sending in sendSingleStepText)
+  let textSent = false;
+  
   // If there's additional text beyond the caption, send it in a separate message
   // This ensures users get both the image with caption AND any additional context/description
   if (agentResult.text && agentResult.text.trim()) {
@@ -114,16 +117,7 @@ export async function sendImageResult(chatId: string, agentResult: AgentResult, 
     const captionToCheck = cleanMediaDescription(caption);
     
     // Skip generic success messages - they're redundant when image is already sent
-    const genericSuccessPatterns = [
-      /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
-      /^✅\s*תמונה\s*נוצרה/i,
-      /^✅\s*נוצרה\s*בהצלחה/i,
-      /^✅\s*image\s*created\s*successfully/i,
-      /^✅\s*successfully\s*created/i
-    ];
-    const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
-    
-    if (isGenericSuccess) {
+    if (isGenericSuccessMessage(textToCheck.trim(), 'image')) {
       logger.debug(`⏭️ [Image] Skipping generic success message after image`);
     }
     // Only send if text is meaningfully different from caption (more than just whitespace/formatting)
@@ -132,11 +126,12 @@ export async function sendImageResult(chatId: string, agentResult: AgentResult, 
       if (additionalText && additionalText.trim()) {
         logger.debug(`📝 [Image] Sending additional text after image (${additionalText.length} chars)`);
         await greenApiService.sendTextMessage(chatId, additionalText, quotedMessageId || undefined, 1000);
+        textSent = true;
       }
     }
   }
   
-  return true;
+  return {sent: true, textSent};
 }
 
 /**
@@ -146,28 +141,65 @@ export async function sendImageResult(chatId: string, agentResult: AgentResult, 
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
  * @returns {boolean} True if sent
  */
-export async function sendVideoResult(chatId: string, agentResult: AgentResult, quotedMessageId: string | null = null): Promise<boolean> {
-  if (!agentResult.videoUrl) return false;
+/**
+ * Send video result
+ * @param {string} chatId - Chat ID
+ * @param {Object} agentResult - Agent result
+ * @param {string} [quotedMessageId] - Optional: ID of message to quote
+ * @returns {{sent: boolean, textSent: boolean}} Object with sent flag and textSent flag
+ */
+export async function sendVideoResult(chatId: string, agentResult: AgentResult, quotedMessageId: string | null = null): Promise<{sent: boolean, textSent: boolean}> {
+  if (!agentResult.videoUrl) return {sent: false, textSent: false};
 
   // For multi-step, video is already sent in agentService - skip here
   if (shouldSkipAgentResult(agentResult)) {
     logger.debug(`⏭️ [Agent] Skipping video send - already sent in multi-step`);
-    return false;
+    return {sent: false, textSent: false};
   }
 
   logger.debug(`🎬 [Agent] Sending generated video: ${agentResult.videoUrl}`);
-  // Videos don't support captions well - send as file, text separately
-  await greenApiService.sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, '', quotedMessageId || undefined, 1000);
-
-  // If there's meaningful text (description/revised prompt), send it separately
-  if (agentResult.text && agentResult.text.trim()) {
-    const videoDescription = cleanMediaDescription(agentResult.text);
-    if (videoDescription && videoDescription.length > 2) {
-      await greenApiService.sendTextMessage(chatId, videoDescription, quotedMessageId || undefined, 1000);
+  
+  // CRITICAL: Caption MUST be sent with the video, not in a separate message
+  // Priority: videoCaption > caption > text (if text is not generic success message)
+  let caption = agentResult.videoCaption || '';
+  
+  // If no caption but text exists and is not a generic success message, use text as caption
+  if (!caption && agentResult.text && agentResult.text.trim()) {
+    const textToCheck = cleanMediaDescription(agentResult.text);
+    if (!isGenericSuccessMessage(textToCheck.trim(), 'video')) {
+      caption = agentResult.text;
     }
   }
-
-  return true;
+  
+  const cleanCaption = cleanMediaDescription(caption);
+  
+  // Send video WITH caption (caption is always sent with media, never separately)
+  await greenApiService.sendFileByUrl(chatId, agentResult.videoUrl, `agent_video_${Date.now()}.mp4`, cleanCaption, quotedMessageId || undefined, 1000);
+  
+  // Track if additional text was sent (to prevent duplicate sending in sendSingleStepText)
+  let textSent = false;
+  
+  // If there's additional text beyond the caption, send it in a separate message
+  if (agentResult.text && agentResult.text.trim()) {
+    const textToCheck = cleanMediaDescription(agentResult.text);
+    const captionToCheck = cleanMediaDescription(caption);
+    
+    // Skip generic success messages - they're redundant when video is already sent
+    if (isGenericSuccessMessage(textToCheck.trim(), 'video')) {
+      logger.debug(`⏭️ [Video] Skipping generic success message after video`);
+    }
+    // Only send if text is meaningfully different from caption (more than just whitespace/formatting)
+    else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
+      const additionalText = cleanAgentText(agentResult.text);
+      if (additionalText && additionalText.trim()) {
+        logger.debug(`📝 [Video] Sending additional text after video (${additionalText.length} chars)`);
+        await greenApiService.sendTextMessage(chatId, additionalText, quotedMessageId || undefined, 1000);
+        textSent = true;
+      }
+    }
+  }
+  
+  return {sent: true, textSent};
 }
 
 /**
@@ -265,8 +297,9 @@ export async function sendLocationResult(chatId: string, agentResult: AgentResul
  * @param {Object} agentResult - Agent result
  * @param {boolean} mediaSent - Whether media was already sent
  * @param {string} [quotedMessageId] - Optional: ID of message to quote
+ * @param {boolean} [textAlreadySent] - Optional: Whether text was already sent by media handler
  */
-export async function sendSingleStepText(chatId: string, agentResult: AgentResult, mediaSent: boolean, quotedMessageId: string | null = null): Promise<void> {
+export async function sendSingleStepText(chatId: string, agentResult: AgentResult, mediaSent: boolean, quotedMessageId: string | null = null, textAlreadySent: boolean = false): Promise<void> {
   // CRITICAL: If tool failed and error was already sent, don't send Gemini's error text
   // This prevents duplicate error messages (one from tool, one from Gemini final response)
   const hasToolError = agentResult.toolResults && 
@@ -278,6 +311,12 @@ export async function sendSingleStepText(chatId: string, agentResult: AgentResul
   }
   
   // Single-step: Send text response
+  // CRITICAL: If text was already sent by media handler (e.g., sendImageResult), don't send again
+  if (textAlreadySent) {
+    logger.debug(`⏭️ [Text] Skipping text - already sent by media handler`);
+    return;
+  }
+  
   // CRITICAL: Even if media was sent, we should send additional text if it exists
   // This ensures users get both media (with caption) AND any additional context/description
   if (!agentResult.multiStep && agentResult.text && agentResult.text.trim()) {
@@ -294,16 +333,7 @@ export async function sendSingleStepText(chatId: string, agentResult: AgentResul
           
           // For images: skip generic success messages - they're redundant when image is already sent
           if (agentResult.imageUrl) {
-            const genericSuccessPatterns = [
-              /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
-              /^✅\s*תמונה\s*נוצרה/i,
-              /^✅\s*נוצרה\s*בהצלחה/i,
-              /^✅\s*image\s*created\s*successfully/i,
-              /^✅\s*successfully\s*created/i
-            ];
-            const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
-            
-            if (isGenericSuccess) {
+            if (isGenericSuccessMessage(textToCheck.trim(), 'image')) {
               shouldSendText = false;
               logger.debug(`⏭️ [Text] Skipping generic success message after image`);
             }
@@ -313,10 +343,17 @@ export async function sendSingleStepText(chatId: string, agentResult: AgentResul
               logger.debug(`ℹ️ [Text] Skipping text - same as image caption`);
             }
           }
-          // For videos: text is already sent separately in sendVideoResult
+          // For videos: skip generic success messages - they're redundant when video is already sent
           else if (agentResult.videoUrl) {
-            shouldSendText = false;
-            logger.debug(`ℹ️ [Text] Skipping text - already sent with video`);
+            if (isGenericSuccessMessage(textToCheck.trim(), 'video')) {
+              shouldSendText = false;
+              logger.debug(`⏭️ [Text] Skipping generic success message after video`);
+            }
+            // If text was already sent by sendVideoResult, don't send again
+            else if (textAlreadySent) {
+              shouldSendText = false;
+              logger.debug(`ℹ️ [Text] Skipping text - already sent with video`);
+            }
           }
           // For audio: audio IS the response, no additional text needed
           else if (agentResult.audioUrl) {
@@ -407,6 +444,7 @@ export async function handlePostProcessing(chatId: string, normalized: Normalize
 
         // Use centralized image sending function (same logic as regular agent results)
         await sendImageResult(chatId, result, quotedMessageId);
+        // Note: textAlreadySent flag not needed here as this is post-processing, not part of main result flow
       } else {
         logger.warn('⚠️ [Agent Post] Failed to generate complementary image for text+image request');
       }
@@ -470,12 +508,23 @@ export async function sendAgentResults(chatId: string, agentResult: AgentResult,
   }
 
   // CRITICAL: Send media if URLs exist (Rule: Media MUST be sent!)
-  if (await sendImageResult(chatId, agentResult, quotedMessageId)) {
+  // Track if text was already sent by media handlers to prevent duplicates
+  let textAlreadySentByMedia = false;
+  
+  const imageResult = await sendImageResult(chatId, agentResult, quotedMessageId);
+  if (imageResult.sent) {
     mediaSent = true;
+    if (imageResult.textSent) {
+      textAlreadySentByMedia = true;
+    }
   }
 
-  if (await sendVideoResult(chatId, agentResult, quotedMessageId)) {
+  const videoResult = await sendVideoResult(chatId, agentResult, quotedMessageId);
+  if (videoResult.sent) {
     mediaSent = true;
+    if (videoResult.textSent) {
+      textAlreadySentByMedia = true;
+    }
   }
 
   if (await sendAudioResult(chatId, agentResult, quotedMessageId)) {
@@ -491,7 +540,8 @@ export async function sendAgentResults(chatId: string, agentResult: AgentResult,
   }
 
   // Single-step: If no media was sent, send text response
-  await sendSingleStepText(chatId, agentResult, mediaSent, quotedMessageId);
+  // Pass textAlreadySentByMedia flag to prevent duplicate text sending
+  await sendSingleStepText(chatId, agentResult, mediaSent, quotedMessageId, textAlreadySentByMedia);
 
   // Handle post-processing (complementary image generation)
   await handlePostProcessing(chatId, normalized, agentResult, quotedMessageId);

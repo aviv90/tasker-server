@@ -95,6 +95,62 @@ export function cleanMediaDescription(text: unknown): string {
 }
 
 /**
+ * Check if text is a generic success message (e.g., "✅ תמונה נוצרה בהצלחה!")
+ * SSOT for generic success message detection - prevents duplicate messages
+ * @param text - Text to check
+ * @param mediaType - Optional: 'image' | 'video' to check media-specific patterns
+ * @returns True if text is a generic success message
+ */
+export function isGenericSuccessMessage(text: string, mediaType?: 'image' | 'video'): boolean {
+  if (!text || typeof text !== 'string') {
+    return false;
+  }
+  
+  const cleanedText = text.trim();
+  
+  // Common generic success patterns (works for all media types)
+  const commonPatterns = [
+    /^✅\s*נוצרה\s*בהצלחה/i,
+    /^✅\s*successfully\s*created/i
+  ];
+  
+  // Media-specific patterns
+  const imagePatterns = [
+    /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
+    /^✅\s*תמונה\s*נוצרה/i,
+    /^✅\s*image\s*created\s*successfully/i
+  ];
+  
+  const videoPatterns = [
+    /^✅\s*וידאו\s*נוצר\s*בהצלחה/i,
+    /^✅\s*וידאו\s*נוצר/i,
+    /^✅\s*video\s*created\s*successfully/i
+  ];
+  
+  // Check common patterns
+  if (commonPatterns.some(pattern => pattern.test(cleanedText))) {
+    return true;
+  }
+  
+  // Check media-specific patterns
+  if (mediaType === 'image' && imagePatterns.some(pattern => pattern.test(cleanedText))) {
+    return true;
+  }
+  
+  if (mediaType === 'video' && videoPatterns.some(pattern => pattern.test(cleanedText))) {
+    return true;
+  }
+  
+  // If no media type specified, check all patterns
+  if (!mediaType) {
+    return imagePatterns.some(pattern => pattern.test(cleanedText)) ||
+           videoPatterns.some(pattern => pattern.test(cleanedText));
+  }
+  
+  return false;
+}
+
+/**
  * Clean text for multi-step agent responses
  * Removes URLs and media placeholders that shouldn't appear in text messages
  * SSOT for multi-step text cleaning - used by both incoming and outgoing handlers

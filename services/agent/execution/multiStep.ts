@@ -13,7 +13,7 @@ import { allTools as agentTools } from '../tools';
 import prompts from '../../../config/prompts';
 import resultSender from './resultSender';
 import { TIME } from '../../../utils/constants';
-import { cleanJsonWrapper, cleanMediaDescription } from '../../../utils/textSanitizer';
+import { cleanJsonWrapper, cleanMediaDescription, isGenericSuccessMessage } from '../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../services/whatsapp/utils';
 import logger from '../../../utils/logger';
 
@@ -50,6 +50,7 @@ interface StepResult {
     imageCaption?: string;
     caption?: string;
     videoUrl?: string | null;
+    videoCaption?: string;
     audioUrl?: string | null;
     poll?: { question: string; options: string[] } | null;
     latitude?: string | null;
@@ -58,6 +59,8 @@ interface StepResult {
     toolsUsed?: string[];
     iterations?: number;
     error?: string;
+    errorsAlreadySent?: boolean;
+    data?: string;
     [key: string]: unknown;
 }
 
@@ -178,8 +181,7 @@ class MultiStepExecution {
           logger.debug(`🔍 [MultiStep] quotedMessageId for step ${step.stepNumber}: ${quotedMessageId}, from options.input: ${options.input?.originalMessageId}`);
           
           // Send ALL results immediately in order
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await resultSender.sendStepResults(chatId, stepResult as any, step.stepNumber, quotedMessageId);
+          await resultSender.sendStepResults(chatId, stepResult, step.stepNumber, quotedMessageId);
           
           logger.info(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed and ALL results sent`);
         } else {
@@ -189,8 +191,7 @@ class MultiStepExecution {
           // Get quotedMessageId to pass to fallback
           const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
           
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const fallbackResult = await this.tryFallback(chatId, toolName, toolParams, step, stepResult as any, quotedMessageId || null);
+          const fallbackResult = await this.tryFallback(chatId, toolName, toolParams, step, stepResult, quotedMessageId || null);
           if (fallbackResult) {
             stepResults.push(fallbackResult);
           } else {
@@ -293,16 +294,7 @@ class MultiStepExecution {
               // If no caption but text exists and is not a generic success message, use text as caption
               if (!caption && result.text && typeof result.text === 'string' && result.text.trim()) {
                 const textToCheck = cleanMediaDescription(result.text);
-                const genericSuccessPatterns = [
-                  /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
-                  /^✅\s*תמונה\s*נוצרה/i,
-                  /^✅\s*נוצרה\s*בהצלחה/i,
-                  /^✅\s*image\s*created\s*successfully/i,
-                  /^✅\s*successfully\s*created/i
-                ];
-                const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
-                
-                if (!isGenericSuccess) {
+                if (!isGenericSuccessMessage(textToCheck.trim(), 'image')) {
                   caption = result.text;
                 }
               }
@@ -322,16 +314,7 @@ class MultiStepExecution {
                 const captionToCheck = cleanMediaDescription(caption);
 
                 // Skip generic success messages - they're redundant when image is already sent
-                const genericSuccessPatterns = [
-                  /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
-                  /^✅\s*תמונה\s*נוצרה/i,
-                  /^✅\s*נוצרה\s*בהצלחה/i,
-                  /^✅\s*image\s*created\s*successfully/i,
-                  /^✅\s*successfully\s*created/i
-                ];
-                const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
-
-                if (isGenericSuccess) {
+                if (isGenericSuccessMessage(textToCheck.trim(), 'image')) {
                   logger.debug(`⏭️ [Multi-step Fallback] Skipping generic success message after image`);
                 }
                 // Only send if text is meaningfully different from caption
@@ -355,15 +338,7 @@ class MultiStepExecution {
               // If no caption but text exists and is not a generic success message, use text as caption
               if (!caption && result.text && typeof result.text === 'string' && result.text.trim()) {
                 const textToCheck = cleanMediaDescription(result.text);
-                const genericSuccessPatterns = [
-                  /^✅\s*וידאו\s*נוצר\s*בהצלחה/i,
-                  /^✅\s*וידאו\s*נוצר/i,
-                  /^✅\s*video\s*created\s*successfully/i,
-                  /^✅\s*successfully\s*created/i
-                ];
-                const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
-                
-                if (!isGenericSuccess) {
+                if (!isGenericSuccessMessage(textToCheck.trim(), 'video')) {
                   caption = result.text;
                 }
               }
@@ -383,15 +358,7 @@ class MultiStepExecution {
                 const captionToCheck = cleanMediaDescription(caption);
                 
                 // Skip generic success messages - they're redundant when video is already sent
-                const genericSuccessPatterns = [
-                  /^✅\s*וידאו\s*נוצר\s*בהצלחה/i,
-                  /^✅\s*וידאו\s*נוצר/i,
-                  /^✅\s*video\s*created\s*successfully/i,
-                  /^✅\s*successfully\s*created/i
-                ];
-                const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
-                
-                if (isGenericSuccess) {
+                if (isGenericSuccessMessage(textToCheck.trim(), 'video')) {
                   logger.debug(`⏭️ [Multi-step Fallback] Skipping generic success message after video`);
                 }
                 // Only send if text is meaningfully different from caption
@@ -407,22 +374,11 @@ class MultiStepExecution {
             
             // Success message (optional) - only if no media was sent
             // Skip generic success messages if media was already sent
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            if ((result as any).data && !result.imageUrl && !result.videoUrl) {
-              const dataText = String((result as any).data).trim();
+            if (result.data && typeof result.data === 'string' && !result.imageUrl && !result.videoUrl) {
+              const dataText = result.data.trim();
               // Skip generic success messages - they're redundant
-              const genericSuccessPatterns = [
-                /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
-                /^✅\s*תמונה\s*נוצרה/i,
-                /^✅\s*נוצרה\s*בהצלחה/i,
-                /^✅\s*image\s*created\s*successfully/i,
-                /^✅\s*successfully\s*created/i
-              ];
-              const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(dataText));
-              
-              if (!isGenericSuccess) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                await greenApiService.sendTextMessage(chatId, (result as any).data, quotedMessageId || undefined, 1000);
+              if (!isGenericSuccessMessage(dataText)) {
+                await greenApiService.sendTextMessage(chatId, dataText, quotedMessageId || undefined, 1000);
               } else {
                 logger.debug(`⏭️ [Multi-step Fallback] Skipping generic success message: ${dataText}`);
               }
@@ -433,8 +389,7 @@ class MultiStepExecution {
             const errorMsg = result?.error || 'Unknown error';
             logger.warn(`❌ [Multi-step Fallback] ${provider} failed: ${errorMsg}`);
             // Don't send error if it was already sent by ProviderFallback
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            if (!(result as any)?.errorsAlreadySent) {
+            if (!result?.errorsAlreadySent) {
               const formattedError = formatProviderError(provider, errorMsg);
               await greenApiService.sendTextMessage(chatId, formattedError, quotedMessageId || undefined, 1000);
             }

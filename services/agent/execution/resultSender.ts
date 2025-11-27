@@ -5,7 +5,7 @@
 
 import { getServices } from '../utils/serviceLoader';
 import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
-import { cleanJsonWrapper, cleanMediaDescription } from '../../../utils/textSanitizer';
+import { cleanJsonWrapper, cleanMediaDescription, isGenericSuccessMessage } from '../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../services/whatsapp/utils';
 import logger from '../../../utils/logger';
 
@@ -131,16 +131,7 @@ class ResultSender {
       // If no caption but text exists and is not a generic success message, use text as caption
       if (!caption && stepResult.text && stepResult.text.trim()) {
         const textToCheck = cleanMediaDescription(stepResult.text);
-        const genericSuccessPatterns = [
-          /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
-          /^✅\s*תמונה\s*נוצרה/i,
-          /^✅\s*נוצרה\s*בהצלחה/i,
-          /^✅\s*image\s*created\s*successfully/i,
-          /^✅\s*successfully\s*created/i
-        ];
-        const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
-        
-        if (!isGenericSuccess) {
+        if (!isGenericSuccessMessage(textToCheck.trim(), 'image')) {
           caption = stepResult.text;
         }
       }
@@ -159,16 +150,7 @@ class ResultSender {
         const captionToCheck = cleanMediaDescription(caption);
         
         // Skip generic success messages - they're redundant when image is already sent
-        const genericSuccessPatterns = [
-          /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
-          /^✅\s*תמונה\s*נוצרה/i,
-          /^✅\s*נוצרה\s*בהצלחה/i,
-          /^✅\s*image\s*created\s*successfully/i,
-          /^✅\s*successfully\s*created/i
-        ];
-        const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
-        
-        if (isGenericSuccess) {
+        if (isGenericSuccessMessage(textToCheck.trim(), 'image')) {
           logger.debug(`⏭️ [ResultSender] Skipping generic success message after image${stepInfo}`);
         }
         // Only send if text is meaningfully different from caption (more than just whitespace/formatting)
@@ -212,15 +194,7 @@ class ResultSender {
       // If no caption but text exists and is not a generic success message, use text as caption
       if (!caption && stepResult.text && stepResult.text.trim()) {
         const textToCheck = cleanMediaDescription(stepResult.text);
-        const genericSuccessPatterns = [
-          /^✅\s*וידאו\s*נוצר\s*בהצלחה/i,
-          /^✅\s*וידאו\s*נוצר/i,
-          /^✅\s*video\s*created\s*successfully/i,
-          /^✅\s*successfully\s*created/i
-        ];
-        const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
-        
-        if (!isGenericSuccess) {
+        if (!isGenericSuccessMessage(textToCheck.trim(), 'video')) {
           caption = stepResult.text;
         }
       }
@@ -239,15 +213,7 @@ class ResultSender {
         const captionToCheck = cleanMediaDescription(caption);
         
         // Skip generic success messages - they're redundant when video is already sent
-        const genericSuccessPatterns = [
-          /^✅\s*וידאו\s*נוצר\s*בהצלחה/i,
-          /^✅\s*וידאו\s*נוצר/i,
-          /^✅\s*video\s*created\s*successfully/i,
-          /^✅\s*successfully\s*created/i
-        ];
-        const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
-        
-        if (isGenericSuccess) {
+        if (isGenericSuccessMessage(textToCheck.trim(), 'video')) {
           logger.debug(`⏭️ [ResultSender] Skipping generic success message after video${stepInfo}`);
         }
         // Only send if text is meaningfully different from caption
@@ -323,15 +289,7 @@ class ResultSender {
       // For images: if text is just a generic success message (like "✅ תמונה נוצרה בהצלחה!"), don't send
       // The image with caption is already sent, no need for additional generic text
       if (stepResult.imageUrl) {
-        const genericSuccessPatterns = [
-          /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
-          /^✅\s*תמונה\s*נוצרה/i,
-          /^✅\s*נוצרה\s*בהצלחה/i,
-          /^✅\s*image\s*created\s*successfully/i,
-          /^✅\s*successfully\s*created/i
-        ];
-        const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
-        if (isGenericSuccess) {
+        if (isGenericSuccessMessage(textToCheck.trim(), 'image')) {
           logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - generic success message, image already sent`);
           return;
         }
