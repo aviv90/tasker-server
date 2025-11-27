@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import conversationManager from '../../conversationManager';
 import { cleanThinkingPatterns } from '../../../utils/agentHelpers';
 import { allTools as agentTools } from '../tools';
-import { sendToolAckMessage } from '../utils/ackUtils';
+import { sendToolAckMessage, FunctionCall } from '../utils/ackUtils';
 import { getServices } from '../utils/serviceLoader';
 import { extractQuotedMessageId } from '../../../utils/messageHelpers';
 import { cleanJsonWrapper } from '../../../utils/textSanitizer';
@@ -38,6 +38,17 @@ interface AgentResult {
   error?: string;
 }
 
+interface ToolFunctionResponse {
+  functionResponse: {
+    name: string;
+    response: {
+      success?: boolean;
+      error?: string;
+      [key: string]: unknown;
+    };
+  };
+}
+
 // Note: genAI is initialized but currently unused in this specific file, kept for potential future direct use
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 void genAI; // Suppress unused warning
@@ -60,7 +71,7 @@ class AgentLoop {
       logger.debug(`🔄 [Agent] Iteration ${iterationCount}/${maxIterations}`);
 
       const result = response.response;
-      const functionCalls = result.functionCalls();
+      const functionCalls = result.functionCalls() as FunctionCall[] | undefined;
 
       if (!functionCalls || functionCalls.length === 0) {
         // No more function calls - final answer
@@ -149,17 +160,17 @@ class AgentLoop {
       await sendToolAckMessage(chatId, functionCalls, quotedMessageId || undefined);
 
       // Execute all tools in parallel
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const toolPromises = functionCalls.map(async (call: any) => {
+      const toolPromises = functionCalls.map(async (call: FunctionCall) => {
         return await this.executeTool(call, context);
       });
 
-      const functionResponses = await Promise.all(toolPromises);
+      const functionResponses = (await Promise.all(toolPromises)) as ToolFunctionResponse[];
 
       // Log execution summary
       if (functionResponses.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const successCount = functionResponses.filter((fr: any) => fr.functionResponse.response.success !== false).length;
+        const successCount = functionResponses.filter(
+          (fr) => fr.functionResponse.response.success !== false
+        ).length;
         const failCount = functionResponses.length - successCount;
         logger.debug(`📊 [Agent] Tool execution: ${successCount} succeeded, ${failCount} failed`);
       }

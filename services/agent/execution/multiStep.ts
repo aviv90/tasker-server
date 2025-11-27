@@ -4,7 +4,7 @@
  */
 
 import { executeSingleStep } from './singleStep';
-import { sendToolAckMessage } from '../utils/ackUtils';
+import { sendToolAckMessage, FunctionCall } from '../utils/ackUtils';
 import { formatProviderError } from '../../../utils/errorHandler';
 import { getServices } from '../utils/serviceLoader';
 import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
@@ -114,8 +114,8 @@ class MultiStepExecution {
         logger.debug(`📢 [Multi-step] Sending Ack for Step ${step.stepNumber}/${plan.steps.length} (${toolName}) BEFORE execution`);
         // Get quotedMessageId from options.input if available
         const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await sendToolAckMessage(chatId, [{ name: toolName, args: toolParams }] as any[], quotedMessageId || undefined);
+        const ackCalls: FunctionCall[] = [{ name: toolName, args: toolParams }];
+        await sendToolAckMessage(chatId, ackCalls, quotedMessageId || undefined);
       }
       
       // Build focused prompt for this step
@@ -273,8 +273,8 @@ class MultiStepExecution {
         logger.debug(`🔄 [Multi-step Fallback] Trying ${provider}...`);
         
         // Send Ack for this fallback attempt
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await sendToolAckMessage(chatId, [{ name: toolName, args: { provider } }] as any[], quotedMessageId || undefined);
+        const ackCalls: FunctionCall[] = [{ name: toolName, args: { provider } }];
+        await sendToolAckMessage(chatId, ackCalls, quotedMessageId || undefined);
         
         try {
           const result = await this.executeFallbackTool(toolName, provider, toolParams, step, chatId);

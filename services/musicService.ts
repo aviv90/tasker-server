@@ -3,7 +3,7 @@
  * Main service for music generation operations
  */
 
-import { MusicGeneration } from './music/generation';
+import { MusicGeneration, MusicGenerationOptions as InternalMusicGenerationOptions } from './music/generation';
 import { MusicCallbacks } from './music/callbacks';
 import { MusicVideo } from './music/video';
 import { MusicWhatsAppDelivery, WhatsAppContext, MusicResult } from './music/whatsappDelivery';
@@ -68,32 +68,56 @@ class MusicService implements MusicServiceInterface {
 
   // ═══════════════════ GENERATION ═══════════════════
 
-  async generateMusicWithLyrics(prompt: string, options: MusicGenerationOptions = {}): Promise<unknown> {
+  async generateMusicWithLyrics(
+    prompt: string,
+    options: MusicGenerationOptions = {}
+  ): Promise<unknown> {
     if (!this.generationManager) {
       return { error: 'MusicService: generationManager is not initialized' };
     }
-    return this.generationManager.generateMusicWithLyrics(prompt, options);
+    return this.generationManager.generateMusicWithLyrics(
+      prompt,
+      options as InternalMusicGenerationOptions
+    );
   }
 
-  async generateInstrumentalMusic(prompt: string, options: MusicGenerationOptions = {}): Promise<unknown> {
+  async generateInstrumentalMusic(
+    prompt: string,
+    options: MusicGenerationOptions = {}
+  ): Promise<unknown> {
     if (!this.generationManager) {
       return { error: 'MusicService: generationManager is not initialized' };
     }
-    return this.generationManager.generateInstrumentalMusic(prompt, options);
+    return this.generationManager.generateInstrumentalMusic(
+      prompt,
+      options as InternalMusicGenerationOptions
+    );
   }
 
-  async generateAdvancedMusic(prompt: string, options: MusicGenerationOptions = {}): Promise<unknown> {
+  async generateAdvancedMusic(
+    prompt: string,
+    options: MusicGenerationOptions = {}
+  ): Promise<unknown> {
     if (!this.generationManager) {
       return { error: 'MusicService: generationManager is not initialized' };
     }
-    return this.generationManager.generateAdvancedMusic(prompt, options);
+    return this.generationManager.generateAdvancedMusic(
+      prompt,
+      options as InternalMusicGenerationOptions
+    );
   }
 
-  async generateSongFromSpeech(audioBuffer: Buffer, options: MusicGenerationOptions = {}): Promise<unknown> {
+  async generateSongFromSpeech(
+    audioBuffer: Buffer,
+    options: MusicGenerationOptions = {}
+  ): Promise<unknown> {
     if (!this.generationManager) {
       return { error: 'MusicService: generationManager is not initialized' };
     }
-    return this.generationManager.generateSongFromSpeech(audioBuffer, options);
+    return this.generationManager.generateSongFromSpeech(
+      audioBuffer,
+      options as InternalMusicGenerationOptions
+    );
   }
 
   // ═══════════════════ CALLBACKS ═══════════════════
