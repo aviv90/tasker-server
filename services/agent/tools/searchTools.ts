@@ -197,10 +197,23 @@ export const search_building_plans = {
 שאלה:
 ${args.question}`;
 
+      logger.info('🔧 [search_building_plans] Preparing request', {
+        model: (config as any).models?.gemini?.defaultModel || 'gemini-2.0-flash-exp',
+        storeName,
+        // Check if storeName looks valid
+        validFormat: storeName.startsWith('fileSearchStores/')
+      });
+
       // Use the new SDK (@google/genai) structure which supports File Search properly
+      // Explicitly construct content and tool objects to ensure correct serialization
       const response = await googleGenAI.models.generateContent({
         model: ((config as any).models?.gemini?.defaultModel as string) || 'gemini-2.0-flash-exp',
-        contents: userPrompt,
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: userPrompt }]
+          }
+        ],
         config: {
           tools: [
             {
