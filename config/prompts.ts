@@ -43,7 +43,6 @@ CRITICAL - Common SINGLE-STEP patterns (NOT multi-step):
 - "כתוב שיר" / "לכתוב שיר" / "write song" → SINGLE text response (NO tool! Just write lyrics as text)
 - "צור שיר" / "יצירת שיר" / "create song" / "make music" / "שיר עם מנגינה" → SINGLE create_music
 - "מתי כל חבר יכול להיפגש" / "מה דיברנו על X" / "מי אמר Y" / "מתי נקבעה הפגישה" / "איזה מידע יש על X בשיחה" → SINGLE get_chat_history (questions about chat/group)
-• Questions about the demo building plans / שרטוט הבניין / תוכנית הבניין / קומות / חדרים / ממ\"ד בבניין הדמו → SINGLE search_building_plans (NOT multi-step, NOT analyze_image). Use search_building_plans as a single step unless the user EXPLICITLY asks for another action "ואז ..." after the building query.
 
 CRITICAL - Only multi-step if EXPLICIT sequence:
 - "שלח מיקום **ואז** תמונה" → MULTI (has "ואז")

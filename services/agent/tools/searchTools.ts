@@ -1,13 +1,9 @@
 /**
- * Search Tools - Web & RAG search capabilities
+ * Search Tools - Web search capabilities
  * Clean, modular tool definitions following SOLID principles
  */
 
-// Gemini File Search (RAG) client
-// Using the new @google/genai SDK for proper File Search support
-import { GoogleGenAI } from '@google/genai';
-import { GoogleGenerativeAI } from '@google/generative-ai'; // Keep for search_web compatibility
-import { config } from '../../../config';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getServices } from '../utils/serviceLoader';
 import logger from '../../../utils/logger';
 import prompts from '../../../config/prompts';
@@ -33,11 +29,8 @@ type ToolResult = Promise<{
   error?: string;
 }>;
 
-// Initialize Gemini client for File Search (RAG)
+// Initialize Gemini client for search_web (Google Search)
 const geminiApiKey = process.env.GEMINI_API_KEY || '';
-// Use new SDK for File Search (RAG)
-const googleGenAI = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
-// Use legacy SDK for search_web (Google Search) to maintain compatibility
 // @ts-ignore
 const googleAI = new GoogleGenerativeAI(geminiApiKey);
 
@@ -126,174 +119,8 @@ export const search_web = {
   }
 };
 
-/**
- * Tool: search_building_plans
- * Use Gemini File Search Store with demo building plans PDF (RAG)
- */
-type SearchBuildingPlansArgs = {
-  question?: string;
-};
-
-export const search_building_plans = {
-  declaration: {
-    name: 'search_building_plans',
-    description:
-      'חפש מידע בשרטוטי הבנייה של הדמו (PDF) באמצעות Gemini File Search. השתמש בכלי הזה רק כשברור שהמשתמש שואל על תוכנית הבנייה / שרטוט / קומות / חדרים בבניין הדמו.',
-    parameters: {
-      type: 'object',
-      properties: {
-        question: {
-          type: 'string',
-          description:
-            'השאלה המדויקת לגבי שרטוטי הבנייה (לדוגמה: "איפה חדר המדרגות בקומה 2?", "כמה חדרי שינה יש בתוכנית?")'
-        }
-      },
-      required: ['question']
-    }
-  },
-  execute: async (args: SearchBuildingPlansArgs = {}, context: AgentToolContext = {}): ToolResult => {
-    logger.debug('🔧 [Agent Tool] search_building_plans called', { question: args.question });
-
-    try {
-      if (!args.question) {
-        return {
-          success: false,
-          error: 'חובה לציין שאלה לגבי שרטוטי הבנייה'
-        };
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const storeName =
-        (config as any).rag?.buildingDemoStoreName || (config as any).models?.gemini?.fileSearchStore || null;
-
-      if (!storeName) {
-        logger.error('❌ No File Search Store configured for building plans RAG');
-        return {
-          success: false,
-          error:
-            'לא הוגדר File Search Store לשרטוטי הבנייה (חסר GEMINI_BUILDING_DEMO_STORE או GEMINI_MODEL_FILE_SEARCH_STORE)'
-        };
-      }
-
-      if (!googleGenAI) {
-        logger.error('❌ Failed to initialize GoogleGenAI client');
-        return {
-          success: false,
-          error: 'שגיאה באתחול Gemini Client'
-        };
-      }
-
-      const language =
-        context?.originalInput?.language || context?.normalized?.language || 'he';
-      const normalizedLanguage =
-        typeof language === 'string' ? language.toLowerCase() : 'he';
-      const languageInstruction = getLanguageInstruction(normalizedLanguage);
-
-      // Enhanced prompt that explicitly requests visual analysis of diagrams, floor plans, and room layouts
-      const userPrompt = `${languageInstruction}
-
-אתה עוזר בתחום שרטוטי בנייה. אתה מנתח שרטוט בנייה (PDF) שכולל תוכניות קומות, דיאגרמות, ותרשימים.
-
-**חשוב מאוד:**
-- הקובץ כולל תוכניות קומות עם חדרים, דלתות, חלונות, מדרגות, ממ"ד, וכו'
-- נדרש ממך לנתח את המבנה הויזואלי של השרטוט, לא רק טקסט
-- ספור חדרים, זהה מיקומים, תאר את המבנה והחלוקה
-- התייחס למידע שנמצא בקובץ/ים שבמאגר File Search של שרטוט הבניין הדמו
-- אם המידע לא מופיע שם, תגיד שאין לך מספיק מידע מתוך השרטוט
-
-שאלה:
-${args.question}`;
-
-      // Use gemini-3-pro-preview for building plans analysis (best model for PDF/RAG analysis)
-      // This model is specifically optimized for complex document understanding and analysis
-      // It has superior vision capabilities for analyzing floor plans, diagrams, and architectural drawings
-      const modelForBuildingPlans = 'gemini-3-pro-preview';
-
-      logger.info('🔧 [search_building_plans] Preparing hybrid analysis (RAG + Visual)', {
-        model: modelForBuildingPlans,
-        storeName,
-        // Check if storeName looks valid
-        validFormat: storeName.startsWith('fileSearchStores/'),
-        question: args.question
-      });
-
-      // HYBRID APPROACH: Combine File Search (RAG) with enhanced visual analysis
-      // File Search provides semantic search over text chunks, while gemini-3-pro-preview
-      // has enhanced vision capabilities to analyze diagrams, floor plans, and architectural drawings
-      // The model can "see" and understand the visual structure of the PDF through File Search
-      const response = await googleGenAI.models.generateContent({
-        model: modelForBuildingPlans,
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: userPrompt }]
-          }
-        ],
-        config: {
-          tools: [
-            {
-              fileSearch: {
-                fileSearchStoreNames: [storeName]
-              }
-            }
-          ],
-          // Enhanced generation config for better visual understanding and accurate analysis
-          temperature: 0.3, // Lower temperature for more accurate, factual analysis
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 8192 // Allow longer responses for detailed analysis
-        }
-      });
-
-      // In the new @google/genai SDK, response.text is a getter property
-      const text = response.text || '';
-
-      if (!text) {
-        logger.warn('⚠️ [search_building_plans] Empty response from Gemini File Search');
-        return {
-          success: false,
-          error: 'לא הצלחתי למצוא מידע רלוונטי בשרטוטי הבנייה'
-        };
-      }
-
-      // Check if response seems too generic (indicates visual analysis might be needed)
-      const isGenericResponse = text.length < 100 || 
-        text.includes('אין לי מספיק מידע') || 
-        text.includes('לא מופיע') ||
-        text.toLowerCase().includes('general') ||
-        text.toLowerCase().includes('לא ברור');
-
-      if (isGenericResponse) {
-        logger.warn('⚠️ [search_building_plans] Response seems generic - File Search may not have visual context');
-        // Still return the result, but log a warning
-        logger.info('💡 [search_building_plans] Consider: PDF may need direct visual analysis via Files API');
-      }
-
-      logger.info(
-        `✅ [search_building_plans] Got hybrid analysis result (${text.length} chars, ${isGenericResponse ? 'generic' : 'detailed'})`
-      );
-
-      return {
-        success: true,
-        data: text
-      };
-    } catch (error) {
-      const err = error as Error;
-      logger.error('❌ Error in search_building_plans tool:', {
-        error: err.message,
-        stack: err.stack
-      });
-      return {
-        success: false,
-        error: `שגיאה בחיפוש בשרטוטי הבנייה: ${err.message}`
-      };
-    }
-  }
-};
-
 module.exports = {
-  search_web,
-  search_building_plans
+  search_web
 };
 
 

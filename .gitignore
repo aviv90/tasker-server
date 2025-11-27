@@ -6,4 +6,4 @@
 
 # TypeScript
 /dist
-*.tsbuildinfo
+*.tsbuildinfo.env.bak
