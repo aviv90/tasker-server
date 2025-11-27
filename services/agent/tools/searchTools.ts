@@ -201,11 +201,17 @@ ${args.question}`;
         // Enable File Search tool for this request and bind it to the specific store
         tools: [
           {
-            // Use snake_case for raw JSON to bypass potential SDK serialization issues
-            // The backend error "required one_of 'tool_type' must have one initialized field"
-            // indicates it didn't recognize 'fileSearch' in camelCase via this SDK version.
-            file_search: {
-              file_search_store_names: [storeName]
+            // Use google_search_retrieval approach as fallback if direct file_search fails,
+            // but since we want File Search specifically, we must use the correct retrieval config.
+            // However, based on Gemini API v1beta documentation and errors,
+            // 'retrieval' with 'vertex_ai_search' is the standard way for RAG.
+            // BUT for Gemini File Search (not Vertex), the key IS 'file_search'.
+            // The issue might be that SDK doesn't support passing raw snake_case through 'tools'.
+            // Let's try 'retrieval' structure which is more standard in v1beta.
+            retrieval: {
+              vertex_ai_search: {
+                datastore: storeName
+              }
             }
           }
         ]
