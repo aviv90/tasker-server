@@ -4,7 +4,8 @@
  */
 
 // Gemini File Search (RAG) client
-import { GoogleGenAI } from '@google/genai';
+// Use the same SDK as the rest of the Gemini text stack for consistency
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../../../config';
 import { getServices } from '../utils/serviceLoader';
 import logger from '../../../utils/logger';
@@ -33,7 +34,7 @@ type ToolResult = Promise<{
 
 // Initialize Gemini client for File Search (RAG)
 const geminiApiKey = process.env.GEMINI_API_KEY || '';
-const googleAI = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
+const googleAI = geminiApiKey ? new GoogleGenerativeAI({ apiKey: geminiApiKey }) : null;
 
 /**
  * Tool: search_web
@@ -183,9 +184,7 @@ export const search_building_plans = {
         typeof language === 'string' ? language.toLowerCase() : 'he';
       const languageInstruction = getLanguageInstruction(normalizedLanguage);
 
-      // Type definitions for @google/genai may not yet expose getGenerativeModel,
-      // so we use a safe any-cast here to avoid TS errors while keeping runtime behavior.
-      const model = (googleAI as any).getGenerativeModel({
+      const model = googleAI.getGenerativeModel({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         model: ((config as any).models?.gemini?.defaultModel as string) || 'gemini-2.0-flash-exp'
       });
