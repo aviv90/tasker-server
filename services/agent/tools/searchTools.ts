@@ -198,7 +198,7 @@ export const search_building_plans = {
 ${args.question}`;
 
       logger.info('🔧 [search_building_plans] Preparing request', {
-        model: (config as any).models?.gemini?.defaultModel || 'gemini-2.0-flash-exp',
+        model: (config as any).models?.gemini?.defaultModel || 'gemini-2.5-flash',
         storeName,
         // Check if storeName looks valid
         validFormat: storeName.startsWith('fileSearchStores/')
@@ -207,7 +207,7 @@ ${args.question}`;
       // Use the new SDK (@google/genai) structure which supports File Search properly
       // Explicitly construct content and tool objects to ensure correct serialization
       const response = await googleGenAI.models.generateContent({
-        model: ((config as any).models?.gemini?.defaultModel as string) || 'gemini-2.0-flash-exp',
+        model: ((config as any).models?.gemini?.defaultModel as string) || 'gemini-2.5-flash',
         contents: [
           {
             role: 'user',

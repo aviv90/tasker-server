@@ -97,7 +97,7 @@ export const config = {
   // AI Model Configuration
   models: {
     gemini: {
-      defaultModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp',
+      defaultModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
       apiVersion: 'v1beta',
       // Optional: default File Search store for RAG scenarios
       fileSearchStore: process.env.GEMINI_FILE_SEARCH_STORE || null
