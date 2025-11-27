@@ -201,10 +201,11 @@ ${args.question}`;
         // Enable File Search tool for this request and bind it to the specific store
         tools: [
           {
-            fileSearch: {
-              // According to @google/genai types, FileSearch tool expects fileSearchStoreNames
-              // Example: fileSearchStoreNames: ['fileSearchStores/my-file-search-store-123']
-              fileSearchStoreNames: [storeName]
+            // Use snake_case for raw JSON to bypass potential SDK serialization issues
+            // The backend error "required one_of 'tool_type' must have one initialized field"
+            // indicates it didn't recognize 'fileSearch' in camelCase via this SDK version.
+            file_search: {
+              file_search_store_names: [storeName]
             }
           }
         ]
