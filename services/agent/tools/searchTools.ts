@@ -198,17 +198,18 @@ ${args.question}`;
             parts: [{ text: userPrompt }]
           }
         ],
-        tools: [{ fileSearch: {} }],
-        toolConfig: {
-          fileSearch: {
-            // According to experimental File Search API, we reference the store by name
-            fileSearchEntities: [
-              {
-                fileSearchStore: storeName
-              }
-            ]
+        // Enable File Search tool for this request and bind it to the specific store
+        tools: [
+          {
+            fileSearch: {
+              fileSearchEntities: [
+                {
+                  fileSearchStore: storeName
+                }
+              ]
+            }
           }
-        }
+        ]
       };
 
       const result = await model.generateContent(generateConfig);
