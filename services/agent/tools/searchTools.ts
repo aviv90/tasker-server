@@ -33,8 +33,8 @@ type ToolResult = Promise<{
 }>;
 
 // Initialize Gemini client for File Search (RAG)
-const geminiApiKey = process.env.GEMINI_API_KEY || '';
-const googleAI = geminiApiKey ? new GoogleGenerativeAI({ apiKey: geminiApiKey }) : null;
+// Use same pattern as other Gemini services (textOperations, agentService, etc.)
+const googleAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 /**
  * Tool: search_web
@@ -157,14 +157,6 @@ export const search_building_plans = {
         };
       }
 
-      if (!googleAI) {
-        logger.error('❌ GEMINI_API_KEY is not configured for File Search');
-        return {
-          success: false,
-          error: 'חסר מפתח GEMINI_API_KEY ל-Gemini File Search'
-        };
-      }
-
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const storeName =
         (config as any).rag?.buildingDemoStoreName || (config as any).models?.gemini?.fileSearchStore || null;
@@ -197,29 +189,29 @@ export const search_building_plans = {
 שאלה:
 ${args.question}`;
 
-      const result = await model.generateContent({
+      // Build generateContent config as 'any' to allow experimental File Search fields
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const generateConfig: any = {
         contents: [
           {
             role: 'user',
             parts: [{ text: userPrompt }]
           }
         ],
-        // Enable File Search tool
         tools: [{ fileSearch: {} }],
-        // Configure which File Search Store to use
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         toolConfig: {
           fileSearch: {
-            // According to @google/genai File Search API, we reference the store by name
-            // If API changes, adjust this shape accordingly.
+            // According to experimental File Search API, we reference the store by name
             fileSearchEntities: [
               {
                 fileSearchStore: storeName
               }
             ]
           }
-        } as any
-      });
+        }
+      };
+
+      const result = await model.generateContent(generateConfig);
 
       const text =
         result.response.candidates?.[0]?.content?.parts
