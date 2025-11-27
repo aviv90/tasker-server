@@ -110,12 +110,24 @@ export async function sendImageResult(chatId: string, agentResult: AgentResult, 
   // If there's additional text beyond the caption, send it in a separate message
   // This ensures users get both the image with caption AND any additional context/description
   if (agentResult.text && agentResult.text.trim()) {
-    // Check if text is different from caption (to avoid duplicates)
     const textToCheck = cleanMediaDescription(agentResult.text);
     const captionToCheck = cleanMediaDescription(caption);
     
+    // Skip generic success messages - they're redundant when image is already sent
+    const genericSuccessPatterns = [
+      /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
+      /^✅\s*תמונה\s*נוצרה/i,
+      /^✅\s*נוצרה\s*בהצלחה/i,
+      /^✅\s*image\s*created\s*successfully/i,
+      /^✅\s*successfully\s*created/i
+    ];
+    const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
+    
+    if (isGenericSuccess) {
+      logger.debug(`⏭️ [Image] Skipping generic success message after image`);
+    }
     // Only send if text is meaningfully different from caption (more than just whitespace/formatting)
-    if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
+    else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
       const additionalText = cleanAgentText(agentResult.text);
       if (additionalText && additionalText.trim()) {
         logger.debug(`📝 [Image] Sending additional text after image (${additionalText.length} chars)`);
@@ -271,36 +283,52 @@ export async function sendSingleStepText(chatId: string, agentResult: AgentResul
   if (!agentResult.multiStep && agentResult.text && agentResult.text.trim()) {
     const multipleTools = (agentResult.toolsUsed && agentResult.toolsUsed.length > 1);
 
-    if (!multipleTools) {
-      // Single tool: Check if text is different from caption (to avoid duplicates)
-      let shouldSendText = true;
-      
-      if (mediaSent) {
-        // If media was sent, check if text is just the caption (already sent with media)
-        const textToCheck = cleanMediaDescription(agentResult.text);
-        const imageCaption = agentResult.imageCaption ? cleanMediaDescription(agentResult.imageCaption) : '';
+      if (!multipleTools) {
+        // Single tool: Check if text is different from caption (to avoid duplicates)
+        let shouldSendText = true;
         
-        // For images: if text is same as caption, don't send again
-        if (agentResult.imageUrl && textToCheck.trim() === imageCaption.trim()) {
-          shouldSendText = false;
-          logger.debug(`ℹ️ [Text] Skipping text - same as image caption`);
+        if (mediaSent) {
+          // If media was sent, check if text is just the caption (already sent with media)
+          const textToCheck = cleanMediaDescription(agentResult.text);
+          const imageCaption = agentResult.imageCaption ? cleanMediaDescription(agentResult.imageCaption) : '';
+          
+          // For images: skip generic success messages - they're redundant when image is already sent
+          if (agentResult.imageUrl) {
+            const genericSuccessPatterns = [
+              /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
+              /^✅\s*תמונה\s*נוצרה/i,
+              /^✅\s*נוצרה\s*בהצלחה/i,
+              /^✅\s*image\s*created\s*successfully/i,
+              /^✅\s*successfully\s*created/i
+            ];
+            const isGenericSuccess = genericSuccessPatterns.some(pattern => pattern.test(textToCheck.trim()));
+            
+            if (isGenericSuccess) {
+              shouldSendText = false;
+              logger.debug(`⏭️ [Text] Skipping generic success message after image`);
+            }
+            // If text is same as caption, don't send again
+            else if (textToCheck.trim() === imageCaption.trim()) {
+              shouldSendText = false;
+              logger.debug(`ℹ️ [Text] Skipping text - same as image caption`);
+            }
+          }
+          // For videos: text is already sent separately in sendVideoResult
+          else if (agentResult.videoUrl) {
+            shouldSendText = false;
+            logger.debug(`ℹ️ [Text] Skipping text - already sent with video`);
+          }
+          // For audio: audio IS the response, no additional text needed
+          else if (agentResult.audioUrl) {
+            shouldSendText = false;
+            logger.debug(`ℹ️ [Text] Skipping text - audio is the response`);
+          }
+          // For other media: send text if it's meaningfully different
+          else if (textToCheck.trim().length < 20) {
+            shouldSendText = false;
+            logger.debug(`ℹ️ [Text] Skipping text - too short to be meaningful`);
+          }
         }
-        // For videos: text is already sent separately in sendVideoResult
-        else if (agentResult.videoUrl) {
-          shouldSendText = false;
-          logger.debug(`ℹ️ [Text] Skipping text - already sent with video`);
-        }
-        // For audio: audio IS the response, no additional text needed
-        else if (agentResult.audioUrl) {
-          shouldSendText = false;
-          logger.debug(`ℹ️ [Text] Skipping text - audio is the response`);
-        }
-        // For other media: send text if it's meaningfully different
-        else if (textToCheck.trim().length < 20) {
-          shouldSendText = false;
-          logger.debug(`ℹ️ [Text] Skipping text - too short to be meaningful`);
-        }
-      }
       
       if (shouldSendText) {
         const cleanText = cleanAgentText(agentResult.text);

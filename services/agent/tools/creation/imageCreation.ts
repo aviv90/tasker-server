@@ -139,7 +139,7 @@ export const create_image = {
 
       return {
         success: true,
-        data: '✅ תמונה נוצרה בהצלחה!',
+        // No generic success message - image is sent with caption, no need for redundant text
         imageUrl: providerResult.imageUrl,
         imageCaption: caption,
         provider: providerName
