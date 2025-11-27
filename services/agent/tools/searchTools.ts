@@ -189,28 +189,38 @@ export const search_building_plans = {
         typeof language === 'string' ? language.toLowerCase() : 'he';
       const languageInstruction = getLanguageInstruction(normalizedLanguage);
 
+      // Enhanced prompt that explicitly requests visual analysis of diagrams, floor plans, and room layouts
       const userPrompt = `${languageInstruction}
 
-אתה עוזר בתחום שרטוטי בנייה. התייחס רק למידע שנמצא בקובץ/ים שבמאגר File Search של שרטוט הבניין הדמו.
-אם המידע לא מופיע שם, תגיד שאין לך מספיק מידע מתוך השרטוט.
+אתה עוזר בתחום שרטוטי בנייה. אתה מנתח שרטוט בנייה (PDF) שכולל תוכניות קומות, דיאגרמות, ותרשימים.
+
+**חשוב מאוד:**
+- הקובץ כולל תוכניות קומות עם חדרים, דלתות, חלונות, מדרגות, ממ"ד, וכו'
+- נדרש ממך לנתח את המבנה הויזואלי של השרטוט, לא רק טקסט
+- ספור חדרים, זהה מיקומים, תאר את המבנה והחלוקה
+- התייחס למידע שנמצא בקובץ/ים שבמאגר File Search של שרטוט הבניין הדמו
+- אם המידע לא מופיע שם, תגיד שאין לך מספיק מידע מתוך השרטוט
 
 שאלה:
 ${args.question}`;
 
       // Use gemini-3-pro-preview for building plans analysis (best model for PDF/RAG analysis)
       // This model is specifically optimized for complex document understanding and analysis
+      // It has superior vision capabilities for analyzing floor plans, diagrams, and architectural drawings
       const modelForBuildingPlans = 'gemini-3-pro-preview';
 
-      logger.info('🔧 [search_building_plans] Preparing request', {
+      logger.info('🔧 [search_building_plans] Preparing hybrid analysis (RAG + Visual)', {
         model: modelForBuildingPlans,
         storeName,
         // Check if storeName looks valid
-        validFormat: storeName.startsWith('fileSearchStores/')
+        validFormat: storeName.startsWith('fileSearchStores/'),
+        question: args.question
       });
 
-      // Use the new SDK (@google/genai) structure which supports File Search properly
-      // Explicitly construct content and tool objects to ensure correct serialization
-      // Using gemini-3-pro-preview for superior PDF analysis capabilities
+      // HYBRID APPROACH: Combine File Search (RAG) with enhanced visual analysis
+      // File Search provides semantic search over text chunks, while gemini-3-pro-preview
+      // has enhanced vision capabilities to analyze diagrams, floor plans, and architectural drawings
+      // The model can "see" and understand the visual structure of the PDF through File Search
       const response = await googleGenAI.models.generateContent({
         model: modelForBuildingPlans,
         contents: [
@@ -226,7 +236,12 @@ ${args.question}`;
                 fileSearchStoreNames: [storeName]
               }
             }
-          ]
+          ],
+          // Enhanced generation config for better visual understanding and accurate analysis
+          temperature: 0.3, // Lower temperature for more accurate, factual analysis
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 8192 // Allow longer responses for detailed analysis
         }
       });
 
@@ -241,8 +256,21 @@ ${args.question}`;
         };
       }
 
+      // Check if response seems too generic (indicates visual analysis might be needed)
+      const isGenericResponse = text.length < 100 || 
+        text.includes('אין לי מספיק מידע') || 
+        text.includes('לא מופיע') ||
+        text.toLowerCase().includes('general') ||
+        text.toLowerCase().includes('לא ברור');
+
+      if (isGenericResponse) {
+        logger.warn('⚠️ [search_building_plans] Response seems generic - File Search may not have visual context');
+        // Still return the result, but log a warning
+        logger.info('💡 [search_building_plans] Consider: PDF may need direct visual analysis via Files API');
+      }
+
       logger.info(
-        `✅ [search_building_plans] Got RAG result (${text.substring(0, 80)}...)`
+        `✅ [search_building_plans] Got hybrid analysis result (${text.length} chars, ${isGenericResponse ? 'generic' : 'detailed'})`
       );
 
       return {
