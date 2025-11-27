@@ -13,6 +13,7 @@ import * as analysisTools from './analysisTools';
 import * as editingTools from './editingTools';
 import * as audioTools from './audioTools';
 import * as searchTools from './searchTools';
+import * as driveTools from './driveTools';
 import * as locationTools from './locationTools';
 import * as summaryTools from './summaryTools';
 import * as groupTools from './groupTools';
@@ -56,6 +57,10 @@ export const {
 export const {
   search_web
 } = searchTools;
+
+export const {
+  search_google_drive
+} = driveTools;
 
 export const {
   send_location
@@ -131,6 +136,7 @@ export const allTools: Record<string, Tool> = {
   
   // Search & Info
   search_web: searchTools.search_web as unknown as Tool,
+  search_google_drive: driveTools.search_google_drive as unknown as Tool,
   chat_summary: summaryTools.chat_summary as unknown as Tool,
   
   // Location & Social

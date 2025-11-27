@@ -26,6 +26,7 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
 
   // Info tools
   search_web: 'מחפש באינטרנט... 🔎',
+  search_google_drive: 'מחפש ב-Google Drive... 📁',
   get_chat_history: 'שולף היסטוריה... 📜',
   get_long_term_memory: 'בודק העדפות... 💾',
   translate_text: 'מתרגם... 🌐',

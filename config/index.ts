@@ -42,6 +42,16 @@ export const config = {
     kie: process.env.KIE_API_KEY || null,
   },
 
+  // Google Drive Configuration
+  googleDrive: {
+    clientId: process.env.GOOGLE_DRIVE_CLIENT_ID || null,
+    clientSecret: process.env.GOOGLE_DRIVE_CLIENT_SECRET || null,
+    refreshToken: process.env.GOOGLE_DRIVE_REFRESH_TOKEN || null,
+    accessToken: process.env.GOOGLE_DRIVE_ACCESS_TOKEN || null,
+    redirectUri: process.env.GOOGLE_DRIVE_REDIRECT_URI || 'http://localhost:3000/oauth2callback',
+    folderId: process.env.GOOGLE_DRIVE_FOLDER_ID || null,
+  },
+
   // Database Configuration
   database: {
     url: process.env.DATABASE_URL || null,

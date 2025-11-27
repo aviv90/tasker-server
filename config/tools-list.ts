@@ -241,6 +241,19 @@ const TOOLS: Record<string, Tool> = {
     critical: 'Use ONLY for finding links/URLs to EXISTING content. NOT for creating new images/videos! "שלח תמונה של X" = create_image, NOT search_web!'
   },
 
+  search_google_drive: {
+    name: 'search_google_drive',
+    category: 'search',
+    description: 'Search and retrieve documents, images, and files from Google Drive. Can extract text from documents and images for RAG-like functionality.',
+    usage: ['חפש ב-Google Drive', 'חפש במסמכים', 'מה יש בתיקייה X', 'מצא מידע על Y ב-Drive', 'search in drive', 'find document about X', 'מה כתוב במסמך Y'],
+    parameters: {
+      query: { type: 'string', required: true, description: 'Search query for files and content' },
+      folder_id: { type: 'string', required: false, description: 'Specific folder ID to search in (optional)' },
+      max_results: { type: 'number', required: false, description: 'Maximum number of files to return (default: 5)' }
+    },
+    critical: 'Use ONLY for searching and retrieving information from Google Drive. NOT for web search (use search_web) or creating new content!'
+  },
+
   get_chat_history: {
     name: 'get_chat_history',
     category: 'context',
