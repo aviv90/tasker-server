@@ -26,7 +26,11 @@ const openai = new OpenAI({
  */
 interface VideoGenerationOptions {
     model?: 'sora-2' | 'sora-2-pro';
-    size?: string;
+    /**
+     * Supported sizes for Sora 2 / Sora 2 Pro.
+     * Kept as string union instead of generic string to avoid `any` casts.
+     */
+    size?: '1280x720' | '720x1280' | '1920x1080' | '1080x1920' | '1792x1024' | '1024x1792';
     seconds?: number;
 }
 
@@ -79,13 +83,15 @@ export async function generateVideoWithSora(
             logger.warn(`⚠️ Invalid duration ${seconds}s. Using 8 seconds (supported: 4, 8, 12)`);
             validSeconds = 8;
         }
-        
+
         // Create video generation job using SDK
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // The OpenAI SDK uses its own `VideoSize` / `VideoSeconds` unions, so we cast here narrowly.
         const video = await openai.videos.create({
-            model: model,
+            model,
             prompt: cleanPrompt,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             size: size as any,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             seconds: validSeconds.toString() as any
         });
         
@@ -174,13 +180,15 @@ export async function generateVideoWithSoraForWhatsApp(
             logger.warn(`⚠️ Invalid duration ${seconds}s. Using 8 seconds (supported: 4, 8, 12)`);
             validSeconds = 8;
         }
-        
+
         // Create video generation job using SDK
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // The OpenAI SDK uses its own `VideoSize` / `VideoSeconds` unions, so we cast here narrowly.
         const video = await openai.videos.create({
-            model: model,
+            model,
             prompt: cleanPrompt,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             size: size as any,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             seconds: validSeconds.toString() as any
         });
         
@@ -343,14 +351,18 @@ export async function generateVideoWithSoraFromImageForWhatsApp(
         
         // Create video generation job with input_reference
         logger.info('🎬 Creating Sora video with input_reference...');
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const video = await openai.videos.create({
-            model: model,
+            model,
             prompt: cleanPrompt,
-            size: targetSize as any, // MUST match resized image dimensions
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            size: targetSize as any,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             seconds: validSeconds.toString() as any,
-            input_reference: imageFile // Pass the File object directly
-        } as any);
+            // The OpenAI SDK accepts `input_reference`, but types are permissive here.
+            // We rely on runtime behaviour rather than over-typing this field.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            input_reference: imageFile as any
+        });
         
         const jobId = video.id;
         logger.info(`📋 Job created: ${jobId}, Status: ${video.status}`);

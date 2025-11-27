@@ -17,7 +17,7 @@ import audioConverterService from '../../audioConverterService';
 import logger from '../../../utils/logger';
 import { TIME } from '../../../utils/constants';
 import { routeToAgent } from '../../agentRouter';
-import { sendAgentResults, NormalizedInput } from '../../../routes/whatsapp/incoming/resultHandling';
+import { sendAgentResults, NormalizedInput, AgentResult as HandlerAgentResult } from '../../../routes/whatsapp/incoming/resultHandling';
 
 /**
  * Voice message handler parameters
@@ -90,7 +90,7 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
       
       // Use the same result handling logic as text commands
       // This ensures multi-step, captions, and all other features work identically
-      await sendAgentResults(chatId, agentResult as any, normalized);
+      await sendAgentResults(chatId, agentResult as HandlerAgentResult, normalized);
       
       logger.info(`✅ Command from voice message processed successfully`);
       return;

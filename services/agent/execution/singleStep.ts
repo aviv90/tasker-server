@@ -19,11 +19,17 @@ import logger from '../../../utils/logger';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
+type SingleStepFunctionDeclaration = {
+  name: string;
+  description?: string;
+  parameters?: unknown;
+};
+
 interface SingleStepOptions {
     maxIterations?: number;
     languageInstruction?: string;
     agentConfig?: { model: string };
-    functionDeclarations?: unknown[];
+    functionDeclarations?: SingleStepFunctionDeclaration[];
     systemInstruction?: string;
     expectedTool?: string | null;
 }

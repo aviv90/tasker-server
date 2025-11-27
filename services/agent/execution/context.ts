@@ -60,6 +60,9 @@ class AgentContext {
    * @param {Object} options - Options
    * @returns {Object} - Initial context object
    */
+  // Keep `options` as loose as possible because callers pass a wide AgentOptions structure.
+  // We only read a few known properties, everything else is forwarded opaquely.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   createInitialContext(chatId: string, options: Record<string, any> = {}): AgentContextState {
     return {
       chatId,
