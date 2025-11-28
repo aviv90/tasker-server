@@ -57,10 +57,17 @@ export async function searchFiles(options: SearchOptions = {}): Promise<{
 
     if (query && query.trim()) {
       const trimmed = query.trim();
-      // Escape single quotes
-      const escaped = trimmed.replace(/'/g, "\\'");
-      // Search in name and fullText for maximum recall
-      conditions.push(`(name contains '${escaped}' or fullText contains '${escaped}')`);
+      // Split into tokens to improve recall for natural language queries
+      const tokens = trimmed.split(/\s+/).filter(Boolean);
+      if (tokens.length > 0) {
+        const tokenConditions = tokens.map(rawToken => {
+          // Escape single quotes
+          const escapedToken = rawToken.replace(/'/g, "\\'");
+          return `(name contains '${escapedToken}' or fullText contains '${escapedToken}')`;
+        });
+        // Match if ANY token matches (OR between tokens)
+        conditions.push(`(${tokenConditions.join(' or ')})`);
+      }
     }
     
     if (folderId) {
