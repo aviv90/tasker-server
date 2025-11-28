@@ -51,21 +51,32 @@ export async function searchFiles(options: SearchOptions = {}): Promise<{
       orderBy = 'modifiedTime desc'
     } = options;
 
-    // Build query string
-    let q = query;
+    // Build Google Drive search query safely
+    // See: https://developers.google.com/drive/api/guides/search-files
+    const conditions: string[] = [];
+
+    if (query && query.trim()) {
+      const trimmed = query.trim();
+      // Escape single quotes
+      const escaped = trimmed.replace(/'/g, "\\'");
+      // Search in name and fullText for maximum recall
+      conditions.push(`(name contains '${escaped}' or fullText contains '${escaped}')`);
+    }
     
     if (folderId) {
-      q = q ? `${q} and '${folderId}' in parents` : `'${folderId}' in parents`;
+      conditions.push(`'${folderId}' in parents`);
     }
     
     if (mimeType) {
-      q = q ? `${q} and mimeType='${mimeType}'` : `mimeType='${mimeType}'`;
+      conditions.push(`mimeType='${mimeType}'`);
     }
 
-    // Trash exclusion
-    q = q ? `${q} and trashed=false` : 'trashed=false';
+    // Always exclude trashed files
+    conditions.push('trashed = false');
 
-    logger.debug(`🔍 [Google Drive] Searching with query: ${q}`);
+    const q = conditions.join(' and ');
+
+    logger.debug(`🔍 [Google Drive] Searching with query: ${q}`, { folderId, mimeType });
 
     const response = await drive.files.list({
       q,
