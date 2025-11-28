@@ -39,12 +39,12 @@ export async function handleClearAllConversations(
   // Clear DB conversations (includes cache invalidation)
   const deletedCount = await conversationManager.clearAllConversations();
   
-  // Clear message types and commands from DB
-  await conversationManager.clearAllMessageTypes();
-  await conversationManager.commandsManager.clearAll();
-  
-  // Clear agent context as well
-  await conversationManager.clearAgentContext(chatId);
+  // Clear message types, commands, and agent context in parallel (independent operations)
+  await Promise.all([
+    conversationManager.clearAllMessageTypes(),
+    conversationManager.commandsManager.clearAll(),
+    conversationManager.clearAgentContext(chatId)
+  ]);
   
   await greenApiService.sendTextMessage(
     chatId, 
@@ -78,8 +78,8 @@ export async function handleShowHistory(
         return !isSystemMessage;
       });
       
-      // Use for...of loop to support await
-      for (const msg of filteredMessages) {
+      // Process messages in parallel for better performance
+      const messagePromises = filteredMessages.map(async (msg) => {
         const message = msg as ChatMessage;
         const textContent = message.textMessage || 
                           message.caption || 
@@ -91,8 +91,11 @@ export async function handleShowHistory(
         const isFromBot = message.idMessage ? await conversationManager.isBotMessage(chatId, message.idMessage) : false;
         const role = isFromBot ? '🤖' : '👤';
         
-        historyText += `${role} ${textContent}\n\n`;
-      }
+        return `${role} ${textContent}`;
+      });
+      
+      const messageLines = await Promise.all(messagePromises);
+      historyText += messageLines.join('\n\n') + '\n\n';
       
       await greenApiService.sendTextMessage(chatId, historyText, originalMessageId || undefined, TIME.TYPING_INDICATOR);
     } else {
