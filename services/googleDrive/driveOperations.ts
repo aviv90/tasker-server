@@ -7,6 +7,8 @@
 import { getAuthenticatedDriveClient } from './authOperations';
 import logger from '../../utils/logger';
 import { getServices } from '../agent/utils/serviceLoader';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { get as getFromCache, set as setInCache, CacheKeys, CacheTTL } from '../../utils/cache';
 
 /**
  * File search result
@@ -229,13 +231,21 @@ export async function extractTextFromDocument(fileId: string, mimeType: string):
   error?: string;
 }> {
   try {
+    // Check cache first (avoid repeated analysis for the same file)
+    const cacheKey = CacheKeys.driveFileAnalysis(fileId);
+    const cached = getFromCache<{ success: boolean; text?: string; error?: string }>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     // Download file
     const downloadResult = await downloadFile(fileId, mimeType);
     if (!downloadResult.success || !downloadResult.data) {
-      return {
+      const errorResult = {
         success: false,
         error: downloadResult.error || 'Failed to download file'
       };
+      return errorResult;
     }
 
     const { geminiService } = getServices();
@@ -250,34 +260,89 @@ export async function extractTextFromDocument(fileId: string, mimeType: string):
         base64
       ) as { text?: string; error?: string };
 
-      return {
+      const finalResult = {
         success: true,
         text: result.text || result.error || 'לא ניתן לחלץ טקסט מהתמונה'
       };
+
+      setInCache(cacheKey, finalResult, CacheTTL.LONG);
+      return finalResult;
     } else if (mimeType.includes('pdf') || mimeType.includes('document') || mimeType.includes('text')) {
-      // For text-based documents, try to extract text
-      // Note: Google Drive API can export some formats, but for PDFs we might need OCR
-      const text = downloadResult.data.toString('utf-8');
-      
-      // If it's a PDF, we'd need special handling, but for now try basic extraction
-      if (mimeType.includes('pdf')) {
-        // For PDFs, use Gemini File API if available, or return error
-        return {
-          success: false,
-          error: 'חילוץ טקסט מ-PDF דורש עיבוד מיוחד. נסה להמיר את הקובץ ל-Google Docs.'
-        };
+      // For text-based documents and PDFs, use Gemini 3 Pro for visual/structural analysis
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-3-pro-preview'
+      });
+
+      const base64Pdf = downloadResult.data.toString('base64');
+      const prompt =
+        'זהו קובץ מסמך/שרטוט (PDF). ' +
+        'תאר באופן מפורט וברור את התוכן שלו, את המבנה, האלמנטים המרכזיים, הטקסטים החשובים, ' +
+        'וכל דבר שרלוונטי להבנת השרטוט או התכנית. ' +
+        'ענה בעברית ברורה, עם bullet points מסודרים.';
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await model.generateContent({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                inlineData: {
+                  mimeType: mimeType || 'application/pdf',
+                  data: base64Pdf
+                }
+              },
+              {
+                text: prompt
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          responseModalities: ['TEXT'],
+          temperature: 0.4
+        } as any
+      } as any);
+
+      const response = result.response as any;
+      let text = '';
+
+      if (response && response.candidates && response.candidates.length > 0) {
+        const cand = response.candidates[0];
+        if (cand.content && cand.content.parts) {
+          for (const part of cand.content.parts) {
+            if (part.text) {
+              text += part.text;
+            }
+          }
+        }
       }
-      
-      return {
+
+      if (!text || !text.trim()) {
+        const errorResult = {
+          success: false,
+          error: 'לא הצלחתי לחלץ תיאור מה-PDF באמצעות Gemini'
+        };
+        setInCache(cacheKey, errorResult, CacheTTL.MEDIUM);
+        return errorResult;
+      }
+
+      const finalResult = {
         success: true,
-        text: text.substring(0, 100000) // Limit text length
+        text: text.trim()
       };
+
+      setInCache(cacheKey, finalResult, CacheTTL.LONG);
+      return finalResult;
     }
 
-    return {
+    const unsupportedResult = {
       success: false,
       error: `סוג קובץ לא נתמך: ${mimeType}`
     };
+    setInCache(cacheKey, unsupportedResult, CacheTTL.MEDIUM);
+    return unsupportedResult;
   } catch (error) {
     const err = error as Error;
     logger.error('❌ Error extracting text from document:', { error: err.message, stack: err.stack });
@@ -335,11 +400,16 @@ export async function searchAndExtractRelevantInfo(
     // If user asks about drawings/blueprints, bias strongly towards PDFs
     const mimeTypeHint = hasDrawingIntent ? 'application/pdf' : undefined;
 
+    // For drawing intent, we assume a single relevant file per client folder
+    // → limit to 1 result regardless of requested maxFiles
+    const effectiveMaxFiles = hasDrawingIntent ? 1 : maxFiles;
+
     // Search for files
     const searchResult = await searchFiles({
-      query: normalizedQuery || searchQuery,
+      // For drawing intent, don't filter by text at all – rely on folder + mimeType
+      query: hasDrawingIntent ? '' : (normalizedQuery || searchQuery),
       folderId,
-      maxResults: maxFiles,
+      maxResults: effectiveMaxFiles,
       mimeType: mimeTypeHint
     });
 

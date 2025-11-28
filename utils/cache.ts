@@ -245,6 +245,9 @@ export const CacheKeys = {
   
   // Last command (for retry)
   lastCommand: (chatId: string): string => generateKey('command', 'last', chatId),
+  
+  // Google Drive file analysis (per file)
+  driveFileAnalysis: (fileId: string): string => generateKey('drive', 'analysis', fileId),
 };
 
 /**
