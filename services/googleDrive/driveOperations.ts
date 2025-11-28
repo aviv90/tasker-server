@@ -405,13 +405,39 @@ export async function searchAndExtractRelevantInfo(
     const effectiveMaxFiles = hasDrawingIntent ? 1 : maxFiles;
 
     // Search for files
-    const searchResult = await searchFiles({
+    let searchResult = await searchFiles({
       // For drawing intent, don't filter by text at all – rely on folder + mimeType
       query: hasDrawingIntent ? '' : (normalizedQuery || searchQuery),
       folderId,
       maxResults: effectiveMaxFiles,
       mimeType: mimeTypeHint
     });
+
+    // If no files found but folderId is defined, fall back to "first file in client folder"
+    if ((!searchResult.success || !searchResult.files || searchResult.files.length === 0) && folderId) {
+      logger.warn('⚠️ [Google Drive] Primary search returned 0 files, falling back to first file in folder', {
+        folderId,
+        hasDrawingIntent,
+        normalizedQuery
+      });
+
+      // First, try with mimeType hint (e.g., PDFs for drawings)
+      searchResult = await searchFiles({
+        query: '',
+        folderId,
+        maxResults: 1,
+        mimeType: mimeTypeHint
+      });
+
+      // If still nothing (or mimeTypeHint filtered out the only file), try ANY file in folder
+      if (!searchResult.success || !searchResult.files || searchResult.files.length === 0) {
+        searchResult = await searchFiles({
+          query: '',
+          folderId,
+          maxResults: 1
+        });
+      }
+    }
 
     if (!searchResult.success || !searchResult.files || searchResult.files.length === 0) {
       return {

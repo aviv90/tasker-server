@@ -245,13 +245,13 @@ const TOOLS: Record<string, Tool> = {
     name: 'search_google_drive',
     category: 'search',
     description: 'Search and retrieve documents, images, and files from Google Drive. Can extract text from documents and images for RAG-like functionality.',
-    usage: ['חפש ב-Google Drive', 'חפש במסמכים', 'מה יש בתיקייה X', 'מצא מידע על Y ב-Drive', 'search in drive', 'find document about X', 'מה כתוב במסמך Y'],
+    usage: ['חפש ב-Google Drive', 'חפש במסמכים', 'מה יש בתיקייה X', 'מצא מידע על Y ב-Drive', 'search in drive', 'find document about X', 'מה כתוב במסמך Y', 'מה יש בשרטוט', 'מה מופיע במסמך', 'תסביר את התכנית', 'מה כתוב בקובץ'],
     parameters: {
       query: { type: 'string', required: true, description: 'Search query for files and content' },
       folder_id: { type: 'string', required: false, description: 'Specific folder ID to search in (optional)' },
       max_results: { type: 'number', required: false, description: 'Maximum number of files to return (default: 5)' }
     },
-    critical: 'Use ONLY for searching and retrieving information from Google Drive. NOT for web search (use search_web) or creating new content!'
+    critical: 'CRITICAL: ALWAYS use search_google_drive for questions about drawings/documents/files (e.g., "מה יש בשרטוט", "מה מופיע במסמך", "תסביר את התכנית"). Do NOT use get_chat_history or analyze_image_from_history for Drive files! Use ONLY for searching and retrieving information from Google Drive. NOT for web search (use search_web) or creating new content!'
   },
 
   get_chat_history: {
@@ -262,7 +262,7 @@ const TOOLS: Record<string, Tool> = {
     parameters: {
       limit: { type: 'number', required: false, description: 'Number of messages (default: 20)' }
     },
-    critical: 'ALWAYS use get_chat_history when user asks about chat/group/conversation information. NEVER say "I don\'t have access" - use this tool first!'
+    critical: 'ALWAYS use get_chat_history when user asks about chat/group/conversation information. NEVER say "I don\'t have access" - use this tool first! CRITICAL: Do NOT use for questions about drawings/documents/files in Google Drive (e.g., "מה יש בשרטוט", "מה מופיע במסמך") - use search_google_drive instead!'
   },
 
   get_long_term_memory: {
