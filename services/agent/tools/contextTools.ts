@@ -57,7 +57,9 @@ export const get_chat_history = {
     logger.debug(`🔧 [Agent Tool] get_chat_history called with limit: ${limit}`);
 
     try {
-      const historyResult = await getChatHistory(context.chatId || '', limit, { format: 'display' });
+      // For get_chat_history tool, use Green API with 50 messages (not DB cache)
+      const effectiveLimit = limit || 50; // Default to 50 for tool usage
+      const historyResult = await getChatHistory(context.chatId || '', effectiveLimit, { format: 'display', useDbCache: false });
 
       if (!historyResult.success) {
         return {

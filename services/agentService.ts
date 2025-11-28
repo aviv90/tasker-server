@@ -166,13 +166,14 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
 
   if (useConversationHistory) {
     try {
-      const historyResult = await getChatHistory(chatId, 10, { format: 'internal' });
+      // Use DB cache for fast retrieval (10 messages for agent context)
+      const historyResult = await getChatHistory(chatId, 10, { format: 'internal', useDbCache: true });
       if (historyResult.success && historyResult.messages.length > 0) {
         history = historyResult.messages.map(msg => ({
           role: msg.role === 'assistant' ? 'model' : 'user',
           parts: [{ text: msg.content }]
         }));
-        logger.debug(`🧠 [Agent] Using ${history.length} previous messages as conversation history`);
+        logger.debug(`🧠 [Agent] Using ${history.length} previous messages as conversation history (from DB cache)`);
       } else {
         logger.debug('🧠 [Agent] No previous messages found for conversation history');
       }

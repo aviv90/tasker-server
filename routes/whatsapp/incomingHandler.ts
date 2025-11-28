@@ -26,6 +26,7 @@ import {
   buildQuotedContext
 } from './incoming/mediaHandling';
 import { sendAgentResults, AgentResult as HandlerAgentResult } from './incoming/resultHandling';
+import { saveIncomingUserMessage, extractMediaMetadata } from './incoming/messageStorage';
 
 /**
  * Handle incoming WhatsApp message
@@ -64,6 +65,9 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
     // Parse incoming message
     const { messageText } = parseIncomingMessage(messageData);
     logIncomingMessage(messageData, senderName, messageText);
+
+    // Extract media metadata for storage
+    const mediaMetadata = extractMediaMetadata(webhookData);
 
     // Unified intent router for commands that start with "# "
     if (messageText && /^#\s+/.test(messageText.trim())) {
@@ -151,10 +155,16 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
         logger.debug('🤖 [AGENT] Processing request with Gemini Function Calling');
 
         try {
-          // NOTE: User messages are no longer saved to DB to avoid duplication.
-          // All messages are retrieved from Green API getChatHistory when needed.
-          // Commands are saved to DB (persistent) for retry functionality.
-          // Logging is handled by agentRouter and commandSaver
+          // Save user message to DB cache (centralized storage service)
+          // Combines text with media metadata for complete context
+          const combinedMetadata: Record<string, unknown> = {
+            ...mediaMetadata
+          };
+          if (hasImage && imageUrl) combinedMetadata.imageUrl = imageUrl;
+          if (hasVideo && videoUrl) combinedMetadata.videoUrl = videoUrl;
+          if (hasAudio && audioUrl) combinedMetadata.audioUrl = audioUrl;
+          
+          await saveIncomingUserMessage(webhookData, messageText, combinedMetadata);
 
           // Pass originalMessageId to normalized input so it's available for saveLastCommand
           normalized.originalMessageId = originalMessageId;
@@ -200,6 +210,10 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
     // Handle automatic voice transcription for authorized users
     if (messageData.typeMessage === 'audioMessage') {
       logger.debug(`🎤 Detected audio message from ${senderName}`);
+      
+      // Save audio message to DB cache (even if not authorized for transcription)
+      await saveIncomingUserMessage(webhookData, messageText, mediaMetadata);
+      
       const audioUrl = messageData.downloadUrl || 
                       messageData.fileMessageData?.downloadUrl || 
                       messageData.audioMessageData?.downloadUrl;
@@ -236,6 +250,10 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
       } else {
         logger.warn(`❌ Audio message detected but no URL found`);
       }
+    } else {
+      // For all other message types (not # commands, not audio), save to DB cache
+      // This ensures we capture all user messages for context
+      await saveIncomingUserMessage(webhookData, messageText, mediaMetadata);
     }
   } catch (error: any) {
     logger.error('❌ Error handling incoming message:', { error: error.message || error, stack: error.stack });

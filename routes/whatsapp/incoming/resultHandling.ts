@@ -460,22 +460,44 @@ export async function handlePostProcessing(chatId: string, normalized: Normalize
 }
 
 /**
- * Save bot response to conversation history
- * @param {string} _chatId - Chat ID
- * @param {Object} _agentResult - Agent result
+ * Save bot response to conversation history (DB cache for fast retrieval)
+ * @param {string} chatId - Chat ID
+ * @param {Object} agentResult - Agent result
  */
-export async function saveBotResponse(_chatId: string, _agentResult: AgentResult): Promise<void> {
-  // NOTE: Bot messages are no longer saved to DB to avoid duplication.
-  // Bot messages are tracked in DB (message_types table) when sent through Green API,
-  // and retrieved from Green API getChatHistory when needed.
-  // This approach:
-  // - Eliminates duplication (messages exist only in Green API)
-  // - Reduces DB size (no message content stored, only type metadata)
-  // - Provides accurate bot message identification via DB (persistent)
-  // 
-  // Bot messages will be available in get_chat_history via Green API
-  // and identified using conversationManager.isBotMessage() (DB-backed)
-  logger.debug(`💾 [Agent] Bot response sent (tracked in DB)`);
+export async function saveBotResponse(chatId: string, agentResult: AgentResult): Promise<void> {
+  try {
+    // Use dynamic import to avoid circular dependencies
+    const conversationManagerModule = await import('../../../services/conversationManager');
+    const conversationManager = conversationManagerModule.default;
+    if (!conversationManager.isInitialized) {
+      logger.debug('💾 [Agent] DB not initialized, skipping bot response save');
+      return;
+    }
+    
+    // Save text response if available
+    if (agentResult.text && agentResult.text.trim()) {
+      const cleanText = agentResult.text.trim();
+      // Skip generic success messages (they're not meaningful conversation)
+      const textSanitizerModule = await import('../../../utils/textSanitizer');
+      const { isGenericSuccessMessage } = textSanitizerModule;
+      if (!isGenericSuccessMessage(cleanText)) {
+        const metadata: Record<string, unknown> = {};
+        if (agentResult.imageUrl) metadata.imageUrl = agentResult.imageUrl;
+        if (agentResult.videoUrl) metadata.videoUrl = agentResult.videoUrl;
+        if (agentResult.audioUrl) metadata.audioUrl = agentResult.audioUrl;
+        
+        await conversationManager.addMessage(chatId, 'assistant', cleanText, metadata);
+        logger.debug(`💾 [Agent] Saved bot text response to DB cache: ${cleanText.substring(0, 50)}...`);
+      }
+    }
+    
+    // Note: Media URLs are already saved with text above via metadata
+    // Bot messages are also tracked in message_types table when sent through Green API
+  } catch (error) {
+    // Don't fail if DB save fails - this is a performance optimization
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.warn(`⚠️ [Agent] Failed to save bot response to DB cache: ${errorMessage}`);
+  }
 }
 
 /**

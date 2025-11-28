@@ -64,6 +64,7 @@ interface InternalMessage {
 export interface ChatHistoryOptions {
   includeSystemMessages?: boolean;
   format?: 'internal' | 'display';
+  useDbCache?: boolean; // Use DB cache for fast retrieval (for agent history, limit <= 10)
 }
 
 /**
@@ -89,9 +90,86 @@ export async function getChatHistory(
   limit: number = 20,
   options: ChatHistoryOptions = {}
 ): Promise<ChatHistoryResult> {
-  const { includeSystemMessages = false, format = 'internal' } = options;
+  const { includeSystemMessages = false, format = 'internal', useDbCache = false } = options;
   
   try {
+    // For agent history (10 messages), use DB cache for performance
+    // For tool history (50 messages), use Green API for completeness
+    if (useDbCache && limit <= 10) {
+      const conversationManager = (await import('../services/conversationManager')).default;
+      if (conversationManager.isInitialized) {
+        try {
+          const dbHistory = await conversationManager.getConversationHistory(chatId) as Array<{
+            role: string;
+            content: string;
+            metadata?: Record<string, unknown>;
+            timestamp: number;
+          }>;
+          // Take only the last N messages (limit)
+          const limitedHistory = dbHistory.slice(-limit);
+          if (limitedHistory && limitedHistory.length > 0) {
+            logger.debug(`📜 [ChatHistory] Using DB cache: ${limitedHistory.length} messages for chat: ${chatId}`);
+            
+            // Convert DB format to InternalMessage format
+            const messages: InternalMessage[] = limitedHistory.map((msg: {
+              role: string;
+              content: string;
+              metadata?: Record<string, unknown>;
+              timestamp: number;
+            }) => ({
+              role: msg.role === 'assistant' ? 'assistant' : 'user',
+              content: msg.content,
+              metadata: (msg.metadata || {}) as {
+                hasImage?: boolean;
+                hasVideo?: boolean;
+                hasAudio?: boolean;
+                imageUrl?: string;
+                videoUrl?: string;
+                audioUrl?: string;
+              },
+              timestamp: msg.timestamp
+            }));
+            
+            if (format === 'display') {
+              const formattedHistory = messages.map((msg, idx) => {
+                const role = msg.role === 'assistant' ? 'בוט' : 'משתמש';
+                let content = `${role}: ${msg.content}`;
+                
+                if (msg.metadata.imageUrl) {
+                  content += ` [תמונה: image_id=${idx}, url=${msg.metadata.imageUrl}]`;
+                }
+                if (msg.metadata.videoUrl) {
+                  content += ` [וידאו: video_id=${idx}, url=${msg.metadata.videoUrl}]`;
+                }
+                if (msg.metadata.audioUrl) {
+                  content += ` [אודיו: audio_id=${idx}, url=${msg.metadata.audioUrl}]`;
+                }
+                
+                return content;
+              }).join('\n');
+              
+              return {
+                success: true,
+                data: `היסטוריה של ${messages.length} הודעות אחרונות:\n\n${formattedHistory}`,
+                messages,
+                formatted: formattedHistory
+              };
+            } else {
+              return {
+                success: true,
+                data: `היסטוריה של ${messages.length} הודעות אחרונות`,
+                messages,
+                formatted: ''
+              };
+            }
+          }
+        } catch (dbError) {
+          logger.warn('⚠️ [ChatHistory] DB cache failed, falling back to Green API', { error: dbError });
+        }
+      }
+    }
+    
+    // Fallback to Green API (for tool usage or if DB cache unavailable)
     const { greenApiService } = getServices();
     logger.debug(`📜 [ChatHistory] Fetching last ${limit} messages from Green API for chat: ${chatId}`);
     
