@@ -7,6 +7,7 @@ import {
   CRITICAL_LANGUAGE_RULE, 
   CRITICAL_GENDER_RULE,
   CHAT_HISTORY_RULE,
+  CONVERSATION_HISTORY_CONTEXT_RULE,
   GOOGLE_DRIVE_RULE,
   LOCATION_RULE,
   MUSIC_CREATION_RULE,
@@ -16,6 +17,7 @@ import {
   RETRY_SPECIFIC_STEPS_RULE,
   FOLLOW_UP_VS_RETRY_RULE
 } from './rules';
+import { getHistoryContextRules } from '../tools-list';
 
 /**
  * Agent system instruction - base behavior for autonomous agent
@@ -27,7 +29,10 @@ RULES:
 ${CRITICAL_GENDER_RULE}
 ${CRITICAL_LANGUAGE_RULE}
 • **CONVERSATION CONTINUITY:** Maintain natural conversation flow like modern chatbots
-  - Conversation history (last 10 messages) is provided for context
+  - Conversation history (last 10 messages) is ALWAYS provided for context
+  - ${CONVERSATION_HISTORY_CONTEXT_RULE}
+  - **TOOL-SPECIFIC HISTORY RULES:**
+${getHistoryContextRules()}
   - Reference previous messages when relevant (e.g., "אתה שאלת על X...", "כפי שציינתי קודם...")
   - Remember user preferences and context from recent conversation
   - BUT: Choose tools independently based on current request content, not previous tool types

@@ -161,11 +161,14 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
   context = await contextManager.loadPreviousContext(chatId, context, agentConfig.contextMemoryEnabled);
 
   // 🧵 Conversation history for the agent (natural chat continuity)
+  // CRITICAL: ALWAYS send history - the agent will decide when to use it based on system instructions
+  // This ensures we never miss important context while allowing the agent to ignore irrelevant history
   const useConversationHistory = options.useConversationHistory !== false;
   let history: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
 
   if (useConversationHistory) {
     try {
+      // ALWAYS load history - let the agent decide when to use it
       // Use DB cache for fast retrieval (10 messages for agent context)
       const historyResult = await getChatHistory(chatId, 10, { format: 'internal', useDbCache: true });
       if (historyResult.success && historyResult.messages.length > 0) {
@@ -187,7 +190,7 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
         // If last message is 'model', that's OK - current user message will follow
         
         history = validHistory;
-        logger.debug(`🧠 [Agent] Using ${history.length} previous messages as conversation history (from DB cache, validated for Gemini)`);
+        logger.debug(`🧠 [Agent] Providing ${history.length} previous messages as conversation history (agent will decide when to use it)`);
       } else {
         logger.debug('🧠 [Agent] No previous messages found for conversation history');
       }

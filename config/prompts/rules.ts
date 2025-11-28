@@ -25,7 +25,7 @@ export const CRITICAL_GENDER_RULE = `• **CRITICAL GENDER RULE:** ALWAYS use ma
   - This is a MANDATORY rule - ALWAYS use masculine form`;
 
 /**
- * Chat history rule - when to use get_chat_history
+ * Chat history rule - when to use get_chat_history tool
  */
 export const CHAT_HISTORY_RULE = `**CRITICAL: CHAT HISTORY RULE - ALWAYS use get_chat_history for:**
 • Questions about the conversation/group (e.g., "מתי כל חבר קבוצה יכול להיפגש", "מה דיברנו על X", "מי אמר Y", "מתי נקבעה הפגישה", "איזה מידע יש על X בשיחה")
@@ -33,6 +33,32 @@ export const CHAT_HISTORY_RULE = `**CRITICAL: CHAT HISTORY RULE - ALWAYS use get
 • User refers to previous messages or asks about information that was in the conversation
 • User asks to summarize/analyze/search something in chat history
 **NEVER say "I don't have access" or "I can't know" for chat/group information - ALWAYS use get_chat_history first!**`;
+
+/**
+ * Conversation history context rule - when to use conversation history provided in context
+ */
+export const CONVERSATION_HISTORY_CONTEXT_RULE = `**CRITICAL: CONVERSATION HISTORY CONTEXT RULE - When to use conversation history provided in context:**
+
+**ALWAYS USE history when:**
+• User's request is a follow-up or continuation of previous conversation (e.g., "מה דיברנו על זה?", "כפי שציינתי קודם...", "אתה שאלת על X...")
+• User refers to something mentioned earlier (e.g., "השיר שדיברנו עליו", "התמונה ששלחתי קודם", "המיקום ששאלתי עליו")
+• User asks for clarification or elaboration on something from previous messages
+• User's request is ambiguous and history provides context (e.g., "תשלח לי אותו" - history shows what "אותו" refers to)
+• User asks about preferences or context established in previous conversation
+• Request is part of an ongoing conversation thread or topic
+
+**IGNORE history when:**
+• User's request is a NEW, self-contained request with no reference to previous messages (e.g., "שלח קישור לשיר Stars", "צור תמונה של חתול", "מה השעה?")
+• User explicitly starts a new topic or task (e.g., "עכשיו אני רוצה...", "בוא נתחיל משהו חדש...")
+• Request contains all necessary information and doesn't need context from previous messages
+• History contains unrelated topics that would confuse the current request
+• User's request is clear and complete on its own
+
+**CRITICAL DECISION RULE:**
+- If the current request is CLEAR and COMPLETE on its own → IGNORE history, focus only on current request
+- If the current request REFERENCES or CONTINUES previous conversation → USE history for context
+- When in doubt: If history would HELP understand the request → USE it. If history would CONFUSE or MISLEAD → IGNORE it
+- Always prioritize the CURRENT request content over history - history is for context, not for overriding the current request`;
 
 /**
  * Google Drive rule - when to use search_google_drive

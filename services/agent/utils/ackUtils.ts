@@ -100,20 +100,26 @@ export async function sendToolAckMessage(
       return getToolAckMessage(toolName, provider || providerRaw);
     };
 
+    // CRITICAL: For single-step commands, send simple ACK without "מבצע:" prefix
+    // "מבצע:" format is ONLY for multi-step commands where we show the plan
     if (functionCalls.length === 1) {
       const [firstCall] = functionCalls;
       if (!firstCall) return;
       const singleAck = buildSingleAck(firstCall);
       if (!singleAck?.trim()) return;
       ackMessage = singleAck;
-    } else if (functionCalls.length === 2) {
-      const acks = functionCalls.map(buildSingleAck).filter((msg) => msg && msg.trim());
-      if (acks.length === 0) return;
-      ackMessage = `מבצע:\n• ${acks.join('\n• ')}`;
     } else {
+      // Multiple tools in single-step: send simple message without "מבצע:" prefix
+      // This is different from multi-step where we show the full plan
       const acks = functionCalls.map(buildSingleAck).filter((msg) => msg && msg.trim());
       if (acks.length === 0) return;
-      ackMessage = `מבצע ${acks.length} פעולות... ⚙️`;
+      // For 2 tools, show both (simple format, no "מבצע:")
+      if (acks.length === 2) {
+        ackMessage = `${acks[0]} ${acks[1]}`;
+      } else {
+        // For 3+ tools, show count
+        ackMessage = `מבצע ${acks.length} פעולות... ⚙️`;
+      }
     }
 
     if (!ackMessage.trim()) return;
