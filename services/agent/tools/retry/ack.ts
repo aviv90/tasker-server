@@ -4,7 +4,6 @@
  */
 
 import { getToolAckMessage } from '../../utils/ackUtils';
-import { extractQuotedMessageId } from '../../../../utils/messageHelpers';
 import logger from '../../../../utils/logger';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { TIME } from '../../../../utils/constants';

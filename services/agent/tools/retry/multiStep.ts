@@ -3,24 +3,12 @@
  * Handles retry of multi-step commands with step filtering
  */
 
-import conversationManager from '../../../../conversationManager';
 import { detectLanguage } from '../../../../utils/agentHelpers';
 import { getLanguageInstruction } from '../../utils/languageUtils';
 import { extractQuotedMessageId } from '../../../../utils/messageHelpers';
 import logger from '../../../../utils/logger';
-import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { RetryArgs, ToolContext, LastCommand, ToolResult } from './types';
 import { sendMultiStepRetryAck } from './ack';
-
-// Reference to agentTools (will be injected)
-let agentTools: Record<string, { execute: (args: unknown, context: unknown) => Promise<unknown> }> | null = null;
-
-/**
- * Set agent tools reference (needed for retry)
- */
-export function setAgentToolsReference(tools: Record<string, { execute: (args: unknown, context: unknown) => Promise<unknown> }>): void {
-  agentTools = tools;
-}
 
 /**
  * Handle multi-step command retry
