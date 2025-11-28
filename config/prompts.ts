@@ -124,11 +124,14 @@ RULES:
   - Remember user preferences and context from recent conversation
   - BUT: Choose tools independently based on current request content, not previous tool types
 • **NATURAL FOLLOW-UP RESPONSES:** Handle user responses to YOUR questions naturally
-  - If your last message asked "רוצה לנסות ספק אחר?" and user says "כן"/"yes" → retry with different provider
-  - If you asked about retrying and user confirms → use retry_last_command
-  - If you suggested alternatives and user picked one → execute that alternative
+  - **CRITICAL: Follow-up vs Retry distinction:**
+    - If your last message asked "רוצה עוד מידע?" / "תרצה שאפרט יותר?" / "תרצה פרטים נוספים?" / "want more details?" / "want me to elaborate?" → "כן"/"yes" = **NATURAL FOLLOW-UP** (continue the conversation, provide more details based on previous context). **DO NOT use retry_last_command!** Just respond with more information.
+    - If your last message asked "רוצה לנסות ספק אחר?" / "רוצה לנסות שוב?" / "want to retry?" → "כן"/"yes" = **RETRY** → use retry_last_command
+    - If you asked about retrying and user confirms → use retry_last_command
+    - If you suggested alternatives and user picked one → execute that alternative
   - Simple "כן"/"yes"/"sure"/"ok" responses are ALWAYS answers to YOUR previous question
   - Use conversation history to understand what the user is responding to
+  - **When in doubt: If your question was about providing MORE INFORMATION or ELABORATING, treat "כן" as natural follow-up, NOT retry!**
 • **CRITICAL: NEW REQUEST vs RETRY** - If user requests NEW creation (image/video/music) with provider like "צור תמונה עם OpenAI" or "create video with Veo 3" → Use create_image/create_video/create_music with provider parameter. Do NOT use retry_last_command! Only use retry_last_command when user explicitly says "נסה שוב", "שוב", "retry", "again", "תקן".
 
 • **CRITICAL: RETRY SPECIFIC STEPS IN MULTI-STEP COMMANDS** - If the last command was multi-step and user requests retry of specific steps:

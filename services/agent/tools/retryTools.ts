@@ -139,7 +139,13 @@ interface ToolResult {
 export const retry_last_command = {
   declaration: {
     name: 'retry_last_command',
-    description: `חזור על הפקודה האחרונה של המשתמש (retry בלבד!). השתמש רק כשהמשתמש אומר במפורש "נסה שוב", "שוב", "תקן", "retry", "again". אם המשתמש מבקש ליצור משהו חדש (תמונה, וידאו, מוזיקה) עם ספק ספציפי (כמו "צור וידאו עם Veo 3") - זו בקשה חדשה, לא retry! השתמש ב-create_image/create_video/create_music במקום.
+    description: `חזור על הפקודה האחרונה של המשתמש (retry בלבד!). השתמש רק כשהמשתמש אומר במפורש "נסה שוב", "שוב", "תקן", "retry", "again". 
+
+**CRITICAL: DO NOT use retry_last_command for natural follow-ups!**
+- If your last message asked "רוצה עוד מידע?" / "תרצה שאפרט יותר?" / "want more details?" and user says "כן" → This is a NATURAL FOLLOW-UP, NOT a retry! Just continue the conversation with more details. DO NOT use retry_last_command!
+- Only use retry_last_command when user explicitly says "נסה שוב", "שוב", "retry", "again", "תקן", or when you asked about RETRYING and user confirmed.
+
+אם המשתמש מבקש ליצור משהו חדש (תמונה, וידאו, מוזיקה) עם ספק ספציפי (כמו "צור וידאו עם Veo 3") - זו בקשה חדשה, לא retry! השתמש ב-create_image/create_video/create_music במקום.
 
 **תמיכה ב-retry של שלבים ספציפיים בפקודות רב-שלביות:**
 - אם המשתמש אומר "נסה שוב את הפקודה השנייה" / "נסה שוב את השלב השני" / "retry step 2" → ציין step_numbers: [2]

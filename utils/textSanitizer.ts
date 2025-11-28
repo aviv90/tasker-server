@@ -326,6 +326,7 @@ module.exports = {
   cleanMarkdown,
   cleanMediaDescription,
   cleanMultiStepText,
-  cleanJsonWrapper
+  cleanJsonWrapper,
+  isGenericSuccessMessage
 };
 
