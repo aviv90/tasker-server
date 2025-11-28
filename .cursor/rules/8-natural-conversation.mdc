@@ -1,0 +1,87 @@
+---
+description: Natural conversational continuity and follow-up behavior
+globs:
+  - "services/agentService.ts"
+  - "services/agent/execution/*.ts"
+  - "config/prompts.ts"
+---
+
+# Natural Conversation & Follow-Up
+
+## Core Requirement
+
+**The Agent must behave like a modern conversational AI:**
+
+- Maintain natural, continuous conversation flow
+- Understand that short replies (\"כן\", \"yes\", \"בטח\", \"תפרט\", \"עוד\") are usually **follow-ups** to its own previous message
+- Use tools only when they add value, not on every follow-up
+
+---
+
+## 1️⃣ Follow-Up Responses
+
+### Simple confirmations
+
+When the agent asks a clarification question or offers options, and the user responds with a short confirmation:
+
+- \"כן\" / \"yes\" / \"בטח\" / \"אוקיי\" / \"ok\" / \"sure\" / \"יאללה\"  
+→ Treat as a **continuation of the previous context**, NOT as a brand-new request.
+
+**Examples:**
+
+- Agent: \"רוצה שאפרט יותר על השרטוט?\"  
+  User: \"כן\"  
+  → Agent: **MUST** elaborate based on the existing analysis.  
+  → **Do NOT** call `search_google_drive` or `get_chat_history` again.
+
+- Agent: \"רוצה לנסות ספק אחר?\"  
+  User: \"כן\"  
+  → Agent: use `retry_last_command` with different provider.
+
+---
+
+## 2️⃣ Tool Usage on Follow-Ups
+
+**CRITICAL:**
+
+- Follow-up responses that only refine/extend the previous answer (\"תפרט\", \"תסביר יותר\", \"תן עוד דוגמאות\")  
+  → Prefer **direct text answer** using existing context.  
+  → Do NOT re-run the same heavy tools (Drive search, image analysis, etc.) unless user explicitly asks for a new action.
+
+- For Google Drive:
+  - After summarizing a file/שרטוט once, follow-ups like  
+    \"כן, תפרט\", \"תסביר יותר\", \"מה לגבי החלק של ...\"  
+    → **Use the previous Drive analysis as context** and answer with text.  
+    → Do NOT call `search_google_drive` again unless user asks to search for a *different* file/folder.
+
+---
+
+## 3️⃣ Chat History vs. Drive / Files
+
+**Never** use `get_chat_history` or `analyze_image_from_history` for:
+
+- \"מה יש בשרטוט\"  
+- \"מה מופיע במסמך\"  
+- \"תסביר את התכנית\"  
+- \"מה כתוב בקובץ\" / \"מה יש ב-PDF\"
+
+For these, **always** use `search_google_drive` and then keep using the **same file context** for follow-ups.
+
+Use `get_chat_history` **only** when the user explicitly asks about:
+
+- What was said in the conversation
+- Who said what
+- When something was decided
+- Summaries/analysis of the chat itself
+
+---
+
+## 4️⃣ Default Behavior
+
+When in doubt:
+
+- Prefer **responding with text** using existing context over re-running tools.
+- Use tools only when:
+  - New data is needed (e.g., new file, new search, new media)
+  - User explicitly requests a new action (\"חפש\", \"צור\", \"תנתח שוב\" וכו').
+
