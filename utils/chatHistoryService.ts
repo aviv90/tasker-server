@@ -97,11 +97,14 @@ export async function getChatHistory(
     // For tool history (50 messages), use Green API for completeness
     // Only use DB cache if limit is reasonable (<= 10) to avoid performance issues
     if (useDbCache && limit > 0 && limit <= 10) {
-      const conversationManager = (await import('../services/conversationManager')).default;
-      if (conversationManager.isInitialized) {
+      // Use container's messages service directly (no deprecation warning)
+      const containerModule = await import('../services/container');
+      const container = containerModule.default;
+      if (container.isInitialized) {
         try {
           // Pass limit directly to DB query for optimal performance (no slice needed)
-          const dbHistory = await conversationManager.getConversationHistory(chatId, limit) as Array<{
+          const messagesManager = container.getService('messages');
+          const dbHistory = await messagesManager.getConversationHistory(chatId, limit) as Array<{
             role: string;
             content: string;
             metadata?: Record<string, unknown>;

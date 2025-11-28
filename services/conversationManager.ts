@@ -174,11 +174,13 @@ class ConversationManager {
 
   async clearAllConversations(): Promise<void> {
     // Clear conversations from DB (MessagesManager handles both DB and cache)
-    await this.messagesManager.clearAllConversations();
+    // Use container's messages service directly (no deprecation warning)
+    await container.getService('messages').clearAllConversations();
   }
 
   async clearConversationsForChat(chatId: string): Promise<number> {
-    return this.messagesManager.clearConversationsForChat(chatId);
+    // Use container's messages service directly (no deprecation warning)
+    return container.getService('messages').clearConversationsForChat(chatId);
   }
 
   // Contacts
