@@ -187,7 +187,12 @@ class ConversationManager {
   }
 
   async clearAllConversations(): Promise<void> {
-    await this.allowListsManager.clearAllConversations();
+    // Clear conversations from DB (MessagesManager handles both DB and cache)
+    await this.messagesManager.clearAllConversations();
+  }
+
+  async clearConversationsForChat(chatId: string): Promise<number> {
+    return this.messagesManager.clearConversationsForChat(chatId);
   }
 
   // Contacts
@@ -302,8 +307,8 @@ class ConversationManager {
     return this.messagesManager.trimMessagesForChat(chatId);
   }
 
-  async getConversationHistory(chatId: string): Promise<unknown[]> {
-    return this.messagesManager.getConversationHistory(chatId);
+  async getConversationHistory(chatId: string, limit: number | null = null): Promise<unknown[]> {
+    return this.messagesManager.getConversationHistory(chatId, limit);
   }
 
   // Cleanup

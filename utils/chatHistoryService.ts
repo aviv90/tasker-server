@@ -95,23 +95,23 @@ export async function getChatHistory(
   try {
     // For agent history (10 messages), use DB cache for performance
     // For tool history (50 messages), use Green API for completeness
-    if (useDbCache && limit <= 10) {
+    // Only use DB cache if limit is reasonable (<= 10) to avoid performance issues
+    if (useDbCache && limit > 0 && limit <= 10) {
       const conversationManager = (await import('../services/conversationManager')).default;
       if (conversationManager.isInitialized) {
         try {
-          const dbHistory = await conversationManager.getConversationHistory(chatId) as Array<{
+          // Pass limit directly to DB query for optimal performance (no slice needed)
+          const dbHistory = await conversationManager.getConversationHistory(chatId, limit) as Array<{
             role: string;
             content: string;
             metadata?: Record<string, unknown>;
             timestamp: number;
           }>;
-          // Take only the last N messages (limit)
-          const limitedHistory = dbHistory.slice(-limit);
-          if (limitedHistory && limitedHistory.length > 0) {
-            logger.debug(`📜 [ChatHistory] Using DB cache: ${limitedHistory.length} messages for chat: ${chatId}`);
+          if (dbHistory && dbHistory.length > 0) {
+            logger.debug(`📜 [ChatHistory] Using DB cache: ${dbHistory.length} messages for chat: ${chatId}`);
             
             // Convert DB format to InternalMessage format
-            const messages: InternalMessage[] = limitedHistory.map((msg: {
+            const messages: InternalMessage[] = dbHistory.map((msg: {
               role: string;
               content: string;
               metadata?: Record<string, unknown>;

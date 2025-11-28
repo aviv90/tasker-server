@@ -56,15 +56,23 @@ export async function handleManagementCommand(
   try {
     switch (command.type) {
       case 'clear_all_conversations': {
-        // Clear DB conversations (for backward compatibility)
-        await conversationManager.clearAllConversations();
+        // Clear DB conversations (includes cache invalidation)
+        const deletedCount = await conversationManager.clearAllConversations();
         
         // Clear message types and commands from DB
         await conversationManager.clearAllMessageTypes();
         await conversationManager.commandsManager.clearAll();
         
-        await greenApiService.sendTextMessage(chatId, '✅ כל ההיסטוריות נוקו בהצלחה (DB)', originalMessageId || undefined, TIME.TYPING_INDICATOR);
-        logger.info(`🗑️ All conversation histories cleared by ${senderName} (DB cleared)`);
+        // Clear agent context as well
+        await conversationManager.clearAgentContext(chatId);
+        
+        await greenApiService.sendTextMessage(
+          chatId, 
+          `✅ כל ההיסטוריות נוקו בהצלחה (DB + Cache)\n🗑️ ${deletedCount} הודעות נמחקו`, 
+          originalMessageId || undefined, 
+          TIME.TYPING_INDICATOR
+        );
+        logger.info(`🗑️ All conversation histories cleared by ${senderName} (${deletedCount} messages deleted, cache invalidated)`);
         break;
       }
 

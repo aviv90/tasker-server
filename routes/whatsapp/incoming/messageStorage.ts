@@ -69,9 +69,26 @@ export async function saveIncomingUserMessage(
       timestamp: webhookData.messageData.timestamp || Date.now()
     };
 
-    // Save to DB
-    await conversationManager.addMessage(chatId, 'user', content, fullMetadata);
-    logger.debug(`💾 [MessageStorage] Saved user message to DB cache: ${content.substring(0, 50)}...`);
+    // Check for duplicate message (prevent saving same message twice)
+    // This can happen if webhook is called multiple times or message is edited
+    // We use messageId from Green API as unique identifier
+    try {
+      // Note: We don't check for duplicates here to avoid extra DB query overhead
+      // The deduplication is handled at webhook level (processedMessages Set)
+      // If needed, we could add a unique constraint on (chat_id, metadata->>'messageId')
+      
+      // Save to DB
+      await conversationManager.addMessage(chatId, 'user', content, fullMetadata);
+      logger.debug(`💾 [MessageStorage] Saved user message to DB cache: ${content.substring(0, 50)}...`);
+    } catch (error) {
+      // If duplicate key error (if we add unique constraint), log and continue
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('duplicate') || errorMessage.includes('unique')) {
+        logger.debug(`💾 [MessageStorage] Duplicate message detected (already saved): ${webhookData.idMessage}`);
+        return; // Silently skip duplicate
+      }
+      throw error; // Re-throw other errors
+    }
     
   } catch (error) {
     // Don't fail if DB save fails - this is a performance optimization

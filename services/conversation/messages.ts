@@ -83,12 +83,17 @@ class MessagesManager {
 
       logger.debug(`💬 Added ${role} message to ${chatId}`, { messageId, role });
       
-      // Invalidate conversation history cache (new message added)
-      const cacheKeyParts = CacheKeys.conversationHistory(chatId).split(':');
-      invalidatePattern(cacheKeyParts.slice(0, 2).join(':'));
-        
-      // Keep only the last N messages for this chat
-      await this.trimMessagesForChat(chatId);
+      // Invalidate conversation history cache for this chat (new message added)
+      // Invalidate all limit variations to ensure consistency
+      const basePattern = `conversation:${chatId}:`;
+      invalidatePattern(basePattern);
+      
+      // Keep only the last N messages for this chat (async, don't block)
+      // Run in background to avoid blocking message save
+      this.trimMessagesForChat(chatId).catch((error: unknown) => {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.warn(`⚠️ [MessagesManager] Failed to trim messages for ${chatId}: ${errorMessage}`);
+      });
       
       // 🤖 Automatic Summary Generation Trigger
       // Every X messages, generate a summary asynchronously (don't await - run in background)
@@ -128,6 +133,7 @@ class MessagesManager {
 
   /**
    * Trim messages to keep only the last N messages for a specific chat
+   * Optimized: Uses CTE for better performance on large tables
    */
   async trimMessagesForChat(chatId: string): Promise<void> {
     if (!this.conversationManager.isInitialized || !this.conversationManager.pool) {
@@ -138,16 +144,19 @@ class MessagesManager {
     
     try {
       // Delete old messages, keeping only the last maxMessages
+      // Optimized: Use CTE to avoid subquery performance issues
       const maxMessages = this.conversationManager.maxMessages || 1000;
       await client.query(`
-          DELETE FROM conversations 
-        WHERE chat_id = $1 
-          AND id NOT IN (
-            SELECT id FROM conversations 
+        WITH recent_messages AS (
+          SELECT id 
+          FROM conversations 
           WHERE chat_id = $1 
-            ORDER BY timestamp DESC 
+          ORDER BY timestamp DESC 
           LIMIT $2
         )
+        DELETE FROM conversations 
+        WHERE chat_id = $1 
+          AND id NOT IN (SELECT id FROM recent_messages)
       `, [chatId, maxMessages]);
     } finally {
       client.release();
@@ -156,39 +165,57 @@ class MessagesManager {
 
   /**
    * Get conversation history for a specific chat (with caching)
+   * Optimized: Uses DESC + LIMIT for last N messages, then reverses for chronological order
    */
   async getConversationHistory(chatId: string, limit: number | null = null): Promise<ConversationMessage[]> {
     if (!this.conversationManager.isInitialized || !this.conversationManager.pool) {
       return [];
     }
 
-    // Try cache first
-    const cacheKey = CacheKeys.conversationHistory(chatId, limit || 50);
-    const cached = get<ConversationMessage[]>(cacheKey);
-    if (cached !== null) {
-      return cached;
+    // Try cache first (only if limit is specified, to avoid cache pollution)
+    if (limit && limit > 0) {
+      const cacheKey = CacheKeys.conversationHistory(chatId, limit);
+      const cached = get<ConversationMessage[]>(cacheKey);
+      if (cached !== null) {
+        logger.debug(`📜 [MessagesManager] Cache hit for ${chatId} (limit: ${limit})`);
+        return cached;
+      }
     }
 
     const client = await (this.conversationManager.pool as Pool).connect();
     
     try {
-      let query = `
-        SELECT role, content, metadata, timestamp
-        FROM conversations 
-        WHERE chat_id = $1 
-        ORDER BY timestamp ASC
-      `;
-      
+      // Optimized query: Get last N messages (DESC order), then reverse for chronological order
+      // This is much more efficient than ORDER BY ASC + LIMIT on large tables
+      let query: string;
       const params: (string | number)[] = [chatId];
       
       if (limit) {
-        query += ` LIMIT $2`;
+        // Get last N messages (most recent first), then reverse
+        query = `
+          SELECT role, content, metadata, timestamp
+          FROM conversations 
+          WHERE chat_id = $1 
+          ORDER BY timestamp DESC
+          LIMIT $2
+        `;
         params.push(limit);
+      } else {
+        // Get all messages (for backward compatibility)
+        query = `
+          SELECT role, content, metadata, timestamp
+          FROM conversations 
+          WHERE chat_id = $1 
+          ORDER BY timestamp ASC
+        `;
       }
       
       const result = await client.query(query, params);
       
-      const history: ConversationMessage[] = result.rows.map(row => ({
+      // Reverse if we used DESC order (to get chronological order)
+      const rows = limit ? result.rows.reverse() : result.rows;
+      
+      const history: ConversationMessage[] = rows.map(row => ({
         role: row.role,
         content: row.content,
         metadata: (row.metadata as MessageMetadata) || {},
@@ -196,9 +223,73 @@ class MessagesManager {
       }));
       
       // Cache for 2 minutes (conversation history changes frequently)
-      set(cacheKey, history, CacheTTL.SHORT * 2);
+      if (limit) {
+        const cacheKey = CacheKeys.conversationHistory(chatId, limit);
+        set(cacheKey, history, CacheTTL.SHORT * 2);
+      }
       
       return history;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Clear all conversations from database
+   * Also invalidates all conversation history cache
+   */
+  async clearAllConversations(): Promise<number> {
+    if (!this.conversationManager.isInitialized || !this.conversationManager.pool) {
+      return 0;
+    }
+
+    const client = await (this.conversationManager.pool as Pool).connect();
+    
+    try {
+      // Delete all conversations
+      const result = await client.query(`
+        DELETE FROM conversations
+      `);
+      
+      const deletedCount = result.rowCount || 0;
+      
+      // Invalidate all conversation history cache entries
+      invalidatePattern('conversation:');
+      
+      logger.info(`🗑️ [MessagesManager] Cleared ${deletedCount} conversations from DB and invalidated cache`);
+      
+      return deletedCount;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Clear conversations for a specific chat
+   * Also invalidates conversation history cache for that chat
+   */
+  async clearConversationsForChat(chatId: string): Promise<number> {
+    if (!this.conversationManager.isInitialized || !this.conversationManager.pool) {
+      return 0;
+    }
+
+    const client = await (this.conversationManager.pool as Pool).connect();
+    
+    try {
+      // Delete all conversations for this chat
+      const result = await client.query(`
+        DELETE FROM conversations
+        WHERE chat_id = $1
+      `, [chatId]);
+      
+      const deletedCount = result.rowCount || 0;
+      
+      // Invalidate conversation history cache for this chat
+      invalidatePattern(`conversation:${chatId}:`);
+      
+      logger.info(`🗑️ [MessagesManager] Cleared ${deletedCount} conversations for chat ${chatId} and invalidated cache`);
+      
+      return deletedCount;
     } finally {
       client.release();
     }
