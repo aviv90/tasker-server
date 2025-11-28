@@ -306,11 +306,41 @@ export async function searchAndExtractRelevantInfo(
   error?: string;
 }> {
   try {
+    // Normalize natural language query into Drive-friendly search terms
+    const raw = (searchQuery || '').toLowerCase();
+
+    // Heuristic keyword mapping for drawings / blueprints, etc.
+    const drawingKeywords = [
+      'שרטוט', 'שרטוטים', 'שירטוט', 'שירטוטים',
+      'סקיצה', 'סקיצות',
+      'תכנית', 'תוכניות', 'תכניות',
+      'blueprint', 'blueprints', 'drawing', 'drawings', 'diagram', 'diagrams', 'plan', 'plans'
+    ];
+
+    const hasDrawingIntent = drawingKeywords.some(keyword => raw.includes(keyword));
+
+    // Very light stopword filtering (Hebrew + English common words)
+    const stopwords = new Set([
+      'מה', 'איזה', 'אילו', 'יש', 'ב', 'על', 'של', 'לו', 'לה', 'עם', 'לגבי', 'אותו', 'אותה',
+      'the', 'a', 'an', 'of', 'in', 'on', 'about', 'for', 'my', 'his', 'her', 'their', 'your'
+    ]);
+
+    const tokens = raw
+      .split(/\s+/)
+      .map(t => t.trim())
+      .filter(t => t && !stopwords.has(t));
+
+    const normalizedQuery = tokens.join(' ');
+
+    // If user asks about drawings/blueprints, bias strongly towards PDFs
+    const mimeTypeHint = hasDrawingIntent ? 'application/pdf' : undefined;
+
     // Search for files
     const searchResult = await searchFiles({
-      query: searchQuery,
+      query: normalizedQuery || searchQuery,
       folderId,
-      maxResults: maxFiles
+      maxResults: maxFiles,
+      mimeType: mimeTypeHint
     });
 
     if (!searchResult.success || !searchResult.files || searchResult.files.length === 0) {
