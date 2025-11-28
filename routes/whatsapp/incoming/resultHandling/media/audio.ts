@@ -3,10 +3,10 @@
  * Handles sending audio results to WhatsApp
  */
 
-import * as greenApiService from '../../../../services/greenApiService';
-import { normalizeStaticFileUrl } from '../../../../utils/urlUtils';
-import { shouldSkipAgentResult } from '../../../../utils/messageHelpers';
-import logger from '../../../../utils/logger';
+import * as greenApiService from '../../../../../services/greenApiService';
+import { normalizeStaticFileUrl } from '../../../../../utils/urlUtils';
+import { shouldSkipAgentResult } from '../../../../../utils/messageHelpers';
+import logger from '../../../../../utils/logger';
 import { AgentResult } from '../types';
 
 /**

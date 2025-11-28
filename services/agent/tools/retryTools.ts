@@ -8,7 +8,7 @@
 import conversationManager from '../../conversationManager';
 import logger from '../../../utils/logger';
 import { formatErrorForLogging } from '../../../utils/errorHandler';
-import { ALL_PROVIDERS } from '../../config/constants';
+import { ALL_PROVIDERS } from '../config/constants';
 import { RetryArgs, ToolContext, LastCommand, ToolResult } from './retry/types';
 import { handleMultiStepRetry, setAgentToolsReference as setMultiStepTools } from './retry/multiStep';
 import { handleSingleStepRetry, setAgentToolsReference as setSingleStepTools } from './retry/singleStep';

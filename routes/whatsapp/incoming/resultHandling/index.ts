@@ -26,8 +26,8 @@ export { handlePostProcessing } from './postProcessing';
 export { saveBotResponse } from './history';
 
 // Import dependencies
-import { shouldSkipAgentResult, extractQuotedMessageId } from '../../../utils/messageHelpers';
-import logger from '../../../utils/logger';
+import { shouldSkipAgentResult, extractQuotedMessageId } from '../../../../utils/messageHelpers';
+import logger from '../../../../utils/logger';
 import { AgentResult, NormalizedInput } from './types';
 import {
   sendImageResult,

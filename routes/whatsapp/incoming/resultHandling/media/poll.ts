@@ -3,10 +3,10 @@
  * Handles sending poll results to WhatsApp
  */
 
-import * as greenApiService from '../../../../services/greenApiService';
-import { sendErrorToUser } from '../../../../utils/errorSender';
-import { shouldSkipAgentResult } from '../../../../utils/messageHelpers';
-import logger from '../../../../utils/logger';
+import * as greenApiService from '../../../../../services/greenApiService';
+import { sendErrorToUser } from '../../../../../utils/errorSender';
+import { shouldSkipAgentResult } from '../../../../../utils/messageHelpers';
+import logger from '../../../../../utils/logger';
 import { AgentResult } from '../types';
 
 /**

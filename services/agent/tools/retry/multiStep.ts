@@ -10,14 +10,13 @@ import logger from '../../../../utils/logger';
 import { RetryArgs, ToolContext, LastCommand, ToolResult } from './types';
 import { sendMultiStepRetryAck } from './ack';
 
-// Reference to agentTools (will be injected)
-let agentTools: Record<string, { execute: (args: unknown, context: unknown) => Promise<unknown> }> | null = null;
-
 /**
  * Set agent tools reference (needed for retry)
+ * Note: Currently not used in multi-step retry, but kept for consistency with single-step
  */
-export function setAgentToolsReference(tools: Record<string, { execute: (args: unknown, context: unknown) => Promise<unknown> }>): void {
-  agentTools = tools;
+export function setAgentToolsReference(_tools: Record<string, { execute: (args: unknown, context: unknown) => Promise<unknown> }>): void {
+  // Multi-step retry uses multiStepExecution.execute() directly, not individual tools
+  // This function is kept for API consistency with single-step retry
 }
 
 /**
