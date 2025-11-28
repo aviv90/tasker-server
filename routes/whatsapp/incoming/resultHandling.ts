@@ -430,6 +430,9 @@ export async function handlePostProcessing(chatId: string, normalized: Normalize
       // קריאה שנייה לאג'נט – הפעם בקשת תמונה פשוטה בלבד
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const imageResult: any = await executeAgentQuery(imagePrompt, chatId, {
+        // For media-only secondary calls, conversation history may confuse the model.
+        // We explicitly disable history here to keep the prompt focused on image generation.
+        useConversationHistory: false,
         input: {
           ...normalized,
           userText: imagePrompt

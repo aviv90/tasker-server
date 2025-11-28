@@ -18,6 +18,7 @@ import agentLoop from './agent/execution/agentLoop';
 import contextManager from './agent/execution/context';
 import { allTools as agentTools } from './agent/tools';
 import logger from '../utils/logger';
+import { getChatHistory } from '../utils/chatHistoryService';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -51,6 +52,11 @@ interface AgentOptions {
   input?: AgentInput;
   lastCommand?: unknown;
   maxIterations?: number;
+  /**
+   * Control whether to include recent chat history in the model's startChat() history.
+   * Default: true. Set to false for media-only secondary calls where history may confuse the model.
+   */
+  useConversationHistory?: boolean;
   [key: string]: unknown;
 }
 
@@ -154,9 +160,36 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
   let context = contextManager.createInitialContext(chatId, options);
   context = await contextManager.loadPreviousContext(chatId, context, agentConfig.contextMemoryEnabled);
 
+  // 🧵 Conversation history for the agent (natural chat continuity)
+  const useConversationHistory = options.useConversationHistory !== false;
+  let history: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+
+  if (useConversationHistory) {
+    try {
+      const historyResult = await getChatHistory(chatId, 10, { format: 'internal' });
+      if (historyResult.success && historyResult.messages.length > 0) {
+        history = historyResult.messages.map(msg => ({
+          role: msg.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: msg.content }]
+        }));
+        logger.debug(`🧠 [Agent] Using ${history.length} previous messages as conversation history`);
+      } else {
+        logger.debug('🧠 [Agent] No previous messages found for conversation history');
+      }
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      logger.warn('⚠️ [Agent] Failed to load chat history for context (continuing without it)', {
+        chatId,
+        error: errorMessage
+      });
+    }
+  } else {
+    logger.info('🧠 [Agent] Conversation history disabled for this request (useConversationHistory=false)');
+  }
+
   // Conversation history for the agent
   const chat = model.startChat({
-    history: [],
+    history,
     tools: [{ functionDeclarations: functionDeclarations as never[] }],
     systemInstruction: {
       role: 'system',
