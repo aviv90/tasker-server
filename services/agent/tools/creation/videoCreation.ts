@@ -9,6 +9,7 @@ import { ProviderFallback } from '../../../../utils/providerFallback';
 import logger from '../../../../utils/logger';
 import * as replicateService from '../../../replicateService';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
+import { VIDEO_PROVIDERS, DEFAULT_VIDEO_PROVIDERS, PROVIDERS } from '../../config/constants';
 import type {
   AgentToolContext,
   ToolResult,
@@ -34,16 +35,16 @@ export const create_video = {
         provider: {
           type: 'string',
           description: 'ספק ליצירת הוידאו',
-          enum: ['veo3', 'sora', 'sora-pro', 'kling']
+          enum: [...VIDEO_PROVIDERS]
         }
       },
       required: ['prompt']
     }
   },
   execute: async (args: CreateVideoArgs = {}, context: AgentToolContext = {}): ToolResult => {
-    logger.debug(`🔧 [Agent Tool] create_video called with provider: ${args.provider || 'kling'}`, {
+    logger.debug(`🔧 [Agent Tool] create_video called with provider: ${args.provider || PROVIDERS.VIDEO.KLING}`, {
       prompt: args.prompt?.substring(0, 100),
-      provider: args.provider || 'kling',
+      provider: args.provider || PROVIDERS.VIDEO.KLING,
       chatId: context?.chatId
     });
     
@@ -62,7 +63,7 @@ export const create_video = {
       // If no provider specified (default), try all providers with fallback
       const providersToTry = requestedProvider
         ? [requestedProvider]
-        : ['kling', 'veo3', 'sora'];
+        : [...DEFAULT_VIDEO_PROVIDERS];
       context.expectedMediaType = 'video';
       
       // Use ProviderFallback utility for DRY code
@@ -74,12 +75,12 @@ export const create_video = {
       });
       
       const videoResult = (await fallback.tryWithFallback<VideoProviderResult>(async provider => {
-        if (provider === 'veo3') {
+        if (provider === PROVIDERS.VIDEO.VEO3) {
           const result = (await geminiService.generateVideoForWhatsApp(prompt)) as VideoProviderResult;
           result.providerUsed = provider;
           return result;
-        } else if (provider === 'sora' || provider === 'sora-pro') {
-          const model = provider === 'sora-pro' ? 'sora-2-pro' : 'sora-2';
+        } else if (provider === PROVIDERS.VIDEO.SORA || provider === PROVIDERS.VIDEO.SORA_PRO) {
+          const model = provider === PROVIDERS.VIDEO.SORA_PRO ? 'sora-2-pro' : 'sora-2';
           const result = (await openaiService.generateVideoWithSoraForWhatsApp(
             prompt,
             null,
@@ -117,7 +118,7 @@ export const create_video = {
         (videoResult.providerUsed as string | undefined) ||
         requestedProvider ||
         providersToTry[0] ||
-        'kling';
+        PROVIDERS.VIDEO.KLING;
       const formattedVideoProviderName = formatProviderName(videoProviderKey);
       const providerName =
         typeof formattedVideoProviderName === 'string' && formattedVideoProviderName.length > 0
@@ -175,7 +176,7 @@ export const image_to_video = {
         provider: {
           type: 'string',
           description: 'ספק להמרה: veo3 (Gemini Veo 3 - best quality), sora/sora-pro (OpenAI Sora 2 - cinematic), kling (Replicate Kling - fast). אם המשתמש מציין ספק ספציפי, השתמש בו!',
-          enum: ['veo3', 'sora', 'sora-pro', 'kling']
+          enum: [...VIDEO_PROVIDERS]
         }
       },
       required: ['image_url', 'prompt']
@@ -185,13 +186,13 @@ export const image_to_video = {
     logger.debug(`🔧 [Agent Tool] image_to_video called`, {
       imageUrl: args.image_url?.substring(0, 50),
       prompt: args.prompt?.substring(0, 100),
-      provider: args.provider || 'kling',
+      provider: args.provider || PROVIDERS.VIDEO.KLING,
       chatId: context?.chatId
     });
     
     try {
       const { geminiService, openaiService, greenApiService } = getServices();
-      const provider = args.provider || 'kling';
+      const provider = args.provider || PROVIDERS.VIDEO.KLING;
       if (!args.image_url) {
         return {
           success: false,
@@ -213,10 +214,10 @@ export const image_to_video = {
       const imageBuffer = await greenApiService.downloadFile(imageUrl);
       
       let result: VideoProviderResult & { error?: string };
-      if (provider === 'veo3') {
+      if (provider === PROVIDERS.VIDEO.VEO3) {
         result = (await geminiService.generateVideoFromImageForWhatsApp(prompt, imageBuffer)) as VideoProviderResult & { error?: string };
-      } else if (provider === 'sora' || provider === 'sora-pro') {
-        const model = provider === 'sora-pro' ? 'sora-2-pro' : 'sora-2';
+      } else if (provider === PROVIDERS.VIDEO.SORA || provider === PROVIDERS.VIDEO.SORA_PRO) {
+        const model = provider === PROVIDERS.VIDEO.SORA_PRO ? 'sora-2-pro' : 'sora-2';
         result = (await openaiService.generateVideoWithSoraFromImageForWhatsApp(
           prompt,
           imageBuffer,

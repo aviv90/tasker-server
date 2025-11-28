@@ -88,3 +88,79 @@ export const NON_PERSISTED_TOOLS = new Set<string>([
  */
 export const SUMMARY_MAX_LENGTH = 90;
 
+/**
+ * Provider Constants
+ * SSOT (Single Source of Truth) for all provider names
+ */
+export const PROVIDERS = {
+  // Image providers
+  IMAGE: {
+    GEMINI: 'gemini',
+    OPENAI: 'openai',
+    GROK: 'grok'
+  } as const,
+  
+  // Video providers
+  VIDEO: {
+    VEO3: 'veo3',
+    SORA: 'sora',
+    SORA_PRO: 'sora-pro',
+    KLING: 'kling',
+    RUNWAY: 'runway'
+  } as const,
+  
+  // General
+  NONE: 'none'
+} as const;
+
+/**
+ * Image provider enum array (for tool declarations)
+ */
+export const IMAGE_PROVIDERS = [
+  PROVIDERS.IMAGE.GEMINI,
+  PROVIDERS.IMAGE.OPENAI,
+  PROVIDERS.IMAGE.GROK
+] as const;
+
+/**
+ * Video provider enum array (for tool declarations)
+ */
+export const VIDEO_PROVIDERS = [
+  PROVIDERS.VIDEO.VEO3,
+  PROVIDERS.VIDEO.SORA,
+  PROVIDERS.VIDEO.SORA_PRO,
+  PROVIDERS.VIDEO.KLING
+] as const;
+
+/**
+ * All providers enum array (for retry tool)
+ */
+export const ALL_PROVIDERS = [
+  PROVIDERS.IMAGE.GEMINI,
+  PROVIDERS.IMAGE.OPENAI,
+  PROVIDERS.IMAGE.GROK,
+  PROVIDERS.VIDEO.SORA,
+  PROVIDERS.VIDEO.VEO3,
+  PROVIDERS.VIDEO.KLING,
+  PROVIDERS.VIDEO.RUNWAY,
+  PROVIDERS.NONE
+] as const;
+
+/**
+ * Default image providers (fallback order)
+ */
+export const DEFAULT_IMAGE_PROVIDERS = [
+  PROVIDERS.IMAGE.GEMINI,
+  PROVIDERS.IMAGE.OPENAI,
+  PROVIDERS.IMAGE.GROK
+] as const;
+
+/**
+ * Default video providers (fallback order)
+ */
+export const DEFAULT_VIDEO_PROVIDERS = [
+  PROVIDERS.VIDEO.KLING,
+  PROVIDERS.VIDEO.VEO3,
+  PROVIDERS.VIDEO.SORA
+] as const;
+

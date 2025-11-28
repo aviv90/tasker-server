@@ -9,6 +9,7 @@ import { cleanMarkdown } from '../../../../utils/textSanitizer';
 import { ProviderFallback } from '../../../../utils/providerFallback';
 import logger from '../../../../utils/logger';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
+import { IMAGE_PROVIDERS, DEFAULT_IMAGE_PROVIDERS, PROVIDERS } from '../../config/constants';
 import type {
   AgentToolContext,
   ToolResult,
@@ -33,7 +34,7 @@ export const create_image = {
         provider: {
           type: 'string',
           description: 'ספק ליצירה: gemini (ברירת מחדל), openai, או grok',
-          enum: ['gemini', 'openai', 'grok']
+          enum: [...IMAGE_PROVIDERS]
         }
       },
       required: ['prompt']
@@ -66,7 +67,7 @@ export const create_image = {
       // If no provider specified (default), try all providers with fallback
       const providersToTry = requestedProvider
         ? [requestedProvider]
-        : ['gemini', 'openai', 'grok'];
+        : [...DEFAULT_IMAGE_PROVIDERS];
       const { geminiService, openaiService, grokService } = getServices();
       
       // Use ProviderFallback utility for DRY code
@@ -80,9 +81,9 @@ export const create_image = {
       const prompt = args.prompt.trim();
       const providerResult = (await fallback.tryWithFallback<ImageProviderResult>(async provider => {
         let imageResult: ImageProviderResult;
-        if (provider === 'openai') {
+        if (provider === PROVIDERS.IMAGE.OPENAI) {
           imageResult = (await openaiService.generateImageForWhatsApp(prompt, null)) as ImageProviderResult;
-        } else if (provider === 'grok') {
+        } else if (provider === PROVIDERS.IMAGE.GROK) {
           imageResult = (await grokService.generateImageForWhatsApp(prompt)) as ImageProviderResult;
         } else {
           imageResult = (await geminiService.generateImageForWhatsApp(prompt, null)) as ImageProviderResult;
@@ -113,7 +114,7 @@ export const create_image = {
         (providerResult.providerUsed as string | undefined) ||
         requestedProvider ||
         providersToTry[0] ||
-        'gemini';
+        PROVIDERS.IMAGE.GEMINI;
       const formattedProviderName = formatProviderName(providerKey);
       const providerName =
         typeof formattedProviderName === 'string' && formattedProviderName.length > 0

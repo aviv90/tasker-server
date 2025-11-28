@@ -8,4 +8,4 @@
  */
 
 // Re-export everything from the organized modules
-export * from './resultHandling';
+export * from './resultHandling/index';

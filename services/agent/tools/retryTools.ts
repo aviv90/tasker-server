@@ -8,6 +8,7 @@
 import conversationManager from '../../conversationManager';
 import logger from '../../../utils/logger';
 import { formatErrorForLogging } from '../../../utils/errorHandler';
+import { ALL_PROVIDERS } from '../../config/constants';
 import { RetryArgs, ToolContext, LastCommand, ToolResult } from './retry/types';
 import { handleMultiStepRetry, setAgentToolsReference as setMultiStepTools } from './retry/multiStep';
 import { handleSingleStepRetry, setAgentToolsReference as setSingleStepTools } from './retry/singleStep';
@@ -51,7 +52,7 @@ export const retry_last_command = {
       properties: {
         provider_override: {
           type: 'string',
-          enum: ['gemini', 'openai', 'grok', 'sora', 'veo3', 'kling', 'runway', 'none'],
+          enum: [...ALL_PROVIDERS],
           description: 'ספק חלופי להשתמש (אם המשתמש ביקש). none = אין שינוי'
         },
         modifications: {

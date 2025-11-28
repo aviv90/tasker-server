@@ -4,6 +4,7 @@
  */
 
 import { ProviderResult } from '../../../../utils/providerFallback';
+import { PROVIDERS } from '../../config/constants';
 
 /**
  * Agent tool context type
@@ -87,7 +88,7 @@ export type MusicGenerationResponse = {
  */
 export type CreateImageArgs = {
   prompt?: string;
-  provider?: 'gemini' | 'openai' | 'grok';
+  provider?: typeof PROVIDERS.IMAGE.GEMINI | typeof PROVIDERS.IMAGE.OPENAI | typeof PROVIDERS.IMAGE.GROK;
 };
 
 /**
@@ -95,7 +96,7 @@ export type CreateImageArgs = {
  */
 export type CreateVideoArgs = {
   prompt?: string;
-  provider?: 'veo3' | 'sora' | 'sora-pro' | 'kling';
+  provider?: typeof PROVIDERS.VIDEO.VEO3 | typeof PROVIDERS.VIDEO.SORA | typeof PROVIDERS.VIDEO.SORA_PRO | typeof PROVIDERS.VIDEO.KLING;
 };
 
 /**
@@ -104,7 +105,7 @@ export type CreateVideoArgs = {
 export type ImageToVideoArgs = {
   image_url?: string;
   prompt?: string;
-  provider?: 'veo3' | 'sora' | 'sora-pro' | 'kling';
+  provider?: typeof PROVIDERS.VIDEO.VEO3 | typeof PROVIDERS.VIDEO.SORA | typeof PROVIDERS.VIDEO.SORA_PRO | typeof PROVIDERS.VIDEO.KLING;
 };
 
 /**
