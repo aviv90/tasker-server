@@ -202,6 +202,11 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
         if (toolResult.locationInfo) {
           assets.locationInfo = cleanJsonWrapper(toolResult.locationInfo);
         }
+        // Fallback: if no text response yet and tool returned textual data, use it
+        if (!textResponse && typeof toolResult.data === 'string' && toolResult.data.trim()) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (assets as any).text = toolResult.data.trim();
+        }
         
         // If tool failed and returned error, save it for return
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
