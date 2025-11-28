@@ -14,9 +14,9 @@ import { AgentResult } from './types';
 export async function saveBotResponse(chatId: string, agentResult: AgentResult): Promise<void> {
   try {
     // Use dynamic import to avoid circular dependencies
-    const conversationManagerModule = await import('../../../../services/conversationManager');
-    const conversationManager = conversationManagerModule.default;
-    if (!conversationManager.isInitialized) {
+    const containerModule = await import('../../../../services/container');
+    const container = containerModule.default;
+    if (!container.isInitialized) {
       logger.debug('💾 [Agent] DB not initialized, skipping bot response save');
       return;
     }
@@ -33,7 +33,9 @@ export async function saveBotResponse(chatId: string, agentResult: AgentResult):
         if (agentResult.videoUrl) metadata.videoUrl = agentResult.videoUrl;
         if (agentResult.audioUrl) metadata.audioUrl = agentResult.audioUrl;
         
-        await conversationManager.addMessage(chatId, 'assistant', cleanText, metadata);
+        // Use container's messages service directly (no deprecation warning)
+        const messagesManager = container.getService('messages');
+        await messagesManager.addMessage(chatId, 'assistant', cleanText, metadata);
         logger.debug(`💾 [Agent] Saved bot text response to DB cache: ${cleanText.substring(0, 50)}...`);
       }
     }

@@ -48,15 +48,8 @@ export async function sendSingleStepText(
   quotedMessageId: string | null = null, 
   textAlreadySent: boolean = false
 ): Promise<void> {
-  // CRITICAL: If tool failed and error was already sent, don't send Gemini's error text
-  // This prevents duplicate error messages (one from tool, one from Gemini final response)
-  const hasToolError = agentResult.toolResults && 
-                       Object.values(agentResult.toolResults).some((result: any) => result?.error);
-  
-  if (hasToolError) {
-    logger.debug(`⚠️ [Result Handling] Tool error detected - skipping Gemini final text to avoid duplicate`);
-    return;
-  }
+  // Note: We don't skip on tool errors anymore - we want to send the agent's response
+  // The error handling will be done at a higher level if needed
   
   // Single-step: Send text response
   // CRITICAL: If text was already sent by media handler (e.g., sendImageResult), don't send again
@@ -137,8 +130,28 @@ export async function sendSingleStepText(
         }
       }
     } else {
-      logger.debug(`ℹ️ Multiple tools detected - skipping general text to avoid mixing outputs`);
+      // Multiple tools: Still send text if it exists and is meaningful
+      // This ensures user always gets a response, even with multiple tools
+      if (agentResult.text && agentResult.text.trim()) {
+        const cleanText = cleanAgentText(agentResult.text);
+        if (cleanText && cleanText.trim() && cleanText.length > 20) {
+          logger.debug(`📝 [Text] Sending text despite multiple tools (${cleanText.length} chars)`);
+          await greenApiService.sendTextMessage(chatId, cleanText, quotedMessageId || undefined, 1000);
+        } else {
+          logger.debug(`ℹ️ Multiple tools detected - text too short or empty, skipping`);
+        }
+      } else {
+        logger.debug(`ℹ️ Multiple tools detected - no text to send`);
+      }
     }
+  }
+  
+  // CRITICAL: If no text was sent and no media was sent, send error message
+  // This ensures user always gets a response
+  if (!mediaSent && !agentResult.text?.trim()) {
+    logger.warn(`⚠️ [Text] No text and no media - sending error message to user`);
+    const errorMessage = agentResult.error || 'לא הצלחתי להשלים את הבקשה. אנא נסה שוב.';
+    await greenApiService.sendTextMessage(chatId, errorMessage, quotedMessageId || undefined, 1000);
   }
 }
 

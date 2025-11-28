@@ -112,6 +112,15 @@ export async function sendAgentResults(
   // Pass textAlreadySentByMedia flag to prevent duplicate text sending
   await sendSingleStepText(chatId, agentResult, mediaSent, quotedMessageId, textAlreadySentByMedia);
 
+  // CRITICAL: Verify that something was sent to the user
+  // If nothing was sent (no media, no text), send an error message
+  const hasText = agentResult.text && agentResult.text.trim();
+  if (!mediaSent && !hasText) {
+    logger.error(`❌ [Result Handling] Nothing was sent to user! Sending error message.`);
+    const { sendErrorToUser, ERROR_MESSAGES } = await import('../../../../utils/errorSender');
+    await sendErrorToUser(chatId, agentResult?.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId: quotedMessageId || undefined });
+  }
+
   // Handle post-processing (complementary image generation)
   await handlePostProcessing(chatId, normalized, agentResult, quotedMessageId);
 

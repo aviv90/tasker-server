@@ -245,14 +245,14 @@ const TOOLS: Record<string, Tool> = {
   search_google_drive: {
     name: 'search_google_drive',
     category: 'search',
-    description: 'Search and retrieve documents, images, and files from Google Drive. Can extract text from documents and images for RAG-like functionality.',
+    description: 'EXPERIMENTAL: Search and retrieve documents, images, and files from Google Drive. Can extract text from documents and images for RAG-like functionality. ONLY use when user explicitly requests searching in Google Drive or documents.',
     usage: ['חפש ב-Google Drive', 'חפש במסמכים', 'מה יש בתיקייה X', 'מצא מידע על Y ב-Drive', 'search in drive', 'find document about X', 'מה כתוב במסמך Y', 'מה יש בשרטוט', 'מה מופיע במסמך', 'תסביר את התכנית', 'מה כתוב בקובץ'],
     parameters: {
       query: { type: 'string', required: true, description: 'Search query for files and content' },
       folder_id: { type: 'string', required: false, description: 'Specific folder ID to search in (optional)' },
       max_results: { type: 'number', required: false, description: 'Maximum number of files to return (default: 5)' }
     },
-    critical: 'CRITICAL: ALWAYS use search_google_drive for questions about drawings/documents/files (e.g., "מה יש בשרטוט", "מה מופיע במסמך", "תסביר את התכנית"). Do NOT use get_chat_history or analyze_image_from_history for Drive files! Use ONLY for searching and retrieving information from Google Drive. NOT for web search (use search_web) or creating new content!'
+    critical: 'CRITICAL RESTRICTION: This is an EXPERIMENTAL tool. ONLY use search_google_drive when the user EXPLICITLY requests searching in Google Drive, documents, or files (e.g., "חפש ב-Google Drive", "חפש במסמכים", "מה יש בשרטוט", "מה מופיע במסמך", "תסביר את התכנית"). Do NOT use for general requests like "send me a link to a song" or "find information about X" - use search_web instead! Do NOT use get_chat_history or analyze_image_from_history for Drive files. Use ONLY for explicit Google Drive/document searches. NOT for web search (use search_web) or creating new content!'
   },
 
   get_chat_history: {

@@ -78,7 +78,13 @@ export async function saveIncomingUserMessage(
       // If needed, we could add a unique constraint on (chat_id, metadata->>'messageId')
       
       // Save to DB
-      await conversationManager.addMessage(chatId, 'user', content, fullMetadata);
+      // Use container's messages service directly (no deprecation warning)
+      const containerModule = await import('../../../services/container');
+      const container = containerModule.default;
+      if (container.isInitialized) {
+        const messagesManager = container.getService('messages');
+        await messagesManager.addMessage(chatId, 'user', content, fullMetadata);
+      }
       logger.debug(`💾 [MessageStorage] Saved user message to DB cache: ${content.substring(0, 50)}...`);
     } catch (error) {
       // If duplicate key error (if we add unique constraint), log and continue

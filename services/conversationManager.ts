@@ -4,7 +4,6 @@ import TasksManager from './conversation/tasks';
 import logger from '../utils/logger';
 import { Pool } from 'pg';
 import { TIME } from '../utils/constants';
-import { getChatHistory } from '../utils/chatHistoryService';
 
 // Import interfaces/classes
 import CommandsManager from './conversation/commands';
@@ -98,21 +97,8 @@ class ConversationManager {
   // Legacy support for messagesManager (it's deprecated)
   // We explicitly redirect to chatHistoryService as per previous implementation
   get messagesManager(): MessagesManager {
-    // Create a proxy/stub that mimics MessagesManager but uses new services or warns
-    return {
-      getConversationHistory: async (chatId: string) => {
-        logger.warn('⚠️ [DEPRECATED] conversationManager.messagesManager used. Use chatHistoryService.');
-        const result = await getChatHistory(chatId);
-        return (result.messages || []) as unknown[];
-      },
-      addMessage: async () => {
-        logger.warn('⚠️ addMessage is deprecated');
-        return 0;
-      },
-      trimMessagesForChat: async () => {
-        // No-op
-      }
-    } as unknown as MessagesManager;
+    // Return the real MessagesManager from container (no deprecation warning)
+    return container.getService('messages');
   }
 
   // ═══════════════════ FACADE METHODS ═══════════════════
@@ -300,15 +286,18 @@ class ConversationManager {
 
   // Deprecated Wrappers
   async addMessage(chatId: string, role: string, content: string, metadata: Record<string, unknown> = {}): Promise<number> {
-    return this.messagesManager.addMessage(chatId, role, content, metadata);
+    // Use container's messages service directly (no deprecation warning)
+    return container.getService('messages').addMessage(chatId, role, content, metadata);
   }
 
   async trimMessagesForChat(chatId: string): Promise<void> {
-    return this.messagesManager.trimMessagesForChat(chatId);
+    // Use container's messages service directly (no deprecation warning)
+    return container.getService('messages').trimMessagesForChat(chatId);
   }
 
   async getConversationHistory(chatId: string, limit: number | null = null): Promise<unknown[]> {
-    return this.messagesManager.getConversationHistory(chatId, limit);
+    // Use container's messages service directly (no deprecation warning)
+    return container.getService('messages').getConversationHistory(chatId, limit);
   }
 
   // Cleanup
