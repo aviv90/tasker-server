@@ -169,11 +169,25 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
       // Use DB cache for fast retrieval (10 messages for agent context)
       const historyResult = await getChatHistory(chatId, 10, { format: 'internal', useDbCache: true });
       if (historyResult.success && historyResult.messages.length > 0) {
-        history = historyResult.messages.map(msg => ({
-          role: msg.role === 'assistant' ? 'model' : 'user',
+        // Convert to Gemini format
+        const rawHistory: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = historyResult.messages.map(msg => ({
+          role: (msg.role === 'assistant' ? 'model' : 'user') as 'user' | 'model',
           parts: [{ text: msg.content }]
         }));
-        logger.debug(`🧠 [Agent] Using ${history.length} previous messages as conversation history (from DB cache)`);
+        
+        // CRITICAL: Gemini requires history to start with 'user' role
+        // If history starts with 'model', remove leading model messages
+        let validHistory = rawHistory;
+        while (validHistory.length > 0 && validHistory[0] && validHistory[0].role === 'model') {
+          logger.debug(`🧠 [Agent] Removing leading 'model' message from history (Gemini requirement)`);
+          validHistory = validHistory.slice(1);
+        }
+        
+        // Also ensure history ends with 'user' (current message will be added)
+        // If last message is 'model', that's OK - current user message will follow
+        
+        history = validHistory;
+        logger.debug(`🧠 [Agent] Using ${history.length} previous messages as conversation history (from DB cache, validated for Gemini)`);
       } else {
         logger.debug('🧠 [Agent] No previous messages found for conversation history');
       }

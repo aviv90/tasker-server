@@ -326,7 +326,21 @@ export async function sendSingleStepText(chatId: string, agentResult: AgentResul
         // Single tool: Check if text is different from caption (to avoid duplicates)
         let shouldSendText = true;
         
-        if (mediaSent) {
+        // CRITICAL: If location was sent, check if text contains locationInfo (already sent separately)
+        if (agentResult.latitude && agentResult.longitude && agentResult.locationInfo) {
+          const textToCheck = agentResult.text.trim();
+          const locationInfoToCheck = agentResult.locationInfo.trim();
+          
+          // If text is same as locationInfo or contains it, don't send again (already sent in sendLocationResult)
+          if (textToCheck === locationInfoToCheck || 
+              textToCheck.includes(locationInfoToCheck) || 
+              locationInfoToCheck.includes(textToCheck)) {
+            shouldSendText = false;
+            logger.debug(`⏭️ [Text] Skipping text - same as locationInfo (already sent separately)`);
+          }
+        }
+        
+        if (mediaSent && shouldSendText) {
           // If media was sent, check if text is just the caption (already sent with media)
           const textToCheck = cleanMediaDescription(agentResult.text);
           const imageCaption = agentResult.imageCaption ? cleanMediaDescription(agentResult.imageCaption) : '';

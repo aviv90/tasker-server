@@ -35,7 +35,7 @@ export const send_location = {
   declaration: {
     name: 'send_location',
     description:
-      'שלח מיקום אקראי במקום מסוים (עיר/מדינה/יבשת) או מיקום אקראי לגמרי. משתמש ב-Google Maps geocoding למציאת כל מקום בעולם.',
+      'שלח מיקום אקראי במקום מסוים (עיר/מדינה/יבשת) או מיקום אקראי לגמרי. משתמש ב-Google Maps geocoding למציאת כל מקום בעולם. **CRITICAL: Use this tool for ALL location requests. Do NOT use search_google_drive or other tools for location requests!**',
     parameters: {
       type: 'object',
       properties: {

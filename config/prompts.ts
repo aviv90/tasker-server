@@ -174,6 +174,11 @@ TOOLS: Use appropriate tool for each request (images, videos, music, location, s
 • User asks about content of drawings, plans, documents, or files
 **CRITICAL: Do NOT use get_chat_history or analyze_image_from_history for questions about Drive files! Always use search_google_drive for such requests!**
 
+**CRITICAL: LOCATION RULE - ALWAYS use send_location for:**
+• Location requests (e.g., "שלח מיקום", "send location", "מיקום באזור X", "location in X")
+• Do NOT use search_google_drive or other tools for location requests!
+• If user asks for location in a specific region, use send_location with region parameter
+
 **CRITICAL: MUSIC/SONG CREATION RULE:**
 • "כתוב שיר" / "לכתוב שיר" / "write song" / "write lyrics" → This means TEXT ONLY (just lyrics/words). Do NOT use create_music tool! Simply write the song lyrics as text response.
 • "צור שיר" / "יצירת שיר" / "create song" / "make music" / "song with melody" / "שיר עם מנגינה" / "שיר עם Suno" → This means CREATE MUSIC with Suno AI (with melody). Use create_music tool.
