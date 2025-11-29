@@ -4,7 +4,7 @@
  */
 
 import * as greenApiService from '../../../../services/greenApiService';
-import { cleanMediaDescription, cleanMultiStepText, isGenericSuccessMessage } from '../../../../utils/textSanitizer';
+import { cleanMediaDescription, cleanMultiStepText, isGenericSuccessMessage, isUnnecessaryApologyMessage } from '../../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../../services/whatsapp/utils';
 import logger from '../../../../utils/logger';
 import { AgentResult } from './types';
@@ -79,8 +79,14 @@ export async function sendSingleStepText(
         const textToCheck = cleanMediaDescription(agentResult.text);
         const imageCaption = agentResult.imageCaption ? cleanMediaDescription(agentResult.imageCaption) : '';
         
+        // CRITICAL: Skip unnecessary apology messages when media was successfully created
+        // These confuse users because they think something went wrong when it didn't
+        if (isUnnecessaryApologyMessage(textToCheck)) {
+          shouldSendText = false;
+          logger.debug(`⏭️ [Text] Skipping apology message - media was successfully created`);
+        }
         // For images: skip generic success messages - they're redundant when image is already sent
-        if (agentResult.imageUrl) {
+        else if (agentResult.imageUrl) {
           if (isGenericSuccessMessage(textToCheck.trim(), 'image')) {
             shouldSendText = false;
             logger.debug(`⏭️ [Text] Skipping generic success message after image`);

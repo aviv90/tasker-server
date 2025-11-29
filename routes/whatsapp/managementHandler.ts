@@ -15,25 +15,6 @@ import { findContactByName } from '../../services/groupService';
 import logger from '../../utils/logger';
 import { TIME } from '../../utils/constants';
 
-interface GreenApiMessage {
-  typeMessage?: string;
-  type?: string;
-  textMessage?: string;
-  caption?: string;
-  extendedTextMessage?: { text?: string };
-  idMessage?: string;
-  [key: string]: unknown;
-}
-
-interface ChatMessage {
-  textMessage?: string;
-  caption?: string;
-  extendedTextMessage?: { text?: string };
-  typeMessage?: string;
-  idMessage?: string;
-  [key: string]: unknown;
-}
-
 /**
  * Handle management commands
  * @param {Object} command - Command object with type and optional contactName
@@ -77,35 +58,18 @@ export async function handleManagementCommand(
       }
 
       case 'show_history': {
-        // Get history from Green API (not DB) - shows all messages
+        // Use chatHistoryService (SSOT) for proper chronological ordering
         try {
-          const greenApiHistory = await greenApiService.getChatHistory(chatId, 20) as GreenApiMessage[];
+          const { getChatHistory } = await import('../../utils/chatHistoryService');
+          const historyResult = await getChatHistory(chatId, 20, { format: 'display' });
           
-          if (greenApiHistory && greenApiHistory.length > 0) {
+          if (historyResult.success && historyResult.messages.length > 0) {
             let historyText = '📜 **היסטוריית שיחה (20 הודעות אחרונות):**\n\n';
             
-            const filteredMessages = greenApiHistory.filter((msg: GreenApiMessage) => {
-              // Filter out system/notification messages
-              const isSystemMessage = 
-                msg.typeMessage === 'notificationMessage' ||
-                msg.type === 'notification' ||
-                (msg.textMessage && msg.textMessage.startsWith('System:'));
-              return !isSystemMessage;
-            });
-            
-            // Use for...of loop to support await
-            for (const msg of filteredMessages) {
-              const message = msg as ChatMessage;
-              const textContent = message.textMessage || 
-                                message.caption || 
-                                (message.extendedTextMessage && message.extendedTextMessage.text) ||
-                                (message.typeMessage === 'extendedTextMessage' && message.extendedTextMessage?.text) ||
-                                '[הודעה ללא טקסט]';
-              
-              // Determine role using conversationManager (DB-backed)
-              const isFromBot = message.idMessage ? await conversationManager.isBotMessage(chatId, message.idMessage) : false;
-              const role = isFromBot ? '🤖' : '👤';
-              
+            // Process messages
+            for (const msg of historyResult.messages) {
+              const textContent = msg.content || '[הודעה ללא טקסט]';
+              const role = msg.role === 'assistant' ? '🤖' : '👤';
               historyText += `${role} ${textContent}\n\n`;
             }
             
@@ -115,9 +79,8 @@ export async function handleManagementCommand(
           }
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const errorStack = error instanceof Error ? error.stack : undefined;
-          logger.error('❌ Error fetching history from Green API:', { error: errorMessage, stack: errorStack });
+          logger.error('❌ Error fetching history:', { error: errorMessage, stack: errorStack });
           await sendErrorToUser(chatId, error, { context: 'SHOW_HISTORY', quotedMessageId: originalMessageId || undefined });
         }
         break;

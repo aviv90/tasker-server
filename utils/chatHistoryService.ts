@@ -198,9 +198,14 @@ export async function getChatHistory(
           return !isSystemMessage;
         });
     
+    // CRITICAL: Green API returns messages newest-first (reverse chronological)
+    // We need to reverse to get chronological order (oldest to newest)
+    // This is essential for proper history display and context understanding
+    const chronologicalHistory = [...filteredHistory].reverse();
+    
     // Format based on requested format
     if (format === 'display') {
-      const formattedHistoryPromises = filteredHistory.map(async (msg, idx) => {
+      const formattedHistoryPromises = chronologicalHistory.map(async (msg, idx) => {
           const isFromBot = msg.idMessage ? await conversationManager.isBotMessage(chatId, msg.idMessage) : false;
           const role = isFromBot ? 'בוט' : 'משתמש';
           const senderName = msg.senderName || (isFromBot ? 'בוט' : 'משתמש');
@@ -255,11 +260,11 @@ export async function getChatHistory(
         });
       
       const formattedHistory = (await Promise.all(formattedHistoryPromises)).join('\n');
-      const internalFormat = await formatInternal(filteredHistory, chatId);
+      const internalFormat = await formatInternal(chronologicalHistory, chatId);
       
       return {
         success: true,
-        data: `היסטוריה של ${filteredHistory.length} הודעות אחרונות:\n\n${formattedHistory}`,
+        data: `היסטוריה של ${chronologicalHistory.length} הודעות אחרונות:\n\n${formattedHistory}`,
         messages: internalFormat,
         formatted: formattedHistory
       };
@@ -267,8 +272,8 @@ export async function getChatHistory(
       // Internal format (default)
       return {
         success: true,
-        data: `היסטוריה של ${filteredHistory.length} הודעות אחרונות`,
-        messages: await formatInternal(filteredHistory, chatId),
+        data: `היסטוריה של ${chronologicalHistory.length} הודעות אחרונות`,
+        messages: await formatInternal(chronologicalHistory, chatId),
         formatted: ''
       };
     }
@@ -357,8 +362,9 @@ export async function getRawChatHistory(
     }
     
     // Filter system messages if needed
+    let filteredHistory = greenApiHistory;
     if (!includeSystemMessages) {
-      return greenApiHistory.filter(msg => {
+      filteredHistory = greenApiHistory.filter(msg => {
         const isSystemMessage = 
           msg.typeMessage === 'notificationMessage' ||
           msg.type === 'notification' ||
@@ -367,7 +373,9 @@ export async function getRawChatHistory(
       });
     }
     
-    return greenApiHistory;
+    // CRITICAL: Green API returns messages newest-first (reverse chronological)
+    // Reverse to get chronological order (oldest to newest)
+    return [...filteredHistory].reverse();
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error('❌ [ChatHistory] Error fetching raw chat history from Green API:', {

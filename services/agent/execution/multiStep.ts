@@ -13,7 +13,7 @@ import { allTools as agentTools } from '../tools';
 import prompts from '../../../config/prompts';
 import resultSender from './resultSender';
 import { TIME } from '../../../utils/constants';
-import { cleanJsonWrapper, cleanMediaDescription, isGenericSuccessMessage } from '../../../utils/textSanitizer';
+import { cleanJsonWrapper, cleanMediaDescription, isGenericSuccessMessage, isUnnecessaryApologyMessage } from '../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../services/whatsapp/utils';
 import logger from '../../../utils/logger';
 
@@ -269,13 +269,17 @@ class MultiStepExecution {
       
       const providersToTry = toolName.includes('image') ? imageProviders : videoProviders;
       
-      // Try each provider with Ack
+      // Try each provider (send ACK only for first fallback attempt)
+      let ackSentForFallback = false;
       for (const provider of providersToTry) {
         logger.debug(`🔄 [Multi-step Fallback] Trying ${provider}...`);
         
-        // Send Ack for this fallback attempt
-        const ackCalls: FunctionCall[] = [{ name: toolName, args: { provider } }];
-        await sendToolAckMessage(chatId, ackCalls, quotedMessageId || undefined);
+        // Send Ack only for first fallback attempt (not for every provider)
+        if (!ackSentForFallback) {
+          const ackCalls: FunctionCall[] = [{ name: toolName, args: { provider } }];
+          await sendToolAckMessage(chatId, ackCalls, quotedMessageId || undefined);
+          ackSentForFallback = true;
+        }
         
         try {
           const result = await this.executeFallbackTool(toolName, provider, toolParams, step, chatId);
@@ -307,7 +311,7 @@ class MultiStepExecution {
 
               // Only send additional text in a separate message if:
               // 1. Text exists and is different from caption
-              // 2. Text is not a generic success message
+              // 2. Text is not a generic success message or apology
               // 3. Text is meaningfully different (more than just whitespace/formatting)
               if (result.text && typeof result.text === 'string' && result.text.trim()) {
                 const textToCheck = cleanMediaDescription(result.text);
@@ -316,6 +320,10 @@ class MultiStepExecution {
                 // Skip generic success messages - they're redundant when image is already sent
                 if (isGenericSuccessMessage(textToCheck.trim(), 'image')) {
                   logger.debug(`⏭️ [Multi-step Fallback] Skipping generic success message after image`);
+                }
+                // Skip unnecessary apology messages when image was successfully created
+                else if (isUnnecessaryApologyMessage(textToCheck)) {
+                  logger.debug(`⏭️ [Multi-step Fallback] Skipping apology message after image`);
                 }
                 // Only send if text is meaningfully different from caption
                 else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
@@ -351,7 +359,7 @@ class MultiStepExecution {
 
               // Only send additional text in a separate message if:
               // 1. Text exists and is different from caption
-              // 2. Text is not a generic success message
+              // 2. Text is not a generic success message or apology
               // 3. Text is meaningfully different (more than just whitespace/formatting)
               if (result.text && typeof result.text === 'string' && result.text.trim()) {
                 const textToCheck = cleanMediaDescription(result.text);
@@ -360,6 +368,10 @@ class MultiStepExecution {
                 // Skip generic success messages - they're redundant when video is already sent
                 if (isGenericSuccessMessage(textToCheck.trim(), 'video')) {
                   logger.debug(`⏭️ [Multi-step Fallback] Skipping generic success message after video`);
+                }
+                // Skip unnecessary apology messages when video was successfully created
+                else if (isUnnecessaryApologyMessage(textToCheck)) {
+                  logger.debug(`⏭️ [Multi-step Fallback] Skipping apology message after video`);
                 }
                 // Only send if text is meaningfully different from caption
                 else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {

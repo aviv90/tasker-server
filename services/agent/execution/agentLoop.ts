@@ -5,7 +5,7 @@ import { allTools as agentTools } from '../tools';
 import { sendToolAckMessage, FunctionCall } from '../utils/ackUtils';
 import { getServices } from '../utils/serviceLoader';
 import { extractQuotedMessageId } from '../../../utils/messageHelpers';
-import { cleanJsonWrapper } from '../../../utils/textSanitizer';
+import { cleanJsonWrapper, isUnnecessaryApologyMessage } from '../../../utils/textSanitizer';
 import logger from '../../../utils/logger';
 import { TIME } from '../../../utils/constants';
 import { AgentContextState as AgentContext, ToolCall } from './context';
@@ -58,11 +58,20 @@ void genAI; // Suppress unused warning
  * Handles tool calling iterations until final response is reached
  */
 class AgentLoop {
+  // Track tools that already received ACK to prevent duplicate ACKs
+  private ackedTools: Set<string> = new Set();
+  // Track creation tools that already succeeded to prevent duplicate execution
+  private succeededCreationTools: Set<string> = new Set();
+  
   /**
    * Execute agent loop
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async execute(chat: any, prompt: string, chatId: string, context: AgentContext, maxIterations: number, agentConfig: AgentConfig): Promise<AgentResult> {
+    // Reset tracking sets for each new execution
+    this.ackedTools = new Set();
+    this.succeededCreationTools = new Set();
+    
     let response = await chat.sendMessage(prompt);
     let iterationCount = 0;
 
@@ -120,7 +129,15 @@ class AgentLoop {
         logger.debug(`🔍 [Agent] Extracted assets - Image: ${latestImageAsset?.url}, Video: ${latestVideoAsset?.url}, Audio: ${latestAudioAsset?.url}, Poll: ${latestPollAsset?.question}, Location: ${latitude}, ${longitude}`);
 
         // Clean JSON wrappers from final text
-        const finalText = context.suppressFinalResponse ? '' : cleanJsonWrapper(text);
+        let finalText = context.suppressFinalResponse ? '' : cleanJsonWrapper(text);
+        
+        // CRITICAL: Skip unnecessary apology messages when media was successfully created
+        // These confuse users because they think something went wrong when it didn't
+        const hasMediaAsset = latestImageAsset?.url || latestVideoAsset?.url || latestAudioAsset?.url;
+        if (hasMediaAsset && finalText && isUnnecessaryApologyMessage(finalText)) {
+          logger.debug(`⏭️ [Agent] Filtering out apology message - media was successfully created`);
+          finalText = '';
+        }
 
         // Get originalMessageId from context for quoting
         // Cast context to any to avoid strict type checks with extractQuotedMessageId
@@ -151,16 +168,40 @@ class AgentLoop {
       // Execute function calls (in parallel)
       logger.debug(`🔧 [Agent] Executing ${functionCalls.length} function call(s)`);
 
-      // Send Ack message before executing tools
+      // Filter out duplicate calls for creation tools that already succeeded
+      const creationTools = ['create_image', 'create_video', 'edit_image', 'edit_video', 'image_to_video'];
+      const filteredCalls = functionCalls.filter((call: FunctionCall) => {
+        if (creationTools.includes(call.name) && this.succeededCreationTools.has(call.name)) {
+          logger.warn(`⚠️ [Agent] Blocking duplicate call to ${call.name} - already succeeded in this session`);
+          return false;
+        }
+        return true;
+      });
+      
+      if (filteredCalls.length === 0) {
+        // All calls were filtered out - stop execution
+        logger.debug(`🛑 [Agent] All function calls were duplicate creation tools - stopping`);
+        break;
+      }
+
+      // Send Ack message ONLY for tools that haven't received ACK yet
       // Get quotedMessageId from context if available
       // Cast context to any to avoid strict type checks with extractQuotedMessageId
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const quotedMessageId = extractQuotedMessageId({ context: context as any });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await sendToolAckMessage(chatId, functionCalls, quotedMessageId || undefined);
+      
+      // Filter calls that need ACK (haven't received one yet in this session)
+      const callsNeedingAck = filteredCalls.filter((call: FunctionCall) => !this.ackedTools.has(call.name));
+      if (callsNeedingAck.length > 0) {
+        await sendToolAckMessage(chatId, callsNeedingAck, quotedMessageId || undefined);
+        // Mark these tools as acked
+        callsNeedingAck.forEach((call: FunctionCall) => this.ackedTools.add(call.name));
+      } else {
+        logger.debug(`⏭️ [Agent] All tools already have ACK - skipping duplicate ACK`);
+      }
 
       // Execute all tools in parallel
-      const toolPromises = functionCalls.map(async (call: FunctionCall) => {
+      const toolPromises = filteredCalls.map(async (call: FunctionCall) => {
         return await this.executeTool(call, context);
       });
 
@@ -268,6 +309,13 @@ class AgentLoop {
         success: typedToolResult.success !== false,
         timestamp: Date.now()
       });
+
+      // Track successful creation tools to prevent duplicates
+      const creationToolsList = ['create_image', 'create_video', 'edit_image', 'edit_video', 'image_to_video'];
+      if (creationToolsList.includes(toolName) && typedToolResult.success !== false) {
+        this.succeededCreationTools.add(toolName);
+        logger.debug(`✅ [Agent] Marked ${toolName} as succeeded - will block duplicate calls`);
+      }
 
       // Track generated assets for context memory
       this.trackGeneratedAssets(context, toolName, toolArgs, toolResult);

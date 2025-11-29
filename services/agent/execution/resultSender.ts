@@ -5,7 +5,7 @@
 
 import { getServices } from '../utils/serviceLoader';
 import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
-import { cleanJsonWrapper, cleanMediaDescription, isGenericSuccessMessage } from '../../../utils/textSanitizer';
+import { cleanJsonWrapper, cleanMediaDescription, isGenericSuccessMessage, isUnnecessaryApologyMessage } from '../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../services/whatsapp/utils';
 import logger from '../../../utils/logger';
 
@@ -143,7 +143,7 @@ class ResultSender {
 
       // Only send additional text in a separate message if:
       // 1. Text exists and is different from caption
-      // 2. Text is not a generic success message
+      // 2. Text is not a generic success message or apology
       // 3. Text is meaningfully different (more than just whitespace/formatting)
       if (stepResult.text && stepResult.text.trim()) {
         const textToCheck = cleanMediaDescription(stepResult.text);
@@ -152,6 +152,10 @@ class ResultSender {
         // Skip generic success messages - they're redundant when image is already sent
         if (isGenericSuccessMessage(textToCheck.trim(), 'image')) {
           logger.debug(`⏭️ [ResultSender] Skipping generic success message after image${stepInfo}`);
+        }
+        // Skip unnecessary apology messages when image was successfully created
+        else if (isUnnecessaryApologyMessage(textToCheck)) {
+          logger.debug(`⏭️ [ResultSender] Skipping apology message after image${stepInfo}`);
         }
         // Only send if text is meaningfully different from caption (more than just whitespace/formatting)
         else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
@@ -206,7 +210,7 @@ class ResultSender {
 
       // Only send additional text in a separate message if:
       // 1. Text exists and is different from caption
-      // 2. Text is not a generic success message
+      // 2. Text is not a generic success message or apology
       // 3. Text is meaningfully different (more than just whitespace/formatting)
       if (stepResult.text && stepResult.text.trim()) {
         const textToCheck = cleanMediaDescription(stepResult.text);
@@ -215,6 +219,10 @@ class ResultSender {
         // Skip generic success messages - they're redundant when video is already sent
         if (isGenericSuccessMessage(textToCheck.trim(), 'video')) {
           logger.debug(`⏭️ [ResultSender] Skipping generic success message after video${stepInfo}`);
+        }
+        // Skip unnecessary apology messages when video was successfully created
+        else if (isUnnecessaryApologyMessage(textToCheck)) {
+          logger.debug(`⏭️ [ResultSender] Skipping apology message after video${stepInfo}`);
         }
         // Only send if text is meaningfully different from caption
         else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
@@ -275,6 +283,13 @@ class ResultSender {
     const hasStructuredOutput = stepResult.latitude || stepResult.poll ||
                                  stepResult.imageUrl || stepResult.videoUrl ||
                                  stepResult.audioUrl || stepResult.locationInfo;
+    
+    // CRITICAL: Skip unnecessary apology messages when media was successfully created
+    // These confuse users because they think something went wrong when it didn't
+    if (hasStructuredOutput && isUnnecessaryApologyMessage(stepResult.text)) {
+      logger.debug(`⏭️ [ResultSender] Skipping apology message${stepNumber ? ` for step ${stepNumber}` : ''} - media was successfully created`);
+      return;
+    }
 
     // If structured output exists, check if text is just the caption/description (already sent)
     if (hasStructuredOutput) {

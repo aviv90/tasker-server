@@ -152,6 +152,40 @@ export function isGenericSuccessMessage(text: string, mediaType?: 'image' | 'vid
 }
 
 /**
+ * Check if text is an unnecessary apology/retry message when media was successfully created
+ * These messages should be suppressed because they confuse users when the media was actually sent
+ * Examples: "אני מצטער על הטעות הקודמת. הנה תמונה חדשה של..."
+ * @param text - Text to check
+ * @returns True if text is an unnecessary apology that should be suppressed
+ */
+export function isUnnecessaryApologyMessage(text: string): boolean {
+  if (!text || typeof text !== 'string') {
+    return false;
+  }
+  
+  const cleanedText = text.trim();
+  
+  // Patterns for apology messages that shouldn't be sent when media succeeded
+  const apologyPatterns = [
+    // Hebrew apologies
+    /מצטער\s*(על|בגלל|ש)?\s*(ה)?טעות/i,
+    /סליחה\s*(על|בגלל|ש)?\s*(ה)?טעות/i,
+    /מתנצל\s*(על|בגלל|ש)?\s*(ה)?טעות/i,
+    /הנה\s*(תמונה|וידאו|סרטון)\s*חדש/i,
+    /ניסיתי\s*שוב/i,
+    /נסיון\s*נוסף/i,
+    // English apologies
+    /sorry\s*(for|about)?\s*(the)?\s*error/i,
+    /apologize\s*(for|about)/i,
+    /here'?s?\s*a?\s*new\s*(image|video)/i,
+    /tried\s*again/i,
+    /another\s*attempt/i
+  ];
+  
+  return apologyPatterns.some(pattern => pattern.test(cleanedText));
+}
+
+/**
  * Clean text for multi-step agent responses
  * Removes URLs and media placeholders that shouldn't appear in text messages
  * SSOT for multi-step text cleaning - used by both incoming and outgoing handlers
@@ -408,7 +442,8 @@ module.exports = {
   cleanMediaDescription,
   cleanMultiStepText,
   cleanJsonWrapper,
-  isGenericSuccessMessage
+  isGenericSuccessMessage,
+  isUnnecessaryApologyMessage
 };
 
 
