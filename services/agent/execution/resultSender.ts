@@ -281,6 +281,21 @@ class ResultSender {
       const textToCheck = cleanMediaDescription(stepResult.text);
       const imageCaption = stepResult.imageCaption ? cleanMediaDescription(stepResult.imageCaption) : '';
       
+      // CRITICAL: For location - locationInfo is ALREADY sent by sendLocation
+      // If text equals or contains locationInfo, skip sending it again
+      if (stepResult.locationInfo && stepResult.locationInfo.trim()) {
+        const locationInfoClean = cleanJsonWrapper(stepResult.locationInfo).trim();
+        const textClean = cleanJsonWrapper(stepResult.text).trim();
+        
+        // Check if text is the same as locationInfo (or contains it)
+        if (textClean === locationInfoClean || 
+            textClean.includes(locationInfoClean) || 
+            locationInfoClean.includes(textClean)) {
+          logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - same as locationInfo (already sent)`);
+          return;
+        }
+      }
+      
       // For images: if text is same as caption, don't send again
       if (stepResult.imageUrl && textToCheck.trim() === imageCaption.trim()) {
         logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - same as image caption`);

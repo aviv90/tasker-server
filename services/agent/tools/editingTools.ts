@@ -290,8 +290,6 @@ export const edit_video = {
   }
 };
 
-module.exports = {
-  edit_image,
-  edit_video
-};
+// ES6 exports only - CommonJS not needed in TypeScript
+export default { edit_image, edit_video };
 

@@ -149,7 +149,6 @@ export const chat_summary = {
   }
 };
 
-module.exports = {
-  chat_summary
-};
+// ES6 exports only - CommonJS not needed in TypeScript
+export default { chat_summary };
 

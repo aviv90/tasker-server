@@ -273,7 +273,8 @@ export const voice_clone_and_speak = {
   }
 };
 
-module.exports = {
+// ES6 exports only - CommonJS not needed in TypeScript
+export default {
   text_to_speech,
   voice_clone_and_speak
 };

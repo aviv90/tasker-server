@@ -171,7 +171,6 @@ export const search_google_drive = {
   }
 };
 
-module.exports = {
-  search_google_drive
-};
+// ES6 exports only - CommonJS not needed in TypeScript
+export default { search_google_drive };
 

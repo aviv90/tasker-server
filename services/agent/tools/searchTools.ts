@@ -119,8 +119,6 @@ export const search_web = {
   }
 };
 
-module.exports = {
-  search_web
-};
-
+// ES6 exports only - CommonJS not needed in TypeScript
+export default { search_web };
 

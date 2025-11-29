@@ -139,7 +139,6 @@ export const send_location = {
   }
 };
 
-module.exports = {
-  send_location
-};
+// ES6 exports only - CommonJS not needed in TypeScript
+export default { send_location };
 

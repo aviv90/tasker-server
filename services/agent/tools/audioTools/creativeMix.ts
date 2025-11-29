@@ -73,5 +73,6 @@ export const creative_audio_mix = {
   }
 };
 
-module.exports = { creative_audio_mix };
+// ES6 exports only - CommonJS not needed in TypeScript
+export default { creative_audio_mix };
 

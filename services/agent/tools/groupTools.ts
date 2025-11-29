@@ -263,7 +263,6 @@ export const create_group = {
   }
 };
 
-module.exports = {
-  create_group
-};
+// ES6 exports only - CommonJS not needed in TypeScript
+export default { create_group };
 

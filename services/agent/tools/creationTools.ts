@@ -7,7 +7,7 @@
  */
 
 // Re-export all creation tools from separate modules
-export {
+import {
   create_image,
   create_video,
   image_to_video,
@@ -15,6 +15,20 @@ export {
   create_poll
 } from './creation';
 
-// Backward compatibility: CommonJS export
-const creationTools = require('./creation');
-module.exports = creationTools;
+// Named exports for individual imports
+export {
+  create_image,
+  create_video,
+  image_to_video,
+  create_music,
+  create_poll
+};
+
+// Default export for allTools.ts compatibility
+export default {
+  create_image,
+  create_video,
+  image_to_video,
+  create_music,
+  create_poll
+};

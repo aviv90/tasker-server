@@ -20,4 +20,4 @@ const metaTools = {
   ...fallbackTools
 };
 
-module.exports = metaTools;
+export default metaTools;

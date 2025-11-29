@@ -91,5 +91,6 @@ export const transcribe_audio = {
   }
 };
 
-module.exports = { transcribe_audio };
+// ES6 exports only - CommonJS not needed in TypeScript
+export default { transcribe_audio };
 
