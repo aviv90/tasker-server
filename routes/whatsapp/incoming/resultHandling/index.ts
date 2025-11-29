@@ -72,7 +72,8 @@ export async function sendAgentResults(
   let mediaSent = false;
 
   // Multi-step: Send text FIRST, then media
-  if (agentResult.multiStep && agentResult.text && agentResult.text.trim()) {
+  // CRITICAL: Skip text if audio exists - audio IS the response (TTS/translate_and_speak)
+  if (agentResult.multiStep && agentResult.text && agentResult.text.trim() && !agentResult.audioUrl) {
     await sendMultiStepText(chatId, agentResult.text, quotedMessageId);
   }
 

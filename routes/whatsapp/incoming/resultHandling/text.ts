@@ -130,8 +130,10 @@ export async function sendSingleStepText(
       }
     } else {
       // Multiple tools: Still send text if it exists and is meaningful
-      // This ensures user always gets a response, even with multiple tools
-      if (agentResult.text && agentResult.text.trim()) {
+      // BUT skip text if audio was generated (audio IS the response for TTS/translate_and_speak)
+      if (agentResult.audioUrl) {
+        logger.debug(`ℹ️ [Text] Multiple tools but audio exists - audio is the response, skipping text`);
+      } else if (agentResult.text && agentResult.text.trim()) {
         const cleanText = cleanAgentText(agentResult.text);
         if (cleanText && cleanText.trim() && cleanText.length > 20) {
           logger.debug(`📝 [Text] Sending text despite multiple tools (${cleanText.length} chars)`);
