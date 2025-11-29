@@ -117,8 +117,13 @@ class MultiStepExecution {
         logger.debug(`📢 [Multi-step] Sending Ack for Step ${step.stepNumber}/${plan.steps.length} (${toolName}) BEFORE execution`);
         // Get quotedMessageId from options.input if available
         const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
+        // Check if audio was already transcribed (skip ACK for transcribe_audio)
+        const skipToolsAck: string[] = [];
+        if (options.input?.audioAlreadyTranscribed) {
+          skipToolsAck.push('transcribe_audio');
+        }
         const ackCalls: FunctionCall[] = [{ name: toolName, args: toolParams }];
-        await sendToolAckMessage(chatId, ackCalls, quotedMessageId || undefined);
+        await sendToolAckMessage(chatId, ackCalls, { quotedMessageId, skipToolsAck });
       }
       
       // Build focused prompt for this step

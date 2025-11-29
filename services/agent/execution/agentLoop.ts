@@ -192,10 +192,19 @@ class AgentLoop {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const quotedMessageId = extractQuotedMessageId({ context: context as any });
       
+      // Check if audio was already transcribed (from voice message flow)
+      // If so, skip ACK for transcribe_audio to avoid duplicate "מתמלל הקלטה..." messages
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const originalInput = context.originalInput as Record<string, any> | null;
+      const skipToolsAck: string[] = [];
+      if (originalInput?.audioAlreadyTranscribed) {
+        skipToolsAck.push('transcribe_audio');
+      }
+      
       // Filter calls that need ACK (haven't received one yet in this session)
       const callsNeedingAck = filteredCalls.filter((call: FunctionCall) => !this.ackedTools.has(call.name));
       if (callsNeedingAck.length > 0) {
-        await sendToolAckMessage(chatId, callsNeedingAck, quotedMessageId || undefined);
+        await sendToolAckMessage(chatId, callsNeedingAck, { quotedMessageId, skipToolsAck });
         // Mark these tools as acked
         callsNeedingAck.forEach((call: FunctionCall) => this.ackedTools.add(call.name));
       } else {

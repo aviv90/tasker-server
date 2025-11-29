@@ -54,14 +54,42 @@ export function getToolAckMessage(toolName: string, provider: ProviderKey = null
 }
 
 /**
+ * Options for sending ACK messages
+ */
+export interface AckOptions {
+  quotedMessageId?: string | null;
+  skipToolsAck?: string[]; // Tools to skip ACK for (e.g., transcribe_audio when audio already transcribed)
+}
+
+/**
  * Send acknowledgment message to user based on tools being executed
  */
 export async function sendToolAckMessage(
   chatId: string | null | undefined,
   functionCalls: FunctionCall[],
-  quotedMessageId: string | null = null
+  quotedMessageIdOrOptions: string | null | AckOptions = null
 ): Promise<void> {
   if (!chatId || !functionCalls || functionCalls.length === 0) return;
+
+  // Handle both old signature (quotedMessageId) and new signature (options)
+  let quotedMessageId: string | null = null;
+  let skipToolsAck: string[] = [];
+  
+  if (typeof quotedMessageIdOrOptions === 'string' || quotedMessageIdOrOptions === null) {
+    quotedMessageId = quotedMessageIdOrOptions;
+  } else if (quotedMessageIdOrOptions) {
+    quotedMessageId = quotedMessageIdOrOptions.quotedMessageId || null;
+    skipToolsAck = quotedMessageIdOrOptions.skipToolsAck || [];
+  }
+
+  // Filter out tools that should be skipped
+  if (skipToolsAck.length > 0) {
+    functionCalls = functionCalls.filter(call => !skipToolsAck.includes(call.name));
+    if (functionCalls.length === 0) {
+      logger.debug(`⏭️ [ACK] All tools filtered by skipToolsAck - no ACK needed`);
+      return;
+    }
+  }
 
   try {
     let ackMessage = '';

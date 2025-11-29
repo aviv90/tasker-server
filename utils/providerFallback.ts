@@ -22,6 +22,7 @@ interface AgentContext {
   chatId?: string;
   originalInput?: {
     originalMessageId?: string;
+    audioAlreadyTranscribed?: boolean;
   };
   [key: string]: unknown;
 }
@@ -153,10 +154,15 @@ export class ProviderFallback {
         if (idx > 0 && this.chatId) {
           // Get originalMessageId from context for quoting
           const quotedMessageId = this.context?.originalInput?.originalMessageId || null;
+          // Check if audio was already transcribed (skip ACK for transcribe_audio)
+          const skipToolsAck: string[] = [];
+          if (this.context?.originalInput?.audioAlreadyTranscribed) {
+            skipToolsAck.push('transcribe_audio');
+          }
           await sendToolAckMessage(this.chatId, [{ 
             name: this.toolName, 
             args: { provider: provider, service: provider } 
-          }], quotedMessageId || undefined);
+          }], { quotedMessageId, skipToolsAck });
         }
 
         // Try the provider with circuit breaker protection
