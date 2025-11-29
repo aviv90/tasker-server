@@ -24,7 +24,13 @@ export const TIME = {
   FILE_VERIFY_RETRIES: 15, // Number of retries
   MULTI_STEP_MIN_TIMEOUT: 6 * 60 * 1000, // 6 minutes minimum
   CLEANUP_INTERVAL: 30 * 24 * 60 * 60 * 1000, // 30 days
-  DB_CONNECTION_TIMEOUT: 10 * 1000 // 10 seconds
+  DB_CONNECTION_TIMEOUT: 10 * 1000, // 10 seconds
+  
+  // Polling intervals for async operations (video generation, etc.)
+  POLL_INTERVAL_FAST: 5 * 1000, // 5 seconds - for OpenAI Sora
+  POLL_INTERVAL_STANDARD: 10 * 1000, // 10 seconds - for Gemini Veo, Replicate
+  POLL_INTERVAL_SLOW: 30 * 1000, // 30 seconds - for KIE (Kling)
+  POLL_DELAY_CALLBACK: 1 * 1000 // 1 second - for callback verification
 } as const;
 
 /**

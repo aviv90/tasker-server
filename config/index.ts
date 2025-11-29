@@ -176,6 +176,14 @@ export const config = {
   // WhatsApp Configuration (if needed)
   whatsapp: {
     // Add WhatsApp-specific config here if needed
+  },
+
+  // Agent Configuration (SSOT for agent settings)
+  agent: {
+    model: process.env.AGENT_MODEL || 'gemini-2.5-flash',
+    maxIterations: parseInt(process.env.AGENT_MAX_ITERATIONS || '8', 10),
+    timeoutMs: parseInt(process.env.AGENT_TIMEOUT_MS || '240000', 10), // 4 minutes
+    contextMemoryEnabled: (process.env.AGENT_CONTEXT_MEMORY_ENABLED || 'false').toLowerCase() === 'true'
   }
 };
 

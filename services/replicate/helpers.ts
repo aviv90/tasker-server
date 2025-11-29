@@ -4,6 +4,7 @@
 
 import Replicate from 'replicate';
 import logger from '../../utils/logger';
+import { TIME } from '../../utils/constants';
 
 /**
  * Replicate prediction result
@@ -101,7 +102,7 @@ class ReplicateHelpers {
     let attempts = 0;
 
     while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      await new Promise(resolve => setTimeout(resolve, TIME.POLL_INTERVAL_STANDARD));
       attempts++;
 
       logger.debug(`🔄 Polling attempt ${attempts}/${maxAttempts} for ${operationType}`);

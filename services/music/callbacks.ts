@@ -8,6 +8,7 @@ import logger from '../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { extractQuotedMessageId } from '../../utils/messageHelpers';
 import { sendErrorToUser } from '../../utils/errorSender';
+import { TIME } from '../../utils/constants';
 
 /**
  * Music service interface
@@ -169,7 +170,7 @@ export class MusicCallbacks {
             const { filePath: tempFilePath, publicPath } = saveBufferToTempFile(audioBuffer, tempFileName);
 
             // Verify file
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, TIME.POLL_DELAY_CALLBACK));
             if (!fs.existsSync(tempFilePath) || fs.statSync(tempFilePath).size < 10000) {
               throw new Error('Audio file was not downloaded successfully');
             }

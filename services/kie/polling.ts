@@ -3,6 +3,7 @@
  */
 
 import logger from '../../utils/logger';
+import { TIME } from '../../utils/constants';
 
 /**
  * Poll result
@@ -82,7 +83,7 @@ export async function pollVideoGeneration(
     }
 
     // Still processing (successFlag === 0), wait and retry
-    await new Promise(resolve => setTimeout(resolve, 30000)); // Wait 30 seconds
+    await new Promise(resolve => setTimeout(resolve, TIME.POLL_INTERVAL_SLOW));
   }
 
   // Timeout

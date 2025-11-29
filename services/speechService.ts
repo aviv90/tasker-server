@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 import os from 'os';
 import logger from '../utils/logger';
 import { saveBufferToTempFile } from '../utils/tempFileUtils';
+import { TIME } from '../utils/constants';
 
 /**
  * Speech-to-text options
@@ -312,7 +313,7 @@ class SpeechService {
 
                 // Small delay to respect rate limits
                 if (i < audioFiles.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    await new Promise(resolve => setTimeout(resolve, TIME.POLL_DELAY_CALLBACK));
                 }
             }
 

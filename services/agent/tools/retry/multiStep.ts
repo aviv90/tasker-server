@@ -7,6 +7,7 @@ import { detectLanguage } from '../../../../utils/agentHelpers';
 import { getLanguageInstruction } from '../../utils/languageUtils';
 import { extractQuotedMessageId } from '../../../../utils/messageHelpers';
 import logger from '../../../../utils/logger';
+import { config } from '../../../../config';
 import { RetryArgs, ToolContext, LastCommand, ToolResult } from './types';
 import { sendMultiStepRetryAck } from './ack';
 import { NOT_FOUND, UNABLE } from '../../../../config/messages';
@@ -144,12 +145,12 @@ export async function handleMultiStepRetry(
   const userLanguage = detectLanguage(originalPrompt);
   const languageInstruction = getLanguageInstruction(userLanguage);
   
-  // Agent config
+  // Agent config (SSOT from centralized config)
   const agentConfig = {
-    model: process.env.AGENT_MODEL || 'gemini-2.5-flash',
-    maxIterations: Number(process.env.AGENT_MAX_ITERATIONS) || 8,
-    timeoutMs: Number(process.env.AGENT_TIMEOUT_MS) || 240000,
-    contextMemoryEnabled: String(process.env.AGENT_CONTEXT_MEMORY_ENABLED || 'false').toLowerCase() === 'true'
+    model: config.agent.model,
+    maxIterations: config.agent.maxIterations,
+    timeoutMs: config.agent.timeoutMs,
+    contextMemoryEnabled: config.agent.contextMemoryEnabled
   };
   
   // Apply modifications to filtered plan if provided

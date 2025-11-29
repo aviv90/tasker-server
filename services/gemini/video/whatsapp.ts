@@ -99,7 +99,7 @@ class WhatsAppVideoGeneration {
           error: 'Video generation timed out after 10 minutes'
         };
       }
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      await new Promise(resolve => setTimeout(resolve, TIME.POLL_INTERVAL_STANDARD));
       pollAttempts++;
       logger.info(`🔄 Polling attempt ${pollAttempts} for Veo 3 ${operationType}`);
       currentOperation = await veoClient.operations.getVideosOperation({ operation: currentOperation });

@@ -10,6 +10,7 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import prompts from '../config/prompts';
+import { config } from '../config';
 import { detectLanguage, extractDetectionText } from '../utils/agentHelpers';
 import { getLanguageInstruction } from './agent/utils/languageUtils';
 import { planMultiStepExecution } from './multiStepPlanner';
@@ -92,12 +93,12 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
   const userLanguage = detectLanguage(prompt);
   const languageInstruction = getLanguageInstruction(userLanguage);
   
-  // ⚙️ Configuration: Load from env or use defaults
+  // ⚙️ Configuration: Use centralized config (SSOT)
   const agentConfig: AgentConfig = {
-    model: process.env.AGENT_MODEL || 'gemini-2.5-flash',
-    maxIterations: Number(process.env.AGENT_MAX_ITERATIONS) || 8,
-    timeoutMs: Number(process.env.AGENT_TIMEOUT_MS) || 240000, // 4 minutes
-    contextMemoryEnabled: String(process.env.AGENT_CONTEXT_MEMORY_ENABLED || 'false').toLowerCase() === 'true'
+    model: config.agent.model,
+    maxIterations: config.agent.maxIterations,
+    timeoutMs: config.agent.timeoutMs,
+    contextMemoryEnabled: config.agent.contextMemoryEnabled
   };
   
   // 📎 Extract media URLs from options (for planner context)

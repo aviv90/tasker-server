@@ -111,7 +111,7 @@ export async function generateVideoWithSora(
                 return { error: 'Video generation timed out after 10 minutes' };
             }
             
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+            await new Promise(resolve => setTimeout(resolve, TIME.POLL_INTERVAL_FAST));
             pollAttempts++;
             
             currentVideo = await openai.videos.retrieve(jobId);
@@ -211,7 +211,7 @@ export async function generateVideoWithSoraForWhatsApp(
                 };
             }
             
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+            await new Promise(resolve => setTimeout(resolve, TIME.POLL_INTERVAL_FAST));
             pollAttempts++;
             
             currentVideo = await openai.videos.retrieve(jobId);
@@ -383,7 +383,7 @@ export async function generateVideoWithSoraFromImageForWhatsApp(
                 };
             }
             
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+            await new Promise(resolve => setTimeout(resolve, TIME.POLL_INTERVAL_FAST));
             pollAttempts++;
             
             currentVideo = await openai.videos.retrieve(jobId);
