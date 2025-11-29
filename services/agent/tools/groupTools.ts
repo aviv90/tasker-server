@@ -9,6 +9,7 @@ import { defaultSenderName } from '../../../config/messages';
 import { parseGroupCreationPrompt, resolveParticipants } from '../../groupService';
 import { createGroup, setGroupPicture, sendTextMessage } from '../../greenApiService';
 import { generateImageForWhatsApp } from '../../geminiService';
+import { createTempFilePath } from '../../../utils/tempFileUtils';
 import logger from '../../../utils/logger';
 
 type CreateGroupArgs = {
@@ -203,7 +204,6 @@ export const create_group = {
 
           if (imageResult.success && imageResult.fileName) {
             // Use createTempFilePath for consistent path resolution (uses config.paths.tmp)
-            const { createTempFilePath } = require('../../../utils/tempFileUtils');
             const imagePath = createTempFilePath(imageResult.fileName);
 
             if (fs.existsSync(imagePath)) {

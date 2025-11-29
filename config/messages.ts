@@ -57,8 +57,8 @@ export const defaultSenderName = 'המשתמש';
 export type EntityType = typeof entityTypes[keyof typeof entityTypes];
 export type Role = typeof roles[keyof typeof roles];
 
-// Backward compatibility: CommonJS export
-module.exports = {
+// Default export for ES6 compatibility
+export default {
   entityTypes,
   getEntityType,
   roles,

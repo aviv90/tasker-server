@@ -6,6 +6,7 @@
 import { formatProviderName } from '../../utils/providerUtils';
 import { getServices } from '../../utils/serviceLoader';
 import { ProviderFallback } from '../../../../utils/providerFallback';
+import { cleanMarkdown } from '../../../../utils/textSanitizer';
 import logger from '../../../../utils/logger';
 import * as replicateService from '../../../replicateService';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
@@ -128,7 +129,6 @@ export const create_video = {
       // Extract caption from video result (description or revisedPrompt)
       let caption = videoResult.description || videoResult.revisedPrompt || videoResult.caption || '';
       if (caption) {
-        const { cleanMarkdown } = require('../../../../utils/textSanitizer');
         caption = cleanMarkdown(caption);
       }
 
