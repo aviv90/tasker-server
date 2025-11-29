@@ -104,8 +104,13 @@ export async function sendAgentResults(
     mediaSent = true;
   }
 
-  if (await sendLocationResult(chatId, agentResult, quotedMessageId)) {
+  const locationResult = await sendLocationResult(chatId, agentResult, quotedMessageId);
+  if (locationResult.sent) {
     mediaSent = true;
+    // CRITICAL: If location description was sent, mark it to prevent duplicate text sending
+    if (locationResult.descriptionSent) {
+      textAlreadySentByMedia = true;
+    }
   }
 
   // Single-step: If no media was sent, send text response

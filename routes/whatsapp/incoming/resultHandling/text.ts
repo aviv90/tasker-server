@@ -67,18 +67,11 @@ export async function sendSingleStepText(
       // Single tool: Check if text is different from caption (to avoid duplicates)
       let shouldSendText = true;
       
-      // CRITICAL: If location was sent, check if text contains locationInfo (already sent separately)
-      if (agentResult.latitude && agentResult.longitude && agentResult.locationInfo) {
-        const textToCheck = agentResult.text.trim();
-        const locationInfoToCheck = agentResult.locationInfo.trim();
-        
-        // If text is same as locationInfo or contains it, don't send again (already sent in sendLocationResult)
-        if (textToCheck === locationInfoToCheck || 
-            textToCheck.includes(locationInfoToCheck) || 
-            locationInfoToCheck.includes(textToCheck)) {
-          shouldSendText = false;
-          logger.debug(`⏭️ [Text] Skipping text - same as locationInfo (already sent separately)`);
-        }
+      // CRITICAL: If location was sent, skip text - location description is already sent separately
+      // This prevents double-sending the location description
+      if (agentResult.latitude && agentResult.longitude) {
+        shouldSendText = false;
+        logger.debug(`⏭️ [Text] Skipping text - location was sent (description already sent separately)`);
       }
       
       if (mediaSent && shouldSendText) {

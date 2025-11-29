@@ -1,10 +1,13 @@
 /**
  * WhatsApp Messaging Functions
  * 
- * Handles message sending and acknowledgments:
- * - sendAck: Sends acknowledgment messages for different command types
+ * NOTE: Most ACK messages are now handled by the Agent's centralized ackUtils.
+ * This file is kept for backward compatibility with specific flows that are
+ * not yet migrated to the Agent system.
  * 
- * Extracted from whatsappRoutes.js for better modularity and to avoid circular dependencies
+ * For new features, use:
+ * - services/agent/utils/ackUtils.ts - for Agent tool ACKs
+ * - services/agent/config/constants.ts - for TOOL_ACK_MESSAGES (SSOT)
  */
 
 import { sendTextMessage } from '../greenApiService';
@@ -15,126 +18,36 @@ import logger from '../../utils/logger';
  */
 interface Command {
   type: string;
-  model?: string;
-  withRhyme?: boolean;
   originalMessageId?: string;
 }
 
 /**
  * Send acknowledgment message for a command
+ * 
+ * NOTE: This function is deprecated for most use cases.
+ * New commands should use the Agent's centralized ACK system instead.
+ * 
  * @param chatId - WhatsApp chat ID
  * @param command - Command object with type and optional parameters
+ * @deprecated Use Agent's sendToolAckMessage for new features
  */
 export async function sendAck(chatId: string, command: Command): Promise<void> {
   let ackMessage = '';
   
   switch (command.type) {
-    // ═══════════════════ AGENT MODE ═══════════════════
-    case 'agent_query':
-      ackMessage = '🤖 קיבלתי! מעבד עם AI Agent מתקדם...';
-      break;
-      
-    // ═══════════════════ CHAT ═══════════════════
-    case 'gemini_chat':
-      ackMessage = '💬 קיבלתי. מעבד עם Gemini...';
-      break;
-    case 'openai_chat':
-      ackMessage = '💬 קיבלתי. מעבד עם OpenAI...';
-      break;
-    case 'grok_chat':
-      ackMessage = '💬 קיבלתי. מעבד עם Grok...';
-      break;
-      
-    // ═══════════════════ IMAGE GENERATION ═══════════════════
-    case 'gemini_image':
-      ackMessage = '🎨 קיבלתי! מייצר תמונה עם Gemini...';
-      break;
-    case 'openai_image':
-      ackMessage = '🎨 קיבלתי! מייצר תמונה עם OpenAI...';
-      break;
-    case 'grok_image':
-      ackMessage = '🎨 קיבלתי! מייצר תמונה עם Grok...';
-      break;
-      
-    // ═══════════════════ VIDEO GENERATION ═══════════════════
-    case 'veo3_video':
-      ackMessage = '🎬 קיבלתי! יוצר וידאו עם Veo 3...';
-      break;
-    case 'sora_video':
-      // Check if using Pro model from command.model
-      ackMessage = command.model === 'sora-2-pro' 
-        ? '🎬 קיבלתי! יוצר וידאו עם Sora 2 Pro...' 
-        : '🎬 קיבלתי! יוצר וידאו עם Sora 2...';
-      break;
-    case 'kling_text_to_video':
-      ackMessage = '🎬 קיבלתי! יוצר וידאו עם Kling AI...';
-      break;
-    case 'veo3_image_to_video':
-      ackMessage = '🎬 יוצר וידאו עם Veo 3...';
-      break;
-    case 'sora_image_to_video':
-      // Check if using Pro model from command.model
-      ackMessage = command.model === 'sora-2-pro' 
-        ? '🎬 יוצר וידאו עם Sora 2 Pro...' 
-        : '🎬 יוצר וידאו עם Sora 2...';
-      break;
-    case 'kling_image_to_video':
-      ackMessage = '🎬 יוצר וידאו עם Kling AI...';
-      break;
-    case 'runway_video_to_video':
-      ackMessage = '🎬 עובד על הווידאו עם RunwayML Gen4...';
-      break;
-      
-    // ═══════════════════ AUDIO & VOICE ═══════════════════
-    case 'translate_text':
-      ackMessage = '🌐 קיבלתי! מתרגם עם Gemini...';
-      break;
-    case 'text_to_speech':
-      ackMessage = '🗣️ קיבלתי! מתרגם ומייצר דיבור עם ElevenLabs...';
-      break;
+    // ═══════════════════ VOICE (still used for automatic transcription) ═══════════════════
     case 'voice_processing':
       ackMessage = '🎤 מעבד ומכין תשובה...';
-      break;
-    case 'voice_generation':
-      ackMessage = '🎤 קיבלתי! מייצר קול עם ElevenLabs...';
-      break;
-    case 'creative_voice_processing':
-      ackMessage = '🎨 מתחיל עיבוד יצירתי עם אפקטים ומוזיקה...';
       break;
     case 'voice_cloning_response':
       ackMessage = '🎤 קיבלתי! מתחיל שיבוט קול ויצירת תגובה...';
       break;
       
-    // ═══════════════════ MUSIC ═══════════════════
-    case 'music_generation':
-      ackMessage = '🎵 קיבלתי! מתחיל יצירת שיר עם Suno AI... 🎶';
-      break;
-      
-    // ═══════════════════ UTILITIES ═══════════════════
-    case 'chat_summary':
-      ackMessage = '📝 קיבלתי! מכין סיכום השיחה עם Gemini...';
-      break;
-    
-    case 'retry_last_command':
-      ackMessage = '🔄 קיבלתי! מריץ שוב את הפקודה האחרונה...';
-      break;
-    
-    case 'create_poll':
-      ackMessage = command.withRhyme === false 
-        ? '📊 קיבלתי! יוצר סקר יצירתי...' 
-        : '📊 קיבלתי! יוצר סקר יצירתי עם חרוזים...';
-      break;
-    
-    case 'send_random_location':
-      ackMessage = '🌍 קיבלתי! בוחר מיקום אקראי על כדור הארץ...';
-      break;
-      
     default:
-      return; // No ACK needed for this command
+      return; // No ACK needed - most commands now use Agent's ackUtils
   }
   
   try {
-    // Get quotedMessageId from command context if available
     const quotedMessageId = command.originalMessageId || null;
     await sendTextMessage(chatId, ackMessage, quotedMessageId, 1000);
     logger.info(`✅ ACK sent for ${command.type}`, { chatId, commandType: command.type });
