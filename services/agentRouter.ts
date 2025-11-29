@@ -100,12 +100,9 @@ export async function routeToAgent(input: NormalizedInput, chatId: string): Prom
     };
   }
   
-  // Detect if this is a media creation request (image/video/music)
-  // For media creation, disable conversation history to avoid confusion and improve performance
-  const isMediaCreationRequest = /(צור|יצור|צייר|ציירי|ציירו|תצייר|תציירי|תציירו|create|make|generate).*(תמונה|תמונות|וידאו|וידאואים|שיר|שירים|מוזיקה|music|image|images|video|videos|song|songs)/i.test(userText) ||
-    /(תמונה|תמונות|וידאו|וידאואים|שיר|שירים|מוזיקה|music|image|images|video|videos|song|songs).*(צור|יצור|צייר|create|make|generate)/i.test(userText);
-  
   // Execute agent query with full context
+  // NOTE: History management is handled in agentService.ts with smart detection logic
+  // (self-contained requests skip history, continuations/chat load history)
   const agentResult = await executeAgentQuery(
     contextualPrompt,
     chatId,
@@ -114,9 +111,8 @@ export async function routeToAgent(input: NormalizedInput, chatId: string): Prom
         ...input,
         lastCommand: parsedLastCommand
       },
-      lastCommand: parsedLastCommand,
-      // Disable conversation history for media creation requests (performance + clarity)
-      useConversationHistory: !isMediaCreationRequest
+      lastCommand: parsedLastCommand
+      // useConversationHistory defaults to true - agentService.ts decides when to actually load it
     }
   ) as AgentResult;
   

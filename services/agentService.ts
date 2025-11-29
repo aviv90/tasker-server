@@ -161,29 +161,103 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
   context = await contextManager.loadPreviousContext(chatId, context, agentConfig.contextMemoryEnabled);
 
   // 🧵 Conversation history for the agent (natural chat continuity)
-  // CRITICAL: Only send history when it's relevant to the current request
-  // Don't send history for simple, self-contained requests to avoid confusion
+  // CRITICAL: Smart history management - send history only when it helps, not when it confuses
   const useConversationHistory = options.useConversationHistory !== false;
   let history: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
 
   if (useConversationHistory) {
     try {
-      // Detect if this is a simple, self-contained request that doesn't need history
-      // Examples: "שלח קישור לשיר", "צור תמונה", "תרגם", "חפש" - these are clear and complete
-      // CRITICAL: These patterns match commands that are self-contained and don't need conversation context
-      const simpleRequestPatterns = [
-        /^#?\s*(שלח|send|צור|create|תרגם|translate|חפש|search|find|מצא|שלחי|שלחו)\s+/i,
-        /^#?\s*(קישור|link|תמונה|image|וידאו|video|שיר|song|מיקום|location|לינק)\s+/i,
-        /^#?\s*(מה השעה|what time|מה התאריך|what date|מה היום)\s*/i,
-        /^#?\s*(צור|create|generate|ייצר)\s+(תמונה|image|וידאו|video|שיר|song|מוזיקה|music)\s+/i
+      const trimmedPrompt = prompt.trim();
+      
+      // =============================================================================
+      // STEP 1: Check if this is a SELF-CONTAINED request (doesn't need history)
+      // These are clear, complete requests that work better WITHOUT history context
+      // =============================================================================
+      const selfContainedPatterns = [
+        // Media creation: צור תמונה, צור וידאו, צור שיר
+        /^#?\s*(צור|create|generate|ייצר|צייר|draw|make)\s+(תמונה|image|וידאו|video|שיר|song|מוזיקה|music)/i,
+        /^#?\s*(תמונה|image|וידאו|video|שיר|song)\s+(של|of|about)\s+/i,
+        
+        // Send links/location: שלח קישור, שלח מיקום
+        /^#?\s*(שלח|send|שלחי|שלחו)\s+(קישור|link|לינק|מיקום|location)/i,
+        /^#?\s*(קישור|link|לינק|מיקום|location)\s+(ל|to|של|of|ב|in|באזור)/i,
+        
+        // Web search: חפש באינטרנט, מצא מידע על
+        /^#?\s*(חפש|search|find|מצא)\s+(באינטרנט|מידע|information|לינק|link|קישור)/i,
+        /^#?\s*(חפש|search|find|מצא)\s+.{3,}/i, // Any search with content
+        
+        // Translation: תרגם ל-X
+        /^#?\s*(תרגם|translate)\s+(ל|to)\s*/i,
+        
+        // Text-to-speech: אמור X, תשמיע X
+        /^#?\s*(אמור|say|תשמיע|speak|תקרא|read)\s+.{3,}/i,
+        
+        // Time/date queries: מה השעה, מה התאריך
+        /^#?\s*(מה השעה|what time|מה התאריך|what date|מה היום|what day)/i,
+        
+        // Google Drive search (explicit)
+        /^#?\s*(חפש|search).*(במסמכים|בקבצים|ב-?drive|in\s*drive|in\s*documents)/i,
+        
+        // Direct media requests with clear content
+        /^#?\s*(שלח|send)\s+(תמונה|image|וידאו|video)\s+(של|of)\s+/i
       ];
       
-      const trimmedPrompt = prompt.trim();
-      const isSimpleRequest = simpleRequestPatterns.some(pattern => pattern.test(trimmedPrompt));
+      // =============================================================================
+      // STEP 2: Check if this is a CONTINUATION that NEEDS history
+      // Short responses, follow-ups, and references to previous conversation
+      // =============================================================================
+      const needsHistoryPatterns = [
+        // Short responses (likely answering a question)
+        /^(כן|לא|אוקיי|בסדר|טוב|נכון|yes|no|ok|okay|sure|right|exactly|בדיוק)\.?$/i,
+        
+        // Continuations and follow-ups
+        /^(עוד|תמשיך|continue|more|another|אחד נוסף|עוד אחד|תן עוד|give me more)$/i,
+        /^(מה עוד|what else|ומה עוד|and what else)/i,
+        
+        // Thanks/feedback (might be end of conversation or continuation)
+        /^(תודה|thanks|thank you|מעולה|great|awesome|יופי|נהדר)\.?$/i,
+        
+        // References to previous conversation
+        /(מה (ש)?אמרתי|what i said|מה (ש)?ציינתי|מה (ש)?דיברנו|מה (ש)?שאלתי)/i,
+        /(קודם|earlier|before|לפני|previous|את זה|this one|אותו|the same)/i,
+        /(כמו (ש)?|like (the)?|דומה ל|similar to)/i,
+        
+        // Questions about the conversation
+        /(מתי|when|איפה|where|למה|why|איך|how).*(אמרת|said|ציינת|mentioned|דיברנו|discussed)/i,
+        
+        // Retry/repeat requests
+        /(שוב|again|נסה שוב|try again|חזור|repeat)/i,
+        
+        // Clarifications
+        /(מה התכוונת|what do you mean|לא הבנתי|didn't understand|תסביר|explain)/i
+      ];
       
-      if (isSimpleRequest) {
-        logger.debug('🧠 [Agent] Simple self-contained request detected - skipping conversation history to avoid confusion');
+      const isSelfContained = selfContainedPatterns.some(p => p.test(trimmedPrompt));
+      const needsHistory = needsHistoryPatterns.some(p => p.test(trimmedPrompt));
+      
+      // =============================================================================
+      // STEP 3: Decision logic
+      // - If explicitly needs history → load history
+      // - If self-contained → skip history
+      // - Otherwise (regular chat) → load history for natural conversation
+      // =============================================================================
+      let shouldLoadHistory = false;
+      
+      if (needsHistory) {
+        // Explicit continuation/reference - always load history
+        shouldLoadHistory = true;
+        logger.debug('🧠 [Agent] Continuation/reference detected - loading history for context');
+      } else if (isSelfContained) {
+        // Self-contained request - skip history to avoid confusion
+        shouldLoadHistory = false;
+        logger.debug('🧠 [Agent] Self-contained request detected - skipping history');
       } else {
+        // Regular message (chat) - load history for natural conversation
+        shouldLoadHistory = true;
+        logger.debug('🧠 [Agent] Regular message - loading history for natural conversation');
+      }
+      
+      if (shouldLoadHistory) {
         // Use DB cache for fast retrieval (10 messages for agent context)
         const historyResult = await getChatHistory(chatId, 10, { format: 'internal', useDbCache: true });
         if (historyResult.success && historyResult.messages.length > 0) {

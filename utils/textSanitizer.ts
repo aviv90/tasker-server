@@ -177,10 +177,11 @@ export function cleanMultiStepText(text: unknown): string {
 /**
  * JSON content extraction fields (in priority order)
  */
-const JSON_CONTENT_FIELDS = ['answer', 'text', 'message', 'content', 'description', 'data'] as const;
+const JSON_CONTENT_FIELDS = ['answer', 'text', 'message', 'content', 'description', 'data', 'formatted_address', 'address'] as const;
 
 /**
  * Extract content from parsed JSON object
+ * Handles arrays, nested objects (like Google Maps results), and simple objects
  * @param parsed - Parsed JSON object
  * @returns Extracted content string or null
  */
@@ -189,22 +190,54 @@ function extractJsonContent(parsed: unknown): string | null {
     return null;
   }
   
+  // Handle arrays - try to extract from first element
+  if (Array.isArray(parsed)) {
+    if (parsed.length > 0 && typeof parsed[0] === 'object' && parsed[0] !== null) {
+      const firstItem = parsed[0] as Record<string, unknown>;
+      // Try content fields on first array element
+      for (const field of JSON_CONTENT_FIELDS) {
+        const content = firstItem[field];
+        if (content && typeof content === 'string' && content.trim().length > 0) {
+          return content.trim();
+        }
+      }
+    }
+    return null;
+  }
+  
   const obj = parsed as Record<string, unknown>;
   
   // Try priority fields first
   for (const field of JSON_CONTENT_FIELDS) {
     const content = obj[field];
-    if (content && typeof content === 'string') {
+    if (content && typeof content === 'string' && content.trim().length > 0) {
       return content.trim();
     }
   }
   
-  // If it's a single-key object, use the value
+  // Handle nested "results" array (common in Google Maps/API responses)
+  // Example: {"results": [{"formatted_address": "Tasman Sea", ...}]}
+  if (obj.results && Array.isArray(obj.results) && obj.results.length > 0) {
+    const firstResult = obj.results[0] as Record<string, unknown> | null;
+    if (firstResult && typeof firstResult === 'object') {
+      for (const field of JSON_CONTENT_FIELDS) {
+        const content = firstResult[field];
+        if (content && typeof content === 'string' && content.trim().length > 0) {
+          return content.trim();
+        }
+      }
+    }
+  }
+  
+  // If it's a single-key object with string value, use it
   const keys = Object.keys(obj);
   if (keys.length === 1) {
     const firstKey = keys[0];
-    if (firstKey && typeof obj[firstKey] === 'string') {
-      return (obj[firstKey] as string).trim();
+    if (firstKey) {
+      const value = obj[firstKey];
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value.trim();
+      }
     }
   }
   
@@ -377,4 +410,5 @@ module.exports = {
   cleanJsonWrapper,
   isGenericSuccessMessage
 };
+
 
