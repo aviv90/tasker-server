@@ -3,9 +3,9 @@
  * Utilities for database operations in tests
  */
 
-import { Pool, PoolClient } from 'pg';
-import { getTestPool, cleanTestDatabase } from '../setup/database';
-import { generateChatId, generateMessageId } from './testHelpers';
+import { PoolClient } from 'pg';
+import { getTestPool } from '../setup/database';
+import { generateChatId } from './testHelpers';
 
 /**
  * Get a database client for direct queries

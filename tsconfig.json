@@ -50,6 +50,9 @@
     "node_modules",
     "dist",
     "public",
-    "*.config.js"
+    "*.config.js",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "tests/**"
   ]
 }

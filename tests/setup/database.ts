@@ -5,8 +5,6 @@
 
 import { Pool, PoolConfig } from 'pg';
 import MigrationRunner from '../../services/conversation/migrationRunner';
-import path from 'path';
-import { promises as fs } from 'fs';
 
 let testPool: Pool | null = null;
 
