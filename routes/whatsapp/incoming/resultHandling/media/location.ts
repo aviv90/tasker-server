@@ -31,8 +31,13 @@ export async function sendLocationResult(
   logger.debug(`📍 [Agent] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
   await greenApiService.sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '', quotedMessageId || undefined, 1000);
   // Send location info as separate text message
+  // CRITICAL: Clean locationInfo to remove JSON wrappers and ensure it's plain text
   if (agentResult.locationInfo && agentResult.locationInfo.trim()) {
-    await greenApiService.sendTextMessage(chatId, `📍 ${agentResult.locationInfo}`, quotedMessageId || undefined, 1000);
+    const { cleanJsonWrapper } = await import('../../../../../utils/textSanitizer');
+    const cleanLocationInfo = cleanJsonWrapper(agentResult.locationInfo);
+    if (cleanLocationInfo && cleanLocationInfo.trim()) {
+      await greenApiService.sendTextMessage(chatId, `📍 ${cleanLocationInfo}`, quotedMessageId || undefined, 1000);
+    }
   }
   return true;
 }

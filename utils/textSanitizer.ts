@@ -3,6 +3,7 @@
  */
 
 import { TEXT_LIMITS } from './constants';
+import logger from './logger';
 
 /**
  * Error types for validation
@@ -224,17 +225,46 @@ export function cleanJsonWrapper(text: unknown): string {
   
   let cleaned = text.trim();
   
-  // Try to extract JSON from code blocks first
-  const jsonCodeBlockMatch = cleaned.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-  if (jsonCodeBlockMatch && jsonCodeBlockMatch[1]) {
-    cleaned = jsonCodeBlockMatch[1];
+  // CRITICAL: If the entire text is a JSON object/array, try to extract meaningful content
+  // This handles cases where Gemini returns raw JSON instead of text
+  const jsonObjectMatch = cleaned.match(/^[\s\n]*(\{[\s\S]*\}|\[[\s\S]*\])[\s\n]*$/);
+  if (jsonObjectMatch && jsonObjectMatch[1]) {
+    try {
+      const jsonText = jsonObjectMatch[1];
+      if (jsonText) {
+        const parsed = JSON.parse(jsonText);
+        const content = extractJsonContent(parsed);
+        if (content !== null && content.trim().length > 0) {
+          return content;
+        }
+      }
+    } catch (e) {
+      // Not valid JSON, continue with cleaning
+    }
   }
   
-  // Try to parse as JSON
+  // Try to extract JSON from code blocks first
+  const jsonCodeBlockMatch = cleaned.match(/```(?:json)?\s*(\{[\s\S]*?\}|\[[\s\S]*?\])\s*```/);
+  if (jsonCodeBlockMatch && jsonCodeBlockMatch[1]) {
+    try {
+      const jsonText = jsonCodeBlockMatch[1];
+      if (jsonText) {
+        const parsed = JSON.parse(jsonText);
+        const content = extractJsonContent(parsed);
+        if (content !== null && content.trim().length > 0) {
+          return content;
+        }
+      }
+    } catch (e) {
+      // Not valid JSON, continue
+    }
+  }
+  
+  // Try to parse entire text as JSON
   try {
     const parsed = JSON.parse(cleaned);
     const content = extractJsonContent(parsed);
-    if (content !== null) {
+    if (content !== null && content.trim().length > 0) {
       return content;
     }
   } catch (e) {
@@ -244,21 +274,39 @@ export function cleanJsonWrapper(text: unknown): string {
   // Remove JSON code blocks if still present
   cleaned = cleaned
     .replace(/```(?:json)?\s*\{[\s\S]*?\}\s*```/g, '') // Remove ```json {...} ```
+    .replace(/```(?:json)?\s*\[[\s\S]*?\]\s*```/g, '') // Remove ```json [...] ```
     .replace(/```json\s*/g, '') // Remove opening ```json
     .replace(/```\s*/g, '') // Remove closing ```
     .trim();
   
-  // Try to extract JSON object from text and parse it
-  const jsonObjectMatch = cleaned.match(/\{[\s\S]*\}/);
-  if (jsonObjectMatch) {
+  // Try to extract JSON object/array from text and parse it
+  const jsonMatch = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+  if (jsonMatch && jsonMatch[1]) {
     try {
-      const parsed = JSON.parse(jsonObjectMatch[0]);
-      const content = extractJsonContent(parsed);
-      if (content !== null) {
-        return content;
+      const jsonText = jsonMatch[1];
+      if (jsonText) {
+        const parsed = JSON.parse(jsonText);
+        const content = extractJsonContent(parsed);
+        if (content !== null && content.trim().length > 0) {
+          return content;
+        }
       }
     } catch (e) {
       // Not valid JSON, continue
+    }
+  }
+  
+  // If cleaned text still looks like JSON (starts with { or [), try to extract text from it
+  if (cleaned.startsWith('{') || cleaned.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(cleaned);
+      const content = extractJsonContent(parsed);
+      if (content !== null && content.trim().length > 0) {
+        return content;
+      }
+    } catch (e) {
+      // Not valid JSON, return as-is but log warning
+      logger.warn('⚠️ [TextSanitizer] Text looks like JSON but failed to parse, returning as-is');
     }
   }
   

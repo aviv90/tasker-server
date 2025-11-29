@@ -161,38 +161,54 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
   context = await contextManager.loadPreviousContext(chatId, context, agentConfig.contextMemoryEnabled);
 
   // 🧵 Conversation history for the agent (natural chat continuity)
-  // CRITICAL: ALWAYS send history - the agent will decide when to use it based on system instructions
-  // This ensures we never miss important context while allowing the agent to ignore irrelevant history
+  // CRITICAL: Only send history when it's relevant to the current request
+  // Don't send history for simple, self-contained requests to avoid confusion
   const useConversationHistory = options.useConversationHistory !== false;
   let history: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
 
   if (useConversationHistory) {
     try {
-      // ALWAYS load history - let the agent decide when to use it
-      // Use DB cache for fast retrieval (10 messages for agent context)
-      const historyResult = await getChatHistory(chatId, 10, { format: 'internal', useDbCache: true });
-      if (historyResult.success && historyResult.messages.length > 0) {
-        // Convert to Gemini format
-        const rawHistory: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = historyResult.messages.map(msg => ({
-          role: (msg.role === 'assistant' ? 'model' : 'user') as 'user' | 'model',
-          parts: [{ text: msg.content }]
-        }));
-        
-        // CRITICAL: Gemini requires history to start with 'user' role
-        // If history starts with 'model', remove leading model messages
-        let validHistory = rawHistory;
-        while (validHistory.length > 0 && validHistory[0] && validHistory[0].role === 'model') {
-          logger.debug(`🧠 [Agent] Removing leading 'model' message from history (Gemini requirement)`);
-          validHistory = validHistory.slice(1);
-        }
-        
-        // Also ensure history ends with 'user' (current message will be added)
-        // If last message is 'model', that's OK - current user message will follow
-        
-        history = validHistory;
-        logger.debug(`🧠 [Agent] Providing ${history.length} previous messages as conversation history (agent will decide when to use it)`);
+      // Detect if this is a simple, self-contained request that doesn't need history
+      // Examples: "שלח קישור לשיר", "צור תמונה", "תרגם", "חפש" - these are clear and complete
+      // CRITICAL: These patterns match commands that are self-contained and don't need conversation context
+      const simpleRequestPatterns = [
+        /^#?\s*(שלח|send|צור|create|תרגם|translate|חפש|search|find|מצא|שלחי|שלחו)\s+/i,
+        /^#?\s*(קישור|link|תמונה|image|וידאו|video|שיר|song|מיקום|location|לינק)\s+/i,
+        /^#?\s*(מה השעה|what time|מה התאריך|what date|מה היום)\s*/i,
+        /^#?\s*(צור|create|generate|ייצר)\s+(תמונה|image|וידאו|video|שיר|song|מוזיקה|music)\s+/i
+      ];
+      
+      const trimmedPrompt = prompt.trim();
+      const isSimpleRequest = simpleRequestPatterns.some(pattern => pattern.test(trimmedPrompt));
+      
+      if (isSimpleRequest) {
+        logger.debug('🧠 [Agent] Simple self-contained request detected - skipping conversation history to avoid confusion');
       } else {
-        logger.debug('🧠 [Agent] No previous messages found for conversation history');
+        // Use DB cache for fast retrieval (10 messages for agent context)
+        const historyResult = await getChatHistory(chatId, 10, { format: 'internal', useDbCache: true });
+        if (historyResult.success && historyResult.messages.length > 0) {
+          // Convert to Gemini format
+          const rawHistory: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = historyResult.messages.map(msg => ({
+            role: (msg.role === 'assistant' ? 'model' : 'user') as 'user' | 'model',
+            parts: [{ text: msg.content }]
+          }));
+          
+          // CRITICAL: Gemini requires history to start with 'user' role
+          // If history starts with 'model', remove leading model messages
+          let validHistory = rawHistory;
+          while (validHistory.length > 0 && validHistory[0] && validHistory[0].role === 'model') {
+            logger.debug(`🧠 [Agent] Removing leading 'model' message from history (Gemini requirement)`);
+            validHistory = validHistory.slice(1);
+          }
+          
+          // Also ensure history ends with 'user' (current message will be added)
+          // If last message is 'model', that's OK - current user message will follow
+          
+          history = validHistory;
+          logger.debug(`🧠 [Agent] Using ${history.length} previous messages as conversation history`);
+        } else {
+          logger.debug('🧠 [Agent] No previous messages found for conversation history');
+        }
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);

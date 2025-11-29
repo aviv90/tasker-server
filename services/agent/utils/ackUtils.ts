@@ -115,10 +115,13 @@ export async function sendToolAckMessage(
       if (acks.length === 0) return;
       // For 2 tools, show both (simple format, no "מבצע:")
       if (acks.length === 2) {
-        ackMessage = `${acks[0]} ${acks[1]}`;
+        ackMessage = `${acks[0] || ''} ${acks[1] || ''}`.trim();
+      } else if (acks.length === 1) {
+        // Only one tool after filtering - send it directly
+        ackMessage = acks[0] || '';
       } else {
-        // For 3+ tools, show count
-        ackMessage = `מבצע ${acks.length} פעולות... ⚙️`;
+        // For 3+ tools, show count (but still no "מבצע:" prefix for single-step)
+        ackMessage = `${acks.length} פעולות... ⚙️`;
       }
     }
 
