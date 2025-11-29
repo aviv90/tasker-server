@@ -26,6 +26,7 @@ type NormalizedInput = {
   imageUrl?: string | null;
   videoUrl?: string | null;
   audioUrl?: string | null;
+  audioAlreadyTranscribed?: boolean; // For voice messages that were already transcribed
   authorizations?: {
     media_creation?: boolean;
     group_creation?: boolean;
@@ -77,6 +78,11 @@ export async function buildContextualPrompt(input: NormalizedInput, chatId: stri
   }
 
   let contextualPrompt = buildMediaContext(input, userText);
+
+  // CRITICAL: If audio was already transcribed (voice message flow), tell Agent NOT to transcribe again
+  if (input.audioAlreadyTranscribed) {
+    contextualPrompt += `\n\n**CRITICAL: This text is ALREADY a transcription of a voice message. DO NOT use transcribe_audio - the audio is already transcribed! Just respond to what the user said.**`;
+  }
 
   const authContext = buildAuthContext(input);
   if (authContext) {
