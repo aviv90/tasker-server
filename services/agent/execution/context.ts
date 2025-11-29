@@ -143,6 +143,3 @@ class AgentContext {
 
 const agentContext = new AgentContext();
 export default agentContext;
-// Ensure CommonJS compatibility
-module.exports = agentContext;
-module.exports.default = agentContext;

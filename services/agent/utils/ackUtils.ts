@@ -137,8 +137,3 @@ export async function sendToolAckMessage(
   }
 }
 
-module.exports = {
-  sendToolAckMessage,
-  getToolAckMessage
-};
-

@@ -152,7 +152,3 @@ export async function saveLastCommand(
   logger.info(`💾 [AGENT ROUTER] Saved last command for retry: ${primaryTool} (success: ${commandToSave.success})`);
 }
 
-module.exports = {
-  saveLastCommand
-};
-

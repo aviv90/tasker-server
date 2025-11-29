@@ -41,8 +41,3 @@ export function getServices(): LoadedServices {
   } as LoadedServices;
 }
 
-// Maintain CommonJS compatibility (existing require() consumers)
-module.exports = {
-  getServices
-};
-

@@ -305,5 +305,3 @@ const contextAndMemoryTools = {
 };
 
 export default contextAndMemoryTools;
-// For CommonJS compatibility if needed
-// module.exports = contextAndMemoryTools;

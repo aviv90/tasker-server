@@ -173,7 +173,3 @@ function buildAuthContext(input: NormalizedInput): string | null {
   return authContext.length > 0 ? authContext.join(', ') : null;
 }
 
-module.exports = {
-  buildContextualPrompt
-};
-

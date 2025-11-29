@@ -80,10 +80,3 @@ export function mapVideoProviderDisplay(provider: string | null): string | null 
   return VIDEO_PROVIDER_DISPLAY_MAP[normalizedKey] || provider;
 }
 
-module.exports = {
-  formatProviderName,
-  normalizeProviderKey,
-  applyProviderToMessage,
-  mapVideoProviderDisplay
-};
-

@@ -43,7 +43,3 @@ export async function getAudioDuration(audioBuffer: Buffer): Promise<number> {
   }
 }
 
-module.exports = {
-  getAudioDuration
-};
-

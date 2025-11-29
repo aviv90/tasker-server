@@ -3,6 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const genai = require('@google/genai');
 import { sanitizeText } from '../../../utils/textSanitizer';
 import { detectLanguage } from '../../../utils/agentHelpers';
+import { getLanguageInstruction } from '../../agent/utils/languageUtils';
 import logger from '../../../utils/logger';
 import fs from 'fs';
 import path from 'path';
@@ -47,7 +48,6 @@ class VideoAnalysis {
    */
   buildLanguageInstruction(detectedLang: string): string {
     // Use SSOT from config/prompts.ts
-    const { getLanguageInstruction } = require('../../agent/utils/languageUtils');
     return '\n\n' + getLanguageInstruction(detectedLang);
   }
 

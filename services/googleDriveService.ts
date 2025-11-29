@@ -19,12 +19,3 @@ export const getAuthenticatedDriveClient = googleDriveModule.getAuthenticatedDri
 // Export everything else as default for backward compatibility
 export default googleDriveModule;
 
-// Ensure CommonJS compatibility for existing require() calls
-module.exports = googleDriveModule;
-module.exports.searchFiles = searchFiles;
-module.exports.getFileMetadata = getFileMetadata;
-module.exports.downloadFile = downloadFile;
-module.exports.extractTextFromDocument = extractTextFromDocument;
-module.exports.searchAndExtractRelevantInfo = searchAndExtractRelevantInfo;
-module.exports.getAuthenticatedDriveClient = getAuthenticatedDriveClient;
-

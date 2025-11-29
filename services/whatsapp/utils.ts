@@ -106,10 +106,7 @@ export function formatChatHistoryForContext(messages: Message[] | null | undefin
   }).join('\n');
 }
 
-// getAudioDuration moved to services/agent/utils/audioUtils.js (SSOT)
+// getAudioDuration moved to services/agent/utils/audioUtils.ts (SSOT)
 // Import and re-export for backward compatibility
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { getAudioDuration } = require('../agent/utils/audioUtils');
-
-export { getAudioDuration };
+export { getAudioDuration } from '../agent/utils/audioUtils';
 

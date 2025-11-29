@@ -42,29 +42,3 @@ export const generateTTS = gm.generateTTS;
 
 // Export everything else as default for backward compatibility
 export default geminiModule;
-
-// Ensure CommonJS compatibility for existing require() calls
-module.exports = geminiModule;
-module.exports.generateTextResponse = generateTextResponse;
-module.exports.generateImageWithText = generateImageWithText;
-module.exports.generateImageForWhatsApp = generateImageForWhatsApp;
-module.exports.editImageWithText = editImageWithText;
-module.exports.editImageForWhatsApp = editImageForWhatsApp;
-module.exports.analyzeImageWithText = analyzeImageWithText;
-module.exports.generateVideoWithText = generateVideoWithText;
-module.exports.generateVideoWithImage = generateVideoWithImage;
-module.exports.generateVideoForWhatsApp = generateVideoForWhatsApp;
-module.exports.generateVideoFromImageForWhatsApp = generateVideoFromImageForWhatsApp;
-module.exports.analyzeVideoWithText = analyzeVideoWithText;
-module.exports.generateChatSummary = generateChatSummary;
-module.exports.translateText = translateText;
-module.exports.parseMusicRequest = parseMusicRequest;
-module.exports.parseTextToSpeechRequest = parseTextToSpeechRequest;
-module.exports.generateCreativePoll = generateCreativePoll;
-module.exports.getLocationInfo = getLocationInfo;
-module.exports.getLocationBounds = getLocationBounds;
-module.exports.generatePoll = generatePoll;
-module.exports.generateImage = generateImage;
-module.exports.generateVideo = generateVideo;
-module.exports.generateMusic = generateMusic;
-module.exports.generateTTS = generateTTS;

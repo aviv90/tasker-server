@@ -3,6 +3,7 @@
  */
 
 import logger from './logger';
+import { formatProviderName } from '../services/agent/utils/providerUtils';
 
 /**
  * Error object structure that may contain error information
@@ -257,9 +258,6 @@ export function formatUserFacingError(error: unknown, fallback: string = 'שגי
  * @returns Formatted error message with provider prefix
  */
 export function formatProviderError(provider: string, errorMessage: unknown): string {
-  // Import formatProviderName dynamically to avoid circular dependencies
-  const { formatProviderName } = require('../services/agent/utils/providerUtils');
-  
   // Format provider name
   const providerName = formatProviderName(provider);
   

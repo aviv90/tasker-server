@@ -7,7 +7,3 @@ export function getLanguageInstruction(langCode: string): string {
   return prompts.languageInstructions[code] ?? prompts.languageInstructions.he ?? '';
 }
 
-module.exports = {
-  getLanguageInstruction
-};
-

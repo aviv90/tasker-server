@@ -102,10 +102,3 @@ export function summarizeLastCommand(lastCommand?: LastCommand, maxLength = 90):
   return parts.join(' | ');
 }
 
-module.exports = {
-  truncate,
-  parseJSONSafe,
-  sanitizeToolResult,
-  summarizeLastCommand
-};
-

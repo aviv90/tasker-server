@@ -56,9 +56,3 @@ export function shouldSplitTask(_prompt?: string | null): boolean {
   return false;
 }
 
-module.exports = {
-  simplifyPrompt,
-  makePromptMoreGeneric,
-  shouldSplitTask
-};
-

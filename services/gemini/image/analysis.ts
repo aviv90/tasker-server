@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { sanitizeText } from '../../../utils/textSanitizer';
 import { detectLanguage } from '../../../utils/agentHelpers';
+import { getLanguageInstruction } from '../../agent/utils/languageUtils';
 import logger from '../../../utils/logger';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -32,7 +33,6 @@ class ImageAnalysis {
    */
   buildLanguageInstruction(detectedLang: string): string {
     // Use SSOT from config/prompts.ts
-    const { getLanguageInstruction } = require('../../agent/utils/languageUtils');
     return '\n\n' + getLanguageInstruction(detectedLang);
   }
 
