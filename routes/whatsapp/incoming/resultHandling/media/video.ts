@@ -4,7 +4,7 @@
  */
 
 import * as greenApiService from '../../../../../services/greenApiService';
-import { cleanMediaDescription, isGenericSuccessMessage } from '../../../../../utils/textSanitizer';
+import { cleanMediaDescription, isGenericSuccessMessage, isUnnecessaryApologyMessage } from '../../../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../../../services/whatsapp/utils';
 import { shouldSkipAgentResult } from '../../../../../utils/messageHelpers';
 import logger from '../../../../../utils/logger';
@@ -60,6 +60,10 @@ export async function sendVideoResult(
     // Skip generic success messages - they're redundant when video is already sent
     if (isGenericSuccessMessage(textToCheck.trim(), 'video')) {
       logger.debug(`⏭️ [Video] Skipping generic success message after video`);
+    }
+    // Skip unnecessary apology messages when video was successfully created
+    else if (isUnnecessaryApologyMessage(textToCheck)) {
+      logger.debug(`⏭️ [Video] Skipping apology message after video`);
     }
     // Only send if text is meaningfully different from caption (more than just whitespace/formatting)
     else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {

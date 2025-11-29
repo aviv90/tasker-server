@@ -23,6 +23,7 @@ interface AgentResult {
   imageUrl?: string | null;
   imageCaption?: string;
   videoUrl?: string | null;
+  videoCaption?: string;
   audioUrl?: string | null;
   poll?: { question: string; options: string[] } | null;
   latitude?: string | null;
@@ -150,6 +151,7 @@ class AgentLoop {
           imageUrl: latestImageAsset?.url || null,
           imageCaption: latestImageAsset?.caption || '',
           videoUrl: latestVideoAsset?.url || null,
+          videoCaption: latestVideoAsset?.caption || '',
           audioUrl: latestAudioAsset?.url || null,
           poll: (latestPollAsset as unknown as { question: string; options: string[] }) || null,
           latitude: latitude,
@@ -356,10 +358,13 @@ class AgentLoop {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   trackGeneratedAssets(context: AgentContext, toolName: string, toolArgs: any, toolResult: any) {
     if (toolResult.imageUrl) {
-      logger.debug(`✅ [Agent] Tracking image: ${toolResult.imageUrl}, caption: ${toolResult.caption || '(none)'}`);
+      // CRITICAL: Check both imageCaption and caption - tools may use either field name
+      // Priority: imageCaption > caption > description > revisedPrompt (from provider)
+      const imageCaption = toolResult.imageCaption || toolResult.caption || toolResult.description || toolResult.revisedPrompt || '';
+      logger.debug(`✅ [Agent] Tracking image: ${toolResult.imageUrl}, caption: ${imageCaption || '(none)'}`);
       context.generatedAssets.images.push({
         url: toolResult.imageUrl,
-        caption: toolResult.caption || '',
+        caption: imageCaption,
         prompt: toolArgs.prompt,
         provider: toolResult.provider || toolArgs.provider,
         timestamp: Date.now()
@@ -369,8 +374,11 @@ class AgentLoop {
     }
 
     if (toolResult.videoUrl) {
+      // CRITICAL: Check both videoCaption and caption - tools may use either field name
+      const videoCaption = toolResult.videoCaption || toolResult.caption || toolResult.description || '';
       context.generatedAssets.videos.push({
         url: toolResult.videoUrl,
+        caption: videoCaption,
         prompt: toolArgs.prompt,
         timestamp: Date.now()
       });

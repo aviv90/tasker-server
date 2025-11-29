@@ -4,7 +4,7 @@
  */
 
 import * as greenApiService from '../../../../../services/greenApiService';
-import { cleanMediaDescription, isGenericSuccessMessage } from '../../../../../utils/textSanitizer';
+import { cleanMediaDescription, isGenericSuccessMessage, isUnnecessaryApologyMessage } from '../../../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../../../services/whatsapp/utils';
 import { shouldSkipAgentResult } from '../../../../../utils/messageHelpers';
 import logger from '../../../../../utils/logger';
@@ -32,35 +32,22 @@ export async function sendImageResult(
 
   logger.debug(`📸 [Agent] Sending generated image: ${agentResult.imageUrl}`);
 
-  let caption = '';
-
-  // Multi-step: Use imageCaption if exists (LLM should return it in correct language)
-  if (agentResult.multiStep) {
-    caption = (agentResult.imageCaption && agentResult.imageCaption.trim()) || '';
-    if (caption) {
-      caption = cleanMediaDescription(caption);
-      logger.debug(`📤 [Multi-step] Image sent with caption: "${caption.substring(0, 50)}..."`);
-    } else {
-      logger.debug(`📤 [Multi-step] Image sent after text (no caption)`);
+  // CRITICAL: Caption MUST be sent with the image, not in a separate message
+  // Priority: imageCaption > text (if text is not generic success message)
+  let caption = agentResult.imageCaption || '';
+  
+  // If no caption but text exists and is not a generic success message, use text as caption
+  // This ensures provider descriptions (like revisedPrompt) are shown as captions, not separate messages
+  if (!caption && agentResult.text && agentResult.text.trim()) {
+    const textToCheck = cleanMediaDescription(agentResult.text);
+    if (!isGenericSuccessMessage(textToCheck.trim(), 'image')) {
+      caption = agentResult.text;
+      logger.debug(`📸 [Image] Using text as caption (no imageCaption provided)`);
     }
-  } else {
-    // Single-step: Images support captions - use them!
-    const multipleTools = (agentResult.toolsUsed && agentResult.toolsUsed.length > 1);
-
-    if (multipleTools) {
-      // Multiple tools → use ONLY imageCaption (specific to this image)
-      caption = agentResult.imageCaption || '';
-      logger.debug(`ℹ️ Multiple tools detected - using imageCaption only to avoid mixing outputs`);
-    } else {
-      // Single tool → use imageCaption if available, otherwise empty (don't use general text to avoid sending history)
-      // CRITICAL: For media creation commands, we should NOT send general text as caption
-      // General text might contain history or other context that shouldn't be in the caption
-      caption = agentResult.imageCaption || '';
-    }
-
-    // Clean the caption: remove URLs, markdown links, code blocks, and technical markers
-    caption = cleanMediaDescription(caption);
   }
+  
+  // Clean the caption: remove URLs, markdown links, code blocks, and technical markers
+  caption = cleanMediaDescription(caption);
 
   await greenApiService.sendFileByUrl(chatId, agentResult.imageUrl, `agent_image_${Date.now()}.png`, caption, quotedMessageId || undefined, 1000);
   
@@ -76,6 +63,10 @@ export async function sendImageResult(
     // Skip generic success messages - they're redundant when image is already sent
     if (isGenericSuccessMessage(textToCheck.trim(), 'image')) {
       logger.debug(`⏭️ [Image] Skipping generic success message after image`);
+    }
+    // Skip unnecessary apology messages when image was successfully created
+    else if (isUnnecessaryApologyMessage(textToCheck)) {
+      logger.debug(`⏭️ [Image] Skipping apology message after image`);
     }
     // Only send if text is meaningfully different from caption (more than just whitespace/formatting)
     else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
