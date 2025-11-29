@@ -6,6 +6,7 @@ import { getChatHistory } from '../../../utils/chatHistoryService';
 import logger from '../../../utils/logger';
 import { getServices } from '../utils/serviceLoader';
 import conversationManager from '../../../services/conversationManager';
+import { NOT_FOUND, ERROR } from '../../../config/messages';
 
 export interface ToolContext {
   chatId?: string;
@@ -85,7 +86,7 @@ export const get_chat_history = {
       logger.error('❌ Error in get_chat_history tool:', { error: err.message, stack: err.stack });
       return {
         success: false,
-        error: `שגיאה בשליפת היסטוריה: ${err.message}`
+        error: ERROR.historyFetch(err.message)
       };
     }
   }
@@ -120,7 +121,7 @@ export const analyze_image_from_history = {
       if (!history || !history[args.image_id]) {
         return {
           success: false,
-          error: `לא נמצאה תמונה עם המזהה ${args.image_id}`
+          error: NOT_FOUND.imageById(args.image_id)
         };
       }
 
@@ -159,7 +160,7 @@ export const analyze_image_from_history = {
       imageBuffer = null;
       return {
         success: false,
-        error: `שגיאה בניתוח תמונה: ${err.message}`
+        error: ERROR.imageAnalysis(err.message)
       };
     }
   }
@@ -206,7 +207,7 @@ export const save_user_preference = {
       logger.error('❌ Error in save_user_preference tool:', { error: err.message, stack: err.stack });
       return {
         success: false,
-        error: `שגיאה בשמירת העדפה: ${err.message}`
+        error: ERROR.savePreference(err.message)
       };
     }
   }
@@ -290,7 +291,7 @@ export const get_long_term_memory = {
       logger.error('❌ Error in get_long_term_memory tool:', { error: err.message, stack: err.stack });
       return {
         success: false,
-        error: `שגיאה בגישה לזיכרון ארוך טווח: ${err.message}`
+        error: ERROR.longTermMemory(err.message)
       };
     }
   }

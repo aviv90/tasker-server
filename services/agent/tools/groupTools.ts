@@ -5,7 +5,7 @@
 
 import fs from 'fs';
 import { extractQuotedMessageId } from '../../../utils/messageHelpers';
-import { defaultSenderName } from '../../../config/messages';
+import { defaultSenderName, NOT_FOUND, ERROR } from '../../../config/messages';
 import { parseGroupCreationPrompt, resolveParticipants } from '../../groupService';
 import { createGroup, setGroupPicture, sendTextMessage } from '../../greenApiService';
 import { generateImageForWhatsApp } from '../../geminiService';
@@ -103,7 +103,7 @@ export const create_group = {
       if (!chatId) {
         return {
           success: false,
-          error: 'לא נמצא chatId עבור יצירת הקבוצה'
+          error: NOT_FOUND.CHAT_ID_FOR_GROUP
         };
       }
 
@@ -149,7 +149,7 @@ export const create_group = {
           );
           return {
             success: false,
-            error: 'לא נמצאו משתתפים תואמים ליצירת הקבוצה'
+            error: NOT_FOUND.PARTICIPANTS
           };
         }
 
@@ -179,7 +179,7 @@ export const create_group = {
         );
         return {
           success: false,
-          error: 'לא נמצאו משתתפים נוספים ליצירת הקבוצה'
+          error: NOT_FOUND.ADDITIONAL_PARTICIPANTS
         };
       }
 
@@ -257,7 +257,7 @@ export const create_group = {
       logger.error('❌ Error in create_group:', err);
       return {
         success: false,
-        error: `שגיאה: ${err.message || 'אירעה שגיאה בלתי צפויה'}`
+        error: ERROR.generic(err.message || ERROR.unexpected)
       };
     }
   }

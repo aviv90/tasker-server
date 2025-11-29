@@ -8,6 +8,7 @@ import { getServices } from '../utils/serviceLoader';
 import logger from '../../../utils/logger';
 import prompts from '../../../config/prompts';
 import { getLanguageInstruction } from '../utils/languageUtils';
+import { REQUIRED, ERROR } from '../../../config/messages';
 
 type AgentToolContext = {
   chatId?: string;
@@ -78,7 +79,7 @@ export const search_web = {
       if (!args.query) {
         return {
           success: false,
-          error: 'חובה לציין שאילתת חיפוש'
+          error: REQUIRED.SEARCH_QUERY
         };
       }
 
@@ -113,7 +114,7 @@ export const search_web = {
       logger.error('❌ Error in search_web tool:', { error: err.message, stack: err.stack });
       return {
         success: false,
-        error: `שגיאה בחיפוש: ${err.message}`
+        error: ERROR.search(err.message)
       };
     }
   }

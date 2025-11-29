@@ -5,6 +5,7 @@
 
 import googleDriveService from '../../googleDriveService';
 import logger from '../../../utils/logger';
+import { REQUIRED, ERROR } from '../../../config/messages';
 
 type AgentToolContext = {
   chatId?: string;
@@ -83,7 +84,7 @@ export const search_google_drive = {
       if (!args.query) {
         return {
           success: false,
-          error: 'חובה לציין שאילתת חיפוש'
+          error: REQUIRED.SEARCH_QUERY
         };
       }
 
@@ -165,7 +166,7 @@ export const search_google_drive = {
       
       return {
         success: false,
-        error: `שגיאה בחיפוש ב-Google Drive: ${err.message}`
+        error: ERROR.searchDrive(err.message)
       };
     }
   }

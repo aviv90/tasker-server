@@ -6,6 +6,7 @@
 import { getServices } from '../utils/serviceLoader';
 import logger from '../../../utils/logger';
 import { getRawChatHistory } from '../../../utils/chatHistoryService';
+import { NOT_FOUND, FAILED, ERROR } from '../../../config/messages';
 
 type AgentToolContext = {
   chatId?: string;
@@ -69,7 +70,7 @@ export const chat_summary = {
       if (!chatId) {
         return {
           success: false,
-          error: 'לא נמצא chatId עבור יצירת הסיכום'
+          error: NOT_FOUND.CHAT_ID_FOR_SUMMARY
         };
       }
 
@@ -90,7 +91,7 @@ export const chat_summary = {
         });
         return {
           success: false,
-          error: `שגיאה בשליפת היסטוריית השיחה מ-WhatsApp: ${err.message}`
+          error: ERROR.whatsappHistory(err.message)
         };
       }
 
@@ -124,7 +125,7 @@ export const chat_summary = {
       if (summary?.error) {
         return {
           success: false,
-          error: `יצירת סיכום נכשלה: ${summary.error}`
+          error: FAILED.SUMMARY_CREATION(summary.error)
         };
       }
 
@@ -143,7 +144,7 @@ export const chat_summary = {
       logger.error('❌ Error in chat_summary:', { error: err.message, stack: err.stack });
       return {
         success: false,
-        error: `שגיאה: ${err.message}`
+        error: ERROR.generic(err.message)
       };
     }
   }

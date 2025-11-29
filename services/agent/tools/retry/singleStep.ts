@@ -8,6 +8,7 @@ import { getServices } from '../../utils/serviceLoader';
 import { RetryArgs, ToolContext, LastCommand, ToolResult } from './types';
 import { sendRetryAck } from './ack';
 import { extractQuotedMessageId } from '../../../../utils/messageHelpers';
+import { NOT_FOUND, UNABLE } from '../../../../config/messages';
 
 // Reference to agentTools (will be injected)
 let agentTools: Record<string, { execute: (args: unknown, context: unknown) => Promise<unknown> }> | null = null;
@@ -31,7 +32,7 @@ export async function handleSingleStepRetry(
   if (!chatId) {
     return {
       success: false,
-      error: 'לא נמצא chatId לביצוע retry'
+      error: NOT_FOUND.CHAT_ID_FOR_RETRY
     };
   }
 
@@ -132,7 +133,7 @@ async function retryImageGeneration(
   if (!promptToUse) {
     return {
       success: false,
-      error: 'לא הצלחתי לשחזר את הפרומפט של הפקודה הקודמת.'
+      error: UNABLE.RESTORE_PROMPT
     };
   }
   
@@ -168,7 +169,7 @@ async function retryVideoGeneration(
   if (!promptToUse) {
     return {
       success: false,
-      error: 'לא הצלחתי לשחזר את הפרומפט של הפקודה הקודמת לוידאו.'
+      error: UNABLE.RESTORE_VIDEO_PROMPT
     };
   }
   
@@ -206,7 +207,7 @@ async function retryImageEditing(
   if (!editInstruction || !imageUrl) {
     return {
       success: false,
-      error: 'לא הצלחתי לשחזר את הוראות העריכה או את כתובת התמונה.'
+      error: UNABLE.RESTORE_EDIT_INSTRUCTIONS
     };
   }
   
@@ -270,7 +271,7 @@ async function retryTTS(
   if (!textToSpeak) {
     return {
       success: false,
-      error: 'לא הצלחתי לשחזר את הטקסט להמרה לדיבור.'
+      error: UNABLE.RESTORE_TTS_TEXT
     };
   }
   if (!agentTools?.text_to_speech) {
@@ -295,7 +296,7 @@ async function retryMusicGeneration(
   if (!promptToUse) {
     return {
       success: false,
-      error: 'לא הצלחתי לשחזר את הפרומפט ליצירת המוזיקה.'
+      error: UNABLE.RESTORE_MUSIC_PROMPT
     };
   }
   if (!agentTools?.create_music) {
@@ -322,7 +323,7 @@ async function retryTranslation(
   if (!translationArgs.text || !translationArgs.target_language) {
     return {
       success: false,
-      error: 'לא הצלחתי לאחזר את הטקסט או את שפת היעד של הפקודה הקודמת.'
+      error: UNABLE.RESTORE_TRANSLATION
     };
   }
   if (!agentTools?.translate_text) {
@@ -343,7 +344,7 @@ async function retryPoll(
   if (!topicToUse) {
     return {
       success: false,
-      error: 'לא הצלחתי לשחזר את נושא הסקר הקודם.'
+      error: UNABLE.RESTORE_POLL_TOPIC
     };
   }
   if (!agentTools?.create_poll) {

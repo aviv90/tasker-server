@@ -2,6 +2,7 @@ import { getServices } from '../../utils/serviceLoader';
 import voiceService from '../../../voiceService';
 import { getAudioDuration } from '../../utils/audioUtils';
 import logger from '../../../../utils/logger';
+import { NOT_FOUND, FAILED, UNABLE, ERROR } from '../../../../config/messages';
 
 type TextToSpeechArgs = {
   text: string;
@@ -131,7 +132,7 @@ export const text_to_speech = {
         if (voiceResult.error) {
           return {
             success: false,
-            error: `לא נמצא קול לשפה: ${voiceResult.error}`
+            error: NOT_FOUND.voiceForLanguage(voiceResult.error)
           };
         }
 
@@ -142,7 +143,7 @@ export const text_to_speech = {
       if (!voiceId) {
         return {
           success: false,
-          error: 'לא הצלחתי לבחור קול עבור ההקראה'
+          error: UNABLE.CHOOSE_VOICE
         };
       }
 
@@ -165,7 +166,7 @@ export const text_to_speech = {
       if (ttsResult.error) {
         return {
           success: false,
-          error: `TTS נכשל: ${ttsResult.error}`
+          error: FAILED.TTS(ttsResult.error)
         };
       }
 
@@ -180,7 +181,7 @@ export const text_to_speech = {
       logger.error('❌ Error in text_to_speech:', { error: err.message, stack: err.stack });
       return {
         success: false,
-        error: `שגיאה: ${err.message}`
+        error: ERROR.generic(err.message)
       };
     }
   }
@@ -239,7 +240,7 @@ export const voice_clone_and_speak = {
       if (cloneResult.error || !cloneResult.voiceId) {
         return {
           success: false,
-          error: `שיבוט קול נכשל: ${cloneResult.error || 'לא הוחזר Voice ID'}`
+          error: cloneResult.error ? FAILED.VOICE_CLONE(cloneResult.error) : FAILED.VOICE_CLONE_NO_ID
         };
       }
 
@@ -252,7 +253,7 @@ export const voice_clone_and_speak = {
       if (ttsResult.error) {
         return {
           success: false,
-          error: `דיבור עם קול משובט נכשל: ${ttsResult.error}`
+          error: FAILED.CLONED_VOICE_SPEAK(ttsResult.error)
         };
       }
 
@@ -267,7 +268,7 @@ export const voice_clone_and_speak = {
       logger.error('❌ Error in voice_clone_and_speak:', { error: err.message, stack: err.stack });
       return {
         success: false,
-        error: `שגיאה: ${err.message}`
+        error: ERROR.generic(err.message)
       };
     }
   }

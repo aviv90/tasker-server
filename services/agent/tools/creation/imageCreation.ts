@@ -10,6 +10,7 @@ import { ProviderFallback } from '../../../../utils/providerFallback';
 import logger from '../../../../utils/logger';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { IMAGE_PROVIDERS, DEFAULT_IMAGE_PROVIDERS, PROVIDERS } from '../../config/constants';
+import { REQUIRED, ERROR } from '../../../../config/messages';
 import type {
   AgentToolContext,
   ToolResult,
@@ -51,7 +52,7 @@ export const create_image = {
       if (!args.prompt) {
         return {
           success: false,
-          error: 'חובה לספק תיאור לתמונה'
+          error: REQUIRED.IMAGE_DESCRIPTION
         };
       }
 
@@ -154,7 +155,7 @@ export const create_image = {
       });
       return {
         success: false,
-        error: `שגיאה: ${error instanceof Error ? error.message : String(error)}`
+        error: ERROR.generic(error instanceof Error ? error.message : String(error))
       };
     }
   }

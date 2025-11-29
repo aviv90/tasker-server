@@ -12,6 +12,7 @@ import { ALL_PROVIDERS } from '../config/constants';
 import { RetryArgs, ToolContext, LastCommand, ToolResult } from './retry/types';
 import { handleMultiStepRetry, setAgentToolsReference as setMultiStepTools } from './retry/multiStep';
 import { handleSingleStepRetry, setAgentToolsReference as setSingleStepTools } from './retry/singleStep';
+import { NOT_FOUND, ERROR } from '../../../config/messages';
 
 // Reference to agentTools (will be injected)
 let agentTools: Record<string, { execute: (args: unknown, context: unknown) => Promise<unknown> }> | null = null;
@@ -79,7 +80,7 @@ export const retry_last_command = {
     if (!agentTools) {
       return {
         success: false,
-        error: 'שגיאה פנימית: לא ניתן לבצע retry כרגע.'
+        error: ERROR.internal
       };
     }
     
@@ -88,7 +89,7 @@ export const retry_last_command = {
       if (!chatId) {
         return {
           success: false,
-          error: 'לא נמצא chatId לביצוע retry'
+          error: NOT_FOUND.CHAT_ID_FOR_RETRY
         };
       }
 
@@ -129,7 +130,7 @@ export const retry_last_command = {
       logger.error('❌ Error in retry_last_command:', formatErrorForLogging(error));
       return {
         success: false,
-        error: `שגיאה בביצוע חוזר: ${error instanceof Error ? error.message : String(error)}`
+        error: ERROR.retry(error instanceof Error ? error.message : String(error))
       };
     }
   }

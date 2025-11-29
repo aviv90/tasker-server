@@ -9,6 +9,7 @@ import { ProviderFallback, ProviderResult } from '../../../utils/providerFallbac
 import logger from '../../../utils/logger';
 import * as replicateService from '../../replicateService';
 import { formatErrorForLogging } from '../../../utils/errorHandler';
+import { REQUIRED, ERROR } from '../../../config/messages';
 
 type AgentToolContext = {
   chatId?: string;
@@ -94,13 +95,13 @@ export const edit_image = {
       if (!args.image_url) {
         return {
           success: false,
-          error: 'חובה לספק קישור לתמונה לעריכה'
+          error: REQUIRED.IMAGE_URL_FOR_EDIT
         };
       }
       if (!args.edit_instruction) {
         return {
           success: false,
-          error: 'חובה לספק הוראות עריכה לתמונה'
+          error: REQUIRED.EDIT_INSTRUCTIONS_IMAGE
         };
       }
 
@@ -174,7 +175,7 @@ export const edit_image = {
       });
       return {
         success: false,
-        error: `שגיאה: ${error instanceof Error ? error.message : String(error)}`
+        error: ERROR.generic(error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -215,13 +216,13 @@ export const edit_video = {
       if (!args.video_url) {
         return {
           success: false,
-          error: 'חובה לספק קישור לוידאו לעריכה'
+          error: REQUIRED.VIDEO_URL_FOR_EDIT
         };
       }
       if (!args.edit_instruction) {
         return {
           success: false,
-          error: 'חובה לספק הוראות עריכה לוידאו'
+          error: REQUIRED.EDIT_INSTRUCTIONS_VIDEO
         };
       }
 
@@ -284,7 +285,7 @@ export const edit_video = {
       });
       return {
         success: false,
-        error: `שגיאה: ${error instanceof Error ? error.message : String(error)}`
+        error: ERROR.generic(error instanceof Error ? error.message : String(error))
       };
     }
   }

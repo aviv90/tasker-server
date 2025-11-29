@@ -11,6 +11,7 @@ import logger from '../../../../utils/logger';
 import * as replicateService from '../../../replicateService';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { VIDEO_PROVIDERS, DEFAULT_VIDEO_PROVIDERS, PROVIDERS } from '../../config/constants';
+import { REQUIRED, FAILED, ERROR } from '../../../../config/messages';
 import type {
   AgentToolContext,
   ToolResult,
@@ -53,7 +54,7 @@ export const create_video = {
       if (!args.prompt) {
         return {
           success: false,
-          error: 'חובה לספק תיאור לסרטון'
+          error: REQUIRED.VIDEO_DESCRIPTION
         };
       }
 
@@ -149,7 +150,7 @@ export const create_video = {
       });
       return {
         success: false,
-        error: `שגיאה: ${error instanceof Error ? error.message : String(error)}`
+        error: ERROR.generic(error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -196,13 +197,13 @@ export const image_to_video = {
       if (!args.image_url) {
         return {
           success: false,
-          error: 'חובה להעביר קישור לתמונה להמרה'
+          error: REQUIRED.IMAGE_URL_FOR_CONVERT
         };
       }
       if (!args.prompt) {
         return {
           success: false,
-          error: 'חובה להעביר תיאור לאנימציה'
+          error: REQUIRED.ANIMATION_DESCRIPTION
         };
       }
       
@@ -231,7 +232,7 @@ export const image_to_video = {
       if (result.error) {
         return {
           success: false,
-          error: `המרה לוידאו נכשלה: ${result.error}`
+          error: FAILED.VIDEO_CONVERSION(result.error)
         };
       }
       
@@ -251,7 +252,7 @@ export const image_to_video = {
       });
       return {
         success: false,
-        error: `שגיאה: ${error instanceof Error ? error.message : String(error)}`
+        error: ERROR.generic(error instanceof Error ? error.message : String(error))
       };
     }
   }

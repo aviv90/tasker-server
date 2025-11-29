@@ -8,6 +8,7 @@ import { getServices } from '../../../utils/serviceLoader';
 import * as helpers from './helpers';
 import replicateService from '../../../../replicateService';
 import logger from '../../../../../utils/logger';
+import { FAILED, ERROR } from '../../../../../config/messages';
 
 type TaskType = 'image' | 'image_edit' | 'video';
 
@@ -165,7 +166,7 @@ const retryWithDifferentProvider = {
 
         return {
           success: false,
-          error: `כל ספקי העריכה נכשלו:\n${errors.join('\n')}`
+          error: FAILED.ALL_EDIT_PROVIDERS(errors.join('\n'))
         };
       } else if (taskType === 'video') {
         // Video fallback
@@ -220,7 +221,7 @@ const retryWithDifferentProvider = {
 
         return {
           success: false,
-          error: `כל הספקים נכשלו:\n${errors.join('\n')}`
+          error: FAILED.ALL_PROVIDERS(errors.join('\n'))
         };
       } else {
         // Image creation fallback
@@ -280,7 +281,7 @@ const retryWithDifferentProvider = {
 
         return {
           success: false,
-          error: `כל הספקים נכשלו:\n${errors.join('\n')}`
+          error: FAILED.ALL_PROVIDERS(errors.join('\n'))
         };
       }
     } catch (error) {
@@ -288,7 +289,7 @@ const retryWithDifferentProvider = {
       logger.error('❌ Error in retry_with_different_provider tool:', { error: err.message, stack: err.stack });
       return {
         success: false,
-        error: `שגיאה: ${err.message}`
+        error: ERROR.generic(err.message)
       };
     }
   }

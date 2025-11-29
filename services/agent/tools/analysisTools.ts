@@ -4,6 +4,7 @@
 
 import { getServices } from '../utils/serviceLoader';
 import logger from '../../../utils/logger';
+import { FAILED, ERROR } from '../../../config/messages';
 
 type AnalyzeArgs = {
   image_url?: string;
@@ -76,7 +77,7 @@ export const analyze_image = {
       imageBuffer = null;
       return {
         success: false,
-        error: `שגיאה בניתוח התמונה: ${err.message}`
+        error: ERROR.imageAnalysis(err.message)
       };
     }
   }
@@ -121,7 +122,7 @@ export const analyze_video = {
       if (result.error) {
         return {
           success: false,
-          error: `ניתוח וידאו נכשל: ${result.error}`
+          error: FAILED.VIDEO_ANALYSIS(result.error)
         };
       }
 
@@ -135,7 +136,7 @@ export const analyze_video = {
       logger.error('❌ Error in analyze_video:', err);
       return {
         success: false,
-        error: `שגיאה: ${err.message}`
+        error: ERROR.generic(err.message)
       };
     }
   }

@@ -10,6 +10,7 @@
 import conversationManager from '../../../conversationManager';
 import { getServices } from '../../utils/serviceLoader';
 import logger from '../../../../utils/logger';
+import { NOT_FOUND, REQUIRED, ERROR } from '../../../../config/messages';
 
 type ToolContext = {
   chatId?: string;
@@ -86,7 +87,7 @@ const contextAndMemoryTools = {
         if (!history || typeof args.image_id !== 'number' || !history[args.image_id]) {
           return {
             success: false,
-            error: `לא נמצאה תמונה עם המזהה ${args.image_id}`
+            error: NOT_FOUND.imageById(args.image_id || 0)
           };
         }
 
@@ -94,7 +95,7 @@ const contextAndMemoryTools = {
         if (!message) {
           return {
             success: false,
-            error: `לא נמצאה תמונה עם המזהה ${args.image_id}`
+            error: NOT_FOUND.imageById(args.image_id)
           };
         }
         const imageUrl = message.metadata?.imageUrl;
@@ -109,7 +110,7 @@ const contextAndMemoryTools = {
         if (!args.question) {
           return {
             success: false,
-            error: 'חובה לציין שאלה לניתוח התמונה'
+            error: REQUIRED.IMAGE_QUESTION
           };
         }
 
@@ -141,7 +142,7 @@ const contextAndMemoryTools = {
         imageBuffer = null;
         return {
           success: false,
-          error: `שגיאה בניתוח תמונה: ${err.message}`
+          error: ERROR.imageAnalysis(err.message)
         };
       }
     }
@@ -180,14 +181,14 @@ const contextAndMemoryTools = {
         if (!context.chatId) {
           return {
             success: false,
-            error: 'לא נמצא chatId לשמירת ההעדפה'
+            error: NOT_FOUND.CHAT_ID_FOR_PREFERENCE
           };
         }
 
         if (!args.preference_key || !args.preference_value) {
           return {
             success: false,
-            error: 'חובה לציין מפתח וערך להעדפה'
+            error: REQUIRED.PREFERENCE_KEY_VALUE
           };
         }
 
@@ -206,7 +207,7 @@ const contextAndMemoryTools = {
         logger.error('❌ Error in save_user_preference tool:', err);
         return {
           success: false,
-          error: `שגיאה בשמירת העדפה: ${err.message}`
+          error: ERROR.savePreference(err.message)
         };
       }
     }
@@ -239,7 +240,7 @@ const contextAndMemoryTools = {
         if (!context.chatId) {
           return {
             success: false,
-            error: 'לא נמצא chatId לקריאת הזיכרון'
+            error: NOT_FOUND.CHAT_ID_FOR_MEMORY
           };
         }
 
@@ -296,7 +297,7 @@ const contextAndMemoryTools = {
         logger.error('❌ Error in get_long_term_memory tool:', err);
         return {
           success: false,
-          error: `שגיאה בגישה לזיכרון ארוך טווח: ${err.message}`
+          error: ERROR.longTermMemory(err.message)
         };
       }
     }

@@ -2,6 +2,7 @@ import axios from 'axios';
 import speechService from '../../../speechService';
 import voiceService from '../../../voiceService';
 import logger from '../../../../utils/logger';
+import { NOT_FOUND, FAILED, ERROR } from '../../../../config/messages';
 
 type TranscribeArgs = {
   audio_url: string;
@@ -47,7 +48,7 @@ export const transcribe_audio = {
       if (!args.audio_url) {
         return {
           success: false,
-          error: 'לא נמצא URL של הקלטה. צטט הודעה קולית ונסה שוב.'
+          error: NOT_FOUND.AUDIO_URL
         };
       }
 
@@ -64,7 +65,7 @@ export const transcribe_audio = {
       if (transcriptionResult.error) {
         return {
           success: false,
-          error: `תמלול נכשל: ${transcriptionResult.error}`
+          error: FAILED.TRANSCRIPTION(transcriptionResult.error)
         };
       }
 
@@ -85,7 +86,7 @@ export const transcribe_audio = {
       logger.error('❌ Error in transcribe_audio:', { error: err.message, stack: err.stack });
       return {
         success: false,
-        error: `שגיאה: ${err.message}`
+        error: ERROR.generic(err.message)
       };
     }
   }

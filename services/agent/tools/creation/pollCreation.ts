@@ -6,6 +6,7 @@
 import { getServices } from '../../utils/serviceLoader';
 import logger from '../../../../utils/logger';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
+import { REQUIRED, ERROR } from '../../../../config/messages';
 import type {
   AgentToolContext,
   ToolResult,
@@ -41,7 +42,7 @@ export const create_poll = {
       if (!args.topic) {
         return {
           success: false,
-          error: 'חובה לספק נושא לסקר'
+          error: REQUIRED.POLL_TOPIC
         };
       }
 
@@ -79,7 +80,7 @@ export const create_poll = {
       });
       return {
         success: false,
-        error: `שגיאה: ${error instanceof Error ? error.message : String(error)}`
+        error: ERROR.generic(error instanceof Error ? error.message : String(error))
       };
     }
   }

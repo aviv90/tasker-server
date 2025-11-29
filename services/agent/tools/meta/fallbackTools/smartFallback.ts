@@ -11,6 +11,7 @@ import * as helpers from './helpers';
 import replicateService from '../../../../replicateService';
 import voiceService from '../../../../voiceService';
 import logger from '../../../../../utils/logger';
+import { ERROR } from '../../../../../config/messages';
 
 type TaskType = 'image_creation' | 'video_creation' | 'audio_creation';
 type Provider = 'gemini' | 'openai' | 'grok';
@@ -334,7 +335,7 @@ const smartExecuteWithFallback = {
       logger.error('❌ Error in smart_execute_with_fallback:', err);
       return {
         success: false,
-        error: `שגיאה במנגנון החכם: ${err.message}`
+        error: ERROR.smartMechanism(err.message)
       };
     }
   }

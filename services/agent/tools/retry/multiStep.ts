@@ -9,6 +9,7 @@ import { extractQuotedMessageId } from '../../../../utils/messageHelpers';
 import logger from '../../../../utils/logger';
 import { RetryArgs, ToolContext, LastCommand, ToolResult } from './types';
 import { sendMultiStepRetryAck } from './ack';
+import { NOT_FOUND, UNABLE } from '../../../../config/messages';
 
 /**
  * Set agent tools reference (needed for retry)
@@ -31,7 +32,7 @@ export async function handleMultiStepRetry(
   if (!chatId) {
     return {
       success: false,
-      error: 'לא נמצא chatId לביצוע retry'
+      error: NOT_FOUND.CHAT_ID_FOR_RETRY
     };
   }
 
@@ -68,7 +69,7 @@ export async function handleMultiStepRetry(
     });
     return {
       success: false,
-      error: 'לא הצלחתי לשחזר את התוכנית של הפקודה הרב-שלבית הקודמת.'
+      error: UNABLE.RESTORE_MULTI_STEP_PLAN
     };
   }
   
@@ -110,9 +111,12 @@ export async function handleMultiStepRetry(
       stepTools,
       filteredStepsCount: stepsToRetry ? stepsToRetry.length : 0
     });
+    const stepsInfo = planSteps.map((s: { tool?: string; action?: string }, idx: number) => 
+      `${idx + 1}. ${s.tool || (typeof s.action === 'string' ? s.action.substring(0, 30) : 'unknown') || 'unknown'}`
+    ).join(', ');
     return {
       success: false,
-      error: `לא נמצאו שלבים תואמים. השלבים הזמינים: ${planSteps.map((s: { tool?: string; action?: string }, idx: number) => `${idx + 1}. ${s.tool || (typeof s.action === 'string' ? s.action.substring(0, 30) : 'unknown') || 'unknown'}`).join(', ')}`
+      error: NOT_FOUND.matchingSteps(stepsInfo)
     };
   }
   

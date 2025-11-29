@@ -7,6 +7,7 @@ import logger from '../../../../utils/logger';
 import { generateMusicWithLyrics } from '../../../musicService';
 import { parseMusicRequest } from '../../../geminiService';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
+import { REQUIRED, FAILED, ERROR } from '../../../../config/messages';
 import type {
   AgentToolContext,
   ToolResult,
@@ -56,7 +57,7 @@ export const create_music = {
       if (!args.prompt && !context.originalInput?.userText) {
         return {
           success: false,
-          error: 'חובה לספק תיאור לשיר'
+          error: REQUIRED.SONG_DESCRIPTION
         };
       }
 
@@ -103,7 +104,7 @@ export const create_music = {
       if (result.error) {
         return {
           success: false,
-          error: `יצירת מוזיקה נכשלה: ${result.error}`
+          error: FAILED.MUSIC_CREATION(result.error)
         };
       }
       
@@ -132,7 +133,7 @@ export const create_music = {
       });
       return {
         success: false,
-        error: `שגיאה: ${error instanceof Error ? error.message : String(error)}`
+        error: ERROR.generic(error instanceof Error ? error.message : String(error))
       };
     }
   }

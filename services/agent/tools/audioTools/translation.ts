@@ -2,6 +2,7 @@ import { getServices } from '../../utils/serviceLoader';
 import voiceService from '../../../voiceService';
 import { getAudioDuration } from '../../utils/audioUtils';
 import logger from '../../../../utils/logger';
+import { FAILED, ERROR } from '../../../../config/messages';
 
 type TranslateArgs = {
   text: string;
@@ -107,7 +108,7 @@ export const translate_text = {
       if (result.error) {
         return {
           success: false,
-          error: `תרגום נכשל: ${result.error}`
+          error: FAILED.TRANSLATION(result.error)
         };
       }
 
@@ -123,7 +124,7 @@ export const translate_text = {
       logger.error('❌ Error in translate_text:', err);
       return {
         success: false,
-        error: `שגיאה: ${err.message}`
+        error: ERROR.generic(err.message)
       };
     }
   }
@@ -169,7 +170,7 @@ export const translate_and_speak = {
       if (translationResult.error) {
         return {
           success: false,
-          error: `תרגום נכשל: ${translationResult.error}`
+          error: FAILED.TRANSLATION(translationResult.error)
         };
       }
 
@@ -304,7 +305,7 @@ export const translate_and_speak = {
       logger.error('❌ Error in translate_and_speak:', err);
       return {
         success: false,
-        error: `שגיאה: ${err.message}`
+        error: ERROR.generic(err.message)
       };
     }
   }

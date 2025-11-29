@@ -3,6 +3,7 @@ import { creativeAudioService } from '../../../creativeAudioService';
 import { saveBufferToTempFile } from '../../../../utils/tempFileUtils';
 import { getStaticFileUrl } from '../../../../utils/urlUtils';
 import logger from '../../../../utils/logger';
+import { FAILED, ERROR } from '../../../../config/messages';
 
 type CreativeMixArgs = {
   audio_url: string;
@@ -50,7 +51,7 @@ export const creative_audio_mix = {
       if (!result.success || !result.audioBuffer) {
         return {
           success: false,
-          error: `מיקס יצירתי נכשל: ${result.error || 'Unknown error'}`
+          error: FAILED.CREATIVE_MIX(result.error || 'Unknown error')
         };
       }
 
@@ -67,7 +68,7 @@ export const creative_audio_mix = {
       logger.error('❌ Error in creative_audio_mix:', { error: err.message, stack: err.stack });
       return {
         success: false,
-        error: `שגיאה: ${err.message}`
+        error: ERROR.generic(err.message)
       };
     }
   }
