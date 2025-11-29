@@ -83,10 +83,21 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
     
     const agentResult = await routeToAgent(normalized, chatId);
     
-    // If agent successfully executed a tool/command, use the centralized result handler
+    // Check if Agent executed a REAL command (not just text_to_speech which is the default fallback)
+    // text_to_speech alone doesn't count as a "command" - it means the user just said something
+    // that needs a conversational response, not that they explicitly requested TTS.
+    const toolsUsed = agentResult.toolsUsed || [];
+    const isRealCommand = toolsUsed.length > 0 && 
+      !toolsUsed.every(tool => tool === 'text_to_speech');
+    
+    // Also check for actual media outputs (not from text_to_speech)
+    const hasRealMediaOutput = (agentResult.imageUrl || agentResult.videoUrl) ||
+      (agentResult.audioUrl && isRealCommand);
+    
+    // If agent successfully executed a REAL tool/command, use the centralized result handler
     // This ensures identical behavior to text commands (multi-step, captions, etc.)
-    if (agentResult.success && (agentResult.toolsUsed && agentResult.toolsUsed.length > 0 || agentResult.imageUrl || agentResult.videoUrl || agentResult.audioUrl)) {
-      logger.info(`🎯 Agent identified and executed command/tool from voice message`);
+    if (agentResult.success && (isRealCommand || hasRealMediaOutput)) {
+      logger.info(`🎯 Agent identified and executed command/tool from voice message: [${toolsUsed.join(', ')}]`);
       
       // Use the same result handling logic as text commands
       // This ensures multi-step, captions, and all other features work identically
@@ -96,8 +107,9 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
       return;
     }
     
-    // If agent didn't execute any tool, treat as regular voice-to-voice conversation
-    logger.debug(`💬 Not a command - proceeding with voice-to-voice conversation`);
+    // If agent only used text_to_speech or no tools at all, treat as regular voice-to-voice conversation
+    // This means the user asked a question/said something that needs a conversational response
+    logger.debug(`💬 Not a command (tools: [${toolsUsed.join(', ')}]) - proceeding with voice-to-voice conversation`);
 
     // Don't send transcription to user - they should only receive the final voice response
 

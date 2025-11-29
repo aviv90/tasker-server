@@ -79,6 +79,14 @@ export function cleanMediaDescription(text: unknown): string {
     .replace(/תמונה:\s*$/gi, '') // Remove תמונה: at the end of text
     .replace(/\[וידאו\]/gi, '')
     .replace(/\[אודיו\]/gi, '')
+    // CRITICAL: Remove [audioUrl: ...], [imageUrl: ...], [videoUrl: ...] patterns
+    // These are added by Gemini when returning tool results and shouldn't be sent to users
+    .replace(/\[audioUrl:[^\]]*\]?/gi, '') // Remove [audioUrl: ...]
+    .replace(/\[imageUrl:[^\]]*\]?/gi, '') // Remove [imageUrl: ...]
+    .replace(/\[videoUrl:[^\]]*\]?/gi, '') // Remove [videoUrl: ...]
+    .replace(/audioUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove audioUrl: URL without brackets
+    .replace(/imageUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove imageUrl: URL without brackets
+    .replace(/videoUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove videoUrl: URL without brackets
     .replace(/✅/g, '');
   
   // Step 2: Clean up whitespace
@@ -205,6 +213,14 @@ export function cleanMultiStepText(text: unknown): string {
     .replace(/\[תמונה\]/gi, '')
     .replace(/\[וידאו\]/gi, '')
     .replace(/\[אודיו\]/gi, '')
+    // CRITICAL: Remove [audioUrl: ...], [imageUrl: ...], [videoUrl: ...] patterns
+    // These are added by Gemini when returning tool results and shouldn't be sent to users
+    .replace(/\[audioUrl:[^\]]*\]?/gi, '') // Remove [audioUrl: ...]
+    .replace(/\[imageUrl:[^\]]*\]?/gi, '') // Remove [imageUrl: ...]
+    .replace(/\[videoUrl:[^\]]*\]?/gi, '') // Remove [videoUrl: ...]
+    .replace(/audioUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove audioUrl: URL without brackets
+    .replace(/imageUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove imageUrl: URL without brackets
+    .replace(/videoUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove videoUrl: URL without brackets
     .trim();
 }
 

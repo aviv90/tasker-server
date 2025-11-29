@@ -48,7 +48,7 @@ const MIN_DURATION_FOR_CLONING = 4.6;
 export const text_to_speech = {
   declaration: {
     name: 'text_to_speech',
-    description: 'המר טקסט לדיבור. אם יש הקלטה מצוטטת - משבט את הקול! משתמש ב-ElevenLabs.',
+    description: 'המר טקסט לדיבור (TTS). השתמש בכלי הזה כשהמשתמש מבקש: "אמור X", "תגיד X", "say X", "speak X", "הקרא X", "read X". אם יש הקלטה מצוטטת - משבט את הקול! משתמש ב-ElevenLabs. CRITICAL: אם המשתמש משתמש בפעלים של דיבור (אמור/תגיד/say/speak) - הפלט חייב להיות קולי ולא טקסטואלי!',
     parameters: {
       type: 'object',
       properties: {
