@@ -11,11 +11,8 @@ import { promisify } from 'util';
 import { TIME } from '../../../utils/constants';
 import { Request } from 'express';
 import logger from '../../../utils/logger';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ffmpegPath = require('ffmpeg-static');
-
 const execAsync = promisify(exec);
-const ffmpeg = (ffmpegPath as unknown as string);
+const ffmpeg = 'ffmpeg';
 const veoClient = new genai.GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
 });
@@ -241,7 +238,7 @@ class WhatsAppVideoGeneration {
     try {
       await execAsync(`${ffmpeg} -i "${filePath}" -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -movflags +faststart "${convertedFilePath}" -y`);
       logger.info('✅ Video converted successfully');
-      
+
       // Delete original file
       try {
         fs.unlinkSync(filePath);
@@ -404,7 +401,7 @@ class WhatsAppVideoGeneration {
 
       // Convert video to WhatsApp-compatible format
       const convertResult = await this.convertVideoForWhatsApp(filePath, fileName, req);
-      
+
       let finalFileName: string;
       let finalFilePath: string;
       if (convertResult.success) {

@@ -1,0 +1,27 @@
+# Git
+.git
+.gitignore
+
+# Tests and Coverage
+tests/
+coverage/
+jest.config.js
+
+# IDE and Tools
+.vscode/
+.idea/
+.cursor/
+.husky/
+
+# Documentation
+*.md
+docs/
+
+# Logs
+*.log
+npm-debug.log
+
+# Local Config
+.env
+.env.local
+.env.test

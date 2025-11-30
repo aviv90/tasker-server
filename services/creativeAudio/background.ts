@@ -12,8 +12,7 @@ import { promisify } from 'util';
 import musicService from '../musicService';
 import { getTempDir, ensureTempDir } from '../../utils/tempFileUtils';
 import logger from '../../utils/logger';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ffmpegStatic = require('ffmpeg-static') as string;
+const ffmpegStatic = 'ffmpeg';
 
 const execAsync = promisify(exec);
 
@@ -140,7 +139,7 @@ export function getRandomBackground() {
   const backgroundKeys = Object.keys(BACKGROUND_MUSIC);
   if (backgroundKeys.length === 0) throw new Error("No background music defined");
   const randomKey = backgroundKeys[Math.floor(Math.random() * backgroundKeys.length)];
-  
+
   if (!randomKey) throw new Error("Failed to select random background music");
 
   return {
@@ -157,7 +156,7 @@ export function getRandomInstrumentalStyle() {
   const styleKeys = Object.keys(INSTRUMENTAL_STYLES);
   if (styleKeys.length === 0) throw new Error("No instrumental styles defined");
   const randomKey = styleKeys[Math.floor(Math.random() * styleKeys.length)];
-  
+
   if (!randomKey) throw new Error("Failed to select random instrumental style");
 
   return INSTRUMENTAL_STYLES[randomKey];
@@ -300,7 +299,7 @@ export function handleSunoCallback(taskId: string, audioBuffer: Buffer): void {
   if (callback) {
     const tempDir = getTempDir();
     ensureTempDir();
-    
+
     try {
       const fileName = `suno_instrumental_${uuidv4()}.mp3`;
       const filePath = path.join(tempDir, fileName);
@@ -310,7 +309,7 @@ export function handleSunoCallback(taskId: string, audioBuffer: Buffer): void {
     } catch (err: any) {
       callback.reject(new Error(`Failed to save Suno instrumental: ${err.message}`));
     }
-    
+
     pendingCallbacks.delete(taskId);
   }
 }

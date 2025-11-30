@@ -11,11 +11,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { promisify } from 'util';
 import { getTempDir, ensureTempDir, cleanupTempFile } from '../../utils/tempFileUtils';
 import logger from '../../utils/logger';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ffmpegStatic = require('ffmpeg-static');
-
 const execAsync = promisify(exec);
-const ffmpegBin = ffmpegStatic as unknown as string;
+const ffmpegBin = 'ffmpeg';
 
 export interface Effect {
   name: string;
@@ -164,7 +161,7 @@ export function getRandomEffect(): EffectWithKey {
   if (effectKeys.length === 0) throw new Error("No effects defined");
   const randomKey = effectKeys[Math.floor(Math.random() * effectKeys.length)];
   if (!randomKey) throw new Error("Failed to select random effect");
-  
+
   const effect = EFFECTS[randomKey];
   if (!effect) throw new Error(`Effect not found for key: ${randomKey}`);
 

@@ -62,7 +62,7 @@ export async function mixWithBackground(voiceBuffer: Buffer, voiceFormat: string
       logger.debug(`🎵 Mixing voice with background music...`);
 
       // Step 1: Lower background music volume to make it subtle background
-      const ffmpegStatic = require('ffmpeg-static') as string;
+      const ffmpegStatic = 'ffmpeg';
       const volumeCommand = [
         ffmpegStatic,
         '-i', backgroundPath,
@@ -169,27 +169,27 @@ export async function processVoiceCreatively(audioBuffer: Buffer, inputFormat: s
     } else {
       // Suno instrumental music (50%)
       const instrumentalStyle = getRandomInstrumentalStyle();
-      
+
       if (!instrumentalStyle) {
-         // Fallback if no style found
-         logger.warn(`⚠️ No instrumental style found, using default`);
-         const background = getRandomBackground();
-         backgroundPath = await generateBackgroundMusic(duration, background.key);
-         backgroundName = background.name;
+        // Fallback if no style found
+        logger.warn(`⚠️ No instrumental style found, using default`);
+        const background = getRandomBackground();
+        backgroundPath = await generateBackgroundMusic(duration, background.key);
+        backgroundName = background.name;
       } else {
         logger.debug(`🎲 Selected Suno instrumental: ${instrumentalStyle.name}`);
 
         try {
-            backgroundPath = await generateSunoInstrumental(duration, instrumentalStyle);
-            backgroundName = instrumentalStyle.name;
-            logger.debug(`✅ Suno instrumental path: ${backgroundPath}`);
+          backgroundPath = await generateSunoInstrumental(duration, instrumentalStyle);
+          backgroundName = instrumentalStyle.name;
+          logger.debug(`✅ Suno instrumental path: ${backgroundPath}`);
         } catch (sunoError: any) {
-            logger.warn(`⚠️ Suno instrumental failed, falling back to synthetic:`, { error: sunoError.message });
-            // Fallback to synthetic background music
-            const background = getRandomBackground();
-            logger.debug(`🎲 Fallback to synthetic background: ${background.name}`);
-            backgroundPath = await generateBackgroundMusic(duration, background.key);
-            backgroundName = `${background.name} (fallback)`;
+          logger.warn(`⚠️ Suno instrumental failed, falling back to synthetic:`, { error: sunoError.message });
+          // Fallback to synthetic background music
+          const background = getRandomBackground();
+          logger.debug(`🎲 Fallback to synthetic background: ${background.name}`);
+          backgroundPath = await generateBackgroundMusic(duration, background.key);
+          backgroundName = `${background.name} (fallback)`;
         }
       }
     }

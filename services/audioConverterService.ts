@@ -10,42 +10,39 @@ import { v4 as uuidv4 } from 'uuid';
 import { promisify } from 'util';
 import { downloadFile } from './greenApiService';
 import logger from '../utils/logger';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ffmpegPath = require('ffmpeg-static');
-
 const execAsync = promisify(exec);
-const ffmpeg = (ffmpegPath as unknown as string);
+const ffmpeg = 'ffmpeg';
 
 /**
  * Conversion options
  */
 interface ConversionOptions {
-  bitrate?: string;
-  [key: string]: unknown;
+    bitrate?: string;
+    [key: string]: unknown;
 }
 
 /**
  * Conversion result
  */
 interface ConversionResult {
-  success: boolean;
-  opusBuffer?: Buffer;
-  size?: number;
-  format?: string;
-  error?: string;
+    success: boolean;
+    opusBuffer?: Buffer;
+    size?: number;
+    format?: string;
+    error?: string;
 }
 
 /**
  * Save result
  */
 interface SaveResult {
-  success: boolean;
-  fileName?: string;
-  filePath?: string;
-  publicPath?: string;
-  buffer?: Buffer;
-  size?: number;
-  error?: string;
+    success: boolean;
+    fileName?: string;
+    filePath?: string;
+    publicPath?: string;
+    buffer?: Buffer;
+    size?: number;
+    error?: string;
 }
 
 class AudioConverterService {
@@ -105,7 +102,7 @@ class AudioConverterService {
 
                 try {
                     const { stderr } = await execAsync(ffmpegCommand);
-                    
+
                     if (stderr && typeof stderr === 'string' && stderr.includes('error')) {
                         throw new Error(`FFmpeg error: ${stderr}`);
                     }
@@ -116,7 +113,7 @@ class AudioConverterService {
                     }
 
                     const opusBuffer = fs.readFileSync(outputPath);
-                    
+
                     // Clean up temporary files
                     this.cleanupFile(inputPath);
                     this.cleanupFile(outputPath);
@@ -133,11 +130,11 @@ class AudioConverterService {
                 } catch (ffmpegError: unknown) {
                     const errorMessage = ffmpegError instanceof Error ? ffmpegError.message : String(ffmpegError);
                     logger.error('❌ FFmpeg conversion error:', ffmpegError as Error);
-                    
+
                     // Clean up temporary files
                     this.cleanupFile(inputPath);
                     this.cleanupFile(outputPath);
-                    
+
                     reject(new Error(`Audio conversion failed: ${errorMessage}`));
                 }
 
@@ -162,7 +159,7 @@ class AudioConverterService {
 
             // Convert to Opus
             const conversionResult = await this.convertToOpus(audioBuffer, inputFormat, options);
-            
+
             if (!conversionResult.success || !conversionResult.opusBuffer) {
                 throw new Error('Conversion failed');
             }
@@ -170,20 +167,20 @@ class AudioConverterService {
             // Save Opus file to public directory
             const opusFileName = `voice_${uuidv4()}.opus`;
             const opusFilePath = path.join(this.tempDir, opusFileName);
-            
+
             // Ensure directory exists
             if (!fs.existsSync(this.tempDir)) {
                 fs.mkdirSync(this.tempDir, { recursive: true });
                 logger.info(`📁 Created temp directory: ${this.tempDir}`);
             }
-            
+
             fs.writeFileSync(opusFilePath, conversionResult.opusBuffer);
 
             // Verify file was written correctly
             if (!fs.existsSync(opusFilePath)) {
                 throw new Error(`Opus file was not created: ${opusFilePath}`);
             }
-            
+
             const fileStats = fs.statSync(opusFilePath);
             logger.info(`✅ Opus file saved: ${opusFileName} (${fileStats.size} bytes)`);
             logger.debug(`📁 Full path: ${opusFilePath}`);
@@ -225,21 +222,21 @@ class AudioConverterService {
                 // Read from local file system
                 // Handle both /static/ and /static/tmp/ paths
                 let relativePath = audioUrl.replace('/static/', '');
-                
+
                 // Use process.cwd() to resolve path relative to project root
                 let filePath = path.join(process.cwd(), 'public', relativePath);
-                
+
                 // If file not found in public/, try public/tmp/
                 if (!fs.existsSync(filePath)) {
                     // Use config.paths.tmp for consistent path resolution
                     const { config } = require('../config');
                     filePath = path.join(config.paths.tmp, relativePath);
                 }
-                
+
                 if (!fs.existsSync(filePath)) {
                     throw new Error(`File not found: ${filePath}`);
                 }
-                
+
                 audioBuffer = fs.readFileSync(filePath);
                 logger.info(`📁 Read local file: ${filePath} (${audioBuffer.length} bytes)`);
             } else {

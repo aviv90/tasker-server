@@ -4,11 +4,8 @@ import path from 'path';
 import { promisify } from 'util';
 import { exec } from 'child_process';
 import logger from '../../../utils/logger';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ffprobePath = require('ffprobe-static');
-
 const execAsync = promisify(exec);
-const ffprobe = (ffprobePath as { path: string }).path;
+const ffprobe = 'ffprobe';
 
 /**
  * Get audio duration via ffprobe
