@@ -2,10 +2,8 @@
 .git
 .gitignore
 
-# Tests and Coverage
-tests/
+# Coverage (keep tests and jest.config.js for CI)
 coverage/
-jest.config.js
 
 # IDE and Tools
 .vscode/

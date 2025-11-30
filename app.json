@@ -10,13 +10,10 @@
   "environments": {
     "test": {
       "env": {
-        "NPM_CONFIG_PRODUCTION": "false",
-        "NPM_CONFIG_INCLUDE": "dev",
         "NODE_ENV": "test",
         "CI": "true"
       },
       "scripts": {
-        "test-setup": "npm install --include=dev",
         "test": "npm run test:ci"
       }
     }
