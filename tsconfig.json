@@ -38,8 +38,7 @@
     /* Node.js Specific */
     "resolveJsonModule": true,
     "types": [
-      "node",
-      "jest"
+      "node"
     ]
   },
   "include": [
@@ -49,6 +48,9 @@
     "node_modules",
     "dist",
     "public",
-    "*.config.js"
+    "*.config.js",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "tests/**"
   ]
 }

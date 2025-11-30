@@ -8,8 +8,27 @@ module.exports = {
 
   transform: {
     '^.+\\.ts$': ['ts-jest', {
-      tsconfig: 'tsconfig.json',
-      babelConfig: false,
+      tsconfig: {
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true,
+        strict: true,
+        noImplicitAny: true,
+        strictNullChecks: true,
+        strictFunctionTypes: true,
+        strictBindCallApply: true,
+        strictPropertyInitialization: true,
+        noImplicitThis: true,
+        alwaysStrict: true,
+        noUnusedLocals: true,
+        noUnusedParameters: true,
+        noImplicitReturns: true,
+        noFallthroughCasesInSwitch: true,
+        noUncheckedIndexedAccess: true,
+        skipLibCheck: true,
+        resolveJsonModule: true,
+        types: ['node', 'jest']
+      },
+      // Improve performance by isolating modules
       isolatedModules: true
     }]
   },
@@ -123,4 +142,3 @@ module.exports = {
     '/coverage/'
   ]
 };
-
