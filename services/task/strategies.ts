@@ -13,7 +13,7 @@ export interface TaskStrategy {
 }
 
 export class TextToImageStrategy implements TaskStrategy {
-    async execute(taskId: string, request: StartTaskRequest, sanitizedPrompt: string, req: any): Promise<any> {
+    async execute(_taskId: string, request: StartTaskRequest, sanitizedPrompt: string, _req: any): Promise<any> {
         const { provider } = request;
         if (provider === 'openai') {
             return await openaiService.generateImageWithText(sanitizedPrompt);
@@ -22,12 +22,11 @@ export class TextToImageStrategy implements TaskStrategy {
         }
     }
 
-    async finalize(taskId: string, result: any, req: any, prompt: string): Promise<void> {
+    async finalize(_taskId: string, _result: any, _req: any, _prompt: string): Promise<void> {
         // This will be handled by the common finalizeTask method in TaskService for now, 
         // or we can move the specific finalization logic here.
         // For this refactor, I will keep the finalization logic generic in TaskService 
         // but allow strategies to return the result format expected by it.
-        return result;
     }
 }
 
@@ -54,14 +53,14 @@ export class TextToVideoStrategy implements TaskStrategy {
         return null;
     }
 
-    async finalize(taskId: string, result: any, req: any, prompt: string): Promise<void> {
+    async finalize(_taskId: string, _result: any, _req: any, _prompt: string): Promise<void> {
         // Video finalization is complex and currently handled within execute via finalizeVideo util
         // In a deeper refactor, finalizeVideo logic should move here.
     }
 }
 
 export class TextToMusicStrategy implements TaskStrategy {
-    async execute(taskId: string, request: StartTaskRequest, sanitizedPrompt: string, req: any): Promise<any> {
+    async execute(_taskId: string, request: StartTaskRequest, sanitizedPrompt: string, _req: any): Promise<any> {
         const options: Record<string, any> = {};
 
         // Allow model selection and advanced options
@@ -94,32 +93,29 @@ export class TextToMusicStrategy implements TaskStrategy {
         }
     }
 
-    async finalize(taskId: string, result: any, req: any, prompt: string): Promise<void> {
+    async finalize(_taskId: string, _result: any, _req: any, _prompt: string): Promise<void> {
         // Music finalization logic will be called by TaskService using this result
-        return result;
     }
 }
 
 export class GeminiChatStrategy implements TaskStrategy {
-    async execute(taskId: string, request: StartTaskRequest, sanitizedPrompt: string, req: any): Promise<any> {
+    async execute(_taskId: string, request: StartTaskRequest, sanitizedPrompt: string, _req: any): Promise<any> {
         const conversationHistory = request.conversationHistory || [];
         logger.info(`🔮 Gemini chat processing`);
         return await geminiService.generateTextResponse(sanitizedPrompt, conversationHistory);
     }
 
-    async finalize(taskId: string, result: any, req: any, prompt: string): Promise<void> {
-        return result;
+    async finalize(_taskId: string, _result: any, _req: any, _prompt: string): Promise<void> {
     }
 }
 
 export class OpenAIChatStrategy implements TaskStrategy {
-    async execute(taskId: string, request: StartTaskRequest, sanitizedPrompt: string, req: any): Promise<any> {
+    async execute(_taskId: string, request: StartTaskRequest, sanitizedPrompt: string, _req: any): Promise<any> {
         const conversationHistory = request.conversationHistory || [];
         logger.info(`🤖 Generating OpenAI chat response`);
         return await openaiService.generateTextResponse(sanitizedPrompt, conversationHistory);
     }
 
-    async finalize(taskId: string, result: any, req: any, prompt: string): Promise<void> {
-        return result;
+    async finalize(_taskId: string, _result: any, _req: any, _prompt: string): Promise<void> {
     }
 }

@@ -5,67 +5,70 @@
 
 import { executeSingleStep } from './singleStep';
 import { sendToolAckMessage, FunctionCall } from '../utils/ackUtils';
-import { formatProviderError } from '../../../utils/errorHandler';
 import { getServices } from '../utils/serviceLoader';
-import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
 import { extractQuotedMessageId } from '../../../utils/messageHelpers';
 import { allTools as agentTools } from '../tools';
 import prompts from '../../../config/prompts';
 import resultSender from './resultSender';
 import { TIME } from '../../../utils/constants';
-import { cleanJsonWrapper, cleanMediaDescription, isGenericSuccessMessage, isUnnecessaryApologyMessage } from '../../../utils/textSanitizer';
-import { cleanAgentText } from '../../../services/whatsapp/utils';
 import logger from '../../../utils/logger';
-import { isIntermediateToolOutputInPipeline } from '../../../utils/pipelineDetection';
+import { FallbackHandler } from './fallbackHandler';
+import { processFinalText } from './resultProcessor';
 
-interface Step {
-    tool?: string;
-    parameters?: Record<string, unknown>;
-    stepNumber: number;
-    action: string;
+export interface Step {
+  tool?: string;
+  parameters?: Record<string, unknown>;
+  stepNumber: number;
+  action: string;
 }
 
-interface Plan {
-    steps: Step[];
+export interface Plan {
+  steps: Step[];
 }
 
-interface ExecutionOptions {
-    input?: {
-        originalMessageId?: string;
-        [key: string]: unknown;
-    };
+export interface ExecutionOptions {
+  input?: {
+    originalMessageId?: string;
     [key: string]: unknown;
+  };
+  [key: string]: unknown;
 }
 
-interface AgentConfig {
-    model: string;
-    maxIterations: number;
-    timeoutMs: number;
-    contextMemoryEnabled?: boolean;
+export interface AgentConfig {
+  model: string;
+  maxIterations: number;
+  timeoutMs: number;
+  contextMemoryEnabled?: boolean;
 }
 
-interface StepResult {
-    success: boolean;
-    text?: string;
-    imageUrl?: string | null;
-    imageCaption?: string;
-    caption?: string;
-    videoUrl?: string | null;
-    videoCaption?: string;
-    audioUrl?: string | null;
-    poll?: { question: string; options: string[] } | null;
-    latitude?: string | null;
-    longitude?: string | null;
-    locationInfo?: string | null;
-    toolsUsed?: string[];
-    iterations?: number;
-    error?: string;
-    errorsAlreadySent?: boolean;
-    data?: string;
-    [key: string]: unknown;
+export interface StepResult {
+  success: boolean;
+  text?: string;
+  imageUrl?: string | null;
+  imageCaption?: string;
+  caption?: string;
+  videoUrl?: string | null;
+  videoCaption?: string;
+  audioUrl?: string | null;
+  poll?: { question: string; options: string[] } | null;
+  latitude?: string | null;
+  longitude?: string | null;
+  locationInfo?: string | null;
+  toolsUsed?: string[];
+  iterations?: number;
+  error?: string;
+  errorsAlreadySent?: boolean;
+  data?: string;
+  [key: string]: unknown;
 }
 
 class MultiStepExecution {
+  private fallbackHandler: FallbackHandler;
+
+  constructor() {
+    this.fallbackHandler = new FallbackHandler();
+  }
+
   /**
    * Execute multi-step plan
    * @param {Object} plan - Plan from planner
@@ -77,24 +80,24 @@ class MultiStepExecution {
    */
   async execute(plan: Plan, chatId: string, options: ExecutionOptions, languageInstruction: string, agentConfig: AgentConfig): Promise<StepResult> {
     logger.info(`✅ [Planner] Entering multi-step execution with ${plan.steps.length} steps`);
-    
+
     // Adjust config for multi-step
     agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 15);
     agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, TIME.MULTI_STEP_MIN_TIMEOUT);
-    
+
     const functionDeclarations = Object.values(agentTools).map(tool => tool.declaration);
-    
+
     const stepResults: StepResult[] = [];
     const finalAssets: {
-        imageUrl: string | null;
-        imageCaption: string;
-        videoUrl: string | null;
-        audioUrl: string | null;
-        poll: { question: string; options: string[] } | null;
-        latitude: string | null;
-        longitude: string | null;
-        locationInfo: string | null;
-        error?: string;
+      imageUrl: string | null;
+      imageCaption: string;
+      videoUrl: string | null;
+      audioUrl: string | null;
+      poll: { question: string; options: string[] } | null;
+      latitude: string | null;
+      longitude: string | null;
+      locationInfo: string | null;
+      error?: string;
     } = {
       imageUrl: null,
       imageCaption: '',
@@ -105,13 +108,13 @@ class MultiStepExecution {
       longitude: null,
       locationInfo: null
     };
-    
+
     for (let i = 0; i < plan.steps.length; i++) {
       const step = plan.steps[i];
       if (!step) continue; // Safety check for TypeScript
       const toolName = step.tool || null;
       const toolParams = step.parameters || {};
-      
+
       // Send Ack BEFORE executing the step
       if (toolName) {
         logger.debug(`📢 [Multi-step] Sending Ack for Step ${step.stepNumber}/${plan.steps.length} (${toolName}) BEFORE execution`);
@@ -125,10 +128,10 @@ class MultiStepExecution {
         const ackCalls: FunctionCall[] = [{ name: toolName, args: toolParams }];
         await sendToolAckMessage(chatId, ackCalls, { quotedMessageId, skipToolsAck });
       }
-      
+
       // Build focused prompt for this step
       let stepPrompt = step.action;
-      
+
       // Add context from previous steps
       if (stepResults.length > 0) {
         const previousContext = stepResults.map((res, idx) => {
@@ -141,10 +144,10 @@ class MultiStepExecution {
           if (res.latitude && res.longitude) summary += ` [Sent location]`;
           return summary;
         }).join('\n');
-        
+
         stepPrompt = `CONTEXT from previous steps:\n${previousContext}\n\nCURRENT TASK: ${step.action}`;
       }
-      
+
       // If planner provided tool and parameters, add them to the prompt
       if (toolName && Object.keys(toolParams).length > 0) {
         const paramsStr = Object.entries(toolParams)
@@ -152,7 +155,7 @@ class MultiStepExecution {
           .join(', ');
         stepPrompt = `${stepPrompt}\n\nTool: ${toolName}\nParameters: ${paramsStr}`;
       }
-      
+
       // Execute this step
       try {
         logger.debug(`🔄 [Multi-step] Executing Step ${step.stepNumber}/${plan.steps.length}: ${step.action}`);
@@ -165,7 +168,7 @@ class MultiStepExecution {
           systemInstruction: prompts.singleStepInstruction(languageInstruction),
           expectedTool: toolName
         });
-        
+
         logger.debug(`🔍 [Multi-step] Step ${step.stepNumber} executeSingleStep returned:`, {
           success: stepResult.success,
           hasLocation: !!(stepResult.latitude && stepResult.longitude),
@@ -177,35 +180,35 @@ class MultiStepExecution {
           toolsUsed: stepResult.toolsUsed,
           error: stepResult.error
         });
-        
+
         if (stepResult.success) {
           stepResults.push(stepResult);
-          
+
           // Get quotedMessageId from options.input if available
           const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
           logger.debug(`🔍 [MultiStep] quotedMessageId for step ${step.stepNumber}: ${quotedMessageId}, from options.input: ${options.input?.originalMessageId}`);
-          
+
           // Get userText from options.input for pipeline detection
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const userText = (options.input as any)?.userText || null;
-          
+
           // Send ALL results immediately in order
           await resultSender.sendStepResults(chatId, stepResult, step.stepNumber, quotedMessageId, userText);
-          
+
           logger.info(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed and ALL results sent`);
         } else {
           // Step failed - try fallback
           logger.error(`❌ [Agent] Step ${step.stepNumber}/${plan.steps.length} failed:`, { error: stepResult.error });
-          
+
           // Get quotedMessageId to pass to fallback
           const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
-          
-          const fallbackResult = await this.tryFallback(chatId, toolName, toolParams, step, stepResult, quotedMessageId || null);
+
+          const fallbackResult = await this.fallbackHandler.tryFallback(chatId, toolName, toolParams, step, stepResult, quotedMessageId || null);
           if (fallbackResult) {
             stepResults.push(fallbackResult);
           } else {
             // Send error for non-creation tools
-            if (!this.isCreationTool(toolName || '')) {
+            if (!this.fallbackHandler.isCreationTool(toolName || '')) {
               await this.sendError(chatId, stepResult.error || 'Unknown error', step.stepNumber, quotedMessageId || null);
             }
           }
@@ -216,42 +219,15 @@ class MultiStepExecution {
         await this.sendError(chatId, stepError.message || stepError.toString(), step.stepNumber, quotedMessageId || null, true);
       }
     }
-    
+
     // Clean and process final text from all steps
-    // Collect text from all step results, filtering out intermediate tool outputs
-    const textParts: string[] = [];
-    for (const stepResult of stepResults) {
-      if (stepResult.text && stepResult.text.trim()) {
-        // Get userText for pipeline detection
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const userText = (options.input as any)?.userText || '';
-        
-        // Only include text if it's not intermediate tool output in a pipeline
-        const shouldSuppress = isIntermediateToolOutputInPipeline(stepResult, userText);
-        if (!shouldSuppress) {
-          textParts.push(stepResult.text.trim());
-        }
-      }
-    }
-    
-    let finalText = cleanJsonWrapper(textParts.join('\n\n').trim());
-    const lines = finalText.split('\n').filter(line => line.trim());
-    const uniqueLines: string[] = [];
-    const seen = new Set<string>();
-    for (const line of lines) {
-      const normalized = line.trim().toLowerCase();
-      if (!seen.has(normalized)) {
-        seen.add(normalized);
-        uniqueLines.push(line);
-      }
-    }
-    finalText = uniqueLines.join('\n').trim();
-    
+    const finalText = processFinalText(stepResults, options);
+
     logger.info(`🏁 [Agent] Multi-step execution completed: ${stepResults.length}/${plan.steps.length} steps successful`);
-    
+
     // Get originalMessageId from options.input for quoting
     const originalMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
-    
+
     return {
       success: true,
       text: finalText,
@@ -265,224 +241,6 @@ class MultiStepExecution {
       alreadySent: true,
       originalMessageId: originalMessageId || undefined // Pass originalMessageId for quoting
     };
-  }
-
-  /**
-   * Try fallback for creation tools
-   */
-  async tryFallback(chatId: string, toolName: string | null, toolParams: Record<string, unknown>, step: Step, stepResult: StepResult, quotedMessageId: string | null = null): Promise<StepResult | null> {
-    
-    if (!toolName || !this.isCreationTool(toolName)) {
-      return null;
-    }
-    
-    // Don't send initial error here - it's already sent by the tool itself
-    // Just log it
-    if (stepResult.error) {
-      logger.debug(`🔍 [Multi-step Fallback] Initial error: ${stepResult.error}`);
-    }
-    
-    logger.debug(`🔄 [Multi-step Fallback] Attempting automatic fallback for ${toolName}...`);
-    
-    try {
-      const { greenApiService } = getServices();
-      
-      // Determine provider order based on what failed
-      const avoidProvider = (toolParams.provider as string) || 'gemini';
-      const imageProviders = ['gemini', 'openai', 'grok'].filter(p => p !== avoidProvider);
-      const videoProviders = ['veo3', 'sora', 'kling'].filter(p => p !== avoidProvider);
-      
-      const providersToTry = toolName.includes('image') ? imageProviders : videoProviders;
-      
-      // Try each provider
-      // CRITICAL: Don't send ACK in fallback - the tool already received ACK before execution
-      // Sending ACK again here would create duplicate ACK messages
-      // The original ACK was sent at line 126 before step execution
-      for (const provider of providersToTry) {
-        logger.debug(`🔄 [Multi-step Fallback] Trying ${provider}...`);
-        
-        try {
-          const result = await this.executeFallbackTool(toolName, provider, toolParams, step, chatId);
-          
-            if (result && result.success) {
-            logger.info(`✅ [Multi-step Fallback] ${provider} succeeded!`);
-            
-            // Send the result
-            if (result.imageUrl) {
-              const fullImageUrl = normalizeStaticFileUrl(result.imageUrl);
-              
-              // CRITICAL: Caption MUST be sent with the image, not in a separate message
-              // Priority: imageCaption > caption > text (if text is not generic success message)
-              let caption = result.caption || result.imageCaption || '';
-              
-              // If no caption but text exists and is not a generic success message, use text as caption
-              if (!caption && result.text && typeof result.text === 'string' && result.text.trim()) {
-                const textToCheck = cleanMediaDescription(result.text);
-                if (!isGenericSuccessMessage(textToCheck.trim(), 'image')) {
-                  caption = result.text;
-                }
-              }
-              
-              const cleanCaption = cleanMediaDescription(caption || '');
-              
-              // Send image WITH caption (caption is always sent with media, never separately)
-              await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, cleanCaption, quotedMessageId || undefined, 1000);
-              logger.debug(`✅ [Multi-step Fallback] Image sent successfully with caption`);
-
-              // Only send additional text in a separate message if:
-              // 1. Text exists and is different from caption
-              // 2. Text is not a generic success message or apology
-              // 3. Text is meaningfully different (more than just whitespace/formatting)
-              if (result.text && typeof result.text === 'string' && result.text.trim()) {
-                const textToCheck = cleanMediaDescription(result.text);
-                const captionToCheck = cleanMediaDescription(caption);
-
-                // Skip generic success messages - they're redundant when image is already sent
-                if (isGenericSuccessMessage(textToCheck.trim(), 'image')) {
-                  logger.debug(`⏭️ [Multi-step Fallback] Skipping generic success message after image`);
-                }
-                // Skip unnecessary apology messages when image was successfully created
-                else if (isUnnecessaryApologyMessage(textToCheck)) {
-                  logger.debug(`⏭️ [Multi-step Fallback] Skipping apology message after image`);
-                }
-                // Only send if text is meaningfully different from caption
-                else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
-                  const additionalText = cleanAgentText(result.text);
-                  if (additionalText && additionalText.trim()) {
-                    logger.debug(`📝 [Multi-step Fallback] Sending additional text after image (${additionalText.length} chars)`);
-                    await greenApiService.sendTextMessage(chatId, additionalText, quotedMessageId || undefined, 1000);
-                  }
-                }
-              }
-            }
-            
-            if (result.videoUrl) {
-              const fullVideoUrl = normalizeStaticFileUrl(result.videoUrl);
-              
-              // CRITICAL: Caption MUST be sent with the video, not in a separate message
-              // Priority: videoCaption > caption > text (if text is not generic success message)
-              let caption = result.videoCaption || result.caption || '';
-              
-              // If no caption but text exists and is not a generic success message, use text as caption
-              if (!caption && result.text && typeof result.text === 'string' && result.text.trim()) {
-                const textToCheck = cleanMediaDescription(result.text);
-                if (!isGenericSuccessMessage(textToCheck.trim(), 'video')) {
-                  caption = result.text;
-                }
-              }
-              
-              const cleanCaption = cleanMediaDescription(caption || '');
-              
-              // Send video WITH caption (caption is always sent with media, never separately)
-              await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, cleanCaption, quotedMessageId || undefined, 1000);
-              logger.debug(`✅ [Multi-step Fallback] Video sent successfully with caption`);
-
-              // Only send additional text in a separate message if:
-              // 1. Text exists and is different from caption
-              // 2. Text is not a generic success message or apology
-              // 3. Text is meaningfully different (more than just whitespace/formatting)
-              if (result.text && typeof result.text === 'string' && result.text.trim()) {
-                const textToCheck = cleanMediaDescription(result.text);
-                const captionToCheck = cleanMediaDescription(caption);
-                
-                // Skip generic success messages - they're redundant when video is already sent
-                if (isGenericSuccessMessage(textToCheck.trim(), 'video')) {
-                  logger.debug(`⏭️ [Multi-step Fallback] Skipping generic success message after video`);
-                }
-                // Skip unnecessary apology messages when video was successfully created
-                else if (isUnnecessaryApologyMessage(textToCheck)) {
-                  logger.debug(`⏭️ [Multi-step Fallback] Skipping apology message after video`);
-                }
-                // Only send if text is meaningfully different from caption
-                else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
-                  const additionalText = cleanAgentText(result.text);
-                  if (additionalText && additionalText.trim()) {
-                    logger.debug(`📝 [Multi-step Fallback] Sending additional text after video (${additionalText.length} chars)`);
-                    await greenApiService.sendTextMessage(chatId, additionalText, quotedMessageId || undefined, 1000);
-                  }
-                }
-              }
-            }
-            
-            // Success message (optional) - only if no media was sent
-            // Skip generic success messages if media was already sent
-            if (result.data && typeof result.data === 'string' && !result.imageUrl && !result.videoUrl) {
-              const dataText = result.data.trim();
-              // Skip generic success messages - they're redundant
-              if (!isGenericSuccessMessage(dataText)) {
-                await greenApiService.sendTextMessage(chatId, dataText, quotedMessageId || undefined, 1000);
-              } else {
-                logger.debug(`⏭️ [Multi-step Fallback] Skipping generic success message: ${dataText}`);
-              }
-            }
-            
-            return result;
-          } else {
-            const errorMsg = result?.error || 'Unknown error';
-            logger.warn(`❌ [Multi-step Fallback] ${provider} failed: ${errorMsg}`);
-            // Don't send error if it was already sent by ProviderFallback
-            if (!result?.errorsAlreadySent) {
-              const formattedError = formatProviderError(provider, errorMsg);
-              await greenApiService.sendTextMessage(chatId, formattedError, quotedMessageId || undefined, 1000);
-            }
-          }
-        } catch (providerError: any) {
-          const errorMsg = providerError.message || 'Unknown error';
-          logger.error(`❌ [Multi-step Fallback] ${provider} threw error:`, { error: errorMsg });
-          // Only send error if it wasn't already sent by ProviderFallback
-          // (ProviderFallback sends errors in _handleProviderError)
-          const formattedError = formatProviderError(provider, errorMsg);
-          await greenApiService.sendTextMessage(chatId, formattedError, quotedMessageId || undefined, 1000);
-        }
-      }
-      
-      // All fallbacks failed
-      logger.warn(`❌ [Multi-step Fallback] All providers failed for ${toolName}`);
-      await greenApiService.sendTextMessage(chatId, `❌ כל הספקים נכשלו עבור ${toolName}`, quotedMessageId || undefined, 1000);
-      return null;
-    } catch (fallbackError: any) {
-      logger.error(`❌ [Multi-step Fallback] Critical error during fallback:`, { error: fallbackError.message });
-      return null;
-    }
-  }
-
-  /**
-   * Execute fallback tool with different provider
-   */
-  async executeFallbackTool(toolName: string, provider: string, toolParams: Record<string, unknown>, step: Step, chatId: string): Promise<StepResult | null> {
-    const promptToUse = (toolParams.prompt as string) || (toolParams.text as string) || step.action;
-    
-    if (toolName === 'create_image') {
-      if (!agentTools.create_image) return null;
-      return await agentTools.create_image.execute({ prompt: promptToUse, provider }, { chatId }) as StepResult;
-    } else if (toolName === 'create_video') {
-      if (!agentTools.create_video) return null;
-      return await agentTools.create_video.execute({ prompt: promptToUse, provider }, { chatId }) as StepResult;
-    } else if (toolName === 'edit_image') {
-      if (!agentTools.edit_image) return null;
-      return await agentTools.edit_image.execute({
-        image_url: toolParams.image_url,
-        edit_instruction: promptToUse,
-        service: provider
-      }, { chatId }) as StepResult;
-    } else if (toolName === 'edit_video') {
-      if (!agentTools.edit_video) return null;
-      return await agentTools.edit_video.execute({
-        video_url: toolParams.video_url,
-        edit_instruction: promptToUse,
-        provider
-      }, { chatId }) as StepResult;
-    }
-    
-    return null;
-  }
-
-  /**
-   * Check if tool is a creation tool
-   */
-  isCreationTool(toolName: string): boolean {
-    const creationTools = ['create_image', 'create_video', 'edit_image', 'edit_video'];
-    return creationTools.includes(toolName);
   }
 
   /**
