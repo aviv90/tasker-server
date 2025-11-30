@@ -110,11 +110,13 @@ export const WEB_SEARCH_RULE = `**CRITICAL: WEB SEARCH RULE - ALWAYS use search_
  * Audio/Translation rules
  */
 export const AUDIO_TRANSLATION_RULES = `CRITICAL AUDIO/TRANSLATION RULES:
-• Audio/voice: ONLY if user explicitly says "אמור", "תשמיע", "voice", "say" 
+• Audio/voice: ONLY if user explicitly says "אמור", "תשמיע", "voice", "say", "speak"
 • Translation: ONLY if user explicitly says "תרגם ל-X", "translate to X", "אמור ב-X in Y"
   - MUST have both source text AND explicit target language
   - Do NOT guess or infer target language from context
   - Do NOT use translate_and_speak unless BOTH are explicitly stated
+• **NEVER use audio/translation tools for greetings** (e.g., "Hi", "Hello", "Hey", "Shalom", "Mah kore")
+• **NEVER assume '#' means a command** - "# Hey" is just text, NOT a command to speak!
 • After transcribe_audio: Just return transcription text - do NOT translate unless user explicitly requests it
 • **Each request chooses tools based on its OWN content, not previous tool types**
   - Example: Previous was translate_and_speak ≠ Current should be translate_and_speak
