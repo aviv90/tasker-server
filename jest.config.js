@@ -3,11 +3,11 @@ module.exports = {
   // ============================================================================
   // TypeScript Configuration
   // ============================================================================
-  preset: 'ts-jest',
+  // preset: 'ts-jest', // Removed to avoid conflicts
   testEnvironment: 'node',
 
   transform: {
-    '^.+\\.ts$': ['ts-jest', {
+    '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: {
         target: 'ES2022',
         module: 'commonjs',
@@ -17,14 +17,11 @@ module.exports = {
         resolveJsonModule: true,
         types: ['node', 'jest']
       },
-      // Improve performance by isolating modules
       isolatedModules: true
     }]
   },
 
-  transformIgnorePatterns: [
-    'node_modules/(?!(uuid)/)'
-  ],
+  transformIgnorePatterns: [], // Force transform everything if needed
 
   // ============================================================================
   // Test Discovery
