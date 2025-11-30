@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import conversationManager from '../../conversationManager';
 import { cleanThinkingPatterns } from '../../../utils/agentHelpers';
 import { allTools as agentTools } from '../tools';
@@ -50,9 +49,8 @@ interface ToolFunctionResponse {
   };
 }
 
-// Note: genAI is initialized but currently unused in this specific file, kept for potential future direct use
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-void genAI; // Suppress unused warning
+// Note: genAI import removed - not used in this file
+// If direct Gemini API access is needed, use geminiService instead
 
 /**
  * Single-step agent execution loop

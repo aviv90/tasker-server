@@ -16,6 +16,7 @@ import { TIME } from '../../../utils/constants';
 import { cleanJsonWrapper, cleanMediaDescription, isGenericSuccessMessage, isUnnecessaryApologyMessage } from '../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../services/whatsapp/utils';
 import logger from '../../../utils/logger';
+import { isIntermediateToolOutputInPipeline } from '../../../utils/pipelineDetection';
 
 interface Step {
     tool?: string;
@@ -84,7 +85,6 @@ class MultiStepExecution {
     const functionDeclarations = Object.values(agentTools).map(tool => tool.declaration);
     
     const stepResults: StepResult[] = [];
-    const accumulatedText = '';
     const finalAssets: {
         imageUrl: string | null;
         imageCaption: string;
@@ -185,8 +185,12 @@ class MultiStepExecution {
           const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
           logger.debug(`🔍 [MultiStep] quotedMessageId for step ${step.stepNumber}: ${quotedMessageId}, from options.input: ${options.input?.originalMessageId}`);
           
+          // Get userText from options.input for pipeline detection
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const userText = (options.input as any)?.userText || null;
+          
           // Send ALL results immediately in order
-          await resultSender.sendStepResults(chatId, stepResult, step.stepNumber, quotedMessageId);
+          await resultSender.sendStepResults(chatId, stepResult, step.stepNumber, quotedMessageId, userText);
           
           logger.info(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed and ALL results sent`);
         } else {
@@ -213,8 +217,24 @@ class MultiStepExecution {
       }
     }
     
-    // Clean and process final text
-    let finalText = cleanJsonWrapper(accumulatedText.trim());
+    // Clean and process final text from all steps
+    // Collect text from all step results, filtering out intermediate tool outputs
+    const textParts: string[] = [];
+    for (const stepResult of stepResults) {
+      if (stepResult.text && stepResult.text.trim()) {
+        // Get userText for pipeline detection
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const userText = (options.input as any)?.userText || '';
+        
+        // Only include text if it's not intermediate tool output in a pipeline
+        const shouldSuppress = isIntermediateToolOutputInPipeline(stepResult, userText);
+        if (!shouldSuppress) {
+          textParts.push(stepResult.text.trim());
+        }
+      }
+    }
+    
+    let finalText = cleanJsonWrapper(textParts.join('\n\n').trim());
     const lines = finalText.split('\n').filter(line => line.trim());
     const uniqueLines: string[] = [];
     const seen = new Set<string>();
@@ -274,17 +294,12 @@ class MultiStepExecution {
       
       const providersToTry = toolName.includes('image') ? imageProviders : videoProviders;
       
-      // Try each provider (send ACK only for first fallback attempt)
-      let ackSentForFallback = false;
+      // Try each provider
+      // CRITICAL: Don't send ACK in fallback - the tool already received ACK before execution
+      // Sending ACK again here would create duplicate ACK messages
+      // The original ACK was sent at line 126 before step execution
       for (const provider of providersToTry) {
         logger.debug(`🔄 [Multi-step Fallback] Trying ${provider}...`);
-        
-        // Send Ack only for first fallback attempt (not for every provider)
-        if (!ackSentForFallback) {
-          const ackCalls: FunctionCall[] = [{ name: toolName, args: { provider } }];
-          await sendToolAckMessage(chatId, ackCalls, quotedMessageId || undefined);
-          ackSentForFallback = true;
-        }
         
         try {
           const result = await this.executeFallbackTool(toolName, provider, toolParams, step, chatId);

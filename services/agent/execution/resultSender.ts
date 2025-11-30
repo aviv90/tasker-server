@@ -8,6 +8,7 @@ import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
 import { cleanJsonWrapper, cleanMediaDescription, isGenericSuccessMessage, isUnnecessaryApologyMessage } from '../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../services/whatsapp/utils';
 import logger from '../../../utils/logger';
+import { isIntermediateToolOutputInPipeline } from '../../../utils/pipelineDetection';
 
 interface PollOptions {
     options: string[];
@@ -273,10 +274,22 @@ class ResultSender {
    * @param {Object} stepResult - Step result
    * @param {number} [stepNumber] - Step number
    * @param {string} [quotedMessageId] - Optional: ID of message to quote
+   * @param {string} [userText] - Optional: User's original text (for pipeline detection)
    */
-  async sendText(chatId: string, stepResult: StepResult, stepNumber: number | null = null, quotedMessageId: string | null = null): Promise<void> {
+  async sendText(chatId: string, stepResult: StepResult, stepNumber: number | null = null, quotedMessageId: string | null = null, userText: string | null = null): Promise<void> {
     if (!stepResult.text || !stepResult.text.trim()) {
       return;
+    }
+
+    // CRITICAL: Suppress intermediate tool output when it's part of a pipeline
+    // Example: get_chat_history → create_image (user asked "צייר גרף שמתאר את היסטוריית השיחה")
+    // In these cases, we should send only the final output, not the intermediate data
+    if (userText) {
+      const shouldSuppress = isIntermediateToolOutputInPipeline(stepResult, userText);
+      if (shouldSuppress) {
+        logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - intermediate tool output in pipeline`);
+        return;
+      }
     }
 
     // Check if structured output was already sent
@@ -361,8 +374,8 @@ class ResultSender {
 
       // For search_web and similar tools, URLs are part of the content
       // Only remove URLs for creation tools where they might be duplicate artifacts
-      const toolsWithUrls = ['search_web', 'get_chat_history', 'chat_summary', 'translate_text'];
-      if (!stepResult.toolsUsed || !stepResult.toolsUsed.some(tool => toolsWithUrls.includes(tool))) {
+      const toolsWithUrls = new Set(['search_web', 'get_chat_history', 'chat_summary', 'translate_text']);
+      if (!stepResult.toolsUsed || !stepResult.toolsUsed.some(tool => toolsWithUrls.has(tool))) {
         // Remove URLs only if not a text-based tool that returns URLs
         cleanText = cleanText.replace(/https?:\/\/[^\s]+/gi, '').trim();
       }
@@ -384,14 +397,15 @@ class ResultSender {
    * @param {Object} stepResult - Step result
    * @param {number} [stepNumber] - Step number
    * @param {string} [quotedMessageId] - Optional: ID of message to quote
+   * @param {string} [userText] - Optional: User's original text (for pipeline detection)
    */
-  async sendStepResults(chatId: string, stepResult: StepResult, stepNumber: number | null = null, quotedMessageId: string | null = null): Promise<void> {
+  async sendStepResults(chatId: string, stepResult: StepResult, stepNumber: number | null = null, quotedMessageId: string | null = null, userText: string | null = null): Promise<void> {
     await this.sendLocation(chatId, stepResult, stepNumber, quotedMessageId);
     await this.sendPoll(chatId, stepResult, stepNumber, quotedMessageId);
     await this.sendImage(chatId, stepResult, stepNumber, quotedMessageId);
     await this.sendVideo(chatId, stepResult, stepNumber, quotedMessageId);
     await this.sendAudio(chatId, stepResult, stepNumber, quotedMessageId);
-    await this.sendText(chatId, stepResult, stepNumber, quotedMessageId);
+    await this.sendText(chatId, stepResult, stepNumber, quotedMessageId, userText);
   }
 }
 
