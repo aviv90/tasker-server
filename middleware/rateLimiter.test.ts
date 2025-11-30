@@ -12,16 +12,7 @@ jest.mock('express-rate-limit', () => {
   return jest.fn(() => mockMiddleware);
 });
 
-// Mock logger
-jest.mock('../utils/logger', () => ({
-  __esModule: true,
-  default: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn()
-  }
-}));
+// Note: Logger is already mocked globally in jest.setup.ts
 
 // Import AFTER mocks are set up
 import { apiLimiter, whatsappLimiter, uploadLimiter, callbackLimiter, expensiveOperationLimiter } from './rateLimiter';

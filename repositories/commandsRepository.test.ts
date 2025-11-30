@@ -1,12 +1,16 @@
 /**
  * Commands Repository Tests
  * Unit tests for CommandsRepository
+ * 
+ * Tests CRUD operations for the last_commands table.
  */
 
-import { Pool, PoolClient } from 'pg';
-import CommandsRepository, { CommandData } from './commandsRepository';
+import type { Pool, PoolClient } from 'pg';
+import CommandsRepository from './commandsRepository';
+import type { CommandData } from './commandsRepository';
 import { createMockPool, createMockPoolClient } from '../tests/mocks/database.mock';
 
+// Mock pg module
 jest.mock('pg');
 
 describe('CommandsRepository', () => {

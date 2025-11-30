@@ -1,26 +1,14 @@
 /** @type {import('jest').Config} */
 module.exports = {
-  // Use ts-jest preset for TypeScript support
+  // ============================================================================
+  // TypeScript Configuration
+  // ============================================================================
   preset: 'ts-jest',
   testEnvironment: 'node',
   
-  // Root directory for tests
-  roots: ['<rootDir>'],
-  
-  // Test file patterns
-  testMatch: [
-    '**/__tests__/**/*.ts',
-    '**/?(*.)+(spec|test).ts'
-  ],
-  
-  // Module file extensions
-  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  
-  // Transform files
   transform: {
     '^.+\\.ts$': ['ts-jest', {
       tsconfig: {
-        // Use the same tsconfig settings
         esModuleInterop: true,
         allowSyntheticDefaultImports: true,
         strict: true,
@@ -39,18 +27,54 @@ module.exports = {
         skipLibCheck: true,
         resolveJsonModule: true,
         types: ['node', 'jest']
-      }
+      },
+      // Improve performance by isolating modules
+      isolatedModules: true
     }]
   },
+
+  // ============================================================================
+  // Test Discovery
+  // ============================================================================
+  roots: ['<rootDir>'],
+  testMatch: [
+    '**/__tests__/**/*.ts',
+    '**/?(*.)+(spec|test).ts'
+  ],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   
-  // Module name mapper (for path aliases if needed)
+  // Module path aliases
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1'
   },
+
+  // ============================================================================
+  // Test Execution
+  // ============================================================================
   
-  // Coverage configuration
+  // Setup files (run before each test file)
+  setupFilesAfterEnv: ['<rootDir>/tests/setup/jest.setup.ts'],
+  
+  // Timeouts
+  testTimeout: 30000,
+  
+  // Mock behavior
+  clearMocks: true,      // Clear mock calls between tests
+  restoreMocks: true,    // Restore original implementation after each test
+  resetMocks: false,     // Don't reset mock state (keeps implementation)
+  
+  // Don't force exit - tests should clean up properly
+  forceExit: false,
+  
+  // Run tests in parallel (default)
+  maxWorkers: '50%',
+
+  // ============================================================================
+  // Coverage Configuration
+  // ============================================================================
   collectCoverageFrom: [
     '**/*.ts',
+    // Exclusions
     '!**/*.d.ts',
     '!**/node_modules/**',
     '!**/dist/**',
@@ -59,15 +83,15 @@ module.exports = {
     '!**/migrations/**',
     '!**/scripts/**',
     '!**/public/**',
-    '!**/index.ts', // Exclude entry point
+    '!**/index.ts',
     '!**/jest.config.*',
-    '!**/tsconfig.json'
+    '!**/tsconfig.json',
+    '!**/*.test.ts',
+    '!**/*.spec.ts'
   ],
   
-  // Coverage thresholds (will be enforced)
-  // Starting with very low thresholds, will increase gradually as more tests are added
-  // Currently at ~3% coverage, so thresholds are set to 0% to allow CI to pass
-  // TODO: Increase thresholds as more tests are added
+  // Coverage thresholds - start low, increase gradually
+  // Current: ~3% coverage
   coverageThreshold: {
     global: {
       branches: 0,
@@ -77,42 +101,38 @@ module.exports = {
     }
   },
   
-  // Coverage reporters
-  coverageReporters: [
-    'text',
-    'text-summary',
-    'html',
-    'lcov'
-  ],
-  
-  // Coverage directory
+  coverageReporters: ['text', 'text-summary', 'html', 'lcov'],
   coverageDirectory: '<rootDir>/coverage',
-  
-  // Setup files
-  setupFilesAfterEnv: ['<rootDir>/tests/setup/jest.setup.ts'],
-  
-  // Test timeout (30 seconds)
-  testTimeout: 30000,
-  
-  // Force exit is disabled - proper cleanup is done by mocking modules that create timers
-  forceExit: false,
-  
-  // Clear mocks between tests
-  clearMocks: true,
-  restoreMocks: true,
-  
-  // Verbose output
+
+  // ============================================================================
+  // Output Configuration
+  // ============================================================================
   verbose: true,
   
-  // Ignore patterns
+  // ============================================================================
+  // Path Ignores
+  // ============================================================================
   testPathIgnorePatterns: [
     '/node_modules/',
     '/dist/',
     '/coverage/'
   ],
-  
-  // Module paths to ignore
   modulePathIgnorePatterns: [
+    '/dist/',
+    '/coverage/'
+  ],
+
+  // ============================================================================
+  // Performance Optimizations
+  // ============================================================================
+  
+  // Cache transformed files for faster subsequent runs
+  cache: true,
+  cacheDirectory: '<rootDir>/node_modules/.cache/jest',
+  
+  // Don't run tests in watch mode by default in CI
+  watchPathIgnorePatterns: [
+    '/node_modules/',
     '/dist/',
     '/coverage/'
   ]

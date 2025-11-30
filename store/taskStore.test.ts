@@ -1,29 +1,28 @@
 /**
  * Task Store Tests
  * Unit tests for TaskStore
+ * 
+ * Tests the task storage functionality used for async operations.
  */
 
 import * as taskStore from './taskStore';
-import { TaskData } from './taskStore';
+import type { TaskData } from './taskStore';
 
-// Mock conversationManager
-jest.mock('../services/conversationManager', () => {
-  const mockSaveTask = jest.fn();
-  const mockGetTask = jest.fn();
-  return {
-    __esModule: true,
-    default: {
-      saveTask: mockSaveTask,
-      getTask: mockGetTask
-    }
-  };
-});
+// Mock conversationManager before importing the module under test
+jest.mock('../services/conversationManager', () => ({
+  __esModule: true,
+  default: {
+    saveTask: jest.fn(),
+    getTask: jest.fn()
+  }
+}));
 
-// Import after mock to get the mocked version
+// Import the mocked module
 import conversationManager from '../services/conversationManager';
 
-const mockSaveTask = (conversationManager as unknown as { saveTask: jest.Mock }).saveTask;
-const mockGetTask = (conversationManager as unknown as { getTask: jest.Mock }).getTask;
+// Type-safe mock references
+const mockSaveTask = conversationManager.saveTask as jest.Mock;
+const mockGetTask = conversationManager.getTask as jest.Mock;
 
 describe('taskStore', () => {
   beforeEach(() => {
