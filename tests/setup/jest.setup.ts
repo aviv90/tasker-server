@@ -23,23 +23,6 @@ jest.mock('../../utils/logger', () => {
 // Global test timeout
 jest.setTimeout(30000);
 
-// Clean up after all tests
-afterAll(async () => {
-  try {
-    // Close database connections if they exist
-    const { closeTestDatabase } = await import('./database');
-    await closeTestDatabase();
-  } catch (error) {
-    // Ignore errors if database wasn't initialized
-  }
-  
-  // Force close any remaining handles
-  // Give Jest time to clean up
-  await new Promise(resolve => {
-    const timer = setTimeout(resolve, 100);
-    if (timer.unref) {
-      timer.unref();
-    }
-  });
-}, 5000); // 5 second timeout for cleanup
+// Note: No afterAll cleanup needed - forceExit in jest.config.js handles cleanup
+// Database connections are closed automatically when tests finish
 

@@ -94,9 +94,8 @@ module.exports = {
   // Test timeout (30 seconds)
   testTimeout: 30000,
   
-  // Force exit after tests complete (helps with CI environments like Heroku CI)
-  // This prevents "worker process has failed to exit gracefully" warnings
-  forceExit: true,
+  // Force exit is disabled - proper cleanup is done by mocking modules that create timers
+  forceExit: false,
   
   // Clear mocks between tests
   clearMocks: true,
