@@ -7,3 +7,9 @@
 # TypeScript
 /dist
 *.tsbuildinfo.env.bak
+
+# Test coverage reports
+/coverage
+
+# Test coverage
+/coverage

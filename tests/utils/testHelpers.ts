@@ -28,9 +28,16 @@ export function generateTaskId(): string {
 
 /**
  * Wait for a specified amount of time (useful for async tests)
+ * Uses unref() to prevent keeping the process alive
  */
 export function wait(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise(resolve => {
+    const timer = setTimeout(resolve, ms);
+    // Unref the timer so it doesn't keep the process alive
+    if (timer.unref) {
+      timer.unref();
+    }
+  });
 }
 
 /**
