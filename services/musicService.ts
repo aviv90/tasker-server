@@ -3,7 +3,8 @@
  * Main service for music generation operations
  */
 
-import { MusicGeneration, MusicGenerationOptions as InternalMusicGenerationOptions } from './music/generation';
+import { MusicGeneration } from './music/generation';
+import { MusicGenerationOptions as InternalMusicGenerationOptions } from './music/types';
 import { MusicCallbacks } from './music/callbacks';
 import { MusicVideo } from './music/video';
 import { MusicWhatsAppDelivery, WhatsAppContext, MusicResult } from './music/whatsappDelivery';
@@ -54,13 +55,13 @@ class MusicService implements MusicServiceInterface {
       'Authorization': `Bearer ${this.apiKey}`,
       'Content-Type': 'application/json'
     };
-    
+
     // Initialize managers
     this.generationManager = new MusicGeneration(this as MusicServiceInterface);
     this.callbacksManager = new MusicCallbacks(this as MusicServiceInterface);
     this.videoManager = new MusicVideo(this as MusicServiceInterface);
     this.whatsappDelivery = new MusicWhatsAppDelivery();
-    
+
     // Task tracking maps
     this.pendingTasks = new Map();
     this.pendingVideoTasks = new Map();

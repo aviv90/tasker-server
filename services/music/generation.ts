@@ -10,107 +10,14 @@ import fs from 'fs';
 import { getStaticFileUrl } from '../../utils/urlUtils';
 import logger from '../../utils/logger';
 
-/**
- * Music service interface
- * This matches MusicServiceInterface from musicService.ts
- */
-export interface MusicService {
-  baseUrl: string;
-  headers: Record<string, string>;
-  pendingTasks?: Map<string, unknown>;
-}
-
-/**
- * Task information structure
- */
-interface TaskInfo {
-  taskId: string;
-  type: string;
-  musicOptions?: MusicOptions;
-  timestamp: number;
-  whatsappContext?: {
-    chatId: string;
-    originalMessageId?: string;
-    senderName?: string;
-  } | null;
-  wantsVideo?: boolean;
-}
-
-/**
- * Music generation options
- */
-interface MusicOptions {
-  prompt: string;
-  customMode?: boolean;
-  instrumental?: boolean;
-  model?: string;
-  callBackUrl?: string;
-  style?: string;
-  title?: string;
-  tags?: string[];
-  duration?: number;
-  genre?: string;
-  mood?: string;
-  tempo?: string;
-  instruments?: string[];
-  vocalStyle?: string;
-  language?: string;
-  key?: string;
-  timeSignature?: string;
-  quality?: string;
-  stereo?: boolean;
-  sampleRate?: number;
-}
-
-/**
- * Music generation options for public API
- */
-export interface MusicGenerationOptions {
-  whatsappContext?: {
-    chatId: string;
-    originalMessageId?: string;
-    senderName?: string;
-  } | null;
-  makeVideo?: boolean;
-  model?: string;
-  style?: string;
-  title?: string;
-  tags?: string[];
-  duration?: number;
-  customMode?: boolean;
-  instrumental?: boolean;
-  genre?: string;
-  mood?: string;
-  tempo?: string;
-  instruments?: string[];
-  vocalStyle?: string;
-  language?: string;
-  key?: string;
-  timeSignature?: string;
-  quality?: string;
-  stereo?: boolean;
-  sampleRate?: number;
-  prompt?: string;
-}
-
-/**
- * Generation result
- */
-interface GenerationResult {
-  taskId?: string;
-  status?: string;
-  message?: string;
-  error?: string;
-}
-
-/**
- * Upload result
- */
-interface UploadResult {
-  uploadUrl?: string;
-  callbackUrl?: string;
-  error?: string;
-}
+import {
+  MusicService,
+  TaskInfo,
+  MusicOptions,
+  MusicGenerationOptions,
+  GenerationResult,
+  UploadResult
+} from './types';
 
 /**
  * Music generation operations
@@ -125,9 +32,9 @@ export class MusicGeneration {
   async generateMusicWithLyrics(prompt: string, options: MusicGenerationOptions = {}): Promise<GenerationResult> {
     try {
       logger.info('🎵 Starting Suno music generation with lyrics');
-      
+
       const cleanPrompt = sanitizeText(prompt);
-      
+
       // Basic mode - compatible with existing API, enhanced with V5
       const musicOptions: MusicOptions = {
         prompt: cleanPrompt,
@@ -136,13 +43,13 @@ export class MusicGeneration {
         model: options.model || 'V5', // Use V5 for latest and best quality
         callBackUrl: getApiUrl('/api/music/callback')
       };
-      
+
       // Only add advanced parameters if they are explicitly provided
       if (options.style) musicOptions.style = options.style;
       if (options.title) musicOptions.title = options.title;
       if (options.tags && Array.isArray(options.tags)) musicOptions.tags = options.tags;
       if (options.duration) musicOptions.duration = options.duration;
-      
+
       logger.debug('🎼 Using automatic mode');
 
       // Step 1: Submit music generation task
@@ -153,7 +60,7 @@ export class MusicGeneration {
       });
 
       const generateData = await generateResponse.json() as { code?: number; msg?: string; data?: { taskId?: string } };
-      
+
       if (!generateResponse.ok || generateData.code !== 200) {
         logger.error('❌ Suno music generation task submission failed:', { error: generateData.msg });
         return { error: generateData.msg || 'Music generation task submission failed' };
@@ -203,9 +110,9 @@ export class MusicGeneration {
   async generateInstrumentalMusic(prompt: string, options: MusicGenerationOptions = {}): Promise<GenerationResult> {
     try {
       logger.info('🎼 Starting Suno instrumental music generation');
-      
+
       const cleanPrompt = sanitizeText(prompt);
-      
+
       // Basic instrumental mode - compatible with existing API, enhanced with V5
       const musicOptions: MusicOptions = {
         prompt: cleanPrompt,
@@ -214,7 +121,7 @@ export class MusicGeneration {
         model: options.model || 'V5', // Use V5 for latest and best quality
         callBackUrl: getApiUrl('/api/music/callback')
       };
-      
+
       // Only add advanced parameters if they are explicitly provided
       if (options.style) musicOptions.style = options.style;
       if (options.title) musicOptions.title = options.title;
@@ -242,7 +149,7 @@ export class MusicGeneration {
     });
 
     const generateData = await generateResponse.json() as { code?: number; msg?: string; data?: { taskId?: string } };
-    
+
     if (!generateResponse.ok || generateData.code !== 200) {
       logger.error(`❌ Suno ${type} music task submission failed:`, { error: generateData.msg });
       return { error: generateData.msg || `${type} music generation task submission failed` };
@@ -282,9 +189,9 @@ export class MusicGeneration {
   async generateAdvancedMusic(prompt: string, options: MusicGenerationOptions = {}): Promise<GenerationResult> {
     try {
       logger.info('🎵 Starting Suno V5 advanced music generation');
-      
+
       const cleanPrompt = sanitizeText(prompt);
-      
+
       // Enhanced music styles for V5
       const musicStyles = [
         'Pop', 'Rock', 'Jazz', 'Classical', 'Electronic', 'Hip-Hop',
@@ -292,9 +199,9 @@ export class MusicGeneration {
         'Alternative', 'Soul', 'Funk', 'Dance', 'Acoustic', 'Lo-fi',
         'Ambient', 'Cinematic', 'World', 'Experimental', 'Synthwave', 'Chill'
       ];
-      
+
       const randomStyle = musicStyles[Math.floor(Math.random() * musicStyles.length)] || 'Pop';
-      
+
       // Generate title from prompt
       const generateTitle = (promptText: string): string => {
         const words = promptText.split(' ').slice(0, 4).join(' ');
@@ -302,7 +209,7 @@ export class MusicGeneration {
         const randomSuffix = suffixes[Math.floor(Math.random() * suffixes.length)] || 'Song';
         return `${words} ${randomSuffix}`.substring(0, 80);
       };
-      
+
       // Advanced V5 configuration with full control
       const musicOptions: MusicOptions = {
         prompt: cleanPrompt,
@@ -329,7 +236,7 @@ export class MusicGeneration {
         stereo: options.stereo !== false, // Default to stereo
         sampleRate: options.sampleRate || 44100
       };
-      
+
       logger.debug('🎼 Using advanced V5 mode');
 
       // Use the same generation logic but with advanced options
@@ -345,7 +252,7 @@ export class MusicGeneration {
   async generateSongFromSpeech(audioBuffer: Buffer, options: MusicGenerationOptions = {}): Promise<GenerationResult> {
     try {
       logger.info('🎤 Starting Speech-to-Song generation with Add Instrumental API');
-      
+
       // Step 1: Upload audio file and get public URL
       const uploadResult = await this._uploadAudioFile(audioBuffer);
       if (uploadResult.error) {
@@ -356,7 +263,7 @@ export class MusicGeneration {
       if (uploadResult.uploadUrl) {
         logger.debug(`🌐 Testing external accessibility: ${uploadResult.uploadUrl}`);
         try {
-          const testResponse = await fetch(uploadResult.uploadUrl, { 
+          const testResponse = await fetch(uploadResult.uploadUrl, {
             method: 'HEAD',
             headers: {
               'User-Agent': 'Mozilla/5.0 (compatible; KieAI-Test/1.0)'
@@ -390,7 +297,7 @@ export class MusicGeneration {
   private async _generateExtend(extendOptions: Record<string, unknown>): Promise<GenerationResult> {
     try {
       logger.debug('🎼 Submitting Upload-Extend request');
-      
+
       // Submit upload-extend task
       const generateResponse = await fetch(`${this.musicService.baseUrl}/api/v1/generate/upload-extend`, {
         method: 'POST',
@@ -399,7 +306,7 @@ export class MusicGeneration {
       });
 
       const generateData = await generateResponse.json() as { code?: number; message?: string; data?: { taskId?: string } };
-      
+
       if (!generateResponse.ok || generateData.code !== 200) {
         logger.error('❌ Upload-Extend API error:', { error: generateData });
         return { error: (generateData.message as string) || 'Upload-Extend request failed' };
@@ -453,24 +360,24 @@ export class MusicGeneration {
       const filename = `speech_${uuidv4()}.mp3`; // Keep .mp3 extension for compatibility
       const tempFilePath = path.join(__dirname, '..', '..', 'public', 'tmp', filename);
       const outputDir = path.dirname(tempFilePath);
-      
+
       if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
       }
-      
+
       // Save audio file temporarily
       fs.writeFileSync(tempFilePath, audioBuffer);
-      
+
       // Verify file was written correctly
       const fileStats = fs.statSync(tempFilePath);
       logger.debug(`💾 Audio file saved: ${filename}, size: ${fileStats.size} bytes`);
-      
+
       // Create public URL for the uploaded file
       const uploadUrl = getStaticFileUrl(filename);
       const callbackUrl = this._getCallbackUrl();
-      
+
       logger.info(`✅ Audio file uploaded: ${uploadUrl}`);
-      
+
       return { uploadUrl, callbackUrl };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
