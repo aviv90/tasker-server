@@ -6,12 +6,12 @@ import { Pool } from 'pg';
 import { TIME } from '../utils/constants';
 
 // Import interfaces/classes
-import CommandsManager from './conversation/commands';
+import CommandsManager, { CommandMetadata, SaveLastCommandOptions } from './conversation/commands';
 import MessageTypesManager from './conversation/messageTypes';
 import AgentContextManager from './conversation/agentContext';
 import SummariesManager from './conversation/summaries';
-import AllowListsManager from './conversation/allowLists';
-import ContactsManager from './conversation/contacts';
+import AllowListsManager, { SenderData } from './conversation/allowLists';
+import ContactsManager, { GreenApiContact } from './conversation/contacts';
 import MessagesManager from './conversation/messages';
 
 interface AgentContext {
@@ -36,14 +36,14 @@ class ConversationManager {
     // @ts-expect-error - DatabaseManager expects ConversationManager interface, but we pass 'this'
     this.databaseManager = new DatabaseManager(this);
     // @ts-expect-error - TasksManager expects ConversationManager interface, but we pass 'this'
-    this.tasksManager = new TasksManager(this); 
-    
+    this.tasksManager = new TasksManager(this);
+
     // Note: We do NOT start initialization here anymore to avoid side effects on import.
     // Call initialize() explicitly.
   }
 
   // ═══════════════════ INITIALIZATION ═══════════════════
-  
+
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
 
@@ -52,9 +52,9 @@ class ConversationManager {
       await container.initialize();
       this.pool = container.pool; // Expose pool for legacy components
       this.isInitialized = true;
-      
+
       this.startPeriodicCleanup();
-      
+
     } catch (error: unknown) {
       logger.error('❌ Failed to initialize ConversationManager:', error);
       throw error;
@@ -93,7 +93,7 @@ class ConversationManager {
   get contactsManager(): ContactsManager {
     return container.getService('contacts');
   }
-  
+
   // Legacy support for messagesManager (it's deprecated)
   // We explicitly redirect to chatHistoryService as per previous implementation
   get messagesManager(): MessagesManager {
@@ -131,11 +131,10 @@ class ConversationManager {
     return this.allowListsManager.isInVoiceAllowList(contactName);
   }
 
-  async isAuthorizedForVoiceTranscription(senderData: unknown): Promise<boolean> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return this.allowListsManager.isAuthorizedForVoiceTranscription(senderData as any);
+  async isAuthorizedForVoiceTranscription(senderData: SenderData): Promise<boolean> {
+    return this.allowListsManager.isAuthorizedForVoiceTranscription(senderData);
   }
-  
+
   async addToMediaAllowList(contactName: string): Promise<boolean> {
     await this.allowListsManager.addToMediaAllowList(contactName);
     return true; // Return true to indicate success (for backward compatibility)
@@ -149,7 +148,7 @@ class ConversationManager {
   async getMediaAllowList(): Promise<string[]> {
     return this.allowListsManager.getMediaAllowList();
   }
-  
+
   async addToGroupCreationAllowList(contactName: string): Promise<boolean> {
     await this.allowListsManager.addToGroupCreationAllowList(contactName);
     return true; // Return true to indicate success (for backward compatibility)
@@ -167,7 +166,7 @@ class ConversationManager {
   async isInGroupCreationAllowList(contactName: string): Promise<boolean> {
     return this.allowListsManager.isInGroupCreationAllowList(contactName);
   }
-  
+
   async getDatabaseStats(): Promise<unknown> {
     return this.allowListsManager.getDatabaseStats();
   }
@@ -184,9 +183,8 @@ class ConversationManager {
   }
 
   // Contacts
-  async syncContacts(contactsArray: unknown[]): Promise<{ inserted: number; updated: number; total: number }> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await this.contactsManager.syncContacts(contactsArray as unknown as any[]); // Cast to expected type
+  async syncContacts(contactsArray: GreenApiContact[]): Promise<{ inserted: number; updated: number; total: number }> {
+    await this.contactsManager.syncContacts(contactsArray);
     // Return default stats for backward compatibility
     return { inserted: 0, updated: 0, total: contactsArray.length };
   }
@@ -217,18 +215,16 @@ class ConversationManager {
   }
 
   // Commands
-  async saveCommand(chatId: string, messageId: string, metadata: unknown): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return this.commandsManager.saveCommand(chatId, messageId, metadata as any); // commandsManager expects CommandMetadata
+  async saveCommand(chatId: string, messageId: string, metadata: CommandMetadata): Promise<void> {
+    return this.commandsManager.saveCommand(chatId, messageId, metadata);
   }
 
   async getLastCommand(chatId: string): Promise<unknown> {
     return this.commandsManager.getLastCommand(chatId);
   }
 
-  async saveLastCommand(chatId: string, tool: string | null, args: unknown, options: unknown = {}): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return this.commandsManager.saveLastCommand(chatId, tool || '', args, options as any);
+  async saveLastCommand(chatId: string, tool: string | null, args: unknown, options: SaveLastCommandOptions = {}): Promise<void> {
+    return this.commandsManager.saveLastCommand(chatId, tool || '', args, options);
   }
 
   get commandsManagerClearAll(): () => Promise<void> {
@@ -306,14 +302,14 @@ class ConversationManager {
   async runFullCleanup(): Promise<{ contextDeleted: number; summariesDeleted: number; totalDeleted: number }> {
     // Cleanup message types (30 days TTL)
     await this.messageTypesManager.cleanup(30 * TIME.DAY);
-    
+
     // Cleanup old commands (30 days TTL)
     await this.commandsManager.cleanup(30 * TIME.DAY);
-    
+
     logger.info('🧹 Starting full cleanup...');
     const contextDeleted = await this.agentContextManager.cleanupOldAgentContext(30);
     const summariesDeleted = await this.summariesManager.cleanupOldSummaries(10);
-    
+
     const stats = { contextDeleted, summariesDeleted, totalDeleted: contextDeleted + summariesDeleted };
     logger.info(`✅ Full cleanup completed:`, stats);
     return stats;
@@ -321,19 +317,19 @@ class ConversationManager {
 
   startPeriodicCleanup(): void {
     if (this.cleanupIntervalHandle) return;
-    
+
     const CLEANUP_INTERVAL_MS = Math.min(TIME.CLEANUP_INTERVAL, 2147483647);
-    
+
     setTimeout(async () => {
       logger.info('🧹 Running first scheduled cleanup...');
       await this.runFullCleanup();
-      
+
       this.cleanupIntervalHandle = setInterval(async () => {
         logger.info('🧹 Running scheduled cleanup...');
         await this.runFullCleanup();
       }, CLEANUP_INTERVAL_MS);
     }, 1000); // 1 second delay before first cleanup
-    
+
     logger.info(`✅ Periodic cleanup scheduled (~every 30 days)`);
   }
 

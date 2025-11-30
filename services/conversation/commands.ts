@@ -13,7 +13,7 @@ import CommandsRepository from '../../repositories/commandsRepository';
 /**
  * Command metadata structure
  */
-interface CommandMetadata {
+export interface CommandMetadata {
   tool?: string | null;
   toolArgs?: unknown;
   args?: unknown;
@@ -49,6 +49,17 @@ interface LastCommandResult {
 }
 
 /**
+ * Options for saving last command
+ */
+export interface SaveLastCommandOptions {
+  prompt?: string;
+  normalized?: unknown;
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+  audioUrl?: string | null;
+}
+
+/**
  * Conversation manager interface (for backward compatibility)
  */
 interface ConversationManager {
@@ -73,7 +84,7 @@ class CommandsManager {
    */
   async saveCommand(chatId: string, messageId: string, metadata: CommandMetadata): Promise<void> {
     if (!chatId || !messageId) return;
-    
+
     if (!this.repository) {
       logger.warn('⚠️ Repository not initialized, cannot save command');
       return;
@@ -87,25 +98,25 @@ class CommandsManager {
         timestamp,
         ...metadata
       };
-      
+
       // Clean data before validation - remove any Zod-specific properties
       const cleanedData = JSON.parse(JSON.stringify(commandData)) as typeof commandData;
-      
+
       // Validate data with safeParse to avoid throwing errors
       const validationResult = commandSchema.safeParse(cleanedData);
-      
+
       if (!validationResult.success) {
-        logger.warn('⚠️ Command validation failed, saving anyway:', { 
+        logger.warn('⚠️ Command validation failed, saving anyway:', {
           errors: validationResult.error.issues,
-          chatId, 
-          messageId 
+          chatId,
+          messageId
         });
         // Save anyway with original data (validation is not critical)
         await this.repository.save(commandData as Parameters<CommandsRepository['save']>[0]);
       } else {
         await this.repository.save(validationResult.data as Parameters<CommandsRepository['save']>[0]);
       }
-      
+
       logger.debug(`💾 [Commands] Saved command ${messageId} for retry in ${chatId}: ${metadata.tool || 'unknown'}`);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -119,19 +130,13 @@ class CommandsManager {
    * @deprecated Use saveCommand() instead
    */
   async saveLastCommand(
-    chatId: string, 
-    tool: string, 
-    args: unknown, 
-    options: {
-      prompt?: string;
-      normalized?: unknown;
-      imageUrl?: string | null;
-      videoUrl?: string | null;
-      audioUrl?: string | null;
-    } = {}
+    chatId: string,
+    tool: string,
+    args: unknown,
+    options: SaveLastCommandOptions = {}
   ): Promise<void> {
     logger.warn('⚠️ [DEPRECATED] saveLastCommand() is deprecated. Use saveCommand() instead.');
-    
+
     // For backward compatibility, create a messageId from timestamp
     const messageId = `legacy_${Date.now()}`;
     await this.saveCommand(chatId, messageId, {
@@ -153,7 +158,7 @@ class CommandsManager {
    */
   async getLastCommand(chatId: string): Promise<LastCommandResult | null> {
     if (!chatId) return null;
-    
+
     if (!this.repository) {
       logger.warn('⚠️ Repository not initialized, cannot get last command');
       return null;
@@ -161,9 +166,9 @@ class CommandsManager {
 
     try {
       const row = await this.repository.findLastByChatId(chatId);
-      
+
       if (!row) return null;
-      
+
       return {
         messageId: row.messageId,
         tool: row.tool || null,
@@ -197,7 +202,7 @@ class CommandsManager {
     }
 
     const cutoffTime = Date.now() - ttlMs;
-    
+
     try {
       const count = await this.repository.deleteOlderThan(cutoffTime);
       if (count > 0) {
@@ -233,11 +238,11 @@ class CommandsManager {
     if (!value) {
       return null;
     }
-    
+
     if (typeof value === 'object' && value !== null) {
       return value;
     }
-    
+
     if (typeof value === 'string') {
       try {
         return JSON.parse(value);
@@ -247,10 +252,9 @@ class CommandsManager {
         return null;
       }
     }
-    
+
     return value;
   }
 }
 
 export default CommandsManager;
-

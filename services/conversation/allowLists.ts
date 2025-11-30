@@ -8,7 +8,7 @@ import AllowListsRepository from '../../repositories/allowListsRepository';
 /**
  * Sender data structure from Green API
  */
-interface SenderData {
+export interface SenderData {
   chatId?: string;
   chatName?: string;
   senderName?: string;
@@ -149,25 +149,25 @@ class AllowListsManager {
   async isAuthorizedForVoiceTranscription(senderData: SenderData): Promise<boolean> {
     try {
       const allowList = await this.getVoiceAllowList();
-      
+
       if (allowList.length === 0) {
         return false;
       }
 
       const isGroupChat = senderData.chatId && senderData.chatId.endsWith('@g.us');
       const isPrivateChat = senderData.chatId && senderData.chatId.endsWith('@c.us');
-      
+
       if (isGroupChat) {
         // Group chat - check both the group AND the individual sender
         const groupName = senderData.chatName || '';
         const senderContact = senderData.senderContactName || senderData.senderName || '';
-        
+
         // Allow if EITHER the group is authorized OR the individual sender is authorized
         const groupAuthorized = !!(groupName && allowList.includes(groupName));
         const senderAuthorized = !!(senderContact && allowList.includes(senderContact));
-        
+
         return groupAuthorized || senderAuthorized;
-        
+
       } else if (isPrivateChat) {
         // Private chat - priority: senderContactName → chatName → senderName
         let contactName = "";
@@ -178,7 +178,7 @@ class AllowListsManager {
         } else {
           contactName = senderData.senderName || '';
         }
-        
+
         return allowList.includes(contactName);
       } else {
         // Fallback
@@ -344,16 +344,16 @@ class AllowListsManager {
     // For now, assuming repository doesn't have this, or we move it to a specific Migration/Admin repo.
     // If needed, we can add deleteConversations to AllowListsRepository or a new AdminRepository.
     // Let's assume we added it to AllowListsRepository for simplicity in previous step, or we just log a warning.
-    
+
     if (!this.repository) {
-        throw new Error('Repository not initialized');
+      throw new Error('Repository not initialized');
     }
-    
+
     // NOTE: In the previous step I didn't add clearConversations to AllowListsRepository.
     // I should probably add it or handle it here. 
     // Given the scope, let's assume we'll skip this specific method or implement it if needed.
     // Actually, I'll leave it throwing or logging for now as it's a rare admin command.
-    
+
     logger.warn('⚠️ clearAllConversations not implemented in repository pattern yet.');
     return 0;
   }

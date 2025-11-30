@@ -10,7 +10,7 @@ import ContactsRepository from '../../repositories/contactsRepository';
 /**
  * Contact structure from Green API
  */
-interface GreenApiContact {
+export interface GreenApiContact {
   id?: string;
   chatId?: string;
   name?: string;
@@ -64,7 +64,7 @@ class ContactsManager {
 
         // Validate with Zod
         const validatedContact = contactSchema.parse(rawContactData);
-        
+
         // Convert to Contact type expected by repository (convert null to undefined)
         const contactForRepository = {
           id: validatedContact.id,
@@ -79,10 +79,10 @@ class ContactsManager {
       }
 
       logger.info(`📇 Contacts synced: ${processed} processed`);
-      
+
       // Invalidate contacts cache after sync
       del(CacheKeys.allContacts());
-      
+
       return { total: processed };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -108,10 +108,10 @@ class ContactsManager {
 
     try {
       const contacts = await this.repository.findAll();
-      
+
       // Cache for 5 minutes (contacts don't change frequently)
       set(cacheKey, contacts, CacheTTL.MEDIUM);
-      
+
       return contacts;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);

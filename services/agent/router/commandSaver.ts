@@ -143,9 +143,9 @@ export async function saveLastCommand(
     prompt: userText,
     failed: !commandToSave.success,
     normalized: input,
-    imageUrl: sanitizedResult?.imageUrl || agentResult.imageUrl || null,
-    videoUrl: sanitizedResult?.videoUrl || agentResult.videoUrl || null,
-    audioUrl: sanitizedResult?.audioUrl || agentResult.audioUrl || null
+    imageUrl: (sanitizedResult?.imageUrl as string) || agentResult.imageUrl || null,
+    videoUrl: (sanitizedResult?.videoUrl as string) || agentResult.videoUrl || null,
+    audioUrl: (sanitizedResult?.audioUrl as string) || agentResult.audioUrl || null
   };
 
   await conversationManager.saveCommand(chatId, messageId, commandMetadata);

@@ -12,6 +12,7 @@ import conversationManager from '../../services/conversationManager';
 import authStore from '../../store/authStore';
 import groupAuthStore from '../../store/groupAuthStore';
 import { findContactByName } from '../../services/groupService';
+import { GreenApiContact } from '../../services/conversation/contacts';
 import logger from '../../utils/logger';
 import { TIME } from '../../utils/constants';
 
@@ -39,18 +40,18 @@ export async function handleManagementCommand(
       case 'clear_all_conversations': {
         // Clear DB conversations (includes cache invalidation)
         const deletedCount = await conversationManager.clearAllConversations();
-        
+
         // Clear message types and commands from DB
         await conversationManager.clearAllMessageTypes();
         await conversationManager.commandsManager.clearAll();
-        
+
         // Clear agent context as well
         await conversationManager.clearAgentContext(chatId);
-        
+
         await greenApiService.sendTextMessage(
-          chatId, 
-          `✅ כל ההיסטוריות נוקו בהצלחה (DB + Cache)\n🗑️ ${deletedCount} הודעות נמחקו`, 
-          originalMessageId || undefined, 
+          chatId,
+          `✅ כל ההיסטוריות נוקו בהצלחה (DB + Cache)\n🗑️ ${deletedCount} הודעות נמחקו`,
+          originalMessageId || undefined,
           TIME.TYPING_INDICATOR
         );
         logger.info(`🗑️ All conversation histories cleared by ${senderName} (${deletedCount} messages deleted, cache invalidated)`);
@@ -62,17 +63,17 @@ export async function handleManagementCommand(
         try {
           const { getChatHistory } = await import('../../utils/chatHistoryService');
           const historyResult = await getChatHistory(chatId, 20, { format: 'display' });
-          
+
           if (historyResult.success && historyResult.messages.length > 0) {
             let historyText = '📜 **היסטוריית שיחה (20 הודעות אחרונות):**\n\n';
-            
+
             // Process messages
             for (const msg of historyResult.messages) {
               const textContent = msg.content || '[הודעה ללא טקסט]';
               const role = msg.role === 'assistant' ? '🤖' : '👤';
               historyText += `${role} ${textContent}\n\n`;
             }
-            
+
             await greenApiService.sendTextMessage(chatId, historyText, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           } else {
             await greenApiService.sendTextMessage(chatId, 'ℹ️ אין היסטוריית שיחה', originalMessageId || undefined, TIME.TYPING_INDICATOR);
@@ -94,7 +95,7 @@ export async function handleManagementCommand(
             statusText += `• ${contactName}\n`;
           });
           await greenApiService.sendTextMessage(chatId, statusText, originalMessageId || undefined, TIME.TYPING_INDICATOR);
-          } else {
+        } else {
           await greenApiService.sendTextMessage(chatId, 'ℹ️ אין משתמשים מורשים ליצירת מדיה', originalMessageId || undefined, TIME.TYPING_INDICATOR);
         }
         break;
@@ -108,7 +109,7 @@ export async function handleManagementCommand(
             statusText += `• ${contactName}\n`;
           });
           await greenApiService.sendTextMessage(chatId, statusText, originalMessageId || undefined, TIME.TYPING_INDICATOR);
-          } else {
+        } else {
           await greenApiService.sendTextMessage(chatId, 'ℹ️ אין משתמשים מורשים לתמלול', originalMessageId || undefined, TIME.TYPING_INDICATOR);
         }
         break;
@@ -122,7 +123,7 @@ export async function handleManagementCommand(
             statusText += `• ${contactName}\n`;
           });
           await greenApiService.sendTextMessage(chatId, statusText, originalMessageId || undefined, TIME.TYPING_INDICATOR);
-          } else {
+        } else {
           await greenApiService.sendTextMessage(chatId, 'ℹ️ אין משתמשים מורשים ליצירת קבוצות', originalMessageId || undefined, TIME.TYPING_INDICATOR);
         }
         break;
@@ -131,25 +132,25 @@ export async function handleManagementCommand(
       case 'sync_contacts': {
         try {
           await greenApiService.sendTextMessage(chatId, '📇 מעדכן רשימת אנשי קשר...', originalMessageId || undefined, TIME.TYPING_INDICATOR);
-          
+
           // Fetch contacts from Green API
           const contacts = await greenApiService.getContacts();
-          
+
           if (!contacts || contacts.length === 0) {
             await greenApiService.sendTextMessage(chatId, '⚠️ לא נמצאו אנשי קשר', originalMessageId || undefined, TIME.TYPING_INDICATOR);
             return;
           }
-          
+
           // Sync to database
-          const syncResult = await conversationManager.syncContacts(contacts);
-          
+          const syncResult = await conversationManager.syncContacts(contacts as unknown as GreenApiContact[]);
+
           const resultMessage = `✅ עדכון אנשי קשר הושלם!
 📊 סטטיסטיקה:
 • חדשים: ${syncResult.inserted}
 • עודכנו: ${syncResult.updated}  
 • סה"כ: ${syncResult.total}
 💾 כל אנשי הקשר נשמרו במסד הנתונים`;
-          
+
           await greenApiService.sendTextMessage(chatId, resultMessage, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           logger.info(`✅ Contacts synced successfully by ${senderName}`);
         } catch (error: unknown) {
@@ -166,7 +167,7 @@ export async function handleManagementCommand(
         try {
           let exactName = command.contactName || '';
           let entityType = '👤 איש קשר';
-          
+
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
             logger.info(`✅ Using current contact directly: ${exactName}`);
@@ -175,18 +176,18 @@ export async function handleManagementCommand(
             // Use fuzzy search to find exact contact/group name
             await greenApiService.sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
             const foundContact = await findContactByName(command.contactName || '') as { contactName: string; isGroup?: boolean };
-            
+
             if (!foundContact) {
               await greenApiService.sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
               break;
             }
-            
+
             // Use the exact contact name found in DB
             exactName = foundContact.contactName;
             entityType = foundContact.isGroup ? '👥 קבוצה' : '👤 איש קשר';
             await greenApiService.sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           }
-          
+
           const wasAdded = await authStore.addAuthorizedUser(exactName);
           if (wasAdded) {
             await greenApiService.sendTextMessage(chatId, `✅ ${exactName} נוסף לרשימת המורשים ליצירת מדיה`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
@@ -208,7 +209,7 @@ export async function handleManagementCommand(
         try {
           let exactName = command.contactName || '';
           let entityType = '👤 איש קשר';
-          
+
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
             logger.info(`✅ Using current contact directly: ${exactName}`);
@@ -217,18 +218,18 @@ export async function handleManagementCommand(
             // Use fuzzy search to find exact contact/group name
             await greenApiService.sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
             const foundContact = await findContactByName(command.contactName || '') as { contactName: string; isGroup?: boolean };
-            
+
             if (!foundContact) {
               await greenApiService.sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
               break;
             }
-            
+
             // Use the exact contact name found in DB
             exactName = foundContact.contactName;
             entityType = foundContact.isGroup ? '👥 קבוצה' : '👤 איש קשר';
             await greenApiService.sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           }
-          
+
           const wasRemoved = await authStore.removeAuthorizedUser(exactName);
           if (wasRemoved) {
             await greenApiService.sendTextMessage(chatId, `🚫 ${exactName} הוסר מרשימת המורשים ליצירת מדיה`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
@@ -250,7 +251,7 @@ export async function handleManagementCommand(
         try {
           let exactName = command.contactName || '';
           let entityType = '👤 איש קשר';
-          
+
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
             logger.info(`✅ Using current contact directly: ${exactName}`);
@@ -259,18 +260,18 @@ export async function handleManagementCommand(
             // Use fuzzy search to find exact contact/group name
             await greenApiService.sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
             const foundContact = await findContactByName(command.contactName || '') as { contactName: string; isGroup?: boolean };
-            
+
             if (!foundContact) {
               await greenApiService.sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
               break;
             }
-            
+
             // Use the exact contact name found in DB
             exactName = foundContact.contactName;
             entityType = foundContact.isGroup ? '👥 קבוצה' : '👤 איש קשר';
             await greenApiService.sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           }
-          
+
           const wasAdded = await groupAuthStore.addAuthorizedUser(exactName);
           if (wasAdded) {
             await greenApiService.sendTextMessage(chatId, `✅ ${exactName} נוסף לרשימת המורשים ליצירת קבוצות`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
@@ -292,7 +293,7 @@ export async function handleManagementCommand(
         try {
           let exactName = command.contactName || '';
           let entityType = '👤 איש קשר';
-          
+
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
             logger.info(`✅ Using current contact directly: ${exactName}`);
@@ -301,18 +302,18 @@ export async function handleManagementCommand(
             // Use fuzzy search to find exact contact/group name
             await greenApiService.sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
             const foundContact = await findContactByName(command.contactName || '') as { contactName: string; isGroup?: boolean };
-            
+
             if (!foundContact) {
               await greenApiService.sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
               break;
             }
-            
+
             // Use the exact contact name found in DB
             exactName = foundContact.contactName;
             entityType = foundContact.isGroup ? '👥 קבוצה' : '👤 איש קשר';
             await greenApiService.sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           }
-          
+
           const wasRemoved = await groupAuthStore.removeAuthorizedUser(exactName);
           if (wasRemoved) {
             await greenApiService.sendTextMessage(chatId, `🚫 ${exactName} הוסר מרשימת המורשים ליצירת קבוצות`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
@@ -334,7 +335,7 @@ export async function handleManagementCommand(
         try {
           let exactName = command.contactName || '';
           let entityType = '👤 איש קשר';
-          
+
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
             logger.info(`✅ Using current contact directly: ${exactName}`);
@@ -343,18 +344,18 @@ export async function handleManagementCommand(
             // Use fuzzy search to find exact contact/group name
             await greenApiService.sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
             const foundContact = await findContactByName(command.contactName || '') as { contactName: string; isGroup?: boolean };
-            
+
             if (!foundContact) {
               await greenApiService.sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
               break;
             }
-            
+
             // Use the exact contact name found in DB
             exactName = foundContact.contactName;
             entityType = foundContact.isGroup ? '👥 קבוצה' : '👤 איש קשר';
             await greenApiService.sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           }
-          
+
           const wasAdded = await conversationManager.addToVoiceAllowList(exactName);
           if (wasAdded) {
             await greenApiService.sendTextMessage(chatId, `✅ ${exactName} נוסף לרשימת המורשים לתמלול`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
@@ -376,7 +377,7 @@ export async function handleManagementCommand(
         try {
           let exactName = command.contactName || '';
           let entityType = '👤 איש קשר';
-          
+
           // If this is the current contact, use it directly (no DB lookup needed)
           if (command.isCurrentContact) {
             logger.info(`✅ Using current contact directly: ${exactName}`);
@@ -385,18 +386,18 @@ export async function handleManagementCommand(
             // Use fuzzy search to find exact contact/group name
             await greenApiService.sendTextMessage(chatId, `🔍 מחפש איש קשר או קבוצה: "${command.contactName}"...`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
             const foundContact = await findContactByName(command.contactName || '') as { contactName: string; isGroup?: boolean };
-            
+
             if (!foundContact) {
               await greenApiService.sendTextMessage(chatId, `❌ לא נמצא איש קשר או קבוצה תואמים ל-"${command.contactName}"\n\n💡 טיפ: הרץ "עדכן אנשי קשר" לסנכרון או וודא שהשם נכון`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
               break;
             }
-            
+
             // Use the exact contact name found in DB
             exactName = foundContact.contactName;
             entityType = foundContact.isGroup ? '👥 קבוצה' : '👤 איש קשר';
             await greenApiService.sendTextMessage(chatId, `✅ נמצא ${entityType}: "${command.contactName}" → "${exactName}"`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
           }
-          
+
           const wasRemoved = await conversationManager.removeFromVoiceAllowList(exactName);
           if (wasRemoved) {
             await greenApiService.sendTextMessage(chatId, `🚫 ${exactName} הוסר מרשימת המורשים לתמלול`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
@@ -419,7 +420,7 @@ export async function handleManagementCommand(
           // Auto-detect contact/group name from current chat
           const isGroupChat = chatId && chatId.endsWith('@g.us');
           const isPrivateChat = chatId && chatId.endsWith('@c.us');
-          
+
           let targetName = '';
           if (isGroupChat) {
             targetName = chatName || senderName;
@@ -429,9 +430,9 @@ export async function handleManagementCommand(
             await greenApiService.sendTextMessage(chatId, '❌ לא ניתן לזהות את השיחה הנוכחית', originalMessageId || undefined, TIME.TYPING_INDICATOR);
             break;
           }
-          
+
           await greenApiService.sendTextMessage(chatId, `📝 מזהה אוטומטית: "${targetName}"`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
-          
+
           const wasAdded = await groupAuthStore.addAuthorizedUser(targetName);
           if (wasAdded) {
             await greenApiService.sendTextMessage(chatId, `✅ ${targetName} נוסף לרשימת המורשים ליצירת קבוצות`, originalMessageId || undefined, TIME.TYPING_INDICATOR);
