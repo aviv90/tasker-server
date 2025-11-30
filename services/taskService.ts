@@ -29,7 +29,7 @@ export class TaskService {
     }
 
     async startTask(request: StartTaskRequest, req: any): Promise<string> {
-        const { type, prompt } = request;
+        const { prompt } = request;
 
         // Validate and sanitize prompt
         const sanitizedPrompt = validateAndSanitizePrompt(prompt);
