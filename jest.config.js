@@ -6,36 +6,10 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
 
-  // Prevent Babel from interfering with ts-jest
-  globals: {
-    'ts-jest': {
-      isolatedModules: false,
-      babelConfig: false
-    }
-  },
-
   transform: {
     '^.+\\.ts$': ['ts-jest', {
-      tsconfig: {
-        esModuleInterop: true,
-        allowSyntheticDefaultImports: true,
-        strict: true,
-        noImplicitAny: true,
-        strictNullChecks: true,
-        strictFunctionTypes: true,
-        strictBindCallApply: true,
-        strictPropertyInitialization: true,
-        noImplicitThis: true,
-        alwaysStrict: true,
-        noUnusedLocals: true,
-        noUnusedParameters: true,
-        noImplicitReturns: true,
-        noFallthroughCasesInSwitch: true,
-        noUncheckedIndexedAccess: true,
-        skipLibCheck: true,
-        resolveJsonModule: true,
-        types: ['node', 'jest']
-      },
+      tsconfig: 'tsconfig.json',
+      babelConfig: false,
       isolatedModules: true
     }]
   },
