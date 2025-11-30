@@ -1,23 +1,35 @@
 import { v4 as uuidv4 } from 'uuid';
 import * as taskStore from '../store/taskStore';
-import * as geminiService from './geminiService';
-import * as openaiService from './openai';
-import * as replicateService from './replicateService';
-import * as kieService from './kieService';
-import * as musicService from './musicService';
 import { validateAndSanitizePrompt } from '../utils/textSanitizer';
 import { isErrorResult } from '../utils/errorHandler';
-import { finalizeVideo } from '../utils/videoUtils';
 import fs from 'fs';
 import path from 'path';
 import { getTempDir } from '../utils/tempFileUtils';
 import logger from '../utils/logger';
 import { StartTaskRequest } from '../schemas/taskSchemas';
+import {
+    TaskStrategy,
+    TextToImageStrategy,
+    TextToVideoStrategy,
+    TextToMusicStrategy,
+    GeminiChatStrategy,
+    OpenAIChatStrategy
+} from './task/strategies';
 
 export class TaskService {
+    private strategies: Map<string, TaskStrategy>;
+
+    constructor() {
+        this.strategies = new Map();
+        this.strategies.set('text-to-image', new TextToImageStrategy());
+        this.strategies.set('text-to-video', new TextToVideoStrategy());
+        this.strategies.set('text-to-music', new TextToMusicStrategy());
+        this.strategies.set('gemini-chat', new GeminiChatStrategy());
+        this.strategies.set('openai-chat', new OpenAIChatStrategy());
+    }
 
     async startTask(request: StartTaskRequest, req: any): Promise<string> {
-        const { prompt } = request;
+        const { type, prompt } = request;
 
         // Validate and sanitize prompt
         const sanitizedPrompt = validateAndSanitizePrompt(prompt);
@@ -35,97 +47,30 @@ export class TaskService {
     }
 
     private async processTask(taskId: string, request: StartTaskRequest, sanitizedPrompt: string, req: any) {
-        const { type, provider, model } = request;
+        const { type } = request;
+        const strategy = this.strategies.get(type);
+
+        if (!strategy) {
+            await taskStore.set(taskId, {
+                status: 'error',
+                error: `Unsupported task type: ${type}.`
+            });
+            return;
+        }
 
         try {
+            const result = await strategy.execute(taskId, request, sanitizedPrompt, req);
+
+            // If result is null, it means the strategy handled finalization itself (e.g. video)
+            if (result === null) return;
+
+            // Handle common finalization based on type
             if (type === 'text-to-image') {
-                let result;
-                if (provider === 'openai') {
-                    result = await openaiService.generateImageWithText(sanitizedPrompt);
-                } else {
-                    result = await geminiService.generateImageWithText(sanitizedPrompt);
-                }
                 await this.finalizeTask(taskId, result, req, 'png');
-            } else if (type === 'text-to-video') {
-                let result;
-                if (provider === 'replicate') {
-                    result = await replicateService.generateVideoWithText(sanitizedPrompt, model);
-                } else if (provider === 'gemini') {
-                    result = await geminiService.generateVideoWithText(sanitizedPrompt);
-                } else if (provider === 'kie') {
-                    result = await kieService.generateVideoWithText(sanitizedPrompt, model);
-                } else {
-                    // Default to replicate for video generation
-                    result = await replicateService.generateVideoWithText(sanitizedPrompt, model);
-                }
-
-                // Cast result to any to satisfy TS (VideoResult expected but result is inferred as unknown)
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                await finalizeVideo(taskId, result as any, sanitizedPrompt, req as any);
             } else if (type === 'text-to-music') {
-                let result;
-
-                // Music generation is only supported through Kie.ai (Suno)
-                // No need to specify provider - it's automatic
-                const options: Record<string, any> = {};
-
-                // Allow model selection and advanced options
-                if (request.model) options.model = request.model;
-                if (request.style) options.style = request.style;
-                if (request.duration) options.duration = request.duration;
-                if (request.genre) options.genre = request.genre;
-                if (request.mood) options.mood = request.mood;
-                if (request.tempo) options.tempo = request.tempo;
-                if (request.instruments) options.instruments = request.instruments;
-                if (request.vocalStyle) options.vocalStyle = request.vocalStyle;
-                if (request.language) options.language = request.language;
-                if (request.key) options.key = request.key;
-                if (request.timeSignature) options.timeSignature = request.timeSignature;
-                if (request.quality) options.quality = request.quality;
-                if (request.customMode !== undefined) options.customMode = request.customMode;
-
-                // Check if user specifically wants instrumental (optional)
-                const isInstrumental = request.instrumental === true;
-                const isAdvanced = request.advanced === true;
-
-                logger.info(`🎵 Generating ${isInstrumental ? 'instrumental' : 'vocal'} music ${isAdvanced ? 'with advanced V5 features' : ''}`);
-
-                if (isAdvanced) {
-                    // Use advanced V5 mode with full control
-                    result = await musicService.generateAdvancedMusic(sanitizedPrompt, options);
-                } else if (isInstrumental) {
-                    result = await musicService.generateInstrumentalMusic(sanitizedPrompt, options);
-                } else {
-                    // Default: music with lyrics using automatic mode
-                    result = await musicService.generateMusicWithLyrics(sanitizedPrompt, options);
-                }
-
                 await this.finalizeMusic(taskId, result, sanitizedPrompt, req);
-            } else if (type === 'gemini-chat') {
-                let result;
-
-                // Gemini text chat with conversation history
-                const conversationHistory = request.conversationHistory || [];
-
-                logger.info(`🔮 Gemini chat processing`);
-                result = await geminiService.generateTextResponse(sanitizedPrompt, conversationHistory);
-
+            } else if (type === 'gemini-chat' || type === 'openai-chat') {
                 await this.finalizeTextResponse(taskId, result, sanitizedPrompt, req);
-            } else if (type === 'openai-chat') {
-                let result;
-
-                // OpenAI text chat with conversation history
-                const conversationHistory = request.conversationHistory || [];
-
-                logger.info(`🤖 Generating OpenAI chat response`);
-                result = await openaiService.generateTextResponse(sanitizedPrompt, conversationHistory);
-
-                await this.finalizeTextResponse(taskId, result, sanitizedPrompt, req);
-            } else {
-                await taskStore.set(taskId, {
-                    status: 'error',
-                    error: `Unsupported task type: ${type}.`
-                });
             }
         } catch (error: any) {
             logger.error('❌ Error processing task:', { taskId, error: error.message || error.toString() });
