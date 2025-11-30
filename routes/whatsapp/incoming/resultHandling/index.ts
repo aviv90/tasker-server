@@ -73,8 +73,9 @@ export async function sendAgentResults(
 
   // Multi-step: Send text FIRST, then media
   // CRITICAL: Skip text if audio exists - audio IS the response (TTS/translate_and_speak)
+  // CRITICAL: Also skip text if it's intermediate tool output used for visual creation
   if (agentResult.multiStep && agentResult.text && agentResult.text.trim() && !agentResult.audioUrl) {
-    await sendMultiStepText(chatId, agentResult.text, quotedMessageId);
+    await sendMultiStepText(chatId, agentResult.text, quotedMessageId, agentResult, normalized);
   }
 
   // CRITICAL: Send media if URLs exist (Rule: Media MUST be sent!)
@@ -116,7 +117,8 @@ export async function sendAgentResults(
 
   // Single-step: If no media was sent, send text response
   // Pass textAlreadySentByMedia flag to prevent duplicate text sending
-  await sendSingleStepText(chatId, agentResult, mediaSent, quotedMessageId, textAlreadySentByMedia);
+  // Pass normalized to check if text should be suppressed (intermediate tool output for visual creation)
+  await sendSingleStepText(chatId, agentResult, mediaSent, quotedMessageId, textAlreadySentByMedia, normalized);
 
   // CRITICAL: Verify that something was sent to the user
   // If nothing was sent (no media, no text), send an error message
