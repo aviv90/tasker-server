@@ -6,6 +6,14 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
 
+  // Prevent Babel from interfering with ts-jest
+  globals: {
+    'ts-jest': {
+      isolatedModules: false,
+      babelConfig: false
+    }
+  },
+
   transform: {
     '^.+\\.ts$': ['ts-jest', {
       tsconfig: {
