@@ -104,8 +104,6 @@ function isTwoSeparateCommands(userText: string): boolean {
  * @returns True if text looks like data tool output
  */
 function looksLikeDataToolOutput(text: string, dataToolsUsed: string[]): boolean {
-  const lowerText = text.toLowerCase();
-  
   // Patterns that indicate data tool output
   const dataToolPatterns: Record<string, RegExp[]> = {
     'get_chat_history': [
@@ -164,7 +162,7 @@ function getLastOutputTool(toolsUsed: string[]): string | null {
   // Find the last output tool in the sequence
   for (let i = toolsUsed.length - 1; i >= 0; i--) {
     const tool = toolsUsed[i];
-    if (OUTPUT_TOOLS.includes(tool as typeof OUTPUT_TOOLS[number])) {
+    if (tool && OUTPUT_TOOLS.includes(tool as typeof OUTPUT_TOOLS[number])) {
       return tool;
     }
   }
