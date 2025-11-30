@@ -1,0 +1,17 @@
+{
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    },
+    {
+      "url": "heroku-community/apt"
+    }
+  ],
+  "environments": {
+    "test": {
+      "scripts": {
+        "test": "npm run test:ci"
+      }
+    }
+  }
+}
