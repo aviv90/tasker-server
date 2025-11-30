@@ -3,17 +3,28 @@ module.exports = {
   // ============================================================================
   // TypeScript Configuration
   // ============================================================================
-  // preset: 'ts-jest', // Removed to avoid conflicts
+  preset: 'ts-jest',
   testEnvironment: 'node',
 
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
+    '^.+\\.ts$': ['ts-jest', {
       tsconfig: {
-        target: 'ES2022',
-        module: 'commonjs',
-        moduleResolution: 'node',
         esModuleInterop: true,
         allowSyntheticDefaultImports: true,
+        strict: true,
+        noImplicitAny: true,
+        strictNullChecks: true,
+        strictFunctionTypes: true,
+        strictBindCallApply: true,
+        strictPropertyInitialization: true,
+        noImplicitThis: true,
+        alwaysStrict: true,
+        noUnusedLocals: true,
+        noUnusedParameters: true,
+        noImplicitReturns: true,
+        noFallthroughCasesInSwitch: true,
+        noUncheckedIndexedAccess: true,
+        skipLibCheck: true,
         resolveJsonModule: true,
         types: ['node', 'jest']
       },
@@ -21,7 +32,9 @@ module.exports = {
     }]
   },
 
-  transformIgnorePatterns: [], // Force transform everything if needed
+  transformIgnorePatterns: [
+    'node_modules/(?!(uuid)/)'
+  ],
 
   // ============================================================================
   // Test Discovery
