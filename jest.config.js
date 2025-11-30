@@ -8,7 +8,15 @@ module.exports = {
 
   transform: {
     '^.+\\.ts$': ['ts-jest', {
-      tsconfig: 'tsconfig.test.json',
+      tsconfig: {
+        target: 'ES2022',
+        module: 'commonjs',
+        moduleResolution: 'node',
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true,
+        resolveJsonModule: true,
+        types: ['node', 'jest']
+      },
       // Improve performance by isolating modules
       isolatedModules: true
     }]
