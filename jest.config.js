@@ -5,7 +5,7 @@ module.exports = {
   // ============================================================================
   preset: 'ts-jest',
   testEnvironment: 'node',
-  
+
   transform: {
     '^.+\\.ts$': ['ts-jest', {
       tsconfig: {
@@ -33,6 +33,10 @@ module.exports = {
     }]
   },
 
+  transformIgnorePatterns: [
+    'node_modules/(?!(uuid)/)'
+  ],
+
   // ============================================================================
   // Test Discovery
   // ============================================================================
@@ -42,30 +46,31 @@ module.exports = {
     '**/?(*.)+(spec|test).ts'
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  
+
   // Module path aliases
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/$1'
+    '^@/(.*)$': '<rootDir>/$1',
+    '^uuid$': '<rootDir>/tests/mocks/uuid.ts'
   },
 
   // ============================================================================
   // Test Execution
   // ============================================================================
-  
+
   // Setup files (run before each test file)
   setupFilesAfterEnv: ['<rootDir>/tests/setup/jest.setup.ts'],
-  
+
   // Timeouts
   testTimeout: 30000,
-  
+
   // Mock behavior
   clearMocks: true,      // Clear mock calls between tests
   restoreMocks: true,    // Restore original implementation after each test
   resetMocks: false,     // Don't reset mock state (keeps implementation)
-  
+
   // Don't force exit - tests should clean up properly
   forceExit: false,
-  
+
   // Run tests in parallel (default)
   maxWorkers: '50%',
 
@@ -89,7 +94,7 @@ module.exports = {
     '!**/*.test.ts',
     '!**/*.spec.ts'
   ],
-  
+
   // Coverage thresholds - start low, increase gradually
   // Current: ~3% coverage
   coverageThreshold: {
@@ -100,7 +105,7 @@ module.exports = {
       statements: 0
     }
   },
-  
+
   coverageReporters: ['text', 'text-summary', 'html', 'lcov'],
   coverageDirectory: '<rootDir>/coverage',
 
@@ -108,7 +113,7 @@ module.exports = {
   // Output Configuration
   // ============================================================================
   verbose: true,
-  
+
   // ============================================================================
   // Path Ignores
   // ============================================================================
@@ -125,11 +130,11 @@ module.exports = {
   // ============================================================================
   // Performance Optimizations
   // ============================================================================
-  
+
   // Cache transformed files for faster subsequent runs
   cache: true,
   cacheDirectory: '<rootDir>/node_modules/.cache/jest',
-  
+
   // Don't run tests in watch mode by default in CI
   watchPathIgnorePatterns: [
     '/node_modules/',
