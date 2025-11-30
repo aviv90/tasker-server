@@ -38,7 +38,8 @@
     /* Node.js Specific */
     "resolveJsonModule": true,
     "types": [
-      "node"
+      "node",
+      "jest"
     ]
   },
   "include": [
