@@ -20,6 +20,7 @@ import allGroupTools from './groupTools';
 import allAudioTools from './audioTools';
 import allSummaryTools from './summaryTools';
 import allRetryTools from './retryTools';
+import allSchedulingTools from './schedulingTools';
 
 // Import meta tools (advanced composite tools)
 import allMetaTools from './metaTools';
@@ -42,7 +43,8 @@ export function getAllTools(): Record<string, unknown> {
     ...allGroupTools,
     ...allAudioTools,
     ...allSummaryTools,
-    ...allRetryTools
+    ...allRetryTools,
+    ...allSchedulingTools
   };
 }
 

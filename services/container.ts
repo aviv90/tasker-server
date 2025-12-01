@@ -9,6 +9,7 @@ import AgentContextRepository from '../repositories/agentContextRepository';
 import SummariesRepository from '../repositories/summariesRepository';
 import AllowListsRepository from '../repositories/allowListsRepository';
 import ContactsRepository from '../repositories/contactsRepository';
+import ScheduledTasksRepository from '../repositories/scheduledTasksRepository';
 
 // Services
 import CommandsManager from './conversation/commands';
@@ -20,6 +21,7 @@ import ContactsManager from './conversation/contacts';
 import MessagesManager from './conversation/messages';
 import TasksManager from './conversation/tasks';
 import MigrationRunner from './conversation/migrationRunner';
+import ScheduledTasksService from './scheduling/scheduledTasksService';
 
 interface Services {
     commands: CommandsManager;
@@ -30,6 +32,7 @@ interface Services {
     contacts: ContactsManager;
     messages: MessagesManager;
     tasks: TasksManager;
+    scheduledTasks: ScheduledTasksService;
 }
 
 interface Repositories {
@@ -39,6 +42,7 @@ interface Repositories {
     summaries: SummariesRepository;
     allowLists: AllowListsRepository;
     contacts: ContactsRepository;
+    scheduledTasks: ScheduledTasksRepository;
 }
 
 class Container {
@@ -76,7 +80,8 @@ class Container {
                 agentContext: new AgentContextRepository(this.pool),
                 summaries: new SummariesRepository(this.pool),
                 allowLists: new AllowListsRepository(this.pool),
-                contacts: new ContactsRepository(this.pool)
+                contacts: new ContactsRepository(this.pool),
+                scheduledTasks: new ScheduledTasksRepository(this.pool)
             };
 
             // Mock for legacy compatibility
@@ -96,7 +101,8 @@ class Container {
                 allowLists: new AllowListsManager(this.repositories.allowLists!),
                 contacts: new ContactsManager(conversationManagerMock, this.repositories.contacts!),
                 messages: new MessagesManager(conversationManagerMock),
-                tasks: new TasksManager(conversationManagerMock)
+                tasks: new TasksManager(conversationManagerMock),
+                scheduledTasks: new ScheduledTasksService(this.repositories.scheduledTasks!)
             };
 
             // Run Migrations

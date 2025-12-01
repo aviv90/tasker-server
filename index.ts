@@ -10,6 +10,7 @@ import uploadEditRoutes from './routes/uploadEditRoutes';
 import whatsappRoutes from './routes/whatsappRoutes';
 import { apiLimiter } from './middleware/rateLimiter';
 import conversationManager from './services/conversationManager';
+import container from './services/container';
 
 async function startServer() {
     // Validate configuration on startup
@@ -70,15 +71,24 @@ async function startServer() {
                 'POST /api/whatsapp/webhook - Green API WhatsApp webhook endpoint'
             ]
         });
+
+        // Start scheduled tasks polling (every 60 seconds)
+        const scheduledTasksService = container.getService('scheduledTasks');
+        setInterval(() => {
+            scheduledTasksService.processDueTasks().catch((err: any) => {
+                logger.error('❌ Error in scheduled tasks polling:', err);
+            });
+        }, 60000);
+        logger.info('⏰ Scheduled tasks polling started (60s interval)');
     });
 
     // Graceful shutdown
     const gracefulShutdown = async () => {
         logger.info('🛑 Received shutdown signal. Closing server...');
-        
+
         server.close(async () => {
             logger.info('🔌 HTTP server closed.');
-            
+
             try {
                 await conversationManager.close();
                 logger.info('🔌 Database connections closed.');
