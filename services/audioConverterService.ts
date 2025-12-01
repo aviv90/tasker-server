@@ -286,7 +286,7 @@ class AudioConverterService {
     async checkFFmpegAvailability(): Promise<boolean> {
         try {
             const { stderr: ffmpegStderr } = await execAsync(`${ffmpeg} -version`);
-            const { stdout: ffprobeStdout } = await execAsync(`${ffprobe} -version`);
+            await execAsync(`${ffprobe} -version`);
 
             if (ffmpegStderr && typeof ffmpegStderr === 'string' && ffmpegStderr.includes('error')) {
                 logger.error('❌ FFmpeg error:', ffmpegStderr);
