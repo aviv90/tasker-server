@@ -108,11 +108,15 @@ export const schedule_message = {
                 scheduledAt
             );
 
+            const successMessage = targetChatId === context.chatId
+                ? `✅ ההודעה תוזמנה בהצלחה! היא תישלח ב-${task.scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`
+                : `✅ ההודעה ל-${recipientName} תוזמנה בהצלחה! היא תישלח ב-${task.scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`;
+
             return {
                 success: true,
                 taskId: task.id,
                 scheduledAt: task.scheduledAt.toISOString(),
-                message: `✅ ההודעה ל-${recipientName} תוזמנה בהצלחה! היא תישלח ב-${task.scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`
+                message: successMessage
             };
         } catch (error: any) {
             return {
