@@ -3,7 +3,7 @@ import { getServices } from '../utils/serviceLoader';
 import { allTools as agentTools } from '../tools';
 import logger from '../../../utils/logger';
 import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
-import { cleanMediaDescription, isGenericSuccessMessage, isUnnecessaryApologyMessage } from '../../../utils/textSanitizer';
+import { cleanMediaDescription } from '../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../services/whatsapp/utils';
 import { formatProviderError } from '../../../utils/errorHandler';
 
@@ -59,10 +59,9 @@ export class FallbackHandler {
 
                             // If no caption but text exists and is not a generic success message, use text as caption
                             if (!caption && result.text && typeof result.text === 'string' && result.text.trim()) {
+
                                 const textToCheck = cleanMediaDescription(result.text);
-                                if (!isGenericSuccessMessage(textToCheck.trim(), 'image')) {
-                                    caption = result.text;
-                                }
+                                caption = result.text;
                             }
 
                             const cleanCaption = cleanMediaDescription(caption || '');
@@ -79,16 +78,9 @@ export class FallbackHandler {
                                 const textToCheck = cleanMediaDescription(result.text);
                                 const captionToCheck = cleanMediaDescription(caption);
 
-                                // Skip generic success messages - they're redundant when image is already sent
-                                if (isGenericSuccessMessage(textToCheck.trim(), 'image')) {
-                                    logger.debug(`⏭️ [Multi-step Fallback] Skipping generic success message after image`);
-                                }
-                                // Skip unnecessary apology messages when image was successfully created
-                                else if (isUnnecessaryApologyMessage(textToCheck)) {
-                                    logger.debug(`⏭️ [Multi-step Fallback] Skipping apology message after image`);
-                                }
+
                                 // Only send if text is meaningfully different from caption
-                                else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
+                                if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
                                     const additionalText = cleanAgentText(result.text);
                                     if (additionalText && additionalText.trim()) {
                                         logger.debug(`📝 [Multi-step Fallback] Sending additional text after image (${additionalText.length} chars)`);
@@ -107,10 +99,9 @@ export class FallbackHandler {
 
                             // If no caption but text exists and is not a generic success message, use text as caption
                             if (!caption && result.text && typeof result.text === 'string' && result.text.trim()) {
+
                                 const textToCheck = cleanMediaDescription(result.text);
-                                if (!isGenericSuccessMessage(textToCheck.trim(), 'video')) {
-                                    caption = result.text;
-                                }
+                                caption = result.text;
                             }
 
                             const cleanCaption = cleanMediaDescription(caption || '');
@@ -127,16 +118,9 @@ export class FallbackHandler {
                                 const textToCheck = cleanMediaDescription(result.text);
                                 const captionToCheck = cleanMediaDescription(caption);
 
-                                // Skip generic success messages - they're redundant when video is already sent
-                                if (isGenericSuccessMessage(textToCheck.trim(), 'video')) {
-                                    logger.debug(`⏭️ [Multi-step Fallback] Skipping generic success message after video`);
-                                }
-                                // Skip unnecessary apology messages when video was successfully created
-                                else if (isUnnecessaryApologyMessage(textToCheck)) {
-                                    logger.debug(`⏭️ [Multi-step Fallback] Skipping apology message after video`);
-                                }
+
                                 // Only send if text is meaningfully different from caption
-                                else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
+                                if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
                                     const additionalText = cleanAgentText(result.text);
                                     if (additionalText && additionalText.trim()) {
                                         logger.debug(`📝 [Multi-step Fallback] Sending additional text after video (${additionalText.length} chars)`);
@@ -150,12 +134,7 @@ export class FallbackHandler {
                         // Skip generic success messages if media was already sent
                         if (result.data && typeof result.data === 'string' && !result.imageUrl && !result.videoUrl) {
                             const dataText = result.data.trim();
-                            // Skip generic success messages - they're redundant
-                            if (!isGenericSuccessMessage(dataText)) {
-                                await greenApiService.sendTextMessage(chatId, dataText, quotedMessageId || undefined, 1000);
-                            } else {
-                                logger.debug(`⏭️ [Multi-step Fallback] Skipping generic success message: ${dataText}`);
-                            }
+                            await greenApiService.sendTextMessage(chatId, dataText, quotedMessageId || undefined, 1000);
                         }
 
                         return result;

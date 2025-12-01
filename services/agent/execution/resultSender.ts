@@ -5,7 +5,7 @@
 
 import { getServices } from '../utils/serviceLoader';
 import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
-import { cleanJsonWrapper, cleanMediaDescription, isGenericSuccessMessage } from '../../../utils/textSanitizer';
+import { cleanJsonWrapper, cleanMediaDescription } from '../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../services/whatsapp/utils';
 import logger from '../../../utils/logger';
 import { isIntermediateToolOutputInPipeline } from '../../../utils/pipelineDetection';
@@ -129,12 +129,9 @@ class ResultSender {
       // Priority: imageCaption > caption > text (if text is not generic success message)
       let caption = stepResult.imageCaption || stepResult.caption || '';
 
-      // If no caption but text exists and is not a generic success message, use text as caption
+      // If no caption but text exists, use text as caption
       if (!caption && stepResult.text && stepResult.text.trim()) {
-        const textToCheck = cleanMediaDescription(stepResult.text);
-        if (!isGenericSuccessMessage(textToCheck.trim(), 'image')) {
-          caption = stepResult.text;
-        }
+        caption = stepResult.text;
       }
 
       const cleanCaption = cleanMediaDescription(caption);
@@ -150,13 +147,8 @@ class ResultSender {
         const textToCheck = cleanMediaDescription(stepResult.text);
         const captionToCheck = cleanMediaDescription(caption);
 
-        // Skip generic success messages - they're redundant when image is already sent
-        if (isGenericSuccessMessage(textToCheck.trim(), 'image')) {
-          logger.debug(`⏭️ [ResultSender] Skipping generic success message after image${stepInfo}`);
-        }
-
         // Only send if text is meaningfully different from caption (more than just whitespace/formatting)
-        else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
+        if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
           const additionalText = cleanAgentText(stepResult.text);
           if (additionalText && additionalText.trim()) {
             logger.debug(`📝 [ResultSender] Sending additional text after image${stepInfo} (${additionalText.length} chars)`);
@@ -193,12 +185,9 @@ class ResultSender {
       // Priority: videoCaption > caption > text (if text is not generic success message)
       let caption = stepResult.videoCaption || stepResult.caption || '';
 
-      // If no caption but text exists and is not a generic success message, use text as caption
+      // If no caption but text exists, use text as caption
       if (!caption && stepResult.text && stepResult.text.trim()) {
-        const textToCheck = cleanMediaDescription(stepResult.text);
-        if (!isGenericSuccessMessage(textToCheck.trim(), 'video')) {
-          caption = stepResult.text;
-        }
+        caption = stepResult.text;
       }
 
       const cleanCaption = cleanMediaDescription(caption);
@@ -214,13 +203,8 @@ class ResultSender {
         const textToCheck = cleanMediaDescription(stepResult.text);
         const captionToCheck = cleanMediaDescription(caption);
 
-        // Skip generic success messages - they're redundant when video is already sent
-        if (isGenericSuccessMessage(textToCheck.trim(), 'video')) {
-          logger.debug(`⏭️ [ResultSender] Skipping generic success message after video${stepInfo}`);
-        }
-
         // Only send if text is meaningfully different from caption
-        else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
+        if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
           const additionalText = cleanAgentText(stepResult.text);
           if (additionalText && additionalText.trim()) {
             logger.debug(`📝 [ResultSender] Sending additional text after video${stepInfo} (${additionalText.length} chars)`);
@@ -320,11 +304,8 @@ class ResultSender {
       }
       // For images: if text is just a generic success message (like "✅ תמונה נוצרה בהצלחה!"), don't send
       // The image with caption is already sent, no need for additional generic text
+      // For images: if text is just a generic success message (like "✅ תמונה נוצרה בהצלחה!"), we still send it if requested
       if (stepResult.imageUrl) {
-        if (isGenericSuccessMessage(textToCheck.trim(), 'image')) {
-          logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - generic success message, image already sent`);
-          return;
-        }
         // If sendImage already sent additional text (because it was different from caption), don't send again
         // sendImage sends text if it's meaningfully different from caption, so we should skip it here
         if (textToCheck.trim() !== imageCaption.trim() && textToCheck.length > imageCaption.length + 10) {

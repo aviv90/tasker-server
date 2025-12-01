@@ -34,17 +34,23 @@ export const schedule_message = {
             // ISO 8601 basic format: YYYY-MM-DDTHH:mm:ss
             if (!timeStr.endsWith('Z') && !/[+-]\d{2}:?\d{2}$/.test(timeStr)) {
                 // Get current offset for Asia/Jerusalem
-                const israelTime = new Date().toLocaleString('en-US', { timeZone: 'Asia/Jerusalem', timeZoneName: 'shortOffset' });
-                const offsetMatch = israelTime.match(/GMT([+-]\d+)/);
-                if (offsetMatch && offsetMatch[1]) {
-                    const offset = offsetMatch[1]; // e.g., +3 or +2
-                    // Pad with 0 if needed (e.g., +03:00)
-                    const sign = offset.startsWith('-') ? '-' : '+';
-                    const hours = Math.abs(parseInt(offset)).toString().padStart(2, '0');
-                    timeStr += `${sign}${hours}:00`;
-                } else {
-                    // Fallback to +02:00 if detection fails (standard Israel time)
-                    timeStr += '+02:00';
+                // We use a fixed offset of +03:00 (IDT) or +02:00 (IST) based on simple heuristic or just default to +03:00 for now if detection fails
+                // Better approach: Use Intl to get the offset part
+                try {
+                    const parts = new Intl.DateTimeFormat('en-US', {
+                        timeZone: 'Asia/Jerusalem',
+                        timeZoneName: 'longOffset'
+                    }).formatToParts(new Date());
+
+                    const offsetPart = parts.find(p => p.type === 'timeZoneName');
+                    if (offsetPart && offsetPart.value.includes('GMT')) {
+                        const offset = offsetPart.value.replace('GMT', '').trim(); // e.g., "+03:00"
+                        timeStr += offset;
+                    } else {
+                        timeStr += '+02:00'; // Fallback
+                    }
+                } catch (e) {
+                    timeStr += '+02:00'; // Fallback
                 }
             }
 
@@ -57,8 +63,8 @@ export const schedule_message = {
             }
 
             const now = new Date();
-            // Allow a small buffer (e.g., 1 minute) for processing time to avoid rejecting "now" requests
-            const nowWithBuffer = new Date(now.getTime() - 60000);
+            // Allow a buffer of 2 minutes for processing time
+            const nowWithBuffer = new Date(now.getTime() - 120000);
 
             if (scheduledAt < nowWithBuffer) {
                 return {

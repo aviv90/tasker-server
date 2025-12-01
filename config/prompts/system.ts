@@ -24,7 +24,9 @@ import { getHistoryContextRules } from '../tools-list';
  * Agent system instruction - base behavior for autonomous agent
  */
 export function agentSystemInstruction(languageInstruction: string): string {
-  return `AI assistant with tool access. ${languageInstruction}
+  const now = new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' });
+  return `Current Date & Time (Israel): ${now}
+AI assistant with tool access. ${languageInstruction}
 
 RULES:
 ${CRITICAL_GENDER_RULE}

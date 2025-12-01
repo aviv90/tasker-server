@@ -7,8 +7,7 @@ import {
   sanitizeText,
   cleanMarkdown,
   cleanMediaDescription,
-  isGenericSuccessMessage,
-  isUnnecessaryApologyMessage,
+
   cleanMultiStepText,
   cleanJsonWrapper,
   validateAndSanitizePrompt
@@ -111,7 +110,7 @@ describe('textSanitizer', () => {
       const result1 = cleanMediaDescription('test [imageUrl: https://example.com] test');
       expect(result1).not.toContain('[imageUrl:');
       expect(result1).not.toContain('https://example.com');
-      
+
       // Note: cleanMediaDescription removes URLs but may leave "imageUrl:" text
       // The important thing is that the URL itself is removed
       const result2 = cleanMediaDescription('test imageUrl: https://example.com test');
@@ -134,58 +133,9 @@ describe('textSanitizer', () => {
     });
   });
 
-  describe('isGenericSuccessMessage', () => {
-    it('should return false for null/undefined', () => {
-      expect(isGenericSuccessMessage(null as unknown as string)).toBe(false);
-      expect(isGenericSuccessMessage(undefined as unknown as string)).toBe(false);
-    });
 
-    it('should detect generic success messages', () => {
-      expect(isGenericSuccessMessage('✅ נוצרה בהצלחה')).toBe(true);
-      expect(isGenericSuccessMessage('✅ successfully created')).toBe(true);
-    });
 
-    it('should detect image success messages', () => {
-      expect(isGenericSuccessMessage('✅ תמונה נוצרה בהצלחה', 'image')).toBe(true);
-      expect(isGenericSuccessMessage('✅ תמונה נוצרה', 'image')).toBe(true);
-      expect(isGenericSuccessMessage('✅ image created successfully', 'image')).toBe(true);
-    });
 
-    it('should detect video success messages', () => {
-      expect(isGenericSuccessMessage('✅ וידאו נוצר בהצלחה', 'video')).toBe(true);
-      expect(isGenericSuccessMessage('✅ וידאו נוצר', 'video')).toBe(true);
-      expect(isGenericSuccessMessage('✅ video created successfully', 'video')).toBe(true);
-    });
-
-    it('should return false for regular messages', () => {
-      expect(isGenericSuccessMessage('This is a regular message')).toBe(false);
-      expect(isGenericSuccessMessage('תמונה של חתול')).toBe(false);
-    });
-  });
-
-  describe('isUnnecessaryApologyMessage', () => {
-    it('should return false for null/undefined', () => {
-      expect(isUnnecessaryApologyMessage(null as unknown as string)).toBe(false);
-      expect(isUnnecessaryApologyMessage(undefined as unknown as string)).toBe(false);
-    });
-
-    it('should detect Hebrew apologies', () => {
-      expect(isUnnecessaryApologyMessage('מצטער על הטעות')).toBe(true);
-      expect(isUnnecessaryApologyMessage('סליחה על הטעות')).toBe(true);
-      expect(isUnnecessaryApologyMessage('מתנצל על הטעות')).toBe(true);
-      expect(isUnnecessaryApologyMessage('הנה תמונה חדשה')).toBe(true);
-    });
-
-    it('should detect English apologies', () => {
-      expect(isUnnecessaryApologyMessage('sorry for the error')).toBe(true);
-      expect(isUnnecessaryApologyMessage('apologize for')).toBe(true);
-      expect(isUnnecessaryApologyMessage("here's a new image")).toBe(true);
-    });
-
-    it('should return false for regular messages', () => {
-      expect(isUnnecessaryApologyMessage('This is a regular message')).toBe(false);
-    });
-  });
 
   describe('cleanMultiStepText', () => {
     it('should return empty string for null/undefined', () => {
@@ -207,7 +157,7 @@ describe('textSanitizer', () => {
       const result1 = cleanMultiStepText('test [imageUrl: https://example.com] test');
       expect(result1).not.toContain('[imageUrl:');
       expect(result1).not.toContain('https://example.com');
-      
+
       // Note: cleanMultiStepText removes URLs but may leave "imageUrl:" text
       // The important thing is that the URL itself is removed
       const result2 = cleanMultiStepText('test imageUrl: https://example.com test');

@@ -4,7 +4,7 @@
  */
 
 import * as greenApiService from '../../../../services/greenApiService';
-import { cleanMediaDescription, cleanMultiStepText, isGenericSuccessMessage, isUnnecessaryApologyMessage } from '../../../../utils/textSanitizer';
+import { cleanMediaDescription, cleanMultiStepText } from '../../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../../services/whatsapp/utils';
 import logger from '../../../../utils/logger';
 import { AgentResult, NormalizedInput } from './types';
@@ -19,8 +19,8 @@ import { isIntermediateToolOutputInPipeline as checkPipeline } from '../../../..
  * @param normalized - Optional: Normalized input (for checking user intent)
  */
 export async function sendMultiStepText(
-  chatId: string, 
-  text: string, 
+  chatId: string,
+  text: string,
   quotedMessageId: string | null = null,
   agentResult: AgentResult | null = null,
   normalized: NormalizedInput | null = null
@@ -61,23 +61,23 @@ export async function sendMultiStepText(
  * @param normalized - Optional: Normalized input (for checking user intent)
  */
 export async function sendSingleStepText(
-  chatId: string, 
-  agentResult: AgentResult, 
-  mediaSent: boolean, 
-  quotedMessageId: string | null = null, 
+  chatId: string,
+  agentResult: AgentResult,
+  mediaSent: boolean,
+  quotedMessageId: string | null = null,
   textAlreadySent: boolean = false,
   normalized: NormalizedInput | null = null
 ): Promise<void> {
   // Note: We don't skip on tool errors anymore - we want to send the agent's response
   // The error handling will be done at a higher level if needed
-  
+
   // Single-step: Send text response
   // CRITICAL: If text was already sent by media handler (e.g., sendImageResult), don't send again
   if (textAlreadySent) {
     logger.debug(`⏭️ [Text] Skipping text - already sent by media handler`);
     return;
   }
-  
+
   // CRITICAL: Suppress intermediate tool output when it's part of a pipeline
   // Example: get_chat_history → create_image (user asked "צייר גרף שמתאר את היסטוריית השיחה")
   // Example: get_chat_history → create_poll (user asked "שלח סקר שמבוסס על ההיסטוריה")
@@ -90,7 +90,7 @@ export async function sendSingleStepText(
       return;
     }
   }
-  
+
   // CRITICAL: Even if media was sent, we should send additional text if it exists
   // This ensures users get both media (with caption) AND any additional context/description
   if (!agentResult.multiStep && agentResult.text && agentResult.text.trim()) {
@@ -99,45 +99,34 @@ export async function sendSingleStepText(
     if (!multipleTools) {
       // Single tool: Check if text is different from caption (to avoid duplicates)
       let shouldSendText = true;
-      
+
       // CRITICAL: If location was sent, skip text - location description is already sent separately
       // This prevents double-sending the location description
       if (agentResult.latitude && agentResult.longitude) {
         shouldSendText = false;
         logger.debug(`⏭️ [Text] Skipping text - location was sent (description already sent separately)`);
       }
-      
+
       if (mediaSent && shouldSendText) {
         // If media was sent, check if text is just the caption (already sent with media)
         const textToCheck = cleanMediaDescription(agentResult.text);
         const imageCaption = agentResult.imageCaption ? cleanMediaDescription(agentResult.imageCaption) : '';
-        
-        // CRITICAL: Skip unnecessary apology messages when media was successfully created
-        // These confuse users because they think something went wrong when it didn't
-        if (isUnnecessaryApologyMessage(textToCheck)) {
-          shouldSendText = false;
-          logger.debug(`⏭️ [Text] Skipping apology message - media was successfully created`);
-        }
+
+
+
         // For images: skip generic success messages - they're redundant when image is already sent
-        else if (agentResult.imageUrl) {
-          if (isGenericSuccessMessage(textToCheck.trim(), 'image')) {
-            shouldSendText = false;
-            logger.debug(`⏭️ [Text] Skipping generic success message after image`);
-          }
+        if (agentResult.imageUrl) {
           // If text is same as caption, don't send again
-          else if (textToCheck.trim() === imageCaption.trim()) {
+          if (textToCheck.trim() === imageCaption.trim()) {
             shouldSendText = false;
             logger.debug(`ℹ️ [Text] Skipping text - same as image caption`);
           }
         }
+
         // For videos: skip generic success messages - they're redundant when video is already sent
         else if (agentResult.videoUrl) {
-          if (isGenericSuccessMessage(textToCheck.trim(), 'video')) {
-            shouldSendText = false;
-            logger.debug(`⏭️ [Text] Skipping generic success message after video`);
-          }
           // If text was already sent by sendVideoResult, don't send again
-          else if (textAlreadySent) {
+          if (textAlreadySent) {
             shouldSendText = false;
             logger.debug(`ℹ️ [Text] Skipping text - already sent with video`);
           }
@@ -153,7 +142,7 @@ export async function sendSingleStepText(
           logger.debug(`ℹ️ [Text] Skipping text - too short to be meaningful`);
         }
       }
-    
+
       if (shouldSendText) {
         const cleanText = cleanAgentText(agentResult.text);
         if (cleanText && cleanText.trim()) {
@@ -179,7 +168,7 @@ export async function sendSingleStepText(
       }
     }
   }
-  
+
   // CRITICAL: If no text was sent and no media was sent, send error message
   // This ensures user always gets a response
   if (!mediaSent && !agentResult.text?.trim()) {

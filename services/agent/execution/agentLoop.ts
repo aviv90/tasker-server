@@ -4,7 +4,7 @@ import { allTools as agentTools } from '../tools';
 import { sendToolAckMessage, FunctionCall } from '../utils/ackUtils';
 import { getServices } from '../utils/serviceLoader';
 import { extractQuotedMessageId } from '../../../utils/messageHelpers';
-import { cleanJsonWrapper, isUnnecessaryApologyMessage } from '../../../utils/textSanitizer';
+import { cleanJsonWrapper } from '../../../utils/textSanitizer';
 import logger from '../../../utils/logger';
 import { TIME } from '../../../utils/constants';
 import { AgentContextState as AgentContext, ToolCall } from './context';
@@ -61,7 +61,7 @@ class AgentLoop {
   private ackedTools: Set<string> = new Set();
   // Track creation tools that already succeeded to prevent duplicate execution
   private succeededCreationTools: Set<string> = new Set();
-  
+
   /**
    * Execute agent loop
    */
@@ -70,7 +70,7 @@ class AgentLoop {
     // Reset tracking sets for each new execution
     this.ackedTools = new Set();
     this.succeededCreationTools = new Set();
-    
+
     let response = await chat.sendMessage(prompt);
     let iterationCount = 0;
 
@@ -119,7 +119,7 @@ class AgentLoop {
         const latitude = locationResult?.latitude || null;
         const longitude = locationResult?.longitude || null;
         let locationInfo = locationResult?.locationInfo || locationResult?.data || null;
-        
+
         // Clean JSON wrappers from locationInfo
         if (locationInfo) {
           locationInfo = cleanJsonWrapper(locationInfo);
@@ -129,14 +129,8 @@ class AgentLoop {
 
         // Clean JSON wrappers from final text
         let finalText = context.suppressFinalResponse ? '' : cleanJsonWrapper(text);
-        
-        // CRITICAL: Skip unnecessary apology messages when media was successfully created
-        // These confuse users because they think something went wrong when it didn't
-        const hasMediaAsset = latestImageAsset?.url || latestVideoAsset?.url || latestAudioAsset?.url;
-        if (hasMediaAsset && finalText && isUnnecessaryApologyMessage(finalText)) {
-          logger.debug(`⏭️ [Agent] Filtering out apology message - media was successfully created`);
-          finalText = '';
-        }
+
+
 
         // Get originalMessageId from context for quoting
         // Cast context to any to avoid strict type checks with extractQuotedMessageId
@@ -177,7 +171,7 @@ class AgentLoop {
         }
         return true;
       });
-      
+
       if (filteredCalls.length === 0) {
         // All calls were filtered out - stop execution
         logger.debug(`🛑 [Agent] All function calls were duplicate creation tools - stopping`);
@@ -189,7 +183,7 @@ class AgentLoop {
       // Cast context to any to avoid strict type checks with extractQuotedMessageId
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const quotedMessageId = extractQuotedMessageId({ context: context as any });
-      
+
       // Check if audio was already transcribed (from voice message flow)
       // If so, skip ACK for transcribe_audio to avoid duplicate "מתמלל הקלטה..." messages
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -198,7 +192,7 @@ class AgentLoop {
       if (originalInput?.audioAlreadyTranscribed) {
         skipToolsAck.push('transcribe_audio');
       }
-      
+
       // Filter calls that need ACK (haven't received one yet in this session)
       const callsNeedingAck = filteredCalls.filter((call: FunctionCall) => !this.ackedTools.has(call.name));
       if (callsNeedingAck.length > 0) {
@@ -285,12 +279,12 @@ class AgentLoop {
       // 2. Tool will be retried (suppressFinalResponse = true means fallback is happening)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const typedToolResult = toolResult as any;
-      const shouldSendError = toolResult && 
-                             typedToolResult.error && 
-                             context.chatId && 
-                             !typedToolResult.errorsAlreadySent &&
-                             !typedToolResult.suppressFinalResponse;
-      
+      const shouldSendError = toolResult &&
+        typedToolResult.error &&
+        context.chatId &&
+        !typedToolResult.errorsAlreadySent &&
+        !typedToolResult.suppressFinalResponse;
+
       if (shouldSendError) {
         try {
           const { greenApiService } = getServices();
