@@ -32,7 +32,8 @@ interface GeminiTextResult {
  * Contact structure from database
  */
 interface Contact {
-  contact_id: string;
+  contact_id?: string;
+  id?: string;
   contact_name?: string; // Legacy snake_case
   contactName?: string;  // camelCase (from raw_data)
   name?: string;
@@ -203,7 +204,9 @@ function findBestContactMatch(searchName: string, contacts: Contact[], threshold
 
   for (const contact of contacts) {
     // Match both private chats (@c.us) AND groups (@g.us)
-    if (!contact.contact_id) {
+    // Handle both contact_id (legacy/mapped) and id (raw_data)
+    const contactId = contact.contact_id || contact.id;
+    if (!contactId) {
       continue;
     }
 
@@ -284,7 +287,7 @@ export async function resolveParticipants(participantNames: string[]): Promise<P
       if (match) {
         resolved.push({
           searchName: participantName,
-          contactId: match.contact.contact_id,
+          contactId: match.contact.contact_id || match.contact.id || '',
           contactName: match.contact.contactName || match.contact.contact_name || match.contact.name || '',
           matchScore: match.score
         });
@@ -306,23 +309,18 @@ export async function resolveParticipants(participantNames: string[]): Promise<P
   }
 }
 
-/**
- * Find a single contact or group by name using fuzzy matching
- * Used for management commands that need to resolve a contact/group name
- * 
- * @param searchName - Name to search for
- * @param threshold - Minimum similarity threshold (0-1, default 0.6)
- * @returns Contact search result or null if not found
- */
+// ... (keep existing code until findContactByName)
+
 export async function findContactByName(searchName: string, threshold: number = 0.6): Promise<ContactSearchResult | null> {
   try {
-    logger.debug(`🔍 Searching for contact/group: "${searchName}"`);
+    const cleanSearchName = searchName.trim();
+    logger.debug(`🔍 Searching for contact/group: "${cleanSearchName}"`);
 
     // Try cache first (cache key includes search name and threshold)
-    const cacheKey = CacheKeys.contact(`${searchName}:${threshold}`);
+    const cacheKey = CacheKeys.contact(`${cleanSearchName}:${threshold}`);
     const cached = get<ContactSearchResult | null>(cacheKey);
     if (cached !== null) {
-      logger.debug(`✅ Contact found in cache`, { searchName });
+      logger.debug(`✅ Contact found in cache`, { searchName: cleanSearchName });
       return cached;
     }
 
@@ -337,14 +335,17 @@ export async function findContactByName(searchName: string, threshold: number = 
 
     logger.debug(`📇 Searching through ${contacts.length} contacts and groups in database`);
 
-    const match = findBestContactMatch(searchName, contacts, threshold);
+    const match = findBestContactMatch(cleanSearchName, contacts, threshold);
 
     if (match) {
-      const isGroup = match.contact.contact_id.endsWith('@g.us');
+      const contactId = match.contact.contact_id || match.contact.id;
+      if (!contactId) return null; // Should not happen due to check in findBestContactMatch
+
+      const isGroup = contactId.endsWith('@g.us');
       const entityType = getEntityType(isGroup);
 
       const result: ContactSearchResult = {
-        contactId: match.contact.contact_id,
+        contactId: contactId,
         contactName: match.contact.contactName || match.contact.contact_name || match.contact.name || '',
         matchScore: match.score,
         isGroup: isGroup,
@@ -358,7 +359,7 @@ export async function findContactByName(searchName: string, threshold: number = 
       set(cacheKey, result, CacheTTL.MEDIUM);
 
       logger.debug(`✅ Found ${entityType}`, {
-        searchName,
+        searchName: cleanSearchName,
         foundName: result.contactName,
         score: match.score.toFixed(2),
         isGroup
@@ -367,7 +368,7 @@ export async function findContactByName(searchName: string, threshold: number = 
       return result;
     }
 
-    logger.debug(`❌ No match found for "${searchName}"`);
+    logger.debug(`❌ No match found for "${cleanSearchName}"`);
     // Cache null results for shorter time (1 minute) to avoid repeated failed lookups
     set(cacheKey, null, CacheTTL.SHORT);
     return null;
