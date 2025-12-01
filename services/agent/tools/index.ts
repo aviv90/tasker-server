@@ -19,6 +19,7 @@ import * as summaryTools from './summaryTools';
 import * as groupTools from './groupTools';
 import * as retryTools from './retryTools';
 import * as schedulingTools from './schedulingTools';
+import fallbackTools from './meta/fallbackTools';
 
 // Re-export specific functions for individual use
 export const {
@@ -83,6 +84,11 @@ export const {
 export const {
   schedule_message
 } = schedulingTools;
+
+export const {
+  smart_execute_with_fallback,
+  retry_with_different_provider
+} = fallbackTools;
 
 /**
  * Tool declaration interface
@@ -150,6 +156,8 @@ export const allTools: Record<string, Tool> = {
 
   // Meta & Retry
   retry_last_command: retryTools.retry_last_command as unknown as Tool,
+  smart_execute_with_fallback: fallbackTools.smart_execute_with_fallback as unknown as Tool,
+  retry_with_different_provider: fallbackTools.retry_with_different_provider as unknown as Tool,
 
   // Scheduling
   schedule_message: schedulingTools.schedule_message as unknown as Tool

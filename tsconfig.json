@@ -39,6 +39,10 @@
     "resolveJsonModule": true,
     "types": [
       "node"
+    ],
+    "typeRoots": [
+      "./node_modules/@types",
+      "./types"
     ]
   },
   "include": [
