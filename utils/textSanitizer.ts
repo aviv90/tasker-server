@@ -23,7 +23,7 @@ export function sanitizeText(text: unknown): string {
   if (!text || typeof text !== 'string') {
     return '';
   }
-  
+
   // Remove dangerous characters and normalize
   // NOTE: Preserves emojis and Unicode characters (including Hebrew, Arabic, etc.)
   return text
@@ -44,7 +44,7 @@ export function cleanMarkdown(text: unknown): string {
   if (!text || typeof text !== 'string') {
     return '';
   }
-  
+
   return text
     .replace(/```[\s\S]*?```/g, '') // Remove code blocks (```...```)
     .replace(/`[^`]*`/g, '') // Remove inline code (`...`)
@@ -67,7 +67,7 @@ export function cleanMediaDescription(text: unknown): string {
   if (!text || typeof text !== 'string') {
     return '';
   }
-  
+
   // Step 1: Clean markdown and URLs
   let cleaned = cleanMarkdown(text)
     .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
@@ -88,18 +88,18 @@ export function cleanMediaDescription(text: unknown): string {
     .replace(/imageUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove imageUrl: URL without brackets
     .replace(/videoUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove videoUrl: URL without brackets
     .replace(/✅/g, '');
-  
+
   // Step 2: Clean up whitespace
   cleaned = cleaned
     .replace(/\s{2,}/g, ' ')
     .trim();
-  
+
   // Step 3: If nothing meaningful left, return empty string
   // (prevents sending messages with just punctuation or whitespace)
   if (cleaned.length < 3 || /^[^\w\u0590-\u05FF]+$/.test(cleaned)) {
     return '';
   }
-  
+
   return cleaned;
 }
 
@@ -114,84 +114,52 @@ export function isGenericSuccessMessage(text: string, mediaType?: 'image' | 'vid
   if (!text || typeof text !== 'string') {
     return false;
   }
-  
+
   const cleanedText = text.trim();
-  
+
   // Common generic success patterns (works for all media types)
   const commonPatterns = [
     /^✅\s*נוצרה\s*בהצלחה/i,
     /^✅\s*successfully\s*created/i
   ];
-  
+
   // Media-specific patterns
   const imagePatterns = [
     /^✅\s*תמונה\s*נוצרה\s*בהצלחה/i,
     /^✅\s*תמונה\s*נוצרה/i,
     /^✅\s*image\s*created\s*successfully/i
   ];
-  
+
   const videoPatterns = [
     /^✅\s*וידאו\s*נוצר\s*בהצלחה/i,
     /^✅\s*וידאו\s*נוצר/i,
     /^✅\s*video\s*created\s*successfully/i
   ];
-  
+
   // Check common patterns
   if (commonPatterns.some(pattern => pattern.test(cleanedText))) {
     return true;
   }
-  
+
   // Check media-specific patterns
   if (mediaType === 'image' && imagePatterns.some(pattern => pattern.test(cleanedText))) {
     return true;
   }
-  
+
   if (mediaType === 'video' && videoPatterns.some(pattern => pattern.test(cleanedText))) {
     return true;
   }
-  
+
   // If no media type specified, check all patterns
   if (!mediaType) {
     return imagePatterns.some(pattern => pattern.test(cleanedText)) ||
-           videoPatterns.some(pattern => pattern.test(cleanedText));
+      videoPatterns.some(pattern => pattern.test(cleanedText));
   }
-  
+
   return false;
 }
 
-/**
- * Check if text is an unnecessary apology/retry message when media was successfully created
- * These messages should be suppressed because they confuse users when the media was actually sent
- * Examples: "אני מצטער על הטעות הקודמת. הנה תמונה חדשה של..."
- * @param text - Text to check
- * @returns True if text is an unnecessary apology that should be suppressed
- */
-export function isUnnecessaryApologyMessage(text: string): boolean {
-  if (!text || typeof text !== 'string') {
-    return false;
-  }
-  
-  const cleanedText = text.trim();
-  
-  // Patterns for apology messages that shouldn't be sent when media succeeded
-  const apologyPatterns = [
-    // Hebrew apologies
-    /מצטער\s*(על|בגלל|ש)?\s*(ה)?טעות/i,
-    /סליחה\s*(על|בגלל|ש)?\s*(ה)?טעות/i,
-    /מתנצל\s*(על|בגלל|ש)?\s*(ה)?טעות/i,
-    /הנה\s*(תמונה|וידאו|סרטון)\s*חדש/i,
-    /ניסיתי\s*שוב/i,
-    /נסיון\s*נוסף/i,
-    // English apologies
-    /sorry\s*(for|about)?\s*(the)?\s*error/i,
-    /apologize\s*(for|about)/i,
-    /here'?s?\s*a?\s*new\s*(image|video)/i,
-    /tried\s*again/i,
-    /another\s*attempt/i
-  ];
-  
-  return apologyPatterns.some(pattern => pattern.test(cleanedText));
-}
+
 
 /**
  * Clean text for multi-step agent responses
@@ -204,7 +172,7 @@ export function cleanMultiStepText(text: unknown): string {
   if (!text || typeof text !== 'string') {
     return '';
   }
-  
+
   return text
     .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs (image URLs should not be in text)
     .replace(/\[image\]/gi, '')
@@ -239,7 +207,7 @@ function extractJsonContent(parsed: unknown): string | null {
   if (typeof parsed !== 'object' || parsed === null) {
     return null;
   }
-  
+
   // Handle arrays - try to extract from first element
   if (Array.isArray(parsed)) {
     if (parsed.length > 0 && typeof parsed[0] === 'object' && parsed[0] !== null) {
@@ -254,9 +222,9 @@ function extractJsonContent(parsed: unknown): string | null {
     }
     return null;
   }
-  
+
   const obj = parsed as Record<string, unknown>;
-  
+
   // Try priority fields first
   for (const field of JSON_CONTENT_FIELDS) {
     const content = obj[field];
@@ -264,7 +232,7 @@ function extractJsonContent(parsed: unknown): string | null {
       return content.trim();
     }
   }
-  
+
   // Handle nested "results" array (common in Google Maps/API responses)
   // Example: {"results": [{"formatted_address": "Tasman Sea", ...}]}
   if (obj.results && Array.isArray(obj.results) && obj.results.length > 0) {
@@ -278,7 +246,7 @@ function extractJsonContent(parsed: unknown): string | null {
       }
     }
   }
-  
+
   // If it's a single-key object with string value, use it
   const keys = Object.keys(obj);
   if (keys.length === 1) {
@@ -290,7 +258,7 @@ function extractJsonContent(parsed: unknown): string | null {
       }
     }
   }
-  
+
   return null;
 }
 
@@ -305,9 +273,9 @@ export function cleanJsonWrapper(text: unknown): string {
   if (!text || typeof text !== 'string') {
     return '';
   }
-  
+
   let cleaned = text.trim();
-  
+
   // CRITICAL: If the entire text is a JSON object/array, try to extract meaningful content
   // This handles cases where Gemini returns raw JSON instead of text
   const jsonObjectMatch = cleaned.match(/^[\s\n]*(\{[\s\S]*\}|\[[\s\S]*\])[\s\n]*$/);
@@ -325,7 +293,7 @@ export function cleanJsonWrapper(text: unknown): string {
       // Not valid JSON, continue with cleaning
     }
   }
-  
+
   // Try to extract JSON from code blocks first
   const jsonCodeBlockMatch = cleaned.match(/```(?:json)?\s*(\{[\s\S]*?\}|\[[\s\S]*?\])\s*```/);
   if (jsonCodeBlockMatch && jsonCodeBlockMatch[1]) {
@@ -342,7 +310,7 @@ export function cleanJsonWrapper(text: unknown): string {
       // Not valid JSON, continue
     }
   }
-  
+
   // Try to parse entire text as JSON
   try {
     const parsed = JSON.parse(cleaned);
@@ -353,7 +321,7 @@ export function cleanJsonWrapper(text: unknown): string {
   } catch (e) {
     // Not valid JSON, continue with cleaning
   }
-  
+
   // Remove JSON code blocks if still present
   cleaned = cleaned
     .replace(/```(?:json)?\s*\{[\s\S]*?\}\s*```/g, '') // Remove ```json {...} ```
@@ -361,7 +329,7 @@ export function cleanJsonWrapper(text: unknown): string {
     .replace(/```json\s*/g, '') // Remove opening ```json
     .replace(/```\s*/g, '') // Remove closing ```
     .trim();
-  
+
   // Try to extract JSON object/array from text and parse it
   const jsonMatch = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
   if (jsonMatch && jsonMatch[1]) {
@@ -378,7 +346,7 @@ export function cleanJsonWrapper(text: unknown): string {
       // Not valid JSON, continue
     }
   }
-  
+
   // If cleaned text still looks like JSON (starts with { or [), try to extract text from it
   if (cleaned.startsWith('{') || cleaned.startsWith('[')) {
     try {
@@ -392,7 +360,7 @@ export function cleanJsonWrapper(text: unknown): string {
       logger.warn('⚠️ [TextSanitizer] Text looks like JSON but failed to parse, returning as-is');
     }
   }
-  
+
   return cleaned;
 }
 
@@ -415,9 +383,9 @@ export function validateAndSanitizePrompt(prompt: unknown): string {
     };
     throw error;
   }
-  
+
   const sanitized: string = sanitizeText(prompt);
-  
+
   if (sanitized.length < TEXT_LIMITS.MIN_PROMPT_LENGTH) {
     const error: ValidationError = {
       message: `Prompt must be at least ${TEXT_LIMITS.MIN_PROMPT_LENGTH} characters long`,
@@ -425,7 +393,7 @@ export function validateAndSanitizePrompt(prompt: unknown): string {
     };
     throw error;
   }
-  
+
   if (sanitized.length > TEXT_LIMITS.MAX_PROMPT_LENGTH) {
     const error: ValidationError = {
       message: `Prompt must be less than ${TEXT_LIMITS.MAX_PROMPT_LENGTH} characters`,
@@ -433,10 +401,10 @@ export function validateAndSanitizePrompt(prompt: unknown): string {
     };
     throw error;
   }
-  
+
   // Check for potentially harmful content
   const lowerPrompt = sanitized.toLowerCase();
-  
+
   for (const word of BANNED_WORDS) {
     if (lowerPrompt.includes(word)) {
       const error: ValidationError = {
@@ -446,7 +414,7 @@ export function validateAndSanitizePrompt(prompt: unknown): string {
       throw error;
     }
   }
-  
+
   return sanitized;
 }
 
@@ -459,7 +427,7 @@ module.exports = {
   cleanMultiStepText,
   cleanJsonWrapper,
   isGenericSuccessMessage,
-  isUnnecessaryApologyMessage
+
 };
 
 

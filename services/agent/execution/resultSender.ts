@@ -5,31 +5,31 @@
 
 import { getServices } from '../utils/serviceLoader';
 import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
-import { cleanJsonWrapper, cleanMediaDescription, isGenericSuccessMessage, isUnnecessaryApologyMessage } from '../../../utils/textSanitizer';
+import { cleanJsonWrapper, cleanMediaDescription, isGenericSuccessMessage } from '../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../services/whatsapp/utils';
 import logger from '../../../utils/logger';
 import { isIntermediateToolOutputInPipeline } from '../../../utils/pipelineDetection';
 
 interface PollOptions {
-    options: string[];
-    question: string;
-    [key: string]: unknown;
+  options: string[];
+  question: string;
+  [key: string]: unknown;
 }
 
 interface StepResult {
-    latitude?: string | null;
-    longitude?: string | null;
-    locationInfo?: string | null;
-    poll?: PollOptions | null;
-    imageUrl?: string | null;
-    imageCaption?: string | null;
-    caption?: string | null;
-    videoUrl?: string | null;
-    videoCaption?: string | null;
-    audioUrl?: string | null;
-    text?: string | null;
-    toolsUsed?: string[];
-    [key: string]: unknown;
+  latitude?: string | null;
+  longitude?: string | null;
+  locationInfo?: string | null;
+  poll?: PollOptions | null;
+  imageUrl?: string | null;
+  imageCaption?: string | null;
+  caption?: string | null;
+  videoUrl?: string | null;
+  videoCaption?: string | null;
+  audioUrl?: string | null;
+  text?: string | null;
+  toolsUsed?: string[];
+  [key: string]: unknown;
 }
 
 class ResultSender {
@@ -95,7 +95,7 @@ class ResultSender {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error(`❌ [ResultSender] Failed to send poll${stepNumber ? ` for step ${stepNumber}` : ''}:`, { error: errorMessage });
-      
+
       // Send error to user
       try {
         const { greenApiService } = getServices();
@@ -124,11 +124,11 @@ class ResultSender {
       logger.debug(`🖼️ [ResultSender] Sending image${stepInfo}`);
 
       const fullImageUrl = normalizeStaticFileUrl(stepResult.imageUrl);
-      
+
       // CRITICAL: Caption MUST be sent with the image, not in a separate message
       // Priority: imageCaption > caption > text (if text is not generic success message)
       let caption = stepResult.imageCaption || stepResult.caption || '';
-      
+
       // If no caption but text exists and is not a generic success message, use text as caption
       if (!caption && stepResult.text && stepResult.text.trim()) {
         const textToCheck = cleanMediaDescription(stepResult.text);
@@ -136,7 +136,7 @@ class ResultSender {
           caption = stepResult.text;
         }
       }
-      
+
       const cleanCaption = cleanMediaDescription(caption);
 
       // Send image WITH caption (caption is always sent with media, never separately)
@@ -149,15 +149,12 @@ class ResultSender {
       if (stepResult.text && stepResult.text.trim()) {
         const textToCheck = cleanMediaDescription(stepResult.text);
         const captionToCheck = cleanMediaDescription(caption);
-        
+
         // Skip generic success messages - they're redundant when image is already sent
         if (isGenericSuccessMessage(textToCheck.trim(), 'image')) {
           logger.debug(`⏭️ [ResultSender] Skipping generic success message after image${stepInfo}`);
         }
-        // Skip unnecessary apology messages when image was successfully created
-        else if (isUnnecessaryApologyMessage(textToCheck)) {
-          logger.debug(`⏭️ [ResultSender] Skipping apology message after image${stepInfo}`);
-        }
+
         // Only send if text is meaningfully different from caption (more than just whitespace/formatting)
         else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
           const additionalText = cleanAgentText(stepResult.text);
@@ -195,7 +192,7 @@ class ResultSender {
       // CRITICAL: Caption MUST be sent with the video, not in a separate message
       // Priority: videoCaption > caption > text (if text is not generic success message)
       let caption = stepResult.videoCaption || stepResult.caption || '';
-      
+
       // If no caption but text exists and is not a generic success message, use text as caption
       if (!caption && stepResult.text && stepResult.text.trim()) {
         const textToCheck = cleanMediaDescription(stepResult.text);
@@ -203,7 +200,7 @@ class ResultSender {
           caption = stepResult.text;
         }
       }
-      
+
       const cleanCaption = cleanMediaDescription(caption);
 
       // Send video WITH caption (caption is always sent with media, never separately)
@@ -216,15 +213,12 @@ class ResultSender {
       if (stepResult.text && stepResult.text.trim()) {
         const textToCheck = cleanMediaDescription(stepResult.text);
         const captionToCheck = cleanMediaDescription(caption);
-        
+
         // Skip generic success messages - they're redundant when video is already sent
         if (isGenericSuccessMessage(textToCheck.trim(), 'video')) {
           logger.debug(`⏭️ [ResultSender] Skipping generic success message after video${stepInfo}`);
         }
-        // Skip unnecessary apology messages when video was successfully created
-        else if (isUnnecessaryApologyMessage(textToCheck)) {
-          logger.debug(`⏭️ [ResultSender] Skipping apology message after video${stepInfo}`);
-        }
+
         // Only send if text is meaningfully different from caption
         else if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
           const additionalText = cleanAgentText(stepResult.text);
@@ -294,36 +288,31 @@ class ResultSender {
 
     // Check if structured output was already sent
     const hasStructuredOutput = stepResult.latitude || stepResult.poll ||
-                                 stepResult.imageUrl || stepResult.videoUrl ||
-                                 stepResult.audioUrl || stepResult.locationInfo;
-    
-    // CRITICAL: Skip unnecessary apology messages when media was successfully created
-    // These confuse users because they think something went wrong when it didn't
-    if (hasStructuredOutput && isUnnecessaryApologyMessage(stepResult.text)) {
-      logger.debug(`⏭️ [ResultSender] Skipping apology message${stepNumber ? ` for step ${stepNumber}` : ''} - media was successfully created`);
-      return;
-    }
+      stepResult.imageUrl || stepResult.videoUrl ||
+      stepResult.audioUrl || stepResult.locationInfo;
+
+
 
     // If structured output exists, check if text is just the caption/description (already sent)
     if (hasStructuredOutput) {
       const textToCheck = cleanMediaDescription(stepResult.text);
       const imageCaption = stepResult.imageCaption ? cleanMediaDescription(stepResult.imageCaption) : '';
-      
+
       // CRITICAL: For location - locationInfo is ALREADY sent by sendLocation
       // If text equals or contains locationInfo, skip sending it again
       if (stepResult.locationInfo && stepResult.locationInfo.trim()) {
         const locationInfoClean = cleanJsonWrapper(stepResult.locationInfo).trim();
         const textClean = cleanJsonWrapper(stepResult.text).trim();
-        
+
         // Check if text is the same as locationInfo (or contains it)
-        if (textClean === locationInfoClean || 
-            textClean.includes(locationInfoClean) || 
-            locationInfoClean.includes(textClean)) {
+        if (textClean === locationInfoClean ||
+          textClean.includes(locationInfoClean) ||
+          locationInfoClean.includes(textClean)) {
           logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - same as locationInfo (already sent)`);
           return;
         }
       }
-      
+
       // For images: if text is same as caption, don't send again
       if (stepResult.imageUrl && textToCheck.trim() === imageCaption.trim()) {
         logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - same as image caption`);
