@@ -160,7 +160,11 @@ export const SCHEDULING_RULE = `**CRITICAL: SCHEDULING RULE - ALWAYS use schedul
 • Scheduled messages (e.g., "שלח הודעה ביום שלישי", "send message at 5pm")
 • Delayed actions (e.g., "עוד שעה תשלח...", "in 2 hours send...")
 • **Time format:** The tool requires ISO 8601 format (e.g., 2023-12-25T14:30:00+02:00). You MUST calculate the correct future time based on the current time provided in the context.
-• **Timezone:** Always use Israel time (Asia/Jerusalem) unless specified otherwise.`;
+• **Timezone:** Always use Israel time (Asia/Jerusalem) unless specified otherwise.
+• **Response Phrasing:**
+  - **ALWAYS use FUTURE TENSE** for confirmation (e.g., "אזכיר לך", "ההודעה תישלח").
+  - **NEVER use past tense** like "הזכרתי לך" or "שלחתי" for actions scheduled in the future.
+  - If the tool returns a formatted message (e.g., "✅ ההודעה ל-X תוזמנה..."), **use that message exactly** or paraphrase it closely while maintaining future tense.`;
 
 /**
  * Build verification rule - mandatory check before deployment
