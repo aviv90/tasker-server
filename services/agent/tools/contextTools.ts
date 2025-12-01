@@ -5,7 +5,6 @@
 import { getChatHistory } from '../../../utils/chatHistoryService';
 import logger from '../../../utils/logger';
 import { getServices } from '../utils/serviceLoader';
-import conversationManager from '../../../services/conversationManager';
 import { NOT_FOUND, ERROR } from '../../../config/messages';
 
 export interface ToolContext {
@@ -196,6 +195,10 @@ export const save_user_preference = {
     );
 
     try {
+      // Lazy load conversationManager
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const conversationManager = require('../../../services/conversationManager').default;
+
       await conversationManager.saveUserPreference(context.chatId || '', args.preference_key, args.preference_value);
 
       return {
@@ -243,12 +246,16 @@ export const get_long_term_memory = {
       const includeSummaries = args.include_summaries !== false;
       const includePreferences = args.include_preferences !== false;
 
-      const result: { success: boolean; data: string; summaries?: unknown[]; preferences?: Record<string, string>; [key: string]: unknown } = {
+      const result: { success: boolean; data: string; summaries?: unknown[]; preferences?: Record<string, string>;[key: string]: unknown } = {
         success: true,
         data: ''
       };
 
       if (includeSummaries) {
+        // Lazy load conversationManager
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const conversationManager = require('../../../services/conversationManager').default;
+
         const summaries = (await conversationManager.getConversationSummaries(
           context.chatId || '',
           5
@@ -270,6 +277,10 @@ export const get_long_term_memory = {
       }
 
       if (includePreferences) {
+        // Lazy load conversationManager
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const conversationManager = require('../../../services/conversationManager').default;
+
         const preferences = (await conversationManager.getUserPreferences(
           context.chatId || ''
         )) as Record<string, string>;
