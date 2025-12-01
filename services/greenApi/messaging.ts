@@ -53,6 +53,15 @@ export async function sendTextMessage(
       await getConversationManager().markAsBotMessage(chatId, (response.data as { idMessage: string }).idMessage);
     }
 
+    // Save outgoing message to DB for history consistency
+    // Non-blocking catch to ensure message sending success isn't affected by DB errors
+    await getConversationManager().addMessage(chatId, 'assistant', message, {
+      idMessage: (response.data as { idMessage?: string })?.idMessage,
+      quotedMessageId
+    }).catch((err: unknown) => {
+      logger.warn('⚠️ Failed to save outgoing message to DB history', { error: err });
+    });
+
     return response.data;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -110,6 +119,17 @@ export async function sendFileByUrl(
     if (response.data && (response.data as { idMessage?: string }).idMessage) {
       await getConversationManager().markAsBotMessage(chatId, (response.data as { idMessage: string }).idMessage);
     }
+
+    // Save outgoing message to DB for history consistency
+    await getConversationManager().addMessage(chatId, 'assistant', caption || fileName, {
+      idMessage: (response.data as { idMessage?: string })?.idMessage,
+      quotedMessageId,
+      fileUrl,
+      fileName,
+      hasMedia: true
+    }).catch((err: unknown) => {
+      logger.warn('⚠️ Failed to save outgoing file message to DB history', { error: err });
+    });
 
     return response.data;
   } catch (error: unknown) {
@@ -197,6 +217,15 @@ export async function sendPoll(
       await getConversationManager().markAsBotMessage(chatId, (response.data as { idMessage: string }).idMessage);
     }
 
+    // Save outgoing message to DB for history consistency
+    await getConversationManager().addMessage(chatId, 'assistant', message, {
+      idMessage: (response.data as { idMessage?: string })?.idMessage,
+      options,
+      isPoll: true
+    }).catch((err: unknown) => {
+      logger.warn('⚠️ Failed to save outgoing poll message to DB history', { error: err });
+    });
+
     return response.data;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -273,6 +302,19 @@ export async function sendLocation(
     if (response.data && (response.data as { idMessage?: string }).idMessage) {
       await getConversationManager().markAsBotMessage(chatId, (response.data as { idMessage: string }).idMessage);
     }
+
+    // Save outgoing message to DB for history consistency
+    await getConversationManager().addMessage(chatId, 'assistant', `Location: ${latitude}, ${longitude}`, {
+      idMessage: (response.data as { idMessage?: string })?.idMessage,
+      quotedMessageId,
+      latitude,
+      longitude,
+      nameLocation,
+      address,
+      isLocation: true
+    }).catch((err: unknown) => {
+      logger.warn('⚠️ Failed to save outgoing location message to DB history', { error: err });
+    });
 
     return response.data;
   } catch (error: unknown) {
