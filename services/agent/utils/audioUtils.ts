@@ -4,8 +4,10 @@ import path from 'path';
 import { promisify } from 'util';
 import { exec } from 'child_process';
 import logger from '../../../utils/logger';
+import ffprobeStatic from 'ffprobe-static';
+
 const execAsync = promisify(exec);
-const ffprobe = 'ffprobe';
+const ffprobe = ffprobeStatic.path || 'ffprobe';
 
 /**
  * Get audio duration via ffprobe

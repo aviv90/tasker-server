@@ -10,8 +10,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { promisify } from 'util';
 import { downloadFile } from './greenApiService';
 import logger from '../utils/logger';
+import ffmpegStatic from 'ffmpeg-static';
+import ffprobeStatic from 'ffprobe-static';
+
 const execAsync = promisify(exec);
-const ffmpeg = 'ffmpeg';
+const ffmpeg = ffmpegStatic || 'ffmpeg';
+const ffprobe = ffprobeStatic.path || 'ffprobe';
 
 /**
  * Conversion options
@@ -281,16 +285,20 @@ class AudioConverterService {
      */
     async checkFFmpegAvailability(): Promise<boolean> {
         try {
-            const { stderr } = await execAsync(`${ffmpeg} -version`);
-            if (stderr && typeof stderr === 'string' && stderr.includes('error')) {
-                logger.error('❌ FFmpeg error:', stderr);
+            const { stderr: ffmpegStderr } = await execAsync(`${ffmpeg} -version`);
+            const { stdout: ffprobeStdout } = await execAsync(`${ffprobe} -version`);
+
+            if (ffmpegStderr && typeof ffmpegStderr === 'string' && ffmpegStderr.includes('error')) {
+                logger.error('❌ FFmpeg error:', ffmpegStderr);
                 return false;
             }
-            logger.info('✅ FFmpeg is available');
+
+            logger.info(`✅ FFmpeg is available: ${ffmpeg}`);
+            logger.info(`✅ FFprobe is available: ${ffprobe}`);
             return true;
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : String(err);
-            logger.error('❌ FFmpeg not available:', errorMessage);
+            logger.error('❌ FFmpeg/FFprobe not available:', errorMessage);
             return false;
         }
     }
