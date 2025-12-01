@@ -78,8 +78,8 @@ async function startServer() {
             scheduledTasksService.processDueTasks().catch((err: any) => {
                 logger.error('❌ Error in scheduled tasks polling:', err);
             });
-        }, 60000);
-        logger.info('⏰ Scheduled tasks polling started (60s interval)');
+        }, 10000);
+        logger.info('⏰ Scheduled tasks polling started (10s interval)');
     });
 
     // Graceful shutdown

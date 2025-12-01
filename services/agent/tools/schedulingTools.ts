@@ -108,6 +108,12 @@ export const schedule_message = {
                 scheduledAt
             );
 
+            // Trigger immediate check to send the message right away if it's due now
+            // This avoids waiting for the next polling interval (10s)
+            container.getService('scheduledTasks').processDueTasks().catch((err: any) => {
+                console.error('Error in immediate task processing:', err);
+            });
+
             const successMessage = targetChatId === context.chatId
                 ? `✅ ההודעה תוזמנה בהצלחה! היא תישלח ב-${task.scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`
                 : `✅ ההודעה ל-${recipientName} תוזמנה בהצלחה! היא תישלח ב-${task.scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`;

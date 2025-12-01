@@ -164,7 +164,11 @@ export const SCHEDULING_RULE = `**CRITICAL: SCHEDULING RULE - ALWAYS use schedul
 • **Response Phrasing:**
   - **ALWAYS use FUTURE TENSE** for confirmation (e.g., "אזכיר לך", "ההודעה תישלח").
   - **NEVER use past tense** like "הזכרתי לך" or "שלחתי" for actions scheduled in the future.
-  - If the tool returns a formatted message (e.g., "✅ ההודעה ל-X תוזמנה..."), **use that message exactly** or paraphrase it closely while maintaining future tense.`;
+  - If the tool returns a formatted message (e.g., "✅ ההודעה ל-X תוזמנה..."), **use that message exactly** or paraphrase it closely while maintaining future tense.
+• **Content Interpretation:**
+  - **Convert Indirect to Direct Speech:** If user says "tell her that she is cute" -> Message content should be "You are cute" (or "את חמודה").
+  - **Exception:** If user uses quotes (e.g., 'write "tell her that she is cute"'), keep the text exactly as is.
+  - **Natural Language:** The message should sound natural and direct, as if the user sent it themselves.`;
 
 /**
  * Build verification rule - mandatory check before deployment
