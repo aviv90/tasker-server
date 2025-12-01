@@ -118,6 +118,13 @@ export const create_group = {
         .trim();
       const promptForParsing = rawPrompt || args.participants_description || args.group_name || '';
 
+      if (!promptForParsing.trim()) {
+        return {
+          success: false,
+          error: 'נא לספק שם לקבוצה או תיאור משתתפים.'
+        };
+      }
+
       logger.info(`📋 Parsing group creation request from: "${promptForParsing}"`);
 
       await sendTextMessage(chatId, '👥 מתחיל יצירת קבוצה...', quotedMessageId, 1000);

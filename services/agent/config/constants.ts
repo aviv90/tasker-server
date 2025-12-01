@@ -37,7 +37,7 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
 
   // WhatsApp tools
   create_poll: 'יוצר סקר... 📊',
-  send_location: '',
+  send_location: 'שולח מיקום... 📍',
   create_group: 'יוצר קבוצה... 👥',
 
   // Audio tools
