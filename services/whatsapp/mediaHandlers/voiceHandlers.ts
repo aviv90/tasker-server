@@ -70,7 +70,7 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
 
     // Try to route to agent to see if this is a command (let the Agent/Planner decide)
     logger.debug(`🔄 Routing transcribed text to agent for evaluation...`);
-    
+
     // Build normalized input - add # prefix to route through agent (same as text messages)
     const normalized: NormalizedInput = {
       userText: `# ${transcribedText}`, // Add # prefix to route through agent
@@ -81,36 +81,38 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
       senderData: { chatId, senderId, senderName },
       originalMessageId: originalMessageId || undefined
     };
-    
-    const agentResult = await routeToAgent(normalized, chatId);
-    
+
+    // CRITICAL: Voice messages should NOT use conversation history by default
+    // This prevents "poisoned" context where the agent sees old commands and hallucinates
+    const agentResult = await routeToAgent(normalized, chatId, { useConversationHistory: false });
+
     // Check if Agent executed a REAL command (not just default/redundant tools)
     // These tools don't count as "commands" in voice message context:
     // - text_to_speech: User didn't request TTS, they just asked a question
     // - transcribe_audio: The audio is ALREADY transcribed! Redundant to transcribe again
     const NON_COMMAND_TOOLS_FOR_VOICE = ['text_to_speech', 'transcribe_audio'];
-    
+
     const toolsUsed = agentResult.toolsUsed || [];
-    const isRealCommand = toolsUsed.length > 0 && 
+    const isRealCommand = toolsUsed.length > 0 &&
       !toolsUsed.every(tool => NON_COMMAND_TOOLS_FOR_VOICE.includes(tool));
-    
+
     // Also check for actual media outputs (not from text_to_speech)
     const hasRealMediaOutput = (agentResult.imageUrl || agentResult.videoUrl) ||
       (agentResult.audioUrl && isRealCommand);
-    
+
     // If agent successfully executed a REAL tool/command, use the centralized result handler
     // This ensures identical behavior to text commands (multi-step, captions, etc.)
     if (agentResult.success && (isRealCommand || hasRealMediaOutput)) {
       logger.info(`🎯 Agent identified and executed command/tool from voice message: [${toolsUsed.join(', ')}]`);
-      
+
       // Use the same result handling logic as text commands
       // This ensures multi-step, captions, and all other features work identically
       await sendAgentResults(chatId, agentResult as HandlerAgentResult, normalized);
-      
+
       logger.info(`✅ Command from voice message processed successfully`);
       return;
     }
-    
+
     // If agent only used non-command tools or no tools at all, treat as regular voice-to-voice conversation
     // This means the user asked a question/said something that needs a conversational response
     logger.debug(`💬 Not a command (tools: [${toolsUsed.join(', ')}]) - proceeding with voice-to-voice conversation`);

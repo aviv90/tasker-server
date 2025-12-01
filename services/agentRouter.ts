@@ -71,16 +71,16 @@ export interface AgentResult {
  * @param chatId - Chat ID for context
  * @returns Agent execution result
  */
-export async function routeToAgent(input: NormalizedInput, chatId: string): Promise<AgentResult> {
+export async function routeToAgent(input: NormalizedInput, chatId: string, options: { useConversationHistory?: boolean } = {}): Promise<AgentResult> {
   logger.debug('🚀 [AGENT ROUTER] Routing to Agent for intelligent tool selection');
-  
+
   const userText = input.userText || '';
-  
+
   // Build contextual prompt using the new context builder
   const contextualPrompt = await buildContextualPrompt(input, chatId);
-  
+
   logger.debug(`🤖 [AGENT ROUTER] Sending to Agent: "${contextualPrompt.substring(0, 150)}..."`);
-  
+
   // Get last command for context (needed for agent execution) - from DB (persistent)
   const lastCommandRaw = await conversationManager.getLastCommand(chatId);
   let parsedLastCommand: LastCommand | null = null;
@@ -99,7 +99,7 @@ export async function routeToAgent(input: NormalizedInput, chatId: string): Prom
       plan: raw.plan
     };
   }
-  
+
   // Execute agent query with full context
   // NOTE: History management is handled in agentService.ts with smart detection logic
   // (self-contained requests skip history, continuations/chat load history)
@@ -111,13 +111,14 @@ export async function routeToAgent(input: NormalizedInput, chatId: string): Prom
         ...input,
         lastCommand: parsedLastCommand
       },
-      lastCommand: parsedLastCommand
-      // useConversationHistory defaults to true - agentService.ts decides when to actually load it
+      lastCommand: parsedLastCommand,
+      // Allow overriding useConversationHistory from options
+      useConversationHistory: options.useConversationHistory
     }
   ) as AgentResult;
-  
+
   // Save the last successful command for retry functionality
   await saveLastCommand(agentResult, chatId, userText, input);
-  
+
   return agentResult;
 }

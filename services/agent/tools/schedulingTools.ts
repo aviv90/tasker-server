@@ -36,6 +36,14 @@ export const schedule_message = {
                 };
             }
 
+            const now = new Date();
+            if (scheduledAt < now) {
+                return {
+                    success: false,
+                    error: `Cannot schedule a message in the past. Current time is ${now.toISOString()}, but you requested ${scheduledAt.toISOString()}. Please provide a future time.`
+                };
+            }
+
             const task = await container.getService('scheduledTasks').scheduleMessage(
                 context.chatId,
                 args.message,
