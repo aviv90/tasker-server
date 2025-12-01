@@ -25,12 +25,13 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
   edit_video: 'עורך וידאו עם Runway... 🎞️',
 
   // Info tools
-  search_web: 'מחפש באינטרנט... 🔎',
+  search_web: 'מחפש מידע... 🔍',
   search_google_drive: 'מחפש ב-Google Drive... 📁',
   get_chat_history: 'שולף היסטוריה... 📜',
   get_long_term_memory: 'בודק העדפות... 💾',
   translate_text: 'מתרגם... 🌐',
-  translate_and_speak: 'מתרגם והופך לדיבור... 🌐🗣️',
+  translate_and_speak: 'מתרגם ומקריא... 🗣️',
+  schedule_message: 'מתזמן הודעה... 📅',
   transcribe_audio: 'מתמלל הקלטה... 🎤📝',
   chat_summary: 'מסכם שיחה... 📝',
 
@@ -99,7 +100,7 @@ export const PROVIDERS = {
     OPENAI: 'openai',
     GROK: 'grok'
   } as const,
-  
+
   // Video providers
   VIDEO: {
     VEO3: 'veo3',
@@ -108,7 +109,7 @@ export const PROVIDERS = {
     KLING: 'kling',
     RUNWAY: 'runway'
   } as const,
-  
+
   // General
   NONE: 'none'
 } as const;
