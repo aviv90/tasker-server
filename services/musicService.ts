@@ -154,14 +154,12 @@ const musicService = new MusicService();
 export default musicService;
 
 // Also export individual methods for backward compatibility
-export const {
-  generateMusicWithLyrics,
-  generateInstrumentalMusic,
-  generateAdvancedMusic,
-  generateSongFromSpeech,
-  handleCallbackCompletion,
-  generateMusicVideo,
-  handleVideoCallbackCompletion,
-  sendMusicToWhatsApp
-} = musicService;
+export const generateMusicWithLyrics = musicService.generateMusicWithLyrics.bind(musicService);
+export const generateInstrumentalMusic = musicService.generateInstrumentalMusic.bind(musicService);
+export const generateAdvancedMusic = musicService.generateAdvancedMusic.bind(musicService);
+export const generateSongFromSpeech = musicService.generateSongFromSpeech.bind(musicService);
+export const handleCallbackCompletion = musicService.handleCallbackCompletion.bind(musicService);
+export const generateMusicVideo = musicService.generateMusicVideo.bind(musicService);
+export const handleVideoCallbackCompletion = musicService.handleVideoCallbackCompletion.bind(musicService);
+export const sendMusicToWhatsApp = musicService.sendMusicToWhatsApp.bind(musicService);
 

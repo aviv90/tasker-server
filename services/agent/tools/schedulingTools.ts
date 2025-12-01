@@ -96,9 +96,15 @@ export const schedule_message = {
                 };
             }
 
+            // Add "Reminder:" prefix if sending to self (context.chatId)
+            let finalMessage = args.message;
+            if (targetChatId === context.chatId) {
+                finalMessage = `⏰ תזכורת: ${args.message}`;
+            }
+
             const task = await container.getService('scheduledTasks').scheduleMessage(
                 targetChatId,
-                args.message,
+                finalMessage,
                 scheduledAt
             );
 
@@ -106,7 +112,7 @@ export const schedule_message = {
                 success: true,
                 taskId: task.id,
                 scheduledAt: task.scheduledAt.toISOString(),
-                message: `Message scheduled for ${task.scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })} to ${recipientName}`
+                message: `✅ ההודעה תזוזמן בהצלחה! היא תישלח ל-${recipientName} ב-${task.scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`
             };
         } catch (error: any) {
             return {

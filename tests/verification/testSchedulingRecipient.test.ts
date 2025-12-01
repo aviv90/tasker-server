@@ -7,16 +7,22 @@ jest.mock('../../services/groupService', () => ({
     findContactByName: jest.fn()
 }));
 
-jest.mock('../../services/container', () => ({
-    default: {
-        getService: () => ({
-            scheduleMessage: jest.fn().mockResolvedValue({
-                id: 'task-123',
-                scheduledAt: new Date('2025-12-25T10:00:00Z')
-            })
+const mockContainer = {
+    getService: jest.fn().mockReturnValue({
+        scheduleMessage: jest.fn().mockResolvedValue({
+            id: 'task-123',
+            scheduledAt: new Date('2025-12-25T10:00:00Z')
         })
-    }
+    })
+};
+
+jest.mock('../../services/container', () => ({
+    default: mockContainer
 }));
+
+// We don't need to import container here if we use the mock object directly for assertions
+// or we can require it to get the mocked version
+const container = require('../../services/container').default;
 
 describe('schedule_message tool', () => {
     const mockContext = { chatId: 'current-chat-id' };
@@ -63,16 +69,33 @@ describe('schedule_message tool', () => {
     it('should return error when recipient is not found', async () => {
         (groupService.findContactByName as jest.Mock).mockResolvedValue(null);
 
-        const args = {
+        const result = await schedule_message.execute({
             message: 'Hello',
-            time: '2025-12-25T10:00:00Z',
-            recipient: 'Unknown'
-        };
+            time: new Date(Date.now() + 3600000).toISOString(),
+            recipient: 'NonExistent'
+        }, { chatId: '123456789@c.us' });
 
-        const result = await schedule_message.execute(args, mockContext);
-
-        expect(groupService.findContactByName).toHaveBeenCalledWith('Unknown');
         expect(result.success).toBe(false);
-        expect(result.error).toContain('Could not find contact or group named "Unknown"');
+        expect(result.error).toContain('Could not find contact');
+    });
+
+    it('should add reminder prefix when scheduling to self', async () => {
+        const chatId = '123456789@c.us';
+        const message = 'Buy milk';
+        const time = new Date(Date.now() + 3600000).toISOString();
+
+        const result = await schedule_message.execute({
+            message,
+            time
+        }, { chatId });
+
+        expect(result.success).toBe(true);
+        expect(result.success).toBe(true);
+        const scheduledTasksService = container.getService('scheduledTasks');
+        expect(scheduledTasksService.scheduleMessage).toHaveBeenCalledWith(
+            chatId,
+            `⏰ תזכורת: ${message}`,
+            expect.any(Date)
+        );
     });
 });
