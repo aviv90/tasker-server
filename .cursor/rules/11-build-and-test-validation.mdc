@@ -1,0 +1,242 @@
+---
+description: Always run full build and tests after implementing any feature or change to catch bugs before deployment
+---
+
+# Build and Test Validation
+
+## Core Principle
+
+**CRITICAL: After completing ANY feature implementation or ANY code change (even small ones!), ALWAYS run a full build and test suite before marking the task as complete.**
+
+**This includes:**
+- Every file edit (`.ts`, `.js`, `.tsx`, `.jsx`)
+- Every function modification
+- Every logic change
+- Every refactor
+- Every bug fix
+
+This ensures we catch bugs, type errors, and regressions **locally** before the user deploys to production.
+
+---
+
+## ✅ **Required Steps After Every Feature/Change:**
+
+### 1. **Full TypeScript Build**
+```bash
+npm run build
+# OR
+tsc
+```
+
+**Why:** Catches type errors, compilation issues, and missing imports before runtime.
+
+### 2. **Full Test Suite**
+```bash
+npm test
+# OR for CI-style validation
+npm run test:ci
+```
+
+**Why:** Validates that:
+- New code works correctly
+- Existing functionality still works (no regressions)
+- All unit, integration, and e2e tests pass
+
+---
+
+## 🚨 **When to Run:**
+
+### **MUST run after ANY code change, including:**
+- ✅ Implementing a new feature
+- ✅ Adding new functionality
+- ✅ **Modifying existing code (even small changes!)**
+- ✅ **Changing any function, class, or module**
+- ✅ **Editing business logic**
+- ✅ **Updating imports/exports**
+- ✅ Refactoring
+- ✅ Fixing bugs
+- ✅ Adding dependencies
+- ✅ Changing configuration files
+- ✅ Updating types/interfaces
+- ✅ **Any `.ts`, `.js`, `.tsx`, `.jsx` file modification**
+
+**CRITICAL: Even a "small" code change can break something - ALWAYS validate!**
+
+### **Exception (optional):**
+- Simple formatting/style changes only (no logic changes)
+- Documentation-only changes (`.md` files)
+- Comments-only changes
+
+**When in doubt, RUN THE TESTS!** Better safe than sorry.
+
+---
+
+## 📋 **Workflow Checklist:**
+
+After completing any coding task:
+
+1. ✅ **Build passes** (`npm run build` exits with code 0)
+   - No TypeScript compilation errors
+   - No missing dependencies
+   - All imports resolve correctly
+
+2. ✅ **All tests pass** (`npm test` exits with code 0)
+   - Unit tests pass
+   - Integration tests pass
+   - E2E tests pass (if applicable)
+   - No test failures or skipped tests
+
+3. ✅ **Report results to user:**
+   ```
+   ✅ Build completed successfully
+   ✅ All tests passed (X tests)
+   
+   Ready for deployment!
+   ```
+
+4. ❌ **If build/test fails:**
+   - **STOP** - Don't mark task as complete
+   - **FIX** all errors immediately
+   - **RE-RUN** build and tests until they pass
+   - **THEN** report completion
+
+---
+
+## 🎯 **What Gets Validated:**
+
+### Build Validation:
+- TypeScript type checking
+- Import/export resolution
+- Syntax errors
+- Missing dependencies
+- Configuration errors
+
+### Test Validation:
+- Unit test coverage
+- Integration test scenarios
+- E2E test workflows
+- Regression detection
+- Edge case handling
+
+---
+
+## ❌ **Common Mistakes to Avoid:**
+
+1. ❌ **Skipping tests** because "it's just a small change"
+   - Small changes can have big impacts!
+
+2. ❌ **Only running unit tests**
+   - Integration and E2E tests matter too!
+
+3. ❌ **Ignoring type errors**
+   - "It works in runtime" doesn't mean it's correct!
+
+4. ❌ **Marking task complete before validation**
+   - Always wait for green build + tests!
+
+5. ❌ **Assuming tests will pass**
+   - Always verify, never assume!
+
+---
+
+## 💡 **Best Practices:**
+
+### Use CI-Style Test Command:
+```bash
+npm run test:ci
+```
+This runs tests with:
+- Coverage reporting
+- CI mode (fails on missing coverage)
+- No cache (fresh test run)
+- Limited workers (catches parallelization issues)
+
+### Check Test Coverage:
+After tests pass, review coverage to ensure new code is tested:
+```bash
+npm run test:coverage
+```
+
+### Watch Mode During Development:
+While developing, use watch mode:
+```bash
+npm run test:watch
+```
+But **ALWAYS** run full suite before completion!
+
+---
+
+## 🔍 **Troubleshooting:**
+
+### Build Fails:
+1. Check TypeScript errors in terminal
+2. Verify all imports are correct
+3. Check for missing type definitions
+4. Review `tsconfig.json` settings
+
+### Tests Fail:
+1. Read error messages carefully
+2. Check if it's a flaky test or real bug
+3. Verify test data/mocks are correct
+4. Run failing test in isolation to debug
+
+### Tests Pass Locally but Fail in CI:
+- Use `npm run test:ci` locally to match CI environment
+- Check for environment-specific issues
+- Verify all dependencies are in `package.json`
+
+---
+
+## ✅ **Success Criteria:**
+
+Task is **ONLY** complete when:
+
+1. ✅ `npm run build` exits successfully (code 0)
+2. ✅ `npm test` exits successfully (code 0)
+3. ✅ No compilation errors or warnings (unless intentional)
+4. ✅ All tests pass
+5. ✅ User is informed of successful validation
+
+---
+
+## 📝 **Example Completion Message:**
+
+```
+✅ Feature implementation complete!
+
+📦 Build: ✅ Passed (no errors)
+🧪 Tests: ✅ Passed (127 tests, all passing)
+
+📂 Files modified:
+- services/newFeature.js
+- routes/newRoute.js
+- tests/newFeature.test.js
+
+Ready for review and deployment! 🚀
+```
+
+**NOT:**
+
+```
+✅ Done! (without running tests) ❌
+```
+
+---
+
+## 🎯 **Remember:**
+
+**A feature is only complete when:**
+- ✅ Code is written
+- ✅ Build passes
+- ✅ Tests pass
+- ✅ No regressions
+
+**Missing any step = incomplete work!**
+
+---
+
+## 🔗 **Related Rules:**
+
+- Rule 5: Don't commit/push (user does this manually after validation)
+- Rule 9: Code quality (build and tests ensure quality)
+- Rule 2: Send errors to client (catch errors before they reach client)

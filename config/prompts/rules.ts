@@ -104,7 +104,7 @@ export const WEB_SEARCH_RULE = `**CRITICAL: WEB SEARCH RULE - ALWAYS use search_
 • Any information that requires up-to-date data from the internet
 • Links, URLs, or web content requests
 • Information that might have changed since your training data
-**NEVER say "I don't know" or "I can't access" for such requests - ALWAYS use search_web!**`;
+• **NEVER say "I don't know" or "I can't access" for such requests - ALWAYS use search_web!**`;
 
 /**
  * Audio/Translation rules
@@ -161,3 +161,14 @@ export const SCHEDULING_RULE = `**CRITICAL: SCHEDULING RULE - ALWAYS use schedul
 • Delayed actions (e.g., "עוד שעה תשלח...", "in 2 hours send...")
 • **Time format:** The tool requires ISO 8601 format (e.g., 2023-12-25T14:30:00+02:00). You MUST calculate the correct future time based on the current time provided in the context.
 • **Timezone:** Always use Israel time (Asia/Jerusalem) unless specified otherwise.`;
+
+/**
+ * Build verification rule - mandatory check before deployment
+ */
+export const BUILD_VERIFICATION_RULE = `**CRITICAL: BUILD VERIFICATION RULE - MANDATORY CHECK BEFORE DEPLOYMENT:**
+• **AFTER ANY CODE CHANGE (feature, fix, refactor, cleanup, or config change):**
+• **YOU MUST RUN A FULL BUILD AND TEST CYCLE LOCALLY.**
+• Execute: \`npm run build\` AND \`npm test\` (or specific relevant tests).
+• **DO NOT DEPLOY** or mark task as complete until the build passes locally (exit code 0).
+• This ensures that no TypeScript errors, unused variables, or broken tests are pushed to production.
+• If the build fails, FIX IT immediately before proceeding.`;

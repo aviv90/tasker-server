@@ -16,7 +16,8 @@ import {
   NEW_REQUEST_VS_RETRY_RULE,
   RETRY_SPECIFIC_STEPS_RULE,
   FOLLOW_UP_VS_RETRY_RULE,
-  SCHEDULING_RULE
+  SCHEDULING_RULE,
+  BUILD_VERIFICATION_RULE
 } from './rules';
 import { getHistoryContextRules } from '../tools-list';
 
@@ -63,6 +64,8 @@ ${MUSIC_CREATION_RULE}
 ${WEB_SEARCH_RULE}
 
 ${SCHEDULING_RULE}
+
+${BUILD_VERIFICATION_RULE}
 
 If unsure or request is unclear (e.g., "פסוקית תמורה", "טרטר"), just respond with text - no tool needed.`;
 }

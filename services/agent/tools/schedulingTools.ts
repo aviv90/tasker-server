@@ -17,16 +17,39 @@ export const schedule_message = {
                 time: {
                     type: 'string',
                     description: 'The time to send the message in ISO 8601 format (e.g., 2023-12-25T14:30:00+02:00).'
+                },
+                recipient: {
+                    type: 'string',
+                    description: 'Optional: The name of the contact or group to send the message to. If not provided, the message will be sent to the current chat. Use fuzzy search to find the best match.'
                 }
             },
             required: ['message', 'time']
         }
     },
-    execute: async (args: { message: string, time: string }, context: { chatId: string }) => {
+    execute: async (args: { message: string, time: string, recipient?: string }, context: { chatId: string }) => {
         try {
             // Lazy load container to avoid circular dependencies
             // eslint-disable-next-line @typescript-eslint/no-var-requires
             const container = require('../../container').default;
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const groupService = require('../../groupService');
+
+            let targetChatId = context.chatId;
+            let recipientName = 'Current Chat';
+
+            // If recipient is provided, try to resolve it
+            if (args.recipient) {
+                const contact = await groupService.findContactByName(args.recipient);
+                if (contact) {
+                    targetChatId = contact.contactId;
+                    recipientName = contact.contactName;
+                } else {
+                    return {
+                        success: false,
+                        error: `Could not find contact or group named "${args.recipient}". Please try a different name.`
+                    };
+                }
+            }
 
             let timeStr = args.time;
 
@@ -74,7 +97,7 @@ export const schedule_message = {
             }
 
             const task = await container.getService('scheduledTasks').scheduleMessage(
-                context.chatId,
+                targetChatId,
                 args.message,
                 scheduledAt
             );
@@ -83,7 +106,7 @@ export const schedule_message = {
                 success: true,
                 taskId: task.id,
                 scheduledAt: task.scheduledAt.toISOString(),
-                message: `Message scheduled for ${task.scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`
+                message: `Message scheduled for ${task.scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })} to ${recipientName}`
             };
         } catch (error: any) {
             return {
