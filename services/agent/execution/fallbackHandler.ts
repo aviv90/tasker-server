@@ -60,7 +60,7 @@ export class FallbackHandler {
                             // If no caption but text exists and is not a generic success message, use text as caption
                             if (!caption && result.text && typeof result.text === 'string' && result.text.trim()) {
 
-                                const textToCheck = cleanMediaDescription(result.text);
+
                                 caption = result.text;
                             }
 
@@ -100,7 +100,7 @@ export class FallbackHandler {
                             // If no caption but text exists and is not a generic success message, use text as caption
                             if (!caption && result.text && typeof result.text === 'string' && result.text.trim()) {
 
-                                const textToCheck = cleanMediaDescription(result.text);
+
                                 caption = result.text;
                             }
 
