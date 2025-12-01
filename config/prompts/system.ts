@@ -3,8 +3,8 @@
  * Extracted from main prompts.ts for better organization
  */
 
-import { 
-  CRITICAL_LANGUAGE_RULE, 
+import {
+  CRITICAL_LANGUAGE_RULE,
   CRITICAL_GENDER_RULE,
   CHAT_HISTORY_RULE,
   CONVERSATION_HISTORY_CONTEXT_RULE,
@@ -15,7 +15,8 @@ import {
   AUDIO_TRANSLATION_RULES,
   NEW_REQUEST_VS_RETRY_RULE,
   RETRY_SPECIFIC_STEPS_RULE,
-  FOLLOW_UP_VS_RETRY_RULE
+  FOLLOW_UP_VS_RETRY_RULE,
+  SCHEDULING_RULE
 } from './rules';
 import { getHistoryContextRules } from '../tools-list';
 
@@ -59,6 +60,8 @@ ${MUSIC_CREATION_RULE}
 
 ${WEB_SEARCH_RULE}
 
+${SCHEDULING_RULE}
+
 If unsure or request is unclear (e.g., "פסוקית תמורה", "טרטר"), just respond with text - no tool needed.`;
 }
 
@@ -88,6 +91,7 @@ TOOLS: Use the appropriate tool based on step action:
 • Questions about chat/group/conversation / "מתי כל חבר יכול להיפגש" / "מה דיברנו על X" → get_chat_history
 • "say X in Y" / "אמור X ב-Y" → translate_and_speak
 • "say X" / "אמור X" (no language) → text_to_speech
+• "remind me" / "schedule" / "תזכיר לי" / "תזכורת" → schedule_message
 • Text only → no tools
 
 **CRITICAL: Use search_web for current information (time, date, weather, news) - NEVER say "I don't know"!**
@@ -145,7 +149,7 @@ export function grokSystemInstruction(language: string): string {
 export function searchSystemInstruction(query: string, languageInstruction: string): string {
   const isHebrew = languageInstruction.includes('עברית') || languageInstruction.includes('בעברית');
   const langText = isHebrew ? 'בעברית' : languageInstruction.replace(/^.*?:\s*/, '').toLowerCase();
-  
+
   if (isHebrew) {
     return `אתה עוזר חיפוש מועיל. חפש "${query}" וענה בעברית. ספק קישורים רלוונטיים אם נמצאו.`;
   } else {

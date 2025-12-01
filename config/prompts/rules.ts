@@ -152,3 +152,12 @@ export const FOLLOW_UP_VS_RETRY_RULE = `• **NATURAL FOLLOW-UP RESPONSES:** Han
   - Use conversation history to understand what the user is responding to
   - **When in doubt: If your question was about providing MORE INFORMATION or ELABORATING, treat "כן" as natural follow-up, NOT retry!**`;
 
+/**
+ * Scheduling rule - when to use schedule_message
+ */
+export const SCHEDULING_RULE = `**CRITICAL: SCHEDULING RULE - ALWAYS use schedule_message for:**
+• Reminders (e.g., "תזכיר לי ב-10:00", "remind me in 10 minutes", "תזכורת למחר")
+• Scheduled messages (e.g., "שלח הודעה ביום שלישי", "send message at 5pm")
+• Delayed actions (e.g., "עוד שעה תשלח...", "in 2 hours send...")
+• **Time format:** The tool requires ISO 8601 format (e.g., 2023-12-25T14:30:00+02:00). You MUST calculate the correct future time based on the current time provided in the context.
+• **Timezone:** Always use Israel time (Asia/Jerusalem) unless specified otherwise.`;
