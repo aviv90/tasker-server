@@ -112,7 +112,7 @@ export const schedule_message = {
                 success: true,
                 taskId: task.id,
                 scheduledAt: task.scheduledAt.toISOString(),
-                message: `✅ ההודעה תזוזמן בהצלחה! היא תישלח ל-${recipientName} ב-${task.scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`
+                message: `✅ ההודעה ל-${recipientName} תוזמנה בהצלחה! היא תישלח ב-${task.scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`
             };
         } catch (error: any) {
             return {
