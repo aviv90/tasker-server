@@ -172,3 +172,24 @@ export const BUILD_VERIFICATION_RULE = `**CRITICAL: BUILD VERIFICATION RULE - MA
 • **DO NOT DEPLOY** or mark task as complete until the build passes locally (exit code 0).
 • This ensures that no TypeScript errors, unused variables, or broken tests are pushed to production.
 • If the build fails, FIX IT immediately before proceeding.`;
+
+/**
+ * Test creation rule - mandatory unit tests for new features
+ */
+export const TEST_CREATION_RULE = `**CRITICAL: TEST CREATION RULE - MANDATORY UNIT TESTS:**
+• **FOR EVERY NEW FEATURE OR LOGIC CHANGE:**
+• **YOU MUST CREATE OR UPDATE UNIT TESTS.**
+• Do not consider a feature "done" without a corresponding test file in \`tests/unit/\` or \`tests/verification/\`.
+• The test must verify the core functionality and edge cases of the new feature.
+• This ensures long-term stability and prevents regressions.`;
+
+/**
+ * Constructive feedback rule - do not be a "Yes Man"
+ */
+export const CONSTRUCTIVE_FEEDBACK_RULE = `**CRITICAL: CONSTRUCTIVE FEEDBACK RULE - DO NOT BE A "YES MAN":**
+• **Challenge Assumptions:** If the user's request or assumption is technically flawed, inefficient, or dangerous, YOU MUST SAY SO.
+• **Propose Better Alternatives:** Always suggest the BEST technical approach, even if it differs from what the user asked.
+• **Be Honest:** Do not blindly agree. If you see a potential bug, security risk, or architectural flaw in the user's plan, point it out immediately.
+• **Your Value:** The user values your expertise. Your job is to build the *best* solution, not just the one requested.`;
+
+

@@ -33,7 +33,8 @@ interface GeminiTextResult {
  */
 interface Contact {
   contact_id: string;
-  contact_name?: string;
+  contact_name?: string; // Legacy snake_case
+  contactName?: string;  // camelCase (from raw_data)
   name?: string;
   type?: string;
   [key: string]: unknown;
@@ -93,35 +94,35 @@ interface ContactSearchResult {
 export async function parseGroupCreationPrompt(prompt: string): Promise<ParsedGroupCreation> {
   try {
     logger.debug('🔍 Parsing group creation prompt with Gemini...');
-    
+
     // Use centralized prompt from config/prompts.ts (SSOT - Phase 5.1)
     const parsingPrompt = prompts.groupCreationParsingPrompt(prompt);
 
     const result = await geminiText(parsingPrompt, [], { model: 'gemini-2.5-flash' }) as GeminiTextResult | null;
-    
+
     if (!result || !result.text) {
       throw new Error('No response from Gemini');
     }
-    
+
     let rawText = result.text.trim();
-    
+
     // Remove markdown code fences if present
     rawText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-    
+
     const parsed = JSON.parse(rawText) as ParsedGroupCreation;
-    
+
     // Validate structure
     if (!parsed.groupName || !Array.isArray(parsed.participants) || parsed.participants.length === 0) {
       throw new Error('Invalid parsed structure');
     }
-    
+
     logger.info(`✅ Parsed group creation request:`, {
       groupName: parsed.groupName,
       participants: parsed.participants
     });
-    
+
     return parsed;
-    
+
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error('❌ Error parsing group creation prompt:', { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
@@ -140,19 +141,19 @@ export async function parseGroupCreationPrompt(prompt: string): Promise<ParsedGr
 export function levenshteinDistance(str1: string, str2: string): number {
   const s1 = str1.toLowerCase();
   const s2 = str2.toLowerCase();
-  
+
   const matrix: number[][] = [];
-  
+
   for (let i = 0; i <= s2.length; i++) {
     matrix[i] = [i];
   }
-  
+
   for (let j = 0; j <= s1.length; j++) {
     if (matrix[0]) {
       matrix[0][j] = j;
     }
   }
-  
+
   for (let i = 1; i <= s2.length; i++) {
     for (let j = 1; j <= s1.length; j++) {
       if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
@@ -166,7 +167,7 @@ export function levenshteinDistance(str1: string, str2: string): number {
       }
     }
   }
-  
+
   return matrix[s2.length]?.[s1.length] ?? Infinity;
 }
 
@@ -181,7 +182,7 @@ export function levenshteinDistance(str1: string, str2: string): number {
 export function similarityScore(str1: string, str2: string): number {
   const maxLength = Math.max(str1.length, str2.length);
   if (maxLength === 0) return 1.0;
-  
+
   const distance = levenshteinDistance(str1, str2);
   return 1.0 - distance / maxLength;
 }
@@ -199,22 +200,23 @@ export function similarityScore(str1: string, str2: string): number {
 function findBestContactMatch(searchName: string, contacts: Contact[], threshold: number = 0.6): ContactMatch | null {
   let bestMatch: Contact | null = null;
   let bestScore = 0;
-  
+
   for (const contact of contacts) {
     // Match both private chats (@c.us) AND groups (@g.us)
     if (!contact.contact_id) {
       continue;
     }
-    
-    // Check contact_name field (priority 1)
-    if (contact.contact_name) {
-      const score = similarityScore(searchName, contact.contact_name);
+
+    // Check contact_name/contactName field (priority 1)
+    const cName = contact.contactName || contact.contact_name;
+    if (cName) {
+      const score = similarityScore(searchName, cName);
       if (score > bestScore) {
         bestScore = score;
         bestMatch = contact;
       }
     }
-    
+
     // Check name field (priority 2)
     if (contact.name) {
       const score = similarityScore(searchName, contact.name);
@@ -223,16 +225,17 @@ function findBestContactMatch(searchName: string, contacts: Contact[], threshold
         bestMatch = contact;
       }
     }
-    
+
     // Check if search name is contained in contact name (substring match)
-    if (contact.contact_name && contact.contact_name.toLowerCase().includes(searchName.toLowerCase())) {
+    const cNameForSubstring = contact.contactName || contact.contact_name;
+    if (cNameForSubstring && cNameForSubstring.toLowerCase().includes(searchName.toLowerCase())) {
       const score = 0.8; // High score for substring match
       if (score > bestScore) {
         bestScore = score;
         bestMatch = contact;
       }
     }
-    
+
     if (contact.name && contact.name.toLowerCase().includes(searchName.toLowerCase())) {
       const score = 0.8;
       if (score > bestScore) {
@@ -241,13 +244,14 @@ function findBestContactMatch(searchName: string, contacts: Contact[], threshold
       }
     }
   }
-  
+
   // Return match only if it meets threshold
   if (bestMatch && bestScore >= threshold) {
-    logger.debug(`   ✓ Found match for "${searchName}": ${bestMatch.contact_name || bestMatch.name} (score: ${bestScore.toFixed(2)})`);
+    const matchName = bestMatch.contactName || bestMatch.contact_name || bestMatch.name;
+    logger.debug(`   ✓ Found match for "${searchName}": ${matchName} (score: ${bestScore.toFixed(2)})`);
     return { contact: bestMatch, score: bestScore };
   }
-  
+
   logger.debug(`   ✗ No match found for "${searchName}" (best score: ${bestScore.toFixed(2)})`);
   return null;
 }
@@ -261,41 +265,41 @@ function findBestContactMatch(searchName: string, contacts: Contact[], threshold
 export async function resolveParticipants(participantNames: string[]): Promise<ParticipantResolutionResult> {
   try {
     logger.debug(`🔍 Resolving ${participantNames.length} participants...`);
-    
+
     // Get all contacts from database
     const contacts = await conversationManager.getAllContacts() as Contact[];
-    
+
     if (!contacts || contacts.length === 0) {
       throw new Error('No contacts found in database. Please sync contacts first using "עדכן אנשי קשר"');
     }
-    
+
     logger.debug(`📇 Searching through ${contacts.length} contacts in database`);
-    
+
     const resolved: ResolvedParticipant[] = [];
     const notFound: string[] = [];
-    
+
     for (const participantName of participantNames) {
       const match = findBestContactMatch(participantName, contacts);
-      
+
       if (match) {
         resolved.push({
           searchName: participantName,
           contactId: match.contact.contact_id,
-          contactName: match.contact.contact_name || match.contact.name || '',
+          contactName: match.contact.contactName || match.contact.contact_name || match.contact.name || '',
           matchScore: match.score
         });
       } else {
         notFound.push(participantName);
       }
     }
-    
+
     logger.info(`✅ Resolved ${resolved.length}/${participantNames.length} participants`, { notFound: notFound.length > 0 ? notFound : undefined });
     if (notFound.length > 0) {
       logger.warn(`⚠️ Could not find: ${notFound.join(', ')}`);
     }
-    
+
     return { resolved, notFound };
-    
+
   } catch (error: unknown) {
     logger.error('❌ Error resolving participants:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
     throw error;
@@ -313,7 +317,7 @@ export async function resolveParticipants(participantNames: string[]): Promise<P
 export async function findContactByName(searchName: string, threshold: number = 0.6): Promise<ContactSearchResult | null> {
   try {
     logger.debug(`🔍 Searching for contact/group: "${searchName}"`);
-    
+
     // Try cache first (cache key includes search name and threshold)
     const cacheKey = CacheKeys.contact(`${searchName}:${threshold}`);
     const cached = get<ContactSearchResult | null>(cacheKey);
@@ -321,53 +325,53 @@ export async function findContactByName(searchName: string, threshold: number = 
       logger.debug(`✅ Contact found in cache`, { searchName });
       return cached;
     }
-    
+
     // Get all contacts from database (includes both private contacts and groups)
     // This itself is cached, so it's fast
     const contacts = await conversationManager.getAllContacts() as Contact[];
-    
+
     if (!contacts || contacts.length === 0) {
       logger.warn('⚠️ No contacts/groups found in database');
       return null;
     }
-    
+
     logger.debug(`📇 Searching through ${contacts.length} contacts and groups in database`);
-    
+
     const match = findBestContactMatch(searchName, contacts, threshold);
-    
+
     if (match) {
       const isGroup = match.contact.contact_id.endsWith('@g.us');
       const entityType = getEntityType(isGroup);
-      
+
       const result: ContactSearchResult = {
         contactId: match.contact.contact_id,
-        contactName: match.contact.contact_name || match.contact.name || '',
+        contactName: match.contact.contactName || match.contact.contact_name || match.contact.name || '',
         matchScore: match.score,
         isGroup: isGroup,
         // Keep all original contact data for flexibility
         originalName: match.contact.name,
-        originalContactName: match.contact.contact_name,
+        originalContactName: match.contact.contactName || match.contact.contact_name,
         type: match.contact.type
       };
-      
+
       // Cache successful lookup for 5 minutes
       set(cacheKey, result, CacheTTL.MEDIUM);
-      
+
       logger.debug(`✅ Found ${entityType}`, {
         searchName,
         foundName: result.contactName,
         score: match.score.toFixed(2),
         isGroup
       });
-      
+
       return result;
     }
-    
+
     logger.debug(`❌ No match found for "${searchName}"`);
     // Cache null results for shorter time (1 minute) to avoid repeated failed lookups
     set(cacheKey, null, CacheTTL.SHORT);
     return null;
-    
+
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;

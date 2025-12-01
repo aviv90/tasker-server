@@ -1,0 +1,443 @@
+---
+description: Every new feature must include comprehensive unit tests - no exceptions
+---
+
+# Unit Tests for New Features
+
+## Core Principle
+
+**CRITICAL: Every new feature implementation MUST include comprehensive unit tests. No feature is complete without tests.**
+
+Testing is not optional - it's a fundamental part of development that ensures:
+- Code works correctly
+- Bugs are caught early
+- Refactoring is safe
+- Code quality is maintained
+- Documentation through examples
+
+---
+
+## ✅ **What Must Be Tested:**
+
+### **For Every New Feature:**
+
+1. ✅ **Core functionality** - Main feature behavior
+2. ✅ **Edge cases** - Boundary conditions, null/undefined inputs
+3. ✅ **Error handling** - Invalid inputs, failure scenarios
+4. ✅ **Success paths** - Happy path scenarios
+5. ✅ **Input validation** - All validation logic
+6. ✅ **Output format** - Correct return types and structures
+
+### **For Every New Function/Class:**
+
+- ✅ All public methods/functions
+- ✅ Constructor/initialization logic
+- ✅ State management (if applicable)
+- ✅ Error cases and exceptions
+- ✅ Boundary conditions
+
+---
+
+## 📋 **Test File Requirements:**
+
+### **File Naming:**
+- Test files MUST follow the pattern: `*.test.ts` (TypeScript) or `*.test.js` (JavaScript)
+- Place test files:
+  - **Next to source file**: `utils/errorHandler.ts` → `utils/errorHandler.test.ts`
+  - **Or in dedicated test directory**: `services/myService.ts` → `tests/unit/myService.test.ts`
+- Keep same directory structure as source code
+
+### **Test File Structure:**
+
+```typescript
+/**
+ * [Feature Name] Tests
+ * Unit tests for [feature description]
+ */
+
+import { function1, function2, class1 } from './sourceFile';
+
+describe('[Feature/Module Name]', () => {
+  describe('[function/class name]', () => {
+    it('should [expected behavior]', () => {
+      // Arrange
+      const input = 'test input';
+      
+      // Act
+      const result = function1(input);
+      
+      // Assert
+      expect(result).toBe('expected output');
+    });
+
+    it('should handle edge case [description]', () => {
+      // Test edge cases
+    });
+
+    it('should throw error for invalid input', () => {
+      // Test error handling
+    });
+  });
+});
+```
+
+---
+
+## 🎯 **What to Test:**
+
+### **1. Core Functionality (Happy Path)**
+
+✅ **Test the main use case:**
+
+```typescript
+describe('generateImage', () => {
+  it('should generate image from valid prompt', async () => {
+    const prompt = 'A beautiful sunset';
+    const result = await generateImage(prompt);
+    
+    expect(result).toHaveProperty('imageUrl');
+    expect(result.imageUrl).toMatch(/^https?:\/\//);
+  });
+});
+```
+
+### **2. Input Validation**
+
+✅ **Test invalid inputs:**
+
+```typescript
+describe('validateInput', () => {
+  it('should throw for null input', () => {
+    expect(() => validateInput(null)).toThrow();
+  });
+
+  it('should throw for empty string', () => {
+    expect(() => validateInput('')).toThrow();
+  });
+
+  it('should throw for invalid type', () => {
+    expect(() => validateInput(123)).toThrow();
+  });
+});
+```
+
+### **3. Edge Cases**
+
+✅ **Test boundary conditions:**
+
+```typescript
+describe('processData', () => {
+  it('should handle empty array', () => {
+    expect(processData([])).toEqual([]);
+  });
+
+  it('should handle maximum length input', () => {
+    const maxInput = 'a'.repeat(10000);
+    expect(() => processData(maxInput)).not.toThrow();
+  });
+
+  it('should handle special characters', () => {
+    const special = 'test 😀 שלום !@#$%';
+    expect(processData(special)).toBeDefined();
+  });
+});
+```
+
+### **4. Error Handling**
+
+✅ **Test error scenarios:**
+
+```typescript
+describe('fetchData', () => {
+  it('should handle network errors', async () => {
+    // Mock network failure
+    mockFetch.mockRejectedValue(new Error('Network error'));
+    
+    await expect(fetchData('url')).rejects.toThrow('Network error');
+  });
+
+  it('should handle API errors', async () => {
+    mockFetch.mockResolvedValue({ status: 500 });
+    
+    await expect(fetchData('url')).rejects.toThrow();
+  });
+});
+```
+
+### **5. Side Effects & State**
+
+✅ **Test state changes:**
+
+```typescript
+describe('TaskManager', () => {
+  it('should add task to list', () => {
+    const manager = new TaskManager();
+    manager.addTask({ id: 1, name: 'Test' });
+    
+    expect(manager.getTasks()).toHaveLength(1);
+    expect(manager.getTasks()[0].name).toBe('Test');
+  });
+
+  it('should remove task by id', () => {
+    const manager = new TaskManager();
+    manager.addTask({ id: 1, name: 'Test' });
+    manager.removeTask(1);
+    
+    expect(manager.getTasks()).toHaveLength(0);
+  });
+});
+```
+
+---
+
+## 🚨 **When to Create Tests:**
+
+### **MUST create tests when:**
+
+- ✅ Adding a new feature
+- ✅ Adding a new function/method
+- ✅ Adding a new class/service
+- ✅ Adding new business logic
+- ✅ Adding new validation logic
+- ✅ Adding new utility functions
+- ✅ Adding new API endpoints (unit tests for handlers)
+
+### **Test Coverage Requirements:**
+
+- ✅ **Minimum 80% code coverage** for new code
+- ✅ **100% coverage** for critical business logic
+- ✅ **All public APIs** must have tests
+- ✅ **All error paths** must be tested
+
+---
+
+## ❌ **Common Mistakes to Avoid:**
+
+1. ❌ **Skipping tests** - "I'll add them later"
+   - Tests should be written **alongside** code, not after
+
+2. ❌ **Only testing happy path** - "It works for normal cases"
+   - Edge cases and errors are where bugs hide!
+
+3. ❌ **Testing implementation details** - Testing private methods
+   - Focus on public APIs and behavior
+
+4. ❌ **Incomplete assertions** - Only checking return value
+   - Check state, side effects, error messages
+
+5. ❌ **No cleanup** - Leaving mocks/stubs active
+   - Use `afterEach`/`afterAll` to clean up
+
+6. ❌ **Flaky tests** - Tests that sometimes pass/fail
+   - Tests must be deterministic and isolated
+
+---
+
+## 📝 **Best Practices:**
+
+### **1. Use Descriptive Test Names:**
+
+```typescript
+// ✅ Good: Clear what's being tested
+it('should return error when API key is invalid', () => { ... });
+
+// ❌ Bad: Vague
+it('should work', () => { ... });
+```
+
+### **2. Follow AAA Pattern:**
+
+```typescript
+it('should process valid input', () => {
+  // Arrange - Set up test data
+  const input = 'test data';
+  const expected = 'processed data';
+  
+  // Act - Execute the code
+  const result = processData(input);
+  
+  // Assert - Verify the result
+  expect(result).toBe(expected);
+});
+```
+
+### **3. Test One Thing Per Test:**
+
+```typescript
+// ✅ Good: One test, one assertion
+it('should validate email format', () => {
+  expect(validateEmail('test@example.com')).toBe(true);
+});
+
+it('should reject invalid email format', () => {
+  expect(validateEmail('invalid')).toBe(false);
+});
+
+// ❌ Bad: Multiple concerns in one test
+it('should validate emails', () => {
+  expect(validateEmail('test@example.com')).toBe(true);
+  expect(validateEmail('invalid')).toBe(false);
+  expect(validateEmail(null)).toThrow();
+});
+```
+
+### **4. Use Mocks Appropriately:**
+
+```typescript
+// ✅ Good: Mock external dependencies
+const mockApiCall = jest.fn().mockResolvedValue({ data: 'test' });
+const result = await myFunction(mockApiCall);
+
+// ❌ Bad: Don't mock what you're testing
+const mockMyFunction = jest.fn();
+mockMyFunction();
+```
+
+### **5. Test Error Messages:**
+
+```typescript
+// ✅ Good: Verify error message
+it('should throw descriptive error', () => {
+  expect(() => processData(null)).toThrow('Input cannot be null');
+});
+
+// ❌ Bad: Just check that error is thrown
+it('should throw error', () => {
+  expect(() => processData(null)).toThrow();
+});
+```
+
+---
+
+## 🎯 **Integration with Rule 11:**
+
+This rule works **together** with Rule 11 (Build and Test Validation):
+
+1. ✅ **Write tests** (Rule 12) → Alongside feature code
+2. ✅ **Run tests** (Rule 11) → After feature is complete
+3. ✅ **Fix failures** → Until all tests pass
+4. ✅ **Complete task** → Only when tests pass
+
+**Both rules are required - tests must be written AND must pass!**
+
+---
+
+## 📊 **Example: Complete Feature with Tests**
+
+### **Source File:** `services/imageGenerator.ts`
+
+```typescript
+export async function generateImage(prompt: string): Promise<ImageResult> {
+  if (!prompt || prompt.trim().length === 0) {
+    throw new Error('Prompt cannot be empty');
+  }
+  
+  if (prompt.length > 2000) {
+    throw new Error('Prompt too long');
+  }
+  
+  const result = await api.generateImage(prompt);
+  return {
+    imageUrl: result.url,
+    createdAt: new Date()
+  };
+}
+```
+
+### **Test File:** `services/imageGenerator.test.ts`
+
+```typescript
+/**
+ * Image Generator Tests
+ * Unit tests for image generation functionality
+ */
+
+import { generateImage } from './imageGenerator';
+import * as api from './api';
+
+jest.mock('./api');
+
+describe('imageGenerator', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('generateImage', () => {
+    it('should generate image from valid prompt', async () => {
+      // Arrange
+      const prompt = 'A beautiful sunset';
+      const mockResult = { url: 'https://example.com/image.jpg' };
+      (api.generateImage as jest.Mock).mockResolvedValue(mockResult);
+
+      // Act
+      const result = await generateImage(prompt);
+
+      // Assert
+      expect(result).toHaveProperty('imageUrl');
+      expect(result.imageUrl).toBe('https://example.com/image.jpg');
+      expect(result).toHaveProperty('createdAt');
+      expect(api.generateImage).toHaveBeenCalledWith(prompt);
+    });
+
+    it('should throw error for empty prompt', async () => {
+      await expect(generateImage('')).rejects.toThrow('Prompt cannot be empty');
+      await expect(generateImage('   ')).rejects.toThrow('Prompt cannot be empty');
+    });
+
+    it('should throw error for null prompt', async () => {
+      await expect(generateImage(null as any)).rejects.toThrow();
+    });
+
+    it('should throw error for prompt too long', async () => {
+      const longPrompt = 'a'.repeat(2001);
+      await expect(generateImage(longPrompt)).rejects.toThrow('Prompt too long');
+    });
+
+    it('should handle API errors', async () => {
+      const prompt = 'test';
+      const apiError = new Error('API failed');
+      (api.generateImage as jest.Mock).mockRejectedValue(apiError);
+
+      await expect(generateImage(prompt)).rejects.toThrow('API failed');
+    });
+  });
+});
+```
+
+---
+
+## ✅ **Completion Checklist:**
+
+Before marking a feature as complete, verify:
+
+- [ ] Test file created (`*.test.ts` or `*.test.js`)
+- [ ] All public functions/methods have tests
+- [ ] Happy path tested (main functionality)
+- [ ] Edge cases tested (null, empty, max length, etc.)
+- [ ] Error handling tested (invalid inputs, failures)
+- [ ] Tests use descriptive names
+- [ ] Tests follow AAA pattern
+- [ ] Tests are isolated (no dependencies between tests)
+- [ ] Mocks are properly set up and cleaned up
+- [ ] All tests pass (`npm test`)
+- [ ] Test coverage meets requirements (80%+ for new code)
+
+---
+
+## 🎯 **Remember:**
+
+**A feature is only complete when:**
+- ✅ Code is written
+- ✅ Tests are written
+- ✅ Tests pass
+- ✅ Coverage is adequate
+
+**No tests = incomplete feature!**
+
+---
+
+## 🔗 **Related Rules:**
+
+- Rule 11: Build and Test Validation (tests must pass)
+- Rule 9: Code Quality Excellence (tests ensure quality)
+- Rule 1: Clean Code (testable code is clean code)

@@ -240,3 +240,4 @@ Ready for review and deployment! 🚀
 - Rule 5: Don't commit/push (user does this manually after validation)
 - Rule 9: Code quality (build and tests ensure quality)
 - Rule 2: Send errors to client (catch errors before they reach client)
+- **Rule 12: Unit Tests for New Features** (tests must be written before they can be run!)
