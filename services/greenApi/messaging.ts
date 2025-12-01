@@ -6,10 +6,12 @@ import axios from 'axios';
 import { BASE_URL, GREEN_API_API_TOKEN_INSTANCE } from './constants';
 import { TIME } from '../../utils/constants';
 import logger from '../../utils/logger';
-// Handle default export from TypeScript
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const conversationManagerModule = require('../../services/conversationManager');
-const conversationManager = conversationManagerModule.default || conversationManagerModule;
+// Lazy load conversationManager to avoid circular dependency
+function getConversationManager() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const conversationManagerModule = require('../../services/conversationManager');
+  return conversationManagerModule.default || conversationManagerModule;
+}
 
 /**
  * Send text message via Green API
@@ -45,12 +47,12 @@ export async function sendTextMessage(
     });
 
     logger.info(`📤 Message sent to ${chatId}:`, { message: message.substring(0, 50) + '...' });
-    
+
     // Mark message as bot message in cache (if idMessage is in response)
     if (response.data && (response.data as { idMessage?: string }).idMessage) {
-      await conversationManager.markAsBotMessage(chatId, (response.data as { idMessage: string }).idMessage);
+      await getConversationManager().markAsBotMessage(chatId, (response.data as { idMessage: string }).idMessage);
     }
-    
+
     return response.data;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -103,12 +105,12 @@ export async function sendFileByUrl(
     });
 
     logger.info(`✅ File sent to ${chatId}: ${fileName}${caption ? ' with caption: ' + caption : ''}`);
-    
+
     // Mark message as bot message in cache (if idMessage is in response)
     if (response.data && (response.data as { idMessage?: string }).idMessage) {
-      await conversationManager.markAsBotMessage(chatId, (response.data as { idMessage: string }).idMessage);
+      await getConversationManager().markAsBotMessage(chatId, (response.data as { idMessage: string }).idMessage);
     }
-    
+
     return response.data;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -124,7 +126,7 @@ export async function sendFileByUrl(
     }
     const axiosError = error as AxiosError;
     if (axiosError.response) {
-      logger.error(`❌ Green API Error: ${axiosError.response.status} - ${axiosError.response.statusText}`, { 
+      logger.error(`❌ Green API Error: ${axiosError.response.status} - ${axiosError.response.statusText}`, {
         responseData: axiosError.response.data,
         fileName,
         chatId
@@ -189,12 +191,12 @@ export async function sendPoll(
     });
 
     logger.info(`✅ [sendPoll] Poll sent successfully to ${chatId}: "${message}" with ${options.length} options`);
-    
+
     // Mark message as bot message in cache (if idMessage is in response)
     if (response.data && (response.data as { idMessage?: string }).idMessage) {
-      await conversationManager.markAsBotMessage(chatId, (response.data as { idMessage: string }).idMessage);
+      await getConversationManager().markAsBotMessage(chatId, (response.data as { idMessage: string }).idMessage);
     }
-    
+
     return response.data;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -210,9 +212,9 @@ export async function sendPoll(
     }
     const axiosError = error as AxiosError;
     if (axiosError.response) {
-      logger.error(`❌ Green API Error: ${axiosError.response.status} - ${axiosError.response.statusText}`, { 
+      logger.error(`❌ Green API Error: ${axiosError.response.status} - ${axiosError.response.statusText}`, {
         responseData: axiosError.response.data,
-        chatId 
+        chatId
       });
       logger.error('❌ Response data:', { responseData: axiosError.response.data, chatId });
     }
@@ -266,12 +268,12 @@ export async function sendLocation(
     });
 
     logger.info(`📍 Location sent to ${chatId}: ${latitude}, ${longitude}`);
-    
+
     // Mark message as bot message in cache (if idMessage is in response)
     if (response.data && (response.data as { idMessage?: string }).idMessage) {
-      await conversationManager.markAsBotMessage(chatId, (response.data as { idMessage: string }).idMessage);
+      await getConversationManager().markAsBotMessage(chatId, (response.data as { idMessage: string }).idMessage);
     }
-    
+
     return response.data;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -287,7 +289,7 @@ export async function sendLocation(
     }
     const axiosError = error as AxiosError;
     if (axiosError.response) {
-      logger.error(`❌ Green API Error: ${axiosError.response.status} - ${axiosError.response.statusText}`, { 
+      logger.error(`❌ Green API Error: ${axiosError.response.status} - ${axiosError.response.statusText}`, {
         responseData: axiosError.response.data,
         chatId
       });

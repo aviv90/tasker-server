@@ -6,23 +6,25 @@
 import container from '../../container';
 
 export const schedule_message = {
-    name: 'schedule_message',
-    description: 'Schedule a message to be sent at a specific time. Use this when the user asks to be reminded or to send a message later. The time must be in ISO 8601 format (e.g., 2023-12-25T14:30:00+02:00).',
-    parameters: {
-        type: 'OBJECT',
-        properties: {
-            message: {
-                type: 'STRING',
-                description: 'The content of the message to be sent.'
+    declaration: {
+        name: 'schedule_message',
+        description: 'Schedule a message to be sent at a specific time. Use this when the user asks to be reminded or to send a message later. The time must be in ISO 8601 format (e.g., 2023-12-25T14:30:00+02:00).',
+        parameters: {
+            type: 'OBJECT',
+            properties: {
+                message: {
+                    type: 'STRING',
+                    description: 'The content of the message to be sent.'
+                },
+                time: {
+                    type: 'STRING',
+                    description: 'The time to send the message in ISO 8601 format (e.g., 2023-12-25T14:30:00+02:00).'
+                }
             },
-            time: {
-                type: 'STRING',
-                description: 'The time to send the message in ISO 8601 format (e.g., 2023-12-25T14:30:00+02:00).'
-            }
-        },
-        required: ['message', 'time']
+            required: ['message', 'time']
+        }
     },
-    function: async (args: { message: string, time: string }, context: { chatId: string }) => {
+    execute: async (args: { message: string, time: string }, context: { chatId: string }) => {
         try {
             const scheduledAt = new Date(args.time);
 
