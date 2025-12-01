@@ -12,7 +12,8 @@ const mockContainer = {
         scheduleMessage: jest.fn().mockResolvedValue({
             id: 'task-123',
             scheduledAt: new Date('2025-12-25T10:00:00Z')
-        })
+        }),
+        processDueTasks: jest.fn().mockResolvedValue(undefined)
     })
 };
 
