@@ -171,7 +171,8 @@ export async function sendSingleStepText(
 
   // CRITICAL: If no text was sent and no media was sent, send error message
   // This ensures user always gets a response
-  if (!mediaSent && !agentResult.text?.trim()) {
+  // BUT: If the tool explicitly requested to suppress the final response (e.g. create_group), don't send error
+  if (!mediaSent && !agentResult.text?.trim() && !agentResult.suppressFinalResponse) {
     logger.warn(`⚠️ [Text] No text and no media - sending error message to user`);
     const errorMessage = agentResult.error || 'לא הצלחתי להשלים את הבקשה. אנא נסה שוב.';
     await greenApiService.sendTextMessage(chatId, errorMessage, quotedMessageId || undefined, 1000);
