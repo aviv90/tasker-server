@@ -271,18 +271,19 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
 
           // CRITICAL: Gemini requires history to start with 'user' role
           // If history starts with 'model', we cannot leave it (API error) and we shouldn't delete it (Context loss).
-          // BEST PRACTICE: Move the orphaned bot message to the SYSTEM INSTRUCTION as context.
-          // This satisfies the API requirement (history starts with user) while preserving the context.
+          // BEST PRACTICE: Move ALL leading bot messages to the SYSTEM INSTRUCTION as context.
           let validHistory = rawHistory;
-          if (validHistory.length > 0 && validHistory[0] && validHistory[0].role === 'model') {
-            const orphanedMsg = validHistory[0].parts[0]?.text || '';
-            logger.info(`🧠 [Agent] History starts with 'model' - moving message to System Context: "${orphanedMsg.substring(0, 50)}..."`);
+          let orphanedContext = '';
 
-            // Append to system instruction
-            systemInstruction += `\n\nIMPORTANT CONTEXT: The last thing you (the AI) said to the user was: "${orphanedMsg}". The user is responding to this.`;
-
-            // Remove from history array to satisfy API requirement
+          while (validHistory.length > 0 && validHistory[0] && validHistory[0].role === 'model') {
+            const msgText = validHistory[0].parts[0]?.text || '';
+            orphanedContext += `\n- "${msgText}"`;
             validHistory = validHistory.slice(1);
+          }
+
+          if (orphanedContext) {
+            logger.info(`🧠 [Agent] Moved leading 'model' messages to System Context`);
+            systemInstruction += `\n\nIMPORTANT CONTEXT: The last thing(s) you (the AI) said to the user were:${orphanedContext}\nThe user is responding to this.`;
           }
 
           // Also ensure history ends with 'user' (current message will be added)
