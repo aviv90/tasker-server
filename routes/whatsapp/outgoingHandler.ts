@@ -30,25 +30,25 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
   try {
     const messageData = webhookData.messageData;
     const senderData = webhookData.senderData;
-    
+
     // Extract message ID for deduplication
     let messageId = webhookData.idMessage;
-    
+
     // For edited messages, append suffix to ensure they're processed even if original was processed
     if (messageData.typeMessage === 'editedMessage') {
       messageId = `${messageId}_edited_${Date.now()}`;
       logger.debug(`✏️ Edited message (outgoing) - using unique ID for reprocessing: ${messageId}`);
     }
-    
+
     // Check if we already processed this message
     if (processedMessages.has(messageId)) {
       logger.debug(`🔄 Duplicate outgoing message detected, skipping: ${messageId}`);
       return;
     }
-    
+
     // Mark message as processed
     processedMessages.add(messageId);
-    
+
     // Mark outgoing message type in cache
     // All outgoing messages from user are marked as user outgoing
     // Commands will be saved to cache separately in commandSaver after processing
@@ -58,18 +58,18 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
     const senderName = senderData.senderName || senderId;
     const senderContactName = senderData.senderContactName || "";
     const chatName = senderData.chatName || "";
-    
+
     // Extract message text using centralized parser (SSOT)
     const messageText = extractMessageText(messageData);
-    
+
     // Log edited messages
     if (messageData.typeMessage === 'editedMessage' && messageText) {
       logger.info(`✏️ Edited message detected (outgoing): "${messageText}"`);
     }
-    
+
     // Enhanced logging for outgoing messages
     logMessageDetails(messageData, senderName, messageText);
-    
+
     // Handle management commands (without #, only for outgoing messages)
     // Use centralized command detector (SSOT)
     if (messageText && messageText.trim() && !/^#\s+/.test(messageText.trim())) {
@@ -95,29 +95,29 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
         }
       }
     }
-    
+
     // Unified intent router for outgoing when text starts with "# "
     if (messageText && /^#\s+/.test(messageText.trim())) {
       try {
         // Extract the prompt (remove "# " prefix if exists)
         // For edited messages, # might be removed by WhatsApp/Green API
         const basePrompt = messageText.trim().replace(/^#\s+/, '').trim();
-        
+
         // Check if this is a quoted/replied message using centralized parser
         const quotedMessage = messageData.quotedMessage;
         const actualQuote = isActualQuote(messageData, quotedMessage);
-        
+
         let finalPrompt = basePrompt;
         let hasImage = messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage';
         let hasVideo = messageData.typeMessage === 'videoMessage';
         let hasAudio = messageData.typeMessage === 'audioMessage';
-        
+
         // Extract media URLs using centralized parser
         const mediaUrls = extractMediaUrls(messageData);
         let imageUrl = mediaUrls.imageUrl;
         let videoUrl = mediaUrls.videoUrl;
         let audioUrl = mediaUrls.audioUrl;
-        
+
         if (imageUrl) {
           logger.info(`📸 Outgoing: Direct image message, downloadUrl: found`);
         }
@@ -127,20 +127,20 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
         if (audioUrl) {
           logger.debug(`🎵 Outgoing: Direct audio message, downloadUrl: found`);
         }
-        
+
         if (actualQuote && quotedMessage) {
           logger.debug(`🔗 Outgoing: Detected quoted message with stanzaId: ${quotedMessage.stanzaId}`);
-          
+
           // Handle quoted message - merge content
           const quotedResult = await handleQuotedMessage(quotedMessage, basePrompt, chatId);
-          
+
           // Check if there was an error processing the quoted message
           if (quotedResult.error) {
             const originalMessageId = webhookData.idMessage;
             await greenApiService.sendTextMessage(chatId, quotedResult.error, originalMessageId, 1000);
             return;
           }
-          
+
           finalPrompt = quotedResult.prompt || basePrompt;
           hasImage = quotedResult.hasImage;
           hasVideo = quotedResult.hasVideo;
@@ -152,13 +152,13 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
           // This is a media message (image/video) with caption, NOT an actual quote
           // Extract downloadUrl from the message itself using centralized parser
           logger.info(`📸 Outgoing: Media message with caption (not a quote) - Type: ${quotedMessage.typeMessage || 'unknown'}`);
-          
+
           const quotedMedia = await extractQuotedMediaUrls(
-            messageData, 
-            webhookData, 
+            messageData,
+            webhookData,
             chatId
           );
-          
+
           hasImage = quotedMedia.hasImage ?? false;
           hasVideo = quotedMedia.hasVideo ?? false;
           hasAudio = quotedMedia.hasAudio ?? false;
@@ -169,7 +169,7 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
 
         // Prepare quoted context for Agent (if quoted message exists) - Outgoing
         // Use centralized builder (SSOT)
-        const quotedContext = actualQuote && quotedMessage 
+        const quotedContext = actualQuote && quotedMessage
           ? buildQuotedContext(quotedMessage, imageUrl, videoUrl, audioUrl)
           : null;
 
@@ -199,53 +199,79 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
         // ═══════════════════ AGENT MODE (Gemini Function Calling - OUTGOING) ═══════════════════
         // All outgoing requests are routed directly to the Agent for intelligent tool selection
         logger.info('🤖 [AGENT - OUTGOING] Processing request with Gemini Function Calling');
-        
+
         try {
-            // NOTE: User messages are no longer saved to DB to avoid duplication.
-            // All messages are retrieved from Green API getChatHistory when needed.
-            // Commands are saved to DB (persistent) for retry functionality.
-            logger.debug(`💾 [Agent - Outgoing] Processing command (not saving to DB - using Green API history)`);
-            
-            const agentResult = await routeToAgent(normalized, chatId);
-            // Cast RouterAgentResult to HandlerAgentResult if structure is compatible or suppress unused
-            void (agentResult as RouterAgentResult); 
-            
-            // Pass originalMessageId to agentResult for use in result handling
-            if (agentResult) {
-              agentResult.originalMessageId = originalMessageId;
-            }
-            
-            // Get quotedMessageId from agentResult or normalized
-            const quotedMessageId = (agentResult?.originalMessageId || normalized?.originalMessageId || null) as string | null;
-            
-            if (agentResult?.success) {
-              // Use centralized result handling (SSOT - eliminates code duplication)
-              // Cast to HandlerAgentResult to handle type mismatches
-              const handlerResult: HandlerAgentResult = {
-                ...agentResult,
-                imageUrl: agentResult.imageUrl || undefined,
-                videoUrl: agentResult.videoUrl || undefined,
-                audioUrl: agentResult.audioUrl || undefined
-              };
-              await sendAgentResults(chatId, handlerResult, normalized);
-              logger.info(`✅ [Agent - Outgoing] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
-            } else {
-              await sendErrorToUser(chatId, agentResult?.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId: quotedMessageId || undefined });
-            }
-            return; // Exit early - no need for regular flow
-            
-          } catch (agentError: any) {
-            logger.error('❌ [Agent - Outgoing] Error:', { error: agentError.message, stack: agentError.stack });
-            const originalMessageId = webhookData.idMessage;
-            await sendErrorToUser(chatId, agentError, { context: 'REQUEST', quotedMessageId: originalMessageId });
-            return;
+          // NOTE: User messages are no longer saved to DB to avoid duplication.
+          // All messages are retrieved from Green API getChatHistory when needed.
+          // Commands are saved to DB (persistent) for retry functionality.
+          logger.debug(`💾 [Agent - Outgoing] Processing command (not saving to DB - using Green API history)`);
+
+          const agentResult = await routeToAgent(normalized, chatId);
+          // Cast RouterAgentResult to HandlerAgentResult if structure is compatible or suppress unused
+          void (agentResult as RouterAgentResult);
+
+          // Pass originalMessageId to agentResult for use in result handling
+          if (agentResult) {
+            agentResult.originalMessageId = originalMessageId;
           }
-        
+
+          // Get quotedMessageId from agentResult or normalized
+          const quotedMessageId = (agentResult?.originalMessageId || normalized?.originalMessageId || null) as string | null;
+
+          if (agentResult?.success) {
+            // Use centralized result handling (SSOT - eliminates code duplication)
+            // Cast to HandlerAgentResult to handle type mismatches
+            const handlerResult: HandlerAgentResult = {
+              ...agentResult,
+              imageUrl: agentResult.imageUrl || undefined,
+              videoUrl: agentResult.videoUrl || undefined,
+              audioUrl: agentResult.audioUrl || undefined
+            };
+            await sendAgentResults(chatId, handlerResult, normalized);
+            logger.info(`✅ [Agent - Outgoing] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
+          } else {
+            await sendErrorToUser(chatId, agentResult?.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId: quotedMessageId || undefined });
+          }
+          return; // Exit early - no need for regular flow
+
+        } catch (agentError: any) {
+          logger.error('❌ [Agent - Outgoing] Error:', { error: agentError.message, stack: agentError.stack });
+          const originalMessageId = webhookData.idMessage;
+          await sendErrorToUser(chatId, agentError, { context: 'REQUEST', quotedMessageId: originalMessageId });
+          return;
+        }
+
 
       } catch (error: any) {
         logger.error('❌ Command execution error (outgoing):', { error: error.message || error, stack: error.stack });
         const originalMessageId = webhookData.idMessage;
         await sendErrorToUser(chatId, error, { context: 'EXECUTION', quotedMessageId: originalMessageId });
+      }
+    }
+
+    // Handle automatic voice transcription for outgoing messages (User is always authorized)
+    if (messageData.typeMessage === 'audioMessage') {
+      logger.debug(`🎤 Detected outgoing audio message from ${senderName}`);
+
+      const audioUrl = messageData.downloadUrl ||
+        messageData.fileMessageData?.downloadUrl ||
+        messageData.audioMessageData?.downloadUrl;
+
+      if (audioUrl) {
+        logger.info(`🎤 Processing outgoing voice message for transcription`);
+        // Import processVoiceMessageAsync dynamically to avoid circular dependencies if any
+        // or just use the imported one if I add the import at the top.
+        // I'll add the import at the top.
+        const { processVoiceMessageAsync } = await import('./asyncProcessors');
+
+        processVoiceMessageAsync({
+          chatId,
+          senderId,
+          senderName,
+          audioUrl,
+          originalMessageId: webhookData.idMessage
+        });
+        return;
       }
     }
   } catch (error: any) {

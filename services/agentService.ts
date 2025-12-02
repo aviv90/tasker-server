@@ -204,7 +204,9 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
 
         // Scheduling/Reminders (Self-contained to prevent double-ack/confusion)
         /^#?\s*(תזמן|schedule|remind|הזכר|תזכורת|set reminder)\s+/i,
-        /^#?\s*(תזכיר|remind me)\s+(לי|to|that)\s+/i
+        /^#?\s*(תזכיר|remind me)\s+(לי|to|that)\s+/i,
+        /^#?\s*(שלח|send)\s+(הודעה|message).*(בעוד|in|at|ב-|ל-)\s+/i, // "Send message in 30 seconds"
+        /^#?\s*(בעוד|in)\s+\d+/i // Starts with time delay
       ];
 
       // =============================================================================

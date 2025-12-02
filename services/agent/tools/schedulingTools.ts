@@ -2,6 +2,7 @@
  * Scheduling Tools
  * Tools for scheduling messages and reminders.
  */
+import logger from '../../../utils/logger';
 
 // Simple in-memory cache for deduplication (Idempotency)
 const dedupCache = new Map<string, { timestamp: number, result: any }>();
@@ -112,7 +113,7 @@ export const schedule_message = {
                 const oneYearFromNow = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000 * 1.5);
 
                 if (nextYearDate > nowWithBuffer && nextYearDate < oneYearFromNow) {
-                    console.log(`🧠 [Scheduling] Auto-corrected past date ${scheduledAt.toISOString()} to next year ${nextYearDate.toISOString()}`);
+                    logger.info(`🧠 [Scheduling] Auto-corrected past date ${scheduledAt.toISOString()} to next year ${nextYearDate.toISOString()}`);
                     scheduledAt = nextYearDate;
                 } else {
                     return {
