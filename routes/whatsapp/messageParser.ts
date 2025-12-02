@@ -35,10 +35,10 @@ export function extractMessageText(messageData: MessageData): string | null {
     messageText = messageData.extendedTextMessageData?.text;
     // BUT: If this is actually an image/video/sticker with caption (not a reply), extract the caption
     if (!messageText) {
-      messageText = messageData.fileMessageData?.caption || 
-                   messageData.imageMessageData?.caption || 
-                   messageData.videoMessageData?.caption ||
-                   messageData.stickerMessageData?.caption;
+      messageText = messageData.fileMessageData?.caption ||
+        messageData.imageMessageData?.caption ||
+        messageData.videoMessageData?.caption ||
+        messageData.stickerMessageData?.caption;
     }
   } else if (messageData.typeMessage === 'editedMessage') {
     // Handle edited messages - treat them as regular messages
@@ -75,18 +75,18 @@ export function extractMediaUrls(messageData: MessageData): MediaUrls {
 
   // Extract URLs for direct media messages (imageMessage/videoMessage/audioMessage)
   if (messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage') {
-    result.imageUrl = messageData.downloadUrl || 
-                     messageData.fileMessageData?.downloadUrl || 
-                     messageData.imageMessageData?.downloadUrl ||
-                     messageData.stickerMessageData?.downloadUrl || null;
+    result.imageUrl = messageData.downloadUrl ||
+      messageData.fileMessageData?.downloadUrl ||
+      messageData.imageMessageData?.downloadUrl ||
+      messageData.stickerMessageData?.downloadUrl || null;
   } else if (messageData.typeMessage === 'videoMessage') {
-    result.videoUrl = messageData.downloadUrl || 
-                     messageData.fileMessageData?.downloadUrl || 
-                     messageData.videoMessageData?.downloadUrl || null;
+    result.videoUrl = messageData.downloadUrl ||
+      messageData.fileMessageData?.downloadUrl ||
+      messageData.videoMessageData?.downloadUrl || null;
   } else if (messageData.typeMessage === 'audioMessage') {
-    result.audioUrl = messageData.downloadUrl || 
-                     messageData.fileMessageData?.downloadUrl || 
-                     messageData.audioMessageData?.downloadUrl || null;
+    result.audioUrl = messageData.downloadUrl ||
+      messageData.fileMessageData?.downloadUrl ||
+      messageData.audioMessageData?.downloadUrl || null;
   }
 
   return result;
@@ -101,16 +101,16 @@ export function extractMediaUrls(messageData: MessageData): MediaUrls {
  * @returns {Promise<Object>} - Object with imageUrl, videoUrl, audioUrl, hasImage, hasVideo, hasAudio
  */
 export async function extractQuotedMediaUrls(
-    messageData: MessageData, 
-    webhookData: any, // Contains chatId and idMessage
-    _chatId?: string // Optional, can use webhookData
+  messageData: MessageData,
+  webhookData: any, // Contains chatId and idMessage
+  _chatId?: string // Optional, can use webhookData
 ) {
   return extractQuotedMediaUrlsWithCallback(messageData, webhookData.messageData?.quotedMessage, webhookData.senderData?.chatId, webhookData.idMessage);
 }
 
 // Helper to avoid import cycles and match JS logic slightly better adapted
 async function extractQuotedMediaUrlsWithCallback(messageData: MessageData, quotedMessage: MessageData | undefined, chatId: string, messageId: string) {
-    const result = {
+  const result = {
     imageUrl: null as string | null,
     videoUrl: null as string | null,
     audioUrl: null as string | null,
@@ -124,22 +124,22 @@ async function extractQuotedMediaUrlsWithCallback(messageData: MessageData, quot
   }
 
   const quotedType = quotedMessage.typeMessage;
-  
+
   // We need getMessage. Let's import it dynamically to avoid circular dependency issues if any
   const { getMessage } = await import('../../services/greenApiService');
 
   if (quotedType === 'imageMessage' || quotedType === 'stickerMessage') {
     result.hasImage = true;
     // Try all possible locations for downloadUrl
-    result.imageUrl = messageData.downloadUrl || 
-                      messageData.fileMessageData?.downloadUrl || 
-                      messageData.imageMessageData?.downloadUrl ||
-                      messageData.stickerMessageData?.downloadUrl ||
-                      quotedMessage.downloadUrl ||
-                      quotedMessage.fileMessageData?.downloadUrl ||
-                      quotedMessage.imageMessageData?.downloadUrl ||
-                      quotedMessage.stickerMessageData?.downloadUrl || null;
-    
+    result.imageUrl = messageData.downloadUrl ||
+      messageData.fileMessageData?.downloadUrl ||
+      messageData.imageMessageData?.downloadUrl ||
+      messageData.stickerMessageData?.downloadUrl ||
+      quotedMessage.downloadUrl ||
+      quotedMessage.fileMessageData?.downloadUrl ||
+      quotedMessage.imageMessageData?.downloadUrl ||
+      quotedMessage.stickerMessageData?.downloadUrl || null;
+
     // If still not found, try getMessage to fetch the current message's downloadUrl
     if (!result.imageUrl && chatId && messageId) {
       logger.debug('⚠️ Outgoing: downloadUrl not found in webhook, fetching from Green API...');
@@ -152,10 +152,10 @@ async function extractQuotedMediaUrlsWithCallback(messageData: MessageData, quot
           [key: string]: unknown;
         }
         const originalMessage = await getMessage(chatId, messageId) as GreenApiMessage | null;
-        result.imageUrl = originalMessage?.downloadUrl || 
-                         originalMessage?.fileMessageData?.downloadUrl || 
-                         originalMessage?.imageMessageData?.downloadUrl ||
-                         null;
+        result.imageUrl = originalMessage?.downloadUrl ||
+          originalMessage?.fileMessageData?.downloadUrl ||
+          originalMessage?.imageMessageData?.downloadUrl ||
+          null;
         logger.debug(`✅ Outgoing: downloadUrl fetched from getMessage: ${result.imageUrl ? 'found' : 'still NOT FOUND'}`);
       } catch (err: any) {
         logger.error(`❌ Outgoing: Failed to fetch downloadUrl via getMessage:`, { error: err.message, stack: err.stack });
@@ -164,13 +164,13 @@ async function extractQuotedMediaUrlsWithCallback(messageData: MessageData, quot
     logger.debug(`📸 Outgoing: Image with caption detected, final downloadUrl: ${result.imageUrl ? 'found' : 'NOT FOUND'}`);
   } else if (quotedType === 'videoMessage') {
     result.hasVideo = true;
-    result.videoUrl = messageData.downloadUrl || 
-                     messageData.fileMessageData?.downloadUrl || 
-                     messageData.videoMessageData?.downloadUrl ||
-                     quotedMessage.downloadUrl ||
-                     quotedMessage.fileMessageData?.downloadUrl ||
-                     quotedMessage.videoMessageData?.downloadUrl || null;
-    
+    result.videoUrl = messageData.downloadUrl ||
+      messageData.fileMessageData?.downloadUrl ||
+      messageData.videoMessageData?.downloadUrl ||
+      quotedMessage.downloadUrl ||
+      quotedMessage.fileMessageData?.downloadUrl ||
+      quotedMessage.videoMessageData?.downloadUrl || null;
+
     // If still not found, try getMessage to fetch the current message's downloadUrl
     if (!result.videoUrl && chatId && messageId) {
       logger.debug('⚠️ Outgoing: Video downloadUrl not found in webhook, fetching from Green API...');
@@ -182,10 +182,10 @@ async function extractQuotedMediaUrlsWithCallback(messageData: MessageData, quot
           [key: string]: unknown;
         }
         const originalMessage = await getMessage(chatId, messageId) as GreenApiMessage | null;
-        result.videoUrl = originalMessage?.downloadUrl || 
-                         originalMessage?.fileMessageData?.downloadUrl || 
-                         originalMessage?.videoMessageData?.downloadUrl ||
-                         null;
+        result.videoUrl = originalMessage?.downloadUrl ||
+          originalMessage?.fileMessageData?.downloadUrl ||
+          originalMessage?.videoMessageData?.downloadUrl ||
+          null;
         logger.debug(`✅ Outgoing: Video downloadUrl fetched from getMessage: ${result.videoUrl ? 'found' : 'still NOT FOUND'}`);
       } catch (err: any) {
         logger.error(`❌ Outgoing: Failed to fetch video downloadUrl via getMessage:`, { error: err.message, stack: err.stack });
@@ -231,7 +231,7 @@ export function buildQuotedContext(quotedMessage: MessageData, imageUrl?: string
 export function isActualQuote(messageData: MessageData, quotedMessage: MessageData | null = null) { // Added quotedMessage param to match usage
   // Use provided quotedMessage or fallback to messageData.quotedMessage
   const actualQuotedMessage = quotedMessage || messageData.quotedMessage;
-  
+
   if (!actualQuotedMessage || messageData.typeMessage !== 'quotedMessage') {
     return false;
   }
@@ -240,15 +240,25 @@ export function isActualQuote(messageData: MessageData, quotedMessage: MessageDa
   // Check if this is a REAL quote (reply) or just a media message with caption
   const quotedCaption = actualQuotedMessage?.caption;
   const extractedText = messageData.extendedTextMessageData?.text;
-  
+
   // Check if caption matches text (exact match OR caption starts with text, covering "# מה זה..." case)
-  const captionMatchesText = !!(quotedCaption && extractedText && 
-                            (quotedCaption === extractedText || 
-                             quotedCaption.startsWith(extractedText) ||
-                             extractedText.startsWith(quotedCaption)));
-  
+  const captionMatchesText = !!(quotedCaption && extractedText &&
+    (quotedCaption === extractedText ||
+      quotedCaption.startsWith(extractedText) ||
+      extractedText.startsWith(quotedCaption)));
+
   // It's a quote if text doesn't match caption
   return !!(actualQuotedMessage.stanzaId && extractedText && !captionMatchesText);
+}
+
+/**
+ * Extract prompt from message text (remove "# " prefix if exists)
+ * @param {string} messageText - Raw message text
+ * @returns {string} Cleaned prompt
+ */
+export function extractPrompt(messageText: string): string {
+  if (!messageText) return '';
+  return messageText.trim().replace(/^#\s+/, '').trim();
 }
 
 /**
@@ -256,39 +266,40 @@ export function isActualQuote(messageData: MessageData, quotedMessage: MessageDa
  * @param {Object} messageData - Message data from Green API webhook
  * @param {string} senderName - Sender name
  * @param {string} messageText - Extracted message text
+ * @param {string} direction - 'Incoming' or 'Outgoing' (default: 'Outgoing')
  */
-export function logMessageDetails(messageData: MessageData, senderName: string, messageText: string | null) {
-  logger.debug(`📤 Outgoing from ${senderName}:`);
-  logger.debug(`   Message Type: ${messageData.typeMessage}${messageData.typeMessage === 'editedMessage' ? ' ✏️' : ''}`);
-  logger.debug(`   messageText extracted: ${messageText ? `"${messageText.substring(0, 100)}"` : 'NULL/UNDEFINED'}`);
-  
+export function logMessageDetails(messageData: MessageData, senderName: string, messageText: string | null, direction: 'Incoming' | 'Outgoing' = 'Outgoing') {
+  const icon = direction === 'Incoming' ? '📱' : '📤';
+  const logFn = direction === 'Incoming' ? logger.info.bind(logger) : logger.debug.bind(logger);
+
+  logFn(`${icon} ${direction} from ${senderName} | Type: ${messageData.typeMessage}${messageData.typeMessage === 'editedMessage' ? ' ✏️' : ''}`);
+
   if (messageText) {
-    logger.debug(`   Text: ${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}`);
+    logFn(`   Text: ${messageText.substring(0, 100)}${messageText.length > 100 ? '...' : ''}`);
   }
-  
+
   if (messageData.typeMessage === 'imageMessage') {
     const caption = messageData.fileMessageData?.caption || messageData.imageMessageData?.caption;
-    logger.debug(`   Image Caption: ${caption || 'N/A'}`);
+    logFn(`   Image Caption: ${caption || 'N/A'}`);
   }
-  
+
   if (messageData.typeMessage === 'stickerMessage') {
     const caption = messageData.fileMessageData?.caption;
-    logger.debug(`   Sticker Caption: ${caption || 'N/A'} (treating as image)`);
+    logFn(`   Sticker Caption: ${caption || 'N/A'} (treating as image)`);
   }
-  
+
   if (messageData.typeMessage === 'videoMessage') {
     const caption = messageData.fileMessageData?.caption || messageData.videoMessageData?.caption;
-    logger.debug(`   Video Caption: ${caption || 'N/A'}`);
+    logFn(`   Video Caption: ${caption || 'N/A'}`);
   }
-  
+
   if (messageData.typeMessage === 'quotedMessage' && messageData.quotedMessage) {
-    logger.debug(`   Quoted Message Type: ${messageData.quotedMessage.typeMessage}`);
-    // Note: textMessageData might not be in MessageData depending on recursion depth, but we added it to interface
+    logFn(`   Quoted Message Type: ${messageData.quotedMessage.typeMessage}`);
     if (messageData.quotedMessage.textMessageData?.textMessage) {
-      logger.debug(`   Quoted Text: ${messageData.quotedMessage.textMessageData.textMessage.substring(0, 50)}...`);
+      logFn(`   Quoted Text: ${messageData.quotedMessage.textMessageData.textMessage.substring(0, 50)}...`);
     }
     if (messageData.quotedMessage.caption) {
-      logger.debug(`   Quoted Caption: ${messageData.quotedMessage.caption.substring(0, 50)}...`);
+      logFn(`   Quoted Caption: ${messageData.quotedMessage.caption.substring(0, 50)}...`);
     }
   }
 }

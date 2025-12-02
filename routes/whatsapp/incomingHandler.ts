@@ -17,7 +17,7 @@ import { TIME } from '../../utils/constants';
 import { WebhookData } from '../../services/whatsapp/types';
 
 // Import modular handlers
-import { parseIncomingMessage, extractPrompt, logIncomingMessage } from './incoming/messageParsing';
+import { extractMessageText, extractPrompt, logMessageDetails } from './messageParser';
 import {
   isActualQuote,
   extractDirectMediaUrls,
@@ -63,8 +63,9 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
     const chatName = senderData.chatName || "";
 
     // Parse incoming message
-    const { messageText } = parseIncomingMessage(messageData);
-    logIncomingMessage(messageData, senderName, messageText);
+    // Parse incoming message
+    const messageText = extractMessageText(messageData);
+    logMessageDetails(messageData, senderName, messageText, 'Incoming');
 
     // Extract media metadata for storage
     const mediaMetadata = extractMediaMetadata(webhookData);
@@ -163,15 +164,15 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
           if (hasImage && imageUrl) combinedMetadata.imageUrl = imageUrl;
           if (hasVideo && videoUrl) combinedMetadata.videoUrl = videoUrl;
           if (hasAudio && audioUrl) combinedMetadata.audioUrl = audioUrl;
-          
+
           await saveIncomingUserMessage(webhookData, messageText, combinedMetadata);
 
           // Pass originalMessageId to normalized input so it's available for saveLastCommand
           normalized.originalMessageId = originalMessageId;
-          
+
           const agentResult = await routeToAgent(normalized, chatId);
           // Cast RouterAgentResult to HandlerAgentResult if structure is compatible or suppress unused
-          void (agentResult as RouterAgentResult); 
+          void (agentResult as RouterAgentResult);
 
           // Pass originalMessageId to agentResult for use in result handling
           if (agentResult) {
@@ -210,16 +211,16 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
     // Handle automatic voice transcription for authorized users
     if (messageData.typeMessage === 'audioMessage') {
       logger.debug(`🎤 Detected audio message from ${senderName}`);
-      
+
       // Save audio message to DB cache (even if not authorized for transcription)
       await saveIncomingUserMessage(webhookData, messageText, mediaMetadata);
-      
-      const audioUrl = messageData.downloadUrl || 
-                      messageData.fileMessageData?.downloadUrl || 
-                      messageData.audioMessageData?.downloadUrl;
-      
+
+      const audioUrl = messageData.downloadUrl ||
+        messageData.fileMessageData?.downloadUrl ||
+        messageData.audioMessageData?.downloadUrl;
+
       logger.debug(`🔍 Audio URL: ${audioUrl ? 'found' : 'NOT FOUND'}`);
-      
+
       if (audioUrl) {
         // Check if user is authorized for automatic transcription
         const senderDataForAuth = {
@@ -230,7 +231,7 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
           senderId
         };
         logger.debug(`🔍 Checking authorization for: ${JSON.stringify(senderDataForAuth)}`);
-        
+
         const isAuthorized = await conversationManager.isAuthorizedForVoiceTranscription(senderDataForAuth);
         logger.debug(`🔐 Authorization result: ${isAuthorized}`);
 

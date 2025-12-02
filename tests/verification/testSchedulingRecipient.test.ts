@@ -7,18 +7,28 @@ jest.mock('../../services/groupService', () => ({
     findContactByName: jest.fn()
 }));
 
-const mockContainer = {
-    getService: jest.fn().mockReturnValue({
-        scheduleMessage: jest.fn().mockResolvedValue({
-            id: 'task-123',
-            scheduledAt: new Date('2025-12-25T10:00:00Z')
-        }),
-        processDueTasks: jest.fn().mockResolvedValue(undefined)
-    })
-};
+jest.mock('../../utils/logger', () => ({
+    info: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn()
+}));
+
+jest.mock('../../utils/dateUtils', () => ({
+    parseScheduledTime: jest.fn().mockReturnValue(new Date('2025-12-25T10:00:00Z'))
+}));
 
 jest.mock('../../services/container', () => ({
-    default: mockContainer
+    __esModule: true,
+    default: {
+        getService: jest.fn().mockReturnValue({
+            scheduleMessage: jest.fn().mockResolvedValue({
+                id: 'task-123',
+                scheduledAt: new Date('2025-12-25T10:00:00Z')
+            }),
+            processDueTasks: jest.fn().mockResolvedValue(undefined)
+        })
+    }
 }));
 
 // We don't need to import container here if we use the mock object directly for assertions
@@ -39,7 +49,6 @@ describe('schedule_message tool', () => {
         };
 
         const result = await schedule_message.execute(args, mockContext);
-
         expect(result.success).toBe(true);
         // Verify container.getService was called with current-chat-id (indirectly via mock)
         // Since we can't easily spy on the require('container') inside the function without more complex setup,
