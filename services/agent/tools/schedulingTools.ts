@@ -3,6 +3,9 @@
  * Tools for scheduling messages and reminders.
  */
 
+// Simple in-memory cache for deduplication (Idempotency)
+const dedupCache = new Map<string, { timestamp: number, result: any }>();
+
 export const schedule_message = {
     declaration: {
         name: 'schedule_message',
@@ -27,6 +30,15 @@ export const schedule_message = {
         }
     },
     execute: async (args: { message: string, time: string, recipient?: string }, context: { chatId: string }) => {
+        // 🛡️ Idempotency Check
+        // Prevent double scheduling if the agent calls the tool twice or requests overlap
+        const dedupKey = `${context.chatId}:${args.message}:${args.time}:${args.recipient || 'self'}`;
+        const cached = dedupCache.get(dedupKey);
+        if (cached && Date.now() - cached.timestamp < 5000) {
+            console.log(`🔄 [Scheduling] Dedup hit for key: ${dedupKey}, returning cached result`);
+            return cached.result;
+        }
+
         try {
             // Lazy load container to avoid circular dependencies
             // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -77,7 +89,7 @@ export const schedule_message = {
                 }
             }
 
-            const scheduledAt = new Date(timeStr);
+            let scheduledAt = new Date(timeStr);
 
             if (isNaN(scheduledAt.getTime())) {
                 return {
@@ -89,11 +101,25 @@ export const schedule_message = {
             // Allow a buffer of 2 minutes for processing time
             const nowWithBuffer = new Date(now.getTime() - 120000);
 
+            // 🧠 Smart Year Correction
+            // If the date is in the past, check if adding 1 year makes it valid (future)
+            // This handles cases where the LLM defaults to the current year for a date that has already passed (e.g. "May 15" in December)
             if (scheduledAt < nowWithBuffer) {
-                return {
-                    success: false,
-                    error: `Cannot schedule a message in the past. Current time is ${now.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}, but you requested ${scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}. Please provide a future time.`
-                };
+                const nextYearDate = new Date(scheduledAt);
+                nextYearDate.setFullYear(nextYearDate.getFullYear() + 1);
+
+                // If adding a year makes it future (and not too far, e.g. < 1.5 years from now), use it
+                const oneYearFromNow = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000 * 1.5);
+
+                if (nextYearDate > nowWithBuffer && nextYearDate < oneYearFromNow) {
+                    console.log(`🧠 [Scheduling] Auto-corrected past date ${scheduledAt.toISOString()} to next year ${nextYearDate.toISOString()}`);
+                    scheduledAt = nextYearDate;
+                } else {
+                    return {
+                        success: false,
+                        error: `Cannot schedule a message in the past. Current time is ${now.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}, but you requested ${scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}. Please provide a future time.`
+                    };
+                }
             }
 
             // Add "Reminder:" prefix if sending to self (context.chatId)
@@ -118,12 +144,24 @@ export const schedule_message = {
                 ? `✅ ההודעה תוזמנה בהצלחה! היא תישלח ב-${task.scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`
                 : `✅ ההודעה ל-${recipientName} תוזמנה בהצלחה! היא תישלח ב-${task.scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`;
 
-            return {
+            const result = {
                 success: true,
                 taskId: task.id,
                 scheduledAt: task.scheduledAt.toISOString(),
                 message: successMessage
             };
+
+            // Cache result for idempotency
+            dedupCache.set(dedupKey, { timestamp: Date.now(), result });
+
+            // Clean up old cache entries periodically (simple approach)
+            if (dedupCache.size > 100) {
+                for (const [key, value] of dedupCache.entries()) {
+                    if (Date.now() - value.timestamp > 60000) dedupCache.delete(key);
+                }
+            }
+
+            return result;
         } catch (error: any) {
             return {
                 error: `Failed to schedule message: ${error.message}`

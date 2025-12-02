@@ -200,7 +200,11 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
         /^#?\s*(חפש|search).*(במסמכים|בקבצים|ב-?drive|in\s*drive|in\s*documents)/i,
 
         // Direct media requests with clear content
-        /^#?\s*(שלח|send)\s+(תמונה|image|וידאו|video)\s+(של|of)\s+/i
+        /^#?\s*(שלח|send)\s+(תמונה|image|וידאו|video)\s+(של|of)\s+/i,
+
+        // Scheduling/Reminders (Self-contained to prevent double-ack/confusion)
+        /^#?\s*(תזמן|schedule|remind|הזכר|תזכורת|set reminder)\s+/i,
+        /^#?\s*(תזכיר|remind me)\s+(לי|to|that)\s+/i
       ];
 
       // =============================================================================
