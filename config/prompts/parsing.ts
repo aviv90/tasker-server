@@ -21,7 +21,7 @@ Return ONLY a JSON object (no markdown, no extra text) with this exact structure
 Rules:
 1. Recognize group creation keywords: "צור קבוצה", "פתח קבוצה", "הקם קבוצה", "יצירת קבוצה", "create group", "open group", "start group", "new group"
 2. Extract the group name from phrases like "בשם", "קוראים", "שם", "called", "named", or from quotes
-3. Extract participant names from lists after "עם", "with", "והם", "including", etc.
+3. Extract participant names from lists after "עם", "with", "והם", "including", "add", "צרף", "הוסף", etc.
 4. Parse comma-separated names or names with "ו" (and) / "and"
 5. Return names as they appear (don't translate or modify)
 6. If group name is in quotes, extract it without quotes
@@ -29,6 +29,7 @@ Rules:
 8. Extract picture description from phrases like "עם תמונה של", "with picture of", "with image of", etc.
 9. If no picture mentioned, set groupPicture to null
 10. Picture description should be detailed and in English for best image generation results
+11. CRITICAL: Even if there is only ONE participant (e.g., "with Carlos"), you MUST extract it into the participants array.
 
 Examples:
 
@@ -51,7 +52,10 @@ Input: "create group Work Team with Mike, Sarah with picture of a mountain sunse
 Output: {"groupName":"Work Team","participants":["Mike","Sarah"],"groupPicture":"a mountain sunset"}
 
 Input: "open group Friends with John, Lisa, Tom"
-Output: {"groupName":"Friends","participants":["John","Lisa","Tom"],"groupPicture":null}`;
+Output: {"groupName":"Friends","participants":["John","Lisa","Tom"],"groupPicture":null}
+
+Input: "צור קבוצה בשם טוטו עם קרלוס"
+Output: {"groupName":"טוטו","participants":["קרלוס"],"groupPicture":null}`;
 }
 
 /**
