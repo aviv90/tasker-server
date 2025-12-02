@@ -43,6 +43,7 @@ CRITICAL - Common SINGLE-STEP patterns (NOT multi-step):
 - "כתוב שיר" / "לכתוב שיר" / "write song" → SINGLE text response (NO tool! Just write lyrics as text)
 - "צור שיר" / "יצירת שיר" / "create song" / "make music" / "שיר עם מנגינה" → SINGLE create_music
 - "מתי כל חבר יכול להיפגש" / "מה דיברנו על X" / "מי אמר Y" / "מתי נקבעה הפגישה" / "איזה מידע יש על X בשיחה" → SINGLE get_chat_history (questions about chat/group)
+- "צור קבוצה עם תמונה" / "create group with picture" → SINGLE create_group (tool handles image internally!)
 
 CRITICAL - Only multi-step if EXPLICIT sequence:
 - "שלח מיקום **ואז** תמונה" → MULTI (has "ואז")
