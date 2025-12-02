@@ -23,7 +23,7 @@ Rules:
 2. Extract the group name from phrases like "בשם", "קוראים", "שם", "called", "named", or from quotes
 3. Extract participant names from lists after "עם", "with", "והם", "including", "add", "צרף", "הוסף", etc.
 4. Parse comma-separated names or names with "ו" (and) / "and"
-5. Return names as they appear (don't translate or modify)
+5. CRITICAL: Return names EXACTLY as they appear. DO NOT translate them. DO NOT transliterate them. (e.g. "תותו" -> "תותו", NOT "Toto")
 6. If group name is in quotes, extract it without quotes
 7. If no clear group name, use a reasonable default based on context
 8. Extract picture description from phrases like "עם תמונה של", "with picture of", "with image of", etc.
@@ -54,8 +54,8 @@ Output: {"groupName":"Work Team","participants":["Mike","Sarah"],"groupPicture":
 Input: "open group Friends with John, Lisa, Tom"
 Output: {"groupName":"Friends","participants":["John","Lisa","Tom"],"groupPicture":null}
 
-Input: "צור קבוצה בשם טוטו עם קרלוס"
-Output: {"groupName":"טוטו","participants":["קרלוס"],"groupPicture":null}`;
+Input: "צור קבוצה בשם תותו3 עם קרלוס"
+Output: {"groupName":"תותו3","participants":["קרלוס"],"groupPicture":null}`;
 }
 
 /**

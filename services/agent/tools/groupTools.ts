@@ -5,7 +5,7 @@
 
 import fs from 'fs';
 import { extractQuotedMessageId } from '../../../utils/messageHelpers';
-import { defaultSenderName, NOT_FOUND, ERROR } from '../../../config/messages';
+import { NOT_FOUND, ERROR } from '../../../config/messages';
 import { parseGroupCreationPrompt, resolveParticipants } from '../../groupService';
 import { createGroup, setGroupPicture, sendTextMessage, getGroupInviteLink } from '../../greenApiService';
 import { generateImageForWhatsApp } from '../../geminiService';
@@ -15,6 +15,7 @@ import logger from '../../../utils/logger';
 type CreateGroupArgs = {
   group_name?: string;
   participants_description?: string;
+  group_picture_description?: string;
 };
 
 type SenderData = {
@@ -90,6 +91,10 @@ export const create_group = {
         participants_description: {
           type: 'string',
           description: 'תיאור המשתתפים (למשל: "כל חברי המשפחה", "צוות העבודה", וכו\')'
+        },
+        group_picture_description: {
+          type: 'string',
+          description: 'תיאור תמונת הקבוצה (אופציונלי). השתמש בזה אם המשתמש ביקש תמונה ספציפית לקבוצה.'
         }
       },
       required: ['group_name']
@@ -110,8 +115,6 @@ export const create_group = {
       const quotedMessageId = extractQuotedMessageId({ context });
       const senderData = context.originalInput?.senderData ?? {};
       const senderId = senderData.senderId || senderData.sender || '';
-      const senderName =
-        senderData.senderName || senderData.senderContactName || senderId || defaultSenderName;
 
       const rawPrompt = (context.originalInput?.userText || '')
         .replace(/^#\s*/, '')
@@ -121,10 +124,15 @@ export const create_group = {
 
       // If no original text, construct prompt from arguments
       if (!promptForParsing) {
-        if (args.group_name && args.participants_description) {
-          promptForParsing = `Create group "${args.group_name}" with participants: ${args.participants_description}`;
+        const parts = [];
+        if (args.group_name) parts.push(`Create group "${args.group_name}"`);
+        if (args.participants_description) parts.push(`with participants: ${args.participants_description}`);
+        if (args.group_picture_description) parts.push(`with picture of: ${args.group_picture_description}`);
+
+        if (parts.length > 0) {
+          promptForParsing = parts.join(' ');
         } else {
-          promptForParsing = args.participants_description || args.group_name || '';
+          promptForParsing = '';
         }
       }
 
@@ -264,10 +272,8 @@ export const create_group = {
 
       const summaryLines = [
         `✅ הקבוצה "${parsed.groupName}" מוכנה!`,
-        `👤 יוצר: ${senderName}`,
-        `👥 משתתפים: ${resolution.resolved.length}`,
-        groupResult.chatId ? `🆔 מזהה קבוצה: ${groupResult.chatId}` : null,
-        inviteLink ? `🔗 לינק הזמנה: ${inviteLink}` : null
+        `👥 משתתפים: ${resolution.resolved.length + 1}`, // +1 for the creator
+        parsed.groupPicture ? `🎨 תמונת קבוצה: נוצרה ועודכנה` : null
       ].filter(Boolean) as string[];
 
       return {
@@ -291,4 +297,3 @@ export const create_group = {
 
 // ES6 exports only - CommonJS not needed in TypeScript
 export default { create_group };
-
