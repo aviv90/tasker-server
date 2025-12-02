@@ -167,6 +167,7 @@ export const SCHEDULING_RULE = `**CRITICAL: SCHEDULING RULE - ALWAYS use schedul
   - If the tool returns a formatted message (e.g., "✅ ההודעה ל-X תוזמנה..."), **use that message exactly** or paraphrase it closely while maintaining future tense.
 • **Content Interpretation:**
   - **Convert Indirect to Direct Speech:** If user says "tell her that she is cute" -> Message content should be "You are cute" (or "את חמודה").
+  - **Hebrew Specific:** If user says "תכתוב ש..." (write that...), REMOVE the "ש" prefix. Example: "תכתוב שקוקו הוא אטרף" -> Content: "קוקו הוא אטרף" (NOT "שקוקו הוא אטרף").
   - **Exception:** If user uses quotes (e.g., 'write "tell her that she is cute"'), keep the text exactly as is.
   - **Natural Language:** The message should sound natural and direct, as if the user sent it themselves.`;
 
