@@ -14,8 +14,11 @@ jest.mock('../../utils/logger', () => ({
     warn: jest.fn()
 }));
 
-jest.mock('../../utils/dateUtils', () => ({
-    parseScheduledTime: jest.fn().mockReturnValue(new Date('2025-12-25T10:00:00Z'))
+jest.mock('../../utils/dateParser', () => ({
+    DateParser: {
+        parse: jest.fn().mockReturnValue(new Date('2025-12-25T10:00:00Z')),
+        format: jest.fn().mockReturnValue('2025-12-25 10:00')
+    }
 }));
 
 jest.mock('../../services/container', () => ({

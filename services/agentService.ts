@@ -6,27 +6,16 @@
  * - Analyze images/videos/audio from history
  * - Search the web
  * - And more...
+ * 
+ * Refactored to use AgentOrchestrator (Phase P1-4)
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import prompts from '../config/prompts';
-import { config } from '../config';
-import { detectLanguage, extractDetectionText } from '../utils/agentHelpers';
-import { getLanguageInstruction } from './agent/utils/languageUtils';
-import { planMultiStepExecution } from './multiStepPlanner';
-import multiStepExecution from './agent/execution/multiStep';
-import agentLoop from './agent/execution/agentLoop';
-import contextManager from './agent/execution/context';
-import { allTools as agentTools } from './agent/tools';
-import logger from '../utils/logger';
-
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+import agentOrchestrator from './agent/agentOrchestrator';
 
 /**
  * Agent configuration
  */
-interface AgentConfig {
+export interface AgentConfig {
   model: string;
   maxIterations: number;
   timeoutMs: number;
@@ -36,7 +25,7 @@ interface AgentConfig {
 /**
  * Agent input options
  */
-interface AgentInput {
+export interface AgentInput {
   imageUrl?: string | null;
   videoUrl?: string | null;
   audioUrl?: string | null;
@@ -49,7 +38,7 @@ interface AgentInput {
 /**
  * Agent execution options
  */
-interface AgentOptions {
+export interface AgentOptions {
   input?: AgentInput;
   lastCommand?: unknown;
   maxIterations?: number;
@@ -64,7 +53,7 @@ interface AgentOptions {
 /**
  * Agent execution result
  */
-interface AgentResult {
+export interface AgentResult {
   success?: boolean;
   text?: string;
   error?: string;
@@ -89,137 +78,6 @@ interface AgentResult {
  * @returns Response with text and tool usage info
  */
 export async function executeAgentQuery(prompt: string, chatId: string, options: AgentOptions = {}): Promise<AgentResult> {
-  // Detect user's language
-  const userLanguage = detectLanguage(prompt);
-  const languageInstruction = getLanguageInstruction(userLanguage);
-
-  // ⚙️ Configuration: Use centralized config (SSOT)
-  const agentConfig: AgentConfig = {
-    model: config.agent.model,
-    maxIterations: config.agent.maxIterations,
-    timeoutMs: config.agent.timeoutMs,
-    contextMemoryEnabled: config.agent.contextMemoryEnabled
-  };
-
-  // 📎 Extract media URLs from options (for planner context)
-  const input = options.input || {};
-  const imageUrl = input.imageUrl || null;
-  const videoUrl = input.videoUrl || null;
-  const audioUrl = input.audioUrl || null;
-
-  // 🔍 Extract clean user text for multi-step detection (remove metadata)
-  const detectionText = extractDetectionText(prompt);
-
-  // 📎 Add media context for planner (so it knows about attached images/videos)
-  let plannerContext = detectionText;
-  if (imageUrl) {
-    plannerContext = `[תמונה מצורפת]\n${detectionText}`;
-  } else if (videoUrl) {
-    plannerContext = `[וידאו מצורף]\n${detectionText}`;
-  } else if (audioUrl) {
-    plannerContext = `[אודיו מצורף]\n${detectionText}`;
-  }
-
-  // 🧠 Use LLM-based planner to intelligently detect and plan multi-step execution
-  let plan = await planMultiStepExecution(plannerContext);
-
-  logger.info(`🔍 [Planner] Plan result: ${JSON.stringify({
-    isMultiStep: plan.isMultiStep,
-    stepsLength: plan.steps?.length,
-    fallback: plan.fallback,
-    steps: plan.steps?.map((s: { stepNumber?: number; tool?: string | null; action?: string }) => ({
-      stepNumber: s.stepNumber,
-      tool: s.tool,
-      action: s.action?.substring(0, 50)
-    }))
-  }, null, 2)}`);
-
-  // If planner failed, treat as single-step (no heuristic fallback - rely on LLM only)
-  if (plan.fallback) {
-    logger.warn('⚠️ [Planner] Planner failed, treating as single-step');
-    plan = { isMultiStep: false };
-  }
-
-  // 🔄 Multi-step execution - execute each step sequentially
-  if (plan.isMultiStep && plan.steps && plan.steps.length > 1) {
-    // Cast to any to bypass strict Plan type check (structure is compatible at runtime)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return await multiStepExecution.execute(plan as any, chatId, options, languageInstruction, agentConfig) as unknown as AgentResult;
-  }
-
-  // Continue with single-step execution if not multi-step
-  const maxIterations = options.maxIterations || agentConfig.maxIterations;
-  const model = genAI.getGenerativeModel({ model: agentConfig.model });
-
-  // Prepare tool declarations for Gemini
-  const functionDeclarations = Object.values(agentTools as Record<string, { declaration: unknown }>).map((tool) => tool.declaration) as unknown[];
-
-  // System prompt for the agent (SSOT - from config/prompts.ts)
-  let systemInstruction = prompts.agentSystemInstruction(languageInstruction);
-
-  // 🧠 Context for tool execution (load previous context if enabled)
-  let context = contextManager.createInitialContext(chatId, options);
-  context = await contextManager.loadPreviousContext(chatId, context, agentConfig.contextMemoryEnabled);
-
-  // 🧵 Conversation history for the agent (natural chat continuity)
-  // CRITICAL: Smart history management - send history only when it helps, not when it confuses
-  const useConversationHistory = options.useConversationHistory !== false;
-  let history: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
-
-  // Use HistoryStrategy to determine if history should be loaded and process it
-  const { historyStrategy } = await import('./agent/historyStrategy');
-  const historyResult = await historyStrategy.processHistory(chatId, prompt, useConversationHistory);
-
-  history = historyResult.history;
-
-  // Append system context addition if any (from leading bot messages)
-  if (historyResult.systemContextAddition) {
-    systemInstruction += historyResult.systemContextAddition;
-  }
-
-  // Conversation history for the agent
-  const chat = model.startChat({
-    history,
-    tools: [{ functionDeclarations: functionDeclarations as never[] }],
-    systemInstruction: {
-      role: 'system',
-      parts: [{ text: systemInstruction }]
-    }
-  });
-
-  // ⏱️ Wrap entire agent execution with timeout
-  const agentExecution = async (): Promise<AgentResult> => {
-    return await agentLoop.execute(chat, prompt, chatId, context, maxIterations, agentConfig) as unknown as AgentResult;
-  };
-
-  // ⏱️ Execute agent with timeout
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('Agent timeout')), agentConfig.timeoutMs)
-  );
-
-  try {
-    const result = await Promise.race([agentExecution(), timeoutPromise]) as AgentResult;
-
-    // Save context after execution if enabled
-    if (result.success && agentConfig.contextMemoryEnabled) {
-      await contextManager.saveContext(chatId, context, agentConfig.contextMemoryEnabled);
-    }
-
-    return result;
-  } catch (error: unknown) {
-    if (error instanceof Error && error.message === 'Agent timeout') {
-      logger.error(`⏱️ [Agent] Timeout after ${agentConfig.timeoutMs}ms`);
-      return {
-        success: false,
-        error: `⏱️ הפעולה ארכה יותר מדי. נסה בקשה פשוטה יותר או נסה שוב מאוחר יותר.`,
-        toolsUsed: Object.keys((context.previousToolResults as Record<string, unknown>) || {}),
-        timeout: true,
-        toolCalls: context.toolCalls,
-        toolResults: context.previousToolResults,
-        multiStep: false,
-        alreadySent: false
-      };
-    }
-    throw error;
-  }
+  return await agentOrchestrator.execute(prompt, chatId, options);
 }
+

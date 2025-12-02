@@ -10,7 +10,7 @@ const dedupCache = new Map<string, { timestamp: number, result: any }>();
 export const schedule_message = {
     declaration: {
         name: 'schedule_message',
-        description: 'Schedule a message to be sent at a specific time. Use this when the user asks to be reminded or to send a message later. The time must be in ISO 8601 format (e.g., 2023-12-25T14:30:00+02:00).',
+        description: 'Schedule a message to be sent at a specific time. Use this when the user asks to be reminded or to send a message later. Supports ISO 8601 format (e.g., 2023-12-25T14:30:00+02:00) OR natural language (e.g., "tomorrow at 10", "in 5 minutes").',
         parameters: {
             type: 'object',
             properties: {
@@ -20,7 +20,7 @@ export const schedule_message = {
                 },
                 time: {
                     type: 'string',
-                    description: 'The time to send the message in ISO 8601 format (e.g., 2023-12-25T14:30:00+02:00).'
+                    description: 'The time to send the message. Can be ISO 8601 format or natural language (e.g., "tomorrow at 10", "in 5 minutes").'
                 },
                 recipient: {
                     type: 'string',
@@ -44,7 +44,7 @@ export const schedule_message = {
             // Lazy load container to avoid circular dependencies
             const { default: container } = await import('../../container');
             const groupService = await import('../../groupService');
-            const { parseScheduledTime } = await import('../../../utils/dateUtils');
+            const { DateParser } = await import('../../../utils/dateParser');
 
             let targetChatId = context.chatId;
             let recipientName = 'Current Chat';
@@ -63,11 +63,11 @@ export const schedule_message = {
                 }
             }
 
-            const scheduledAt = parseScheduledTime(args.time);
+            const scheduledAt = DateParser.parse(args.time);
 
             if (!scheduledAt) {
                 return {
-                    error: 'Invalid time format. Please use ISO 8601 format.'
+                    error: 'Invalid time format. Please use ISO 8601 format or clear natural language (e.g., "tomorrow at 10").'
                 };
             }
 
@@ -101,8 +101,8 @@ export const schedule_message = {
             });
 
             const successMessage = targetChatId === context.chatId
-                ? `✅ ההודעה תוזמנה בהצלחה! היא תישלח ב-${task.scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`
-                : `✅ ההודעה ל-${recipientName} תוזמנה בהצלחה! היא תישלח ב-${task.scheduledAt.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`;
+                ? `✅ ההודעה תוזמנה בהצלחה! היא תישלח ב-${DateParser.format(task.scheduledAt)}`
+                : `✅ ההודעה ל-${recipientName} תוזמנה בהצלחה! היא תישלח ב-${DateParser.format(task.scheduledAt)}`;
 
             const result = {
                 success: true,

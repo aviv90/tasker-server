@@ -2,29 +2,17 @@
  * Incoming Message Handler
  * 
  * Orchestrator for handling incoming WhatsApp messages from users.
- * Refactored to use modular components (Phase P1-2)
+ * Refactored to use MessageProcessor (Phase P1-3)
  */
 
 // Import services
-import * as greenApiService from '../../services/greenApiService';
 import { sendErrorToUser, ERROR_MESSAGES } from '../../utils/errorSender';
 import conversationManager from '../../services/conversationManager';
 import logger from '../../utils/logger';
-import { routeToAgent, NormalizedInput, AgentResult as RouterAgentResult } from '../../services/agentRouter';
-import { isAuthorizedForMediaCreation } from '../../services/whatsapp/authorization';
+import { routeToAgent, AgentResult as RouterAgentResult } from '../../services/agentRouter';
 import { processVoiceMessageAsync } from './asyncProcessors';
-import { TIME } from '../../utils/constants';
 import { WebhookData } from '../../services/whatsapp/types';
-
-// Import modular handlers
-import { extractMessageText, extractPrompt, logMessageDetails } from './messageParser';
-import {
-  isActualQuote,
-  extractDirectMediaUrls,
-  extractQuotedMediaUrls,
-  processQuotedMessage,
-  buildQuotedContext
-} from './incoming/mediaHandling';
+import { MessageProcessor } from '../../services/whatsapp/messageProcessor';
 import { sendAgentResults, AgentResult as HandlerAgentResult } from './incoming/resultHandling';
 import { saveIncomingUserMessage, extractMediaMetadata } from './incoming/messageStorage';
 
@@ -38,23 +26,11 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
     const messageData = webhookData.messageData;
     const senderData = webhookData.senderData;
 
-    // Extract message ID for deduplication
-    let messageId = webhookData.idMessage;
-
-    // For edited messages, append suffix to ensure they're processed even if original was processed
-    if (messageData.typeMessage === 'editedMessage') {
-      messageId = `${messageId}_edited_${Date.now()}`;
-      logger.debug(`✏️ Edited message - using unique ID for reprocessing: ${messageId}`);
-    }
-
-    // Check if we already processed this message
-    if (processedMessages.has(messageId)) {
-      logger.debug(`🔄 Duplicate message detected, skipping: ${messageId}`);
+    // 1. Deduplication
+    const uniqueId = MessageProcessor.getUniqueMessageId(webhookData);
+    if (MessageProcessor.isDuplicate(uniqueId, processedMessages)) {
       return;
     }
-
-    // Mark message as processed
-    processedMessages.add(messageId);
 
     const chatId = senderData.chatId;
     const senderId = senderData.sender;
@@ -62,178 +38,73 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
     const senderContactName = senderData.senderContactName || "";
     const chatName = senderData.chatName || "";
 
-    // Parse incoming message
-    // Parse incoming message
-    const messageText = extractMessageText(messageData);
-    logMessageDetails(messageData, senderName, messageText, 'Incoming');
+    // 2. Process Message (Parse, Normalize, Extract Media)
+    const result = await MessageProcessor.processMessage(webhookData, chatId, true);
 
-    // Extract media metadata for storage
-    const mediaMetadata = extractMediaMetadata(webhookData);
-
-    // Unified intent router for commands that start with "# "
-    if (messageText && /^#\s+/.test(messageText.trim())) {
-      try {
-        // Extract the prompt (remove "# " prefix if exists)
-        const basePrompt = extractPrompt(messageText);
-
-        // Check if this is a quoted/replied message
-        const quotedMessage = messageData.quotedMessage;
-
-        // Determine if this is an actual quote or media with caption
-        const actualQuote = isActualQuote(messageData, quotedMessage);
-
-        // Extract direct media URLs first
-        const directMedia = extractDirectMediaUrls(messageData);
-        let finalPrompt = basePrompt;
-        let hasImage = directMedia.hasImage;
-        let hasVideo = directMedia.hasVideo;
-        let hasAudio = directMedia.hasAudio;
-        let imageUrl = directMedia.imageUrl;
-        let videoUrl = directMedia.videoUrl;
-        let audioUrl = directMedia.audioUrl;
-
-        // Handle quoted message or media with caption
-        if (actualQuote) {
-          // Process actual quoted message
-          const quotedResult = await processQuotedMessage(quotedMessage!, basePrompt, chatId);
-
-          if (quotedResult.error) {
-            const originalMessageId = webhookData.idMessage;
-            await greenApiService.sendTextMessage(chatId, quotedResult.error, originalMessageId, TIME.TYPING_INDICATOR);
-            return;
-          }
-
-          finalPrompt = quotedResult.prompt || basePrompt;
-          hasImage = quotedResult.hasImage ?? false;
-          hasVideo = quotedResult.hasVideo ?? false;
-          hasAudio = quotedResult.hasAudio ?? false;
-          imageUrl = quotedResult.imageUrl || null;
-          videoUrl = quotedResult.videoUrl || null;
-          audioUrl = quotedResult.audioUrl || null;
-        } else if (messageData.typeMessage === 'quotedMessage' && quotedMessage) {
-          // This is a media message with caption, NOT an actual quote
-          const quotedMedia = await extractQuotedMediaUrls(messageData, webhookData, chatId);
-          hasImage = quotedMedia.hasImage ?? false;
-          hasVideo = quotedMedia.hasVideo ?? false;
-          hasAudio = quotedMedia.hasAudio ?? false;
-          imageUrl = quotedMedia.imageUrl;
-          videoUrl = quotedMedia.videoUrl;
-          audioUrl = quotedMedia.audioUrl;
-        }
-
-        // Prepare quoted context for Agent (if quoted message exists)
-        const quotedContext = actualQuote && quotedMessage
-          ? buildQuotedContext(quotedMessage, imageUrl, videoUrl, audioUrl)
-          : null;
-
-        // Save original message ID for quoting all bot responses
-        const originalMessageId = webhookData.idMessage;
-
-        const normalized: NormalizedInput = {
-          userText: `# ${finalPrompt}`, // Add back the # prefix for router
-          hasImage: hasImage,
-          hasVideo: hasVideo,
-          hasAudio: hasAudio,
-          imageUrl: imageUrl, // Pass media URLs to Agent
-          videoUrl: videoUrl, // Pass media URLs to Agent
-          audioUrl: audioUrl, // Pass media URLs to Agent
-          quotedContext: quotedContext, // Quoted message info for Agent
-          originalMessageId: originalMessageId, // Original message ID for quoting bot responses
-          chatType: chatId && chatId.endsWith('@g.us') ? 'group' : chatId && chatId.endsWith('@c.us') ? 'private' : 'unknown',
-          language: 'he',
-          authorizations: {
-            media_creation: await isAuthorizedForMediaCreation({ senderContactName, chatName, senderName, chatId }),
-            // group_creation and voice_allowed will be checked only when needed (lazy evaluation)
-            group_creation: null,
-            voice_allowed: null
-          },
-          // Pass sender data for lazy authorization checks
-          senderData: { senderContactName, chatName, senderName, chatId, senderId }
-        };
-
-        // ═══════════════════ AGENT MODE (Gemini Function Calling) ═══════════════════
-        // All requests are routed directly to the Agent for intelligent tool selection
-        logger.debug('🤖 [AGENT] Processing request with Gemini Function Calling');
-
-        try {
-          // Save user message to DB cache (centralized storage service)
-          // Combines text with media metadata for complete context
-          const combinedMetadata: Record<string, unknown> = {
-            ...mediaMetadata
-          };
-          if (hasImage && imageUrl) combinedMetadata.imageUrl = imageUrl;
-          if (hasVideo && videoUrl) combinedMetadata.videoUrl = videoUrl;
-          if (hasAudio && audioUrl) combinedMetadata.audioUrl = audioUrl;
-
-          await saveIncomingUserMessage(webhookData, messageText, combinedMetadata);
-
-          // Pass originalMessageId to normalized input so it's available for saveLastCommand
-          normalized.originalMessageId = originalMessageId;
-
-          const agentResult = await routeToAgent(normalized, chatId);
-          // Cast RouterAgentResult to HandlerAgentResult if structure is compatible or suppress unused
-          void (agentResult as RouterAgentResult);
-
-          // Pass originalMessageId to agentResult for use in result handling
-          if (agentResult) {
-            agentResult.originalMessageId = originalMessageId;
-          }
-
-          if (agentResult?.success) {
-            // Send all results (text, media, polls, locations)
-            // Cast agentResult to HandlerAgentResult to handle potential type mismatches (e.g., null vs undefined)
-            const handlerResult: HandlerAgentResult = {
-              ...agentResult,
-              imageUrl: agentResult.imageUrl || undefined, // Convert null to undefined if needed
-              videoUrl: agentResult.videoUrl || undefined,
-              audioUrl: agentResult.audioUrl || undefined
-            };
-            await sendAgentResults(chatId, handlerResult, normalized);
-          } else {
-            await sendErrorToUser(chatId, agentResult?.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId: originalMessageId || undefined });
-          }
-          return; // Exit early - no need for regular flow
-
-        } catch (agentError: any) {
-          logger.error('❌ [Agent] Error:', { error: agentError.message, stack: agentError.stack });
-          await sendErrorToUser(chatId, agentError, { context: 'REQUEST', quotedMessageId: originalMessageId });
-          return;
-        }
-
-      } catch (error: any) {
-        logger.error('❌ Command execution error:', { error: error.message || error, stack: error.stack });
-        const originalMessageId = webhookData.idMessage;
-        await sendErrorToUser(chatId, error, { context: 'EXECUTION', quotedMessageId: originalMessageId });
-      }
-      return; // Exit early after handling # commands
+    if (result.error) {
+      await sendErrorToUser(chatId, result.error, { quotedMessageId: webhookData.idMessage });
+      return;
     }
 
-    // Handle automatic voice transcription for authorized users
+    // 3. Handle Commands
+    if (result.shouldProcess && result.normalizedInput) {
+      const normalized = result.normalizedInput;
+      const originalMessageId = webhookData.idMessage;
+
+      // Save user message to DB cache with metadata
+      const mediaMetadata = extractMediaMetadata(webhookData);
+      const combinedMetadata: Record<string, unknown> = { ...mediaMetadata };
+      if (normalized.imageUrl) combinedMetadata.imageUrl = normalized.imageUrl;
+      if (normalized.videoUrl) combinedMetadata.videoUrl = normalized.videoUrl;
+      if (normalized.audioUrl) combinedMetadata.audioUrl = normalized.audioUrl;
+
+      await saveIncomingUserMessage(webhookData, result.messageText || '', combinedMetadata);
+
+      // ═══════════════════ AGENT MODE ═══════════════════
+      logger.debug('🤖 [AGENT] Processing request with Gemini Function Calling');
+
+      try {
+        const agentResult = await routeToAgent(normalized, chatId);
+        void (agentResult as RouterAgentResult);
+
+        if (agentResult) {
+          agentResult.originalMessageId = originalMessageId;
+        }
+
+        if (agentResult?.success) {
+          const handlerResult: HandlerAgentResult = {
+            ...agentResult,
+            imageUrl: agentResult.imageUrl || undefined,
+            videoUrl: agentResult.videoUrl || undefined,
+            audioUrl: agentResult.audioUrl || undefined
+          };
+          await sendAgentResults(chatId, handlerResult, normalized);
+        } else {
+          await sendErrorToUser(chatId, agentResult?.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId: originalMessageId || undefined });
+        }
+      } catch (agentError: any) {
+        logger.error('❌ [Agent] Error:', { error: agentError.message, stack: agentError.stack });
+        await sendErrorToUser(chatId, agentError, { context: 'REQUEST', quotedMessageId: originalMessageId });
+      }
+      return;
+    }
+
+    // 4. Handle Voice Messages (Automatic Transcription)
     if (messageData.typeMessage === 'audioMessage') {
       logger.debug(`🎤 Detected audio message from ${senderName}`);
 
-      // Save audio message to DB cache (even if not authorized for transcription)
-      await saveIncomingUserMessage(webhookData, messageText, mediaMetadata);
+      // Save audio message to DB cache
+      const mediaMetadata = extractMediaMetadata(webhookData);
+      await saveIncomingUserMessage(webhookData, result.messageText || '', mediaMetadata);
 
       const audioUrl = messageData.downloadUrl ||
         messageData.fileMessageData?.downloadUrl ||
         messageData.audioMessageData?.downloadUrl;
 
-      logger.debug(`🔍 Audio URL: ${audioUrl ? 'found' : 'NOT FOUND'}`);
-
       if (audioUrl) {
-        // Check if user is authorized for automatic transcription
-        const senderDataForAuth = {
-          chatId,
-          senderContactName,
-          chatName,
-          senderName,
-          senderId
-        };
-        logger.debug(`🔍 Checking authorization for: ${JSON.stringify(senderDataForAuth)}`);
-
-        const isAuthorized = await conversationManager.isAuthorizedForVoiceTranscription(senderDataForAuth);
-        logger.debug(`🔐 Authorization result: ${isAuthorized}`);
+        const isAuthorized = await conversationManager.isAuthorizedForVoiceTranscription({
+          chatId, senderContactName, chatName, senderName
+        });
 
         if (isAuthorized) {
           logger.info(`🎤 Authorized user ${senderName} sent voice message - processing automatically`);
@@ -244,18 +115,21 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
             audioUrl,
             originalMessageId: webhookData.idMessage
           });
-          return; // Exit early after processing voice message
         } else {
           logger.info(`🚫 User ${senderName} is not authorized for automatic voice transcription`);
         }
       } else {
         logger.warn(`❌ Audio message detected but no URL found`);
       }
-    } else {
-      // For all other message types (not # commands, not audio), save to DB cache
-      // This ensures we capture all user messages for context
-      await saveIncomingUserMessage(webhookData, messageText, mediaMetadata);
+      return;
     }
+
+    // 5. Save other messages to history
+    if (!result.isCommand) {
+      const mediaMetadata = extractMediaMetadata(webhookData);
+      await saveIncomingUserMessage(webhookData, result.messageText || '', mediaMetadata);
+    }
+
   } catch (error: any) {
     logger.error('❌ Error handling incoming message:', { error: error.message || error, stack: error.stack });
   }
