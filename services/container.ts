@@ -10,6 +10,7 @@ import SummariesRepository from '../repositories/summariesRepository';
 import AllowListsRepository from '../repositories/allowListsRepository';
 import ContactsRepository from '../repositories/contactsRepository';
 import ScheduledTasksRepository from '../repositories/scheduledTasksRepository';
+import TasksRepository from '../repositories/tasksRepository';
 
 // Services
 import CommandsManager from './conversation/commands';
@@ -43,6 +44,7 @@ interface Repositories {
     allowLists: AllowListsRepository;
     contacts: ContactsRepository;
     scheduledTasks: ScheduledTasksRepository;
+    tasks: TasksRepository;
 }
 
 class Container {
@@ -81,7 +83,8 @@ class Container {
                 summaries: new SummariesRepository(this.pool),
                 allowLists: new AllowListsRepository(this.pool),
                 contacts: new ContactsRepository(this.pool),
-                scheduledTasks: new ScheduledTasksRepository(this.pool)
+                scheduledTasks: new ScheduledTasksRepository(this.pool),
+                tasks: new TasksRepository(this.pool)
             };
 
             // Mock for legacy compatibility
@@ -101,7 +104,7 @@ class Container {
                 allowLists: new AllowListsManager(this.repositories.allowLists!),
                 contacts: new ContactsManager(conversationManagerMock, this.repositories.contacts!),
                 messages: new MessagesManager(conversationManagerMock),
-                tasks: new TasksManager(conversationManagerMock),
+                tasks: new TasksManager(conversationManagerMock, this.repositories.tasks!),
                 scheduledTasks: new ScheduledTasksService(this.repositories.scheduledTasks!)
             };
 
