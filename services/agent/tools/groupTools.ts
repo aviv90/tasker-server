@@ -79,7 +79,7 @@ type ImageGenerationResult = {
 export const create_group = {
   declaration: {
     name: 'create_group',
-    description: 'צור קבוצת WhatsApp חדשה עם משתתפים. ניתן גם להגדיר תמונת קבוצה אם היא מתוארת בבקשה (למשל "עם תמונה של..."). זמין רק למשתמשים מורשים.',
+    description: 'צור קבוצת WhatsApp חדשה עם משתתפים. ניתן גם להגדיר תמונת קבוצה אם היא מתוארת בבקשה (למשל "עם תמונה של..."). זמין רק למשתמשים מורשים. חשוב: אל תשתמש ב-create_image עבור תמונת הקבוצה - כלי זה מטפל בזה באופן פנימי.',
     parameters: {
       type: 'object',
       properties: {

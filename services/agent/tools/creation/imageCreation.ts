@@ -24,7 +24,7 @@ import type {
 export const create_image = {
   declaration: {
     name: 'create_image',
-    description: 'צור תמונה חדשה. ברירת מחדל: Gemini. אם תרצה ספק אחר, ציין בפרמטר provider.',
+    description: 'צור תמונה חדשה. ברירת מחדל: Gemini. אם תרצה ספק אחר, ציין בפרמטר provider. חשוב: אל תשתמש בכלי זה ליצירת תמונות קבוצה בוואטסאפ - השתמש ב-create_group במקום.',
     parameters: {
       type: 'object',
       properties: {
@@ -42,12 +42,12 @@ export const create_image = {
     }
   },
   execute: async (args: CreateImageArgs = {}, context: AgentToolContext = {}): ToolResult => {
-    logger.debug(`🔧 [Agent Tool] create_image called`, { 
-      prompt: args.prompt?.substring(0, 100), 
+    logger.debug(`🔧 [Agent Tool] create_image called`, {
+      prompt: args.prompt?.substring(0, 100),
       provider: args.provider,
-      chatId: context?.chatId 
+      chatId: context?.chatId
     });
-    
+
     try {
       if (!args.prompt) {
         return {
@@ -70,7 +70,7 @@ export const create_image = {
         ? [requestedProvider]
         : [...DEFAULT_IMAGE_PROVIDERS];
       const { geminiService, openaiService, grokService } = getServices();
-      
+
       // Use ProviderFallback utility for DRY code
       const fallback = new ProviderFallback({
         toolName: 'create_image',
@@ -78,7 +78,7 @@ export const create_image = {
         requestedProvider,
         context
       });
-      
+
       const prompt = args.prompt.trim();
       const providerResult = (await fallback.tryWithFallback<ImageProviderResult>(async provider => {
         let imageResult: ImageProviderResult;
