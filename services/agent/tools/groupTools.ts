@@ -113,10 +113,20 @@ export const create_group = {
       const senderName =
         senderData.senderName || senderData.senderContactName || senderId || defaultSenderName;
 
-      const rawPrompt = (context.originalInput?.userText || args.group_name || '')
+      const rawPrompt = (context.originalInput?.userText || '')
         .replace(/^#\s*/, '')
         .trim();
-      const promptForParsing = rawPrompt || args.participants_description || args.group_name || '';
+
+      let promptForParsing = rawPrompt;
+
+      // If no original text, construct prompt from arguments
+      if (!promptForParsing) {
+        if (args.group_name && args.participants_description) {
+          promptForParsing = `Create group "${args.group_name}" with participants: ${args.participants_description}`;
+        } else {
+          promptForParsing = args.participants_description || args.group_name || '';
+        }
+      }
 
       if (!promptForParsing.trim()) {
         return {

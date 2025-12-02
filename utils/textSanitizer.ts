@@ -73,8 +73,11 @@ export function cleanMediaDescription(text: unknown): string {
     .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
     .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
     .replace(/\[image\]/gi, '')
+    .replace(/\[image:[^\]]*\]?/gi, '') // Remove [image: ...] or [image:
     .replace(/\[video\]/gi, '')
+    .replace(/\[video:[^\]]*\]?/gi, '') // Remove [video: ...]
     .replace(/\[audio\]/gi, '')
+    .replace(/\[audio:[^\]]*\]?/gi, '') // Remove [audio: ...]
     .replace(/\[תמונה[^\]]*/gi, '') // Remove [תמונה: or [תמונה] with any text after (including incomplete brackets)
     .replace(/תמונה:\s*$/gi, '') // Remove תמונה: at the end of text
     .replace(/\[וידאו\]/gi, '')
@@ -119,8 +122,11 @@ export function cleanMultiStepText(text: unknown): string {
   return text
     .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs (image URLs should not be in text)
     .replace(/\[image\]/gi, '')
+    .replace(/\[image:[^\]]*\]?/gi, '')
     .replace(/\[video\]/gi, '')
+    .replace(/\[video:[^\]]*\]?/gi, '')
     .replace(/\[audio\]/gi, '')
+    .replace(/\[audio:[^\]]*\]?/gi, '')
     .replace(/\[תמונה\]/gi, '')
     .replace(/\[וידאו\]/gi, '')
     .replace(/\[אודיו\]/gi, '')
