@@ -206,7 +206,23 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
         /^#?\s*(תזמן|schedule|remind|הזכר|תזכורת|set reminder)\s+/i,
         /^#?\s*(תזכיר|remind me)\s+(לי|to|that)\s+/i,
         /^#?\s*(שלח|send)\s+(הודעה|message).*(בעוד|in|at|ב-|ל-)\s+/i, // "Send message in 30 seconds"
-        /^#?\s*(בעוד|in)\s+\d+/i // Starts with time delay
+        /^#?\s*(בעוד|in)\s+\d+/i, // Starts with time delay
+
+        // Group Creation (Self-contained)
+        /^#?\s*(צור|create|פתח|open|הקם|start|new)\s+(קבוצה|group)\s+/i,
+        /^#?\s*(קבוצה|group)\s+(חדשה|new)\s+/i,
+
+        // Image/Media Creation (Self-contained)
+        /^#?\s*(צור|create|generate|make|צייר|draw)\s+(תמונה|image|ציור|drawing)\s+/i,
+        /^#?\s*(תמונה|image)\s+(של|of)\s+/i,
+
+        // Poll Creation
+        /^#?\s*(צור|create|עשה|make)\s+(סקר|poll)\s+/i,
+
+        // Audio Mix/Voice Clone
+        /^#?\s*(מיקס|mix|ערבב)\s+(אודיו|audio|שיר|song)\s+/i,
+        /^#?\s*(שבט|clone)\s+(קול|voice)\s+/i,
+        /^#?\s*(דבר|speak|say)\s+(בקול|with voice)\s+/i
       ];
 
       // =============================================================================
