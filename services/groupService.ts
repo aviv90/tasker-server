@@ -112,9 +112,13 @@ export async function parseGroupCreationPrompt(prompt: string): Promise<ParsedGr
 
     const parsed = JSON.parse(rawText) as ParsedGroupCreation;
 
-    // Validate structure
-    if (!parsed.groupName || !Array.isArray(parsed.participants) || parsed.participants.length === 0) {
-      throw new Error('Invalid parsed structure');
+    // Validate structure with specific error messages
+    if (!parsed.groupName) {
+      throw new Error('לא צוין שם לקבוצה (No group name specified)');
+    }
+
+    if (!Array.isArray(parsed.participants) || parsed.participants.length === 0) {
+      throw new Error('לא צוינו משתתפים לקבוצה (No participants specified)');
     }
 
     logger.info(`✅ Parsed group creation request:`, {
