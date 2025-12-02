@@ -8,7 +8,7 @@
 import { sendTextMessage, sendFileByUrl, sendPoll, sendLocation } from './greenApi/messaging';
 import { downloadFile, resolveLocalStaticPath } from './greenApi/fileHandling';
 import { getChatHistory, getContacts, getMessage } from './greenApi/chat';
-import { createGroup, setGroupPicture } from './greenApi/groups';
+import { createGroup, setGroupPicture, getGroupInviteLink } from './greenApi/groups';
 
 export {
   sendTextMessage,
@@ -19,6 +19,7 @@ export {
   getMessage,
   createGroup,
   setGroupPicture,
+  getGroupInviteLink,
   sendPoll,
   sendLocation
 };

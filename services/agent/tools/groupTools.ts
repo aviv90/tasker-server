@@ -7,7 +7,7 @@ import fs from 'fs';
 import { extractQuotedMessageId } from '../../../utils/messageHelpers';
 import { defaultSenderName, NOT_FOUND, ERROR } from '../../../config/messages';
 import { parseGroupCreationPrompt, resolveParticipants } from '../../groupService';
-import { createGroup, setGroupPicture, sendTextMessage } from '../../greenApiService';
+import { createGroup, setGroupPicture, sendTextMessage, getGroupInviteLink } from '../../greenApiService';
 import { generateImageForWhatsApp } from '../../geminiService';
 import { createTempFilePath } from '../../../utils/tempFileUtils';
 import logger from '../../../utils/logger';
@@ -79,7 +79,7 @@ type ImageGenerationResult = {
 export const create_group = {
   declaration: {
     name: 'create_group',
-    description: 'צור קבוצת WhatsApp חדשה עם משתתפים. זמין רק למשתמשים מורשים.',
+    description: 'צור קבוצת WhatsApp חדשה עם משתתפים. ניתן גם להגדיר תמונת קבוצה אם היא מתוארת בבקשה (למשל "עם תמונה של..."). זמין רק למשתמשים מורשים.',
     parameters: {
       type: 'object',
       properties: {
@@ -253,19 +253,28 @@ export const create_group = {
         }
       }
 
+      let inviteLink = groupResult.groupInviteLink;
+      if (!inviteLink && groupResult.chatId) {
+        try {
+          inviteLink = await getGroupInviteLink(groupResult.chatId) || undefined;
+        } catch (err) {
+          logger.warn('⚠️ Failed to fetch invite link', { error: err });
+        }
+      }
+
       const summaryLines = [
         `✅ הקבוצה "${parsed.groupName}" מוכנה!`,
         `👤 יוצר: ${senderName}`,
         `👥 משתתפים: ${resolution.resolved.length}`,
         groupResult.chatId ? `🆔 מזהה קבוצה: ${groupResult.chatId}` : null,
-        groupResult.groupInviteLink ? `🔗 לינק הזמנה: ${groupResult.groupInviteLink}` : null
+        inviteLink ? `🔗 לינק הזמנה: ${inviteLink}` : null
       ].filter(Boolean) as string[];
 
       return {
         success: true,
         data: summaryLines.join('\n'),
         groupId: groupResult.chatId || null,
-        groupInviteLink: groupResult.groupInviteLink || null,
+        groupInviteLink: inviteLink || null,
         participantsAdded: resolution.resolved.length,
         suppressFinalResponse: true
       };

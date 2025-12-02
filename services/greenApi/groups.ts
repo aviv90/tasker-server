@@ -19,10 +19,10 @@ export async function createGroup(groupName: string, participantIds: string[]): 
       chatIds: participantIds
     };
 
-    logger.info(`👥 Creating group: "${groupName}" with ${participantIds.length} participants`, { 
-      groupName, 
+    logger.info(`👥 Creating group: "${groupName}" with ${participantIds.length} participants`, {
+      groupName,
       participantCount: participantIds.length,
-      participants: participantIds 
+      participants: participantIds
     });
 
     const response = await axios.post(url, data, {
@@ -36,10 +36,10 @@ export async function createGroup(groupName: string, participantIds: string[]): 
     }
 
     const responseData = response.data as { chatId?: string };
-    logger.info(`✅ Group created successfully: ${responseData.chatId || 'unknown ID'}`, { 
-      groupName, 
+    logger.info(`✅ Group created successfully: ${responseData.chatId || 'unknown ID'}`, {
+      groupName,
       chatId: responseData.chatId,
-      participantCount: participantIds.length 
+      participantCount: participantIds.length
     });
     return response.data;
   } catch (error: unknown) {
@@ -56,9 +56,9 @@ export async function createGroup(groupName: string, participantIds: string[]): 
     }
     const axiosError = error as AxiosError;
     if (axiosError.response) {
-      logger.error(`❌ Green API Error: ${axiosError.response.status} - ${axiosError.response.statusText}`, { 
+      logger.error(`❌ Green API Error: ${axiosError.response.status} - ${axiosError.response.statusText}`, {
         responseData: axiosError.response.data,
-        groupName 
+        groupName
       });
     }
 
@@ -114,13 +114,52 @@ export async function setGroupPicture(groupId: string, imageBuffer: Buffer): Pro
     }
     const axiosError = error as AxiosError;
     if (axiosError.response) {
-      logger.error(`❌ Green API Error: ${axiosError.response.status} - ${axiosError.response.statusText}`, { 
+      logger.error(`❌ Green API Error: ${axiosError.response.status} - ${axiosError.response.statusText}`, {
         responseData: axiosError.response.data,
-        groupId 
+        groupId
       });
     }
 
     throw error;
+  }
+}
+
+/**
+ * Get group invite link
+ */
+export async function getGroupInviteLink(groupId: string): Promise<string | null> {
+  try {
+    const url = `${BASE_URL}/getGroupInviteLink/${GREEN_API_API_TOKEN_INSTANCE}`;
+
+    const data = {
+      chatId: groupId
+    };
+
+    logger.info(`🔗 Getting invite link for group: ${groupId}`);
+
+    const response = await axios.post(url, data, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.data) {
+      throw new Error('No data received from getGroupInviteLink');
+    }
+
+    const responseData = response.data as { inviteLink?: string };
+
+    if (responseData.inviteLink) {
+      logger.info(`✅ Got invite link: ${responseData.inviteLink}`);
+      return responseData.inviteLink;
+    } else {
+      logger.warn(`⚠️ No invite link returned for group: ${groupId}`);
+      return null;
+    }
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('❌ Error getting group invite link:', { error: errorMessage, groupId });
+    return null;
   }
 }
 
