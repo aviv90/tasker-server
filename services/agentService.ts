@@ -19,7 +19,7 @@ import agentLoop from './agent/execution/agentLoop';
 import contextManager from './agent/execution/context';
 import { allTools as agentTools } from './agent/tools';
 import logger from '../utils/logger';
-import { getChatHistory } from '../utils/chatHistoryService';
+
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -166,166 +166,15 @@ export async function executeAgentQuery(prompt: string, chatId: string, options:
   const useConversationHistory = options.useConversationHistory !== false;
   let history: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
 
-  if (useConversationHistory) {
-    try {
-      const trimmedPrompt = prompt.trim();
+  // Use HistoryStrategy to determine if history should be loaded and process it
+  const { historyStrategy } = await import('./agent/historyStrategy');
+  const historyResult = await historyStrategy.processHistory(chatId, prompt, useConversationHistory);
 
-      // =============================================================================
-      // STEP 1: Check if this is a SELF-CONTAINED request (doesn't need history)
-      // These are clear, complete requests that work better WITHOUT history context
-      // =============================================================================
-      const selfContainedPatterns = [
-        // Media creation: צור תמונה, צור וידאו, צור שיר
-        /^#?\s*(צור|create|generate|ייצר|צייר|draw|make)\s+(תמונה|image|וידאו|video|שיר|song|מוזיקה|music)/i,
-        /^#?\s*(תמונה|image|וידאו|video|שיר|song)\s+(של|of|about)\s+/i,
+  history = historyResult.history;
 
-        // Send links/location: שלח קישור, שלח מיקום
-        /^#?\s*(שלח|send|שלחי|שלחו)\s+(קישור|link|לינק|מיקום|location)/i,
-        /^#?\s*(קישור|link|לינק|מיקום|location)\s+(ל|to|של|of|ב|in|באזור)/i,
-
-        // Web search: חפש באינטרנט, מצא מידע על
-        /^#?\s*(חפש|search|find|מצא)\s+(באינטרנט|מידע|information|לינק|link|קישור)/i,
-        /^#?\s*(חפש|search|find|מצא)\s+.{3,}/i, // Any search with content
-
-        // Translation: תרגם ל-X
-        /^#?\s*(תרגם|translate)\s+(ל|to)\s*/i,
-
-        // Text-to-speech: אמור X, תשמיע X
-        /^#?\s*(אמור|say|תשמיע|speak|תקרא|read)\s+.{3,}/i,
-
-        // Time/date queries: מה השעה, מה התאריך
-        /^#?\s*(מה השעה|what time|מה התאריך|what date|מה היום|what day)/i,
-
-        // Google Drive search (explicit)
-        /^#?\s*(חפש|search).*(במסמכים|בקבצים|ב-?drive|in\s*drive|in\s*documents)/i,
-
-        // Direct media requests with clear content
-        /^#?\s*(שלח|send)\s+(תמונה|image|וידאו|video)\s+(של|of)\s+/i,
-
-        // Scheduling/Reminders (Self-contained to prevent double-ack/confusion)
-        /^#?\s*(תזמן|schedule|remind|הזכר|תזכורת|set reminder)\s+/i,
-        /^#?\s*(תזכיר|remind me)\s+(לי|to|that)\s+/i,
-        /^#?\s*(שלח|send)\s+(הודעה|message).*(בעוד|in|at|ב-|ל-)\s+/i, // "Send message in 30 seconds"
-        /^#?\s*(בעוד|in)\s+\d+/i, // Starts with time delay
-
-        // Group Creation (Self-contained)
-        /^#?\s*(צור|create|פתח|open|הקם|start|new)\s+(קבוצה|group)\s+/i,
-        /^#?\s*(קבוצה|group)\s+(חדשה|new)\s+/i,
-
-        // Image/Media Creation (Self-contained)
-        /^#?\s*(צור|create|generate|make|צייר|draw)\s+(תמונה|image|ציור|drawing)\s+/i,
-        /^#?\s*(תמונה|image)\s+(של|of)\s+/i,
-
-        // Poll Creation
-        /^#?\s*(צור|create|עשה|make)\s+(סקר|poll)\s+/i,
-
-        // Audio Mix/Voice Clone
-        /^#?\s*(מיקס|mix|ערבב)\s+(אודיו|audio|שיר|song)\s+/i,
-        /^#?\s*(שבט|clone)\s+(קול|voice)\s+/i,
-        /^#?\s*(דבר|speak|say)\s+(בקול|with voice)\s+/i
-      ];
-
-      // =============================================================================
-      // STEP 2: Check if this is a CONTINUATION that NEEDS history
-      // Short responses, follow-ups, and references to previous conversation
-      // =============================================================================
-      const needsHistoryPatterns = [
-        // Short responses (likely answering a question)
-        /^#?\s*(כן|לא|אוקיי|בסדר|טוב|נכון|yes|no|ok|okay|sure|right|exactly|בדיוק)\.?$/i,
-        /^#?\s*(עכשיו|now|מחר|tomorrow|היום|today|בבוקר|morning|בערב|evening)\.?$/i,
-
-        // Continuations and follow-ups
-        /^#?\s*(עוד|תמשיך|continue|more|another|אחד נוסף|עוד אחד|תן עוד|give me more)$/i,
-        /^#?\s*(מה עוד|what else|ומה עוד|and what else)/i,
-
-        // Thanks/feedback (might be end of conversation or continuation)
-        /^#?\s*(תודה|thanks|thank you|מעולה|great|awesome|יופי|נהדר)\.?$/i,
-
-        // References to previous conversation
-        /(מה (ש)?אמרתי|what i said|מה (ש)?ציינתי|מה (ש)?דיברנו|מה (ש)?שאלתי)/i,
-        /(קודם|earlier|before|לפני|previous|את זה|this one|אותו|the same)/i,
-        /(כמו (ש)?|like (the)?|דומה ל|similar to)/i,
-
-        // Questions about the conversation
-        /(מתי|when|איפה|where|למה|why|איך|how).*(אמרת|said|ציינת|mentioned|דיברנו|discussed)/i,
-
-        // Retry/repeat requests
-        /(שוב|again|נסה שוב|try again|חזור|repeat)/i,
-
-        // Clarifications
-        /(מה התכוונת|what do you mean|לא הבנתי|didn't understand|תסביר|explain)/i
-      ];
-
-      const isSelfContained = selfContainedPatterns.some(p => p.test(trimmedPrompt));
-      const needsHistory = needsHistoryPatterns.some(p => p.test(trimmedPrompt));
-
-      // =============================================================================
-      // STEP 3: Decision logic
-      // - If explicitly needs history → load history
-      // - If self-contained → skip history
-      // - Otherwise (regular chat) → load history for natural conversation
-      // =============================================================================
-      let shouldLoadHistory = false;
-
-      if (needsHistory) {
-        // Explicit continuation/reference - always load history
-        shouldLoadHistory = true;
-        logger.info('🧠 [Agent] Continuation/reference detected - loading history for context');
-      } else if (isSelfContained) {
-        // Self-contained request - skip history to avoid confusion
-        shouldLoadHistory = false;
-        logger.info('🧠 [Agent] Self-contained request detected - skipping history');
-      } else {
-        // Regular message (chat) - load history for natural conversation
-        shouldLoadHistory = true;
-        logger.info('🧠 [Agent] Regular message - loading history for natural conversation');
-      }
-
-      if (shouldLoadHistory) {
-        // Use DB cache for fast retrieval (20 messages for agent context)
-        const historyResult = await getChatHistory(chatId, 20, { format: 'internal', useDbCache: true });
-        if (historyResult.success && historyResult.messages.length > 0) {
-          // Convert to Gemini format
-          const rawHistory: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = historyResult.messages.map(msg => ({
-            role: (msg.role === 'assistant' ? 'model' : 'user') as 'user' | 'model',
-            parts: [{ text: msg.content }]
-          }));
-
-          // CRITICAL: Gemini requires history to start with 'user' role
-          // If history starts with 'model', we cannot leave it (API error) and we shouldn't delete it (Context loss).
-          // BEST PRACTICE: Move ALL leading bot messages to the SYSTEM INSTRUCTION as context.
-          let validHistory = rawHistory;
-          let orphanedContext = '';
-
-          while (validHistory.length > 0 && validHistory[0] && validHistory[0].role === 'model') {
-            const msgText = validHistory[0].parts[0]?.text || '';
-            orphanedContext += `\n- "${msgText}"`;
-            validHistory = validHistory.slice(1);
-          }
-
-          if (orphanedContext) {
-            logger.info(`🧠 [Agent] Moved leading 'model' messages to System Context`);
-            systemInstruction += `\n\nIMPORTANT CONTEXT: The last thing(s) you (the AI) said to the user were:${orphanedContext}\nThe user is responding to this.`;
-          }
-
-          // Also ensure history ends with 'user' (current message will be added)
-          // If last message is 'model', that's OK - current user message will follow
-
-          history = validHistory;
-          logger.info(`🧠 [Agent] Using ${history.length} previous messages as conversation history`);
-        } else {
-          logger.debug('🧠 [Agent] No previous messages found for conversation history');
-        }
-      }
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      logger.warn('⚠️ [Agent] Failed to load chat history for context (continuing without it)', {
-        chatId,
-        error: errorMessage
-      });
-    }
-  } else {
-    logger.info('🧠 [Agent] Conversation history disabled for this request (useConversationHistory=false)');
+  // Append system context addition if any (from leading bot messages)
+  if (historyResult.systemContextAddition) {
+    systemInstruction += historyResult.systemContextAddition;
   }
 
   // Conversation history for the agent
