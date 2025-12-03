@@ -56,9 +56,10 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
       // This gives the user immediate feedback while the agent thinks
       const sendAckPromise = (async () => {
         try {
-          // Send "Thinking..." with 0 typing time for immediate delivery
+          // Send "Thinking..." with small typing time (not 0) to ensure delivery
           // Using a subtle emoji to indicate processing
-          await sendTextMessage(chatId, 'חושב... 🤖', undefined, 0);
+          logger.debug(`🤖 Sending immediate Ack to ${chatId}`);
+          await sendTextMessage(chatId, 'חושב... 🤖', undefined, 1000);
         } catch (err) {
           logger.warn('⚠️ Failed to send Ack:', err);
         }
