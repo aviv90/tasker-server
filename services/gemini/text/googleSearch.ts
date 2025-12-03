@@ -109,7 +109,7 @@ class GoogleSearchProcessor {
 
               const options = {
                 method: method,
-                timeout: 8000, // Increased timeout
+                timeout: 3000, // Reduced timeout for faster fallback to original URLs
                 maxRedirects: 0
               };
 
