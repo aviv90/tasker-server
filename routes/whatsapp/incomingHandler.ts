@@ -7,6 +7,7 @@
 
 // Import services
 import { sendErrorToUser, ERROR_MESSAGES } from '../../utils/errorSender';
+import { sendTextMessage } from '../../services/greenApiService';
 import conversationManager from '../../services/conversationManager';
 import logger from '../../utils/logger';
 import { routeToAgent, AgentResult as RouterAgentResult } from '../../services/agentRouter';
@@ -51,19 +52,38 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
       const normalized = result.normalizedInput;
       const originalMessageId = webhookData.idMessage;
 
-      // Save user message to DB cache with metadata
+      // PERFORMANCE OPTIMIZATION: Send immediate Ack/Thinking indicator
+      // This gives the user immediate feedback while the agent thinks
+      const sendAckPromise = (async () => {
+        try {
+          // Send "Thinking..." with 0 typing time for immediate delivery
+          // Using a subtle emoji to indicate processing
+          await sendTextMessage(chatId, 'חושב... 🤖', undefined, 0);
+        } catch (err) {
+          logger.warn('⚠️ Failed to send Ack:', err);
+        }
+      })();
+
+      // Save user message to DB cache with metadata (FIRE AND FORGET / PARALLEL)
       const mediaMetadata = extractMediaMetadata(webhookData);
       const combinedMetadata: Record<string, unknown> = { ...mediaMetadata };
       if (normalized.imageUrl) combinedMetadata.imageUrl = normalized.imageUrl;
       if (normalized.videoUrl) combinedMetadata.videoUrl = normalized.videoUrl;
       if (normalized.audioUrl) combinedMetadata.audioUrl = normalized.audioUrl;
 
-      await saveIncomingUserMessage(webhookData, result.messageText || '', combinedMetadata);
+      // Don't await DB write, let it run in background
+      const saveMessagePromise = saveIncomingUserMessage(webhookData, result.messageText || '', combinedMetadata)
+        .catch(err => logger.error('❌ Failed to save incoming message (background):', err));
 
       // ═══════════════════ AGENT MODE ═══════════════════
       logger.debug('🤖 [AGENT] Processing request with Gemini Function Calling');
 
       try {
+        // Wait for Ack to be sent (it's fast) to ensure order, but don't block too long
+        // Actually, we don't need to wait for Ack, it can happen in parallel with agent routing
+        // But we DO want to ensure Ack is sent before the Agent might reply (rare race condition)
+        // Let's just let it race. The Agent takes seconds, Ack takes milliseconds.
+
         const agentResult = await routeToAgent(normalized, chatId);
         void (agentResult as RouterAgentResult);
 
@@ -86,6 +106,12 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
         logger.error('❌ [Agent] Error:', { error: agentError.message, stack: agentError.stack });
         await sendErrorToUser(chatId, agentError, { context: 'REQUEST', quotedMessageId: originalMessageId });
       }
+
+      // Ensure promises complete (optional, mostly for testing/clean exit)
+      // In production, we don't strictly need to await them here if we handle errors
+      // But to be safe against process termination:
+      await Promise.allSettled([sendAckPromise, saveMessagePromise]);
+
       return;
     }
 
@@ -93,9 +119,10 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
     if (messageData.typeMessage === 'audioMessage') {
       logger.debug(`🎤 Detected audio message from ${senderName}`);
 
-      // Save audio message to DB cache
+      // Save audio message to DB cache (FIRE AND FORGET)
       const mediaMetadata = extractMediaMetadata(webhookData);
-      await saveIncomingUserMessage(webhookData, result.messageText || '', mediaMetadata);
+      saveIncomingUserMessage(webhookData, result.messageText || '', mediaMetadata)
+        .catch(err => logger.error('❌ Failed to save audio message (background):', err));
 
       const audioUrl = messageData.downloadUrl ||
         messageData.fileMessageData?.downloadUrl ||
@@ -124,10 +151,11 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
       return;
     }
 
-    // 5. Save other messages to history
+    // 5. Save other messages to history (FIRE AND FORGET)
     if (!result.isCommand) {
       const mediaMetadata = extractMediaMetadata(webhookData);
-      await saveIncomingUserMessage(webhookData, result.messageText || '', mediaMetadata);
+      saveIncomingUserMessage(webhookData, result.messageText || '', mediaMetadata)
+        .catch(err => logger.error('❌ Failed to save message (background):', err));
     }
 
   } catch (error: any) {

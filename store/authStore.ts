@@ -8,11 +8,13 @@
 import conversationManager from '../services/conversationManager';
 import logger from '../utils/logger';
 
+import * as cache from '../utils/cache';
+
 interface SenderData {
-    chatId?: string;
-    chatName?: string;
-    senderName?: string;
-    senderContactName?: string;
+  chatId?: string;
+  chatName?: string;
+  senderName?: string;
+  senderContactName?: string;
 }
 
 class AuthStore {
@@ -27,77 +29,95 @@ class AuthStore {
    * @returns {Promise<boolean>} - True if user is authorized
    */
   async isAuthorizedForMediaCreation(senderData: SenderData): Promise<boolean> {
+    // Generate cache key based on sender data
+    // We use a composite key to cover all potential identifiers
+    const cacheKey = `auth:media:${senderData.chatId || 'unknown'}:${senderData.senderName || 'unknown'}`;
+
+    // Try to get from cache first
+    const cachedResult = cache.get<boolean>(cacheKey);
+    if (cachedResult !== null) {
+      return cachedResult;
+    }
+
     try {
       // Get the allow list from database
+      // Optimization: Cache the allow list itself? 
+      // No, let's cache the result per user, it's safer and handles the complex logic better.
       const allowList = await conversationManager.getMediaAllowList();
-      
+
+      let isAuthorized = false;
+
       // If no users in allow list, deny access (closed by default like transcription)
       if (allowList.length === 0) {
         logger.debug(`🚫 Media creation denied - no users in allow list (closed by default)`);
-        return false;
+        isAuthorized = false;
+      } else {
+        // Priority logic based on chat type:
+        // Group chat (@g.us): check BOTH group name AND sender's contact name
+        // Private chat (@c.us): check senderContactName first, then chatName, then senderName as fallback
+        const isGroupChat = senderData.chatId && senderData.chatId.endsWith('@g.us');
+        const isPrivateChat = senderData.chatId && senderData.chatId.endsWith('@c.us');
+
+        if (isGroupChat) {
+          // Group chat - check both the group AND the individual sender
+          const groupName = senderData.chatName || '';
+          const senderContact = senderData.senderContactName || senderData.senderName || '';
+
+          logger.debug(`🔍 Checking media creation authorization in group "${groupName}" for sender "${senderContact}"`);
+
+          // Allow if EITHER the group is authorized OR the individual sender is authorized
+          const groupAuthorized = groupName && allowList.includes(groupName);
+          const senderAuthorized = senderContact && allowList.includes(senderContact);
+
+          if (groupAuthorized) {
+            logger.debug(`✅ Media creation allowed - group "${groupName}" is in allow list`);
+            isAuthorized = true;
+          } else if (senderAuthorized) {
+            logger.debug(`✅ Media creation allowed - sender "${senderContact}" is in allow list (in group "${groupName}")`);
+            isAuthorized = true;
+          } else {
+            logger.debug(`🚫 Media creation denied - neither group "${groupName}" nor sender "${senderContact}" are in allow list`);
+            isAuthorized = false;
+          }
+
+        } else if (isPrivateChat) {
+          // Private chat - priority: senderContactName → chatName → senderName
+          let contactName = "";
+          if (senderData.senderContactName && senderData.senderContactName.trim()) {
+            contactName = senderData.senderContactName;
+          } else if (senderData.chatName && senderData.chatName.trim()) {
+            contactName = senderData.chatName;
+          } else {
+            contactName = senderData.senderName || '';
+          }
+
+          logger.debug(`🔍 Checking media creation authorization for: "${contactName}" (private chat)`);
+
+          if (contactName && allowList.includes(contactName)) {
+            logger.debug(`✅ Media creation allowed for ${contactName} - user is in allow list`);
+            isAuthorized = true;
+          } else {
+            logger.debug(`🚫 Media creation not allowed for ${contactName} (not in allow list)`);
+            isAuthorized = false;
+          }
+        } else {
+          // Fallback for unknown chat types
+          const contactName = senderData.senderContactName || senderData.chatName || senderData.senderName;
+          logger.debug(`🔍 Checking media creation authorization for: "${contactName}" (unknown chat type)`);
+
+          if (contactName && allowList.includes(contactName)) {
+            logger.debug(`✅ Media creation allowed for ${contactName}`);
+            isAuthorized = true;
+          } else {
+            isAuthorized = false;
+          }
+        }
       }
 
-      // Priority logic based on chat type:
-      // Group chat (@g.us): check BOTH group name AND sender's contact name
-      // Private chat (@c.us): check senderContactName first, then chatName, then senderName as fallback
-      const isGroupChat = senderData.chatId && senderData.chatId.endsWith('@g.us');
-      const isPrivateChat = senderData.chatId && senderData.chatId.endsWith('@c.us');
-      
-      if (isGroupChat) {
-        // Group chat - check both the group AND the individual sender
-        const groupName = senderData.chatName || '';
-        const senderContact = senderData.senderContactName || senderData.senderName || '';
-        
-        logger.debug(`🔍 Checking media creation authorization in group "${groupName}" for sender "${senderContact}"`);
-        
-        // Allow if EITHER the group is authorized OR the individual sender is authorized
-        const groupAuthorized = groupName && allowList.includes(groupName);
-        const senderAuthorized = senderContact && allowList.includes(senderContact);
-        
-        if (groupAuthorized) {
-          logger.debug(`✅ Media creation allowed - group "${groupName}" is in allow list`);
-          return true;
-        }
-        
-        if (senderAuthorized) {
-          logger.debug(`✅ Media creation allowed - sender "${senderContact}" is in allow list (in group "${groupName}")`);
-          return true;
-        }
-        
-        logger.debug(`🚫 Media creation denied - neither group "${groupName}" nor sender "${senderContact}" are in allow list`);
-        return false;
-        
-      } else if (isPrivateChat) {
-        // Private chat - priority: senderContactName → chatName → senderName
-        let contactName = "";
-        if (senderData.senderContactName && senderData.senderContactName.trim()) {
-          contactName = senderData.senderContactName;
-        } else if (senderData.chatName && senderData.chatName.trim()) {
-          contactName = senderData.chatName;
-        } else {
-          contactName = senderData.senderName || '';
-        }
-        
-        logger.debug(`🔍 Checking media creation authorization for: "${contactName}" (private chat)`);
-        
-        if (contactName && allowList.includes(contactName)) {
-          logger.debug(`✅ Media creation allowed for ${contactName} - user is in allow list`);
-          return true;
-        } else {
-          logger.debug(`🚫 Media creation not allowed for ${contactName} (not in allow list)`);
-          return false;
-        }
-      } else {
-        // Fallback for unknown chat types
-        const contactName = senderData.senderContactName || senderData.chatName || senderData.senderName;
-        logger.debug(`🔍 Checking media creation authorization for: "${contactName}" (unknown chat type)`);
-        
-        if (contactName && allowList.includes(contactName)) {
-          logger.debug(`✅ Media creation allowed for ${contactName}`);
-          return true;
-        }
-        return false;
-      }
+      // Cache the result (TTL: 5 minutes)
+      cache.set(cacheKey, isAuthorized, cache.CacheTTL.MEDIUM);
+      return isAuthorized;
+
     } catch (error) {
       logger.error('❌ Error checking media authorization:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       // On error, default to denying (fail-closed for security, like transcription)
@@ -114,8 +134,14 @@ class AuthStore {
     try {
       const cleanId = identifier.trim();
       if (!cleanId) return false;
-      
-      return await conversationManager.addToMediaAllowList(cleanId);
+
+      const result = await conversationManager.addToMediaAllowList(cleanId);
+
+      // Invalidate all auth caches to be safe (simple approach)
+      // Or we could try to be smart, but "auth:media:*" pattern invalidation is better
+      cache.invalidatePattern('auth:media');
+
+      return result;
     } catch (error) {
       logger.error('❌ Error adding authorized user:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       return false;
@@ -131,8 +157,13 @@ class AuthStore {
     try {
       const cleanId = identifier.trim();
       if (!cleanId) return false;
-      
-      return await conversationManager.removeFromMediaAllowList(cleanId);
+
+      const result = await conversationManager.removeFromMediaAllowList(cleanId);
+
+      // Invalidate all auth caches
+      cache.invalidatePattern('auth:media');
+
+      return result;
     } catch (error) {
       logger.error('❌ Error removing authorized user:', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       return false;

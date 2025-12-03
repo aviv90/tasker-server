@@ -11,7 +11,7 @@ import logger from '../../../../utils/logger';
 import * as replicateService from '../../../replicateService';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { VIDEO_PROVIDERS, DEFAULT_VIDEO_PROVIDERS, PROVIDERS } from '../../config/constants';
-import { REQUIRED, FAILED, ERROR } from '../../../../config/messages';
+import { REQUIRED, ERROR } from '../../../../config/messages';
 import type {
   AgentToolContext,
   ToolResult,
@@ -49,7 +49,7 @@ export const create_video = {
       provider: args.provider || PROVIDERS.VIDEO.KLING,
       chatId: context?.chatId
     });
-    
+
     try {
       if (!args.prompt) {
         return {
@@ -67,7 +67,7 @@ export const create_video = {
         ? [requestedProvider]
         : [...DEFAULT_VIDEO_PROVIDERS];
       context.expectedMediaType = 'video';
-      
+
       // Use ProviderFallback utility for DRY code
       const fallback = new ProviderFallback({
         toolName: 'create_video',
@@ -75,7 +75,7 @@ export const create_video = {
         requestedProvider,
         context
       });
-      
+
       const videoResult = (await fallback.tryWithFallback<VideoProviderResult>(async provider => {
         if (provider === PROVIDERS.VIDEO.VEO3) {
           const result = (await geminiService.generateVideoForWhatsApp(prompt)) as VideoProviderResult;
@@ -96,7 +96,7 @@ export const create_video = {
           return result;
         }
       })) as VideoProviderResult;
-      
+
       context.expectedMediaType = null;
       if (!videoResult) {
         return {
@@ -190,10 +190,11 @@ export const image_to_video = {
       provider: args.provider || PROVIDERS.VIDEO.KLING,
       chatId: context?.chatId
     });
-    
+
     try {
       const { geminiService, openaiService, greenApiService } = getServices();
-      const provider = args.provider || PROVIDERS.VIDEO.KLING;
+      const requestedProvider = args.provider || null;
+
       if (!args.image_url) {
         return {
           success: false,
@@ -206,41 +207,83 @@ export const image_to_video = {
           error: REQUIRED.ANIMATION_DESCRIPTION
         };
       }
-      
+
       const imageUrl = args.image_url;
       const prompt = args.prompt.trim();
-      
+
       // CRITICAL: All providers need imageBuffer (not URL)!
       // Download the image once, then pass to provider
       const imageBuffer = await greenApiService.downloadFile(imageUrl);
-      
-      let result: VideoProviderResult & { error?: string };
-      if (provider === PROVIDERS.VIDEO.VEO3) {
-        result = (await geminiService.generateVideoFromImageForWhatsApp(prompt, imageBuffer)) as VideoProviderResult & { error?: string };
-      } else if (provider === PROVIDERS.VIDEO.SORA || provider === PROVIDERS.VIDEO.SORA_PRO) {
-        const model = provider === PROVIDERS.VIDEO.SORA_PRO ? 'sora-2-pro' : 'sora-2';
-        result = (await openaiService.generateVideoWithSoraFromImageForWhatsApp(
-          prompt,
-          imageBuffer,
-          { model }
-        )) as VideoProviderResult & { error?: string };
-      } else {
-        // Kling also needs imageBuffer
-        result = (await replicateService.generateVideoFromImageForWhatsApp(imageBuffer, prompt)) as VideoProviderResult & { error?: string };
-      }
-      
-      if (result.error) {
+
+      // If user requested a specific provider, only try that one (no fallback)
+      // If no provider specified (default), try all providers with fallback
+      const providersToTry = requestedProvider
+        ? [requestedProvider]
+        : [...DEFAULT_VIDEO_PROVIDERS];
+
+      // Use ProviderFallback utility for DRY code
+      const fallback = new ProviderFallback({
+        toolName: 'image_to_video',
+        providersToTry,
+        requestedProvider,
+        context
+      });
+
+      const videoResult = (await fallback.tryWithFallback<VideoProviderResult>(async provider => {
+        let result: VideoProviderResult & { error?: string };
+
+        if (provider === PROVIDERS.VIDEO.VEO3) {
+          result = (await geminiService.generateVideoFromImageForWhatsApp(prompt, imageBuffer)) as VideoProviderResult & { error?: string };
+        } else if (provider === PROVIDERS.VIDEO.SORA || provider === PROVIDERS.VIDEO.SORA_PRO) {
+          const model = provider === PROVIDERS.VIDEO.SORA_PRO ? 'sora-2-pro' : 'sora-2';
+          result = (await openaiService.generateVideoWithSoraFromImageForWhatsApp(
+            prompt,
+            imageBuffer,
+            { model }
+          )) as VideoProviderResult & { error?: string };
+        } else {
+          // Kling also needs imageBuffer
+          result = (await replicateService.generateVideoFromImageForWhatsApp(imageBuffer, prompt)) as VideoProviderResult & { error?: string };
+        }
+
+        result.providerUsed = provider;
+        return result;
+      })) as VideoProviderResult;
+
+      if (!videoResult) {
         return {
           success: false,
-          error: FAILED.VIDEO_CONVERSION(result.error)
+          error: 'לא התקבלה תשובה מהספקים'
         };
       }
-      
+
+      if (videoResult.error) {
+        const errorMessage =
+          typeof videoResult.error === 'string'
+            ? videoResult.error
+            : 'הבקשה נכשלה אצל הספק המבוקש';
+        return {
+          success: false,
+          error: errorMessage
+        };
+      }
+
+      const providerKey =
+        (videoResult.providerUsed as string | undefined) ||
+        requestedProvider ||
+        providersToTry[0] ||
+        PROVIDERS.VIDEO.KLING;
+      const formattedProviderName = formatProviderName(providerKey);
+      const providerName =
+        typeof formattedProviderName === 'string' && formattedProviderName.length > 0
+          ? formattedProviderName
+          : providerKey;
+
       return {
         success: true,
-        data: `✅ התמונה הומרה לוידאו בהצלחה עם ${formatProviderName(provider)}!`,
-        videoUrl: result.videoUrl || result.url,
-        provider: provider
+        data: `✅ התמונה הומרה לוידאו בהצלחה עם ${providerName}!`,
+        videoUrl: videoResult.videoUrl || videoResult.url,
+        provider: providerName
       };
     } catch (error) {
       logger.error('❌ Error in image_to_video', {
