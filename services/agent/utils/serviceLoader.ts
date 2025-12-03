@@ -10,16 +10,21 @@ type OpenAIService = typeof import('../../openai');
 type GrokService = typeof import('../../grokService');
 type GreenApiService = typeof import('../../greenApiService');
 
+type ConversationManagerModule = typeof import('../../conversationManager');
+type ConversationManager = ConversationManagerModule['default'];
+
 let geminiService: GeminiService | null = null;
 let openaiService: OpenAIService | null = null;
 let grokService: GrokService | null = null;
 let greenApiService: GreenApiService | null = null;
+let conversationManager: ConversationManager | null = null;
 
 export interface LoadedServices {
   geminiService: GeminiService;
   openaiService: OpenAIService;
   grokService: GrokService;
   greenApiService: GreenApiService;
+  conversationManager: ConversationManager;
 }
 
 /**
@@ -35,11 +40,14 @@ export function getServices(): LoadedServices {
 
   if (!greenApiService) greenApiService = require('../../greenApiService');
 
+  if (!conversationManager) conversationManager = require('../../conversationManager').default || require('../../conversationManager');
+
   return {
     geminiService,
     openaiService,
     grokService,
-    greenApiService
+    greenApiService,
+    conversationManager
   } as LoadedServices;
 }
 

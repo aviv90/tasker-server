@@ -1,12 +1,13 @@
+import { Request } from 'express';
 import { StartTaskRequest } from '../../../schemas/taskSchemas';
 import * as geminiService from '../../geminiService';
 import * as replicateService from '../../replicateService';
 import * as kieService from '../../kieService';
 import { finalizeVideo } from '../../../utils/videoUtils';
-import { TaskStrategy } from './types';
+import { TaskStrategy, TaskResult } from './types';
 
 export class TextToVideoStrategy implements TaskStrategy {
-    async execute(taskId: string, request: StartTaskRequest, sanitizedPrompt: string, req: any): Promise<any> {
+    async execute(taskId: string, request: StartTaskRequest, sanitizedPrompt: string, req: Request): Promise<TaskResult> {
         const { provider, model } = request;
         let result;
         if (provider === 'replicate') {
@@ -28,7 +29,7 @@ export class TextToVideoStrategy implements TaskStrategy {
         return null;
     }
 
-    async finalize(_taskId: string, _result: any, _req: any, _prompt: string): Promise<void> {
+    async finalize(_taskId: string, _result: TaskResult, _req: Request, _prompt: string): Promise<void> {
         // Video finalization is complex and currently handled within execute via finalizeVideo util
         // In a deeper refactor, finalizeVideo logic should move here.
     }

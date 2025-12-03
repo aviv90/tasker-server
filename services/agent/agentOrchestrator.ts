@@ -32,6 +32,9 @@ export class AgentOrchestrator {
     /**
      * Execute an agent query
      */
+    /**
+     * Execute an agent query
+     */
     async execute(prompt: string, chatId: string, options: AgentOptions = {}): Promise<AgentResult> {
         // 1. Detect Language & Setup Config
         const userLanguage = detectLanguage(prompt);
@@ -43,18 +46,54 @@ export class AgentOrchestrator {
             contextMemoryEnabled: config.agent.contextMemoryEnabled
         };
 
-        // 2. Planning
-        const plan = await this.planExecution(prompt, options);
+        // 2. Start Parallel Operations (Planning + Context + History)
+        logger.debug('🚀 [Agent] Starting parallel execution (Planning + Context + History)');
 
-        // 3. Multi-step Execution
+        // A. Planning
+        const planPromise = this.planExecution(prompt, options);
+
+        // B. Context & History (Lazy load dependencies if needed)
+        const useConversationHistory = options.useConversationHistory !== false;
+
+        // Initialize context object immediately
+        const initialContext = contextManager.createInitialContext(chatId, options);
+
+        // Start loading context from DB
+        const contextPromise = contextManager.loadPreviousContext(chatId, initialContext, agentConfig.contextMemoryEnabled);
+
+        // Start loading history from DB
+        // Import historyStrategy dynamically to avoid circular deps if any, but parallelize it
+        const historyPromise = import('./historyStrategy').then(({ historyStrategy }) =>
+            historyStrategy.processHistory(chatId, prompt, useConversationHistory)
+        );
+
+        // 3. Wait for Plan
+        const plan = await planPromise;
+
+        // 4. Multi-step Execution
         if (plan.isMultiStep && plan.steps && plan.steps.length > 1) {
+            // Note: Multi-step currently manages its own context/history or runs stateless per step.
+            // We ignore the pre-loaded context/history for now to avoid complexity, 
+            // as multi-step is less latency-sensitive than single-step.
+            // In the future, we can pass these promises down.
+
             // Cast to any to bypass strict Plan type check
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             return await multiStepExecution.execute(plan as any, chatId, options, languageInstruction, agentConfig) as unknown as AgentResult;
         }
 
-        // 4. Single-step Execution
-        return await this.executeSingleStep(prompt, chatId, options, languageInstruction, agentConfig);
+        // 5. Single-step Execution (Wait for Context & History)
+        const [loadedContext, historyResult] = await Promise.all([contextPromise, historyPromise]);
+
+        return await this.executeSingleStep(
+            prompt,
+            chatId,
+            options,
+            languageInstruction,
+            agentConfig,
+            loadedContext,
+            historyResult
+        );
     }
 
     /**
@@ -97,7 +136,11 @@ export class AgentOrchestrator {
         chatId: string,
         options: AgentOptions,
         languageInstruction: string,
-        agentConfig: AgentConfig
+        agentConfig: AgentConfig,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        preLoadedContext?: any, // AgentContext
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        preLoadedHistory?: any // { history: Content[], systemContextAddition: string }
     ): Promise<AgentResult> {
         const maxIterations = options.maxIterations || agentConfig.maxIterations;
         const model = this.genAI.getGenerativeModel({ model: agentConfig.model });
@@ -120,19 +163,21 @@ export class AgentOrchestrator {
         // Prepare system instruction
         let systemInstruction = prompts.agentSystemInstruction(languageInstruction);
 
-        // Load Context & History in Parallel
-        let context = contextManager.createInitialContext(chatId, options);
-        const useConversationHistory = options.useConversationHistory !== false;
+        // Use Pre-loaded Context & History OR Load them now (fallback)
+        let context = preLoadedContext;
+        let historyResult = preLoadedHistory;
 
-        // Import historyStrategy dynamically if not already imported, but better to do it in parallel
-        const { historyStrategy } = await import('./historyStrategy');
+        if (!context || !historyResult) {
+            logger.debug('⚠️ [Agent] Context/History not pre-loaded, loading now (fallback path)');
+            context = contextManager.createInitialContext(chatId, options);
+            const useConversationHistory = options.useConversationHistory !== false;
+            const { historyStrategy } = await import('./historyStrategy');
 
-        const [loadedContext, historyResult] = await Promise.all([
-            contextManager.loadPreviousContext(chatId, context, agentConfig.contextMemoryEnabled),
-            historyStrategy.processHistory(chatId, prompt, useConversationHistory)
-        ]);
-
-        context = loadedContext;
+            [context, historyResult] = await Promise.all([
+                contextManager.loadPreviousContext(chatId, context, agentConfig.contextMemoryEnabled),
+                historyStrategy.processHistory(chatId, prompt, useConversationHistory)
+            ]);
+        }
 
         if (historyResult.systemContextAddition) {
             systemInstruction += historyResult.systemContextAddition;

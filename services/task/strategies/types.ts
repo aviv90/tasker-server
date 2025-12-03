@@ -22,9 +22,24 @@ export interface MusicTaskResult extends BaseTaskResult {
 export interface TextTaskResult extends BaseTaskResult {
     text?: string;
     response?: string;
+    metadata?: {
+        service?: string;
+        model?: string;
+        characterCount?: number;
+        created_at?: string;
+        [key: string]: unknown;
+    };
+    originalPrompt?: string;
 }
 
-export type TaskResult = ImageTaskResult | MusicTaskResult | TextTaskResult;
+export interface VideoTaskResult extends BaseTaskResult {
+    videoUrl?: string;
+    videoBuffer?: Buffer;
+    text?: string;
+    metadata?: Record<string, unknown>;
+}
+
+export type TaskResult = ImageTaskResult | MusicTaskResult | TextTaskResult | VideoTaskResult | null;
 
 export interface TaskStrategy {
     execute(taskId: string, request: StartTaskRequest, sanitizedPrompt: string, req: Request): Promise<TaskResult>;

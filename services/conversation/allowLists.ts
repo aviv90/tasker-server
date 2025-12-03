@@ -77,6 +77,7 @@ class AllowListsManager {
     }
 
     try {
+      // eslint-disable-next-line no-control-regex
       const cleanName = contactName.trim().replace(/[\x00-\x1F\x7F]/g, '');
       if (!cleanName) return false;
       await this.repository.addToAllowList('voice_allow_list', cleanName);
@@ -98,6 +99,7 @@ class AllowListsManager {
     }
 
     try {
+      // eslint-disable-next-line no-control-regex
       const cleanName = contactName.trim().replace(/[\x00-\x1F\x7F]/g, '');
       if (!cleanName) return false;
       await this.repository.removeFromAllowList('voice_allow_list', cleanName);
@@ -205,6 +207,7 @@ class AllowListsManager {
     }
 
     try {
+      // eslint-disable-next-line no-control-regex
       const cleanName = contactName.trim().replace(/[\x00-\x1F\x7F]/g, '');
       if (!cleanName) return false;
       await this.repository.addToAllowList('media_allow_list', cleanName);
@@ -226,6 +229,7 @@ class AllowListsManager {
     }
 
     try {
+      // eslint-disable-next-line no-control-regex
       const cleanName = contactName.trim().replace(/[\x00-\x1F\x7F]/g, '');
       if (!cleanName) return false;
       await this.repository.removeFromAllowList('media_allow_list', cleanName);
@@ -264,6 +268,7 @@ class AllowListsManager {
     }
 
     try {
+      // eslint-disable-next-line no-control-regex
       const cleanName = contactName.trim().replace(/[\x00-\x1F\x7F]/g, '');
       if (!cleanName) return false;
       await this.repository.addToAllowList('group_creation_allow_list', cleanName);
@@ -285,6 +290,7 @@ class AllowListsManager {
     }
 
     try {
+      // eslint-disable-next-line no-control-regex
       const cleanName = contactName.trim().replace(/[\x00-\x1F\x7F]/g, '');
       if (!cleanName) return false;
       await this.repository.removeFromAllowList('group_creation_allow_list', cleanName);

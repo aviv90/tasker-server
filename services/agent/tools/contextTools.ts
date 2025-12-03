@@ -6,7 +6,6 @@ import { getChatHistory } from '../../../utils/chatHistoryService';
 import logger from '../../../utils/logger';
 import { getServices } from '../utils/serviceLoader';
 import { NOT_FOUND, ERROR } from '../../../config/messages';
-import conversationManager from '../../../services/conversationManager';
 
 export interface ToolContext {
   chatId?: string;
@@ -196,6 +195,7 @@ export const save_user_preference = {
     );
 
     try {
+      const { conversationManager } = getServices();
       await conversationManager.saveUserPreference(context.chatId || '', args.preference_key, args.preference_value);
 
       return {
@@ -249,6 +249,7 @@ export const get_long_term_memory = {
       };
 
       if (includeSummaries) {
+        const { conversationManager } = getServices();
         const summaries = (await conversationManager.getConversationSummaries(
           context.chatId || '',
           5
@@ -270,6 +271,7 @@ export const get_long_term_memory = {
       }
 
       if (includePreferences) {
+        const { conversationManager } = getServices();
         const preferences = (await conversationManager.getUserPreferences(
           context.chatId || ''
         )) as Record<string, string>;

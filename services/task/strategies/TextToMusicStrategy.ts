@@ -67,7 +67,7 @@ export class TextToMusicStrategy implements TaskStrategy {
             }
 
             const host = `${req.protocol}://${req.get('host')}`;
-            const taskResult: any = {
+            const taskResult: Record<string, unknown> = {
                 status: 'done',
                 result: `${host}/static/${filename}`,
                 text: result.text || prompt,
@@ -88,9 +88,10 @@ export class TextToMusicStrategy implements TaskStrategy {
             await taskStore.set(taskId, taskResult);
             logger.info(`✅ Music generation completed for task ${taskId}`);
 
-        } catch (error: any) {
-            logger.error(`❌ Error in TextToMusicStrategy.finalize: ${taskId}`, { error: error.message || error.toString() });
-            await taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            logger.error(`❌ Error in TextToMusicStrategy.finalize: ${taskId}`, { error: errorMessage });
+            await taskStore.set(taskId, { status: 'error', error: errorMessage });
         }
     }
 }

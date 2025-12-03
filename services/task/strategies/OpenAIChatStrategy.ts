@@ -21,7 +21,7 @@ export class OpenAIChatStrategy implements TaskStrategy {
                 return;
             }
 
-            const taskResult: any = {
+            const taskResult: Record<string, unknown> = {
                 status: 'done',
                 result: result.text || prompt,
                 text: result.text || prompt,
@@ -29,18 +29,18 @@ export class OpenAIChatStrategy implements TaskStrategy {
             };
 
             // Add metadata if available
-            if ((result as any).metadata) {
+            if (result.metadata) {
                 taskResult.metadata = {
-                    service: (result as any).metadata.service,
-                    model: (result as any).metadata.model,
-                    characterCount: (result as any).metadata.characterCount,
-                    created_at: (result as any).metadata.created_at
+                    service: result.metadata.service,
+                    model: result.metadata.model,
+                    characterCount: result.metadata.characterCount,
+                    created_at: result.metadata.created_at
                 };
             }
 
             // Add original prompt for reference
-            if ((result as any).originalPrompt) {
-                taskResult.originalPrompt = (result as any).originalPrompt;
+            if (result.originalPrompt) {
+                taskResult.originalPrompt = result.originalPrompt;
             }
 
             await taskStore.set(taskId, taskResult);

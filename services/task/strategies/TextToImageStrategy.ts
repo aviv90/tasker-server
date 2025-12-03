@@ -43,15 +43,18 @@ export class TextToImageStrategy implements TaskStrategy {
             }
 
             const host = `${req.protocol}://${req.get('host')}`;
-            await taskStore.set(taskId, {
+            const taskResult: Record<string, unknown> = {
                 status: 'done',
                 result: `${host}/static/${filename}`,
                 text: result.text,
                 cost: result.cost
-            });
-        } catch (error: any) {
-            logger.error(`❌ Error in TextToImageStrategy.finalize: ${taskId}`, { error: error.message || error.toString() });
-            await taskStore.set(taskId, { status: 'error', error: error.message || error.toString() });
+            };
+
+            await taskStore.set(taskId, taskResult);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            logger.error(`❌ Error in TextToImageStrategy.finalize: ${taskId}`, { error: errorMessage });
+            await taskStore.set(taskId, { status: 'error', error: errorMessage });
         }
     }
 }
