@@ -152,13 +152,18 @@ class GoogleSearchProcessor {
                   return;
                 }
                 logger.warn(`⚠️ Failed to resolve redirect for ${urlData.title}:`, { error: error.message });
-                // Don't use vertexaisearch URLs as fallback
+                // Don't use vertexaisearch URLs - they're redirect URLs, not final destinations
                 if (urlData.redirectUrl.includes('vertexaisearch') || urlData.redirectUrl.includes('google.com/url')) {
                   logger.warn(`⚠️ Rejecting vertexaisearch URL: ${urlData.redirectUrl.substring(0, 80)}...`);
                   resolve(null);
                   return;
                 }
-                resolve(null);
+                // FALLBACK: Use the original redirect URL if resolution fails
+                logger.info(`📎 Using original URL as fallback (error): ${urlData.redirectUrl.substring(0, 80)}...`);
+                resolve({
+                  uri: urlData.redirectUrl,
+                  title: urlData.title
+                });
               });
 
               req.on('timeout', () => {
@@ -170,13 +175,19 @@ class GoogleSearchProcessor {
                   return;
                 }
                 logger.warn(`⚠️ Timeout resolving redirect for ${urlData.title}`);
-                // Don't use vertexaisearch URLs as fallback
+                // Don't use vertexaisearch URLs - they're redirect URLs, not final destinations
                 if (urlData.redirectUrl.includes('vertexaisearch') || urlData.redirectUrl.includes('google.com/url')) {
                   logger.warn(`⚠️ Rejecting vertexaisearch URL due to timeout: ${urlData.redirectUrl.substring(0, 80)}...`);
                   resolve(null);
                   return;
                 }
-                resolve(null);
+                // FALLBACK: Use the original redirect URL if resolution fails
+                // This ensures users always get a link, even if redirect resolution times out
+                logger.info(`📎 Using original URL as fallback: ${urlData.redirectUrl.substring(0, 80)}...`);
+                resolve({
+                  uri: urlData.redirectUrl,
+                  title: urlData.title
+                });
               });
 
               req.end();
