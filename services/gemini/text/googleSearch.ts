@@ -228,6 +228,24 @@ class GoogleSearchProcessor {
       })
       .map((urlData) => urlData.uri);
 
+    // DOUBLE FALLBACK: If NO valid URLs and we have vertexaisearch URLs, use them as absolute last resort
+    // This ensures users ALWAYS get links, even if they're redirects
+    if (validUrls.length === 0 && realUrls.length > 0) {
+      logger.warn(`⚠️ No clean URLs available - using vertexaisearch URLs as fallback`);
+      const vertexUrls = realUrls
+        .filter((urlData): urlData is ResolvedUrl => {
+          return urlData !== null && urlData.uri !== undefined && typeof urlData.uri === 'string';
+        })
+        .map((urlData) => urlData.uri);
+
+      if (vertexUrls.length > 0) {
+        const sourcesText = vertexUrls.join('\n');
+        text = `${text}\n${sourcesText}`;
+        logger.info(`📎 Appended ${vertexUrls.length} vertexaisearch URLs as fallback`);
+        return text;
+      }
+    }
+
     if (validUrls.length > 0) {
       const sourcesText = validUrls.join('\n');
       text = `${text}\n${sourcesText}`;
