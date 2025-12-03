@@ -1,18 +1,19 @@
+import { Request } from 'express';
 import { StartTaskRequest } from '../../../schemas/taskSchemas';
 import * as geminiService from '../../geminiService';
 import logger from '../../../utils/logger';
-import { TaskStrategy } from './types';
+import { TaskStrategy, TextTaskResult } from './types';
 import * as taskStore from '../../../store/taskStore';
 import { isErrorResult } from '../../../utils/errorHandler';
 
 export class GeminiChatStrategy implements TaskStrategy {
-    async execute(_taskId: string, request: StartTaskRequest, sanitizedPrompt: string, _req: any): Promise<any> {
+    async execute(_taskId: string, request: StartTaskRequest, sanitizedPrompt: string, _req: Request): Promise<TextTaskResult> {
         const conversationHistory = request.conversationHistory || [];
         logger.info(`🔮 Gemini chat processing`);
-        return await geminiService.generateTextResponse(sanitizedPrompt, conversationHistory);
+        return await geminiService.generateTextResponse(sanitizedPrompt, conversationHistory) as unknown as TextTaskResult;
     }
 
-    async finalize(taskId: string, result: any, _req: any, prompt: string): Promise<void> {
+    async finalize(taskId: string, result: TextTaskResult, _req: Request, prompt: string): Promise<void> {
         try {
             if (isErrorResult(result)) {
                 logger.error(`❌ Text generation failed for task ${taskId}: ${result.error}`);
@@ -28,18 +29,20 @@ export class GeminiChatStrategy implements TaskStrategy {
             };
 
             // Add metadata if available
-            if (result.metadata) {
+            // Assuming result can have metadata property even if not in TextTaskResult interface explicitly
+            // or I should add it to TextTaskResult
+            if ((result as any).metadata) {
                 taskResult.metadata = {
-                    service: result.metadata.service,
-                    model: result.metadata.model,
-                    characterCount: result.metadata.characterCount,
-                    created_at: result.metadata.created_at
+                    service: (result as any).metadata.service,
+                    model: (result as any).metadata.model,
+                    characterCount: (result as any).metadata.characterCount,
+                    created_at: (result as any).metadata.created_at
                 };
             }
 
             // Add original prompt for reference
-            if (result.originalPrompt) {
-                taskResult.originalPrompt = result.originalPrompt;
+            if ((result as any).originalPrompt) {
+                taskResult.originalPrompt = (result as any).originalPrompt;
             }
 
             await taskStore.set(taskId, taskResult);

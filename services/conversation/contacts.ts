@@ -48,34 +48,43 @@ class ContactsManager {
     try {
       let processed = 0;
 
-      for (const contact of contactsArray) {
-        const contactId = contact.id || contact.chatId;
-        if (!contactId) continue;
+      const contactsToUpsert = contactsArray
+        .map(contact => {
+          const contactId = contact.id || contact.chatId;
+          if (!contactId) return null;
 
-        // Normalize contact object for repository
-        const rawContactData = {
-          id: contactId,
-          name: contact.name,
-          contactName: contact.contactName,
-          type: contact.type,
-          chatId: contact.id,
-          ...contact
-        };
+          // Normalize contact object for repository
+          const rawContactData = {
+            id: contactId,
+            name: contact.name,
+            contactName: contact.contactName,
+            type: contact.type,
+            chatId: contact.id,
+            ...contact
+          };
 
-        // Validate with Zod
-        const validatedContact = contactSchema.parse(rawContactData);
+          try {
+            // Validate with Zod
+            const validatedContact = contactSchema.parse(rawContactData);
 
-        // Convert to Contact type expected by repository (convert null to undefined)
-        const contactForRepository = {
-          id: validatedContact.id,
-          name: validatedContact.name ?? undefined,
-          contactName: validatedContact.contactName ?? undefined,
-          type: validatedContact.type ?? undefined,
-          chatId: validatedContact.chatId ?? undefined
-        };
+            // Convert to Contact type expected by repository (convert null to undefined)
+            return {
+              id: validatedContact.id,
+              name: validatedContact.name ?? undefined,
+              contactName: validatedContact.contactName ?? undefined,
+              type: validatedContact.type ?? undefined,
+              chatId: validatedContact.chatId ?? undefined
+            };
+          } catch (e) {
+            logger.warn(`⚠️ Invalid contact data for ID ${contactId}, skipping`, { error: e });
+            return null;
+          }
+        })
+        .filter((c): c is NonNullable<typeof c> => c !== null);
 
-        await this.repository.upsert(contactForRepository);
-        processed++;
+      if (contactsToUpsert.length > 0) {
+        await this.repository.upsertBatch(contactsToUpsert);
+        processed = contactsToUpsert.length;
       }
 
       logger.info(`📇 Contacts synced: ${processed} processed`);

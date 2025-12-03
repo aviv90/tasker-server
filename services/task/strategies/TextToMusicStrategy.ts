@@ -1,7 +1,8 @@
+import { Request } from 'express';
 import { StartTaskRequest } from '../../../schemas/taskSchemas';
 import * as musicService from '../../musicService';
 import logger from '../../../utils/logger';
-import { TaskStrategy } from './types';
+import { TaskStrategy, MusicTaskResult } from './types';
 import * as taskStore from '../../../store/taskStore';
 import { isErrorResult } from '../../../utils/errorHandler';
 import fs from 'fs';
@@ -9,7 +10,7 @@ import path from 'path';
 import { getTempDir } from '../../../utils/tempFileUtils';
 
 export class TextToMusicStrategy implements TaskStrategy {
-    async execute(_taskId: string, request: StartTaskRequest, sanitizedPrompt: string, _req: any): Promise<any> {
+    async execute(_taskId: string, request: StartTaskRequest, sanitizedPrompt: string, _req: Request): Promise<MusicTaskResult> {
         const options: Record<string, any> = {};
 
         // Allow model selection and advanced options
@@ -34,15 +35,15 @@ export class TextToMusicStrategy implements TaskStrategy {
         logger.info(`🎵 Generating ${isInstrumental ? 'instrumental' : 'vocal'} music ${isAdvanced ? 'with advanced V5 features' : ''}`);
 
         if (isAdvanced) {
-            return await musicService.generateAdvancedMusic(sanitizedPrompt, options);
+            return await musicService.generateAdvancedMusic(sanitizedPrompt, options) as unknown as MusicTaskResult;
         } else if (isInstrumental) {
-            return await musicService.generateInstrumentalMusic(sanitizedPrompt, options);
+            return await musicService.generateInstrumentalMusic(sanitizedPrompt, options) as unknown as MusicTaskResult;
         } else {
-            return await musicService.generateMusicWithLyrics(sanitizedPrompt, options);
+            return await musicService.generateMusicWithLyrics(sanitizedPrompt, options) as unknown as MusicTaskResult;
         }
     }
 
-    async finalize(taskId: string, result: any, req: any, prompt: string): Promise<void> {
+    async finalize(taskId: string, result: MusicTaskResult, req: Request, prompt: string): Promise<void> {
         try {
             if (isErrorResult(result)) {
                 logger.error(`❌ Music generation failed for task ${taskId}: ${result.error}`);

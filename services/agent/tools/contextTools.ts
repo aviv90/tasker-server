@@ -6,6 +6,7 @@ import { getChatHistory } from '../../../utils/chatHistoryService';
 import logger from '../../../utils/logger';
 import { getServices } from '../utils/serviceLoader';
 import { NOT_FOUND, ERROR } from '../../../config/messages';
+import conversationManager from '../../../services/conversationManager';
 
 export interface ToolContext {
   chatId?: string;
@@ -195,10 +196,6 @@ export const save_user_preference = {
     );
 
     try {
-      // Lazy load conversationManager
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const conversationManager = require('../../../services/conversationManager').default;
-
       await conversationManager.saveUserPreference(context.chatId || '', args.preference_key, args.preference_value);
 
       return {
@@ -252,10 +249,6 @@ export const get_long_term_memory = {
       };
 
       if (includeSummaries) {
-        // Lazy load conversationManager
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const conversationManager = require('../../../services/conversationManager').default;
-
         const summaries = (await conversationManager.getConversationSummaries(
           context.chatId || '',
           5
@@ -277,10 +270,6 @@ export const get_long_term_memory = {
       }
 
       if (includePreferences) {
-        // Lazy load conversationManager
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const conversationManager = require('../../../services/conversationManager').default;
-
         const preferences = (await conversationManager.getUserPreferences(
           context.chatId || ''
         )) as Record<string, string>;

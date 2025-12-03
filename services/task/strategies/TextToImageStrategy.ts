@@ -1,7 +1,8 @@
+import { Request } from 'express';
 import { StartTaskRequest } from '../../../schemas/taskSchemas';
 import * as geminiService from '../../geminiService';
 import * as openaiService from '../../openai';
-import { TaskStrategy } from './types';
+import { TaskStrategy, ImageTaskResult } from './types';
 import * as taskStore from '../../../store/taskStore';
 import { isErrorResult } from '../../../utils/errorHandler';
 import fs from 'fs';
@@ -10,16 +11,16 @@ import { getTempDir } from '../../../utils/tempFileUtils';
 import logger from '../../../utils/logger';
 
 export class TextToImageStrategy implements TaskStrategy {
-    async execute(_taskId: string, request: StartTaskRequest, sanitizedPrompt: string, _req: any): Promise<any> {
+    async execute(_taskId: string, request: StartTaskRequest, sanitizedPrompt: string, _req: Request): Promise<ImageTaskResult> {
         const { provider } = request;
         if (provider === 'openai') {
-            return await openaiService.generateImageWithText(sanitizedPrompt);
+            return await openaiService.generateImageWithText(sanitizedPrompt) as ImageTaskResult;
         } else {
-            return await geminiService.generateImageWithText(sanitizedPrompt);
+            return await geminiService.generateImageWithText(sanitizedPrompt) as ImageTaskResult;
         }
     }
 
-    async finalize(taskId: string, result: any, req: any, _prompt: string): Promise<void> {
+    async finalize(taskId: string, result: ImageTaskResult, req: Request, _prompt: string): Promise<void> {
         try {
             if (isErrorResult(result)) {
                 await taskStore.set(taskId, { status: 'error', ...result });

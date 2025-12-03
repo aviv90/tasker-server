@@ -6,12 +6,12 @@
 import { Pool } from 'pg';
 
 export interface Contact {
-    id: string;
-    name?: string;
-    contactName?: string;
-    type?: string;
-    chatId?: string;
-    [key: string]: unknown;
+  id: string;
+  name?: string;
+  contactName?: string;
+  type?: string;
+  chatId?: string;
+  [key: string]: unknown;
 }
 
 class ContactsRepository {
@@ -46,6 +46,47 @@ class ContactsRepository {
         contact.chatId || '',
         JSON.stringify(contact)
       ]);
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Batch upsert contacts
+   */
+  async upsertBatch(contacts: Contact[]): Promise<void> {
+    if (contacts.length === 0) return;
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Use UNNEST for efficient bulk upsert
+      // We pass arrays of values
+      const ids = contacts.map(c => c.id);
+      const names = contacts.map(c => c.name || '');
+      const contactNames = contacts.map(c => c.contactName || '');
+      const types = contacts.map(c => c.type || 'user');
+      const chatIds = contacts.map(c => c.chatId || '');
+      const rawData = contacts.map(c => JSON.stringify(c));
+
+      await client.query(`
+        INSERT INTO contacts (contact_id, name, contact_name, type, chat_id, raw_data, updated_at)
+        SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::jsonb[])
+        ON CONFLICT (contact_id) 
+        DO UPDATE SET 
+          name = EXCLUDED.name,
+          contact_name = EXCLUDED.contact_name,
+          type = EXCLUDED.type,
+          chat_id = EXCLUDED.chat_id,
+          raw_data = EXCLUDED.raw_data,
+          updated_at = CURRENT_TIMESTAMP
+      `, [ids, names, contactNames, types, chatIds, rawData]);
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
     } finally {
       client.release();
     }
