@@ -1,0 +1,1542 @@
+
+/Users/aviv/Dev/tasker-server/dist/config/index.js
+  22:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  23:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/config/prompts.js
+  10:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/config/prompts/multiStep.js
+  8:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/config/prompts/system.js
+  15:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/config/tools-list.js
+  16:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  22:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  23:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/controllers/whatsappController.js
+   7:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/index.js
+   6:1   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:44  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:42  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:37  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/middleware/rateLimiter.js
+  52:43  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  53:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  54:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  55:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/middleware/rateLimiter.test.js
+  7:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/repositories/commandsRepository.test.js
+  10:46  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/reproduce_issue.js
+  2:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/taskRoutes.js
+  39:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  40:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  41:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  42:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  43:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  44:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/upload/callbacks.js
+  39:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  40:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  41:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/upload/finalizers.js
+  39:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  40:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  41:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  42:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  43:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/upload/imageUpload.js
+  39:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  40:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  41:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  42:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  43:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  44:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  47:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/upload/transcriptionUpload.js
+  39:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  40:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  41:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  42:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  43:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  44:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  47:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  48:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/upload/videoUpload.js
+  39:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  40:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  41:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  42:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  43:39  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  44:33  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  47:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/upload/voiceRoutes.js
+  39:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  40:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  41:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  42:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  43:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  44:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:37  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/uploadEditRoutes.js
+  12:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:39  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:39  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:37  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:39  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/asyncProcessors.js
+  49:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  50:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/commandHandler.js
+  17:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/incoming/mediaHandling.js
+  50:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  51:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  52:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/incoming/messageParsing.js
+  14:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/incoming/messageStorage.js
+   52:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   53:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  112:85  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/incoming/resultHandling.js
+  26:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/incoming/resultHandling/history.js
+  44:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  53:81  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/incoming/resultHandling/index.js
+   49:15   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   56:14   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   60:24   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   62:17   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   65:26   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   66:34   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   67:17   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   68:16   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   69:26   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   70:19   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  139:101  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/incoming/resultHandling/media/audio.js
+  44:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  47:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/incoming/resultHandling/media/image.js
+  44:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  47:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  48:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/incoming/resultHandling/media/index.js
+   8:15  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:15  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:15  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/incoming/resultHandling/media/location.js
+  44:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  68:86  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/incoming/resultHandling/media/poll.js
+  44:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  47:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/incoming/resultHandling/media/video.js
+  44:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  47:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  48:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/incoming/resultHandling/postProcessing.js
+  11:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/incoming/resultHandling/text.js
+  45:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  47:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  48:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  49:29  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/incomingHandler.js
+  14:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:28  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/management/conversation.js
+  45:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  47:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  48:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  49:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  71:84  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/managementHandler.js
+  47:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  48:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  49:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  50:37  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  51:42  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  52:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  53:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  54:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  84:96  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/messageParser.js
+   52:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  159:76  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/outgoingHandler.js
+   47:47   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   48:23   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   49:23   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   50:34   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   51:28   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   53:25   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   54:29   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   55:26   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   56:27   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   57:25   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  163:102  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsapp/quotedMessageHandler.js
+  13:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/routes/whatsappRoutes.js
+   6:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   7:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/schemas/command.schema.js
+  4:15  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/schemas/contact.schema.js
+  4:15  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/schemas/context.schema.js
+  4:15  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/schemas/taskSchemas.js
+  4:15  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/scripts/verify-tools.js
+  3:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/agentOrchestrator.js
+   50:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   51:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   52:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   53:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   54:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   55:28  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   56:37  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   57:37  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   58:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   59:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   60:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  144:85  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/execution/agentLoop.js
+   6:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   7:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/execution/context.js
+  6:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  7:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/execution/fallbackHandler.js
+   7:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/execution/multiStep.js
+  10:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:40  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/execution/resultProcessor.js
+  4:29  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  5:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/execution/resultSender.js
+  10:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:29  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/execution/singleStep.js
+  18:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  22:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  23:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/historyStrategy.js
+  14:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/router/commandSaver.js
+  14:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/router/contextBuilder.js
+  11:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/allTools.js
+  18:40  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:41  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:41  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:40  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  22:39  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  23:41  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  24:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  25:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  26:40  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  27:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  28:43  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  30:37  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/analysisTools.js
+  10:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/audioTools.js
+   4:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   6:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/audioTools/creativeMix.js
+   7:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/audioTools/speech.js
+   7:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:40  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/audioTools/transcription.js
+   7:33  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:41  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:40  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/audioTools/translation.js
+   7:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:40  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/contextTools.js
+  10:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/creation/imageCreation.js
+  11:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:28  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/creation/index.js
+   9:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/creation/musicCreation.js
+  11:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/creation/pollCreation.js
+  11:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/creation/videoCreation.js
+  44:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:28  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  47:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  48:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  49:39  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  50:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  51:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  52:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/creationTools.js
+  12:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/driveTools.js
+  11:46  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/editingTools.js
+  44:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:28  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  47:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  48:39  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  49:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  50:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/fallbackTools.js
+  12:41  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:41  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/groupTools.js
+  11:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/imageTools.js
+  11:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:28  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/index.js
+  51:35  error  A `require()` style import is forbidden                                @typescript-eslint/no-require-imports
+  52:36  error  A `require()` style import is forbidden                                @typescript-eslint/no-require-imports
+  53:36  error  A `require()` style import is forbidden                                @typescript-eslint/no-require-imports
+  54:35  error  A `require()` style import is forbidden                                @typescript-eslint/no-require-imports
+  55:33  error  A `require()` style import is forbidden                                @typescript-eslint/no-require-imports
+  56:34  error  A `require()` style import is forbidden                                @typescript-eslint/no-require-imports
+  57:33  error  A `require()` style import is forbidden                                @typescript-eslint/no-require-imports
+  58:36  error  A `require()` style import is forbidden                                @typescript-eslint/no-require-imports
+  59:35  error  A `require()` style import is forbidden                                @typescript-eslint/no-require-imports
+  60:33  error  A `require()` style import is forbidden                                @typescript-eslint/no-require-imports
+  61:33  error  A `require()` style import is forbidden                                @typescript-eslint/no-require-imports
+  62:38  error  A `require()` style import is forbidden                                @typescript-eslint/no-require-imports
+  63:41  error  A `require()` style import is forbidden                                @typescript-eslint/no-require-imports
+  65:1   error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  66:1   error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  67:1   error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  68:1   error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  69:1   error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  75:1   error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  77:1   error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/locationTools.js
+  10:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/meta/contextAndMemoryTools.js
+  14:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/meta/fallbackTools.js
+  12:41  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:41  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/meta/fallbackTools/helpers.js
+  16:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  22:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/meta/fallbackTools/retryProvider.js
+  44:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:44  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  47:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  48:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/meta/fallbackTools/smartFallback.js
+  44:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  47:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  48:44  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  49:40  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  50:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  51:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/metaTools.js
+  19:49  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:41  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/retry/ack.js
+  12:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/retry/multiStep.js
+   45:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   46:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   47:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   48:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   49:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   50:15  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   51:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  150:77  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/retry/singleStep.js
+  12:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:15  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/retryTools.js
+  14:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/schedulingTools.js
+  44:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  81:92  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  82:82  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  83:84  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/searchTools.js
+  11:25  error  A `require()` style import is forbidden                                                                              @typescript-eslint/no-require-imports
+  12:25  error  A `require()` style import is forbidden                                                                              @typescript-eslint/no-require-imports
+  13:34  error  A `require()` style import is forbidden                                                                              @typescript-eslint/no-require-imports
+  14:35  error  A `require()` style import is forbidden                                                                              @typescript-eslint/no-require-imports
+  15:25  error  A `require()` style import is forbidden                                                                              @typescript-eslint/no-require-imports
+  16:20  error  A `require()` style import is forbidden                                                                              @typescript-eslint/no-require-imports
+  19:1   error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/tools/summaryTools.js
+  11:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/utils/ackUtils.js
+  11:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/utils/audioUtils.js
+   7:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:42  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/utils/languageUtils.js
+  7:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/utils/providerUtils.js
+  7:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agent/utils/serviceLoader.js
+  18:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  24:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  27:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agentRouter.js
+  15:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/agentService.js
+  18:45  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/audioConverterService.js
+   11:25  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   12:30  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   13:32  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   14:16  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   15:16  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   16:27  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   17:34  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   18:41  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   19:42  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   29:28  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   46:28  error  Promise executor functions should not be async  no-async-promise-executor
+  177:40  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/container.js
+   6:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   7:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:46  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:50  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:50  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:48  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:46  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:52  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:43  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:40  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:40  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  22:37  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  23:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  24:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  25:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  26:33  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  27:43  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  28:49  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/conversation/agentContext.js
+   9:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/conversation/allowLists.js
+  9:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/conversation/commands.js
+  12:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/conversation/contacts.js
+   9:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/conversation/database.js
+  10:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/conversation/messageTypes.js
+  12:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/conversation/messages.js
+  12:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/conversation/migrationRunner.js
+  14:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/conversation/summaries.js
+   9:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/conversation/tasks.js
+  9:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/conversationManager.js
+   6:37  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   7:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:33  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/creativeAudio/background.js
+  17:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  22:40  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  23:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  24:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/creativeAudio/effects.js
+   14:25  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   15:30  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   16:32  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   17:16  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   18:16  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   19:25  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   20:34  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+  170:24  error  Promise executor functions should not be async  no-async-promise-executor
+
+/Users/aviv/Dev/tasker-server/dist/services/creativeAudio/mixing.js
+  13:25  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+  14:30  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+  15:32  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+  16:16  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+  17:16  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+  18:25  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+  19:19  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+  20:22  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+  21:34  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+  33:24  error  Promise executor functions should not be async  no-async-promise-executor
+
+/Users/aviv/Dev/tasker-server/dist/services/creativeAudioService.js
+  13:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/image/analysis.js
+   6:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   7:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/image/editing.js
+   6:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   7:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/image/generation.js
+   6:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   7:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/imageGeneration.js
+  18:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/index.js
+  47:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  48:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  49:37  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  50:40  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/special/location.js
+  6:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  7:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  8:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  9:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/special/music.js
+  6:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  7:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  8:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/special/polls.js
+   6:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   7:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/special/tts.js
+  6:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  7:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  8:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/specialOperations.js
+  18:33  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:31  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:33  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/text/googleSearch.js
+    6:33  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+    7:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+    8:15  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+    9:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  197:58  error  Unnecessary escape character: \)         no-useless-escape
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/text/promptBuilder.js
+  6:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  7:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/text/summary.js
+  6:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  7:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  8:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/text/thinkingCleanup.js
+  10:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/text/translation.js
+  6:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  7:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  8:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/textOperations.js
+  15:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:41  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  22:40  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  23:43  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  24:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  25:39  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/utils.js
+  12:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/video/analysis.js
+   6:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  42:44  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/video/veoGeneration.js
+   8:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/video/whatsapp.js
+   8:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/gemini/videoGeneration.js
+  18:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:41  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/geminiService.js
+  16:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/googleDrive/authOperations.js
+  5:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/googleDrive/driveOperations.js
+  16:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/googleDrive/index.js
+  45:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:37  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  52:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  53:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/googleDriveService.js
+  14:39  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/greenApi/chat.js
+  12:33  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/greenApi/fileHandling.js
+  11:33  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/greenApi/groups.js
+  12:33  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:37  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/greenApi/messaging.js
+  13:33  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/greenApiService.js
+  10:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  22:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/grokService.js
+  11:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/groupService.js
+  15:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/kie/download.js
+  10:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/kie/imageToVideo.js
+   9:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/kie/polling.js
+  11:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/kie/textToVideo.js
+   9:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/kieService.js
+  14:39  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:40  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/location/constants.js
+  10:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/location/extraction.js
+  10:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/location/finder.js
+   8:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/location/helpers.js
+  12:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  26:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/locationService.js
+  10:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/multiStepPlanner.js
+  10:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/music/callbacks.js
+  10:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/music/generation.js
+  10:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/music/video.js
+  10:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/music/whatsappDelivery.js
+  10:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/musicService.js
+   8:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:28  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/openai/image.js
+  16:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  22:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/openai/index.js
+  11:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/openai/text.js
+  13:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/openai/video.js
+  15:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  22:33  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  23:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  24:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/openaiService.js
+  47:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/replicate/generation.js
+   6:37  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   7:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  12:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/replicate/helpers.js
+   9:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/replicate/whatsapp.js
+    6:37  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+    7:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+    8:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+    9:33  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   10:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   11:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   12:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   13:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   14:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   15:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  109:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/replicateService.js
+  19:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/scheduling/scheduledTasksService.js
+  10:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/speech/batch.js
+  7:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  8:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  9:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/speech/client.js
+  4:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/speech/options.js
+  4:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/speech/transcription.js
+   7:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   8:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+   9:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  10:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  11:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  24:9   error  Unnecessary try/catch wrapper            no-useless-catch
+
+/Users/aviv/Dev/tasker-server/dist/services/speechService.js
+  13:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/task/strategies.js
+  40:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  41:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  42:39  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  43:33  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  44:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/task/strategies/GeminiChatStrategy.js
+  40:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  41:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  42:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  43:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/task/strategies/OpenAIChatStrategy.js
+  40:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  41:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  42:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  43:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/task/strategies/TextToImageStrategy.js
+  40:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  41:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  42:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  43:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  44:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  47:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/task/strategies/TextToMusicStrategy.js
+  40:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  41:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  42:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  43:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  44:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/task/strategies/TextToVideoStrategy.js
+  37:36  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  38:39  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  39:33  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  40:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/task/strategies/index.js
+  17:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  22:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/taskService.js
+  40:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  41:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  42:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  43:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  44:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/voice/textToSpeech.js
+  11:16  error  A `require()` style import is forbidden                                    @typescript-eslint/no-require-imports
+  12:25  error  A `require()` style import is forbidden                                    @typescript-eslint/no-require-imports
+  13:34  error  A `require()` style import is forbidden                                    @typescript-eslint/no-require-imports
+  70:29  error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+
+/Users/aviv/Dev/tasker-server/dist/services/voice/voiceCloning.js
+  12:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/voice/voiceManagement.js
+  13:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/voice/voiceSelection.js
+  14:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/voiceService.js
+  41:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  42:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  43:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  44:41  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:37  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/whatsapp/authorization.js
+  15:37  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:42  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/whatsapp/mediaHandlers.js
+  15:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/whatsapp/mediaHandlers/imageHandlers.js
+  13:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:28  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/whatsapp/mediaHandlers/videoHandlers.js
+  12:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:28  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/whatsapp/mediaHandlers/voiceHandlers.js
+  12:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:41  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:49  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  22:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  23:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  24:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  25:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/whatsapp/messageProcessor.js
+  13:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/whatsapp/messaging.js
+  18:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/services/whatsapp/utils.js
+  104:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/store/authStore.js
+  12:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  13:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/store/groupAuthStore.js
+  13:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/store/taskStore.js
+  14:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/store/taskStore.test.js
+  43:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  57:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/tests/setup/database.js
+  15:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:43  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/tests/utils/agentHelpers.test.js
+  3:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/tests/utils/dbHelpers.js
+  16:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/tests/utils/errorHandler.test.js
+  3:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/tests/utils/messageHelpers.test.js
+  3:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/tests/utils/mockFactories.js
+  16:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:23  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/tests/utils/tempFileUtils.test.js
+  6:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  7:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/tests/utils/testHelpers.js
+  16:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/tests/utils/textSanitizer.test.js
+   3:25  error  A `require()` style import is forbidden                                                                              @typescript-eslint/no-require-imports
+   4:21  error  A `require()` style import is forbidden                                                                              @typescript-eslint/no-require-imports
+  23:13  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+/Users/aviv/Dev/tasker-server/dist/utils/agentHelpers.js
+  47:64  error  Unnecessary escape character: \.  no-useless-escape
+
+/Users/aviv/Dev/tasker-server/dist/utils/cache.js
+  33:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  34:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/utils/chatHistoryService.js
+  53:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  54:47  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  55:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  71:85  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/utils/circuitBreaker.js
+  31:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/utils/dateParser.js
+  14:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/utils/dateUtils.js
+  13:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/utils/errorHandler.js
+  19:34  error  A `require()` style import is forbidden                                    @typescript-eslint/no-require-imports
+  20:25  error  A `require()` style import is forbidden                                    @typescript-eslint/no-require-imports
+  99:29  error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+
+/Users/aviv/Dev/tasker-server/dist/utils/errorHandler.test.js
+  7:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/utils/errorSender.js
+  14:27  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/utils/logger.js
+  17:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/utils/messageHelpers.test.js
+  7:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/utils/pipelineDetection.js
+  16:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/utils/providerFallback.js
+  15:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  17:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  18:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/utils/tempFileUtils.js
+  18:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  20:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  22:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/utils/tempFileUtils.test.js
+  40:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  41:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/utils/textSanitizer.js
+  15:21  error  A `require()` style import is forbidden                                        @typescript-eslint/no-require-imports
+  16:34  error  A `require()` style import is forbidden                                        @typescript-eslint/no-require-imports
+  31:18  error  Unexpected control character(s) in regular expression: \x00, \x08, \x0e, \x1f  no-control-regex
+  69:41  error  Unnecessary escape character: \)                                               no-useless-escape
+
+/Users/aviv/Dev/tasker-server/dist/utils/textSanitizer.test.js
+  7:25  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/utils/timeout.js
+  32:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/dist/utils/videoUtils.js
+  44:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  45:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  47:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  48:34  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/eslint.config.js
+  3:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  4:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/services/audioConverterService.ts
+  234:40  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/services/creativeAudio/effects.ts
+  182:22  error  Promise executor functions should not be async  no-async-promise-executor
+
+/Users/aviv/Dev/tasker-server/services/creativeAudio/mixing.ts
+  47:22  error  Promise executor functions should not be async  no-async-promise-executor
+
+/Users/aviv/Dev/tasker-server/services/gemini/text/googleSearch.ts
+  236:54  error  Unnecessary escape character: \)  no-useless-escape
+
+/Users/aviv/Dev/tasker-server/services/gemini/video/analysis.ts
+  65:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/services/location/helpers.ts
+  19:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/services/openai/video.ts
+  328:9  error  'targetWidth' is never reassigned. Use 'const' instead   prefer-const
+  329:9  error  'targetHeight' is never reassigned. Use 'const' instead  prefer-const
+
+/Users/aviv/Dev/tasker-server/services/replicate/whatsapp.ts
+  139:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/services/speech/transcription.ts
+  22:9  error  Unnecessary try/catch wrapper  no-useless-catch
+
+/Users/aviv/Dev/tasker-server/services/voice/textToSpeech.ts
+  116:23  error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+
+/Users/aviv/Dev/tasker-server/tests/setup/jest.setup.ts
+  51:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/tests/verification/testSchedulingRecipient.test.ts
+  39:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/utils/agentHelpers.ts
+  48:62  error  Unnecessary escape character: \.  no-useless-escape
+
+/Users/aviv/Dev/tasker-server/utils/errorHandler.ts
+  136:23  error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+
+✖ 1043 problems (1043 errors, 0 warnings)
+

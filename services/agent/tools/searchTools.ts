@@ -3,7 +3,7 @@
  * Clean, modular tool definitions following SOLID principles
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+
 import { getServices } from '../utils/serviceLoader';
 import logger from '../../../utils/logger';
 import prompts from '../../../config/prompts';
@@ -31,9 +31,6 @@ type ToolResult = Promise<{
 }>;
 
 // Initialize Gemini client for search_web (Google Search)
-const geminiApiKey = process.env.GEMINI_API_KEY || '';
-// @ts-ignore
-const googleAI = new GoogleGenerativeAI(geminiApiKey);
 
 /**
  * Tool: search_web

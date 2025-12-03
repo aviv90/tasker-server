@@ -48,23 +48,24 @@ jest.mock('../../utils/logger', () => ({
  * Individual tests can override this if needed
  */
 jest.mock('../../config', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const path = require('path');
   const testTmpDir = path.join(__dirname, '..', '..', 'public', 'tmp');
-  
+
   return {
     config: {
       // Environment
       env: 'test',
       isProduction: false,
       isDevelopment: true,
-      
+
       // Server
       server: {
         port: 3000,
         host: '0.0.0.0',
         trustProxy: true
       },
-      
+
       // API Keys
       apiKeys: {
         gemini: 'test-gemini-key',
@@ -73,7 +74,7 @@ jest.mock('../../config', () => {
         elevenlabs: 'test-elevenlabs-key',
         kie: 'test-kie-key'
       },
-      
+
       // Database
       database: {
         url: 'postgresql://localhost:5432/tasker_test',
@@ -84,7 +85,7 @@ jest.mock('../../config', () => {
           connectionTimeoutMillis: 10000
         }
       },
-      
+
       // Paths - important for file operations
       paths: {
         public: path.join(__dirname, '..', '..', 'public'),
@@ -92,13 +93,13 @@ jest.mock('../../config', () => {
         static: testTmpDir,
         logs: path.join(__dirname, '..', '..', 'logs')
       },
-      
+
       // URLs
       urls: {
         serverBaseUrl: 'http://localhost:3000',
         herokuAppName: null
       },
-      
+
       // Timeouts
       timeouts: {
         database: 30000,
@@ -107,7 +108,7 @@ jest.mock('../../config', () => {
         fileOperation: 30000,
         upload: 300000
       },
-      
+
       // Feature flags
       features: {
         intentRouterUseLLM: false,
@@ -120,33 +121,33 @@ jest.mock('../../config', () => {
           expensive: { max: 10, windowMs: 60000 }
         }
       },
-      
+
       // Limits
       limits: {
         jsonBodySize: '50mb',
         fileUploadSize: '100mb'
       },
-      
+
       // Models
       models: {
         gemini: { defaultModel: 'gemini-2.5-flash' },
         openai: { defaultModel: 'gpt-4o', imageModel: 'dall-e-3' },
         elevenlabs: { defaultModel: 'eleven_v3' }
       },
-      
+
       // Green API (WhatsApp)
       greenApi: {
         idInstance: 'test-instance',
         apiTokenInstance: 'test-token'
       },
-      
+
       // Google Drive
       googleDrive: {
         clientId: null,
         clientSecret: null,
         refreshToken: null
       },
-      
+
       // Logging
       logging: {
         level: 'silent',

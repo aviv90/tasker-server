@@ -1,5 +1,5 @@
 import container from './container';
-import DatabaseManager from './conversation/database';
+
 import TasksManager from './conversation/tasks';
 import logger from '../utils/logger';
 import { Pool } from 'pg';
@@ -26,15 +26,14 @@ interface AgentContext {
 class ConversationManager {
   public isInitialized: boolean = false;
   public pool: Pool | null = null;
-  public databaseManager: DatabaseManager;
+
   public tasksManager: TasksManager;
   private cleanupIntervalHandle: NodeJS.Timeout | null = null;
 
   constructor() {
     // We keep these here for backward compatibility API
     // But they will delegate to the container's managers where possible
-    // @ts-expect-error - DatabaseManager expects ConversationManager interface, but we pass 'this'
-    this.databaseManager = new DatabaseManager(this);
+
     // @ts-expect-error - TasksManager expects ConversationManager interface, but we pass 'this'
     this.tasksManager = new TasksManager(this);
 

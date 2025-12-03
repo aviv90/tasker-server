@@ -8,7 +8,7 @@
 
 // Use ES Module imports to allow proper type inference and avoid 'require'
 import * as contextTools from './contextTools';
-import * as creationTools from './creationTools';
+import * as creationTools from './creation';
 import * as analysisTools from './analysisTools';
 import * as editingTools from './editingTools';
 import * as audioTools from './audioTools';

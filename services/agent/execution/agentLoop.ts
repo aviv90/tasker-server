@@ -128,7 +128,7 @@ class AgentLoop {
         logger.debug(`🔍 [Agent] Extracted assets - Image: ${latestImageAsset?.url}, Video: ${latestVideoAsset?.url}, Audio: ${latestAudioAsset?.url}, Poll: ${latestPollAsset?.question}, Location: ${latitude}, ${longitude}`);
 
         // Clean JSON wrappers from final text
-        let finalText = context.suppressFinalResponse ? '' : cleanJsonWrapper(text);
+        const finalText = context.suppressFinalResponse ? '' : cleanJsonWrapper(text);
 
 
 

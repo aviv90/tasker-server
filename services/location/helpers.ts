@@ -4,6 +4,9 @@
 
 import logger from '../../utils/logger';
 
+import fs from 'fs';
+import path from 'path';
+
 /**
  * Load JSON file
  * Handles both development (source) and production (dist) paths
@@ -11,26 +14,33 @@ import logger from '../../utils/logger';
 export function loadJson(filePath: string): unknown {
   try {
     // Try relative path first (for development)
+    const absolutePath = path.resolve(filePath);
+    if (fs.existsSync(absolutePath)) {
+      const content = fs.readFileSync(absolutePath, 'utf-8');
+      return JSON.parse(content);
+    }
+
+    // In production (dist/), try path relative to project root
+    const isInDist = __dirname.includes('dist');
+    const projectRoot = isInDist
+      ? path.join(__dirname, '..', '..', '..') // dist/services/location -> project root
+      : path.join(__dirname, '..', '..'); // services/location -> project root
+
+    const projectPath = path.join(projectRoot, filePath.replace(/^\.\.\//g, ''));
+
+    if (fs.existsSync(projectPath)) {
+      const content = fs.readFileSync(projectPath, 'utf-8');
+      return JSON.parse(content);
+    }
+
+    // Try requiring it as a fallback (for node_modules etc)
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require(filePath);
+
   } catch (err: unknown) {
-    // In production (dist/), try path relative to project root
-    try {
-      const path = require('path');
-      // If we're in dist/, go up to project root
-      const isInDist = __dirname.includes('dist');
-      const projectRoot = isInDist 
-        ? path.join(__dirname, '..', '..', '..') // dist/services/location -> project root
-        : path.join(__dirname, '..', '..'); // services/location -> project root
-      const absolutePath = path.join(projectRoot, filePath.replace(/^\.\.\//g, ''));
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require(absolutePath);
-    } catch (err2: unknown) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      const errorMessage2 = err2 instanceof Error ? err2.message : String(err2);
-      logger.warn(`⚠️ Could not load ${filePath}:`, { error1: errorMessage, error2: errorMessage2 });
-      return null;
-    }
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    logger.warn(`⚠️ Could not load ${filePath}:`, { error: errorMessage });
+    return null;
   }
 }
 

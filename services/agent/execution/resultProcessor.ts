@@ -17,7 +17,7 @@ export function processFinalText(stepResults: StepResult[], options: any): strin
         }
     }
 
-    let finalText = cleanJsonWrapper(textParts.join('\n\n').trim());
+    const finalText = cleanJsonWrapper(textParts.join('\n\n').trim());
     const lines = finalText.split('\n').filter(line => line.trim());
     const uniqueLines: string[] = [];
     const seen = new Set<string>();

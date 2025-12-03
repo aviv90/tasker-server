@@ -132,7 +132,7 @@ Return JSON only in this format:
 export function locationMapsPrompt(latitude: number, longitude: number, language = 'he'): string {
   const isHebrew = language === 'he' || language === 'Hebrew';
   const langName = isHebrew ? 'Hebrew' : (language === 'en' ? 'English' : language);
-  
+
   if (isHebrew) {
     return `תאר את המיקום בקואורדינטות: קו רוחב ${latitude}°, קו אורך ${longitude}°.
             
@@ -154,7 +154,7 @@ Short and interesting answer in ${langName} (2-3 lines).`;
 export function locationGeneralPrompt(latitude: number, longitude: number, language = 'he'): string {
   const isHebrew = language === 'he' || language === 'Hebrew';
   const langName = isHebrew ? 'Hebrew' : (language === 'en' ? 'English' : language);
-  
+
   if (isHebrew) {
     return `תאר את המיקום הגיאוגרפי: קו רוחב ${latitude}°, קו אורך ${longitude}°.
 
@@ -195,3 +195,14 @@ ${formattedMessages}
 סיכום השיחה:`;
 }
 
+
+/**
+ * Translation prompt - for text translation
+ */
+export function translationPrompt(text: string, targetLanguage: string): string {
+  return `Translate the following text to ${targetLanguage}. Return ONLY the translated text, nothing else.
+
+Text to translate: "${text}"
+
+Important: Return only the translation, no explanations, no quotes, no extra text.`;
+}

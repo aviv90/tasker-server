@@ -44,86 +44,79 @@ interface ProcessedVoice extends MixedAudio {
  * @returns {Promise<Object>} Result with mixed audio
  */
 export async function mixWithBackground(voiceBuffer: Buffer, voiceFormat: string = 'mp3', backgroundPath: string): Promise<MixedAudio> {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const tempDir = getTempDir();
-      ensureTempDir();
+  const tempDir = getTempDir();
+  ensureTempDir();
 
-      const voiceFileName = `voice_${uuidv4()}.${voiceFormat}`;
-      const backgroundLowFileName = `bg_low_${uuidv4()}.mp3`;
-      const outputFileName = `mixed_${uuidv4()}.mp3`;
-      const voicePath = path.join(tempDir, voiceFileName);
-      const backgroundLowPath = path.join(tempDir, backgroundLowFileName);
-      const outputPath = path.join(tempDir, outputFileName);
+  const voiceFileName = `voice_${uuidv4()}.${voiceFormat}`;
+  const backgroundLowFileName = `bg_low_${uuidv4()}.mp3`;
+  const outputFileName = `mixed_${uuidv4()}.mp3`;
+  const voicePath = path.join(tempDir, voiceFileName);
+  const backgroundLowPath = path.join(tempDir, backgroundLowFileName);
+  const outputPath = path.join(tempDir, outputFileName);
 
-      // Write voice buffer to temporary file
-      fs.writeFileSync(voicePath, voiceBuffer);
+  try {
+    // Write voice buffer to temporary file
+    fs.writeFileSync(voicePath, voiceBuffer);
 
-      logger.debug(`🎵 Mixing voice with background music...`);
+    logger.debug(`🎵 Mixing voice with background music...`);
 
-      // Step 1: Lower background music volume to make it subtle background
-      const ffmpegStatic = 'ffmpeg';
-      const volumeCommand = [
-        ffmpegStatic,
-        '-i', backgroundPath,
-        '-filter:a', 'volume=0.3',
-        '-c:a', 'libmp3lame',
-        '-b:a', '128k',
-        '-y',
-        backgroundLowPath
-      ].join(' ');
+    // Step 1: Lower background music volume to make it subtle background
+    const ffmpegStatic = 'ffmpeg';
+    const volumeCommand = [
+      ffmpegStatic,
+      '-i', backgroundPath,
+      '-filter:a', 'volume=0.3',
+      '-c:a', 'libmp3lame',
+      '-b:a', '128k',
+      '-y',
+      backgroundLowPath
+    ].join(' ');
 
-      logger.debug(`🔊 Lowering background volume: ${volumeCommand}`);
+    logger.debug(`🔊 Lowering background volume: ${volumeCommand}`);
 
-      try {
-        await execAsync(volumeCommand);
+    await execAsync(volumeCommand);
 
-        if (!fs.existsSync(backgroundLowPath)) {
-          throw new Error('Background volume adjustment failed');
-        }
-
-        // Step 2: Mix voice with lowered background (voice louder, music quieter)
-        const mixCommand = `${ffmpegStatic} -i "${voicePath}" -i "${backgroundLowPath}" -filter_complex "[0:a]volume=1.2[voice];[1:a]volume=0.3[bg];[voice][bg]amix=inputs=2:duration=first" -c:a libmp3lame -b:a 128k -y "${outputPath}"`;
-
-        logger.debug(`🎵 Mixing command: ${mixCommand}`);
-
-        await execAsync(mixCommand);
-
-        if (!fs.existsSync(outputPath)) {
-          throw new Error('Mixed file was not created');
-        }
-
-        const mixedBuffer = fs.readFileSync(outputPath);
-
-        // Clean up temporary files
-        cleanupTempFile(voicePath);
-        cleanupTempFile(backgroundLowPath);
-        cleanupTempFile(outputPath);
-
-        logger.debug(`✅ Voice mixed with background: ${mixedBuffer.length} bytes`);
-
-        resolve({
-          success: true,
-          audioBuffer: mixedBuffer,
-          size: mixedBuffer.length
-        });
-
-      } catch (ffmpegError: any) {
-        logger.error('❌ FFmpeg mixing error:', { error: ffmpegError.message || String(ffmpegError), stack: ffmpegError.stack });
-
-        // Clean up temporary files
-        cleanupTempFile(voicePath);
-        cleanupTempFile(backgroundLowPath);
-        cleanupTempFile(outputPath);
-
-        reject(new Error(`Audio mixing failed: ${ffmpegError.message}`));
-      }
-
-    } catch (err: any) {
-      logger.error('❌ Error in audio mixing setup:', { error: err.message || String(err), stack: err.stack });
-      reject(new Error(`Mixing setup failed: ${err.message}`));
+    if (!fs.existsSync(backgroundLowPath)) {
+      throw new Error('Background volume adjustment failed');
     }
-  });
+
+    // Step 2: Mix voice with lowered background (voice louder, music quieter)
+    const mixCommand = `${ffmpegStatic} -i "${voicePath}" -i "${backgroundLowPath}" -filter_complex "[0:a]volume=1.2[voice];[1:a]volume=0.3[bg];[voice][bg]amix=inputs=2:duration=first" -c:a libmp3lame -b:a 128k -y "${outputPath}"`;
+
+    logger.debug(`🎵 Mixing command: ${mixCommand}`);
+
+    await execAsync(mixCommand);
+
+    if (!fs.existsSync(outputPath)) {
+      throw new Error('Mixed file was not created');
+    }
+
+    const mixedBuffer = fs.readFileSync(outputPath);
+
+    // Clean up temporary files
+    cleanupTempFile(voicePath);
+    cleanupTempFile(backgroundLowPath);
+    cleanupTempFile(outputPath);
+
+    logger.debug(`✅ Voice mixed with background: ${mixedBuffer.length} bytes`);
+
+    return {
+      success: true,
+      audioBuffer: mixedBuffer,
+      size: mixedBuffer.length
+    };
+
+  } catch (err: unknown) {
+    const error = err as Error;
+    logger.error('❌ Error in audio mixing:', { error: error.message || String(err), stack: error.stack });
+
+    // Clean up temporary files
+    cleanupTempFile(voicePath);
+    cleanupTempFile(backgroundLowPath);
+    cleanupTempFile(outputPath);
+
+    throw new Error(`Audio mixing failed: ${error.message}`);
+  }
 }
 
 /**

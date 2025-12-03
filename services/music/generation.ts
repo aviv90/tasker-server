@@ -349,7 +349,7 @@ export class MusicGeneration {
   }
 
   // Reserved for future use
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/ban-ts-comment
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Reserved for future use
   private async _generateCover(_coverOptions: Record<string, unknown>): Promise<GenerationResult> {
     return { error: 'Upload-Cover not yet implemented' };
@@ -387,7 +387,7 @@ export class MusicGeneration {
   }
 
   // Reserved for future use
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/ban-ts-comment
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Reserved for future use
   private async _generateInstrumental(_instrumentalOptions: Record<string, unknown>): Promise<GenerationResult> {
     return { error: 'Add Instrumental not yet implemented' };

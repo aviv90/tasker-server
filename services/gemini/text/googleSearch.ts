@@ -233,7 +233,7 @@ class GoogleSearchProcessor {
    */
   fixUrlFormatting(text: string): string {
     // 1. Convert Markdown links [text](url) to plain text with URL
-    text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '$1: $2');
+    text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '$1: $2');
 
     // 2. Remove square brackets around URLs: [https://...] -> https://...
     text = text.replace(/\[(https?:\/\/[^\]]+)\]/g, '$1');
@@ -256,7 +256,7 @@ class GoogleSearchProcessor {
    */
   validateYouTubeUrls(text: string): void {
     const youtubeUrls = text.match(/https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([^\s&)]+)/g);
-    
+
     if (!youtubeUrls) {
       return;
     }
@@ -282,7 +282,7 @@ class GoogleSearchProcessor {
    */
   async processTextWithGoogleSearch(text: string, groundingMetadata: unknown, useGoogleSearch: boolean | string): Promise<string> {
     const isGoogleSearchEnabled = useGoogleSearch === true || useGoogleSearch === 'true';
-    
+
     // Process grounding metadata (resolve redirects)
     if (isGoogleSearchEnabled && groundingMetadata) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

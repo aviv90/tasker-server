@@ -28,6 +28,7 @@ export function sanitizeText(text: unknown): string {
   // NOTE: Preserves emojis and Unicode characters (including Hebrew, Arabic, etc.)
   return text
     .trim()
+    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x08\x0E-\x1F\x7F]/g, '') // Remove control characters (but preserve emojis)
     .replace(/\s+/g, ' ') // Normalize whitespace
     .substring(0, TEXT_LIMITS.MAX_SANITIZED_LENGTH); // Limit length
@@ -70,7 +71,7 @@ export function cleanMediaDescription(text: unknown): string {
 
   // Step 1: Clean markdown and URLs
   let cleaned = cleanMarkdown(text)
-    .replace(/\[.*?\]\(https?:\/\/[^\)]+\)/g, '') // Remove markdown links
+    .replace(/\[.*?\]\(https?:\/\/[^)]+\)/g, '') // Remove markdown links
     .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
     .replace(/\[image\]/gi, '')
     .replace(/\[image:[^\]]*\]?/gi, '') // Remove [image: ...] or [image:
@@ -238,7 +239,7 @@ export function cleanJsonWrapper(text: unknown): string {
           return content;
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // Not valid JSON, continue with cleaning
     }
   }
@@ -255,7 +256,7 @@ export function cleanJsonWrapper(text: unknown): string {
           return content;
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // Not valid JSON, continue
     }
   }
@@ -267,7 +268,7 @@ export function cleanJsonWrapper(text: unknown): string {
     if (content !== null && content.trim().length > 0) {
       return content;
     }
-  } catch (e) {
+  } catch (_e) {
     // Not valid JSON, continue with cleaning
   }
 
@@ -291,7 +292,7 @@ export function cleanJsonWrapper(text: unknown): string {
           return content;
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // Not valid JSON, continue
     }
   }
@@ -304,7 +305,7 @@ export function cleanJsonWrapper(text: unknown): string {
       if (content !== null && content.trim().length > 0) {
         return content;
       }
-    } catch (e) {
+    } catch (_e) {
       // Not valid JSON, return as-is but log warning
       logger.warn('⚠️ [TextSanitizer] Text looks like JSON but failed to parse, returning as-is');
     }
@@ -366,17 +367,3 @@ export function validateAndSanitizePrompt(prompt: unknown): string {
 
   return sanitized;
 }
-
-// Backward compatibility: CommonJS export
-module.exports = {
-  sanitizeText,
-  validateAndSanitizePrompt,
-  cleanMarkdown,
-  cleanMediaDescription,
-  cleanMultiStepText,
-  cleanJsonWrapper,
-
-
-};
-
-

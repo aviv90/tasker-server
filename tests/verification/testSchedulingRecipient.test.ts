@@ -36,7 +36,7 @@ jest.mock('../../services/container', () => ({
 
 // We don't need to import container here if we use the mock object directly for assertions
 // or we can require it to get the mocked version
-const container = require('../../services/container').default;
+import container from '../../services/container';
 
 describe('schedule_message tool', () => {
     const mockContext = { chatId: 'current-chat-id' };

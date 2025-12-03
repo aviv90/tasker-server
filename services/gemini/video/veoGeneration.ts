@@ -187,7 +187,7 @@ class VeoGeneration {
       logger.info('🎬 Starting Veo 3 text-to-video generation - Stable version');
       const cleanPrompt = sanitizeText(prompt);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       let operation = await veoClient.models.generateVideos({
         model: "veo-3.1-generate-preview",
         prompt: cleanPrompt,
@@ -249,7 +249,7 @@ class VeoGeneration {
       const cleanPrompt = sanitizeText(prompt);
       const imageBase64 = imageBuffer.toString('base64');
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       let operation = await veoClient.models.generateVideos({
         model: "veo-3.1-generate-preview",
         prompt: cleanPrompt,

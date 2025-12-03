@@ -8,6 +8,7 @@ import logger from '../../../utils/logger';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { createTempFilePath } from '../../../utils/tempFileUtils';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const veoClient = new genai.GoogleGenAI({
@@ -62,7 +63,6 @@ class VideoAnalysis {
       const tempFileName = `temp_analysis_video_${uuidv4()}.mp4`;
       // Use process.cwd() for safe path resolution
       // Use createTempFilePath for consistent path resolution (uses config.paths.tmp)
-      const { createTempFilePath } = require('../../../utils/tempFileUtils');
       const tempFilePath = createTempFilePath(tempFileName);
       const tmpDir = path.dirname(tempFilePath);
 
@@ -73,7 +73,7 @@ class VideoAnalysis {
       fs.writeFileSync(tempFilePath, videoBuffer);
 
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const uploadResult = await veoClient.files.upload({
           file: {
             path: tempFilePath,
@@ -130,7 +130,7 @@ class VideoAnalysis {
 
       const videoPart = await this.prepareVideoPart(videoBuffer);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const result = await model.generateContent({
         contents: [
           {

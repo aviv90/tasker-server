@@ -179,74 +179,67 @@ export function getRandomEffect(): EffectWithKey {
  * @returns {Promise<Object>} Result with processed audio
  */
 export async function applyCreativeEffect(audioBuffer: Buffer, inputFormat: string = 'mp3', effect: Effect): Promise<ProcessedAudio> {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const tempDir = getTempDir();
-      ensureTempDir();
+  const tempDir = getTempDir();
+  ensureTempDir();
 
-      const inputFileName = `input_${uuidv4()}.${inputFormat}`;
-      const outputFileName = `creative_${uuidv4()}.mp3`;
-      const inputPath = path.join(tempDir, inputFileName);
-      const outputPath = path.join(tempDir, outputFileName);
+  const inputFileName = `input_${uuidv4()}.${inputFormat}`;
+  const outputFileName = `creative_${uuidv4()}.mp3`;
+  const inputPath = path.join(tempDir, inputFileName);
+  const outputPath = path.join(tempDir, outputFileName);
 
-      // Write input audio buffer to temporary file
-      fs.writeFileSync(inputPath, audioBuffer);
+  try {
+    // Write input audio buffer to temporary file
+    fs.writeFileSync(inputPath, audioBuffer);
 
-      logger.debug(`🎨 Applying creative effect: ${effect.name}`);
+    logger.debug(`🎨 Applying creative effect: ${effect.name}`);
 
-      // FFmpeg command for creative effect
-      const ffmpegCommand = [
-        ffmpegBin,
-        '-i', inputPath,
-        effect.command,
-        '-c:a', 'libmp3lame',
-        '-b:a', '128k',
-        '-y', // Overwrite output file
-        outputPath
-      ].join(' ');
+    // FFmpeg command for creative effect
+    const ffmpegCommand = [
+      ffmpegBin,
+      '-i', inputPath,
+      effect.command,
+      '-c:a', 'libmp3lame',
+      '-b:a', '128k',
+      '-y', // Overwrite output file
+      outputPath
+    ].join(' ');
 
-      logger.debug(`🎵 FFmpeg command: ${ffmpegCommand}`);
+    logger.debug(`🎵 FFmpeg command: ${ffmpegCommand}`);
 
-      try {
-        const { stderr } = await execAsync(ffmpegCommand);
+    const { stderr } = await execAsync(ffmpegCommand);
 
-        if (stderr && stderr.includes('error')) {
-          throw new Error(`FFmpeg error: ${stderr}`);
-        }
-
-        // Read the processed audio file
-        if (!fs.existsSync(outputPath)) {
-          throw new Error('Output file was not created');
-        }
-
-        const processedBuffer = fs.readFileSync(outputPath);
-
-        // Clean up temporary files
-        cleanupTempFile(inputPath);
-        cleanupTempFile(outputPath);
-
-        logger.debug(`✅ Creative effect applied: ${processedBuffer.length} bytes`);
-
-        resolve({
-          success: true,
-          audioBuffer: processedBuffer,
-          size: processedBuffer.length,
-          effect: effect.name
-        });
-
-      } catch (ffmpegError: any) {
-        logger.error('❌ FFmpeg processing error:', { error: ffmpegError.message || String(ffmpegError), stack: ffmpegError.stack });
-
-        // Clean up temporary files
-        cleanupTempFile(inputPath);
-        cleanupTempFile(outputPath);
-
-        reject(new Error(`Creative processing failed: ${ffmpegError.message}`));
-      }
-
-    } catch (err: any) {
-      logger.error('❌ Error in creative effect setup:', { error: err.message || String(err), stack: err.stack });
-      reject(new Error(`Creative setup failed: ${err.message}`));
+    if (stderr && stderr.includes('error')) {
+      // logger.warn(`FFmpeg stderr: ${stderr}`);
     }
-  });
+
+    // Read the processed audio file
+    if (!fs.existsSync(outputPath)) {
+      throw new Error('Output file was not created');
+    }
+
+    const processedBuffer = fs.readFileSync(outputPath);
+
+    // Clean up temporary files
+    cleanupTempFile(inputPath);
+    cleanupTempFile(outputPath);
+
+    logger.debug(`✅ Creative effect applied: ${processedBuffer.length} bytes`);
+
+    return {
+      success: true,
+      audioBuffer: processedBuffer,
+      size: processedBuffer.length,
+      effect: effect.name
+    };
+
+  } catch (err: unknown) {
+    const error = err as Error;
+    logger.error('❌ Error in creative effect:', { error: error.message || String(err), stack: error.stack });
+
+    // Clean up temporary files
+    cleanupTempFile(inputPath);
+    cleanupTempFile(outputPath);
+
+    throw new Error(`Creative processing failed: ${error.message}`);
+  }
 }

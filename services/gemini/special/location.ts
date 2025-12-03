@@ -64,7 +64,7 @@ class LocationService {
         // Use SSOT prompt from config/prompts.ts
         const mapsPrompt = prompts.locationMapsPrompt(latitude, longitude, language);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const mapsResult = await model.generateContent({
           contents: [{ role: "user", parts: [{ text: mapsPrompt }] }],
           tools: [{

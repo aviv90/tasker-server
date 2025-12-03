@@ -51,7 +51,7 @@ class ImageAnalysis {
         model: "gemini-2.5-flash"
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const result = await model.generateContent({
         contents: [
           {

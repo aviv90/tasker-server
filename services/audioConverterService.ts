@@ -49,6 +49,10 @@ interface SaveResult {
     error?: string;
 }
 
+import { config } from '../config';
+
+// ... imports ...
+
 class AudioConverterService {
     private tempDir: string;
 
@@ -56,7 +60,6 @@ class AudioConverterService {
         // Use process.cwd() to ensure we point to the project root public directory,
         // not the dist/ folder structure in production.
         // Use config.paths.tmp for consistent path resolution
-        const { config } = require('../config');
         this.tempDir = config.paths.tmp;
         this.ensureTempDir();
     }
@@ -75,79 +78,74 @@ class AudioConverterService {
      * @returns Result with opus buffer and file info
      */
     async convertToOpus(audioBuffer: Buffer, inputFormat: string = 'mp3', options: ConversionOptions = {}): Promise<ConversionResult> {
-        return new Promise(async (resolve, reject) => {
-            try {
-                const inputFileName = `input_${uuidv4()}.${inputFormat}`;
-                const outputFileName = `output_${uuidv4()}.opus`;
-                const inputPath = path.join(this.tempDir, inputFileName);
-                const outputPath = path.join(this.tempDir, outputFileName);
+        const inputFileName = `input_${uuidv4()}.${inputFormat}`;
+        const outputFileName = `output_${uuidv4()}.opus`;
+        const inputPath = path.join(this.tempDir, inputFileName);
+        const outputPath = path.join(this.tempDir, outputFileName);
 
-                // Write input audio buffer to temporary file
-                fs.writeFileSync(inputPath, audioBuffer);
+        try {
+            // Write input audio buffer to temporary file
+            fs.writeFileSync(inputPath, audioBuffer);
 
-                logger.info(`🔄 Converting ${inputFormat.toUpperCase()} to Opus: ${inputFileName} → ${outputFileName}`);
+            logger.info(`🔄 Converting ${inputFormat.toUpperCase()} to Opus: ${inputFileName} → ${outputFileName}`);
 
-                // FFmpeg command for voice note conversion
-                const ffmpegCommand = [
-                    ffmpeg,
-                    '-i', inputPath,
-                    '-c:a', 'libopus',
-                    '-b:a', options.bitrate || '32k',
-                    '-ac', '1', // Mono
-                    '-ar', '16000', // 16kHz sample rate
-                    '-application', 'voip', // Optimize for voice
-                    '-vbr', 'on', // Variable bitrate
-                    '-compression_level', '10', // High compression
-                    '-y', // Overwrite output file
-                    outputPath
-                ].join(' ');
+            // FFmpeg command for voice note conversion
+            const ffmpegCommand = [
+                ffmpeg,
+                '-i', inputPath,
+                '-c:a', 'libopus',
+                '-b:a', options.bitrate || '32k',
+                '-ac', '1', // Mono
+                '-ar', '16000', // 16kHz sample rate
+                '-application', 'voip', // Optimize for voice
+                '-vbr', 'on', // Variable bitrate
+                '-compression_level', '10', // High compression
+                '-y', // Overwrite output file
+                outputPath
+            ].join(' ');
 
-                logger.debug(`🎵 FFmpeg command: ${ffmpegCommand}`);
+            logger.debug(`🎵 FFmpeg command: ${ffmpegCommand}`);
 
-                try {
-                    const { stderr } = await execAsync(ffmpegCommand);
+            const { stderr } = await execAsync(ffmpegCommand);
 
-                    if (stderr && typeof stderr === 'string' && stderr.includes('error')) {
-                        throw new Error(`FFmpeg error: ${stderr}`);
-                    }
-
-                    // Read the converted Opus file
-                    if (!fs.existsSync(outputPath)) {
-                        throw new Error('Output file was not created');
-                    }
-
-                    const opusBuffer = fs.readFileSync(outputPath);
-
-                    // Clean up temporary files
-                    this.cleanupFile(inputPath);
-                    this.cleanupFile(outputPath);
-
-                    logger.info(`✅ Audio conversion completed: ${opusBuffer.length} bytes`);
-
-                    resolve({
-                        success: true,
-                        opusBuffer: opusBuffer,
-                        size: opusBuffer.length,
-                        format: 'opus'
-                    });
-
-                } catch (ffmpegError: unknown) {
-                    const errorMessage = ffmpegError instanceof Error ? ffmpegError.message : String(ffmpegError);
-                    logger.error('❌ FFmpeg conversion error:', ffmpegError as Error);
-
-                    // Clean up temporary files
-                    this.cleanupFile(inputPath);
-                    this.cleanupFile(outputPath);
-
-                    reject(new Error(`Audio conversion failed: ${errorMessage}`));
-                }
-
-            } catch (err: unknown) {
-                const errorMessage = err instanceof Error ? err.message : String(err);
-                logger.error('❌ Error in audio conversion setup:', err as Error);
-                reject(new Error(`Conversion setup failed: ${errorMessage}`));
+            if (stderr && typeof stderr === 'string' && stderr.includes('error')) {
+                // FFmpeg writes progress to stderr, so we need to be careful.
+                // Only throw if it's a real error, but often stderr contains just info.
+                // Usually execAsync throws if exit code is non-zero.
+                // So checking stderr might be redundant or false positive.
+                // logger.warn(`FFmpeg stderr: ${stderr}`);
             }
-        });
+
+            // Read the converted Opus file
+            if (!fs.existsSync(outputPath)) {
+                throw new Error('Output file was not created');
+            }
+
+            const opusBuffer = fs.readFileSync(outputPath);
+
+            // Clean up temporary files
+            this.cleanupFile(inputPath);
+            this.cleanupFile(outputPath);
+
+            logger.info(`✅ Audio conversion completed: ${opusBuffer.length} bytes`);
+
+            return {
+                success: true,
+                opusBuffer: opusBuffer,
+                size: opusBuffer.length,
+                format: 'opus'
+            };
+
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            logger.error('❌ FFmpeg conversion error:', err instanceof Error ? err : new Error(errorMessage));
+
+            // Clean up temporary files
+            this.cleanupFile(inputPath);
+            this.cleanupFile(outputPath);
+
+            throw new Error(`Audio conversion failed: ${errorMessage}`);
+        }
     }
 
     /**
@@ -225,7 +223,7 @@ class AudioConverterService {
             if (audioUrl.startsWith('/static/')) {
                 // Read from local file system
                 // Handle both /static/ and /static/tmp/ paths
-                let relativePath = audioUrl.replace('/static/', '');
+                const relativePath = audioUrl.replace('/static/', '');
 
                 // Use process.cwd() to resolve path relative to project root
                 let filePath = path.join(process.cwd(), 'public', relativePath);
@@ -233,7 +231,6 @@ class AudioConverterService {
                 // If file not found in public/, try public/tmp/
                 if (!fs.existsSync(filePath)) {
                     // Use config.paths.tmp for consistent path resolution
-                    const { config } = require('../config');
                     filePath = path.join(config.paths.tmp, relativePath);
                 }
 

@@ -64,14 +64,14 @@ export function extractErrorMessage(error: unknown, fallback: string = 'Unknown 
   // If it's an object with multiple possible error fields
   if (typeof error === 'object' && error !== null) {
     const errorObj = error as ErrorObject;
-    
+
     // Try common error message fields
-    const message = errorObj.message || 
-                   errorObj.error || 
-                   errorObj.detail || 
-                   errorObj.statusMessage ||
-                   errorObj.blockReasonMessage;
-    
+    const message = errorObj.message ||
+      errorObj.error ||
+      errorObj.detail ||
+      errorObj.statusMessage ||
+      errorObj.blockReasonMessage;
+
     if (message) {
       return typeof message === 'string' ? message : JSON.stringify(message);
     }
@@ -99,12 +99,12 @@ export function isErrorResult(result: unknown): unknown {
   if (!result) {
     return result;
   }
-  
+
   if (typeof result === 'object' && result !== null) {
     const resultObj = result as { error?: unknown };
     return resultObj.error || false;
   }
-  
+
   return false;
 }
 
@@ -133,7 +133,7 @@ export function serializeError(error: unknown): SerializedError | string | null 
 
     // Add any additional enumerable properties
     Object.getOwnPropertyNames(error).forEach(key => {
-      if (!serialized.hasOwnProperty(key)) {
+      if (!Object.prototype.hasOwnProperty.call(serialized, key)) {
         const value = (error as unknown as Record<string, unknown>)[key];
         if (typeof value !== 'function') {
           serialized[key] = value;
@@ -180,9 +180,9 @@ export function serializeError(error: unknown): SerializedError | string | null 
 export function getTaskError(error: unknown, context: string = ''): TaskError {
   // Log for server debugging
   if (context) {
-    logger.error(`❌ Error in ${context}`, { 
+    logger.error(`❌ Error in ${context}`, {
       error: serializeError(error),
-      context 
+      context
     });
   }
 
@@ -199,19 +199,19 @@ export function getTaskError(error: unknown, context: string = ''): TaskError {
  */
 export function isCriticalError(error: unknown): boolean {
   if (!error) return false;
-  
+
   if (typeof error !== 'object' || error === null) {
     return false;
   }
-  
+
   const errorObj = error as ErrorObject;
-  
+
   // Check for critical error conditions
   return errorObj.code === 'insufficientCredits' ||
-         errorObj.status === 'error' ||
-         (errorObj.response?.status !== undefined && 
-          errorObj.response.status >= 400 && 
-          errorObj.response.status < 500);
+    errorObj.status === 'error' ||
+    (errorObj.response?.status !== undefined &&
+      errorObj.response.status >= 400 &&
+      errorObj.response.status < 500);
 }
 
 /**
@@ -260,15 +260,15 @@ export function formatUserFacingError(error: unknown, fallback: string = 'שגי
 export function formatProviderError(provider: string, errorMessage: unknown): string {
   // Format provider name
   const providerName = formatProviderName(provider);
-  
+
   // Extract error message if needed
-  const errorText = typeof errorMessage === 'string' 
-    ? errorMessage 
+  const errorText = typeof errorMessage === 'string'
+    ? errorMessage
     : extractErrorMessage(errorMessage, 'שגיאה לא ידועה');
-  
+
   // Remove any existing ❌ prefix from error message (we'll add it at the start)
   const cleanError = errorText.replace(/^❌\s*/, '').trim();
-  
+
   // Format: ❌ שגיאה ב-<provider>: <error>
   return `❌ שגיאה ב-${providerName}: ${cleanError}`;
 }
@@ -292,7 +292,7 @@ export function getErrorDetails(error: unknown): {
       name: error.name
     };
   }
-  
+
   return {
     message: typeof error === 'string' ? error : extractErrorMessage(error)
   };
@@ -319,24 +319,12 @@ export function formatErrorForLogging(error: unknown): {
       stack: error.stack
     };
   }
-  
+
   const errorMessage = typeof error === 'string' ? error : extractErrorMessage(error);
   return {
     error: errorMessage
   };
 }
 
-// Backward compatibility: CommonJS export
-module.exports = {
-  extractErrorMessage,
-  formatErrorMessage,
-  formatUserFacingError,
-  formatProviderError,
-  isErrorResult,
-  getTaskError,
-  isCriticalError,
-  serializeError,
-  getErrorDetails,
-  formatErrorForLogging
-};
+
 

@@ -199,7 +199,7 @@ export async function extractRequestedRegion(prompt: string | null | undefined):
   // Try to extract location name from prompt
   logger.info(`🔍 No country/region found, trying to find city/location in prompt: "${prompt}"`);
 
-  let cleanPrompt = prompt
+  const cleanPrompt = prompt
     .replace(/^(שלח|שלחי|שלחו|תשלח|תשלחי|תשלחו)\s+(מיקום|location)/i, '')
     .replace(/מיקום\s+(אקראי|random)/gi, '')
     .replace(/location\s+(random|אקראי)/gi, '')

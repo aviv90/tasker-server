@@ -178,7 +178,7 @@ class VoiceRoutes {
         logger.info(`Found ${customVoices.length} custom voices to delete`);
 
         let deletedCount = 0;
-        let errors = [];
+        const errors = [];
 
         for (const voice of customVoices) {
           try {

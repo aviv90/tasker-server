@@ -144,7 +144,7 @@ export async function extractQuotedMediaUrls(messageData: MessageData, webhookDa
 
   let hasImage = false;
   let hasVideo = false;
-  let hasAudio = false;
+  const hasAudio = false;
   let imageUrl: string | null = null;
   let videoUrl: string | null = null;
   const audioUrl: string | null = null;

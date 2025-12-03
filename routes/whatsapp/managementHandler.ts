@@ -155,7 +155,7 @@ export async function handleManagementCommand(
           logger.info(`✅ Contacts synced successfully by ${senderName}`);
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const errorStack = error instanceof Error ? error.stack : undefined;
           logger.error('❌ Error syncing contacts:', { error: errorMessage, stack: errorStack });
           await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בעדכון אנשי קשר: ${errorMessage}`, quotedMessageId: originalMessageId || undefined });
@@ -197,7 +197,7 @@ export async function handleManagementCommand(
           }
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const errorStack = error instanceof Error ? error.stack : undefined;
           logger.error('❌ Error in add_media_authorization:', { error: errorMessage, stack: errorStack });
           await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהוספת הרשאה: ${errorMessage}`, quotedMessageId: originalMessageId || undefined });
@@ -239,7 +239,7 @@ export async function handleManagementCommand(
           }
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const errorStack = error instanceof Error ? error.stack : undefined;
           logger.error('❌ Error in remove_media_authorization:', { error: errorMessage, stack: errorStack });
           await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהסרת הרשאה: ${errorMessage}`, quotedMessageId: originalMessageId || undefined });
@@ -281,7 +281,7 @@ export async function handleManagementCommand(
           }
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const errorStack = error instanceof Error ? error.stack : undefined;
           logger.error('❌ Error in add_group_authorization:', { error: errorMessage, stack: errorStack });
           await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהוספת הרשאה: ${errorMessage}`, quotedMessageId: originalMessageId || undefined });
@@ -323,7 +323,7 @@ export async function handleManagementCommand(
           }
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const errorStack = error instanceof Error ? error.stack : undefined;
           logger.error('❌ Error in remove_group_authorization:', { error: errorMessage, stack: errorStack });
           await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהסרת הרשאה: ${errorMessage}`, quotedMessageId: originalMessageId || undefined });
@@ -365,7 +365,7 @@ export async function handleManagementCommand(
           }
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const errorStack = error instanceof Error ? error.stack : undefined;
           logger.error('❌ Error in include_in_transcription:', { error: errorMessage, stack: errorStack });
           await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהוספת הרשאת תמלול: ${errorMessage}`, quotedMessageId: originalMessageId || undefined });
@@ -407,7 +407,7 @@ export async function handleManagementCommand(
           }
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const errorStack = error instanceof Error ? error.stack : undefined;
           logger.error('❌ Error in exclude_from_transcription:', { error: errorMessage, stack: errorStack });
           await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהסרת הרשאת תמלול: ${errorMessage}`, quotedMessageId: originalMessageId || undefined });
@@ -442,7 +442,7 @@ export async function handleManagementCommand(
           }
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const errorStack = error instanceof Error ? error.stack : undefined;
           logger.error('❌ Error in add_group_authorization_current:', { error: errorMessage, stack: errorStack });
           await sendErrorToUser(chatId, error, { customMessage: `❌ שגיאה בהוספת הרשאה: ${errorMessage}`, quotedMessageId: originalMessageId || undefined });
@@ -456,7 +456,7 @@ export async function handleManagementCommand(
     }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const errorStack = error instanceof Error ? error.stack : undefined;
     logger.error(`❌ Error handling management command ${command.type}:`, { error: errorMessage, stack: errorStack });
     await sendErrorToUser(chatId, error, { context: 'PROCESSING', quotedMessageId: originalMessageId || undefined });

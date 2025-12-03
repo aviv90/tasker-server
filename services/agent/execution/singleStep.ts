@@ -76,7 +76,7 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
   const stepSystemInstructionText = systemInstruction || prompts.singleStepInstruction(languageInstruction || 'he');
   
   // NO HISTORY for single steps - each step is isolated and focused on its specific task only
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const chat = model.startChat({
     history: [], // Empty history to prevent confusion between steps
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -209,7 +209,7 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
         }
         
         // If tool failed and returned error, save it for return
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         if (toolResult.error && toolResult.success === false) {
           assets.error = toolResult.error;
         }
@@ -219,7 +219,7 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
       if (expectedTool && targetToolExecuted) {
         // Send function results back to get final text response
         const functionResponseParts = functionResponses
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           .filter(fr => !fr.response.blocked)
           .map(fr => ({
             functionResponse: {
@@ -237,7 +237,7 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
       
       // Send function results back to the model (for non-multi-step or when no expected tool)
       const functionResponseParts = functionResponses
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         .filter(fr => !fr.response.blocked)
         .map(fr => ({
           functionResponse: {

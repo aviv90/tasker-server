@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { MODELS } from './models';
 import helpers from './helpers';
 import { getStaticFileUrl } from '../../utils/urlUtils';
-import { createTempFilePath } from '../../utils/tempFileUtils';
+import { createTempFilePath, getTempDir } from '../../utils/tempFileUtils';
 import { Request } from 'express';
 import logger from '../../utils/logger';
 
@@ -136,7 +136,7 @@ class ReplicateWhatsApp {
 
       // Create temporary file for video processing
       // Use getTempDir for consistent path resolution (uses config.paths.tmp)
-      const { getTempDir } = require('../../utils/tempFileUtils');
+      // Use getTempDir for consistent path resolution (uses config.paths.tmp)
       const tempDir = getTempDir();
       if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });

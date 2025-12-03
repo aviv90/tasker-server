@@ -1,0 +1,206 @@
+
+/Users/aviv/Dev/tasker-server/services/agent/execution/agentLoop.ts
+  299:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  332:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/agent/execution/fallbackHandler.ts
+  150:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  164:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/agent/execution/multiStep.ts
+  216:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  257:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/agent/execution/resultProcessor.ts
+  5:70  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/agent/execution/singleStep.ts
+  263:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/agent/router/contextBuilder.ts
+  65:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/agent/tools/schedulingTools.ts
+    8:65  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   99:82  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  125:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/agent/tools/searchTools.ts
+  35:1  error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  36:7  warning  'googleAI' is assigned a value but never used                                                                        @typescript-eslint/no-unused-vars
+
+/Users/aviv/Dev/tasker-server/services/agent/utils/resultUtils.ts
+  15:12  warning  '_err' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/aviv/Dev/tasker-server/services/agent/utils/serviceLoader.ts
+  28:39  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  30:39  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  32:35  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  34:43  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/services/audioConverterService.ts
+   59:28  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+   78:28  error  Promise executor functions should not be async  no-async-promise-executor
+  236:40  error  A `require()` style import is forbidden         @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/services/conversation/messages.ts
+  68:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/conversation/migrationRunner.ts
+  55:16  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/aviv/Dev/tasker-server/services/conversation/tasks.ts
+  116:18  warning  'parseError' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/aviv/Dev/tasker-server/services/creativeAudio/background.ts
+  217:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  286:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  309:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/creativeAudio/effects.ts
+  182:22  error    Promise executor functions should not be async  no-async-promise-executor
+  237:29  warning  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  247:19  warning  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/creativeAudio/mixing.ts
+   47:22  error    Promise executor functions should not be async  no-async-promise-executor
+  111:29  warning  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  122:19  warning  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  186:29  warning  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  223:17  warning  Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/gemini/image/analysis.ts
+  68:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/gemini/image/editing.ts
+  229:72  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  268:72  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/gemini/image/generation.ts
+  140:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  185:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/gemini/special/location.ts
+   81:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  115:16  warning  '_mapsError' is defined but never used    @typescript-eslint/no-unused-vars
+  208:14  warning  '_parseErr' is defined but never used     @typescript-eslint/no-unused-vars
+
+/Users/aviv/Dev/tasker-server/services/gemini/special/polls.ts
+  47:14  warning  '_parseError' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/aviv/Dev/tasker-server/services/gemini/text/googleSearch.ts
+   87:26  warning  '_e' is defined but never used    @typescript-eslint/no-unused-vars
+  236:54  error    Unnecessary escape character: \)  no-useless-escape
+
+/Users/aviv/Dev/tasker-server/services/gemini/textOperations.ts
+  98:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/gemini/video/analysis.ts
+   65:38  error    A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+   82:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  139:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  147:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  148:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/gemini/video/veoGeneration.ts
+  167:18  warning  '_statError' is defined but never used    @typescript-eslint/no-unused-vars
+  197:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  263:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/gemini/video/whatsapp.ts
+  211:18  warning  '_statError' is defined but never used    @typescript-eslint/no-unused-vars
+  282:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  363:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/googleDrive/driveOperations.ts
+  305:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  306:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  308:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/greenApi/fileHandling.ts
+  33:12  warning  'parseError' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/aviv/Dev/tasker-server/services/location/helpers.ts
+  19:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/services/openai/video.ts
+  328:9  error  'targetWidth' is never reassigned. Use 'const' instead   prefer-const
+  329:9  error  'targetHeight' is never reassigned. Use 'const' instead  prefer-const
+
+/Users/aviv/Dev/tasker-server/services/replicate/helpers.ts
+  43:14  warning  '_err' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/aviv/Dev/tasker-server/services/replicate/whatsapp.ts
+  139:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/services/scheduling/scheduledTasksService.ts
+  39:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  58:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/speech/transcription.ts
+  22:9   error    Unnecessary try/catch wrapper             no-useless-catch
+  55:26  warning  'cleanupError' is defined but never used  @typescript-eslint/no-unused-vars
+  88:26  warning  'cleanupError' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/aviv/Dev/tasker-server/services/task/strategies/GeminiChatStrategy.ts
+  24:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  34:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  36:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  37:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  39:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  44:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  45:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  50:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/task/strategies/OpenAIChatStrategy.ts
+  24:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  32:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  34:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  35:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  36:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  37:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  42:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  43:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  48:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/task/strategies/TextToImageStrategy.ts
+  52:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/task/strategies/TextToMusicStrategy.ts
+  14:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  70:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  91:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/task/strategies/TextToVideoStrategy.ts
+   9:92   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   9:106  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  31:46   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  31:57   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/taskService.ts
+  27:53   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  45:104  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  66:25   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/voice/textToSpeech.ts
+  116:23  error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+
+/Users/aviv/Dev/tasker-server/services/voice/voiceCloning.ts
+  119:18  warning  'cleanupError' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/aviv/Dev/tasker-server/services/voiceService.ts
+  31:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  40:55  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  44:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  48:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  53:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  58:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  62:64  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  70:72  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/aviv/Dev/tasker-server/services/whatsapp/messageProcessor.ts
+  177:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 113 problems (18 errors, 95 warnings)
+

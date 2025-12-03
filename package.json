@@ -14,7 +14,8 @@
     "test:e2e": "jest --testPathPattern=tests/e2e/.*\\.test\\.ts$",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:ci": "jest --coverage --ci --maxWorkers=2 --no-cache"
+    "test:ci": "jest --coverage --ci --maxWorkers=2 --no-cache",
+    "lint": "eslint ."
   },
   "engines": {
     "node": "22.x"
@@ -59,5 +60,9 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.48.1",
+    "@typescript-eslint/parser": "^8.48.1",
+    "eslint": "^9.39.1",
+    "typescript-eslint": "^8.48.1"
   }
 }

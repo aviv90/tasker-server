@@ -45,7 +45,7 @@ interface DeleteVoiceResult {
 export async function getVoices(this: VoiceServiceContext): Promise<VoiceListResult> {
   try {
     const client = this.initializeClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const voices = await client.voices.getAll() as { voices?: unknown[]; data?: { voices?: unknown[] } };
     
     const voiceList = voices.voices || voices.data?.voices || [];
@@ -69,7 +69,7 @@ export async function getVoices(this: VoiceServiceContext): Promise<VoiceListRes
 export async function getVoice(this: VoiceServiceContext, voiceId: string): Promise<VoiceDetailsResult> {
   try {
     const client = this.initializeClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const voice = await client.voices.get(voiceId) as { data?: unknown } | unknown;
     
     return (voice && typeof voice === 'object' && 'data' in voice ? voice.data : voice) as VoiceDetailsResult || {};

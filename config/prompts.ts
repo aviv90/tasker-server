@@ -6,10 +6,10 @@
  */
 
 // Import from organized prompt modules
-import { agentSystemInstruction, singleStepInstruction, openaiSystemInstruction, grokSystemInstruction, searchSystemInstruction } from './prompts/system';
+import { agentSystemInstruction, singleStepInstruction, openaiSystemInstruction, grokSystemInstruction, searchSystemInstruction, googleSearchSystemInstruction, googleSearchResponse, googleSearchExample } from './prompts/system';
 import { multiStepPlanner } from './prompts/multiStep';
 import { groupCreationParsingPrompt, ttsParsingPrompt, musicVideoParsingPrompt } from './prompts/parsing';
-import { pollGenerationPrompt, locationMapsPrompt, locationGeneralPrompt, chatSummaryPrompt } from './prompts/special';
+import { pollGenerationPrompt, locationMapsPrompt, locationGeneralPrompt, chatSummaryPrompt, translationPrompt } from './prompts/special';
 
 const prompts = {
   // System prompts
@@ -18,6 +18,9 @@ const prompts = {
   openaiSystemInstruction,
   grokSystemInstruction,
   searchSystemInstruction,
+  googleSearchSystemInstruction,
+  googleSearchResponse,
+  googleSearchExample,
 
   // Multi-step planning
   multiStepPlanner,
@@ -32,6 +35,7 @@ const prompts = {
   locationMapsPrompt,
   locationGeneralPrompt,
   chatSummaryPrompt,
+  translationPrompt,
 
   /**
    * Language instructions mapping

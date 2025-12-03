@@ -132,7 +132,7 @@ class ImageGeneration {
         model: "gemini-3-pro-image-preview"
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: cleanPrompt }] }],
         generationConfig: {
@@ -177,7 +177,7 @@ class ImageGeneration {
         model: "gemini-3-pro-image-preview"
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: cleanPrompt }] }],
         generationConfig: {

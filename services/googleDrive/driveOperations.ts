@@ -281,7 +281,7 @@ export async function extractTextFromDocument(fileId: string, mimeType: string):
         'וכל דבר שרלוונטי להבנת השרטוט או התכנית. ' +
         'ענה בעברית ברורה, עם bullet points מסודרים.';
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const result = await model.generateContent({
         contents: [
           {

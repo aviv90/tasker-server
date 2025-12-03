@@ -177,7 +177,7 @@ export function wrap<T extends (...args: any[]) => Promise<any>>(
   keyGenerator: KeyGenerator,
   ttl: number | null = null
 ): T {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   return (async (...args: Parameters<T>): Promise<Awaited<ReturnType<T>>> => {
     const key = keyGenerator(...args);
     

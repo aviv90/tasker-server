@@ -136,7 +136,7 @@ export async function handleMultiStepRetry(
   logger.info(`🔄 Retrying multi-step command: ${filteredPlan.steps.length} of ${planSteps.length} steps`);
   
   // Get multi-step execution handler (lazy load to avoid circular dependency)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const multiStepModule = await import('../../execution/multiStep');
   const multiStepExecution = multiStepModule.default;
   

@@ -1,0 +1,50 @@
+
+/Users/aviv/Dev/tasker-server/eslint.config.js
+  3:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  4:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/services/audioConverterService.ts
+  234:40  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/services/creativeAudio/effects.ts
+  182:22  error  Promise executor functions should not be async  no-async-promise-executor
+
+/Users/aviv/Dev/tasker-server/services/creativeAudio/mixing.ts
+  47:22  error  Promise executor functions should not be async  no-async-promise-executor
+
+/Users/aviv/Dev/tasker-server/services/gemini/text/googleSearch.ts
+  236:54  error  Unnecessary escape character: \)  no-useless-escape
+
+/Users/aviv/Dev/tasker-server/services/gemini/video/analysis.ts
+  65:38  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/services/location/helpers.ts
+  19:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/services/openai/video.ts
+  328:9  error  'targetWidth' is never reassigned. Use 'const' instead   prefer-const
+  329:9  error  'targetHeight' is never reassigned. Use 'const' instead  prefer-const
+
+/Users/aviv/Dev/tasker-server/services/replicate/whatsapp.ts
+  139:30  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/services/speech/transcription.ts
+  22:9  error  Unnecessary try/catch wrapper  no-useless-catch
+
+/Users/aviv/Dev/tasker-server/services/voice/textToSpeech.ts
+  116:23  error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+
+/Users/aviv/Dev/tasker-server/tests/setup/jest.setup.ts
+  51:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/tests/verification/testSchedulingRecipient.test.ts
+  39:19  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/aviv/Dev/tasker-server/utils/agentHelpers.ts
+  48:62  error  Unnecessary escape character: \.  no-useless-escape
+
+/Users/aviv/Dev/tasker-server/utils/errorHandler.ts
+  136:23  error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+
+✖ 17 problems (17 errors, 0 warnings)
+
