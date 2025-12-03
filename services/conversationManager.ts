@@ -6,7 +6,7 @@ import { Pool } from 'pg';
 import { TIME } from '../utils/constants';
 
 // Import interfaces/classes
-import CommandsManager, { CommandMetadata, SaveLastCommandOptions } from './conversation/commands';
+import CommandsManager, { CommandMetadata } from './conversation/commands';
 import MessageTypesManager from './conversation/messageTypes';
 import AgentContextManager from './conversation/agentContext';
 import SummariesManager from './conversation/summaries';
@@ -222,9 +222,7 @@ class ConversationManager {
     return this.commandsManager.getLastCommand(chatId);
   }
 
-  async saveLastCommand(chatId: string, tool: string | null, args: unknown, options: SaveLastCommandOptions = {}): Promise<void> {
-    return this.commandsManager.saveLastCommand(chatId, tool || '', args, options);
-  }
+
 
   get commandsManagerClearAll(): () => Promise<void> {
     return () => this.commandsManager.clearAll();

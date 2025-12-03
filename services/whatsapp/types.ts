@@ -13,14 +13,14 @@ export interface MessageData {
   textMessage?: string;
   caption?: string;
   downloadUrl?: string;
-  fileMessageData?: { downloadUrl?: string; caption?: string; fileName?: string; mimeType?: string; [key: string]: unknown };
-  audioMessageData?: { downloadUrl?: string; duration?: number; [key: string]: unknown };
-  imageMessageData?: { downloadUrl?: string; caption?: string; [key: string]: unknown };
-  videoMessageData?: { downloadUrl?: string; caption?: string; [key: string]: unknown };
-  stickerMessageData?: { downloadUrl?: string; caption?: string; [key: string]: unknown };
-  textMessageData?: { textMessage: string; [key: string]: unknown };
-  extendedTextMessageData?: { text: string; description?: string; title?: string; previewType?: string; jpegThumbnail?: string; [key: string]: unknown };
-  editedMessageData?: { textMessage: string; [key: string]: unknown };
+  fileMessageData?: { downloadUrl?: string; caption?: string; fileName?: string; mimeType?: string;[key: string]: unknown };
+  audioMessageData?: { downloadUrl?: string; duration?: number;[key: string]: unknown };
+  imageMessageData?: { downloadUrl?: string; caption?: string;[key: string]: unknown };
+  videoMessageData?: { downloadUrl?: string; caption?: string;[key: string]: unknown };
+  stickerMessageData?: { downloadUrl?: string; caption?: string;[key: string]: unknown };
+  textMessageData?: { textMessage: string;[key: string]: unknown };
+  extendedTextMessageData?: { text: string; description?: string; title?: string; previewType?: string; jpegThumbnail?: string;[key: string]: unknown };
+  editedMessageData?: { textMessage: string;[key: string]: unknown };
   quotedMessage?: MessageData; // Recursive
   stanzaId?: string;
   [key: string]: unknown;
@@ -109,7 +109,7 @@ export interface AgentResult {
   imageCaption?: string;
   videoUrl?: string | null;
   audioUrl?: string | null;
-  poll?: { question: string; options: string[]; [key: string]: unknown } | null;
+  poll?: { question: string; options: string[];[key: string]: unknown } | null;
   latitude?: number | null;
   longitude?: number | null;
   locationInfo?: string | null;
@@ -147,7 +147,6 @@ export interface MessageTypesManager {
 export interface CommandsManager {
   saveCommand: (chatId: string, messageId: string, metadata: unknown) => Promise<void>;
   getLastCommand: (chatId: string) => Promise<unknown>;
-  saveLastCommand: (chatId: string, tool: string | null, args: unknown, options?: unknown) => Promise<void>;
   cleanup: (ttl: number) => Promise<number>;
   clearAll: () => Promise<void>;
 }

@@ -48,16 +48,7 @@ interface LastCommandResult {
   timestamp: number;
 }
 
-/**
- * Options for saving last command
- */
-export interface SaveLastCommandOptions {
-  prompt?: string;
-  normalized?: unknown;
-  imageUrl?: string | null;
-  videoUrl?: string | null;
-  audioUrl?: string | null;
-}
+
 
 /**
  * Conversation manager interface (for backward compatibility)
