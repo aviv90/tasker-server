@@ -342,12 +342,16 @@ class ResultSender {
       // Clean JSON wrappers first (before other cleaning)
       cleanText = cleanJsonWrapper(cleanText);
 
-      // For search_web and similar tools, URLs are part of the content
+      // CRITICAL: For search_web and similar tools, URLs ARE the content - don't remove them!
       // Only remove URLs for creation tools where they might be duplicate artifacts
       const toolsWithUrls = new Set(['search_web', 'get_chat_history', 'chat_summary', 'translate_text']);
-      if (!stepResult.toolsUsed || !stepResult.toolsUsed.some(tool => toolsWithUrls.has(tool))) {
-        // Remove URLs only if not a text-based tool that returns URLs
+      const hasToolWithUrls = stepResult.toolsUsed && stepResult.toolsUsed.some(tool => toolsWithUrls.has(tool));
+
+      if (!hasToolWithUrls) {
+        // Remove URLs only if not a text-based tool that returns URLs as content
         cleanText = cleanText.replace(/https?:\/\/[^\s]+/gi, '').trim();
+      } else {
+        logger.debug(`🔗 [ResultSender] Preserving URLs in text for tool: ${stepResult.toolsUsed?.join(', ')}`);
       }
 
       if (cleanText) {

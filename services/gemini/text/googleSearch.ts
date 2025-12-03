@@ -209,15 +209,10 @@ class GoogleSearchProcessor {
       })
     );
 
-    // Remove any hallucinated URLs from Gemini's text
-    const urlRegex = /(https?:\/\/[^\s)<]+)/g;
-    const foundUrls = text.match(urlRegex) || [];
-
-    if (foundUrls.length > 0) {
-      logger.debug(`🔍 Found ${foundUrls.length} URLs in text, removing hallucinated ones...`);
-      text = text.replace(urlRegex, '');
-      text = text.replace(/\s+/g, ' ').trim();
-    }
+    // NOTE: We used to remove "hallucinated URLs" here, but that was removing the REAL URLs
+    // that we append below. Since we're appending real grounding URLs anyway, we don't need
+    // to strip Gemini's URLs - we just append ours at the end and they replace the hallucinated ones.
+    // If Gemini generates URLs in text, they'll just be duplicates of what we append.
 
     // Filter out null results (failed redirect resolutions) and vertexaisearch URLs
     const validUrls = realUrls
