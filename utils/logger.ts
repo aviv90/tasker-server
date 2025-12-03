@@ -3,156 +3,135 @@
  * 
  * Centralized logging using Winston for structured, level-based logging.
  * Replaces console.log/error/warn with professional logging system.
- * 
- * Usage:
- *   const logger = require('./utils/logger');
- *   logger.info('Operation completed', { userId: '123', action: 'create_image' });
- *   logger.error('Operation failed', { error: err.message, context: {...} });
  */
 
 import winston from 'winston';
 import path from 'path';
+import config from '../config/env';
 
-/**
- * Supported log levels
- */
-export type LogLevel = 'error' | 'warn' | 'info' | 'http' | 'verbose' | 'debug' | 'silly';
-
-/**
- * Determine log level from environment (default: info)
- * Production defaults to 'info', development defaults to 'debug'
- */
-const getLogLevel = (): LogLevel => {
-  const envLevel = process.env.LOG_LEVEL as LogLevel | undefined;
-  if (envLevel) {
-    return envLevel;
-  }
-  return process.env.NODE_ENV === 'production' ? 'info' : 'debug';
+// Define log levels
+const levels = {
+  error: 0,
+  warn: 1,
+  info: 2,
+  http: 3,
+  debug: 4,
 };
 
-const logLevel: LogLevel = getLogLevel();
+// Define log level type
+export type LogLevel = keyof typeof levels;
 
-// Custom format for structured logging
+// Define colors for each level
+const colors = {
+  error: 'red',
+  warn: 'yellow',
+  info: 'green',
+  http: 'magenta',
+  debug: 'white',
+};
+
+// Tell winston that you want to link the colors
+winston.addColors(colors);
+
+// Redaction format for secrets
+const redactSecrets = winston.format((info) => {
+  const sensitiveKeys = ['password', 'token', 'secret', 'key', 'authorization', 'apiKey', 'apiToken'];
+
+  const redact = (obj: any): any => {
+    if (!obj || typeof obj !== 'object') return obj;
+
+    // Handle arrays
+    if (Array.isArray(obj)) return obj.map(redact);
+
+    // Handle objects
+    const newObj: any = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        if (sensitiveKeys.some(k => key.toLowerCase().includes(k))) {
+          newObj[key] = '***REDACTED***';
+        } else if (typeof obj[key] === 'object') {
+          newObj[key] = redact(obj[key]);
+        } else {
+          newObj[key] = obj[key];
+        }
+      }
+    }
+    return newObj;
+  };
+
+  return redact(info);
+});
+
+// Define the format of the log
 const logFormat = winston.format.combine(
-  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-  winston.format.errors({ stack: true }),
-  winston.format.splat(),
-  winston.format.json()
+  redactSecrets(),
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
+  winston.format.printf(
+    (info) => `${info.timestamp} ${info.level}: ${info.message}`
+  )
 );
 
-// Console format for development (human-readable)
+// Define console format with colors
 const consoleFormat = winston.format.combine(
-  winston.format.colorize(),
-  winston.format.timestamp({ format: 'HH:mm:ss' }),
-  winston.format.printf(({ timestamp, level, message, ...meta }) => {
-    // Format metadata
-    const metaStr = Object.keys(meta).length > 0 
-      ? ' ' + JSON.stringify(meta, null, 2)
-      : '';
-    
-    return `${timestamp} [${level}]: ${message}${metaStr}`;
-  })
+  winston.format.colorize({ all: true }),
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
+  winston.format.printf(
+    (info) => `${info.timestamp} ${info.level}: ${info.message}`
+  )
 );
 
-// Create transports array
-const transports: winston.transport[] = [];
+// Determine log level based on config
+const getLogLevel = (): string => {
+  return config.logLevel;
+};
 
-// Console transport (always active)
-transports.push(
-  new winston.transports.Console({
-    format: process.env.NODE_ENV === 'production' ? logFormat : consoleFormat,
-    level: logLevel
-  })
-);
-
-/**
- * File logging configuration constants
- */
-const FILE_LOGGING_CONFIG = {
-  MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB in bytes
-  MAX_FILES: 5
-} as const;
-
-// File transport for production (optional)
-if (process.env.NODE_ENV === 'production' && process.env.ENABLE_FILE_LOGGING === 'true') {
-  const logDir = process.env.LOG_DIR || path.join(__dirname, '..', 'logs');
-  
-  transports.push(
-    // Error log file
-    new winston.transports.File({
-      filename: path.join(logDir, 'error.log'),
-      level: 'error',
-      format: logFormat,
-      maxsize: FILE_LOGGING_CONFIG.MAX_FILE_SIZE,
-      maxFiles: FILE_LOGGING_CONFIG.MAX_FILES
-    }),
-    // Combined log file
-    new winston.transports.File({
-      filename: path.join(logDir, 'combined.log'),
-      format: logFormat,
-      maxsize: FILE_LOGGING_CONFIG.MAX_FILE_SIZE,
-      maxFiles: FILE_LOGGING_CONFIG.MAX_FILES
-    })
-  );
-}
-
-// Create logger instance
+// Create the logger instance
 const logger = winston.createLogger({
-  level: logLevel,
+  level: getLogLevel(),
+  levels,
   format: logFormat,
-  defaultMeta: {
-    service: 'tasker-server',
-    environment: process.env.NODE_ENV || 'development'
-  },
-  transports,
+  transports: [
+    // Always log to console
+    new winston.transports.Console({
+      format: consoleFormat,
+    }),
+  ],
   // Don't exit on handled exceptions
   exitOnError: false
 });
 
-// Handle uncaught exceptions and unhandled rejections
-if (process.env.LOG_UNCAUGHT_EXCEPTIONS !== 'false') {
-  logger.exceptions.handle(
-    new winston.transports.Console({
-      format: logFormat
+// Add file transports if enabled
+if (config.enableFileLogging) {
+  const logDir = config.logDir;
+
+  logger.add(
+    new winston.transports.File({
+      filename: path.join(logDir, 'error.log'),
+      level: 'error',
     })
   );
-  
-  logger.rejections.handle(
-    new winston.transports.Console({
-      format: logFormat
+
+  logger.add(
+    new winston.transports.File({
+      filename: path.join(logDir, 'all.log'),
     })
   );
 }
 
+// Log initialization
+logger.debug(`Logger initialized at level: ${getLogLevel()}`, {
+  environment: config.env
+});
+
 /**
- * Helper method to log with context (preserves existing emoji-based style)
- * @param level - Log level (debug, info, warn, error)
- * @param message - Log message (can include emojis)
- * @param meta - Additional metadata
+ * Helper method to log with context
  */
 function logWithContext(level: LogLevel, message: string, meta: Record<string, unknown> = {}): void {
   logger.log(level, message, meta);
 }
 
 /**
- * Convenience methods that preserve emoji patterns from existing code
- */
-interface ExtendedLogger extends winston.Logger {
-  debugWithContext: (message: string, meta?: Record<string, unknown>) => void;
-  infoWithContext: (message: string, meta?: Record<string, unknown>) => void;
-  warnWithContext: (message: string, meta?: Record<string, unknown>) => void;
-  errorWithContext: (message: string, meta?: Record<string, unknown>) => void;
-}
-
-const extendedLogger = logger as ExtendedLogger;
-extendedLogger.debugWithContext = (message: string, meta?: Record<string, unknown>) => logWithContext('debug', message, meta);
-extendedLogger.infoWithContext = (message: string, meta?: Record<string, unknown>) => logWithContext('info', message, meta);
-extendedLogger.warnWithContext = (message: string, meta?: Record<string, unknown>) => logWithContext('warn', message, meta);
-extendedLogger.errorWithContext = (message: string, meta?: Record<string, unknown>) => logWithContext('error', message, meta);
-
-/**
  * Backward-compatible wrapper methods that preserve existing console.log style
- * These methods allow gradual migration - existing emoji patterns work as-is
  */
 const createEmojiAwareLogger = (level: LogLevel) => {
   return (message: string, ...args: unknown[]): void => {
@@ -160,7 +139,7 @@ const createEmojiAwareLogger = (level: LogLevel) => {
     const meta = args.length > 0 && typeof args[0] === 'object' && !(args[0] instanceof Error)
       ? (args[0] as Record<string, unknown>)
       : {};
-    
+
     // If there's an error object, add it to metadata
     const error = args.find(arg => arg instanceof Error) as Error | undefined;
     if (error) {
@@ -170,7 +149,7 @@ const createEmojiAwareLogger = (level: LogLevel) => {
         name: error.name
       };
     }
-    
+
     logger.log(level, message, Object.keys(meta).length > 0 ? meta : undefined);
   };
 };
@@ -196,22 +175,18 @@ const loggerExport: LoggerInterface = {
   info: logger.info.bind(logger),
   warn: logger.warn.bind(logger),
   error: logger.error.bind(logger),
-  
+
   // Context-aware methods
-  debugWithContext: extendedLogger.debugWithContext,
-  infoWithContext: extendedLogger.infoWithContext,
-  warnWithContext: extendedLogger.warnWithContext,
-  errorWithContext: extendedLogger.errorWithContext,
-  
+  debugWithContext: (message: string, meta?: Record<string, unknown>) => logWithContext('debug', message, meta),
+  infoWithContext: (message: string, meta?: Record<string, unknown>) => logWithContext('info', message, meta),
+  warnWithContext: (message: string, meta?: Record<string, unknown>) => logWithContext('warn', message, meta),
+  errorWithContext: (message: string, meta?: Record<string, unknown>) => logWithContext('error', message, meta),
+
   // Backward-compatible methods (for gradual migration)
   log: createEmojiAwareLogger('info'),
-  
+
   // Raw logger instance (for advanced usage)
   logger
 };
 
 export default loggerExport;
-
-// Backward compatibility: CommonJS export
-module.exports = loggerExport;
-
