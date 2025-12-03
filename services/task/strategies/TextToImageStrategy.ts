@@ -33,6 +33,17 @@ export class TextToImageStrategy implements TaskStrategy {
             if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
             const outputPath = path.join(outputDir, filename);
 
+            if (result.textOnly) {
+                logger.info(`📝 TextToImageStrategy: Received text-only response for task ${taskId}`);
+                await taskStore.set(taskId, {
+                    status: 'done',
+                    result: null, // No image URL
+                    text: result.text,
+                    cost: result.cost
+                });
+                return;
+            }
+
             const buffer = result.imageBuffer || result.videoBuffer;
 
             if (buffer) {

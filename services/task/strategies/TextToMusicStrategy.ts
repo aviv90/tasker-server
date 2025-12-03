@@ -57,6 +57,17 @@ export class TextToMusicStrategy implements TaskStrategy {
             if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
             const outputPath = path.join(outputDir, filename);
 
+            if (result.textOnly) {
+                logger.info(`🎵 TextToMusicStrategy: Received text-only response for task ${taskId}`);
+                await taskStore.set(taskId, {
+                    status: 'done',
+                    result: null,
+                    text: result.text,
+                    type: 'music'
+                });
+                return;
+            }
+
             if (result.audioBuffer) {
                 fs.writeFileSync(outputPath, result.audioBuffer);
                 logger.info(`✅ Music file saved: ${filename}`);

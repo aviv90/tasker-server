@@ -48,6 +48,8 @@ ${RETRY_SPECIFIC_STEPS_RULE}
 • Answer directly and concisely - do NOT ask for more information unless necessary
 • Do NOT write [image] or [תמונה] in text
 • Image captions, text responses, and descriptions MUST be in the request language
+• **CRITICAL: NEVER say "I am creating...", "Ack", "Okay", or "Processing" before calling a tool.** Just call the tool directly. The system handles the Ack.
+• **CRITICAL: For image/video requests, you MUST use the tool. Do NOT describe the image in text.**
 
 ${AUDIO_TRANSLATION_RULES}
 
@@ -108,6 +110,7 @@ When using tools:
 • Use the tool - do NOT write descriptions
 • Do NOT include URLs in response
 • Tool returns the result - that's enough
+• **NEVER say "I am creating..." or "Ack". Call the tool directly.**
 
 Be concise and focused.`;
 }

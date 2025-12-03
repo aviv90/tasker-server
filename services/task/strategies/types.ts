@@ -8,15 +8,19 @@ export interface BaseTaskResult {
 }
 
 export interface ImageTaskResult extends BaseTaskResult {
+    result?: string; // URL of the generated image
     imageBuffer?: Buffer;
     videoBuffer?: Buffer;
-    text?: string;
+    text?: string; // Description or text response
+    textOnly?: boolean; // Flag indicating if only text was returned (no image)
+    cost?: number;
 }
 
 export interface MusicTaskResult extends BaseTaskResult {
     audioBuffer?: Buffer;
     metadata?: Record<string, unknown>;
     text?: string; // Lyrics or description
+    textOnly?: boolean;
 }
 
 export interface TextTaskResult extends BaseTaskResult {
