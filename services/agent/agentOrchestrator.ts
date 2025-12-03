@@ -102,6 +102,18 @@ export class AgentOrchestrator {
         const maxIterations = options.maxIterations || agentConfig.maxIterations;
         const model = this.genAI.getGenerativeModel({ model: agentConfig.model });
 
+        // Inject media context into prompt if available
+        let contextualPrompt = prompt;
+        const input = options.input || {};
+
+        if (input.imageUrl) {
+            contextualPrompt = `[תמונה מצורפת]\nUse this image_url parameter directly: ${input.imageUrl}\n\n${prompt}`;
+        } else if (input.videoUrl) {
+            contextualPrompt = `[וידאו מצורף]\nUse this video_url parameter directly: ${input.videoUrl}\n\n${prompt}`;
+        } else if (input.audioUrl) {
+            contextualPrompt = `[אודיו מצורף]\nUse this audio_url parameter directly: ${input.audioUrl}\n\n${prompt}`;
+        }
+
         // Prepare tools
         const functionDeclarations = Object.values(agentTools).map((tool) => tool.declaration);
 
@@ -138,7 +150,7 @@ export class AgentOrchestrator {
 
         // Execute with Timeout
         const agentExecution = async (): Promise<AgentResult> => {
-            return await agentLoop.execute(chat, prompt, chatId, context, maxIterations, agentConfig) as unknown as AgentResult;
+            return await agentLoop.execute(chat, contextualPrompt, chatId, context, maxIterations, agentConfig) as unknown as AgentResult;
         };
 
         const timeoutPromise = new Promise<never>((_, reject) =>
