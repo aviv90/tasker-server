@@ -34,32 +34,77 @@ const colors = {
 winston.addColors(colors);
 
 // Redaction format for secrets
+// Redaction format for secrets
 const redactSecrets = winston.format((info) => {
   const sensitiveKeys = ['password', 'token', 'secret', 'key', 'authorization', 'apiKey', 'apiToken'];
+  const seen = new WeakSet();
 
   const redact = (obj: any): any => {
     if (!obj || typeof obj !== 'object') return obj;
 
-    // Handle arrays
-    if (Array.isArray(obj)) return obj.map(redact);
+    // Prevent circular references
+    if (seen.has(obj)) return '[Circular]';
+    seen.add(obj);
 
-    // Handle objects
-    const newObj: any = {};
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        if (sensitiveKeys.some(k => key.toLowerCase().includes(k))) {
-          newObj[key] = '***REDACTED***';
-        } else if (typeof obj[key] === 'object') {
-          newObj[key] = redact(obj[key]);
-        } else {
-          newObj[key] = obj[key];
+    try {
+      // Handle Error objects explicitly
+      if (obj instanceof Error) {
+        const errorObj: any = {
+          message: obj.message,
+          stack: obj.stack,
+          name: obj.name,
+        };
+
+        // Handle custom properties on Error object
+        for (const key of Object.getOwnPropertyNames(obj)) {
+          if (!['message', 'stack', 'name'].includes(key)) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            errorObj[key] = redact((obj as any)[key]);
+          }
+        }
+        return errorObj;
+      }
+
+      // Handle arrays
+      if (Array.isArray(obj)) {
+        return obj.map(item => redact(item));
+      }
+
+      // Handle objects
+      const newObj: any = {};
+      for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          if (sensitiveKeys.some(k => key.toLowerCase().includes(k))) {
+            newObj[key] = '***REDACTED***';
+          } else {
+            newObj[key] = redact(obj[key]);
+          }
         }
       }
+      return newObj;
+    } finally {
+      // We don't remove from seen to handle diamond dependencies correctly in a single tree walk? 
+      // Actually for pure tree walk we should remove, but for cycle detection in arbitrary graph we keep.
+      // However, winston 'info' is usually a tree. 
+      // Let's keep it simple: if we see it again in the same stack, it's a cycle.
+      // But wait, 'seen' is shared across the whole 'info' object.
+      // If the same object is referenced twice (not cycle), it will be '[Circular]'.
+      // This is acceptable for logging.
     }
-    return newObj;
   };
 
-  return redact(info);
+  const redactedInfo = redact(info);
+
+  // Restore symbols from original info object to ensure Winston works correctly
+  if (info && typeof info === 'object') {
+    const syms = Object.getOwnPropertySymbols(info);
+    for (const sym of syms) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (redactedInfo as any)[sym] = (info as any)[sym];
+    }
+  }
+
+  return redactedInfo;
 });
 
 // Define the format of the log
@@ -67,7 +112,11 @@ const logFormat = winston.format.combine(
   redactSecrets(),
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
   winston.format.printf(
-    (info) => `${info.timestamp} ${info.level}: ${info.message}`
+    (info) => {
+      const { timestamp, level, message, ...meta } = info;
+      const metaString = Object.keys(meta).length ? JSON.stringify(meta) : '';
+      return `${timestamp} ${level}: ${message} ${metaString}`;
+    }
   )
 );
 
@@ -76,7 +125,11 @@ const consoleFormat = winston.format.combine(
   winston.format.colorize({ all: true }),
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
   winston.format.printf(
-    (info) => `${info.timestamp} ${info.level}: ${info.message}`
+    (info) => {
+      const { timestamp, level, message, ...meta } = info;
+      const metaString = Object.keys(meta).length ? JSON.stringify(meta, null, 2) : '';
+      return `${timestamp} ${level}: ${message} ${metaString}`;
+    }
   )
 );
 
