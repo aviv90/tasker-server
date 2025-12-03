@@ -108,14 +108,19 @@ export class AgentOrchestrator {
         // Prepare system instruction
         let systemInstruction = prompts.agentSystemInstruction(languageInstruction);
 
-        // Load Context
+        // Load Context & History in Parallel
         let context = contextManager.createInitialContext(chatId, options);
-        context = await contextManager.loadPreviousContext(chatId, context, agentConfig.contextMemoryEnabled);
-
-        // Load History
         const useConversationHistory = options.useConversationHistory !== false;
+
+        // Import historyStrategy dynamically if not already imported, but better to do it in parallel
         const { historyStrategy } = await import('./historyStrategy');
-        const historyResult = await historyStrategy.processHistory(chatId, prompt, useConversationHistory);
+
+        const [loadedContext, historyResult] = await Promise.all([
+            contextManager.loadPreviousContext(chatId, context, agentConfig.contextMemoryEnabled),
+            historyStrategy.processHistory(chatId, prompt, useConversationHistory)
+        ]);
+
+        context = loadedContext;
 
         if (historyResult.systemContextAddition) {
             systemInstruction += historyResult.systemContextAddition;
