@@ -67,12 +67,9 @@ interface ConversationManager {
 }
 
 class CommandsManager {
-  // @ts-expect-error - Kept for backward compatibility (unused)
-  private _conversationManager: ConversationManager;
   private repository: CommandsRepository | null;
 
-  constructor(conversationManager: ConversationManager, repository: CommandsRepository | null) {
-    this._conversationManager = conversationManager;
+  constructor(_conversationManager: ConversationManager, repository: CommandsRepository | null) {
     this.repository = repository;
   }
 
@@ -125,31 +122,7 @@ class CommandsManager {
     }
   }
 
-  /**
-   * Save last command for retry functionality (backward compatibility)
-   * @deprecated Use saveCommand() instead
-   */
-  async saveLastCommand(
-    chatId: string,
-    tool: string,
-    args: unknown,
-    options: SaveLastCommandOptions = {}
-  ): Promise<void> {
-    logger.warn('⚠️ [DEPRECATED] saveLastCommand() is deprecated. Use saveCommand() instead.');
 
-    // For backward compatibility, create a messageId from timestamp
-    const messageId = `legacy_${Date.now()}`;
-    await this.saveCommand(chatId, messageId, {
-      tool,
-      toolArgs: args,
-      args: args,
-      prompt: options.prompt || '',
-      normalized: options.normalized,
-      imageUrl: options.imageUrl,
-      videoUrl: options.videoUrl,
-      audioUrl: options.audioUrl
-    });
-  }
 
   /**
    * Get last command for retry functionality

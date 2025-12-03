@@ -7,7 +7,7 @@
 
 // Import services
 import { sendErrorToUser, ERROR_MESSAGES } from '../../utils/errorSender';
-import { sendTextMessage } from '../../services/greenApiService';
+// import { sendTextMessage } from '../../services/greenApiService';
 import conversationManager from '../../services/conversationManager';
 import logger from '../../utils/logger';
 import { routeToAgent, AgentResult as RouterAgentResult } from '../../services/agentRouter';
@@ -53,7 +53,10 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
       const originalMessageId = webhookData.idMessage;
 
       // PERFORMANCE OPTIMIZATION: Send immediate Ack/Thinking indicator
-      // This gives the user immediate feedback while the agent thinks
+      // REMOVED: User requested to remove this as it conflicts with Agent Acks
+      // The Agent handles its own Acks via ackUtils
+
+      /* 
       const sendAckPromise = (async () => {
         try {
           // Send "Thinking..." with small typing time (not 0) to ensure delivery
@@ -64,6 +67,7 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
           logger.warn('⚠️ Failed to send Ack:', err);
         }
       })();
+      */
 
       // Save user message to DB cache with metadata (FIRE AND FORGET / PARALLEL)
       const mediaMetadata = extractMediaMetadata(webhookData);
@@ -111,7 +115,7 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
       // Ensure promises complete (optional, mostly for testing/clean exit)
       // In production, we don't strictly need to await them here if we handle errors
       // But to be safe against process termination:
-      await Promise.allSettled([sendAckPromise, saveMessagePromise]);
+      await Promise.allSettled([saveMessagePromise]);
 
       return;
     }
