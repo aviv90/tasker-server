@@ -141,10 +141,36 @@ export class HistoryStrategy {
                 const historyResult = await getChatHistory(chatId, 20, { format: 'internal', useDbCache: true });
 
                 if (historyResult.success && historyResult.messages.length > 0) {
-                    const rawHistory: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = historyResult.messages.map(msg => ({
-                        role: (msg.role === 'assistant' ? 'model' : 'user') as 'user' | 'model',
-                        parts: [{ text: msg.content }]
-                    }));
+                    const rawHistory: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = historyResult.messages
+                        .filter(msg => {
+                            // Filter out system Ack messages to prevent hallucination/mimicking
+                            if (msg.role === 'assistant') {
+                                const text = msg.content.trim();
+                                // Check for common Ack patterns (Hebrew & English)
+                                const isAck =
+                                    text.startsWith('יוצר') ||
+                                    text.startsWith('מבצע') ||
+                                    text.startsWith('חושב') ||
+                                    text.startsWith('מנתח') ||
+                                    text.startsWith('מחפש') ||
+                                    text.startsWith('מתמלל') ||
+                                    text.startsWith('מתרגם') ||
+                                    text.includes('... ⚙️') ||
+                                    text.includes('... 🎨') ||
+                                    text.includes('... 🎬') ||
+                                    text.includes('... 🔍');
+
+                                if (isAck) {
+                                    logger.debug(`🧠 [HistoryStrategy] Filtered out system Ack message: "${text.substring(0, 30)}..."`);
+                                    return false;
+                                }
+                            }
+                            return true;
+                        })
+                        .map(msg => ({
+                            role: (msg.role === 'assistant' ? 'model' : 'user') as 'user' | 'model',
+                            parts: [{ text: msg.content }]
+                        }));
 
                     // Handle leading bot messages (Gemini requirement: history must start with user)
                     let validHistory = rawHistory;
