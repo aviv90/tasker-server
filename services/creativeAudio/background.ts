@@ -12,7 +12,9 @@ import { promisify } from 'util';
 import musicService from '../musicService';
 import { getTempDir, ensureTempDir } from '../../utils/tempFileUtils';
 import logger from '../../utils/logger';
-const ffmpegStatic = 'ffmpeg';
+import ffmpegStatic from 'ffmpeg-static';
+
+const ffmpegBin = ffmpegStatic || 'ffmpeg';
 
 const execAsync = promisify(exec);
 
@@ -182,27 +184,27 @@ export async function generateBackgroundMusic(duration: number, style: string = 
     switch (style) {
       case 'upbeat':
         // C major chord progression: C-E-G with rhythm
-        musicCommand = `${ffmpegStatic} -f lavfi -i "sine=frequency=261.63:duration=${duration}" -f lavfi -i "sine=frequency=329.63:duration=${duration}" -f lavfi -i "sine=frequency=392.00:duration=${duration}" -f lavfi -i "sine=frequency=523.25:duration=${duration}" -filter_complex "[0:a]volume=0.8[bass];[1:a]volume=0.6[mid];[2:a]volume=0.7[high];[3:a]volume=0.5[melody];[bass][mid][high][melody]amix=inputs=4:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
+        musicCommand = `${ffmpegBin} -f lavfi -i "sine=frequency=261.63:duration=${duration}" -f lavfi -i "sine=frequency=329.63:duration=${duration}" -f lavfi -i "sine=frequency=392.00:duration=${duration}" -f lavfi -i "sine=frequency=523.25:duration=${duration}" -filter_complex "[0:a]volume=0.8[bass];[1:a]volume=0.6[mid];[2:a]volume=0.7[high];[3:a]volume=0.5[melody];[bass][mid][high][melody]amix=inputs=4:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
         break;
       case 'chill':
         // Am chord progression: A-C-E with soft tones
-        musicCommand = `${ffmpegStatic} -f lavfi -i "sine=frequency=220.00:duration=${duration}" -f lavfi -i "sine=frequency=261.63:duration=${duration}" -f lavfi -i "sine=frequency=329.63:duration=${duration}" -f lavfi -i "sine=frequency=440.00:duration=${duration}" -filter_complex "[0:a]volume=0.7[bass];[1:a]volume=0.5[mid1];[2:a]volume=0.6[mid2];[3:a]volume=0.4[high];[bass][mid1][mid2][high]amix=inputs=4:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
+        musicCommand = `${ffmpegBin} -f lavfi -i "sine=frequency=220.00:duration=${duration}" -f lavfi -i "sine=frequency=261.63:duration=${duration}" -f lavfi -i "sine=frequency=329.63:duration=${duration}" -f lavfi -i "sine=frequency=440.00:duration=${duration}" -filter_complex "[0:a]volume=0.7[bass];[1:a]volume=0.5[mid1];[2:a]volume=0.6[mid2];[3:a]volume=0.4[high];[bass][mid1][mid2][high]amix=inputs=4:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
         break;
       case 'dramatic':
         // Dm chord progression: D-F-A with deep tones
-        musicCommand = `${ffmpegStatic} -f lavfi -i "sine=frequency=146.83:duration=${duration}" -f lavfi -i "sine=frequency=174.61:duration=${duration}" -f lavfi -i "sine=frequency=220.00:duration=${duration}" -f lavfi -i "sine=frequency=293.66:duration=${duration}" -filter_complex "[0:a]volume=0.9[bass];[1:a]volume=0.6[mid1];[2:a]volume=0.7[mid2];[3:a]volume=0.5[high];[bass][mid1][mid2][high]amix=inputs=4:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
+        musicCommand = `${ffmpegBin} -f lavfi -i "sine=frequency=146.83:duration=${duration}" -f lavfi -i "sine=frequency=174.61:duration=${duration}" -f lavfi -i "sine=frequency=220.00:duration=${duration}" -f lavfi -i "sine=frequency=293.66:duration=${duration}" -filter_complex "[0:a]volume=0.9[bass];[1:a]volume=0.6[mid1];[2:a]volume=0.7[mid2];[3:a]volume=0.5[high];[bass][mid1][mid2][high]amix=inputs=4:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
         break;
       case 'electronic':
         // F#m chord progression: F#-A-C# with electronic feel
-        musicCommand = `${ffmpegStatic} -f lavfi -i "sine=frequency=185.00:duration=${duration}" -f lavfi -i "sine=frequency=220.00:duration=${duration}" -f lavfi -i "sine=frequency=277.18:duration=${duration}" -f lavfi -i "sine=frequency=369.99:duration=${duration}" -filter_complex "[0:a]volume=0.8[bass];[1:a]volume=0.6[mid1];[2:a]volume=0.7[mid2];[3:a]volume=0.5[high];[bass][mid1][mid2][high]amix=inputs=4:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
+        musicCommand = `${ffmpegBin} -f lavfi -i "sine=frequency=185.00:duration=${duration}" -f lavfi -i "sine=frequency=220.00:duration=${duration}" -f lavfi -i "sine=frequency=277.18:duration=${duration}" -f lavfi -i "sine=frequency=369.99:duration=${duration}" -filter_complex "[0:a]volume=0.8[bass];[1:a]volume=0.6[mid1];[2:a]volume=0.7[mid2];[3:a]volume=0.5[high];[bass][mid1][mid2][high]amix=inputs=4:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
         break;
       case 'jazz':
         // G7 chord progression: G-B-D-F with jazz harmony
-        musicCommand = `${ffmpegStatic} -f lavfi -i "sine=frequency=196.00:duration=${duration}" -f lavfi -i "sine=frequency=246.94:duration=${duration}" -f lavfi -i "sine=frequency=293.66:duration=${duration}" -f lavfi -i "sine=frequency=349.23:duration=${duration}" -filter_complex "[0:a]volume=0.7[bass];[1:a]volume=0.5[mid1];[2:a]volume=0.6[mid2];[3:a]volume=0.4[high];[bass][mid1][mid2][high]amix=inputs=4:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
+        musicCommand = `${ffmpegBin} -f lavfi -i "sine=frequency=196.00:duration=${duration}" -f lavfi -i "sine=frequency=246.94:duration=${duration}" -f lavfi -i "sine=frequency=293.66:duration=${duration}" -f lavfi -i "sine=frequency=349.23:duration=${duration}" -filter_complex "[0:a]volume=0.7[bass];[1:a]volume=0.5[mid1];[2:a]volume=0.6[mid2];[3:a]volume=0.4[high];[bass][mid1][mid2][high]amix=inputs=4:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
         break;
       default:
         // Default: C major chord
-        musicCommand = `${ffmpegStatic} -f lavfi -i "sine=frequency=261.63:duration=${duration}" -f lavfi -i "sine=frequency=329.63:duration=${duration}" -f lavfi -i "sine=frequency=392.00:duration=${duration}" -filter_complex "[0:a]volume=0.8[bass];[1:a]volume=0.6[mid];[2:a]volume=0.7[high];[bass][mid][high]amix=inputs=3:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
+        musicCommand = `${ffmpegBin} -f lavfi -i "sine=frequency=261.63:duration=${duration}" -f lavfi -i "sine=frequency=329.63:duration=${duration}" -f lavfi -i "sine=frequency=392.00:duration=${duration}" -filter_complex "[0:a]volume=0.8[bass];[1:a]volume=0.6[mid];[2:a]volume=0.7[high];[bass][mid][high]amix=inputs=3:duration=first" -c:a libmp3lame -b:a 128k -y "${filePath}"`;
     }
 
     await execAsync(musicCommand);

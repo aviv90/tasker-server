@@ -11,8 +11,9 @@ import { promisify } from 'util';
 import { TIME } from '../../../utils/constants';
 import { Request } from 'express';
 import logger from '../../../utils/logger';
+import ffmpegStatic from 'ffmpeg-static';
 const execAsync = promisify(exec);
-const ffmpeg = 'ffmpeg';
+const ffmpeg = ffmpegStatic || 'ffmpeg';
 const veoClient = new genai.GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
 });
@@ -272,7 +273,7 @@ class WhatsAppVideoGeneration {
       logger.info('🎬 Starting Veo 3 text-to-video generation - Preview version');
       const cleanPrompt = sanitizeText(prompt);
 
-       
+
       let operation = await veoClient.models.generateVideos({
         model: "veo-3.1-generate-preview",
         prompt: cleanPrompt,
@@ -349,7 +350,7 @@ class WhatsAppVideoGeneration {
       const cleanPrompt = sanitizeText(prompt);
       const imageBase64 = imageBuffer.toString('base64');
 
-       
+
       let operation = await veoClient.models.generateVideos({
         model: "veo-3.1-generate-preview",
         prompt: cleanPrompt,

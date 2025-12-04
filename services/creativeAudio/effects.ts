@@ -11,8 +11,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { promisify } from 'util';
 import { getTempDir, ensureTempDir, cleanupTempFile } from '../../utils/tempFileUtils';
 import logger from '../../utils/logger';
+import ffmpegStatic from 'ffmpeg-static';
+
 const execAsync = promisify(exec);
-const ffmpegBin = 'ffmpeg';
+const ffmpegBin = ffmpegStatic || 'ffmpeg';
 
 export interface Effect {
   name: string;

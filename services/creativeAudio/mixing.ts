@@ -18,6 +18,7 @@ import {
   generateSunoInstrumental
 } from './background';
 import logger from '../../utils/logger';
+import ffmpegStatic from 'ffmpeg-static';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { AUDIO } = require('../../utils/constants');
 
@@ -61,9 +62,9 @@ export async function mixWithBackground(voiceBuffer: Buffer, voiceFormat: string
     logger.debug(`🎵 Mixing voice with background music...`);
 
     // Step 1: Lower background music volume to make it subtle background
-    const ffmpegStatic = 'ffmpeg';
+    const ffmpegBin = ffmpegStatic || 'ffmpeg';
     const volumeCommand = [
-      ffmpegStatic,
+      ffmpegBin,
       '-i', backgroundPath,
       '-filter:a', 'volume=0.3',
       '-c:a', 'libmp3lame',
@@ -81,7 +82,7 @@ export async function mixWithBackground(voiceBuffer: Buffer, voiceFormat: string
     }
 
     // Step 2: Mix voice with lowered background (voice louder, music quieter)
-    const mixCommand = `${ffmpegStatic} -i "${voicePath}" -i "${backgroundLowPath}" -filter_complex "[0:a]volume=1.2[voice];[1:a]volume=0.3[bg];[voice][bg]amix=inputs=2:duration=first" -c:a libmp3lame -b:a 128k -y "${outputPath}"`;
+    const mixCommand = `${ffmpegBin} -i "${voicePath}" -i "${backgroundLowPath}" -filter_complex "[0:a]volume=1.2[voice];[1:a]volume=0.3[bg];[voice][bg]amix=inputs=2:duration=first" -c:a libmp3lame -b:a 128k -y "${outputPath}"`;
 
     logger.debug(`🎵 Mixing command: ${mixCommand}`);
 
