@@ -144,7 +144,38 @@ export async function sendSingleStepText(
       }
 
       if (shouldSendText) {
-        const cleanText = cleanAgentText(agentResult.text);
+        // CRITICAL: For search_web and similar tools, URLs ARE the content - don't remove them!
+        const toolsWithUrls = new Set(['search_web', 'get_chat_history', 'chat_summary', 'translate_text']);
+        const hasToolWithUrls = agentResult.toolsUsed?.some(tool => toolsWithUrls.has(tool));
+
+        let cleanText;
+        if (hasToolWithUrls) {
+          // Preserve URLs for tools that return URLs as content
+          cleanText = agentResult.text
+            .replace(/\[image\]/gi, '')
+            .replace(/\[video\]/gi, '')
+            .replace(/\[audio\]/gi, '')
+            .replace(/\[תמונה\]/gi, '')
+            .replace(/\[וידאו\]/gi, '')
+            .replace(/\[אודיו\]/gi, '')
+            .replace(/\[audioUrl:[^\]]*\]?/gi, '')
+            .replace(/\[imageUrl:[^\]]*\]?/gi, '')
+            .replace(/\[videoUrl:[^\]]*\]?/gi, '')
+            .replace(/audioUrl:\s*https?:\/\/[^\s\]]+/gi, '')
+            .replace(/imageUrl:\s*https?:\/\/[^\s\]]+/gi, '')
+            .replace(/videoUrl:\s*https?:\/\/[^\s\]]+/gi, '')
+            .replace(/\*\*IMPORTANT:.*?\*\*/gs, '')
+            .replace(/\n\n\[.*$/gs, '')
+            .replace(/\n\[\s*$/g, '')
+            .replace(/^\[\s*\n/g, '')
+            .replace(/\n\[\s*\n/g, '\n')
+            .replace(/\s*\[\s*$/g, '')
+            .trim();
+          logger.debug(`🔗 [Text] Preserving URLs in text for tool: ${agentResult.toolsUsed?.join(', ')}`);
+        } else {
+          cleanText = cleanAgentText(agentResult.text);
+        }
+
         if (cleanText && cleanText.trim()) {
           logger.debug(`📝 [Text] Sending text ${mediaSent ? 'after media' : 'as response'} (${cleanText.length} chars)`);
           await greenApiService.sendTextMessage(chatId, cleanText, quotedMessageId || undefined, 1000);
@@ -156,7 +187,38 @@ export async function sendSingleStepText(
       if (agentResult.audioUrl) {
         logger.debug(`ℹ️ [Text] Multiple tools but audio exists - audio is the response, skipping text`);
       } else if (agentResult.text && agentResult.text.trim()) {
-        const cleanText = cleanAgentText(agentResult.text);
+        // CRITICAL: For search_web and similar tools, URLs ARE the content - don't remove them!
+        const toolsWithUrls = new Set(['search_web', 'get_chat_history', 'chat_summary', 'translate_text']);
+        const hasToolWithUrls = agentResult.toolsUsed?.some(tool => toolsWithUrls.has(tool));
+
+        let cleanText;
+        if (hasToolWithUrls) {
+          // Preserve URLs for tools that return URLs as content
+          cleanText = agentResult.text
+            .replace(/\[image\]/gi, '')
+            .replace(/\[video\]/gi, '')
+            .replace(/\[audio\]/gi, '')
+            .replace(/\[תמונה\]/gi, '')
+            .replace(/\[וידאו\]/gi, '')
+            .replace(/\[אודיו\]/gi, '')
+            .replace(/\[audioUrl:[^\]]*\]?/gi, '')
+            .replace(/\[imageUrl:[^\]]*\]?/gi, '')
+            .replace(/\[videoUrl:[^\]]*\]?/gi, '')
+            .replace(/audioUrl:\s*https?:\/\/[^\s\]]+/gi, '')
+            .replace(/imageUrl:\s*https?:\/\/[^\s\]]+/gi, '')
+            .replace(/videoUrl:\s*https?:\/\/[^\s\]]+/gi, '')
+            .replace(/\*\*IMPORTANT:.*?\*\*/gs, '')
+            .replace(/\n\n\[.*$/gs, '')
+            .replace(/\n\[\s*$/g, '')
+            .replace(/^\[\s*\n/g, '')
+            .replace(/\n\[\s*\n/g, '\n')
+            .replace(/\s*\[\s*$/g, '')
+            .trim();
+          logger.debug(`🔗 [Text] Preserving URLs in text for tool: ${agentResult.toolsUsed?.join(', ')}`);
+        } else {
+          cleanText = cleanAgentText(agentResult.text);
+        }
+
         if (cleanText && cleanText.trim() && cleanText.length > 20) {
           logger.debug(`📝 [Text] Sending text despite multiple tools (${cleanText.length} chars)`);
           await greenApiService.sendTextMessage(chatId, cleanText, quotedMessageId || undefined, 1000);
