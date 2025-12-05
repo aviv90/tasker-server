@@ -18,7 +18,7 @@ import { planMultiStepExecution } from '../multiStepPlanner';
 import multiStepExecution from './execution/multiStep';
 import agentLoop from './execution/agentLoop';
 import contextManager from './execution/context';
-import { allTools as agentTools } from './tools';
+import { getToolDeclarations } from './tools';
 import logger from '../../utils/logger';
 import { AgentConfig, AgentOptions, AgentResult } from '../agentService';
 
@@ -158,7 +158,7 @@ export class AgentOrchestrator {
         }
 
         // Prepare tools
-        const functionDeclarations = Object.values(agentTools).map((tool) => tool.declaration);
+        const functionDeclarations = getToolDeclarations();
 
         // Prepare system instruction
         let systemInstruction = prompts.agentSystemInstruction(languageInstruction);
