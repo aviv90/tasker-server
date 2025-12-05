@@ -15,7 +15,6 @@ import ffmpegStatic from 'ffmpeg-static';
 
 const execAsync = promisify(exec);
 const ffmpegBin = ffmpegStatic || 'ffmpeg';
-logger.info(`🔧 FFmpeg binary path: ${ffmpegBin}`);
 
 export interface Effect {
   name: string;

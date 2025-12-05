@@ -94,7 +94,7 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
       const originalMessageId = webhookData.idMessage;
 
       // ═══════════════════ AGENT MODE (OUTGOING) ═══════════════════
-      logger.info(`🤖 [AGENT - OUTGOING] Processing request: "${normalized.userText}"`);
+      logger.debug(`🤖 [AGENT - OUTGOING] Processing request: "${normalized.userText}"`);
 
       try {
         // NOTE: User messages are no longer saved to DB to avoid duplication.

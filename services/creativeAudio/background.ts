@@ -230,7 +230,7 @@ export async function generateBackgroundMusic(duration: number, style: string = 
  */
 export async function generateSunoInstrumental(duration: number, style: InstrumentalStyle): Promise<string> {
   try {
-    logger.info(`🎵 Generating Suno instrumental: ${style.name}`);
+    logger.debug(`🎵 Generating Suno instrumental: ${style.name}`);
 
     // Generate music with Suno
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -254,13 +254,13 @@ export async function generateSunoInstrumental(duration: number, style: Instrume
       const fileName = `suno_instrumental_${uuidv4()}.mp3`;
       const filePath = path.join(tempDir, fileName);
       fs.writeFileSync(filePath, musicResult.audioBuffer);
-      logger.info(`✅ Suno instrumental generated: ${fileName}`);
+      logger.debug(`✅ Suno instrumental generated: ${fileName}`);
       return filePath;
     }
 
     // If status is pending, we need to wait for callback
     if (musicResult.status === 'pending' && musicResult.taskId) {
-      logger.info(`⏳ Suno instrumental task submitted, waiting for callback: ${musicResult.taskId}`);
+      logger.debug(`⏳ Suno instrumental task submitted, waiting for callback: ${musicResult.taskId}`);
 
       // Wait for callback completion using Promise-based approach with timeout
       return new Promise((resolve, reject) => {
@@ -306,7 +306,7 @@ export function handleSunoCallback(taskId: string, audioBuffer: Buffer): void {
       const fileName = `suno_instrumental_${uuidv4()}.mp3`;
       const filePath = path.join(tempDir, fileName);
       fs.writeFileSync(filePath, audioBuffer);
-      logger.info(`✅ Suno instrumental generated via callback: ${fileName}`);
+      logger.debug(`✅ Suno instrumental generated via callback: ${fileName}`);
       callback.resolve(filePath);
     } catch (err: any) {
       callback.reject(new Error(`Failed to save Suno instrumental: ${err.message}`));

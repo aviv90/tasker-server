@@ -128,7 +128,7 @@ export async function mixWithBackground(voiceBuffer: Buffer, voiceFormat: string
  */
 export async function processVoiceCreatively(audioBuffer: Buffer, inputFormat: string = 'mp3'): Promise<ProcessedVoice> {
   try {
-    logger.info(`🎨 Starting creative voice processing...`);
+    logger.debug(`🎨 Starting creative voice processing...`);
 
     // Get random effect
     const effect = getRandomEffect();
