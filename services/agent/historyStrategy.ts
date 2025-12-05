@@ -108,8 +108,8 @@ export class HistoryStrategy {
             // Questions about conversation
             /(מתי|when|איפה|where|למה|why|איך|how).*(אמרת|said|ציינת|mentioned|דיברנו|discussed)/i,
 
-            // Retry
-            /(שוב|again|נסה שוב|try again|חזור|repeat)/i,
+            // Retry - Strict start of string to avoid false positives in conversation
+            /^#?\s*(שוב|again|נסה שוב|try again|חזור|repeat)\s*[.!]?$/i,
 
             // Clarifications
             /(מה התכוונת|what do you mean|לא הבנתי|didn't understand|תסביר|explain)/i

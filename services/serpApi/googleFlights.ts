@@ -221,8 +221,8 @@ export async function getRandomFlight(originInput: string, destinationInput?: st
         const response = await axios.get('https://serpapi.com/search.json', { params });
 
         // Check 'best_flights' and 'other_flights'
-        const bestFlights = response.data.best_flights || [];
-        const otherFlights = response.data.other_flights || [];
+        const bestFlights = response.data?.best_flights || [];
+        const otherFlights = response.data?.other_flights || [];
         const allFlights = [...bestFlights, ...otherFlights];
 
         if (allFlights.length === 0) {
