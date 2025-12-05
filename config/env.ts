@@ -2,6 +2,11 @@ import dotenv from 'dotenv';
 import path from 'path';
 
 // Load environment variables from .env file
+// Load environment variables from .env file
+// Try CWD first (standard behavior)
+dotenv.config();
+// Fallback to relative paths (handles dist vs src structure)
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 interface Config {
@@ -39,6 +44,9 @@ interface Config {
             apiKey: string;
         };
         kie: {
+            apiKey: string;
+        };
+        serpApi: {
             apiKey: string;
         };
     };
@@ -95,6 +103,9 @@ const config: Config = {
         },
         kie: {
             apiKey: getEnv('KIE_API_KEY'),
+        },
+        serpApi: {
+            apiKey: getEnv('SERPAPI_API_KEY'),
         },
     },
 

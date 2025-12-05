@@ -2,7 +2,9 @@
 import axios from 'axios';
 import logger from '../../utils/logger';
 
-const SERPAPI_KEY = '4bb8d1938d69ca8c557e4da41e1f2d2079ac81f08536fbf0b66051bcb63b8a4c';
+import config from '../../config/env';
+
+const SERPAPI_KEY = config.ai.serpApi.apiKey;
 const POPULAR_DESTINATIONS = [
     'LHR', // London
     'JFK', // New York
@@ -21,6 +23,86 @@ const POPULAR_DESTINATIONS = [
     'BUD', // Budapest
     'PRG', // Prague
 ];
+
+// Mapping for common inputs to IATA codes
+const CITY_TO_IATA_MAPPING: Record<string, string> = {
+    // Israel
+    'tlv': 'TLV',
+    'tel aviv': 'TLV',
+    'tel-aviv': 'TLV',
+    'ben gurion': 'TLV',
+    'תל אביב': 'TLV',
+    'ת״א': 'TLV',
+    'נתבג': 'TLV',
+    'נתב״ג': 'TLV',
+    'בן גוריון': 'TLV',
+    'mtlv': 'TLV', // Common typo?
+
+    // US
+    'nyc': 'JFK',
+    'new york': 'JFK',
+    'jfk': 'JFK',
+    'ניו יורק': 'JFK',
+    'sfo': 'SFO',
+    'san francisco': 'SFO',
+    'san fran': 'SFO',
+    'סן פרנסיסקו': 'SFO',
+    'lax': 'LAX',
+    'los angeles': 'LAX',
+    'לוס אנגלס': 'LAX',
+    'לוס אנג׳לס': 'LAX',
+
+    // Europe
+    'lon': 'LHR',
+    'london': 'LHR',
+    'לונדון': 'LHR',
+    'par': 'CDG',
+    'paris': 'CDG',
+    'פריז': 'CDG',
+    'ber': 'BER',
+    'berlin': 'BER',
+    'ברלין': 'BER',
+    'rom': 'FCO',
+    'rome': 'FCO',
+    'roma': 'FCO',
+    'רומא': 'FCO',
+    'ams': 'AMS',
+    'amsterdam': 'AMS',
+    'אמסטרדם': 'AMS',
+    'mad': 'MAD',
+    'madrid': 'MAD',
+    'מדריד': 'MAD',
+    'bcn': 'BCN',
+    'barcelona': 'BCN',
+    'ברצלונה': 'BCN',
+    'ath': 'ATH',
+    'athens': 'ATH',
+    'אתונה': 'ATH',
+    'bud': 'BUD',
+    'budapest': 'BUD',
+    'בודפשט': 'BUD',
+    'prg': 'PRG',
+    'prague': 'PRG',
+    'פראג': 'PRG',
+    'lca': 'LCA',
+    'larnaca': 'LCA',
+    'לרנקה': 'LCA',
+    'kiev': 'IEV',
+    'קייב': 'IEV',
+    'moscow': 'SVO',
+    'מוסקבה': 'SVO',
+
+    // Asia
+    'bkk': 'BKK',
+    'bangkok': 'BKK',
+    'בנגקוק': 'BKK',
+    'tyo': 'HND',
+    'tokyo': 'HND',
+    'טוקיו': 'HND',
+    'dxb': 'DXB',
+    'dubai': 'DXB',
+    'דובאי': 'DXB',
+};
 
 export interface FlightOffer {
     destination: string;
@@ -43,8 +125,12 @@ export interface FlightResult {
  * Get a random flight from the origin to a random popular destination
  * for tomorrow.
  */
-export async function getRandomFlight(origin: string): Promise<FlightResult> {
+export async function getRandomFlight(originInput: string): Promise<FlightResult> {
     try {
+        // Resolve origin to IATA if possible
+        const cleanOrigin = originInput.toLowerCase().trim();
+        const origin = CITY_TO_IATA_MAPPING[cleanOrigin] || originInput.toUpperCase();
+
         // Pick a random destination that is NOT the origin
         let destination = POPULAR_DESTINATIONS[Math.floor(Math.random() * POPULAR_DESTINATIONS.length)];
         // Simple protection against same origin-dest (though unlikely with city codes vs airport codes usually mixed, but good practice)
@@ -58,6 +144,8 @@ export async function getRandomFlight(origin: string): Promise<FlightResult> {
         const dateStr = tomorrow.toISOString().split('T')[0]; // YYYY-MM-DD
 
         logger.info(`✈️ Searching flights: ${origin} -> ${destination} on ${dateStr}`);
+
+
 
         const params = {
             engine: 'google_flights',
