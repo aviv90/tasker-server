@@ -41,6 +41,10 @@ export const create_video = {
         }
       },
       required: ['prompt']
+    },
+    historyContext: {
+      ignore: false,
+      reason: 'Keep history to support "make it longer" or "change style" requests based on previous generation.'
     }
   },
   execute: async (args: CreateVideoArgs = {}, context: AgentToolContext = {}): ToolResult => {

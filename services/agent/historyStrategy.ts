@@ -86,7 +86,11 @@ export class HistoryStrategy {
             // Audio Mix/Voice Clone
             /^#?\s*(מיקס|mix|ערבב)\s+(אודיו|audio|שיר|song)\s+/i,
             /^#?\s*(שבט|clone)\s+(קול|voice)\s+/i,
-            /^#?\s*(דבר|speak|say)\s+(בקול|with voice)\s+/i
+            /^#?\s*(דבר|speak|say)\s+(בקול|with voice)\s+/i,
+
+            // Flight Search
+            /^#?\s*(חפש|search|מצא|find|שלח|send|random)\s+(טיסה|flight)/i,
+            /^#?\s*(טיסה|flight)\s+(מ|from|ל|to)\s+/i
         ];
 
         // =============================================================================

@@ -25,6 +25,10 @@ export const random_flight = {
             required: ['origin']
         }
     },
+    historyContext: {
+        ignore: true,
+        reason: 'Random flight search should not depend on previous chat history context unless explicitly refining a search. Ignoring history reduces noise.'
+    },
     execute: async (args: { origin: string }, _context: unknown): Promise<ToolResult> => {
         logger.info(`✈️ [Agent Tool] random_flight called for origin: ${args.origin}`);
 

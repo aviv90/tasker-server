@@ -39,6 +39,10 @@ export const create_image = {
         }
       },
       required: ['prompt']
+    },
+    historyContext: {
+      ignore: false,
+      reason: 'If prompt is detailed, history is less relevant, but keep it for context if user says "like the last one".'
     }
   },
   execute: async (args: CreateImageArgs = {}, context: AgentToolContext = {}): ToolResult => {
