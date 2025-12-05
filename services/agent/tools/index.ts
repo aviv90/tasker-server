@@ -19,6 +19,7 @@ import * as summaryTools from './summaryTools';
 import * as groupTools from './groupTools';
 import * as retryTools from './retryTools';
 import * as schedulingTools from './schedulingTools';
+import * as flightTools from './flight/flightTools';
 import fallbackTools from './meta/fallbackTools';
 
 // Re-export specific functions for individual use
@@ -84,6 +85,10 @@ export const {
 export const {
   schedule_message
 } = schedulingTools;
+
+export const {
+  random_flight
+} = flightTools;
 
 export const {
   smart_execute_with_fallback,
@@ -160,7 +165,10 @@ export const allTools: Record<string, Tool> = {
   retry_with_different_provider: fallbackTools.retry_with_different_provider as unknown as Tool,
 
   // Scheduling
-  schedule_message: schedulingTools.schedule_message as unknown as Tool
+  schedule_message: schedulingTools.schedule_message as unknown as Tool,
+
+  // Flight
+  random_flight: flightTools.random_flight as unknown as Tool
 };
 
 // Initialize retry tools with reference to all tools
