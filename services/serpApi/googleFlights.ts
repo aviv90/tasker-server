@@ -102,6 +102,12 @@ const CITY_TO_IATA_MAPPING: Record<string, string> = {
     'dxb': 'DXB',
     'dubai': 'DXB',
     'דובאי': 'DXB',
+    'kazakhstan': 'ALA', // Almaty as default
+    'קזחסטן': 'ALA',
+    'almaty': 'ALA',
+    'אלמטי': 'ALA',
+    'cyprus': 'LCA',
+    'קפריסין': 'LCA'
 };
 
 // Mapping for IATA to display city name
@@ -122,7 +128,8 @@ const IATA_TO_CITY_NAME: Record<string, string> = {
     'LCA': 'לרנקה',
     'BUD': 'בודפשט',
     'PRG': 'פראג',
-    'TLV': 'תל אביב'
+    'TLV': 'תל אביב',
+    'ALA': 'אלמטי (קזחסטן)'
 };
 
 export interface FlightLeg {
@@ -276,6 +283,13 @@ export async function getRandomFlight(originInput: string, destinationInput?: st
 
     } catch (error: any) {
         logger.error('❌ Error fetching flights:', error.message);
-        return { success: false, error: error.message };
+
+        let userMessage = 'אירעה שגיאה בחיפוש הטיסה. אנא נסה שוב מאוחר יותר.';
+
+        if (error.response?.status === 400) {
+            userMessage = `שגיאה בפרטי החיפוש. ייתכן שהיעד "${destinationInput || originInput}" אינו מזוהה במערכת. נסה לציין שם עיר מרכזית או קוד שדה תעופה.`;
+        }
+
+        return { success: false, error: userMessage };
     }
 }

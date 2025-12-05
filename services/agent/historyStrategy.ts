@@ -47,15 +47,9 @@ export class HistoryStrategy {
             /^#?\s*(שלח|send|שלחי|שלחו)\s+(קישור|link|לינק|מיקום|location)/i,
             /^#?\s*(קישור|link|לינק|מיקום|location)\s+(ל|to|של|of|ב|in|באזור)/i,
 
-            // Web search
-            /^#?\s*(חפש|search|find|מצא)\s+(באינטרנט|מידע|information|לינק|link|קישור)/i,
-            /^#?\s*(חפש|search|find|מצא)\s+.{3,}/i,
-
-            // Translation
-            /^#?\s*(תרגם|translate)\s+(ל|to)\s*/i,
-
-            // Text-to-speech
-            /^#?\s*(אמור|say|תשמיע|speak|תקרא|read)\s+.{3,}/i,
+            // Send links/location
+            /^#?\s*(שלח|send|שלחי|שלחו)\s+(קישור|link|לינק|מיקום|location)/i,
+            /^#?\s*(קישור|link|לינק|מיקום|location)\s+(ל|to|של|of|ב|in|באזור)/i,
 
             // Time/date queries
             /^#?\s*(מה השעה|what time|מה התאריך|what date|מה היום|what day)/i,
@@ -86,11 +80,9 @@ export class HistoryStrategy {
             // Audio Mix/Voice Clone
             /^#?\s*(מיקס|mix|ערבב)\s+(אודיו|audio|שיר|song)\s+/i,
             /^#?\s*(שבט|clone)\s+(קול|voice)\s+/i,
-            /^#?\s*(דבר|speak|say)\s+(בקול|with voice)\s+/i,
+            /^#?\s*(דבר|speak|say)\s+(בקול|with voice)\s+/i
 
-            // Flight Search
-            /^#?\s*(חפש|search|מצא|find|שלח|send|random)\s+(טיסה|flight)/i,
-            /^#?\s*(טיסה|flight)\s+(מ|from|ל|to)\s+/i
+            // Flight patterns removed to allow context for refinements
         ];
 
         // =============================================================================
