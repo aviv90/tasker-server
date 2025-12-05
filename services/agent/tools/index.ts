@@ -106,6 +106,10 @@ export interface ToolDeclaration {
     properties?: Record<string, unknown>;
     required?: string[];
   };
+  historyContext?: {
+    ignore: boolean;
+    reason: string;
+  };
 }
 
 /**
@@ -181,7 +185,12 @@ retryTools.setAgentToolsReference(allTools);
 export function getToolDeclarations(): ToolDeclaration[] {
   return Object.values(allTools)
     .filter((tool): tool is Tool => tool !== null && tool !== undefined && typeof tool === 'object' && 'declaration' in tool)
-    .map(tool => tool.declaration);
+    .map(tool => {
+      // Create a shallow copy to avoid mutating the original
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { historyContext, ...declaration } = tool.declaration;
+      return declaration;
+    });
 }
 
 /**
