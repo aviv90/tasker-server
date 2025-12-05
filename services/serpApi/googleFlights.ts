@@ -158,20 +158,37 @@ export interface FlightResult {
 }
 
 /**
- * Get a random flight from the origin to a random popular destination
+ * Helper to resolve city name to IATA code
+ */
+function resolveCityToIATA(input: string): string {
+    const cleanInput = input.toLowerCase().trim();
+    return CITY_TO_IATA_MAPPING[cleanInput] || input.toUpperCase();
+}
+
+/**
+ * Get a flight from the origin to a specific or random popular destination
  * for tomorrow.
  */
-export async function getRandomFlight(originInput: string): Promise<FlightResult> {
+export async function getRandomFlight(originInput: string, destinationInput?: string): Promise<FlightResult> {
     try {
         // Resolve origin to IATA if possible
-        const cleanOrigin = originInput.toLowerCase().trim();
-        const origin = CITY_TO_IATA_MAPPING[cleanOrigin] || originInput.toUpperCase();
+        const origin = resolveCityToIATA(originInput);
+        let destination: string;
 
-        // Pick a random destination that is NOT the origin
-        let destination = POPULAR_DESTINATIONS[Math.floor(Math.random() * POPULAR_DESTINATIONS.length)];
-        // Simple protection against same origin-dest (though unlikely with city codes vs airport codes usually mixed, but good practice)
-        if (destination === origin) {
-            destination = 'LHR'; // Fallback
+        if (destinationInput) {
+            destination = resolveCityToIATA(destinationInput);
+        } else {
+            // Pick a random destination that is NOT the origin
+            destination = POPULAR_DESTINATIONS[Math.floor(Math.random() * POPULAR_DESTINATIONS.length)] || 'LHR';
+            // Simple protection against same origin-dest
+            if (destination === origin) {
+                destination = 'LHR'; // Fallback
+            }
+        }
+
+        // Ensure destination is set (TS check)
+        if (!destination) {
+            destination = 'LHR';
         }
 
         // Date: Tomorrow

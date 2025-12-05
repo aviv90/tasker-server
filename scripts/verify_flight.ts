@@ -1,13 +1,15 @@
-
 import { getRandomFlight } from '../services/serpApi/googleFlights';
 
 
-async function main() {
-    const origin = process.argv[2] || 'TLV';
-    console.log(`🔍 Testing random flight search from: ${origin}`);
+async function test() {
+    // Get arguments
+    const originInput = process.argv[2] || 'TLV';
+    const destinationInput = process.argv[3]; // Optional
+
+    console.log(`🔍 Testing flight search from: ${originInput} to ${destinationInput || 'Random'} `);
 
     try {
-        const result = await getRandomFlight(origin);
+        const result = await getRandomFlight(originInput, destinationInput);
 
         if (result.success && result.offer) {
             console.log('✅ Success!');
@@ -32,4 +34,4 @@ async function main() {
     }
 }
 
-main();
+test();

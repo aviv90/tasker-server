@@ -13,24 +13,25 @@ interface ToolResult {
 export const random_flight = {
     declaration: {
         name: 'random_flight',
-        description: 'Find a random flight for tomorrow from a specific origin to a popular destination. Use this when the user asks for a flight or "send a flight".',
+        description: 'Find a flight for tomorrow from a specific origin to a destination (optional). Use this when the user asks for a flight or "send a flight". If no destination is specified, a random one will be chosen.',
         parameters: {
             type: 'object',
             properties: {
                 origin: {
                     type: 'string',
                     description: 'The origin airport code or city name (e.g., "TLV", "Tel Aviv", "JFK")',
+                },
+                destination: {
+                    type: 'string',
+                    description: 'The destination airport code or city name (optional) (e.g., "London", "LHR", "Rome")',
                 }
             },
             required: ['origin']
         }
     },
-    historyContext: {
-        ignore: true,
-        reason: 'Random flight search should not depend on previous chat history context unless explicitly refining a search. Ignoring history reduces noise.'
-    },
-    execute: async (args: { origin: string }, _context: unknown): Promise<ToolResult> => {
-        logger.info(`✈️ [Agent Tool] random_flight called for origin: ${args.origin}`);
+    // ... historyContext ...
+    execute: async (args: { origin: string; destination?: string }, _context: unknown): Promise<ToolResult> => {
+        logger.info(`✈️ [Agent Tool] random_flight called for origin: ${args.origin}, destination: ${args.destination || 'random'}`);
 
         try {
             if (!args.origin) {
@@ -40,7 +41,7 @@ export const random_flight = {
                 };
             }
 
-            const result = await googleFlights.getRandomFlight(args.origin);
+            const result = await googleFlights.getRandomFlight(args.origin, args.destination);
 
             if (!result.success || !result.offer) {
                 return {
