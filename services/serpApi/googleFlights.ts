@@ -104,6 +104,27 @@ const CITY_TO_IATA_MAPPING: Record<string, string> = {
     'דובאי': 'DXB',
 };
 
+// Mapping for IATA to display city name
+const IATA_TO_CITY_NAME: Record<string, string> = {
+    'LHR': 'לונדון',
+    'JFK': 'ניו יורק',
+    'CDG': 'פריז',
+    'FCO': 'רומא',
+    'BER': 'ברלין',
+    'AMS': 'אמסטרדם',
+    'BKK': 'בנגקוק',
+    'HND': 'טוקיו',
+    'DXB': 'דובאי',
+    'IST': 'איסטנבול',
+    'MAD': 'מדריד',
+    'BCN': 'ברצלונה',
+    'ATH': 'אתונה',
+    'LCA': 'לרנקה',
+    'BUD': 'בודפשט',
+    'PRG': 'פראג',
+    'TLV': 'תל אביב'
+};
+
 export interface FlightOffer {
     destination: string;
     airline: string;
@@ -175,22 +196,28 @@ export async function getRandomFlight(originInput: string): Promise<FlightResult
 
         // Pick the first one (usually cheapest/best)
         const flight = allFlights[0];
-        const leg = flight.flights[0]; // First leg
+        const firstLeg = flight.flights[0];
+        const lastLeg = flight.flights[flight.flights.length - 1];
 
         // Extract price - sometimes it's just an integer, sometimes formatted
         const price = flight.price ? (typeof flight.price === 'number' ? `₪${flight.price}` : flight.price) : 'מחיר לא זמין';
 
+        const validDestination = destination || 'LHR';
+        const cityName = IATA_TO_CITY_NAME[validDestination] || validDestination;
+        const airportName = lastLeg.arrival_airport?.name || validDestination;
+        const formattedDestination = `${cityName} (${airportName})`;
+
         return {
             success: true,
             offer: {
-                destination: destination || 'Unknown',
-                airline: leg.airline || 'Unknown Airline',
+                destination: formattedDestination,
+                airline: firstLeg.airline || 'Unknown Airline',
                 price: price || 'Price unavailable',
-                departureTime: leg.departure_airport?.time || '???',
-                arrivalTime: leg.arrival_airport?.time || '???',
+                departureTime: firstLeg.departure_airport?.time || '???',
+                arrivalTime: lastLeg.arrival_airport?.time || '???',
                 duration: `${Math.floor(flight.total_duration / 60)}h ${flight.total_duration % 60}m`,
                 link: (response.data.search_metadata?.google_flights_url as string) || '',
-                flightNumber: leg.flight_number || ''
+                flightNumber: firstLeg.flight_number || ''
             }
         };
 
