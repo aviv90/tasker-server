@@ -125,15 +125,30 @@ const IATA_TO_CITY_NAME: Record<string, string> = {
     'TLV': 'תל אביב'
 };
 
-export interface FlightOffer {
+export interface FlightLeg {
+    origin: string;
     destination: string;
     airline: string;
-    price: string;
+    flightNumber: string;
     departureTime: string;
     arrivalTime: string;
     duration: string;
+    originCode: string;
+    destinationCode: string;
+}
+
+export interface FlightOffer {
+    destination: string; // Final destination formatted
+    airline: string; // Primary airline (or "Multiple")
+    price: string;
+    departureTime: string; // Initial departure
+    arrivalTime: string; // Final arrival
+    duration: string; // Total duration
     link: string;
-    flightNumber: string;
+    flightNumber: string; // Main flight number or "Multi"
+    legs: FlightLeg[];
+    stopCount: number;
+    isDirect: boolean;
 }
 
 export interface FlightResult {
@@ -196,10 +211,26 @@ export async function getRandomFlight(originInput: string): Promise<FlightResult
 
         // Pick the first one (usually cheapest/best)
         const flight = allFlights[0];
-        const firstLeg = flight.flights[0];
-        const lastLeg = flight.flights[flight.flights.length - 1];
 
-        // Extract price - sometimes it's just an integer, sometimes formatted
+        // Extract legs
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rawLegs = flight.flights || [];
+        const legs: FlightLeg[] = rawLegs.map((leg: any) => ({
+            origin: leg.departure_airport?.name || leg.departure_airport?.id,
+            destination: leg.arrival_airport?.name || leg.arrival_airport?.id,
+            originCode: leg.departure_airport?.id,
+            destinationCode: leg.arrival_airport?.id,
+            airline: leg.airline || 'Unknown',
+            flightNumber: leg.flight_number || '',
+            departureTime: leg.departure_airport?.time || '',
+            arrivalTime: leg.arrival_airport?.time || '',
+            duration: `${Math.floor(leg.duration / 60)}h ${leg.duration % 60}m`
+        }));
+
+        const firstLeg = rawLegs[0];
+        const lastLeg = rawLegs[rawLegs.length - 1];
+
+        // Extract price
         const price = flight.price ? (typeof flight.price === 'number' ? `₪${flight.price}` : flight.price) : 'מחיר לא זמין';
 
         const validDestination = destination || 'LHR';
@@ -207,17 +238,22 @@ export async function getRandomFlight(originInput: string): Promise<FlightResult
         const airportName = lastLeg.arrival_airport?.name || validDestination;
         const formattedDestination = `${cityName} (${airportName})`;
 
+        const airlineName = legs.length === 1 ? firstLeg.airline : (Array.from(new Set(legs.map(l => l.airline))).join(', '));
+
         return {
             success: true,
             offer: {
                 destination: formattedDestination,
-                airline: firstLeg.airline || 'Unknown Airline',
+                airline: airlineName,
                 price: price || 'Price unavailable',
                 departureTime: firstLeg.departure_airport?.time || '???',
                 arrivalTime: lastLeg.arrival_airport?.time || '???',
                 duration: `${Math.floor(flight.total_duration / 60)}h ${flight.total_duration % 60}m`,
                 link: (response.data.search_metadata?.google_flights_url as string) || '',
-                flightNumber: firstLeg.flight_number || ''
+                flightNumber: legs.length === 1 ? firstLeg.flight_number : `${legs.length} legs`,
+                legs: legs,
+                stopCount: legs.length - 1,
+                isDirect: legs.length === 1
             }
         };
 

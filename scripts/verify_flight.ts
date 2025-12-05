@@ -13,6 +13,9 @@ async function main() {
             console.log('✅ Success!');
             console.log('--------------------------------');
             console.log('Destination:', result.offer.destination);
+            console.log('Stops:', result.offer.stopCount);
+            console.log('Direct:', result.offer.isDirect);
+            console.log('Legs:', JSON.stringify(result.offer.legs, null, 2));
             console.log('Airline:', result.offer.airline);
             console.log('Price:', result.offer.price);
             console.log('Departure:', result.offer.departureTime);

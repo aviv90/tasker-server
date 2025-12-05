@@ -50,15 +50,33 @@ export const random_flight = {
             }
 
             const offer = result.offer;
+            let flightDetails = `*המראה:* ${offer.departureTime}\n🛬 *נחיתה:* ${offer.arrivalTime}\n⏳ *משך כולל:* ${offer.duration}`;
+
+            if (!offer.isDirect) {
+                flightDetails += `\n\n🛑 *מספר עצירות:* ${offer.stopCount}`;
+
+                // Add itinerary details
+                flightDetails += `\n\n📜 *מסלול הטיסה:*`;
+                offer.legs.forEach((leg, index) => {
+                    flightDetails += `\n${index + 1}. *${leg.originCode}* ➝ *${leg.destinationCode}* (${leg.duration})`;
+                    flightDetails += `\n   ✈️ ${leg.airline} (${leg.flightNumber})`;
+
+                    // Calculate layover if not the last leg
+                    if (index < offer.legs.length - 1) {
+                        // Simple layover visual separator
+                        flightDetails += `\n   ⏳ _קונקשן ב-${leg.destination}_`;
+                    }
+                });
+            } else {
+                flightDetails += `\n\n✅ *טיסה ישירה*`;
+            }
+
             const message = `✈️ מצאתי טיסה!
         
 📍 *יעד:* ${offer.destination}
 💰 *מחיר:* ${offer.price}
-🛫 *המראה:* ${offer.departureTime} (מחר)
-🛬 *נחיתה:* ${offer.arrivalTime}
-⏳ *משך:* ${offer.duration}
+🛫 ${flightDetails}
 ✈️ *חברת תעופה:* ${offer.airline}
-#️⃣ *מספר טיסה:* ${offer.flightNumber}
 
 [לפרטים נוספים והזמנה](${offer.link})`;
 
