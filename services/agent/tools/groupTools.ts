@@ -6,15 +6,16 @@
 import fs from 'fs';
 import { extractQuotedMessageId } from '../../../utils/messageHelpers';
 import { NOT_FOUND, ERROR } from '../../../config/messages';
-import { parseGroupCreationPrompt, resolveParticipants } from '../../groupService';
+import { resolveParticipants } from '../../groupService';
 import { createGroup, setGroupPicture, sendTextMessage, getGroupInviteLink } from '../../greenApiService';
 import { generateImageForWhatsApp } from '../../geminiService';
 import { createTempFilePath } from '../../../utils/tempFileUtils';
 import logger from '../../../utils/logger';
 
+// Types
 type CreateGroupArgs = {
-  group_name?: string;
-  participants_description?: string;
+  group_name: string;
+  participants: string[];
   group_picture_description?: string;
 };
 
@@ -47,12 +48,6 @@ type ToolResult = Promise<{
   error?: string;
 }>;
 
-type GroupCreationResult = {
-  groupName: string;
-  participants: string[];
-  groupPicture?: string;
-};
-
 type ParticipantResolution = {
   resolved: Array<{
     searchName: string;
@@ -80,7 +75,7 @@ type ImageGenerationResult = {
 export const create_group = {
   declaration: {
     name: 'create_group',
-    description: 'צור קבוצת WhatsApp חדשה עם משתתפים. ניתן גם להגדיר תמונת קבוצה אם היא מתוארת בבקשה (למשל "עם תמונה של..."). זמין רק למשתמשים מורשים. חשוב: אל תשתמש ב-create_image עבור תמונת הקבוצה - כלי זה מטפל בזה באופן פנימי.',
+    description: 'צור קבוצת WhatsApp חדשה עם משתתפים. עליך לחלץ את שם הקבוצה ואת רשימת שמות המשתתפים. במידה ויש תיאור לתמונה, חלץ גם אותו.',
     parameters: {
       type: 'object',
       properties: {
@@ -88,20 +83,23 @@ export const create_group = {
           type: 'string',
           description: 'שם הקבוצה'
         },
-        participants_description: {
-          type: 'string',
-          description: 'תיאור המשתתפים (למשל: "כל חברי המשפחה", "צוות העבודה", וכו\')'
+        participants: {
+          type: 'array',
+          items: {
+            type: 'string'
+          },
+          description: 'רשימת שמות משתתפים להוספה (לדוגמה: ["אמא", "אבא", "יוסי"])'
         },
         group_picture_description: {
           type: 'string',
-          description: 'תיאור תמונת הקבוצה (אופציונלי). השתמש בזה אם המשתמש ביקש תמונה ספציפית לקבוצה.'
+          description: 'תיאור תמונת הקבוצה (אופציונלי)'
         }
       },
-      required: ['group_name']
+      required: ['group_name', 'participants']
     }
   },
-  execute: async (args: CreateGroupArgs = {}, context: ToolContext = {}): ToolResult => {
-    logger.info(`🔧 [Agent Tool] create_group called`);
+  execute: async (args: CreateGroupArgs, context: ToolContext = {}): ToolResult => {
+    logger.info(`🔧 [Agent Tool] create_group called`, { args });
 
     try {
       const chatId = context.chatId;
@@ -116,47 +114,19 @@ export const create_group = {
       const senderData = context.originalInput?.senderData ?? {};
       const senderId = senderData.senderId || senderData.sender || '';
 
-      const rawPrompt = (context.originalInput?.userText || '')
-        .replace(/^#\s*/, '')
-        .trim();
-
-      let promptForParsing = rawPrompt;
-
-      // If no original text, construct prompt from arguments
-      if (!promptForParsing) {
-        const parts = [];
-        if (args.group_name) parts.push(`Create group "${args.group_name}"`);
-        if (args.participants_description) parts.push(`with participants: ${args.participants_description}`);
-        if (args.group_picture_description) parts.push(`with picture of: ${args.group_picture_description}`);
-
-        if (parts.length > 0) {
-          promptForParsing = parts.join(' ');
-        } else {
-          promptForParsing = '';
-        }
-      }
-
-      if (!promptForParsing.trim()) {
-        return {
-          success: false,
-          error: 'נא לספק שם לקבוצה או תיאור משתתפים.'
-        };
-      }
-
-      logger.info(`📋 Parsing group creation request from: "${promptForParsing}"`);
-
       await sendTextMessage(chatId, '👥 מתחיל יצירת קבוצה...', quotedMessageId, 1000);
-      await sendTextMessage(chatId, '🔍 מנתח את הבקשה...', quotedMessageId, 1000);
 
-      const parsed = (await parseGroupCreationPrompt(promptForParsing)) as GroupCreationResult;
+      const groupName = args.group_name;
+      const participants = args.participants || [];
+      const groupPicture = args.group_picture_description;
 
-      let statusMsg = `📋 שם הקבוצה: "${parsed.groupName}"\n👥 מחפש ${parsed.participants.length} משתתפים...`;
-      if (parsed.groupPicture) {
-        statusMsg += `\n🎨 תמונה: ${parsed.groupPicture}`;
+      let statusMsg = `📋 שם הקבוצה: "${groupName}"\n👥 מחפש ${participants.length} משתתפים...`;
+      if (groupPicture) {
+        statusMsg += `\n🎨 תמונה: ${groupPicture}`;
       }
       await sendTextMessage(chatId, statusMsg, quotedMessageId, 1000);
 
-      const resolution = (await resolveParticipants(parsed.participants)) as ParticipantResolution;
+      const resolution = (await resolveParticipants(participants)) as ParticipantResolution;
 
       if (resolution.notFound.length > 0) {
         let errorMsg = '⚠️ לא מצאתי את המשתתפים הבאים:\n';
@@ -209,26 +179,25 @@ export const create_group = {
       }
 
       const groupResult = (await createGroup(
-        parsed.groupName,
+        groupName,
         participantIds
       )) as GroupCreationResponse;
-      await sendTextMessage(chatId, `✅ הקבוצה "${parsed.groupName}" נוצרה בהצלחה!`, quotedMessageId, 1000);
+      await sendTextMessage(chatId, `✅ הקבוצה "${groupName}" נוצרה בהצלחה!`, quotedMessageId, 1000);
 
-      if (parsed.groupPicture && groupResult.chatId) {
+      if (groupPicture && groupResult.chatId) {
         try {
           await sendTextMessage(
             chatId,
-            `🎨 יוצר תמונת פרופיל לקבוצה...\n"${parsed.groupPicture}"`,
+            `🎨 יוצר תמונת פרופיל לקבוצה...\n"${groupPicture}"`,
             quotedMessageId,
             1000
           );
 
           const imageResult = (await generateImageForWhatsApp(
-            parsed.groupPicture
+            groupPicture
           )) as ImageGenerationResult;
 
           if (imageResult.success && imageResult.fileName) {
-            // Use createTempFilePath for consistent path resolution (uses config.paths.tmp)
             const imagePath = createTempFilePath(imageResult.fileName);
 
             if (fs.existsSync(imagePath)) {
@@ -271,9 +240,9 @@ export const create_group = {
       }
 
       const summaryLines = [
-        `✅ הקבוצה "${parsed.groupName}" מוכנה!`,
+        `✅ הקבוצה "${groupName}" מוכנה!`,
         `👥 משתתפים: ${resolution.resolved.length + 1}`, // +1 for the creator
-        parsed.groupPicture ? `🎨 תמונת קבוצה: נוצרה ועודכנה` : null
+        groupPicture ? `🎨 תמונת קבוצה: נוצרה ועודכנה` : null
       ].filter(Boolean) as string[];
 
       return {

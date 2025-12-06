@@ -24,120 +24,24 @@ export class HistoryStrategy {
      * @param useConversationHistory - Boolean flag from options
      * @returns HistoryStrategyResult
      */
-    async processHistory(chatId: string, prompt: string, useConversationHistory: boolean): Promise<HistoryStrategyResult> {
+    async processHistory(chatId: string, _prompt: string, useConversationHistory: boolean): Promise<HistoryStrategyResult> {
         let history: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
         let systemContextAddition = '';
 
+        // If explicitly disabled by caller (e.g. for specific stateless tools), respect it.
+        // Otherwise, we leverage the LLM's ability to discern context, so we DEFAULT TO TRUE.
         if (!useConversationHistory) {
             logger.info('🧠 [HistoryStrategy] Conversation history disabled for this request');
             return { shouldLoadHistory: false, history, systemContextAddition };
         }
 
-        const trimmedPrompt = prompt.trim();
+        // HEURISTIC REMOVAL:
+        // Previously, we used ~100 lines of Regex to guess if "history is needed".
+        // Now, we rely on the LLM (Gemini 1.5) to handle context intelligently.
+        // We always provide the last 20 messages. The cost is negligible, the gain is Contextual Intelligence.
 
-        // =============================================================================
-        // STEP 1: Check if this is a SELF-CONTAINED request (doesn't need history)
-        // =============================================================================
-        const selfContainedPatterns = [
-            // Media creation
-            /^#?\s*(צור|create|generate|ייצר|צייר|draw|make)\s+(תמונה|image|וידאו|video|שיר|song|מוזיקה|music)/i,
-            /^#?\s*(תמונה|image|וידאו|video|שיר|song)\s+(של|of|about)\s+/i,
-
-            // Send links/location
-            /^#?\s*(שלח|send|שלחי|שלחו)\s+(קישור|link|לינק|מיקום|location)/i,
-            /^#?\s*(קישור|link|לינק|מיקום|location)\s+(ל|to|של|of|ב|in|באזור)/i,
-
-            // Send links/location
-            /^#?\s*(שלח|send|שלחי|שלחו)\s+(קישור|link|לינק|מיקום|location)/i,
-            /^#?\s*(קישור|link|לינק|מיקום|location)\s+(ל|to|של|of|ב|in|באזור)/i,
-
-            // Time/date queries
-            /^#?\s*(מה השעה|what time|מה התאריך|what date|מה היום|what day)/i,
-
-            // Google Drive search
-            /^#?\s*(חפש|search).*(במסמכים|בקבצים|ב-?drive|in\s*drive|in\s*documents)/i,
-
-            // Direct media requests
-            /^#?\s*(שלח|send)\s+(תמונה|image|וידאו|video)\s+(של|of)\s+/i,
-
-            // Scheduling/Reminders
-            /^#?\s*(תזמן|schedule|remind|הזכר|תזכורת|set reminder)\s+/i,
-            /^#?\s*(תזכיר|remind me)\s+(לי|to|that)\s+/i,
-            /^#?\s*(שלח|send)\s+(הודעה|message).*(בעוד|in|at|ב-|ל-)\s+/i,
-            /^#?\s*(בעוד|in)\s+\d+/i,
-
-            // Group Creation
-            /^#?\s*(צור|create|פתח|open|הקם|start|new)\s+(קבוצה|group)\s+/i,
-            /^#?\s*(קבוצה|group)\s+(חדשה|new)\s+/i,
-
-            // Image/Media Creation
-            /^#?\s*(צור|create|generate|make|צייר|draw)\s+(תמונה|image|ציור|drawing)\s+/i,
-            /^#?\s*(תמונה|image)\s+(של|of)\s+/i,
-
-            // Poll Creation
-            /^#?\s*(צור|create|עשה|make)\s+(סקר|poll)\s+/i,
-
-            // Audio Mix/Voice Clone
-            /^#?\s*(מיקס|mix|ערבב)\s+(אודיו|audio|שיר|song)\s+/i,
-            /^#?\s*(שבט|clone)\s+(קול|voice)\s+/i,
-            /^#?\s*(דבר|speak|say)\s+(בקול|with voice)\s+/i,
-
-            // Image/Video Analysis (Self-contained ONLY if URL is present)
-            // If user says "Analyze this" without URL, we need history to find the image context or past image.
-            /^#?\s*(נתח|תאר|הסבר|analyze|describe|explain).*(http|https):\/\//i,
-            /^#?\s*(image_url|video_url)\s*:/i,
-
-            // Quoted Text Operations (Translate "Text", Say "Text") - Self contained
-            /^#?\s*(תרגם|translate|תגיד|say|speak).*(["']).+\2/i
-
-            // Flight patterns removed to allow context for refinements
-        ];
-
-        // =============================================================================
-        // STEP 2: Check if this is a CONTINUATION that NEEDS history
-        // =============================================================================
-        const needsHistoryPatterns = [
-            // Short responses
-            /^#?\s*(כן|לא|אוקיי|בסדר|טוב|נכון|yes|no|ok|okay|sure|right|exactly|בדיוק)\.?$/i,
-            /^#?\s*(עכשיו|now|מחר|tomorrow|היום|today|בבוקר|morning|בערב|evening)\.?$/i,
-
-            // Continuations
-            /^#?\s*(עוד|תמשיך|continue|more|another|אחד נוסף|עוד אחד|תן עוד|give me more)$/i,
-            /^#?\s*(מה עוד|what else|ומה עוד|and what else)/i,
-
-            // Thanks/feedback
-            /^#?\s*(תודה|thanks|thank you|מעולה|great|awesome|יופי|נהדר)\.?$/i,
-
-            // References
-            /(מה (ש)?אמרתי|what i said|מה (ש)?ציינתי|מה (ש)?דיברנו|מה (ש)?שאלתי)/i,
-            /(קודם|earlier|before|לפני|previous|את זה|this one|אותו|the same)/i,
-            /(כמו (ש)?|like (the)?|דומה ל|similar to)/i,
-
-            // Questions about conversation
-            /(מתי|when|איפה|where|למה|why|איך|how).*(אמרת|said|ציינת|mentioned|דיברנו|discussed)/i,
-
-            // Retry - Strict start of string to avoid false positives in conversation
-            /^#?\s*(שוב|again|נסה שוב|try again|חזור|repeat)\s*[.!]?$/i,
-
-            // Clarifications
-            /(מה התכוונת|what do you mean|לא הבנתי|didn't understand|תסביר|explain)/i
-        ];
-
-        const isSelfContained = selfContainedPatterns.some(p => p.test(trimmedPrompt));
-        const needsHistory = needsHistoryPatterns.some(p => p.test(trimmedPrompt));
-
-        let shouldLoadHistory = false;
-
-        if (needsHistory) {
-            shouldLoadHistory = true;
-            logger.info('🧠 [HistoryStrategy] Continuation/reference detected - loading history');
-        } else if (isSelfContained) {
-            shouldLoadHistory = false;
-            logger.info('🧠 [HistoryStrategy] Self-contained request detected - skipping history');
-        } else {
-            shouldLoadHistory = true;
-            logger.info('🧠 [HistoryStrategy] Regular message - loading history');
-        }
+        const shouldLoadHistory = true;
+        logger.info('🧠 [HistoryStrategy] Loading history (Always-On LLM-First Strategy)');
 
         if (shouldLoadHistory) {
             try {
@@ -150,7 +54,8 @@ export class HistoryStrategy {
                             // Filter out system Ack messages to prevent hallucination/mimicking
                             if (msg.role === 'assistant') {
                                 const text = msg.content.trim();
-                                // Check for common Ack patterns (Hebrew & English)
+                                // Check for common Ack patterns (Hebrew & English) - Importing constants would be better but keeping simple for now
+                                // TODO: Import TOOL_ACK_MESSAGES for robustness
                                 const isAck =
                                     text.startsWith('יוצר') ||
                                     text.startsWith('מבצע') ||
@@ -165,7 +70,7 @@ export class HistoryStrategy {
                                     text.includes('... 🔍');
 
                                 if (isAck) {
-                                    logger.debug(`🧠 [HistoryStrategy] Filtered out system Ack message: "${text.substring(0, 30)}..."`);
+                                    // logger.debug(`🧠 [HistoryStrategy] Filtered out system Ack message`);
                                     return false;
                                 }
                             }

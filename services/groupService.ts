@@ -1,36 +1,8 @@
-/**
- * Group Service
- * Handles group creation with intelligent parsing and fuzzy contact matching
- */
-
-import { generateTextResponse as geminiText } from './geminiService';
 import conversationManager from './conversationManager';
-import prompts from '../config/prompts';
 import logger from '../utils/logger';
 import { get, set } from '../utils/cache';
 import { CacheKeys, CacheTTL } from '../utils/cache';
 import { getEntityType } from '../config/messages';
-
-/**
- * Parsed group creation result
- */
-interface ParsedGroupCreation {
-  groupName: string;
-  participants: string[];
-  groupPicture?: string;
-}
-
-/**
- * Gemini text response structure
- */
-interface GeminiTextResult {
-  text: string;
-  [key: string]: unknown;
-}
-
-/**
- * Contact structure from database
- */
 interface Contact {
   contact_id?: string;
   id?: string;
@@ -62,7 +34,7 @@ interface ResolvedParticipant {
 /**
  * Participant resolution result
  */
-interface ParticipantResolutionResult {
+export interface ParticipantResolutionResult {
   resolved: ResolvedParticipant[];
   notFound: string[];
 }
@@ -78,61 +50,6 @@ interface ContactSearchResult {
   originalName?: string;
   originalContactName?: string;
   type?: string;
-}
-
-/**
- * Parse group creation prompt using Gemini
- * Extracts group name, participant names, and optional group picture description from natural language
- * 
- * @param prompt - User's group creation request
- * @returns Parsed group creation data
- * 
- * Examples:
- * - "צור קבוצה בשם 'כדורגל בשכונה' עם קוקו, מכנה ומסיק"
- * - "create group called 'Project Team' with John, Sarah and Mike"
- * - "צור קבוצה עם קרלוס בשם 'כדורגל בשכונה' עם תמונה של ברבור"
- */
-export async function parseGroupCreationPrompt(prompt: string): Promise<ParsedGroupCreation> {
-  try {
-    logger.debug('🔍 Parsing group creation prompt with Gemini...');
-
-    // Use centralized prompt from config/prompts.ts (SSOT - Phase 5.1)
-    const parsingPrompt = prompts.groupCreationParsingPrompt(prompt);
-
-    const result = await geminiText(parsingPrompt, [], { model: 'gemini-2.5-flash' }) as GeminiTextResult | null;
-
-    if (!result || !result.text) {
-      throw new Error('No response from Gemini');
-    }
-
-    let rawText = result.text.trim();
-
-    // Remove markdown code fences if present
-    rawText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-
-    const parsed = JSON.parse(rawText) as ParsedGroupCreation;
-
-    // Validate structure with specific error messages
-    if (!parsed.groupName) {
-      throw new Error('לא צוין שם לקבוצה (No group name specified)');
-    }
-
-    if (!Array.isArray(parsed.participants) || parsed.participants.length === 0) {
-      throw new Error('לא צוינו משתתפים לקבוצה (No participants specified)');
-    }
-
-    logger.info(`✅ Parsed group creation request:`, {
-      groupName: parsed.groupName,
-      participants: parsed.participants
-    });
-
-    return parsed;
-
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error('❌ Error parsing group creation prompt:', { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
-    throw new Error(`Failed to parse group creation request: ${errorMessage}`);
-  }
 }
 
 /**

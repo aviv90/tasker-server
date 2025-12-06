@@ -82,9 +82,9 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
       originalMessageId: originalMessageId || undefined
     };
 
-    // CRITICAL: Voice messages should NOT use conversation history by default
-    // This prevents "poisoned" context where the agent sees old commands and hallucinates
-    const agentResult = await routeToAgent(normalized, chatId, { useConversationHistory: false });
+    // Voice messages now use history thanks to the new semantics-aware HistoryStrategy.
+    // This allows conversational voice interactions (e.g. "make it blue" after an image generation).
+    const agentResult = await routeToAgent(normalized, chatId, { useConversationHistory: true });
 
     // Check if Agent executed a REAL command (not just default/redundant tools)
     // These tools don't count as "commands" in voice message context:
