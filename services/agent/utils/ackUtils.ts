@@ -74,7 +74,7 @@ export async function sendToolAckMessage(
   // Handle both old signature (quotedMessageId) and new signature (options)
   let quotedMessageId: string | null = null;
   let skipToolsAck: string[] = [];
-  
+
   if (typeof quotedMessageIdOrOptions === 'string' || quotedMessageIdOrOptions === null) {
     quotedMessageId = quotedMessageIdOrOptions;
   } else if (quotedMessageIdOrOptions) {
@@ -127,41 +127,28 @@ export async function sendToolAckMessage(
 
       return getToolAckMessage(toolName, provider || providerRaw);
     };
-
-    // CRITICAL: For single-step commands, send simple ACK without "מבצע:" prefix
-    // "מבצע:" format is ONLY for multi-step commands where we show the plan
-    if (functionCalls.length === 1) {
-      const [firstCall] = functionCalls;
-      if (!firstCall) return;
-      const singleAck = buildSingleAck(firstCall);
-      if (!singleAck?.trim()) return;
-      ackMessage = singleAck;
+    if (acks.length === 0) return;
+    // For 2 tools, show both (simple format, no "מבצע:")
+    if (acks.length === 2) {
+      ackMessage = `${acks[0] || ''} ${acks[1] || ''}`.trim();
+    } else if (acks.length === 1) {
+      // Only one tool after filtering - send it directly
+      ackMessage = acks[0] || '';
     } else {
-      // Multiple tools in single-step: send simple message without "מבצע:" prefix
-      // This is different from multi-step where we show the full plan
-      const acks = functionCalls.map(buildSingleAck).filter((msg) => msg && msg.trim());
-      if (acks.length === 0) return;
-      // For 2 tools, show both (simple format, no "מבצע:")
-      if (acks.length === 2) {
-        ackMessage = `${acks[0] || ''} ${acks[1] || ''}`.trim();
-      } else if (acks.length === 1) {
-        // Only one tool after filtering - send it directly
-        ackMessage = acks[0] || '';
-      } else {
-        // For 3+ tools, show count (but still no "מבצע:" prefix for single-step)
-        ackMessage = `${acks.length} פעולות... ⚙️`;
-      }
+      // For 3+ tools, show count (but still no "מבצע:" prefix for single-step)
+      ackMessage = `${acks.length} פעולות... ⚙️`;
     }
+  }
 
     if (!ackMessage.trim()) return;
 
-    logger.debug(`📢 [ACK] Sending acknowledgment: "${ackMessage}"`);
-    const { greenApiService } = getServices();
-    await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId, 1000);
-  } catch (error) {
-    const err = error as Error;
-    logger.error('❌ [ACK] Failed to send acknowledgment:', { error: err.message, stack: err.stack });
-    // Ack failure should not break the agent
-  }
+  logger.debug(`📢 [ACK] Sending acknowledgment: "${ackMessage}"`);
+  const { greenApiService } = getServices();
+  await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId, 1000);
+} catch (error) {
+  const err = error as Error;
+  logger.error('❌ [ACK] Failed to send acknowledgment:', { error: err.message, stack: err.stack });
+  // Ack failure should not break the agent
+}
 }
 

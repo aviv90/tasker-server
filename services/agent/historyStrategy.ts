@@ -80,7 +80,15 @@ export class HistoryStrategy {
             // Audio Mix/Voice Clone
             /^#?\s*(מיקס|mix|ערבב)\s+(אודיו|audio|שיר|song)\s+/i,
             /^#?\s*(שבט|clone)\s+(קול|voice)\s+/i,
-            /^#?\s*(דבר|speak|say)\s+(בקול|with voice)\s+/i
+            /^#?\s*(דבר|speak|say)\s+(בקול|with voice)\s+/i,
+
+            // Image/Video Analysis (Self-contained ONLY if URL is present)
+            // If user says "Analyze this" without URL, we need history to find the image context or past image.
+            /^#?\s*(נתח|תאר|הסבר|analyze|describe|explain).*(http|https):\/\//i,
+            /^#?\s*(image_url|video_url)\s*:/i,
+
+            // Quoted Text Operations (Translate "Text", Say "Text") - Self contained
+            /^#?\s*(תרגם|translate|תגיד|say|speak).*(["']).+\2/i
 
             // Flight patterns removed to allow context for refinements
         ];

@@ -163,12 +163,31 @@ class AgentLoop {
       logger.debug(`🔧 [Agent] Executing ${functionCalls.length} function call(s)`);
 
       // Filter out duplicate calls for creation tools that already succeeded
+      // Filter out duplicate calls (Identical Name + Identical Args) to prevent loops
+      // Also respect the "succeededCreationTools" logic for creation tools
       const creationTools = ['create_image', 'create_video', 'edit_image', 'edit_video', 'image_to_video'];
+
       const filteredCalls = functionCalls.filter((call: FunctionCall) => {
+        // 1. Block creation tools if ANY creation tool of that type succeeded (existing logic)
         if (creationTools.includes(call.name) && this.succeededCreationTools.has(call.name)) {
           logger.warn(`⚠️ [Agent] Blocking duplicate call to ${call.name} - already succeeded in this session`);
           return false;
         }
+
+        // 2. Block IDENTICAL calls (Name + Args) that were already attempted (Success or Fail)
+        // This prevents "Insanity" (doing the same thing expecting different results)
+        // We check context.toolCalls to see if this exact call was made previously in this session
+        // Note: We only check the current session's history which is tracked in context.toolCalls
+        const isDuplicate = context.toolCalls.some(previous =>
+          previous.tool === call.name &&
+          JSON.stringify(previous.args) === JSON.stringify(call.args)
+        );
+
+        if (isDuplicate) {
+          logger.warn(`⚠️ [Agent] Blocking duplicate tool call: ${call.name} with identical args`);
+          return false;
+        }
+
         return true;
       });
 
