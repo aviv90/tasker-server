@@ -107,7 +107,27 @@ const CITY_TO_IATA_MAPPING: Record<string, string> = {
     'almaty': 'ALA',
     'אלמטי': 'ALA',
     'cyprus': 'LCA',
-    'קפריסין': 'LCA'
+    'קפריסין': 'LCA',
+    'belgrade': 'BEG',
+    'בלגרד': 'BEG',
+    'bucharest': 'OTP',
+    'בוקרסט': 'OTP',
+    'sofia': 'SOF',
+    'סופיה': 'SOF',
+    'warsaw': 'WAW',
+    'ורשה': 'WAW',
+    'krakow': 'KRK',
+    'קרקוב': 'KRK',
+    'wien': 'VIE',
+    'vienna': 'VIE',
+    'וינה': 'VIE',
+    'milano': 'MXP',
+    'milan': 'MXP',
+    'מילאנו': 'MXP',
+    'munich': 'MUC',
+    'מינכן': 'MUC',
+    'frankfurt': 'FRA',
+    'פרנקפורט': 'FRA'
 };
 
 const HEBREW_MONTHS: Record<string, string> = {
@@ -234,7 +254,16 @@ const IATA_TO_CITY_NAME: Record<string, string> = {
     'BUD': 'בודפשט',
     'PRG': 'פראג',
     'TLV': 'תל אביב',
-    'ALA': 'אלמטי (קזחסטן)'
+    'ALA': 'אלמטי (קזחסטן)',
+    'BEG': 'בלגרד',
+    'OTP': 'בוקרסט',
+    'SOF': 'סופיה',
+    'WAW': 'ורשה',
+    'KRK': 'קרקוב',
+    'VIE': 'וינה',
+    'MXP': 'מילאנו',
+    'MUC': 'מינכן',
+    'FRA': 'פרנקפורט'
 };
 
 export interface FlightLeg {
