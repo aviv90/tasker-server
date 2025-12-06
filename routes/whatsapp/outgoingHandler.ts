@@ -7,8 +7,9 @@
 
 // Import services
 import conversationManager from '../../services/conversationManager';
-import { routeToAgent, AgentResult as RouterAgentResult } from '../../services/agentRouter';
+import { routeToAgent } from '../../services/agentRouter';
 import { sendErrorToUser, ERROR_MESSAGES } from '../../utils/errorSender';
+import { AgentResult } from '../../services/agent/types';
 import logger from '../../utils/logger';
 import { WebhookData } from '../../services/whatsapp/types';
 import { MessageProcessor } from '../../services/whatsapp/messageProcessor';
@@ -103,7 +104,7 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
         logger.debug(`💾 [Agent - Outgoing] Processing command (not saving to DB - using Green API history)`);
 
         const agentResult = await routeToAgent(normalized, chatId);
-        void (agentResult as RouterAgentResult);
+        void (agentResult as AgentResult);
 
         if (agentResult) {
           agentResult.originalMessageId = originalMessageId;

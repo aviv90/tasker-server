@@ -16,9 +16,9 @@ import { sendImageResult } from './media';
  * @param quotedMessageId - Optional: ID of message to quote
  */
 export async function handlePostProcessing(
-  chatId: string, 
-  normalized: NormalizedInput, 
-  agentResult: AgentResult, 
+  chatId: string,
+  normalized: NormalizedInput,
+  agentResult: AgentResult,
   quotedMessageId: string | null = null
 ): Promise<void> {
   try {

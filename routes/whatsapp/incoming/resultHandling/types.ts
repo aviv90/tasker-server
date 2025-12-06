@@ -3,46 +3,13 @@
  * Shared types for result handling functionality
  */
 
-export interface AgentResult {
-    success?: boolean;
-    error?: string;
-    text?: string;
-    imageUrl?: string;
-    imageCaption?: string;
-    videoUrl?: string;
-    videoCaption?: string;
-    audioUrl?: string;
-    poll?: {
-        question: string;
-        options: string[];
-    };
-    latitude?: string;
-    longitude?: string;
-    locationInfo?: string;
-    multiStep?: boolean;
-    alreadySent?: boolean;
-    toolsUsed?: string[];
-    iterations?: number;
-    originalMessageId?: string;
-    toolResults?: Record<string, unknown>;
-    [key: string]: unknown;
-}
+// Export shared types
+export { AgentResult } from '../../../../services/agent/types';
 
-export interface NormalizedInput {
-    userText?: string;
-    hasImage?: boolean;
-    hasVideo?: boolean;
-    hasAudio?: boolean;
-    imageUrl?: string | null;
-    videoUrl?: string | null;
-    audioUrl?: string | null;
-    quotedContext?: unknown;
-    originalMessageId?: string;
-    chatType?: string;
-    language?: string;
-    authorizations?: Record<string, boolean | null>;
-    [key: string]: unknown;
-}
+// Re-export NormalizedInput as AgentInput alias (for backward compatibility during refactor)
+// In the future we should rename all usages to AgentInput
+import { AgentInput } from '../../../../services/agent/types';
+export type NormalizedInput = AgentInput;
 
 export interface MediaSendResult {
     sent: boolean;
