@@ -174,9 +174,14 @@ function resolveCityToIATA(input: string): string {
 
 /**
  * Get a flight from the origin to a specific or random popular destination
- * for tomorrow.
+ * for tomorrow or a specific date.
  */
-export async function getRandomFlight(originInput: string, destinationInput?: string): Promise<FlightResult> {
+export async function getRandomFlight(
+    originInput: string,
+    destinationInput?: string,
+    outboundDate?: string,
+    returnDate?: string
+): Promise<FlightResult> {
     try {
         // Resolve origin to IATA if possible
         const origin = resolveCityToIATA(originInput);
@@ -198,16 +203,24 @@ export async function getRandomFlight(originInput: string, destinationInput?: st
             destination = 'LHR';
         }
 
-        // Date: Tomorrow
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const dateStr = tomorrow.toISOString().split('T')[0]; // YYYY-MM-DD
+        // Date Logic
+        let dateStr: string;
+        if (outboundDate) {
+            dateStr = outboundDate;
+        } else {
+            // Date: Tomorrow default
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            dateStr = tomorrow.toISOString().split('T')[0] || ''; // YYYY-MM-DD
+        }
 
-        logger.info(`✈️ Searching flights: ${origin} -> ${destination} on ${dateStr}`);
+        const isRoundTrip = !!returnDate;
+        const type = isRoundTrip ? '1' : '2'; // 1 = Round Trip, 2 = One Way
 
+        logger.info(`✈️ Searching flights: ${origin} -> ${destination} on ${dateStr}${isRoundTrip ? ` returning ${returnDate}` : ''}`);
 
-
-        const params = {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const params: any = {
             engine: 'google_flights',
             departure_id: origin,
             arrival_id: destination,
@@ -215,8 +228,12 @@ export async function getRandomFlight(originInput: string, destinationInput?: st
             currency: 'ILS',
             hl: 'iw', // Hebrew interface/language
             api_key: SERPAPI_KEY,
-            type: '2' // One way
+            type: type
         };
+
+        if (isRoundTrip && returnDate) {
+            params.return_date = returnDate;
+        }
 
         const response = await axios.get('https://serpapi.com/search.json', { params });
 

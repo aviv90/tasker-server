@@ -13,25 +13,33 @@ interface ToolResult {
 export const random_flight = {
     declaration: {
         name: 'random_flight',
-        description: 'Find a flight for tomorrow from a specific origin to a destination (optional). Use this when the user asks for a flight or "send a flight". If no destination is specified, a random one will be chosen.',
+        description: 'Find a flight from a specific origin to a destination (optional). Supports specific dates or date ranges. If a range is given (e.g. "between 2nd and 5th"), use the start date as the flight date.',
         parameters: {
             type: 'object',
             properties: {
                 origin: {
                     type: 'string',
-                    description: 'The origin airport code or city name (e.g., "TLV", "Tel Aviv", "JFK")',
+                    description: 'The origin airport code or city name (e.g., "TLV", "Tel Aviv")',
                 },
                 destination: {
                     type: 'string',
-                    description: 'The destination airport code or city name (optional) (e.g., "London", "LHR", "Rome")',
+                    description: 'The destination airport code or city name (optional) (e.g., "London", "LHR"). If not provided, a random destination is chosen.',
+                },
+                date: {
+                    type: 'string',
+                    description: 'The outbound flight date in YYYY-MM-DD format (e.g., "2025-12-25"). Extract strictly from user input. Default is tomorrow if not specified.',
+                },
+                return_date: {
+                    type: 'string',
+                    description: 'The return flight date in YYYY-MM-DD format (optional). Only if user requests a round trip or "until" a date.',
                 }
             },
             required: ['origin']
         }
     },
     // ... historyContext ...
-    execute: async (args: { origin: string; destination?: string }, _context: unknown): Promise<ToolResult> => {
-        logger.info(`✈️ [Agent Tool] random_flight called for origin: ${args.origin}, destination: ${args.destination || 'random'}`);
+    execute: async (args: { origin: string; destination?: string; date?: string; return_date?: string }, _context: unknown): Promise<ToolResult> => {
+        logger.info(`✈️ [Agent Tool] random_flight called for origin: ${args.origin}, dest: ${args.destination || 'random'}, date: ${args.date || 'tomorrow'}`);
 
         try {
             if (!args.origin) {
@@ -41,7 +49,7 @@ export const random_flight = {
                 };
             }
 
-            const result = await googleFlights.getRandomFlight(args.origin, args.destination);
+            const result = await googleFlights.getRandomFlight(args.origin, args.destination, args.date, args.return_date);
 
             if (!result.success || !result.offer) {
                 return {

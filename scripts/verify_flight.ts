@@ -5,11 +5,13 @@ async function test() {
     // Get arguments
     const originInput = process.argv[2] || 'TLV';
     const destinationInput = process.argv[3]; // Optional
+    const outboundDate = process.argv[4]; // Optional
+    const returnDate = process.argv[5]; // Optional
 
-    console.log(`🔍 Testing flight search from: ${originInput} to ${destinationInput || 'Random'} `);
+    console.log(`🔍 Testing flight search from: ${originInput} to ${destinationInput || 'Random'} on ${outboundDate || 'Tomorrow'}`);
 
     try {
-        const result = await getRandomFlight(originInput, destinationInput);
+        const result = await getRandomFlight(originInput, destinationInput, outboundDate, returnDate);
 
         if (result.success && result.offer) {
             console.log('✅ Success!');
