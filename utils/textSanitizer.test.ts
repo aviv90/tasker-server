@@ -81,17 +81,17 @@ describe('textSanitizer', () => {
       expect(cleanMediaDescription(undefined)).toBe('');
     });
 
-    it('should remove markdown links', () => {
+    it('should preserve markdown links', () => {
       const result = cleanMediaDescription('test [link](https://example.com) test');
       expect(result).toContain('test');
-      expect(result).not.toContain('[link]');
-      expect(result).not.toContain('https://example.com');
+      expect(result).toContain('[link]');
+      expect(result).toContain('https://example.com');
     });
 
-    it('should remove plain URLs', () => {
+    it('should preserve plain URLs', () => {
       const result = cleanMediaDescription('test https://example.com test');
       expect(result).toContain('test');
-      expect(result).not.toContain('https://example.com');
+      expect(result).toContain('https://example.com');
     });
 
     it('should remove image/video/audio placeholders', () => {
@@ -143,8 +143,8 @@ describe('textSanitizer', () => {
       expect(cleanMultiStepText(undefined)).toBe('');
     });
 
-    it('should remove URLs', () => {
-      expect(cleanMultiStepText('test https://example.com test')).toBe('test  test');
+    it('should preserve URLs', () => {
+      expect(cleanMultiStepText('test https://example.com test')).toBe('test https://example.com test');
     });
 
     it('should remove media placeholders', () => {

@@ -310,6 +310,12 @@ class ResultSender {
       // The image with caption is already sent, no need for additional generic text
       // For images: if text is just a generic success message (like "✅ תמונה נוצרה בהצלחה!"), we still send it if requested
       if (stepResult.imageUrl) {
+        // If sendImage likely used the text as caption (because no explicit caption existed), don't send again
+        if (!stepResult.imageCaption && !stepResult.caption && stepResult.text) {
+          logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - used as implicit caption by sendImage`);
+          return;
+        }
+
         // If sendImage already sent additional text (because it was different from caption), don't send again
         // sendImage sends text if it's meaningfully different from caption, so we should skip it here
         if (textToCheck.trim() !== imageCaption.trim() && textToCheck.length > imageCaption.length + 10) {

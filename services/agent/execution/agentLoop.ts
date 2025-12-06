@@ -103,12 +103,19 @@ class AgentLoop {
         logger.debug(`🔍 [Agent] Extracted assets - Image: ${latestImageAsset?.url}, Video: ${latestVideoAsset?.url}, Audio: ${latestAudioAsset?.url}, Poll: ${latestPollAsset?.question}, Location: ${latitude}, ${longitude}`);
 
         // Clean JSON wrappers from final text
-        const finalText = context.suppressFinalResponse ? '' : cleanJsonWrapper(text);
+        let finalText = context.suppressFinalResponse ? '' : cleanJsonWrapper(text);
 
 
 
         // Get originalMessageId from context for quoting
         const originalMessageId = extractQuotedMessageId({ context });
+
+        // If text is empty and no assets, something went wrong (e.g. only thinking pattern)
+        if (!finalText && !latestImageAsset && !latestVideoAsset && !latestAudioAsset && !latestPollAsset && !latitude) {
+          logger.warn('⚠️ [Agent] Final response is empty after cleaning thinking patterns. Using fallback.');
+          // Try to use original text if available, or generic error
+          finalText = text.trim() ? text : 'לא הצלחתי לנסח תשובה ברורה. אנא נסה שנית.';
+        }
 
         return {
           success: true,
@@ -151,13 +158,29 @@ class AgentLoop {
         // 2. Block IDENTICAL calls (Name + Args) that were already attempted (Success or Fail)
         // This prevents "Insanity" (doing the same thing expecting different results)
         // We check context.toolCalls to see if this exact call was made previously in this session
-        // Note: We only check the current session's history which is tracked in context.toolCalls
+        // EXCEPTION: "Random" tools are stochastic and valid to repeat with same args
+        // Creation tools (image/video) are also valid to repeat as users often want "another one"
+        const stochasticTools = [
+          'random_amazon_product',
+          'random_flight',
+          'create_image',
+          'generate_image',
+          'create_video',
+          'generate_video',
+          'edit_image',
+          'image_to_video',
+          'create_music',
+          'create_poll',
+          'creative_audio_mix',
+          'retry_last_command'
+        ];
+
         const isDuplicate = context.toolCalls.some(previous =>
           previous.tool === call.name &&
           JSON.stringify(previous.args) === JSON.stringify(call.args)
         );
 
-        if (isDuplicate) {
+        if (isDuplicate && !stochasticTools.includes(call.name)) {
           logger.warn(`⚠️ [Agent] Blocking duplicate tool call: ${call.name} with identical args`);
           return false;
         }
@@ -165,11 +188,27 @@ class AgentLoop {
         return true;
       });
 
-      if (filteredCalls.length === 0) {
-        // All calls were filtered out - stop execution
-        logger.debug(`🛑 [Agent] All function calls were duplicate creation tools - stopping`);
-        break;
+      if (filteredCalls.length === 0 && functionCalls.length > 0) {
+        // All calls were filtered out. Instead of stopping silently, we should provide feedback to the model
+        // so it can generate a text response explaining why it can't proceed or try something else.
+        logger.debug(`🛑 [Agent] All function calls were blocked duplicates. Returning feedback to model.`);
+
+        const blockedResponses: ToolFunctionResponse[] = functionCalls.map((call: FunctionCall) => ({
+          functionResponse: {
+            name: call.name,
+            response: {
+              success: false,
+              error: 'Duplicate tool call blocked. You already executed this tool with these exact arguments. Do not repeat yourself.'
+            }
+          }
+        }));
+
+        // Feed back the error to the model
+        response = await chat.sendMessage(blockedResponses);
+        continue; // Continue to next iteration to let model generate text response
       }
+
+      // (Dead code removed: if (filteredCalls.length === 0) break; - handled above)
 
       // Send Ack message ONLY for tools that haven't received ACK yet
       // Get quotedMessageId from context if available
