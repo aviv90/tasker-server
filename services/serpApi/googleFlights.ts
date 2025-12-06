@@ -270,6 +270,20 @@ export interface FlightResult {
 }
 
 /**
+ * Helper to extract numeric price from string or number
+ */
+function extractPriceValue(price: number | string | undefined): number {
+    if (price === undefined || price === null) return Infinity;
+    if (typeof price === 'number') return price;
+
+    // Handle string: "$120", "₪2,300", "€50"
+    // Remove non-numeric chars except dot
+    const clean = price.toString().replace(/[^0-9.]/g, '');
+    const val = parseFloat(clean);
+    return isNaN(val) ? Infinity : val;
+}
+
+/**
  * Helper to resolve city name to IATA code
  */
 function resolveCityToIATA(input: string): string {
@@ -285,7 +299,8 @@ export async function getRandomFlight(
     originInput: string,
     destinationInput?: string,
     outboundDate?: string,
-    returnDate?: string
+    returnDate?: string,
+    maxStops?: number
 ): Promise<FlightResult> {
     try {
         // Resolve origin to IATA if possible
@@ -351,6 +366,12 @@ export async function getRandomFlight(
             type: type
         };
 
+        if (maxStops !== undefined && maxStops !== null) {
+            // SerpApi mapping: 1 = Nonstop, 2 = 1 Stop, 3 = 2 Stops
+            // Tool mapping: 0 = Direct, 1 = 1 Stop, 2 = 2 Stops
+            params.stops = maxStops + 1;
+        }
+
         if (isRoundTrip && returnDate) {
             params.return_date = returnDate;
         }
@@ -370,7 +391,18 @@ export async function getRandomFlight(
             };
         }
 
-        // Pick the first one (usually cheapest/best)
+        // Sort by Lowest Price
+        allFlights.sort((a, b) => {
+            const priceA = extractPriceValue(a.price);
+            const priceB = extractPriceValue(b.price);
+            return priceA - priceB;
+        });
+
+        // Log top 3 candidates for debugging
+        const topCandidates = allFlights.slice(0, 3).map((f: any) => `${f.price} (${f.total_duration}m)`);
+        logger.info(`💰 Top 3 cheapest flights found: ${topCandidates.join(', ')}`);
+
+        // Pick the first one (Cheapest)
         const flight = allFlights[0];
 
         // Extract legs

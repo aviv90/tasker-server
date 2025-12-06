@@ -32,14 +32,18 @@ export const random_flight = {
                 return_date: {
                     type: 'string',
                     description: 'The return flight date. Required for round trips. Calculate based on user input: 1. Explicit ("return on 10th") -> 2025-12-10. 2. Duration ("for a week", "for 5 days") -> Calculate date + duration. 3. Range ("From 2nd to 10th") -> Use END date here (10th).',
+                },
+                max_stops: {
+                    type: 'integer',
+                    description: 'Optional: Maximum number of stops/connections. 0 = direct/nonstop. 1 = up to 1 stop. 2 = up to 2 stops. If user says "direct" or "nonstop", use 0. If user says "1 stop", use 1. If unspecified, do not send.'
                 }
             },
             required: ['origin']
         }
     },
     // ... historyContext ...
-    execute: async (args: { origin: string; destination?: string; date?: string; return_date?: string }, _context: unknown): Promise<ToolResult> => {
-        logger.info(`✈️ [Agent Tool] random_flight called for origin: ${args.origin}, dest: ${args.destination || 'random'}, date: ${args.date || 'tomorrow'}`);
+    execute: async (args: { origin: string; destination?: string; date?: string; return_date?: string; max_stops?: number }, _context: unknown): Promise<ToolResult> => {
+        logger.info(`✈️ [Agent Tool] random_flight called for origin: ${args.origin}, dest: ${args.destination || 'random'}, date: ${args.date || 'tomorrow'}, stops: ${args.max_stops !== undefined ? args.max_stops : 'any'}`);
 
         try {
             if (!args.origin) {
@@ -49,7 +53,7 @@ export const random_flight = {
                 };
             }
 
-            const result = await googleFlights.getRandomFlight(args.origin, args.destination, args.date, args.return_date);
+            const result = await googleFlights.getRandomFlight(args.origin, args.destination, args.date, args.return_date, args.max_stops);
 
             if (!result.success || !result.offer) {
                 return {

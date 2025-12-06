@@ -8,11 +8,12 @@ async function test() {
     const destinationInput = process.argv[3]; // Optional
     const outboundDate = process.argv[4]; // Optional
     const returnDate = process.argv[5]; // Optional
+    const maxStops = process.argv[6] ? parseInt(process.argv[6]) : undefined;
 
-    logger.info(`🔍 Testing flight search from: ${originInput} to ${destinationInput || 'Random'} on ${outboundDate || 'Tomorrow'} (Input raw)`);
+    logger.info(`🔍 Testing flight search from: ${originInput} to ${destinationInput || 'Random'} on ${outboundDate || 'Tomorrow'}, stops: ${maxStops !== undefined ? maxStops : 'Any'}`);
 
     try {
-        const result = await getRandomFlight(originInput, destinationInput, outboundDate, returnDate);
+        const result = await getRandomFlight(originInput, destinationInput, outboundDate, returnDate, maxStops);
 
         if (result.success && result.offer) {
             logger.info('✅ Success!');
