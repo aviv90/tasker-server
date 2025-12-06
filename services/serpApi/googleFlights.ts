@@ -110,6 +110,111 @@ const CITY_TO_IATA_MAPPING: Record<string, string> = {
     'קפריסין': 'LCA'
 };
 
+const HEBREW_MONTHS: Record<string, string> = {
+    'ינואר': '01', 'פברואר': '02', 'מרץ': '03', 'אפריל': '04',
+    'מאי': '05', 'יוני': '06', 'יולי': '07', 'אוגוסט': '08',
+    'ספטמבר': '09', 'אוקטובר': '10', 'נובמבר': '11', 'דצמבר': '12',
+    'בינואר': '01', 'בפברואר': '02', 'במרץ': '03', 'באפריל': '04',
+    'במאי': '05', 'ביוני': '06', 'ביולי': '07', 'באוגוסט': '08',
+    'בספטמבר': '09', 'באוקטובר': '10', 'בנובמבר': '11', 'בדצמבר': '12',
+};
+
+const HEBREW_NUMBERS: Record<string, string> = {
+    'אחד': '1', 'אחת': '1', 'שניים': '2', 'שתיים': '2', 'שלושה': '3', 'שלוש': '3',
+    'ארבעה': '4', 'ארבע': '4', 'חמישה': '5', 'חמש': '5', 'שישה': '6', 'שש': '6',
+    'שבעה': '7', 'שבע': '7', 'שמונה': '8', 'תשעה': '9', 'תשע': '9',
+    'עשרה': '10', 'עשר': '10', 'אחד עשר': '11', 'אחת עשרה': '11', 'שנים עשר': '12', 'שתים עשרה': '12',
+    'שלושה עשר': '13', 'שלוש עשרה': '13', 'ארבעה עשר': '14', 'ארבע עשרה': '14', 'חמישה עשר': '15', 'חמש עשרה': '15',
+    'שישה עשר': '16', 'שש עשרה': '16', 'שבעה עשר': '17', 'שבע עשרה': '17', 'שמונה עשר': '18', 'שמונה עשרה': '18',
+    'תשעה עשר': '19', 'תשע עשרה': '19', 'עשרים': '20', 'עשרים ואחד': '21', 'עשרים ואחת': '21',
+    'עשרים ושניים': '22', 'עשרים ושתיים': '22', 'עשרים ושלושה': '23', 'עשרים ושלוש': '23',
+    'עשרים וארבעה': '24', 'עשרים וארבע': '24', 'עשרים וחמישה': '25', 'עשרים וחמש': '25',
+    'עשרים ושישה': '26', 'עשרים ושש': '26', 'עשרים ושבעה': '27', 'עשרים ושבע': '27',
+    'עשרים ושמונה': '28', 'עשרים ותשעה': '29', 'עשרים ותשע': '29',
+    'שלושים': '30', 'שלושים ואחד': '31', 'שלושים ואחת': '31'
+};
+
+/**
+ * Normalizes date input to YYYY-MM-DD
+ */
+function normalizeDate(input: string): string {
+    let clean = input.trim();
+    if (!clean) return '';
+
+    // 1. Strict YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean;
+
+    // 2. Handle verbal Hebrew dates: "4 בדצמבר", "שניים בינואר", "4.12"
+
+    // Replace verbal numbers with digits? "שניים" -> "2"
+    for (const [word, digit] of Object.entries(HEBREW_NUMBERS)) {
+        const regex = new RegExp(`^${word}(\\s|$)`, 'i'); // Match start of string
+        if (regex.test(clean)) {
+            clean = clean.replace(regex, `${digit}$1`);
+        }
+    }
+
+    // Attempt to find Hebrew month
+    let foundMonthIndex = -1;
+
+    for (const [monthName, monthDigit] of Object.entries(HEBREW_MONTHS)) {
+        if (clean.includes(monthName)) {
+            foundMonthIndex = parseInt(monthDigit);
+            break;
+        }
+    }
+
+    if (foundMonthIndex !== -1) {
+        // We found a hebrew month. Look for the day.
+        const dayMatch = clean.match(/(\d{1,2})/);
+        if (dayMatch && dayMatch[1]) {
+            const d = parseInt(dayMatch[1]);
+            const today = new Date();
+            let y = today.getFullYear();
+
+            // Check for explicit year in input
+            const yearMatch = clean.match(/(\d{4})/);
+            if (yearMatch && yearMatch[1]) {
+                y = parseInt(yearMatch[1]);
+            } else {
+                const dateThisYear = new Date(y, foundMonthIndex - 1, d);
+                if (dateThisYear.getTime() < today.getTime() - 90 * 24 * 60 * 60 * 1000) {
+                    y++;
+                }
+            }
+            return `${y}-${String(foundMonthIndex).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        }
+    }
+
+    // 3. Numeric Formats: DD.MM.YYYY, DD/MM/YY, DD-MM
+    const dmyMatch = clean.match(/^(\d{1,2})[./-](\d{1,2})([./-](\d{2,4}))?$/);
+    if (dmyMatch && dmyMatch[1] && dmyMatch[2]) {
+        const d = dmyMatch[1].padStart(2, '0');
+        const m = dmyMatch[2].padStart(2, '0');
+        let yStr = dmyMatch[4];
+
+        let y: number;
+        const today = new Date();
+
+        if (yStr) {
+            if (yStr.length === 2) {
+                y = 2000 + parseInt(yStr); // Assume 20xx
+            } else {
+                y = parseInt(yStr);
+            }
+        } else {
+            y = today.getFullYear();
+            const dateThisYear = new Date(y, parseInt(m) - 1, parseInt(d));
+            if (dateThisYear.getTime() < today.getTime() - 90 * 24 * 60 * 60 * 1000) {
+                y++;
+            }
+        }
+        return `${y}-${m}-${d}`;
+    }
+
+    return clean;
+}
+
 // Mapping for IATA to display city name
 const IATA_TO_CITY_NAME: Record<string, string> = {
     'LHR': 'לונדון',
@@ -205,13 +310,28 @@ export async function getRandomFlight(
 
         // Date Logic
         let dateStr: string;
-        if (outboundDate) {
-            dateStr = outboundDate;
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+        // Normalize inputs
+        let finalOutbound = outboundDate ? normalizeDate(outboundDate) : '';
+        let finalReturn = returnDate ? normalizeDate(returnDate) : '';
+
+        if (finalOutbound) {
+            if (!dateRegex.test(finalOutbound)) {
+                logger.warn(`⚠️ Invalid outbound date format: ${outboundDate} (normalized: ${finalOutbound})`);
+                return { success: false, error: `תאריך היציאה "${outboundDate}" אינו תקין. אנא השתמש בפורמט ברור (למשל: 4.12.2025, 4 בדצמבר, או 'שלישי בינואר').` };
+            }
+            dateStr = finalOutbound;
         } else {
             // Date: Tomorrow default
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             dateStr = tomorrow.toISOString().split('T')[0] || ''; // YYYY-MM-DD
+        }
+
+        if (finalReturn && !dateRegex.test(finalReturn)) {
+            logger.warn(`⚠️ Invalid return date format: ${returnDate} (normalized: ${finalReturn})`);
+            return { success: false, error: `תאריך החזרה "${returnDate}" אינו תקין.` };
         }
 
         const isRoundTrip = !!returnDate;
@@ -304,7 +424,7 @@ export async function getRandomFlight(
         let userMessage = 'אירעה שגיאה בחיפוש הטיסה. אנא נסה שוב מאוחר יותר.';
 
         if (error.response?.status === 400) {
-            userMessage = `שגיאה בפרטי החיפוש. ייתכן שהיעד "${destinationInput || originInput}" אינו מזוהה במערכת. נסה לציין שם עיר מרכזית או קוד שדה תעופה.`;
+            userMessage = `שגיאה בפרטי החיפוש (יעד או תאריך). ייתכן שהיעד אינו מזוהה או שהתאריכים אינם תקינים (למשל תאריך עבר).`;
         }
 
         return { success: false, error: userMessage };

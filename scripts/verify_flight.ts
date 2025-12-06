@@ -8,7 +8,7 @@ async function test() {
     const outboundDate = process.argv[4]; // Optional
     const returnDate = process.argv[5]; // Optional
 
-    console.log(`🔍 Testing flight search from: ${originInput} to ${destinationInput || 'Random'} on ${outboundDate || 'Tomorrow'}`);
+    console.log(`🔍 Testing flight search from: ${originInput} to ${destinationInput || 'Random'} on ${outboundDate || 'Tomorrow'} (Input raw)`);
 
     try {
         const result = await getRandomFlight(originInput, destinationInput, outboundDate, returnDate);

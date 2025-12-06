@@ -27,11 +27,11 @@ export const random_flight = {
                 },
                 date: {
                     type: 'string',
-                    description: 'The outbound flight date in YYYY-MM-DD format (e.g., "2025-12-25"). Extract strictly from user input. Default is tomorrow if not specified.',
+                    description: 'The outbound flight date. Ideally YYYY-MM-DD (e.g. "2025-12-25"), but robustly supports: DD.MM.YYYY, "2 בינואר", "4 לדצמבר", "שניים בחודש הבא". Calculate relative dates ("next week") to YYYY-MM-DD.',
                 },
                 return_date: {
                     type: 'string',
-                    description: 'The return flight date in YYYY-MM-DD format (optional). Only if user requests a round trip or "until" a date.',
+                    description: 'The return flight date. Same format options as date.',
                 }
             },
             required: ['origin']
