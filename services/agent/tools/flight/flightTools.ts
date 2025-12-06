@@ -27,11 +27,11 @@ export const random_flight = {
                 },
                 date: {
                     type: 'string',
-                    description: 'The outbound flight date. Ideally YYYY-MM-DD (e.g. "2025-12-25"), but robustly supports: DD.MM.YYYY, "2 בינואר", "4 לדצמבר", "שניים בחודש הבא". Calculate relative dates ("next week") to YYYY-MM-DD.',
+                    description: 'The outbound flight date. Ideally YYYY-MM-DD. Supports natural language ("4.12", "shniym be-ianuar", "next friday"). For ranges ("from 2nd to 5th"), use the START date here.',
                 },
                 return_date: {
                     type: 'string',
-                    description: 'The return flight date. Same format options as date.',
+                    description: 'The return flight date. Required for round trips. Calculate based on user input: 1. Explicit ("return on 10th") -> 2025-12-10. 2. Duration ("for a week", "for 5 days") -> Calculate date + duration. 3. Range ("From 2nd to 10th") -> Use END date here (10th).',
                 }
             },
             required: ['origin']
