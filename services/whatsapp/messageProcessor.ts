@@ -8,8 +8,9 @@
 import { WebhookData } from './types';
 import logger from '../../utils/logger';
 import { NormalizedInput } from '../../services/agentRouter';
-import { extractMessageText, extractPrompt, logMessageDetails, extractMediaUrls, extractQuotedMediaUrls, isActualQuote, buildQuotedContext } from '../../routes/whatsapp/messageParser';
-import { processQuotedMessage } from '../../routes/whatsapp/incoming/mediaHandling';
+import { extractMessageText, logMessageDetails, buildQuotedContext } from '../../routes/whatsapp/messageParser';
+import { extractDirectMediaUrls, extractQuotedMediaUrls, isActualQuote } from './mediaExtraction';
+import { isCommand, extractCommandPrompt } from '../../utils/commandUtils';
 import { handleQuotedMessage } from '../../routes/whatsapp/quotedMessageHandler';
 import { isAuthorizedForMediaCreation } from './authorization';
 
@@ -64,10 +65,10 @@ export class MessageProcessor {
         const messageText = extractMessageText(messageData);
         logMessageDetails(messageData, senderName, messageText, isIncoming ? 'Incoming' : 'Outgoing');
 
-        // Check if it's a command (starts with #)
-        const isCommand = !!(messageText && /^#\s+/.test(messageText.trim()));
+        // Helper to check if text is a command
+        const isCmd = isCommand(messageText);
 
-        if (!isCommand && isIncoming && messageData.typeMessage !== 'audioMessage') {
+        if (!isCmd && isIncoming && messageData.typeMessage !== 'audioMessage') {
             // Not a command, not audio, incoming -> just save to history (handled by caller)
             return { shouldProcess: false, messageText: messageText || undefined, isCommand: false };
         }
@@ -84,7 +85,7 @@ export class MessageProcessor {
         }
 
         try {
-            const basePrompt = extractPrompt(messageText);
+            const basePrompt = extractCommandPrompt(messageText || '');
             const quotedMessage = messageData.quotedMessage;
             const actualQuote = isActualQuote(messageData, quotedMessage);
 
@@ -98,10 +99,8 @@ export class MessageProcessor {
 
             // Handle quoted message or media with caption
             if (actualQuote && quotedMessage) {
-                // Different logic for incoming vs outgoing quoted messages (legacy reasons, can be unified later)
-                const quotedResult = isIncoming
-                    ? await processQuotedMessage(quotedMessage, basePrompt, chatId)
-                    : await handleQuotedMessage(quotedMessage, basePrompt, chatId);
+                // Unified quoted message handling for both incoming and outgoing
+                const quotedResult = await handleQuotedMessage(quotedMessage, basePrompt, chatId);
 
                 if (quotedResult.error) {
                     return { shouldProcess: false, isCommand: true, error: quotedResult.error };
@@ -117,7 +116,7 @@ export class MessageProcessor {
 
             } else if (messageData.typeMessage === 'quotedMessage' && quotedMessage) {
                 // Media with caption (not actual quote)
-                const quotedMedia = await extractQuotedMediaUrls(messageData, webhookData, chatId);
+                const quotedMedia = await extractQuotedMediaUrls(quotedMessage, chatId, webhookData.idMessage);
                 hasImage = quotedMedia.hasImage ?? false;
                 hasVideo = quotedMedia.hasVideo ?? false;
                 hasAudio = quotedMedia.hasAudio ?? false;
@@ -126,7 +125,7 @@ export class MessageProcessor {
                 audioUrl = quotedMedia.audioUrl || null;
             } else {
                 // Direct media
-                const mediaUrls = extractMediaUrls(messageData);
+                const mediaUrls = extractDirectMediaUrls(messageData);
                 imageUrl = mediaUrls.imageUrl || null;
                 videoUrl = mediaUrls.videoUrl || null;
                 audioUrl = mediaUrls.audioUrl || null;
@@ -167,10 +166,11 @@ export class MessageProcessor {
                 senderData: { senderContactName, chatName, senderName, chatId, sender: senderData.sender }
             };
 
+
             return {
                 shouldProcess: true,
                 normalizedInput: normalized,
-                messageText,
+                messageText: messageText || undefined,
                 isCommand: true
             };
 

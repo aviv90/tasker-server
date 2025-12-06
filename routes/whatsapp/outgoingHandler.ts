@@ -20,6 +20,7 @@ import { handleManagementCommand } from './managementHandler';
 import { sendAgentResults, AgentResult as HandlerAgentResult } from './incoming/resultHandling';
 import { detectManagementCommand } from './commandDetector';
 import { extractMessageText, logMessageDetails } from './messageParser';
+import { isCommand } from '../../utils/commandUtils';
 
 /**
  * Handle outgoing WhatsApp message
@@ -58,7 +59,7 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
     logMessageDetails(messageData, senderName, messageText);
 
     // 2. Handle Management Commands (without #, only for outgoing messages)
-    if (messageText && messageText.trim() && !/^#\s+/.test(messageText.trim())) {
+    if (messageText && messageText.trim() && !isCommand(messageText)) {
       const managementCommand = detectManagementCommand(messageText, {
         chatId,
         chatName,

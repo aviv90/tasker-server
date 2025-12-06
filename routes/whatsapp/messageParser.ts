@@ -8,11 +8,6 @@
 import logger from '../../utils/logger';
 import { MessageData } from '../../services/whatsapp/types';
 
-interface MediaUrls {
-  imageUrl: string | null;
-  videoUrl: string | null;
-  audioUrl: string | null;
-}
 
 /**
  * Extract message text from various message types
@@ -57,145 +52,7 @@ export function extractMessageText(messageData: MessageData): string | null {
   return messageText || null;
 }
 
-/**
- * Extract media URLs from message data
- * @param {Object} messageData - Message data from Green API webhook
- * @returns {Object} - Object with imageUrl, videoUrl, audioUrl
- */
-export function extractMediaUrls(messageData: MessageData): MediaUrls {
-  const result: MediaUrls = {
-    imageUrl: null,
-    videoUrl: null,
-    audioUrl: null
-  };
 
-  if (!messageData) {
-    return result;
-  }
-
-  // Extract URLs for direct media messages (imageMessage/videoMessage/audioMessage)
-  if (messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'stickerMessage') {
-    result.imageUrl = messageData.downloadUrl ||
-      messageData.fileMessageData?.downloadUrl ||
-      messageData.imageMessageData?.downloadUrl ||
-      messageData.stickerMessageData?.downloadUrl || null;
-  } else if (messageData.typeMessage === 'videoMessage') {
-    result.videoUrl = messageData.downloadUrl ||
-      messageData.fileMessageData?.downloadUrl ||
-      messageData.videoMessageData?.downloadUrl || null;
-  } else if (messageData.typeMessage === 'audioMessage') {
-    result.audioUrl = messageData.downloadUrl ||
-      messageData.fileMessageData?.downloadUrl ||
-      messageData.audioMessageData?.downloadUrl || null;
-  }
-
-  return result;
-}
-
-/**
- * Extract media URLs from quoted message (media with caption, not actual quote)
- * Tries multiple locations and falls back to getMessage API if needed
- * @param {Object} messageData - Message data from Green API webhook
- * @param {Object} webhookData - Full webhook data
- * @param {string} chatId - Chat ID for getMessage fallback
- * @returns {Promise<Object>} - Object with imageUrl, videoUrl, audioUrl, hasImage, hasVideo, hasAudio
- */
-export async function extractQuotedMediaUrls(
-  messageData: MessageData,
-  webhookData: any, // Contains chatId and idMessage
-  _chatId?: string // Optional, can use webhookData
-) {
-  return extractQuotedMediaUrlsWithCallback(messageData, webhookData.messageData?.quotedMessage, webhookData.senderData?.chatId, webhookData.idMessage);
-}
-
-// Helper to avoid import cycles and match JS logic slightly better adapted
-async function extractQuotedMediaUrlsWithCallback(messageData: MessageData, quotedMessage: MessageData | undefined, chatId: string, messageId: string) {
-  const result = {
-    imageUrl: null as string | null,
-    videoUrl: null as string | null,
-    audioUrl: null as string | null,
-    hasImage: false,
-    hasVideo: false,
-    hasAudio: false
-  };
-
-  if (!quotedMessage) {
-    return result;
-  }
-
-  const quotedType = quotedMessage.typeMessage;
-
-  // We need getMessage. Let's import it dynamically to avoid circular dependency issues if any
-  const { getMessage } = await import('../../services/greenApiService');
-
-  if (quotedType === 'imageMessage' || quotedType === 'stickerMessage') {
-    result.hasImage = true;
-    // Try all possible locations for downloadUrl
-    result.imageUrl = messageData.downloadUrl ||
-      messageData.fileMessageData?.downloadUrl ||
-      messageData.imageMessageData?.downloadUrl ||
-      messageData.stickerMessageData?.downloadUrl ||
-      quotedMessage.downloadUrl ||
-      quotedMessage.fileMessageData?.downloadUrl ||
-      quotedMessage.imageMessageData?.downloadUrl ||
-      quotedMessage.stickerMessageData?.downloadUrl || null;
-
-    // If still not found, try getMessage to fetch the current message's downloadUrl
-    if (!result.imageUrl && chatId && messageId) {
-      logger.debug('⚠️ Outgoing: downloadUrl not found in webhook, fetching from Green API...');
-      try {
-        interface GreenApiMessage {
-          downloadUrl?: string;
-          fileMessageData?: { downloadUrl?: string };
-          imageMessageData?: { downloadUrl?: string };
-          videoMessageData?: { downloadUrl?: string };
-          [key: string]: unknown;
-        }
-        const originalMessage = await getMessage(chatId, messageId) as GreenApiMessage | null;
-        result.imageUrl = originalMessage?.downloadUrl ||
-          originalMessage?.fileMessageData?.downloadUrl ||
-          originalMessage?.imageMessageData?.downloadUrl ||
-          null;
-        logger.debug(`✅ Outgoing: downloadUrl fetched from getMessage: ${result.imageUrl ? 'found' : 'still NOT FOUND'}`);
-      } catch (err: any) {
-        logger.error(`❌ Outgoing: Failed to fetch downloadUrl via getMessage:`, { error: err.message, stack: err.stack });
-      }
-    }
-    logger.debug(`📸 Outgoing: Image with caption detected, final downloadUrl: ${result.imageUrl ? 'found' : 'NOT FOUND'}`);
-  } else if (quotedType === 'videoMessage') {
-    result.hasVideo = true;
-    result.videoUrl = messageData.downloadUrl ||
-      messageData.fileMessageData?.downloadUrl ||
-      messageData.videoMessageData?.downloadUrl ||
-      quotedMessage.downloadUrl ||
-      quotedMessage.fileMessageData?.downloadUrl ||
-      quotedMessage.videoMessageData?.downloadUrl || null;
-
-    // If still not found, try getMessage to fetch the current message's downloadUrl
-    if (!result.videoUrl && chatId && messageId) {
-      logger.debug('⚠️ Outgoing: Video downloadUrl not found in webhook, fetching from Green API...');
-      try {
-        interface GreenApiMessage {
-          downloadUrl?: string;
-          fileMessageData?: { downloadUrl?: string };
-          videoMessageData?: { downloadUrl?: string };
-          [key: string]: unknown;
-        }
-        const originalMessage = await getMessage(chatId, messageId) as GreenApiMessage | null;
-        result.videoUrl = originalMessage?.downloadUrl ||
-          originalMessage?.fileMessageData?.downloadUrl ||
-          originalMessage?.videoMessageData?.downloadUrl ||
-          null;
-        logger.debug(`✅ Outgoing: Video downloadUrl fetched from getMessage: ${result.videoUrl ? 'found' : 'still NOT FOUND'}`);
-      } catch (err: any) {
-        logger.error(`❌ Outgoing: Failed to fetch video downloadUrl via getMessage:`, { error: err.message, stack: err.stack });
-      }
-    }
-    logger.debug(`🎥 Outgoing: Video with caption detected, final downloadUrl: ${result.videoUrl ? 'found' : 'NOT FOUND'}`);
-  }
-
-  return result;
-}
 
 /**
  * Build quoted context for Agent
@@ -223,43 +80,7 @@ export function buildQuotedContext(quotedMessage: MessageData, imageUrl?: string
   };
 }
 
-/**
- * Check if message is an actual quote (reply) vs media with caption
- * @param {Object} messageData - Message data from Green API webhook
- * @returns {boolean} - True if this is an actual quote
- */
-export function isActualQuote(messageData: MessageData, quotedMessage: MessageData | null = null) { // Added quotedMessage param to match usage
-  // Use provided quotedMessage or fallback to messageData.quotedMessage
-  const actualQuotedMessage = quotedMessage || messageData.quotedMessage;
 
-  if (!actualQuotedMessage || messageData.typeMessage !== 'quotedMessage') {
-    return false;
-  }
-
-  // IMPORTANT: Green API sends images/videos with captions as quotedMessage, but they're NOT actual quotes!
-  // Check if this is a REAL quote (reply) or just a media message with caption
-  const quotedCaption = actualQuotedMessage?.caption;
-  const extractedText = messageData.extendedTextMessageData?.text;
-
-  // Check if caption matches text (exact match OR caption starts with text, covering "# מה זה..." case)
-  const captionMatchesText = !!(quotedCaption && extractedText &&
-    (quotedCaption === extractedText ||
-      quotedCaption.startsWith(extractedText) ||
-      extractedText.startsWith(quotedCaption)));
-
-  // It's a quote if text doesn't match caption
-  return !!(actualQuotedMessage.stanzaId && extractedText && !captionMatchesText);
-}
-
-/**
- * Extract prompt from message text (remove "# " prefix if exists)
- * @param {string} messageText - Raw message text
- * @returns {string} Cleaned prompt
- */
-export function extractPrompt(messageText: string): string {
-  if (!messageText) return '';
-  return messageText.trim().replace(/^#\s+/, '').trim();
-}
 
 /**
  * Log message details for debugging

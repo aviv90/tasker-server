@@ -4,6 +4,7 @@
  */
 
 import logger from '../../../../utils/logger';
+import { extractCommandPrompt } from '../../../../utils/commandUtils';
 import { generateMusicWithLyrics } from '../../../musicService';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { REQUIRED, FAILED, ERROR } from '../../../../config/messages';
@@ -61,7 +62,7 @@ export const create_music = {
       }
 
       const originalUserText = context.originalInput?.userText || args.prompt || '';
-      const cleanedOriginal = String(originalUserText).replace(/^#\s*/, '').trim();
+      const cleanedOriginal = extractCommandPrompt(String(originalUserText));
 
       const cleanPrompt = args.prompt || cleanedOriginal || '';
       const wantsVideo = Boolean(args.make_video);

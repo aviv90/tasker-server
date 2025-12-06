@@ -5,11 +5,13 @@
  * Extracted from outgoingHandler.js for better modularity (DRY, SRP).
  */
 
+import { isCommand } from '../../utils/commandUtils';
+
 interface SenderData {
-    chatId: string;
-    chatName: string;
-    senderName: string;
-    senderContactName: string;
+  chatId: string;
+  chatName: string;
+  senderName: string;
+  senderContactName: string;
 }
 
 /**
@@ -24,7 +26,7 @@ interface SenderData {
 export function resolveCurrentContact({ chatId, chatName, senderName, senderContactName }: SenderData): string {
   const isGroupChat = chatId && chatId.endsWith('@g.us');
   const isPrivateChat = chatId && chatId.endsWith('@c.us');
-  
+
   if (isGroupChat) {
     return chatName || senderName;
   } else if (isPrivateChat) {
@@ -47,13 +49,13 @@ export function resolveCurrentContact({ chatId, chatName, senderName, senderCont
  * @returns {Object|null} - Management command object or null if not a command
  */
 export function detectManagementCommand(messageText: string, senderData: SenderData) {
-  if (!messageText || !messageText.trim() || /^#\s+/.test(messageText.trim())) {
+  if (!messageText || !messageText.trim() || isCommand(messageText)) {
     return null; // Not a management command (has # prefix or empty)
   }
 
   const trimmed = messageText.trim();
   const { chatId, chatName, senderName, senderContactName } = senderData;
-  
+
   const resolveContact = () => resolveCurrentContact({ chatId, chatName, senderName, senderContactName });
 
   // 1. הוסף ליצירה [שם אופציונלי]

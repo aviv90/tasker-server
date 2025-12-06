@@ -8,6 +8,7 @@
 import logger from '../../utils/logger';
 import { TIME } from '../../utils/constants';
 import MessageTypesRepository from '../../repositories/messageTypesRepository';
+import { isCommand } from '../../utils/commandUtils';
 
 /**
  * Conversation manager interface (for backward compatibility)
@@ -38,7 +39,7 @@ class MessageTypesManager {
    */
   async markAsBotMessage(chatId: string, messageId: string): Promise<void> {
     if (!chatId || !messageId) return;
-    
+
     if (!this.repository) {
       logger.warn('⚠️ Repository not initialized, cannot mark bot message');
       return;
@@ -60,7 +61,7 @@ class MessageTypesManager {
    */
   async markAsUserOutgoing(chatId: string, messageId: string): Promise<void> {
     if (!chatId || !messageId) return;
-    
+
     if (!this.repository) {
       logger.warn('⚠️ Repository not initialized, cannot mark user outgoing message');
       return;
@@ -83,7 +84,7 @@ class MessageTypesManager {
    */
   async isBotMessage(chatId: string, messageId: string): Promise<boolean> {
     if (!chatId || !messageId) return false;
-    
+
     if (!this.repository) {
       return false;
     }
@@ -106,7 +107,7 @@ class MessageTypesManager {
    */
   async isUserOutgoing(chatId: string, messageId: string): Promise<boolean> {
     if (!chatId || !messageId) return false;
-    
+
     if (!this.repository) {
       return false;
     }
@@ -130,28 +131,28 @@ class MessageTypesManager {
    */
   async getMessageType(chatId: string, messageId: string, text: string | null | undefined): Promise<MessageType> {
     // Logic reuse
-    const isCommand = text && /^#\s+/.test(text.trim());
-    const defaultType: MessageType = isCommand ? 'command' : 'user_incoming';
+    const isCommandMsg = isCommand(text);
+    const defaultType: MessageType = isCommandMsg ? 'command' : 'user_incoming';
 
     if (!chatId || !messageId) {
       return defaultType;
     }
-    
+
     if (!this.repository) {
       return defaultType;
     }
 
     try {
       const type = await this.repository.findType(chatId, messageId);
-      
+
       if (type) {
         // If it's user_outgoing but also a command by text, return 'command'
-        if (type === 'user_outgoing' && isCommand) {
+        if (type === 'user_outgoing' && isCommandMsg) {
           return 'command';
         }
         return type as MessageType;
       }
-      
+
       return defaultType;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -166,8 +167,7 @@ class MessageTypesManager {
    * @returns True if message is a command
    */
   isCommand(text: string | null | undefined): boolean {
-    if (!text || typeof text !== 'string') return false;
-    return /^#\s+/.test(text.trim());
+    return isCommand(text);
   }
 
   /**
@@ -180,7 +180,7 @@ class MessageTypesManager {
     }
 
     const cutoffTime = Date.now() - ttlMs;
-    
+
     try {
       const count = await this.repository.deleteOlderThan(cutoffTime);
       if (count > 0) {
