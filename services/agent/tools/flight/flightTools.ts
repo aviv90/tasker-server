@@ -27,7 +27,7 @@ export const random_flight = {
                 },
                 date: {
                     type: 'string',
-                    description: 'The outbound flight date. MUST be in YYYY-MM-DD format (e.g. "2025-12-01"). Do NOT use "next friday" or "in a month". Calculate the specific date yourself before calling this tool.',
+                    description: 'The outbound flight date. Optional. MUST be in YYYY-MM-DD format (e.g. "2025-12-01"). If not provided, defaults to tomorrow.',
                 },
                 return_date: {
                     type: 'string',
@@ -43,7 +43,16 @@ export const random_flight = {
     },
     // ... historyContext ...
     execute: async (args: { origin: string; destination?: string; date?: string; return_date?: string; max_stops?: number }, _context: unknown): Promise<ToolResult> => {
-        logger.info(`✈️ [Agent Tool] random_flight called for origin: ${args.origin}, dest: ${args.destination || 'random'}, date: ${args.date || 'tomorrow'}, stops: ${args.max_stops !== undefined ? args.max_stops : 'any'}`);
+        // Default date to tomorrow if not provided
+        let targetDate = args.date;
+        if (!targetDate) {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            // Format as YYYY-MM-DD
+            targetDate = tomorrow.toISOString().split('T')[0];
+        }
+
+        logger.info(`✈️ [Agent Tool] random_flight called for origin: ${args.origin}, dest: ${args.destination || 'random'}, date: ${targetDate} (original: ${args.date || 'none'}), stops: ${args.max_stops !== undefined ? args.max_stops : 'any'}`);
 
         try {
             if (!args.origin) {
@@ -53,7 +62,7 @@ export const random_flight = {
                 };
             }
 
-            const result = await googleFlights.getRandomFlight(args.origin, args.destination, args.date, args.return_date, args.max_stops);
+            const result = await googleFlights.getRandomFlight(args.origin, args.destination, targetDate, args.return_date, args.max_stops);
 
             if (!result.success || !result.offer) {
                 return {
