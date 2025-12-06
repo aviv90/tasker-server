@@ -19,11 +19,11 @@ export const random_flight = {
             properties: {
                 origin: {
                     type: 'string',
-                    description: 'The origin airport code or city name (e.g., "TLV", "Tel Aviv")',
+                    description: 'The 3-letter IATA airport code (e.g., "TLV" for Tel Aviv, "LHR" for London). You MUST convert the user\'s city name to the correct IATA code.',
                 },
                 destination: {
                     type: 'string',
-                    description: 'The destination airport code or city name (optional) (e.g., "London", "LHR"). If not provided, a random destination is chosen.',
+                    description: 'The 3-letter IATA airport code for the destination (e.g., "CPH" for Copenhagen, "NYC" for New York). You MUST convert the city name to IATA. If not provided, a random destination is chosen.',
                 },
                 date: {
                     type: 'string',

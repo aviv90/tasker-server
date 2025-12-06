@@ -24,112 +24,6 @@ const POPULAR_DESTINATIONS = [
     'PRG', // Prague
 ];
 
-// Mapping for common inputs to IATA codes
-const CITY_TO_IATA_MAPPING: Record<string, string> = {
-    // Israel
-    'tlv': 'TLV',
-    'tel aviv': 'TLV',
-    'tel-aviv': 'TLV',
-    'ben gurion': 'TLV',
-    'תל אביב': 'TLV',
-    'ת״א': 'TLV',
-    'נתבג': 'TLV',
-    'נתב״ג': 'TLV',
-    'בן גוריון': 'TLV',
-    'mtlv': 'TLV', // Common typo?
-
-    // US
-    'nyc': 'JFK',
-    'new york': 'JFK',
-    'jfk': 'JFK',
-    'ניו יורק': 'JFK',
-    'sfo': 'SFO',
-    'san francisco': 'SFO',
-    'san fran': 'SFO',
-    'סן פרנסיסקו': 'SFO',
-    'lax': 'LAX',
-    'los angeles': 'LAX',
-    'לוס אנגלס': 'LAX',
-    'לוס אנג׳לס': 'LAX',
-
-    // Europe
-    'lon': 'LHR',
-    'london': 'LHR',
-    'לונדון': 'LHR',
-    'par': 'CDG',
-    'paris': 'CDG',
-    'פריז': 'CDG',
-    'ber': 'BER',
-    'berlin': 'BER',
-    'ברלין': 'BER',
-    'rom': 'FCO',
-    'rome': 'FCO',
-    'roma': 'FCO',
-    'רומא': 'FCO',
-    'ams': 'AMS',
-    'amsterdam': 'AMS',
-    'אמסטרדם': 'AMS',
-    'mad': 'MAD',
-    'madrid': 'MAD',
-    'מדריד': 'MAD',
-    'bcn': 'BCN',
-    'barcelona': 'BCN',
-    'ברצלונה': 'BCN',
-    'ath': 'ATH',
-    'athens': 'ATH',
-    'אתונה': 'ATH',
-    'bud': 'BUD',
-    'budapest': 'BUD',
-    'בודפשט': 'BUD',
-    'prg': 'PRG',
-    'prague': 'PRG',
-    'פראג': 'PRG',
-    'lca': 'LCA',
-    'larnaca': 'LCA',
-    'לרנקה': 'LCA',
-    'kiev': 'IEV',
-    'קייב': 'IEV',
-    'moscow': 'SVO',
-    'מוסקבה': 'SVO',
-
-    // Asia
-    'bkk': 'BKK',
-    'bangkok': 'BKK',
-    'בנגקוק': 'BKK',
-    'tyo': 'HND',
-    'tokyo': 'HND',
-    'טוקיו': 'HND',
-    'dxb': 'DXB',
-    'dubai': 'DXB',
-    'דובאי': 'DXB',
-    'kazakhstan': 'ALA', // Almaty as default
-    'קזחסטן': 'ALA',
-    'almaty': 'ALA',
-    'אלמטי': 'ALA',
-    'cyprus': 'LCA',
-    'קפריסין': 'LCA',
-    'belgrade': 'BEG',
-    'בלגרד': 'BEG',
-    'bucharest': 'OTP',
-    'בוקרסט': 'OTP',
-    'sofia': 'SOF',
-    'סופיה': 'SOF',
-    'warsaw': 'WAW',
-    'ורשה': 'WAW',
-    'krakow': 'KRK',
-    'קרקוב': 'KRK',
-    'wien': 'VIE',
-    'vienna': 'VIE',
-    'וינה': 'VIE',
-    'milano': 'MXP',
-    'milan': 'MXP',
-    'מילאנו': 'MXP',
-    'munich': 'MUC',
-    'מינכן': 'MUC',
-    'frankfurt': 'FRA',
-    'פרנקפורט': 'FRA'
-};
-
 const HEBREW_MONTHS: Record<string, string> = {
     'ינואר': '01', 'פברואר': '02', 'מרץ': '03', 'אפריל': '04',
     'מאי': '05', 'יוני': '06', 'יולי': '07', 'אוגוסט': '08',
@@ -235,37 +129,6 @@ function normalizeDate(input: string): string {
     return clean;
 }
 
-// Mapping for IATA to display city name
-const IATA_TO_CITY_NAME: Record<string, string> = {
-    'LHR': 'לונדון',
-    'JFK': 'ניו יורק',
-    'CDG': 'פריז',
-    'FCO': 'רומא',
-    'BER': 'ברלין',
-    'AMS': 'אמסטרדם',
-    'BKK': 'בנגקוק',
-    'HND': 'טוקיו',
-    'DXB': 'דובאי',
-    'IST': 'איסטנבול',
-    'MAD': 'מדריד',
-    'BCN': 'ברצלונה',
-    'ATH': 'אתונה',
-    'LCA': 'לרנקה',
-    'BUD': 'בודפשט',
-    'PRG': 'פראג',
-    'TLV': 'תל אביב',
-    'ALA': 'אלמטי (קזחסטן)',
-    'BEG': 'בלגרד',
-    'OTP': 'בוקרסט',
-    'SOF': 'סופיה',
-    'WAW': 'ורשה',
-    'KRK': 'קרקוב',
-    'VIE': 'וינה',
-    'MXP': 'מילאנו',
-    'MUC': 'מינכן',
-    'FRA': 'פרנקפורט'
-};
-
 export interface FlightLeg {
     origin: string;
     destination: string;
@@ -314,10 +177,10 @@ function extractPriceValue(price: number | string | undefined): number {
 
 /**
  * Helper to resolve city name to IATA code
+ * Now relies on Agent/LLM to provide the IATA code.
  */
 function resolveCityToIATA(input: string): string {
-    const cleanInput = input.toLowerCase().trim();
-    return CITY_TO_IATA_MAPPING[cleanInput] || input.toUpperCase();
+    return input.toUpperCase().trim();
 }
 
 /**
@@ -456,9 +319,8 @@ export async function getRandomFlight(
         const price = flight.price ? (typeof flight.price === 'number' ? `₪${flight.price}` : flight.price) : 'מחיר לא זמין';
 
         const validDestination = destination || 'LHR';
-        const cityName = IATA_TO_CITY_NAME[validDestination] || validDestination;
         const airportName = lastLeg.arrival_airport?.name || validDestination;
-        const formattedDestination = `${cityName} (${airportName})`;
+        const formattedDestination = `${validDestination} (${airportName})`;
 
         const airlineName = legs.length === 1 ? firstLeg.airline : (Array.from(new Set(legs.map(l => l.airline))).join(', '));
 
