@@ -28,7 +28,7 @@ if (agentResult.success && agentResult.toolsUsed && agentResult.toolsUsed.length
     normalized: input
   });
   
-  console.log(`💾 [PILOT] Saved last command for retry: ${primaryTool}`);
+  logger.info(`💾 [PILOT] Saved last command for retry: ${primaryTool}`);
 }
 ```
 

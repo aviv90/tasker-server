@@ -102,7 +102,7 @@ function shouldSkipSending(agentResult) {
 
 // Usage in both files
 if (shouldSkipSending(agentResult)) {
-  console.log('Skipping...');
+  logger.info('Skipping...');
   return;
 }
 ```
@@ -429,7 +429,7 @@ try {
   const result = await riskyOperation();
   return result;
 } catch (error) {
-  console.error('❌ Operation failed:', error.message);
+  logger.error('❌ Operation failed:', error.message);
   // Send error to user (Rule 2)
   await sendErrorToUser(chatId, error.message);
   return { success: false, error: error.message };
@@ -695,7 +695,7 @@ if (result.imageUrl) {
 ```javascript
 // ✅ CORRECT - User gets actual image file
 if (result.imageUrl) {
-  console.log(`📸 Sending generated image: ${result.imageUrl}`);
+  logger.info(`📸 Sending generated image: ${result.imageUrl}`);
   await sendFileByUrl(chatId, result.imageUrl, 'image', {
     caption: result.imageCaption || ''
   });

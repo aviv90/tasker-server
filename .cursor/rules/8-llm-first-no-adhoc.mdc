@@ -32,7 +32,7 @@ Regex patterns and heuristics should ONLY be used as fallback mechanisms when th
 ```javascript
 // Comprehensive check that works for ALL media types
 if (agentResult.multiStep && agentResult.alreadySent) {
-  console.log(`⏭️ Skipping send - already sent in multi-step`);
+  logger.info(`⏭️ Skipping send - already sent in multi-step`);
   return;
 }
 

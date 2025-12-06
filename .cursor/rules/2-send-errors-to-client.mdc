@@ -27,7 +27,7 @@ try {
   // Continue with success flow
 } catch (error) {
   await sendTextMessage(chatId, `❌ שגיאה: ${error.message}`);
-  console.error('❌ Detailed error for logs:', error);
+  logger.error('❌ Detailed error for logs:', error);
   return;
 }
 ```
@@ -38,11 +38,11 @@ try {
 try {
   const result = await someOperation();
   if (result.error) {
-    console.error('Error occurred:', result.error);
+    logger.error('Error occurred:', result.error);
     return; // User doesn't know what happened!
   }
 } catch (error) {
-  console.error('Error:', error);
+  logger.error('Error:', error);
   // Silent failure - user sees nothing
 }
 ```
@@ -77,7 +77,7 @@ try {
    ```javascript
    } catch (error) {
      await sendTextMessage(chatId, `❌ שגיאה בלתי צפויה: ${error.message}`);
-     console.error('Full error:', error);
+     logger.error('Full error:', error);
    }
    ```
 
@@ -111,7 +111,7 @@ if (musicResult.error) {
 ### Video Generation
 ```javascript
 if (videoResult.error) {
-  console.error(`❌ Failed to start video generation:`, videoResult.error);
+  logger.error(`❌ Failed to start video generation:`, videoResult.error);
   if (taskInfo.whatsappContext) {
     const { sendTextMessage } = require('../services/greenApiService');
     await sendTextMessage(

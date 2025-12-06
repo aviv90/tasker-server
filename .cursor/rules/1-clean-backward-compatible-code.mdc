@@ -65,16 +65,16 @@ const musicOptions = {
 
 ### ✅ Good: Following existing conventions
 ```javascript
-// Matches existing logging style
-console.log('🎬 Video requested with music');
-console.error('❌ Failed to generate video:', error);
+// Matches existing logging style (using system logger)
+logger.info('🎬 Video requested with music');
+logger.error('❌ Failed to generate video:', error);
 ```
 
 ### ❌ Bad: Inconsistent style
 ```javascript
-// Different from project conventions
-logger.info('Video request detected');
-console.log('[ERROR]', 'Video generation failed');
+// Avoid direct console logging
+console.log('Video request detected'); // ❌ Use logger instead
+console.error('[ERROR]', 'Video generation failed'); // ❌ Use logger instead
 ```
 
 ## When Refactoring

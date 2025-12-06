@@ -127,7 +127,12 @@ export async function sendToolAckMessage(
 
       return getToolAckMessage(toolName, provider || providerRaw);
     };
+
+    // Calculate acks list
+    const acks = functionCalls.map(buildSingleAck).filter((msg) => msg && msg.trim());
+
     if (acks.length === 0) return;
+
     // For 2 tools, show both (simple format, no "מבצע:")
     if (acks.length === 2) {
       ackMessage = `${acks[0] || ''} ${acks[1] || ''}`.trim();
@@ -138,17 +143,15 @@ export async function sendToolAckMessage(
       // For 3+ tools, show count (but still no "מבצע:" prefix for single-step)
       ackMessage = `${acks.length} פעולות... ⚙️`;
     }
-  }
 
     if (!ackMessage.trim()) return;
 
-  logger.debug(`📢 [ACK] Sending acknowledgment: "${ackMessage}"`);
-  const { greenApiService } = getServices();
-  await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId, 1000);
-} catch (error) {
-  const err = error as Error;
-  logger.error('❌ [ACK] Failed to send acknowledgment:', { error: err.message, stack: err.stack });
-  // Ack failure should not break the agent
+    logger.debug(`📢 [ACK] Sending acknowledgment: "${ackMessage}"`);
+    const { greenApiService } = getServices();
+    await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId, 1000);
+  } catch (error) {
+    const err = error as Error;
+    logger.error('❌ [ACK] Failed to send acknowledgment:', { error: err.message, stack: err.stack });
+    // Ack failure should not break the agent
+  }
 }
-}
-

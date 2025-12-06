@@ -28,8 +28,8 @@ async function verifyImageEdit() {
         // If we want to verify the FIX, we should ideally inspect the prompt passed to agentLoop.
         // Since we can't do that easily, we will rely on code review and build verification.
 
-        console.log('Verification script created. Please run manually if environment is set up.');
-        console.log('Command: npx ts-node tests/verification/checkImageEdit.ts');
+        logger.info('Verification script created. Please run manually if environment is set up.');
+        logger.info('Command: npx ts-node tests/verification/checkImageEdit.ts');
 
     } catch (error) {
         logger.error('❌ Verification failed:', error);

@@ -96,7 +96,7 @@ All text, captions, and descriptions MUST be in ${userLanguage}.`;
 ```javascript
 // Before sending any text to user, verify it matches request language
 if (shouldVerifyLanguage(text, userLanguage)) {
-  console.warn(`⚠️ Language mismatch detected - expected ${userLanguage}`);
+  logger.warn(`⚠️ Language mismatch detected - expected ${userLanguage}`);
   // Either translate or regenerate
 }
 ```

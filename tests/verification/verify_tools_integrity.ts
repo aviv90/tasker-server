@@ -1,9 +1,10 @@
 
 import { allTools } from '../../services/agent/tools/index';
+import logger from '../../utils/logger';
 
 
 async function verifyTools() {
-    console.log('Verifying tools integrity...');
+    logger.info('Verifying tools integrity...');
 
     const requiredTools = [
         'create_image',
@@ -17,23 +18,23 @@ async function verifyTools() {
 
     for (const toolName of requiredTools) {
         if (!allTools[toolName]) {
-            console.error(`❌ Missing tool: ${toolName}`);
+            logger.error(`❌ Missing tool: ${toolName}`);
             missingTools.push(toolName);
         } else {
-            console.log(`✅ Found tool: ${toolName}`);
+            logger.info(`✅ Found tool: ${toolName}`);
         }
     }
 
     if (missingTools.length > 0) {
-        console.error('Verification FAILED');
+        logger.error('Verification FAILED');
         process.exit(1);
     } else {
-        console.log('Verification PASSED');
+        logger.info('Verification PASSED');
         process.exit(0);
     }
 }
 
 verifyTools().catch(err => {
-    console.error('Error running verification:', err);
+    logger.error('Error running verification:', err);
     process.exit(1);
 });
