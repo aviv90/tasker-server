@@ -1,5 +1,5 @@
 import { StepResult } from './multiStep';
-import { isIntermediateToolOutputInPipeline } from '../../../utils/pipelineDetection';
+import { isIntermediateToolOutputInPipeline } from '../utils/pipelineDetection';
 import { cleanJsonWrapper } from '../../../utils/textSanitizer';
 
 export function processFinalText(stepResults: StepResult[], options: any): string {

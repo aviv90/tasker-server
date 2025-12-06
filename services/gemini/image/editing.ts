@@ -3,7 +3,7 @@ import { sanitizeText, cleanMarkdown, cleanMediaDescription } from '../../../uti
 import { getStaticFileUrl } from '../../../utils/urlUtils';
 import { createTempFilePath } from '../../../utils/tempFileUtils';
 import { getGeminiErrorMessage } from '../utils';
-import { detectLanguage } from '../../../utils/agentHelpers';
+import { detectLanguage } from '../../agent/utils/languageUtils';
 import { getLanguageInstruction } from '../../agent/utils/languageUtils';
 import logger from '../../../utils/logger';
 import fs from 'fs';
@@ -221,7 +221,7 @@ class ImageEditing {
         model: "gemini-3-pro-image-preview"
       });
 
-       
+
       const result = await model.generateContent({
         contents: [
           { role: "user", parts: [{ inlineData: { mimeType: "image/jpeg", data: base64Image } }, { text: cleanPrompt + languageInstruction }] }
@@ -260,7 +260,7 @@ class ImageEditing {
         model: "gemini-3-pro-image-preview"
       });
 
-       
+
       const result = await model.generateContent({
         contents: [
           { role: "user", parts: [{ inlineData: { mimeType: "image/jpeg", data: base64Image } }, { text: cleanPrompt + languageInstruction }] }

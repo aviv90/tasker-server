@@ -3,7 +3,7 @@
  * Handles retry of multi-step commands with step filtering
  */
 
-import { detectLanguage } from '../../../../utils/agentHelpers';
+import { detectLanguage } from '../../utils/languageUtils';
 import { getLanguageInstruction } from '../../utils/languageUtils';
 import { extractQuotedMessageId } from '../../../../utils/messageHelpers';
 import logger from '../../../../utils/logger';
@@ -39,7 +39,7 @@ export async function handleMultiStepRetry(
 
   // Use toolArgs (new structure) or fallback to args (backward compatibility)
   const storedWrapper = lastCommand.toolArgs || lastCommand.args || {};
-  
+
   logger.debug(`🔄 [Retry] Last command: ${lastCommand.tool}`, {
     isMultiStep: lastCommand.isMultiStep,
     hasPlan: !!(lastCommand.plan || storedWrapper.plan),
@@ -47,7 +47,7 @@ export async function handleMultiStepRetry(
     hasArgs: !!lastCommand.args,
     lastCommandKeys: Object.keys(lastCommand)
   });
-  
+
   // Get plan from lastCommand
   const plan = (lastCommand.plan || storedWrapper.plan) as {
     steps?: Array<{
@@ -58,7 +58,7 @@ export async function handleMultiStepRetry(
     }>;
     [key: string]: unknown;
   } | undefined;
-  
+
   if (!plan || !plan.steps || !Array.isArray(plan.steps) || plan.steps.length === 0) {
     logger.error('❌ [Retry] Plan validation failed:', {
       hasPlan: !!plan,
@@ -73,15 +73,15 @@ export async function handleMultiStepRetry(
       error: UNABLE.RESTORE_MULTI_STEP_PLAN
     };
   }
-  
+
   const planSteps = plan.steps;
-  logger.info(`🔄 [Retry] Found multi-step plan with ${planSteps.length} steps:`, 
+  logger.info(`🔄 [Retry] Found multi-step plan with ${planSteps.length} steps:`,
     planSteps.map((s, idx) => `${idx + 1}. ${s.tool || s.action || 'unknown'}`).join(', '));
-  
+
   // Check if user requested specific steps to retry
   const stepNumbers = args.step_numbers || null;
   const stepTools = args.step_tools || null;
-  
+
   // Filter steps if specific steps were requested
   let stepsToRetry = planSteps;
   if (stepNumbers && Array.isArray(stepNumbers) && stepNumbers.length > 0) {
@@ -92,8 +92,8 @@ export async function handleMultiStepRetry(
     // Retry steps with specific tools
     stepsToRetry = planSteps.filter(step => {
       const stepTool = step.tool || '';
-      return stepTools.some(requestedTool => 
-        stepTool.includes(requestedTool) || 
+      return stepTools.some(requestedTool =>
+        stepTool.includes(requestedTool) ||
         requestedTool.includes(stepTool) ||
         stepTool === requestedTool
       );
@@ -103,7 +103,7 @@ export async function handleMultiStepRetry(
     // Retry all steps (no filtering)
     logger.debug(`🔄 [Retry] Retrying all ${planSteps.length} steps (no filter specified)`);
   }
-  
+
   // Validate that we have steps to retry
   if (!stepsToRetry || !Array.isArray(stepsToRetry) || stepsToRetry.length === 0) {
     logger.error('❌ [Retry] No steps to retry after filtering:', {
@@ -112,7 +112,7 @@ export async function handleMultiStepRetry(
       stepTools,
       filteredStepsCount: stepsToRetry ? stepsToRetry.length : 0
     });
-    const stepsInfo = planSteps.map((s: { tool?: string; action?: string }, idx: number) => 
+    const stepsInfo = planSteps.map((s: { tool?: string; action?: string }, idx: number) =>
       `${idx + 1}. ${s.tool || (typeof s.action === 'string' ? s.action.substring(0, 30) : 'unknown') || 'unknown'}`
     ).join(', ');
     return {
@@ -120,7 +120,7 @@ export async function handleMultiStepRetry(
       error: NOT_FOUND.matchingSteps(stepsInfo)
     };
   }
-  
+
   // Create a new plan with only the steps to retry
   const filteredPlan = {
     ...plan,
@@ -132,19 +132,19 @@ export async function handleMultiStepRetry(
       ...step
     }))
   };
-  
+
   logger.info(`🔄 Retrying multi-step command: ${filteredPlan.steps.length} of ${planSteps.length} steps`);
-  
+
   // Get multi-step execution handler (lazy load to avoid circular dependency)
-   
+
   const multiStepModule = await import('../../execution/multiStep');
   const multiStepExecution = multiStepModule.default;
-  
+
   // Detect language from original prompt
   const originalPrompt = lastCommand.prompt || storedWrapper.prompt || '';
   const userLanguage = detectLanguage(originalPrompt);
   const languageInstruction = getLanguageInstruction(userLanguage);
-  
+
   // Agent config (SSOT from centralized config)
   const agentConfig = {
     model: config.agent.model,
@@ -152,7 +152,7 @@ export async function handleMultiStepRetry(
     timeoutMs: config.agent.timeoutMs,
     contextMemoryEnabled: config.agent.contextMemoryEnabled
   };
-  
+
   // Apply modifications to filtered plan if provided
   if (args.modifications && args.modifications.trim()) {
     if (filteredPlan.steps && filteredPlan.steps.length > 0) {
@@ -163,7 +163,7 @@ export async function handleMultiStepRetry(
       }
     }
   }
-  
+
   // CRITICAL: For manual retry, preserve original providers in each step
   // Only change provider if user explicitly specified provider_override
   if (args.provider_override && args.provider_override !== 'none') {
@@ -185,7 +185,7 @@ export async function handleMultiStepRetry(
   } else {
     logger.debug(`🔄 [Multi-step Retry] Keeping original providers for all steps`);
   }
-  
+
   // Send ACK with information about which steps are being retried
   const quotedMessageId = extractQuotedMessageId({ context });
   await sendMultiStepRetryAck(
@@ -196,7 +196,7 @@ export async function handleMultiStepRetry(
     filteredPlan.steps.length,
     quotedMessageId
   );
-  
+
   // Re-execute the filtered multi-step plan (only selected steps)
   const result = await multiStepExecution.execute(
     filteredPlan,
@@ -210,7 +210,7 @@ export async function handleMultiStepRetry(
     languageInstruction,
     agentConfig
   );
-  
+
   return result as ToolResult;
 }
 

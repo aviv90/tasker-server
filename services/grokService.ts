@@ -4,7 +4,7 @@
  */
 
 import { sanitizeText, cleanMarkdown } from '../utils/textSanitizer';
-import { detectLanguage } from '../utils/agentHelpers';
+import { detectLanguage } from './agent/utils/languageUtils';
 import prompts from '../config/prompts';
 import logger from '../utils/logger';
 
@@ -64,7 +64,7 @@ class GrokService {
     this.apiKey = process.env.GROK_API_KEY;
     this.baseUrl = 'https://api.x.ai/v1';
     this.model = 'grok-4'; // Latest and strongest model (upgraded from grok-3)
-    
+
     if (!this.apiKey) {
       logger.warn('⚠️ GROK_API_KEY not found in environment variables');
     } else {
@@ -89,7 +89,7 @@ class GrokService {
 
       // Detect user's language to ensure response matches input language
       const detectedLang = detectLanguage(cleanPrompt);
-      
+
       // Build language-specific system prompt (SSOT - from config/prompts.ts)
       const systemContent = prompts.grokSystemInstruction(detectedLang);
 
@@ -171,7 +171,7 @@ class GrokService {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('❌ Error generating Grok response:', { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
-      
+
       // Emergency response
       return {
         text: 'מצטער, קרתה שגיאה בעיבוד הבקשה שלך עם Grok. נסה שוב מאוחר יותר.',
@@ -240,7 +240,7 @@ class GrokService {
         }
         const imageUrl = imageData.url;
         let description = imageData.revised_prompt || '';
-        
+
         // Clean markdown code blocks from description (Grok sometimes returns markdown)
         if (description) {
           description = cleanMarkdown(description);
@@ -263,7 +263,7 @@ class GrokService {
       } else {
         // If no image but response is successful, maybe it returned text only
         const textContent = data.choices?.[0]?.message?.content || data.text || '';
-        
+
         if (textContent) {
           logger.info('📝 Grok returned text response instead of image');
           return {

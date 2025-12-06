@@ -8,7 +8,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getGeminiErrorMessage, cleanThinkingPatterns } from './utils';
 import { sanitizeText } from '../../utils/textSanitizer';
-import { detectLanguage } from '../../utils/agentHelpers';
+import { detectLanguage } from '../agent/utils/languageUtils';
 import logger from '../../utils/logger';
 
 // Import modular components

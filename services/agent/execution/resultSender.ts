@@ -8,7 +8,7 @@ import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
 import { cleanJsonWrapper, cleanMediaDescription } from '../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../services/whatsapp/utils';
 import logger from '../../../utils/logger';
-import { isIntermediateToolOutputInPipeline } from '../../../utils/pipelineDetection';
+import { isIntermediateToolOutputInPipeline } from '../utils/pipelineDetection';
 
 interface PollOptions {
   options: string[];

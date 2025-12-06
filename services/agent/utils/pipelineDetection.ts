@@ -4,7 +4,7 @@
  * and should be suppressed to avoid sending intermediate results to users
  */
 
-import logger from './logger';
+import logger from '../../../utils/logger';
 
 /**
  * Map of data tools - tools that return intermediate data used by other tools

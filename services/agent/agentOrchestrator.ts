@@ -12,7 +12,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import prompts from '../../config/prompts';
 import { config } from '../../config';
-import { detectLanguage, extractDetectionText } from '../../utils/agentHelpers';
+import { detectLanguage } from './utils/languageUtils';
+import { extractDetectionText } from './utils/agentHelpers';
 import { getLanguageInstruction } from './utils/languageUtils';
 import { planMultiStepExecution } from '../multiStepPlanner';
 import multiStepExecution from './execution/multiStep';

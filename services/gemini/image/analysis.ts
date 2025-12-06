@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { sanitizeText } from '../../../utils/textSanitizer';
-import { detectLanguage } from '../../../utils/agentHelpers';
+import { detectLanguage } from '../../agent/utils/languageUtils';
 import { getLanguageInstruction } from '../../agent/utils/languageUtils';
 import logger from '../../../utils/logger';
 
@@ -51,7 +51,7 @@ class ImageAnalysis {
         model: "gemini-2.5-flash"
       });
 
-       
+
       const result = await model.generateContent({
         contents: [
           {

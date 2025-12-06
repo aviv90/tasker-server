@@ -6,51 +6,51 @@
  */
 
 import OpenAI from 'openai';
-import { detectLanguage } from '../../utils/agentHelpers';
+import { detectLanguage } from '../agent/utils/languageUtils';
 import prompts from '../../config/prompts';
 import logger from '../../utils/logger';
 
 const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 /**
  * Message in conversation history
  */
 interface ConversationMessage {
-    role: 'system' | 'user' | 'assistant';
-    content: string;
+  role: 'system' | 'user' | 'assistant';
+  content: string;
 }
 
 /**
  * Text generation result
  */
 interface TextGenerationResult {
-    text: string;
-    usage: {
-        prompt_tokens?: number;
-        completion_tokens?: number;
-        total_tokens?: number;
-    } | null;
+  text: string;
+  usage: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  } | null;
 }
 
 /**
  * Generate text response using OpenAI Chat API with conversation history
  */
 export async function generateTextResponse(
-    prompt: string,
-    conversationHistory: ConversationMessage[] = []
+  prompt: string,
+  conversationHistory: ConversationMessage[] = []
 ): Promise<TextGenerationResult> {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
-    
+
     if (!apiKey) {
       throw new Error('OpenAI API key not configured');
     }
 
     // Detect user's language to ensure response matches input language
     const detectedLang = detectLanguage(prompt);
-    
+
     // Build language-specific system prompt (SSOT - from config/prompts.js)
     const systemContent = prompts.openaiSystemInstruction(detectedLang);
 
@@ -100,7 +100,7 @@ export async function generateTextResponse(
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error('❌ Error generating OpenAI response:', { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
-    
+
     // Emergency response
     return {
       text: 'מצטער, קרתה שגיאה בעיבוד הבקשה שלך. נסה שוב מאוחר יותר.',

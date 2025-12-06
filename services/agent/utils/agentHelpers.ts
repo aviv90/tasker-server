@@ -3,35 +3,6 @@
  * Reusable functions for language detection, text cleaning, etc.
  */
 
-/**
- * Supported language codes
- */
-export type LanguageCode = 'he' | 'en' | 'ar' | 'ru';
-
-/**
- * Detect primary language in text
- * @param text - Text to analyze
- * @returns Detected language code (default: 'he')
- */
-export function detectLanguage(text: string | null | undefined): LanguageCode {
-  if (!text) return 'he';
-
-  const hebrewChars = (text.match(/[\u0590-\u05FF]/g) || []).length;
-  const englishChars = (text.match(/[a-zA-Z]/g) || []).length;
-  const arabicChars = (text.match(/[\u0600-\u06FF]/g) || []).length;
-  const russianChars = (text.match(/[\u0400-\u04FF]/g) || []).length;
-
-  const total = hebrewChars + englishChars + arabicChars + russianChars;
-  if (total === 0) return 'he';
-
-  const max = Math.max(hebrewChars, englishChars, arabicChars, russianChars);
-  if (max === hebrewChars) return 'he';
-  if (max === englishChars) return 'en';
-  if (max === arabicChars) return 'ar';
-  if (max === russianChars) return 'ru';
-
-  return 'he';
-}
 
 /**
  * Clean AI "thinking patterns" from response text

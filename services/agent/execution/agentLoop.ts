@@ -1,5 +1,5 @@
 import conversationManager from '../../conversationManager';
-import { cleanThinkingPatterns } from '../../../utils/agentHelpers';
+import { cleanThinkingPatterns } from '../utils/agentHelpers';
 import { allTools as agentTools } from '../tools';
 import { sendToolAckMessage, FunctionCall } from '../utils/ackUtils';
 import { getServices } from '../utils/serviceLoader';

@@ -8,7 +8,7 @@ import { cleanMediaDescription, cleanMultiStepText } from '../../../../utils/tex
 import { cleanAgentText } from '../../../../services/whatsapp/utils';
 import logger from '../../../../utils/logger';
 import { AgentResult, NormalizedInput } from './types';
-import { isIntermediateToolOutputInPipeline as checkPipeline } from '../../../../utils/pipelineDetection';
+import { isIntermediateToolOutputInPipeline as checkPipeline } from '../../../../services/agent/utils/pipelineDetection';
 
 /**
  * Send multi-step text response

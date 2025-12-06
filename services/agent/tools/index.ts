@@ -17,7 +17,7 @@ import * as driveTools from './driveTools';
 import * as locationTools from './locationTools';
 import * as summaryTools from './summaryTools';
 import * as groupTools from './groupTools';
-import * as retryTools from './retryTools';
+import * as retryTools from './retry';
 import * as schedulingTools from './schedulingTools';
 import * as flightTools from './flight/flightTools';
 import fallbackTools from './meta/fallbackTools';

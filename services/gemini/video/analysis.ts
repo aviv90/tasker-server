@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const genai = require('@google/genai');
 import { sanitizeText } from '../../../utils/textSanitizer';
-import { detectLanguage } from '../../../utils/agentHelpers';
+import { detectLanguage } from '../../agent/utils/languageUtils';
 import { getLanguageInstruction } from '../../agent/utils/languageUtils';
 import logger from '../../../utils/logger';
 import fs from 'fs';
