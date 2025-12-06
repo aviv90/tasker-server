@@ -41,30 +41,18 @@ export const send_location = {
       properties: {
         region: {
           type: 'string',
-          description: `שם המקום המדויק שהמשתמש ביקש - **אופציונלי!** ציין רק אם המשתמש ביקש אזור ספציפי.
-          
-**CRITICAL - Region is OPTIONAL:**
-- "שלח מיקום" (ללא אזור) → אל תציין region (מיקום אקראי)
-- "שלח מיקום אקראי" → אל תציין region
-- "שלח מיקום באזור תל אביב" → region="תל אביב" (ציין!)
-- "מיקום ברחובות" → region="רחובות" (ציין!)
-
-דוגמאות:
-- "שלח מיקום באזור תל אביב" → region="תל אביב" (לא "באזור תל אביב"!)
-- "מיקום ברחובות" → region="רחובות"
-- "send location in Tokyo" → region="Tokyo"
-- "מיקום במדבר יהודה" → region="מדבר יהודה"
-- "באזור לונדון" → region="London"
-- "מיקום בצרפת" → region="צרפת"
-- "ביפן" → region="יפן"
-- "באירופה" → region="אירופה"
-- "שלח מיקום" / "שלח מיקום אקראי" → אל תציין region (השאר ריק או null)
-
-כללים חשובים:
-1. העתק רק את שם המקום עצמו, בלי מילות קישור ("באזור", "ב", "in", "near")
-2. שמור על האיות המקורי (עברית/אנגלית כמו שהמשתמש כתב)
-3. **אם אין אזור ספציפי בבקשה - אל תציין region!** (מיקום אקראי אוטומטית)
-4. גם כפרים/יישובים/שכונות קטנים - ציין ב-region אם המשתמש ביקש!`
+          description: `The specific place name to find a location in.
+**CRITICAL INSTRUCTION:**
+1. Extract the EXACT location name from the user's request.
+2. Ignore preposition words like "in", "at", "near", "area of", "ב", "באזור".
+3. Return ONLY the name.
+   - User: "Send location in Tokyo" -> region="Tokyo"
+   - User: "מיקום ברחובות" -> region="Rehovot"
+   - User: "באזור תל אביב" -> region="Tel Aviv"
+   - User: "Send location" -> region=null (Random)
+   - User: "Copenhagen" -> region="Copenhagen"
+   
+You must translate Hebrew names to English or keep them in Hebrew, but English is preferred for geocoding accuracy.`
         }
       },
       required: []
