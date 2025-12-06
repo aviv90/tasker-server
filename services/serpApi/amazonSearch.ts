@@ -34,7 +34,8 @@ export async function searchAmazon(query: string, domain: string = 'amazon.com')
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const params: any = {
             engine: 'amazon',
-            q: query,
+            q: query, // Sending both to be safe, but 'q' is often standard alias
+            k: query, // Explicitly required by some SerpApi backends for Amazon
             api_key: SERPAPI_KEY,
             domain: domain
         };
@@ -72,6 +73,9 @@ export async function searchAmazon(query: string, domain: string = 'amazon.com')
 
     } catch (error: any) {
         logger.error('❌ Error searching Amazon:', error.message);
+        if (error.response?.data) {
+            logger.error('🔍 API Error Details:', error.response.data);
+        }
         return {
             success: false,
             error: error.message
