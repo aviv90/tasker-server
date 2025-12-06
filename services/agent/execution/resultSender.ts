@@ -6,7 +6,6 @@
 import { getServices } from '../utils/serviceLoader';
 import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
 import { cleanJsonWrapper, cleanMediaDescription } from '../../../utils/textSanitizer';
-import { cleanAgentText } from '../../../services/whatsapp/utils';
 import logger from '../../../utils/logger';
 import { isIntermediateToolOutputInPipeline } from '../utils/pipelineDetection';
 
@@ -256,7 +255,6 @@ class ResultSender {
     // If structured output exists, check if text is just the caption/description (already sent)
     if (hasStructuredOutput) {
       const textToCheck = cleanMediaDescription(stepResult.text);
-      const imageCaption = stepResult.imageCaption ? cleanMediaDescription(stepResult.imageCaption) : '';
 
       // CRITICAL: For location - locationInfo is ALREADY sent by sendLocation
       // If text equals or contains locationInfo, skip sending it again

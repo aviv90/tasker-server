@@ -5,7 +5,6 @@
 
 import * as greenApiService from '../../../../../services/greenApiService';
 import { cleanMediaDescription } from '../../../../../utils/textSanitizer';
-import { cleanAgentText } from '../../../../../services/whatsapp/utils';
 import { shouldSkipAgentResult } from '../../../../../utils/messageHelpers';
 import logger from '../../../../../utils/logger';
 import { AgentResult, MediaSendResult } from '../types';
