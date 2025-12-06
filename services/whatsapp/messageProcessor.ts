@@ -73,14 +73,14 @@ export class MessageProcessor {
             return { shouldProcess: false, messageText: messageText || undefined, isCommand: false };
         }
 
-        if (!isCommand && !isIncoming) {
+        if (!isCmd && !isIncoming) {
             // Outgoing non-command -> ignore
             return { shouldProcess: false, messageText: messageText || undefined, isCommand: false };
         }
 
         // It's a command (or incoming audio which might be voice command)
         // We'll focus on command processing here. Audio handling is separate in handlers for now.
-        if (!isCommand) {
+        if (!isCmd) {
             return { shouldProcess: false, messageText: messageText || undefined, isCommand: false };
         }
 

@@ -20,6 +20,7 @@ import * as groupTools from './groupTools';
 import * as retryTools from './retry';
 import * as schedulingTools from './schedulingTools';
 import * as flightTools from './flight/flightTools';
+import * as shoppingTools from './shoppingTools';
 import fallbackTools from './meta/fallbackTools';
 
 // Re-export specific functions for individual use
@@ -137,6 +138,10 @@ export const allTools: Record<string, Tool> = {
   image_to_video: creationTools.image_to_video as unknown as Tool,
   create_music: creationTools.create_music as unknown as Tool,
   create_poll: creationTools.create_poll as unknown as Tool,
+
+  // Shopping
+  random_amazon_product: shoppingTools.random_amazon_product as unknown as Tool,
+
 
   // Analysis
   analyze_image: analysisTools.analyze_image as unknown as Tool,
