@@ -10,11 +10,11 @@ import { sendErrorToUser, ERROR_MESSAGES } from '../../utils/errorSender';
 // import { sendTextMessage } from '../../services/greenApiService';
 import conversationManager from '../../services/conversationManager';
 import logger from '../../utils/logger';
-import { routeToAgent, AgentResult as RouterAgentResult } from '../../services/agentRouter';
+import { routeToAgent } from '../../services/agentRouter';
 import { processVoiceMessageAsync } from './asyncProcessors';
 import { WebhookData } from '../../services/whatsapp/types';
 import { MessageProcessor } from '../../services/whatsapp/messageProcessor';
-import { AgentOrchestrator } from '../../services/agent/agentOrchestrator';
+import { AgentResult } from '../../services/agent/types';
 import { sendAgentResults, AgentResult as HandlerAgentResult } from './incoming/resultHandling';
 import { saveIncomingUserMessage, extractMediaMetadata } from './incoming/messageStorage';
 
@@ -91,7 +91,7 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
         // Let's just let it race. The Agent takes seconds, Ack takes milliseconds.
 
         const agentResult = await routeToAgent(normalized, chatId);
-        void (agentResult as RouterAgentResult);
+        void (agentResult as AgentResult);
 
         if (agentResult) {
           agentResult.originalMessageId = originalMessageId;

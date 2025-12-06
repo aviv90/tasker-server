@@ -24,8 +24,8 @@ export interface LocationSendResult {
  * @returns Result indicating what was sent
  */
 export async function sendLocationResult(
-  chatId: string, 
-  agentResult: AgentResult, 
+  chatId: string,
+  agentResult: AgentResult,
   quotedMessageId: string | null = null
 ): Promise<LocationSendResult> {
   if (!agentResult.latitude || !agentResult.longitude) return { sent: false, descriptionSent: false };
@@ -37,8 +37,8 @@ export async function sendLocationResult(
   }
 
   logger.debug(`📍 [Agent] Sending location: ${agentResult.latitude}, ${agentResult.longitude}`);
-  await greenApiService.sendLocation(chatId, parseFloat(agentResult.latitude), parseFloat(agentResult.longitude), '', '', quotedMessageId || undefined, 1000);
-  
+  await greenApiService.sendLocation(chatId, agentResult.latitude, agentResult.longitude, '', '', quotedMessageId || undefined, 1000);
+
   // Send location info as separate text message
   // CRITICAL: Clean locationInfo to remove JSON wrappers and ensure it's plain text
   let descriptionSent = false;

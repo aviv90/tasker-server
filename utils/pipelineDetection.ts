@@ -53,7 +53,7 @@ export function isTwoSeparateCommands(userText: string): boolean {
     /(?:תמונה|image).*?(?:ואז|אחר כך|and then).*?(?:סקר|poll|מיקום|location)/i,
     /(?:סקר|poll).*?(?:ואז|אחר כך|and then).*?(?:תמונה|image|מיקום|location)/i
   ];
-  
+
   return separateCommandPatterns.some(pattern => pattern.test(userText));
 }
 
@@ -84,7 +84,7 @@ export function looksLikeDataToolOutput(text: string, dataToolsUsed: string[]): 
   if (dataToolsUsed.length === 0 || !text || text.trim().length === 0) {
     return false;
   }
-  
+
   // Patterns that indicate data tool output (compiled once, reused)
   const dataToolPatterns: Record<string, RegExp[]> = {
     'get_chat_history': [
@@ -110,7 +110,7 @@ export function looksLikeDataToolOutput(text: string, dataToolsUsed: string[]): 
       /(?:העדפות|preferences|סיכומים|summaries)/i
     ]
   };
-  
+
   // Check if any data tool pattern matches (early return on first match)
   for (const tool of dataToolsUsed) {
     const patterns = dataToolPatterns[tool];
@@ -122,7 +122,7 @@ export function looksLikeDataToolOutput(text: string, dataToolsUsed: string[]): 
       }
     }
   }
-  
+
   // Generic patterns for data output (only check if text is long enough)
   if (text.length > 100) {
     const genericDataPatterns = [
@@ -130,7 +130,7 @@ export function looksLikeDataToolOutput(text: string, dataToolsUsed: string[]): 
       /(?:https?:\/\/|www\.)/i,
       /(?:מצאתי|found|נמצא|located|תוצאות|results)/i
     ];
-    
+
     // Early return on first match
     for (const pattern of genericDataPatterns) {
       if (pattern.test(text)) {
@@ -138,7 +138,7 @@ export function looksLikeDataToolOutput(text: string, dataToolsUsed: string[]): 
       }
     }
   }
-  
+
   return false;
 }
 
@@ -152,8 +152,8 @@ export interface PipelineCheckResult {
   videoUrl?: string | null;
   audioUrl?: string | null;
   poll?: unknown;
-  latitude?: string | null;
-  longitude?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
 }
 
 /**
@@ -169,43 +169,43 @@ export interface PipelineCheckResult {
  */
 export function isIntermediateToolOutputInPipeline(result: PipelineCheckResult, userText: string): boolean {
   const toolsUsed = result.toolsUsed || [];
-  
+
   // Early return: If no tools were used, this is not a pipeline
   if (toolsUsed.length === 0) {
     return false;
   }
-  
+
   // Early return: Check if user requested two separate commands (not a pipeline)
   if (isTwoSeparateCommands(userText)) {
     logger.debug(`📝 [Pipeline] User requested two separate commands - not suppressing intermediate output`);
     return false;
   }
-  
+
   // Early return: Check if final output was created (media, poll, location, etc.)
-  const hasFinalOutput = !!result.imageUrl || 
-                         !!result.videoUrl || 
-                         !!result.audioUrl ||
-                         !!result.poll ||
-                         (!!result.latitude && !!result.longitude);
-  
+  const hasFinalOutput = !!result.imageUrl ||
+    !!result.videoUrl ||
+    !!result.audioUrl ||
+    !!result.poll ||
+    (!!result.latitude && !!result.longitude);
+
   if (!hasFinalOutput) {
     return false;
   }
-  
+
   // Get the last output tool (the final tool in the pipeline)
   const lastOutputTool = getLastOutputTool(toolsUsed);
   if (!lastOutputTool) {
     return false;
   }
-  
+
   // Identify data tools used (everything except the last output tool)
   // Use Set for O(1) lookup instead of array includes
   const dataToolsSet = new Set(DATA_TOOLS);
   const outputToolsSet = new Set(OUTPUT_TOOLS);
-  
+
   const dataToolsUsed: string[] = [];
   const intermediateOutputTools: string[] = [];
-  
+
   for (const tool of toolsUsed) {
     if (tool === lastOutputTool) continue;
     if (dataToolsSet.has(tool as typeof DATA_TOOLS[number])) {
@@ -214,24 +214,24 @@ export function isIntermediateToolOutputInPipeline(result: PipelineCheckResult, 
       intermediateOutputTools.push(tool);
     }
   }
-  
+
   // Early return: If no intermediate tools (data or output), this is not a pipeline
   if (dataToolsUsed.length === 0 && intermediateOutputTools.length === 0) {
     return false;
   }
-  
+
   // Check if text looks like intermediate tool output
   const text = result.text || '';
   if (!text.trim()) {
     return false;
   }
-  
+
   // Check if text looks like data tool output (most common case)
   if (dataToolsUsed.length > 0 && looksLikeDataToolOutput(text, dataToolsUsed)) {
     logger.debug(`⏭️ [Pipeline] Suppressing intermediate data tool output: ${dataToolsUsed.join(', ')} → ${lastOutputTool}`);
     return true;
   }
-  
+
   // Check if text looks like intermediate output tool result
   // For example, if create_image was used and then image_to_video, we should suppress the image description
   if (intermediateOutputTools.length > 0) {
@@ -240,7 +240,7 @@ export function isIntermediateToolOutputInPipeline(result: PipelineCheckResult, 
       /(?:תמונה נוצרה|image created|תמונה של|image of)/i,
       /(?:✅.*תמונה|✅.*image)/i
     ];
-    
+
     // Early return on first match
     for (const pattern of intermediatePatterns) {
       if (pattern.test(text)) {
@@ -249,7 +249,7 @@ export function isIntermediateToolOutputInPipeline(result: PipelineCheckResult, 
       }
     }
   }
-  
+
   return false;
 }
 
