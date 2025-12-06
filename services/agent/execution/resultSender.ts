@@ -134,7 +134,9 @@ class ResultSender {
         caption = stepResult.text;
       }
 
-      const cleanCaption = cleanMediaDescription(caption);
+      const toolsWithUrls = new Set(['search_web', 'get_chat_history', 'chat_summary', 'translate_text', 'random_amazon_product', 'random_flight']);
+      const hasToolWithUrls = stepResult.toolsUsed && stepResult.toolsUsed.some(tool => toolsWithUrls.has(tool));
+      const cleanCaption = cleanMediaDescription(caption, hasToolWithUrls);
 
       // Send image WITH caption (caption is always sent with media, never separately)
       await greenApiService.sendFileByUrl(chatId, fullImageUrl, `agent_image_${Date.now()}.png`, cleanCaption, quotedMessageId || undefined, 1000);
@@ -190,7 +192,9 @@ class ResultSender {
         caption = stepResult.text;
       }
 
-      const cleanCaption = cleanMediaDescription(caption);
+      const toolsWithUrls = new Set(['search_web', 'get_chat_history', 'chat_summary', 'translate_text', 'random_amazon_product', 'random_flight']);
+      const hasToolWithUrls = stepResult.toolsUsed && stepResult.toolsUsed.some(tool => toolsWithUrls.has(tool));
+      const cleanCaption = cleanMediaDescription(caption, hasToolWithUrls);
 
       // Send video WITH caption (caption is always sent with media, never separately)
       await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, cleanCaption, quotedMessageId || undefined, 1000);
@@ -344,7 +348,14 @@ class ResultSender {
 
       // CRITICAL: For search_web and similar tools, URLs ARE the content - don't remove them!
       // Only remove URLs for creation tools where they might be duplicate artifacts
-      const toolsWithUrls = new Set(['search_web', 'get_chat_history', 'chat_summary', 'translate_text']);
+      const toolsWithUrls = new Set([
+        'search_web',
+        'get_chat_history',
+        'chat_summary',
+        'translate_text',
+        'random_amazon_product',
+        'random_flight'
+      ]);
       const hasToolWithUrls = stepResult.toolsUsed && stepResult.toolsUsed.some(tool => toolsWithUrls.has(tool));
 
       if (!hasToolWithUrls) {

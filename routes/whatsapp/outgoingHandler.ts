@@ -18,6 +18,7 @@ import { MessageProcessor } from '../../services/whatsapp/messageProcessor';
 import { isAdminCommand } from '../../services/whatsapp/authorization';
 import { handleManagementCommand } from './managementHandler';
 import { sendAgentResults, AgentResult as HandlerAgentResult } from './incoming/resultHandling';
+import { saveIncomingUserMessage, extractMediaMetadata } from './incoming/messageStorage';
 import { detectManagementCommand } from './commandDetector';
 import { extractMessageText, logMessageDetails } from './messageParser';
 import { isCommand } from '../../utils/commandUtils';
@@ -99,10 +100,13 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
       logger.debug(`🤖 [AGENT - OUTGOING] Processing request: "${normalized.userText}"`);
 
       try {
-        // NOTE: User messages are no longer saved to DB to avoid duplication.
-        // All messages are retrieved from Green API getChatHistory when needed.
-        // Commands are saved to DB (persistent) for retry functionality.
-        logger.debug(`💾 [Agent - Outgoing] Processing command (not saving to DB - using Green API history)`);
+        // NOTE: User requested explicit saving of ALL messages, including outgoing ones.
+        // We save them to DB to ensure comprehensive history.
+        const mediaMetadata = extractMediaMetadata(webhookData);
+        saveIncomingUserMessage(webhookData, normalized.userText || '', mediaMetadata)
+          .catch(err => logger.error('❌ Failed to save outgoing message (background):', err));
+
+        logger.debug(`💾 [Agent - Outgoing] Processing command & Saving to DB`);
 
         const agentResult = await routeToAgent(normalized, chatId);
         void (agentResult as AgentResult);

@@ -64,33 +64,39 @@ export function cleanMarkdown(text: unknown): string {
  * @param text - Text that may contain markdown, URLs, or placeholders
  * @returns Cleaned text suitable for media captions
  */
-export function cleanMediaDescription(text: unknown): string {
+export function cleanMediaDescription(text: unknown, preserveLinks: boolean = false): string {
   if (!text || typeof text !== 'string') {
     return '';
   }
 
   // Step 1: Clean markdown and URLs
-  let cleaned = cleanMarkdown(text)
-    .replace(/\[.*?\]\(https?:\/\/[^)]+\)/g, '') // Remove markdown links
-    .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
+  let cleaned = cleanMarkdown(text);
+
+  if (!preserveLinks) {
+    // USER REQUEST: Disable link filtering globally for now
+    // cleaned = cleaned
+    //   .replace(/\[.*?\]\(https?:\/\/[^)]+\)/g, '') // Remove markdown links
+    //   .replace(/https?:\/\/[^\s]+/gi, ''); // Remove plain URLs
+  }
+
+  cleaned = cleaned
     .replace(/\[image\]/gi, '')
     .replace(/\[image:[^\]]*\]?/gi, '') // Remove [image: ...] or [image:
     .replace(/\[video\]/gi, '')
     .replace(/\[video:[^\]]*\]?/gi, '') // Remove [video: ...]
+    // ... rest of replacements
     .replace(/\[audio\]/gi, '')
     .replace(/\[audio:[^\]]*\]?/gi, '') // Remove [audio: ...]
-    .replace(/\[תמונה[^\]]*/gi, '') // Remove [תמונה: or [תמונה] with any text after (including incomplete brackets)
-    .replace(/תמונה:\s*$/gi, '') // Remove תמונה: at the end of text
+    .replace(/\[תמונה[^\]]*/gi, '')
+    .replace(/תמונה:\s*$/gi, '')
     .replace(/\[וידאו\]/gi, '')
     .replace(/\[אודיו\]/gi, '')
-    // CRITICAL: Remove [audioUrl: ...], [imageUrl: ...], [videoUrl: ...] patterns
-    // These are added by Gemini when returning tool results and shouldn't be sent to users
-    .replace(/\[audioUrl:[^\]]*\]?/gi, '') // Remove [audioUrl: ...]
-    .replace(/\[imageUrl:[^\]]*\]?/gi, '') // Remove [imageUrl: ...]
-    .replace(/\[videoUrl:[^\]]*\]?/gi, '') // Remove [videoUrl: ...]
-    .replace(/audioUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove audioUrl: URL without brackets
-    .replace(/imageUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove imageUrl: URL without brackets
-    .replace(/videoUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove videoUrl: URL without brackets
+    .replace(/\[audioUrl:[^\]]*\]?/gi, '')
+    .replace(/\[imageUrl:[^\]]*\]?/gi, '')
+    .replace(/\[videoUrl:[^\]]*\]?/gi, '')
+    .replace(/audioUrl:\s*https?:\/\/[^\s\]]+/gi, '')
+    .replace(/imageUrl:\s*https?:\/\/[^\s\]]+/gi, '')
+    .replace(/videoUrl:\s*https?:\/\/[^\s\]]+/gi, '')
     .replace(/✅/g, '');
 
   // Step 2: Clean up whitespace
@@ -99,7 +105,6 @@ export function cleanMediaDescription(text: unknown): string {
     .trim();
 
   // Step 3: If nothing meaningful left, return empty string
-  // (prevents sending messages with just punctuation or whitespace)
   if (cleaned.length < 3 || /^[^\w\u0590-\u05FF]+$/.test(cleaned)) {
     return '';
   }
@@ -121,7 +126,8 @@ export function cleanMultiStepText(text: unknown): string {
   }
 
   return text
-    .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs (image URLs should not be in text)
+    // USER REQUEST: Disable link filtering globally for now
+    // .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs (image URLs should not be in text)
     .replace(/\[image\]/gi, '')
     .replace(/\[image:[^\]]*\]?/gi, '')
     .replace(/\[video\]/gi, '')
