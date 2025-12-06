@@ -257,6 +257,10 @@ export async function getRandomFlight(
     } catch (error: any) {
         logger.error('❌ Error fetching flights:', error.message);
 
+        if (error.response?.data) {
+            logger.error('🔍 Flight API Error Details:', error.response.data);
+        }
+
         let userMessage = 'אירעה שגיאה בחיפוש הטיסה. אנא נסה שוב מאוחר יותר.';
 
         if (error.response?.status === 400) {

@@ -27,7 +27,10 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
   // Info tools
   search_web: 'מחפש מידע... 🔍',
   // Flight
+  // Flight
   random_flight: 'מחפש טיסה... ✈️',
+  // Shopping
+  random_amazon_product: 'מחפש מוצר באמזון... 🛒',
 
   search_google_drive: 'מחפש ב-Google Drive... 📁',
   get_chat_history: 'שולף היסטוריה... 📜',
