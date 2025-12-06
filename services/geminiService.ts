@@ -24,7 +24,6 @@ export const generateVideoFromImageForWhatsApp = geminiModule.generateVideoFromI
 export const analyzeVideoWithText = geminiModule.analyzeVideoWithText;
 export const generateChatSummary = geminiModule.generateChatSummary;
 export const translateText = geminiModule.translateText;
-export const parseMusicRequest = geminiModule.parseMusicRequest;
 export const parseTextToSpeechRequest = geminiModule.parseTextToSpeechRequest;
 export const generateCreativePoll = geminiModule.generateCreativePoll;
 export const getLocationInfo = geminiModule.getLocationInfo;

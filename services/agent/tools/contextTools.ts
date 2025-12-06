@@ -52,7 +52,7 @@ export const get_chat_history = {
       properties: {
         limit: {
           type: 'number',
-          description: 'מספר ההודעות האחרונות לשלוף (ברירת מחדל: 20)'
+          description: 'מספר ההודעות האחרונות לשלוף (ברירת מחדל: 50)'
         }
       },
       required: []

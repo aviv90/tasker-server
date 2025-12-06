@@ -5,7 +5,6 @@
 
 import logger from '../../../../utils/logger';
 import { generateMusicWithLyrics } from '../../../musicService';
-import { parseMusicRequest } from '../../../geminiService';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { REQUIRED, FAILED, ERROR } from '../../../../config/messages';
 import type {
@@ -52,7 +51,7 @@ export const create_music = {
   },
   execute: async (args: CreateMusicArgs = {}, context: AgentToolContext = {}): ToolResult => {
     logger.debug(`🔧 [Agent Tool] create_music called`);
-    
+
     try {
       if (!args.prompt && !context.originalInput?.userText) {
         return {
@@ -63,51 +62,33 @@ export const create_music = {
 
       const originalUserText = context.originalInput?.userText || args.prompt || '';
       const cleanedOriginal = String(originalUserText).replace(/^#\s*/, '').trim();
-      
-      let cleanPrompt = args.prompt || cleanedOriginal || '';
-      let wantsVideo = Boolean(args.make_video);
-      
-      try {
-        // Fix: ensure argument is string
-        const parsingResult = (await parseMusicRequest(cleanedOriginal || args.prompt || '')) as { cleanPrompt?: string; wantsVideo?: boolean };
-        if (parsingResult?.cleanPrompt) {
-          cleanPrompt = parsingResult.cleanPrompt.trim() || cleanPrompt;
-        }
-        if (parsingResult?.wantsVideo) {
-          wantsVideo = true;
-        }
-      } catch (parseError) {
-        const parseErr = parseError as Error;
-        logger.warn('⚠️ create_music: Failed to parse music request for video detection', {
-          error: parseErr.message || String(parseErr),
-          prompt: args.prompt?.substring(0, 100),
-          chatId: context?.chatId
-        });
-      }
-      
+
+      const cleanPrompt = args.prompt || cleanedOriginal || '';
+      const wantsVideo = Boolean(args.make_video);
+
       const senderData = context.originalInput?.senderData || {};
       const whatsappContext = context.chatId
         ? {
-            chatId: context.chatId,
-            senderId: senderData.senderId || senderData.sender || null,
-            senderName: senderData.senderName || senderData.senderContactName || '',
-            senderContactName: senderData.senderContactName || '',
-            chatName: senderData.chatName || ''
-          }
+          chatId: context.chatId,
+          senderId: senderData.senderId || senderData.sender || null,
+          senderName: senderData.senderName || senderData.senderContactName || '',
+          senderContactName: senderData.senderContactName || '',
+          chatName: senderData.chatName || ''
+        }
         : null;
-      
+
       const result = (await generateMusicWithLyrics(cleanPrompt, {
         whatsappContext,
         makeVideo: wantsVideo
       })) as MusicGenerationResponse;
-      
+
       if (result.error) {
         return {
           success: false,
           error: FAILED.MUSIC_CREATION(result.error)
         };
       }
-      
+
       if (result.status === 'pending') {
         return {
           success: true,
@@ -117,7 +98,7 @@ export const create_music = {
           makeVideo: wantsVideo
         };
       }
-      
+
       return {
         success: true,
         data: `✅ השיר נוצר בהצלחה!`,

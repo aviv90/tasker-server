@@ -6,17 +6,9 @@
  */
 
 // Import modular components
-import musicParser from './special/music';
 import ttsParser from './special/tts';
 import pollGenerator from './special/polls';
 import locationService from './special/location';
-
-/**
- * Parse music request to detect video requirement
- */
-export async function parseMusicRequest(prompt: string): Promise<unknown> {
-  return await musicParser.parseMusicRequest(prompt);
-}
 
 /**
  * Parse text-to-speech request to detect if translation is needed
