@@ -7,6 +7,7 @@ interface ToolResult {
     data?: string;
     error?: string;
     product?: amazonSearch.AmazonProduct;
+    imageUrl?: string;
     [key: string]: unknown;
 }
 
@@ -80,7 +81,8 @@ export const random_amazon_product = {
             return {
                 success: true,
                 data: msg,
-                product: randomProduct
+                product: randomProduct,
+                imageUrl: randomProduct.image
             };
 
         } catch (error: any) {
