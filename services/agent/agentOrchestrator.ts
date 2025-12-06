@@ -20,7 +20,9 @@ import agentLoop from './execution/agentLoop';
 import contextManager from './execution/context';
 import { getToolDeclarations } from './tools';
 import logger from '../../utils/logger';
-import { AgentConfig, AgentOptions, AgentResult } from '../agentService';
+import { AgentContextState } from './execution/context';
+import { AgentConfig, AgentResult } from './types';
+import { AgentOptions } from '../agentService';
 
 export class AgentOrchestrator {
     private genAI: GoogleGenerativeAI;
@@ -137,8 +139,7 @@ export class AgentOrchestrator {
         options: AgentOptions,
         languageInstruction: string,
         agentConfig: AgentConfig,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        preLoadedContext?: any, // AgentContext
+        preLoadedContext?: AgentContextState, // AgentContext
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         preLoadedHistory?: any // { history: Content[], systemContextAddition: string }
     ): Promise<AgentResult> {
@@ -195,7 +196,7 @@ export class AgentOrchestrator {
 
         // Execute with Timeout
         const agentExecution = async (): Promise<AgentResult> => {
-            return await agentLoop.execute(chat, contextualPrompt, chatId, context, maxIterations, agentConfig) as unknown as AgentResult;
+            return await agentLoop.execute(chat, contextualPrompt, chatId, context, maxIterations, agentConfig);
         };
 
         const timeoutPromise = new Promise<never>((_, reject) =>

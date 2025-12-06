@@ -14,7 +14,7 @@ export interface ExtractQuotedMessageIdOptions {
   context?: {
     originalInput?: {
       originalMessageId?: string;
-    };
+    } | null;
     originalMessageId?: string;
   };
   agentResult?: {

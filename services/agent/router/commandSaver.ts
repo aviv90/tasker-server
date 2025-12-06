@@ -11,35 +11,12 @@ import { NON_PERSISTED_TOOLS } from '../config/constants';
 import { sanitizeToolResult } from '../utils/resultUtils';
 import logger from '../../../utils/logger';
 
-export type ToolCall = {
-  tool: string;
-  args?: Record<string, unknown>;
-  success?: boolean;
-};
+import { ToolCall, AgentResult } from '../types';
 
 type PlanStep = {
   tool?: string;
   action?: string;
   [key: string]: unknown;
-};
-
-export type AgentPlan = {
-  steps?: PlanStep[];
-  [key: string]: unknown;
-};
-
-export type AgentResult = {
-  multiStep?: boolean;
-  plan?: AgentPlan;
-  stepsCompleted?: number;
-  totalSteps?: number;
-  success?: boolean;
-  toolCalls?: ToolCall[];
-  toolResults?: Record<string, unknown>;
-  imageUrl?: string | null;
-  videoUrl?: string | null;
-  audioUrl?: string | null;
-  originalMessageId?: string;
 };
 
 export type NormalizedInput = {

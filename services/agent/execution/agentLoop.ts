@@ -7,36 +7,11 @@ import { extractQuotedMessageId } from '../../../utils/messageHelpers';
 import { cleanJsonWrapper } from '../../../utils/textSanitizer';
 import logger from '../../../utils/logger';
 import { TIME } from '../../../utils/constants';
-import { AgentContextState as AgentContext, ToolCall } from './context';
+import { AgentResult, AgentConfig } from '../types';
+import { AgentContextState as AgentContext } from './context';
 
 // Type definitions for better type safety
 // AgentContext is now imported from context.ts
-
-interface AgentConfig {
-  contextMemoryEnabled: boolean;
-}
-
-interface AgentResult {
-  success: boolean;
-  text?: string;
-  imageUrl?: string | null;
-  imageCaption?: string;
-  videoUrl?: string | null;
-  videoCaption?: string;
-  audioUrl?: string | null;
-  poll?: { question: string; options: string[] } | null;
-  latitude?: string | null;
-  longitude?: string | null;
-  locationInfo?: string | null;
-  toolsUsed: string[];
-  iterations: number;
-  toolCalls: ToolCall[];
-  toolResults: Record<string, unknown>;
-  multiStep: boolean;
-  alreadySent: boolean;
-  originalMessageId?: string;
-  error?: string;
-}
 
 interface ToolFunctionResponse {
   functionResponse: {
@@ -133,9 +108,7 @@ class AgentLoop {
 
 
         // Get originalMessageId from context for quoting
-        // Cast context to any to avoid strict type checks with extractQuotedMessageId
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const originalMessageId = extractQuotedMessageId({ context: context as any });
+        const originalMessageId = extractQuotedMessageId({ context });
 
         return {
           success: true,
@@ -155,6 +128,7 @@ class AgentLoop {
           toolResults: context.previousToolResults,
           multiStep: false,
           alreadySent: false,
+          suppressedFinalResponse: context.suppressFinalResponse || false,
           originalMessageId: originalMessageId || undefined // Pass originalMessageId for quoting
         };
       }
@@ -199,9 +173,7 @@ class AgentLoop {
 
       // Send Ack message ONLY for tools that haven't received ACK yet
       // Get quotedMessageId from context if available
-      // Cast context to any to avoid strict type checks with extractQuotedMessageId
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const quotedMessageId = extractQuotedMessageId({ context: context as any });
+      const quotedMessageId = extractQuotedMessageId({ context });
 
       // Check if audio was already transcribed (from voice message flow)
       // If so, skip ACK for transcribe_audio to avoid duplicate "מתמלל הקלטה..." messages
@@ -245,9 +217,7 @@ class AgentLoop {
     // Max iterations reached
     logger.warn(`⚠️ [Agent] Max iterations (${maxIterations}) reached`);
     // Get originalMessageId from context for quoting
-    // Cast context to any to avoid strict type checks with extractQuotedMessageId
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const originalMessageId = extractQuotedMessageId({ context: context as any });
+    const originalMessageId = extractQuotedMessageId({ context });
     return {
       success: false,
       error: 'הגעתי למספר המקסימלי של ניסיונות. נסה לנסח את השאלה אחרת.',
@@ -311,9 +281,7 @@ class AgentLoop {
             ? typedToolResult.error
             : `❌ ${typedToolResult.error}`;
           // Get originalMessageId from context for quoting
-          // Cast context to any to avoid strict type checks with extractQuotedMessageId
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const quotedMessageId = extractQuotedMessageId({ context: context as any });
+          const quotedMessageId = extractQuotedMessageId({ context });
           await greenApiService.sendTextMessage(context.chatId!, errorMessage, quotedMessageId || undefined, TIME.TYPING_INDICATOR);
         } catch (notifyError: any) {
           logger.error(`❌ Failed to notify user about error:`, { error: notifyError.message, stack: notifyError.stack });

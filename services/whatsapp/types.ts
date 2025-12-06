@@ -79,46 +79,7 @@ export interface QuotedContext {
 }
 
 // Agent Related Types
-export interface ToolCall {
-  tool: string;
-  args: Record<string, unknown>;
-  result?: unknown;
-  timestamp?: number;
-  success?: boolean;
-  error?: string;
-  [key: string]: unknown;
-}
-
-export interface AgentPlan {
-  plan: string[];
-  currentStep: number;
-  [key: string]: unknown;
-}
-
-export interface AgentResult {
-  success: boolean;
-  text?: string;
-  toolCalls?: ToolCall[];
-  originalMessageId?: string;
-  multiStep?: boolean;
-  plan?: AgentPlan;
-  stepsCompleted?: number;
-  totalSteps?: number;
-  toolResults?: Record<string, unknown>;
-  imageUrl?: string | null;
-  imageCaption?: string;
-  videoUrl?: string | null;
-  audioUrl?: string | null;
-  poll?: { question: string; options: string[];[key: string]: unknown } | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  locationInfo?: string | null;
-  toolsUsed?: string[];
-  iterations?: number;
-  alreadySent?: boolean;
-  error?: string;
-  [key: string]: unknown;
-}
+export { ToolCall, AgentPlan, AgentResult } from '../agent/types';
 
 export interface LastCommand {
   tool: string | null;

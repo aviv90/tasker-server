@@ -10,7 +10,6 @@
 import { executeAgentQuery } from './agentService';
 import { buildContextualPrompt } from './agent/router/contextBuilder';
 import { saveLastCommand } from './agent/router/commandSaver';
-import type { ToolCall, AgentPlan } from './agent/router/commandSaver';
 import logger from '../utils/logger';
 import conversationManager from './conversationManager';
 
@@ -46,24 +45,7 @@ export interface LastCommand {
 /**
  * Agent execution result
  */
-export interface AgentResult {
-  text?: string;
-  toolCalls?: ToolCall[];
-  originalMessageId?: string;
-  multiStep?: boolean;
-  plan?: AgentPlan;
-  stepsCompleted?: number;
-  totalSteps?: number;
-  toolResults?: Record<string, unknown>;
-  imageUrl?: string | null;
-  videoUrl?: string | null;
-  audioUrl?: string | null;
-  success?: boolean;
-  error?: string;
-  iterations?: number;
-  toolsUsed?: string[];
-  [key: string]: unknown;
-}
+import { AgentResult } from './agent/types';
 
 /**
  * Route incoming request directly to Agent

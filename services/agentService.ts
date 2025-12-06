@@ -15,25 +15,7 @@ import agentOrchestrator from './agent/agentOrchestrator';
 /**
  * Agent configuration
  */
-export interface AgentConfig {
-  model: string;
-  maxIterations: number;
-  timeoutMs: number;
-  contextMemoryEnabled: boolean;
-}
-
-/**
- * Agent input options
- */
-export interface AgentInput {
-  imageUrl?: string | null;
-  videoUrl?: string | null;
-  audioUrl?: string | null;
-  quotedMessageId?: string | null;
-  lastCommand?: unknown;
-  originalMessageId?: string;
-  [key: string]: unknown;
-}
+import { AgentResult, AgentInput } from './agent/types';
 
 /**
  * Agent execution options
@@ -47,26 +29,6 @@ export interface AgentOptions {
    * Default: true. Set to false for media-only secondary calls where history may confuse the model.
    */
   useConversationHistory?: boolean;
-  [key: string]: unknown;
-}
-
-/**
- * Agent execution result
- */
-export interface AgentResult {
-  success?: boolean;
-  text?: string;
-  error?: string;
-  toolsUsed?: string[];
-  timeout?: boolean;
-  toolCalls?: unknown[];
-  toolResults?: Record<string, unknown>;
-  multiStep?: boolean;
-  alreadySent?: boolean;
-  originalMessageId?: string;
-  plan?: unknown;
-  stepsCompleted?: number;
-  totalSteps?: number;
   [key: string]: unknown;
 }
 

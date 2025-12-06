@@ -1,14 +1,7 @@
 import conversationManager from '../../conversationManager';
 import logger from '../../../utils/logger';
 
-export interface ToolCall {
-  tool: string;
-  args: Record<string, unknown>;
-  success: boolean;
-  error?: string;
-  timestamp: number;
-  [key: string]: unknown;
-}
+import { ToolCall, AgentInput } from '../types';
 
 export interface GeneratedAsset {
   url: string;
@@ -40,7 +33,7 @@ export type AgentContextState = {
   toolCalls: ToolCall[];
   generatedAssets: GeneratedAssets;
   lastCommand?: Record<string, unknown> | null;
-  originalInput?: Record<string, unknown> | null;
+  originalInput?: AgentInput | null;
   quotedContext?: Record<string, unknown> | null;
   originalMessageId?: string;
   audioUrl?: string | null;

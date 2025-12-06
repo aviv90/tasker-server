@@ -48,19 +48,19 @@ import { saveBotResponse } from './history';
  * @returns True if results were sent successfully
  */
 export async function sendAgentResults(
-  chatId: string, 
-  agentResult: AgentResult, 
+  chatId: string,
+  agentResult: AgentResult,
   normalized: NormalizedInput
 ): Promise<boolean> {
   // For multi-step, results are sent immediately after each step in agentService
   // If alreadySent is true, skip sending here to avoid duplicates
   if (shouldSkipAgentResult(agentResult)) {
     logger.debug(`✅ [Multi-step] Results already sent immediately after each step - skipping duplicate sending`);
-    
+
     // CRITICAL: Still save bot response to conversation history even if already sent!
     // This ensures the bot can see its own previous responses in future requests
     await saveBotResponse(chatId, agentResult);
-    
+
     logger.info(`✅ [Agent] Completed successfully (${agentResult.iterations || 1} iterations, ${agentResult.toolsUsed?.length || 0} tools used)`);
     return true;
   }
@@ -81,7 +81,7 @@ export async function sendAgentResults(
   // CRITICAL: Send media if URLs exist (Rule: Media MUST be sent!)
   // Track if text was already sent by media handlers to prevent duplicates
   let textAlreadySentByMedia = false;
-  
+
   const imageResult = await sendImageResult(chatId, agentResult, quotedMessageId);
   if (imageResult.sent) {
     mediaSent = true;
@@ -123,7 +123,7 @@ export async function sendAgentResults(
   // CRITICAL: Verify that something was sent to the user
   // If nothing was sent (no media, no text), send an error message
   const hasText = agentResult.text && agentResult.text.trim();
-  if (!mediaSent && !hasText) {
+  if (!mediaSent && !hasText && !agentResult.suppressedFinalResponse) {
     logger.error(`❌ [Result Handling] Nothing was sent to user! Sending error message.`);
     const { sendErrorToUser, ERROR_MESSAGES } = await import('../../../../utils/errorSender');
     await sendErrorToUser(chatId, agentResult?.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId: quotedMessageId || undefined });
