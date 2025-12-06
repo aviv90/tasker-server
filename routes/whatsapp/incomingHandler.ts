@@ -14,6 +14,7 @@ import { routeToAgent, AgentResult as RouterAgentResult } from '../../services/a
 import { processVoiceMessageAsync } from './asyncProcessors';
 import { WebhookData } from '../../services/whatsapp/types';
 import { MessageProcessor } from '../../services/whatsapp/messageProcessor';
+import { AgentOrchestrator } from '../../services/agent/agentOrchestrator';
 import { sendAgentResults, AgentResult as HandlerAgentResult } from './incoming/resultHandling';
 import { saveIncomingUserMessage, extractMediaMetadata } from './incoming/messageStorage';
 
