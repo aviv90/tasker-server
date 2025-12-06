@@ -54,21 +54,7 @@ export async function sendImageResult(
 
   // If there's additional text beyond the caption, send it in a separate message
   // This ensures users get both the image with caption AND any additional context/description
-  if (agentResult.text && agentResult.text.trim()) {
-    const textToCheck = cleanMediaDescription(agentResult.text);
-    const captionToCheck = cleanMediaDescription(caption);
-
-
-    // Only send if text is meaningfully different from caption (more than just whitespace/formatting)
-    if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
-      const additionalText = cleanAgentText(agentResult.text);
-      if (additionalText && additionalText.trim()) {
-        logger.debug(`📝 [Image] Sending additional text after image (${additionalText.length} chars)`);
-        await greenApiService.sendTextMessage(chatId, additionalText, quotedMessageId || undefined, 1000);
-        textSent = true;
-      }
-    }
-  }
+  // (Additional text logic removed - delegated to sendSingleStepText)
 
   return { sent: true, textSent };
 }

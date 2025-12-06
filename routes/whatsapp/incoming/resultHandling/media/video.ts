@@ -51,21 +51,7 @@ export async function sendVideoResult(
   let textSent = false;
 
   // If there's additional text beyond the caption, send it in a separate message
-  if (agentResult.text && agentResult.text.trim()) {
-    const textToCheck = cleanMediaDescription(agentResult.text);
-    const captionToCheck = cleanMediaDescription(caption);
-
-
-    // Only send if text is meaningfully different from caption (more than just whitespace/formatting)
-    if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
-      const additionalText = cleanAgentText(agentResult.text);
-      if (additionalText && additionalText.trim()) {
-        logger.debug(`📝 [Video] Sending additional text after video (${additionalText.length} chars)`);
-        await greenApiService.sendTextMessage(chatId, additionalText, quotedMessageId || undefined, 1000);
-        textSent = true;
-      }
-    }
-  }
+  // (Additional text logic removed - delegated to sendSingleStepText)
 
   return { sent: true, textSent };
 }

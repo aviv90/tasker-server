@@ -145,19 +145,7 @@ class ResultSender {
       // 1. Text exists and is different from caption
       // 2. Text is not a generic success message or apology
       // 3. Text is meaningfully different (more than just whitespace/formatting)
-      if (stepResult.text && stepResult.text.trim()) {
-        const textToCheck = cleanMediaDescription(stepResult.text);
-        const captionToCheck = cleanMediaDescription(caption);
-
-        // Only send if text is meaningfully different from caption (more than just whitespace/formatting)
-        if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
-          const additionalText = cleanAgentText(stepResult.text);
-          if (additionalText && additionalText.trim()) {
-            logger.debug(`📝 [ResultSender] Sending additional text after image${stepInfo} (${additionalText.length} chars)`);
-            await greenApiService.sendTextMessage(chatId, additionalText, quotedMessageId || undefined, 1000);
-          }
-        }
-      }
+      // (Additional text logic removed - delegated to sendText)
 
       logger.debug(`✅ [ResultSender] Image sent${stepInfo} with caption: ${cleanCaption.substring(0, 50)}...`);
     } catch (error: unknown) {
@@ -199,23 +187,7 @@ class ResultSender {
       // Send video WITH caption (caption is always sent with media, never separately)
       await greenApiService.sendFileByUrl(chatId, fullVideoUrl, `agent_video_${Date.now()}.mp4`, cleanCaption, quotedMessageId || undefined, 1000);
 
-      // Only send additional text in a separate message if:
-      // 1. Text exists and is different from caption
-      // 2. Text is not a generic success message or apology
-      // 3. Text is meaningfully different (more than just whitespace/formatting)
-      if (stepResult.text && stepResult.text.trim()) {
-        const textToCheck = cleanMediaDescription(stepResult.text);
-        const captionToCheck = cleanMediaDescription(caption);
-
-        // Only send if text is meaningfully different from caption
-        if (textToCheck.trim() !== captionToCheck.trim() && textToCheck.length > captionToCheck.length + 10) {
-          const additionalText = cleanAgentText(stepResult.text);
-          if (additionalText && additionalText.trim()) {
-            logger.debug(`📝 [ResultSender] Sending additional text after video${stepInfo} (${additionalText.length} chars)`);
-            await greenApiService.sendTextMessage(chatId, additionalText, quotedMessageId || undefined, 1000);
-          }
-        }
-      }
+      // (Additional text logic removed - delegated to sendText)
 
       logger.debug(`✅ [ResultSender] Video sent${stepInfo} with caption: ${cleanCaption.substring(0, 50)}...`);
     } catch (error: unknown) {
@@ -301,32 +273,48 @@ class ResultSender {
         }
       }
 
-      // For images: if text is same as caption, don't send again
-      if (stepResult.imageUrl && textToCheck.trim() === imageCaption.trim()) {
-        logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - same as image caption`);
-        return;
-      }
-      // For images: if text is just a generic success message (like "✅ תמונה נוצרה בהצלחה!"), don't send
-      // The image with caption is already sent, no need for additional generic text
-      // For images: if text is just a generic success message (like "✅ תמונה נוצרה בהצלחה!"), we still send it if requested
       if (stepResult.imageUrl) {
-        // If sendImage likely used the text as caption (because no explicit caption existed), don't send again
-        if (!stepResult.imageCaption && !stepResult.caption && stepResult.text) {
-          logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - used as implicit caption by sendImage`);
+        // Determine the effective caption used by sendImage
+        let effectiveCaption = stepResult.imageCaption || stepResult.caption || '';
+
+        // If no explicit caption, sendImage uses text as caption
+        if (!effectiveCaption && stepResult.text) {
+          effectiveCaption = stepResult.text;
+        }
+
+        const textToCheck = cleanMediaDescription(stepResult.text);
+        const captionToCheck = cleanMediaDescription(effectiveCaption);
+
+        // If text is effectively the same as the caption (implicit or explicit), SKIP
+        if (textToCheck.trim() === captionToCheck.trim()) {
+          logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - already sent as image caption`);
           return;
         }
 
-        // If sendImage already sent additional text (because it was different from caption), don't send again
-        // sendImage sends text if it's meaningfully different from caption, so we should skip it here
-        if (textToCheck.trim() !== imageCaption.trim() && textToCheck.length > imageCaption.length + 10) {
-          logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - already sent by sendImage`);
+        // If text is different but very short compared to caption, skip (likely redundancy)
+        if (textToCheck.length < captionToCheck.length + 10 && captionToCheck.includes(textToCheck)) {
+          logger.debug(`⏭️ [ResultSender] Skipping text - contained in caption and not significantly longer`);
           return;
         }
       }
       // For videos: text is already sent separately in sendVideo
       else if (stepResult.videoUrl) {
-        logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - already sent with video`);
-        return;
+        // Determine the effective caption used by sendVideo
+        let effectiveCaption = stepResult.videoCaption || stepResult.caption || '';
+
+        // If no explicit caption, sendVideo uses text as caption
+        if (!effectiveCaption && stepResult.text) {
+          effectiveCaption = stepResult.text;
+        }
+
+        const textToCheck = cleanMediaDescription(stepResult.text);
+        const captionToCheck = cleanMediaDescription(effectiveCaption);
+
+        // If text is effectively the same as the caption (implicit or explicit), SKIP
+        if (textToCheck.trim() === captionToCheck.trim()) {
+          logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - already sent as video caption`);
+          return;
+        }
       }
       // For audio: audio IS the response, no additional text needed
       else if (stepResult.audioUrl) {

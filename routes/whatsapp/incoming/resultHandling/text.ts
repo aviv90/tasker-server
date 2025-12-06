@@ -110,36 +110,36 @@ export async function sendSingleStepText(
       if (mediaSent && shouldSendText) {
         // If media was sent, check if text is just the caption (already sent with media)
         const textToCheck = cleanMediaDescription(agentResult.text);
-        const imageCaption = agentResult.imageCaption ? cleanMediaDescription(agentResult.imageCaption) : '';
 
+        // CRITICAL DE-DUPLICATION LOGIC
+        // We must reconstruct the "Effective Caption" that the media handler used.
+        // Rule: If explicit caption exists, media handler used it. If not, it likely used agentResult.text (implicit caption).
 
-
-        // For images: skip generic success messages - they're redundant when image is already sent
+        let effectiveCaption = '';
         if (agentResult.imageUrl) {
-          // If text is same as caption, don't send again
-          if (textToCheck.trim() === imageCaption.trim()) {
+          effectiveCaption = agentResult.imageCaption || agentResult.text || '';
+        } else if (agentResult.videoUrl) {
+          effectiveCaption = agentResult.videoCaption || agentResult.text || '';
+        }
+
+        const captionToCheck = cleanMediaDescription(effectiveCaption);
+
+        // For images/videos: skip text if it was effectively sent as the caption
+        if ((agentResult.imageUrl || agentResult.videoUrl)) {
+
+          if (textToCheck.trim() === captionToCheck.trim()) {
             shouldSendText = false;
-            logger.debug(`ℹ️ [Text] Skipping text - same as image caption`);
+            logger.debug(`ℹ️ [Text] Skipping text - exactly matches effective media caption`);
+          } else if (textToCheck.length < captionToCheck.length + 10 && captionToCheck.includes(textToCheck)) {
+            shouldSendText = false;
+            logger.debug(`ℹ️ [Text] Skipping text - contained in caption and not significantly longer`);
           }
         }
 
-        // For videos: skip generic success messages - they're redundant when video is already sent
-        else if (agentResult.videoUrl) {
-          // If text was already sent by sendVideoResult, don't send again
-          if (textAlreadySent) {
-            shouldSendText = false;
-            logger.debug(`ℹ️ [Text] Skipping text - already sent with video`);
-          }
-        }
         // For audio: audio IS the response, no additional text needed
         else if (agentResult.audioUrl) {
           shouldSendText = false;
           logger.debug(`ℹ️ [Text] Skipping text - audio is the response`);
-        }
-        // For other media: send text if it's meaningfully different
-        else if (textToCheck.trim().length < 20) {
-          shouldSendText = false;
-          logger.debug(`ℹ️ [Text] Skipping text - too short to be meaningful`);
         }
       }
 
