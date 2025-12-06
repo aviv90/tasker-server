@@ -10,7 +10,7 @@ const dedupCache = new Map<string, { timestamp: number, result: any }>();
 export const schedule_message = {
     declaration: {
         name: 'schedule_message',
-        description: 'Schedule a message to be sent at a specific time. Use this when the user asks to be reminded or to send a message later. Supports ISO 8601 format (e.g., 2023-12-25T14:30:00+02:00) OR natural language (e.g., "tomorrow at 10", "in 5 minutes").',
+        description: 'Schedule a message. You MUST calculate the exact ISO 8601 time based on the user request and Current Time. Do NOT pass natural language.',
         parameters: {
             type: 'object',
             properties: {
@@ -20,7 +20,7 @@ export const schedule_message = {
                 },
                 time: {
                     type: 'string',
-                    description: 'The time to send the message. Can be ISO 8601 format or natural language (e.g., "tomorrow at 10", "in 5 minutes").'
+                    description: 'The EXACT time to send format ISO 8601 (e.g. 2025-01-01T15:00:00+02:00). Calc relative times (e.g. "in 5 mins") yourself.'
                 },
                 recipient: {
                     type: 'string',
@@ -44,6 +44,7 @@ export const schedule_message = {
             // Lazy load container to avoid circular dependencies
             const { default: container } = await import('../../container');
             const groupService = await import('../../groupService');
+            // Removed DateParser import (or keep only for display formatting if needed)
             const { DateParser } = await import('../../../utils/dateParser');
 
             let targetChatId = context.chatId;
@@ -63,13 +64,14 @@ export const schedule_message = {
                 }
             }
 
-            const scheduledAt = DateParser.parse(args.time);
+            const scheduledAt = new Date(args.time);
 
-            if (!scheduledAt) {
+            if (isNaN(scheduledAt.getTime())) {
                 return {
-                    error: 'Invalid time format. Please use ISO 8601 format or clear natural language (e.g., "tomorrow at 10").'
+                    error: 'Invalid time format. Please provide a valid ISO 8601 date string.'
                 };
             }
+
 
             const now = new Date();
             // Allow a buffer of 2 minutes for processing time

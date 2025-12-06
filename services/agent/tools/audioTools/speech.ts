@@ -7,6 +7,7 @@ import { NOT_FOUND, FAILED, UNABLE, ERROR } from '../../../../config/messages';
 type TextToSpeechArgs = {
   text: string;
   language?: string;
+  voice_description?: string;
 };
 
 type VoiceCloneArgs = {
@@ -60,6 +61,10 @@ export const text_to_speech = {
         language: {
           type: 'string',
           description: 'שפה להקראה (en, he, es, fr, etc.)'
+        },
+        voice_description: {
+          type: 'string',
+          description: 'תיאור הקול המבוקש (אם המשתמש ציין). דוגמאות: "Deep male voice", "Young female", "American accent".'
         }
       },
       required: ['text']
@@ -127,7 +132,7 @@ export const text_to_speech = {
 
       if (!voiceId) {
         logger.debug(`🎤 Getting random voice for language: ${language}...`);
-        const voiceResult = (await voiceService.getVoiceForLanguage(language)) as VoiceSelectionResult;
+        const voiceResult = (await voiceService.getVoiceForLanguage(language, args.voice_description)) as VoiceSelectionResult;
 
         if (voiceResult.error) {
           return {

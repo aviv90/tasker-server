@@ -58,8 +58,8 @@ class VoiceService {
         return voiceSelection.getRandomVoice.call(this as any);
     }
 
-    async getVoiceForLanguage(languageCode: string): Promise<unknown> {
-        return voiceSelection.getVoiceForLanguage.call(this as any, languageCode);
+    async getVoiceForLanguage(languageCode: string, voiceDescription?: string): Promise<unknown> {
+        return voiceSelection.getVoiceForLanguage.call(this as any, languageCode, voiceDescription);
     }
 
     detectLanguage(text: string): string {
