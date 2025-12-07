@@ -27,15 +27,13 @@ type TranscribeResult = Promise<TranscribeResultPayload>;
 export const transcribe_audio = {
   declaration: {
     name: 'transcribe_audio',
-    description:
-      'תמלל הקלטה קולית לטקסט (STT). CRITICAL: אם בפרומפט יש "Use this audio_url parameter directly", קח את ה-URL משם ישירות! אם לא, חלץ מהמבנה "[audioUrl: URL]" בפרומפט.',
+    description: 'Transcribe audio to text (STT). CRITICAL: If prompt contains "Use this audio_url parameter directly", extract URL from there!',
     parameters: {
       type: 'object',
       properties: {
         audio_url: {
           type: 'string',
-          description:
-            'URL של ההקלטה לתמלול. אם זמין בפרומפט (בשורה "Use this audio_url parameter directly"), קח אותו משם.'
+          description: 'URL of audio to transcribe. If available in prompt "Use this audio_url...", take it.'
         }
       },
       required: ['audio_url']

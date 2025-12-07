@@ -97,9 +97,7 @@ export async function sendToolAckMessage(
     const buildSingleAck = (call: FunctionCall): string => {
       const toolName = call.name;
 
-      if (toolName === 'send_location') {
-        return '';
-      }
+
 
       const args = call.args || {};
       const providerRaw = (args.provider || args.service) as ProviderKey;

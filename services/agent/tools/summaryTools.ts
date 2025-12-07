@@ -50,13 +50,13 @@ type GreenApiMessage = {
 export const chat_summary = {
   declaration: {
     name: 'chat_summary',
-    description: 'צור סיכום של השיחה הנוכחית. שימושי למשתמש שרוצה סיכום מהיר.',
+    description: 'Summarize the current chat conversation. Useful for quick overview.',
     parameters: {
       type: 'object',
       properties: {
         count: {
           type: 'number',
-          description: 'מספר ההודעות האחרונות לסכם (ברירת מחדל: 50)'
+          description: 'Number of recent messages to summarize (default: 50)'
         }
       },
       required: []

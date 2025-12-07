@@ -21,30 +21,19 @@ import type {
 export const create_music = {
   declaration: {
     name: 'create_music',
-    description: `יוצר שיר/מוזיקה חדש מאפס עם Suno AI (כולל מילים ומלודיה).
-
-**מתי להשתמש בכלי הזה (חובה!):**
-• "צור שיר" / "יצירת שיר" / "create song" / "make music" / "generate song"
-• "שיר עם מנגינה" / "song with melody" / "music with tune"
-• "שיר עם Suno" / "song with Suno" / "create song with Suno"
-• כל בקשה מפורשת ליצירת מוזיקה/שיר עם מלודיה
-
-**מתי לא להשתמש בכלי הזה (חשוב!):**
-• "כתוב שיר" / "לכתוב שיר" / "write song" / "write lyrics" → זה רק מילים (טקסט), לא להשתמש בכלי! פשוט כתוב שיר בטקסט.
-• "שיר מילולי" / "lyrics only" / "just words" → רק טקסט, לא כלי.
-• בקשה ללינק לשיר קיים → השתמש ב-search_web במקום.
-
-**הכלי מייצר שיר מקורי עם מילים ומלודיה באמצעות Suno AI.`,
+    description: `Create a new song/music from scratch using Suno AI (lyrics + melody).
+WHEN TO USE: 'create song', 'make music', 'song with melody'.
+WHEN *NOT* TO USE: 'write song lyrics' (use text generation - just write it), 'link to song' (use search_web).`,
     parameters: {
       type: 'object',
       properties: {
         prompt: {
           type: 'string',
-          description: 'תיאור השיר החדש - סגנון, נושא, מילים, מצב רוח'
+          description: 'Song description - style, topic, mood, lyrics'
         },
         make_video: {
           type: 'boolean',
-          description: 'האם ליצור גם וידאו/קליפ לשיר (אם המשתמש ביקש)'
+          description: 'Create a video clip for the song? (true/false)'
         }
       },
       required: ['prompt']

@@ -60,23 +60,21 @@ type VideoEditResult = ProviderResult & {
 export const edit_image = {
   declaration: {
     name: 'edit_image',
-    description:
-      'ערוך תמונה קיימת. CRITICAL: אם בפרומפט יש "Use this image_url parameter directly", קח את ה-URL משם ישירות ואל תקרא ל-get_chat_history! רק אם אין URL בפרומפט, קרא ל-get_chat_history תחילה.',
+    description: 'Edit an existing image. CRITICAL: If prompt contains "Use this image_url parameter directly", extract URL from there!',
     parameters: {
       type: 'object',
       properties: {
         image_url: {
           type: 'string',
-          description:
-            'URL של התמונה לעריכה. אם זמין בפרומפט (בשורה "Use this image_url parameter directly"), קח אותו משם.'
+          description: 'URL of image to edit. If available in prompt "Use this image_url...", take it.'
         },
         edit_instruction: {
           type: 'string',
-          description: 'מה לערוך בתמונה (הוסף, הסר, שנה, וכו\')'
+          description: 'What to edit (add, remove, change, etc.)'
         },
         service: {
           type: 'string',
-          description: 'ספק לעריכה',
+          description: 'Service: openai (default) or gemini',
           enum: ['openai', 'gemini']
         }
       },
@@ -188,18 +186,18 @@ export const edit_video = {
   declaration: {
     name: 'edit_video',
     description:
-      'ערוך סרטון וידאו קיים. CRITICAL: אם בפרומפט יש "Use this video_url parameter directly", קח את ה-URL משם ישירות ואל תקרא ל-get_chat_history! רק אם אין URL בפרומפט, קרא ל-get_chat_history תחילה.',
+      'Edit an existing video. CRITICAL: If prompt contains "Use this video_url parameter directly", extract URL from there!',
     parameters: {
       type: 'object',
       properties: {
         video_url: {
           type: 'string',
           description:
-            'URL של הוידאו לעריכה. אם זמין בפרומפט (בשורה "Use this video_url parameter directly"), קח אותו משם.'
+            'URL of video to edit. If available in prompt "Use this video_url...", take it.'
         },
         edit_instruction: {
           type: 'string',
-          description: 'מה לערוך בווידאו'
+          description: 'What to edit in the video'
         }
       },
       required: ['video_url', 'edit_instruction']

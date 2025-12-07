@@ -50,21 +50,21 @@ const MIN_DURATION_FOR_CLONING = 4.6;
 export const text_to_speech = {
   declaration: {
     name: 'text_to_speech',
-    description: 'המר טקסט לדיבור (TTS). השתמש בכלי הזה כשהמשתמש מבקש: "אמור X", "תגיד X", "say X", "speak X", "הקרא X", "read X". אם יש הקלטה מצוטטת - משבט את הקול! משתמש ב-ElevenLabs. CRITICAL: אם המשתמש משתמש בפעלים של דיבור (אמור/תגיד/say/speak) - הפלט חייב להיות קולי ולא טקסטואלי!',
+    description: 'Convert text to speech (TTS). Use when user asks: "Say X", "Speak X", "Read X". If quoted audio exists, clones the voice! Uses ElevenLabs. CRITICAL: If user uses speaking verbs (Say/Speak), output MUST be audio!',
     parameters: {
       type: 'object',
       properties: {
         text: {
           type: 'string',
-          description: 'הטקסט להקראה'
+          description: 'Text to speak'
         },
         language: {
           type: 'string',
-          description: 'שפה להקראה (en, he, es, fr, etc.)'
+          description: 'Language code (en, he, es, fr, etc.)'
         },
         voice_description: {
           type: 'string',
-          description: 'תיאור הקול המבוקש (אם המשתמש ציין). דוגמאות: "Deep male voice", "Young female", "American accent".'
+          description: 'Description of the desired voice (e.g. "Deep male voice", "Young American female"). Optional.'
         }
       },
       required: ['text']
@@ -195,23 +195,21 @@ export const text_to_speech = {
 export const voice_clone_and_speak = {
   declaration: {
     name: 'voice_clone_and_speak',
-    description:
-      'שבט קול מהקלטה קיימת והשתמש בו כדי לדבר טקסט חדש. CRITICAL: אם בפרומפט יש "Use this audio_url parameter directly", קח את ה-URL משם ישירות ואל תקרא ל-get_chat_history! רק אם אין URL, קרא ל-get_chat_history.',
+    description: 'Clone voice from an existing recording and use it to speak new text. CRITICAL: If prompt contains "Use this audio_url parameter directly", extract URL from there!',
     parameters: {
       type: 'object',
       properties: {
         audio_url: {
           type: 'string',
-          description:
-            'URL של ההקלטה לשיבוט הקול. אם זמין בפרומפט (בשורה "Use this audio_url parameter directly"), קח אותו משם.'
+          description: 'URL of the audio recording to clone. If available in prompt "Use this audio_url...", take it.'
         },
         text_to_speak: {
           type: 'string',
-          description: 'הטקסט שהקול המשובט ידבר'
+          description: 'Text for the cloned voice to speak'
         },
         language: {
           type: 'string',
-          description: 'שפת הדיבור (he, en, es, etc.)'
+          description: 'Language code (he, en, es, etc.)'
         }
       },
       required: ['audio_url', 'text_to_speak']

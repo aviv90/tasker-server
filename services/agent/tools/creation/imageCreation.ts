@@ -24,17 +24,17 @@ import type {
 export const create_image = {
   declaration: {
     name: 'create_image',
-    description: 'צור תמונה חדשה. ברירת מחדל: Gemini. אם תרצה ספק אחר, ציין בפרמטר provider. חשוב: אל תשתמש בכלי זה ליצירת תמונות קבוצה בוואטסאפ - השתמש ב-create_group במקום.',
+    description: 'Create a new image. Default provider: Gemini. Use "provider" arg for others. Important: Do NOT use this for WhatsApp group icons - use create_group instead.',
     parameters: {
       type: 'object',
       properties: {
         prompt: {
           type: 'string',
-          description: 'תיאור התמונה ליצירה',
+          description: 'Description of the image to create',
         },
         provider: {
           type: 'string',
-          description: 'ספק ליצירה: gemini (ברירת מחדל), openai, או grok',
+          description: 'Provider: gemini (default), openai, or grok',
           enum: [...IMAGE_PROVIDERS]
         }
       },
@@ -42,7 +42,7 @@ export const create_image = {
     },
     historyContext: {
       ignore: false,
-      reason: 'If prompt is detailed, history is less relevant, but keep it for context if user says "like the last one".'
+      reason: 'Keep history for context like "similar to the last one".'
     }
   },
   execute: async (args: CreateImageArgs = {}, context: AgentToolContext = {}): ToolResult => {

@@ -20,19 +20,17 @@ type CreativeMixResult = Promise<{
 export const creative_audio_mix = {
   declaration: {
     name: 'creative_audio_mix',
-    description:
-      'צור מיקס אודיו יצירתי עם אפקטים ומוזיקה מהקלטה. CRITICAL: אם בפרומפט יש "Use this audio_url parameter directly", קח את ה-URL משם ישירות ואל תקרא ל-get_chat_history! רק אם אין URL, קרא להיסטוריה.',
+    description: 'Create a creative audio mix with effects and music. CRITICAL: If prompt contains "Use this audio_url parameter directly", extract URL from there!',
     parameters: {
       type: 'object',
       properties: {
         audio_url: {
           type: 'string',
-          description:
-            'URL של ההקלטה למיקס. אם זמין בפרומפט (בשורה "Use this audio_url parameter directly"), קח אותו משם.'
+          description: 'Audio URL (from prompt "Use this audio_url parameter directly" if available)'
         },
         style: {
           type: 'string',
-          description: 'סגנון המיקס (אפשרויות: creative, remix, enhance)'
+          description: 'Mix style (options: creative, remix, enhance)'
         }
       },
       required: ['audio_url']

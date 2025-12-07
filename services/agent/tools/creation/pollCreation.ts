@@ -19,17 +19,17 @@ import type {
 export const create_poll = {
   declaration: {
     name: 'create_poll',
-    description: 'צור סקר עם שאלה ותשובות יצירתיות. תומך בסקרים עם או בלי חרוזים!',
+    description: 'Create a creative poll with question and answers. Supports rhyming!',
     parameters: {
       type: 'object',
       properties: {
         topic: {
           type: 'string',
-          description: 'נושא הסקר'
+          description: 'Poll topic'
         },
         with_rhyme: {
           type: 'boolean',
-          description: 'האם לייצר תשובות בחרוז? true = עם חרוזים (ברירת מחדל), false = בלי חרוזים. אם המשתמש אומר "בלי חרוזים" או "without rhyme" - שלח false!'
+          description: 'Generate rhyming answers? true = yes (default), false = no.'
         }
       },
       required: ['topic']
@@ -37,7 +37,7 @@ export const create_poll = {
   },
   execute: async (args: CreatePollArgs = {}, context: AgentToolContext = {}): ToolResult => {
     logger.debug(`🔧 [Agent Tool] create_poll called with topic: ${args.topic}, with_rhyme: ${args.with_rhyme !== false}`);
-    
+
     try {
       if (!args.topic) {
         return {
@@ -47,23 +47,23 @@ export const create_poll = {
       }
 
       const { geminiService } = getServices();
-      
+
       // Default to true (with rhyme) if not specified
       const withRhyme = args.with_rhyme !== false;
       const language = context?.originalInput?.language || context?.normalized?.language || 'he';
-      
+
       // Fix: cast pollData to expected type
       const pollData = (await geminiService.generateCreativePoll(args.topic, withRhyme, language)) as { error?: string; question?: string; options?: string[] };
-      
+
       if (pollData.error) {
         return {
           success: false,
-          error: language === 'he' 
+          error: language === 'he'
             ? `יצירת סקר נכשלה: ${pollData.error}`
             : `Poll generation failed: ${pollData.error}`
         };
       }
-      
+
       return {
         success: true,
         data: language === 'he'

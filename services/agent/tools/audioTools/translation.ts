@@ -79,19 +79,17 @@ const languageCodeMap: Record<string, string> = {
 export const translate_text = {
   declaration: {
     name: 'translate_text',
-    description:
-      'תרגם טקסט לשפה אחרת (מחזיר טקסט בלבד). אם המשתמש אומר "אמור ביפנית" או "תרגם ואמור" - השתמש ב-translate_and_speak במקום! תומך ב-20+ שפות.',
+    description: 'Translate text to another language (returns text only). To Speak it, use translate_and_speak! Supports 20+ languages.',
     parameters: {
       type: 'object',
       properties: {
         text: {
           type: 'string',
-          description: 'הטקסט לתרגום'
+          description: 'Text to translate'
         },
         target_language: {
           type: 'string',
-          description:
-            'שפת יעד (English, Hebrew, Spanish, French, German, Italian, Portuguese, Russian, Chinese, Japanese, Korean, Arabic, Hindi, Turkish, Polish, Dutch, Swedish, Finnish, Norwegian, Danish, Czech)'
+          description: 'Target language (English, Hebrew, Spanish, etc.)'
         }
       },
       required: ['text', 'target_language']
@@ -133,19 +131,17 @@ export const translate_text = {
 export const translate_and_speak = {
   declaration: {
     name: 'translate_and_speak',
-    description:
-      'תרגם טקסט לשפה אחרת והמר לדיבור (מחזיר אודיו + טקסט). אם יש הקלטה מצוטטת - משבט את הקול! השתמש בכלי הזה כשהמשתמש מבקש: "אמור X ביפנית", "תרגם X לאנגלית ואמור", "say X in Spanish", וכו\'. **אין להשתמש עבור ברכות רגילות (היי, שלום) או טקסט ללא הוראת דיבור מפורשת!**',
+    description: 'Translate text AND convert to speech (returns audio + text). If quoted audio exists, clones the voice! Use when user asks: "Say X in Japanese", "Translate X and speak". DO NOT use for simple greetings.',
     parameters: {
       type: 'object',
       properties: {
         text: {
           type: 'string',
-          description: 'הטקסט לתרגום והקראה'
+          description: 'Text to translate and speak'
         },
         target_language: {
           type: 'string',
-          description:
-            'שפת יעד (English, Hebrew, Spanish, French, German, Italian, Portuguese, Russian, Chinese, Japanese, Korean, Arabic, etc.)'
+          description: 'Target language'
         }
       },
       required: ['text', 'target_language']

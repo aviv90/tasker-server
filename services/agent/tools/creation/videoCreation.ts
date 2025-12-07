@@ -26,17 +26,17 @@ import type {
 export const create_video = {
   declaration: {
     name: 'create_video',
-    description: 'צור סרטון וידאו מטקסט. תומך ב-Veo3 (Google), Sora (OpenAI), Kling (ברירת מחדל).',
+    description: 'Create a video from text description. Supports Veo3 (Google), Sora (OpenAI), Kling (default).',
     parameters: {
       type: 'object',
       properties: {
         prompt: {
           type: 'string',
-          description: 'תיאור הסרטון המבוקש'
+          description: 'Description of the desired video'
         },
         provider: {
           type: 'string',
-          description: 'ספק ליצירת הוידאו',
+          description: 'Video provider',
           enum: [...VIDEO_PROVIDERS]
         }
       },
@@ -166,21 +166,21 @@ export const create_video = {
 export const image_to_video = {
   declaration: {
     name: 'image_to_video',
-    description: 'המר תמונה לסרטון וידאו מונפש. USE THIS TOOL when user says: "הפוך/המר לווידאו", "תמונה לוידאו", "הנפש", "image to video", "animate", or specifies provider like "עם Veo 3/Sora 2/Kling". CRITICAL: אם בפרומפט יש "Use this image_url parameter directly", קח את ה-URL משם ישירות ואל תקרא ל-get_chat_history! רק אם אין URL בפרומפט, קרא ל-get_chat_history תחילה.',
+    description: 'Convert/Animate an image to video. USE THIS when user says "image to video", "animate", or specifies provider. CRITICAL: If prompt contains "Use this image_url parameter directly", extract URL from there!',
     parameters: {
       type: 'object',
       properties: {
         image_url: {
           type: 'string',
-          description: 'URL של התמונה להמרה. אם זמין בפרומפט (בשורה "Use this image_url parameter directly"), קח אותו משם.'
+          description: 'URL of image to animate. If available in prompt "Use this image_url...", take it from there.'
         },
         prompt: {
           type: 'string',
-          description: 'הנחיות לאנימציה - מה יקרה בסרטון (תנועה, פעולה, אפקטים)'
+          description: 'Directives for animation - movement, action, effects'
         },
         provider: {
           type: 'string',
-          description: 'ספק להמרה: veo3 (Gemini Veo 3 - best quality), sora/sora-pro (OpenAI Sora 2 - cinematic), kling (Replicate Kling - fast). אם המשתמש מציין ספק ספציפי, השתמש בו!',
+          description: 'Provider: veo3, sora/sora-pro, kling. If user specifies one, use it!',
           enum: [...VIDEO_PROVIDERS]
         }
       },

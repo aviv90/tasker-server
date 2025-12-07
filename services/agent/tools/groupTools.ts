@@ -75,24 +75,24 @@ type ImageGenerationResult = {
 export const create_group = {
   declaration: {
     name: 'create_group',
-    description: 'צור קבוצת WhatsApp חדשה עם משתתפים. עליך לחלץ את שם הקבוצה ואת רשימת שמות המשתתפים. במידה ויש תיאור לתמונה, חלץ גם אותו.',
+    description: 'Create a new WhatsApp group with participants. Extract group name and list of participants. If a group picture description is provided, extract it as well.',
     parameters: {
       type: 'object',
       properties: {
         group_name: {
           type: 'string',
-          description: 'שם הקבוצה'
+          description: 'Name of the group'
         },
         participants: {
           type: 'array',
           items: {
             type: 'string'
           },
-          description: 'רשימת שמות משתתפים להוספה (לדוגמה: ["אמא", "אבא", "יוסי"])'
+          description: 'List of participant names to add (e.g. ["Mom", "Dad", "Yossi"])'
         },
         group_picture_description: {
           type: 'string',
-          description: 'תיאור תמונת הקבוצה (אופציונלי)'
+          description: 'Description for the group picture (optional)'
         }
       },
       required: ['group_name', 'participants']

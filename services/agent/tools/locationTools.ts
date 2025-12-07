@@ -34,25 +34,17 @@ type ToolResult = Promise<{
 export const send_location = {
   declaration: {
     name: 'send_location',
-    description:
-      'שלח מיקום אקראי במקום מסוים (עיר/מדינה/יבשת) או מיקום אקראי לגמרי. משתמש ב-Google Maps geocoding למציאת כל מקום בעולם. **CRITICAL: Use this tool for ALL location requests. Do NOT use search_google_drive or other tools for location requests!**',
+    description: 'Send a random location in a specific region (city/country/continent) or completely random. Uses Google Maps geocoding. CRITICAL: Use for ALL location requests. Do NOT use search_google_drive!',
     parameters: {
       type: 'object',
       properties: {
         region: {
           type: 'string',
-          description: `The specific place name to find a location in.
-**CRITICAL INSTRUCTION:**
-1. Extract the EXACT location name from the user's request.
-2. Ignore preposition words like "in", "at", "near", "area of", "ב", "באזור".
-3. Return ONLY the name.
-   - User: "Send location in Tokyo" -> region="Tokyo"
-   - User: "מיקום ברחובות" -> region="Rehovot"
-   - User: "באזור תל אביב" -> region="Tel Aviv"
-   - User: "Send location" -> region=null (Random)
-   - User: "Copenhagen" -> region="Copenhagen"
-   
-You must translate Hebrew names to English or keep them in Hebrew, but English is preferred for geocoding accuracy.`
+          description: `The specific place name. Extract EXACT location. Ignore prepositions.
+   - "Send location in Tokyo" -> "Tokyo"
+   - "מיקום ברחובות" -> "Rehovot"
+   - "Send location" -> null (Random)
+   Translate Hebrew names to English if possible.`
         }
       },
       required: []
@@ -75,7 +67,9 @@ You must translate Hebrew names to English or keep them in Hebrew, but English i
 
       if (regionAckMessage && chatId) {
         const quotedMessageIdForAck = extractQuotedMessageId({ context });
-        await greenApiService.sendTextMessage(chatId, regionAckMessage, quotedMessageIdForAck, 1000);
+        await greenApiService.sendTextMessage(chatId, regionAckMessage, quotedMessageIdForAck, 1000).catch(err => {
+          logger.warn('⚠️ Failed to send location ACK', { error: err.message, chatId });
+        });
       }
 
       const language = context?.originalInput?.language || context?.normalized?.language || 'he';
@@ -88,7 +82,9 @@ You must translate Hebrew names to English or keep them in Hebrew, but English i
           (language === 'he' ? 'לא הצלחתי למצוא מיקום תקין' : 'Could not find a valid location');
         if (chatId) {
           const quotedMessageIdForFailure = extractQuotedMessageId({ context });
-          await greenApiService.sendTextMessage(chatId, `❌ ${errorMessage}`, quotedMessageIdForFailure, 1000);
+          await greenApiService.sendTextMessage(chatId, `❌ ${errorMessage}`, quotedMessageIdForFailure, 1000).catch(err => {
+            logger.warn('⚠️ Failed to send location failure message', { error: err.message, chatId });
+          });
         }
         return {
           success: false,
@@ -105,7 +101,10 @@ You must translate Hebrew names to English or keep them in Hebrew, but English i
 
       // 🚀 Send the actual location message to the user!
       if (chatId) {
-        await greenApiService.sendLocation(chatId, latitude, longitude, locationResult.description || '');
+        await greenApiService.sendLocation(chatId, latitude, longitude, locationResult.description || '').catch(err => {
+          // If main send fails, rethrow to trigger error handler
+          throw err;
+        });
       }
 
       return {
@@ -122,7 +121,10 @@ You must translate Hebrew names to English or keep them in Hebrew, but English i
       const errorMessage = err.message || 'שגיאה לא ידועה בשליחת המיקום';
       if (chatId) {
         const quotedMessageIdForError = extractQuotedMessageId({ context });
-        await greenApiService.sendTextMessage(chatId, `❌ ${errorMessage}`, quotedMessageIdForError, 1000);
+        // CRITICAL FIX: Catch error here to prevent crashing the agent loop
+        await greenApiService.sendTextMessage(chatId, `❌ ${errorMessage}`, quotedMessageIdForError, 1000).catch(sendErr => {
+          logger.error('❌ Failed to send error message to user - preventing crash', { error: sendErr.message });
+        });
       }
       return {
         success: false,

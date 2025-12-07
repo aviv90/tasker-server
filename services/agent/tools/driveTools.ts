@@ -35,43 +35,27 @@ type ToolResult = Promise<{
 export const search_google_drive = {
   declaration: {
     name: 'search_google_drive',
-    description: `כלי נסיוני: חפש מידע ומסמכים ב-Google Drive. הכלי יכול לחפש קבצים, תמונות, מסמכים ותיקיות, לחלץ טקסט מהם ולספק מידע רלוונטי.
-
-**CRITICAL RESTRICTION - זה כלי נסיוני! השתמש בו רק אם המשתמש מבקש במפורש:**
-- **חובה שהמשתמש יבקש במפורש** לחפש ב-Google Drive, במסמכים, או בקבצים
-- דוגמאות לבקשות מפורשות: "חפש ב-Google Drive", "חפש במסמכים", "מה יש בשרטוט", "מה מופיע במסמך", "תסביר את התכנית", "מה כתוב בקובץ"
-- **אל תשתמש בכלי הזה** לבקשות כלליות כמו "שלח לי קישור לשיר", "מצא מידע על X", "חפש באינטרנט" - השתמש ב-search_web במקום!
-
-**מתי להשתמש בכלי הזה (רק אם המשתמש מבקש במפורש!):**
-1. **שאלות מפורשות על שרטוטים/מסמכים/קבצים** - המשתמש מבקש במפורש מידע על שרטוט, מסמך, תכנית, קובץ, PDF שנמצא ב-Google Drive
-2. **חיפוש מפורש במסמכים** - המשתמש מבקש במפורש "חפש במסמכים", "מה כתוב במסמך X", "מצא מידע על Y בתיקייה"
-3. **חיפוש מפורש בתמונות** - המשתמש מבקש במפורש "מה יש בתמונה X", "חפש תמונות של Y"
-4. **חיפוש בתיקייה ספציפית** - המשתמש מציין במפורש תיקייה מסוימת (דוגמאות: "חפש בתיקייה X", "מה יש בתיקייה Y")
-
-**CRITICAL - מתי לא להשתמש:**
-- **אל תשתמש ב-search_google_drive לבקשות כלליות!** אם המשתמש מבקש "שלח לי קישור לשיר", "מצא מידע על X", "חפש באינטרנט" → השתמש ב-search_web!
-- **אל תשתמש ב-search_google_drive לבקשות מיקום!** אם המשתמש מבקש "שלח מיקום", "מיקום באזור X" → השתמש ב-send_location!
-- אם המשתמש מבקש ליצור משהו חדש (שיר, תמונה, וידאו) → השתמש ב-create_music/create_image/create_video
-- אם המשתמש שואל על הודעות קודמות בצ'אט (לא על קבצים ב-Drive) → השתמש ב-get_chat_history
-
-**חשוב מאוד:**
-- זה כלי נסיוני - השתמש בו רק אם המשתמש מבקש במפורש!
-- הכלי מחפש גם בשמות הקבצים וגם בתוכן הקבצים (כאשר אפשרי)
-- הכלי יכול לחלץ טקסט מתמונות, מסמכים וקבצים אחרים`,
+    description: `EXPERIMENTAL: Search Google Drive for files/docs.
+CRITICAL: Use ONLY if user explicitly asks (e.g. 'Search in Drive', 'What is in the file').
+Restrictions:
+- DO NOT use for general web search (use search_web).
+- DO NOT use for location (use send_location).
+- DO NOT use for chat history (use get_chat_history).
+Features: Searches file names and content (OCR).`,
     parameters: {
       type: 'object',
       properties: {
         query: {
           type: 'string',
-          description: 'שאילתת החיפוש (לדוגמה: "מסמכים על פרויקט X", "תמונות של פגישה", "מידע על לקוח Y")'
+          description: 'Search query (e.g. "project plan", "meeting notes")'
         },
         folder_id: {
           type: 'string',
-          description: 'מזהה התיקייה הספציפית לחיפוש (אופציונלי). אם לא צוין, יחפש בכל ה-Drive.'
+          description: 'Specific folder ID (optional). If not specified, searches entire Drive.'
         },
         max_results: {
           type: 'number',
-          description: 'מספר מקסימלי של קבצים לחזור (ברירת מחדל: 5)'
+          description: 'Max results to return (default: 5)'
         }
       },
       required: ['query']
@@ -116,31 +100,31 @@ export const search_google_drive = {
       const formattedResults = result.results.map((item: { file: { name: string; mimeType: string; modifiedTime?: string; size?: string; webViewLink?: string }; extractedText?: string; relevance?: string }, index: number) => {
         const file = item.file;
         let text = `\n${index + 1}. **${file.name}** (${file.mimeType})`;
-        
+
         if (file.modifiedTime) {
           const date = new Date(file.modifiedTime);
           text += `\n   📅 עודכן לאחרונה: ${date.toLocaleDateString('he-IL')}`;
         }
-        
+
         if (file.size) {
           const sizeMB = (parseInt(file.size) / (1024 * 1024)).toFixed(2);
           text += `\n   📦 גודל: ${sizeMB} MB`;
         }
-        
+
         if (file.webViewLink) {
           text += `\n   🔗 קישור: ${file.webViewLink}`;
         }
-        
+
         if (item.extractedText) {
           // Limit extracted text length
-          const preview = item.extractedText.length > 500 
+          const preview = item.extractedText.length > 500
             ? item.extractedText.substring(0, 500) + '...'
             : item.extractedText;
           text += `\n   📄 תוכן:\n   ${preview}`;
         } else if (item.relevance === 'failed') {
           text += `\n   ⚠️ לא ניתן לחלץ טקסט מהקובץ`;
         }
-        
+
         return text;
       }).join('\n');
 
@@ -155,7 +139,7 @@ export const search_google_drive = {
     } catch (error) {
       const err = error as Error;
       logger.error('❌ Error in search_google_drive tool:', { error: err.message, stack: err.stack });
-      
+
       // Check for authentication errors
       if (err.message.includes('invalid_grant') || err.message.includes('unauthorized') || err.message.includes('OAuth')) {
         return {
@@ -163,7 +147,7 @@ export const search_google_drive = {
           error: 'נדרש אימות מחדש ל-Google Drive. אנא ודא שה-GOOGLE_DRIVE_REFRESH_TOKEN מוגדר נכון.'
         };
       }
-      
+
       return {
         success: false,
         error: ERROR.searchDrive(err.message)
