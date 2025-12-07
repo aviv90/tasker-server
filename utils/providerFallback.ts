@@ -15,17 +15,7 @@ import logger from './logger';
 import { circuitBreakerManager } from './circuitBreaker';
 import { TIME } from './constants';
 
-/**
- * Agent context structure
- */
-interface AgentContext {
-  chatId?: string;
-  originalInput?: {
-    originalMessageId?: string;
-    audioAlreadyTranscribed?: boolean;
-  };
-  [key: string]: unknown;
-}
+import { AgentContextState } from '../services/agent/types';
 
 /**
  * Provider fallback options
@@ -34,7 +24,7 @@ export interface ProviderFallbackOptions {
   toolName: string;
   providersToTry: string[];
   requestedProvider: string | null;
-  context: AgentContext;
+  context: AgentContextState;
 }
 
 /**
@@ -76,7 +66,7 @@ export class ProviderFallback {
   private toolName: string;
   private providersToTry: string[];
   private requestedProvider: string | null;
-  private context: AgentContext;
+  private context: AgentContextState;
   private errorStack: ProviderError[];
   private chatId: string | null;
   private greenApiService: ReturnType<typeof getServices>['greenApiService'];
@@ -96,7 +86,7 @@ export class ProviderFallback {
     this.context = context;
     this.errorStack = [];
     this.chatId = context?.chatId || null;
-    
+
     // Get services once (reused for all attempts)
     const services = getServices();
     this.greenApiService = services.greenApiService;
@@ -118,17 +108,17 @@ export class ProviderFallback {
 
     for (let idx = 0; idx < this.providersToTry.length; idx++) {
       const provider = this.providersToTry[idx];
-      
+
       if (!provider) {
         continue; // Skip empty providers
       }
-      
+
       try {
-        logger.debug(`🔄 [${this.toolName}] Trying provider: ${provider}`, { 
-          toolName: this.toolName, 
-          provider, 
+        logger.debug(`🔄 [${this.toolName}] Trying provider: ${provider}`, {
+          toolName: this.toolName,
+          provider,
           attempt: idx + 1,
-          totalProviders: this.providersToTry.length 
+          totalProviders: this.providersToTry.length
         });
 
         // Check circuit breaker (skip if open)
@@ -159,9 +149,9 @@ export class ProviderFallback {
           if (this.context?.originalInput?.audioAlreadyTranscribed) {
             skipToolsAck.push('transcribe_audio');
           }
-          await sendToolAckMessage(this.chatId, [{ 
-            name: this.toolName, 
-            args: { provider: provider, service: provider } 
+          await sendToolAckMessage(this.chatId, [{
+            name: this.toolName,
+            args: { provider: provider, service: provider }
           }], { quotedMessageId, skipToolsAck });
         }
 
@@ -200,7 +190,7 @@ export class ProviderFallback {
           await this._handleProviderError(provider, errorMessage, error);
           continue; // Skip this provider
         }
-        
+
         const errorMessage = (errorObj.message && typeof errorObj.message === 'string') ? errorObj.message : 'Unknown error';
         await this._handleProviderError(provider, errorMessage, error);
       }
@@ -216,19 +206,19 @@ export class ProviderFallback {
    */
   private async _handleProviderError(provider: string, errorMessage: string, error: unknown = null): Promise<void> {
     if (!provider || !errorMessage) return; // Skip if provider or message is empty
-    
+
     const providerName = formatProviderName(provider) || provider;
     const message = errorMessage;
-    
+
     this.errorStack.push({ provider: providerName, message });
-    
+
     logger.warn(`❌ [${this.toolName}] ${providerName} failed: ${message}`, {
       toolName: this.toolName,
       provider: providerName,
       errorMessage: message,
       chatId: this.chatId
     });
-    
+
     if (error) {
       logger.error(`❌ [${this.toolName}] ${providerName} threw error`, {
         toolName: this.toolName,
@@ -274,13 +264,13 @@ export class ProviderFallback {
     if (this.requestedProvider) {
       const failure = this.errorStack[0];
       const failureMessage = failure?.message || 'סיבה לא ידועה';
-      
+
       // Format error with provider name prefix
       const errorMessage = formatProviderError(
-        this.requestedProvider, 
+        this.requestedProvider,
         failureMessage
       );
-      
+
       return {
         success: false,
         error: errorMessage,
@@ -295,8 +285,8 @@ export class ProviderFallback {
 
     // Build context-specific error message
     const operation = this.toolName.includes('create') ? 'יצירה' : 'עריכה';
-    const assetType = this.toolName.includes('image') ? 'תמונה' : 
-                     this.toolName.includes('video') ? 'וידאו' : 'משאב';
+    const assetType = this.toolName.includes('image') ? 'תמונה' :
+      this.toolName.includes('video') ? 'וידאו' : 'משאב';
 
     return {
       success: false,

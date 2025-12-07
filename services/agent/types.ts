@@ -52,8 +52,23 @@ export interface ToolFunctionResponse {
     };
 }
 
-export interface AgentTool {
-    execute(args: unknown, context: any): Promise<ToolResult>;
+import { AgentContextState } from './execution/context';
+export { AgentContextState };
+
+export interface AgentTool<TArgs = unknown> {
+    name?: string;
+    description?: string;
+    declaration?: {
+        name: string;
+        description: string;
+        parameters: {
+            type: string;
+            properties?: Record<string, unknown>;
+            required?: string[];
+        };
+        [key: string]: unknown;
+    };
+    execute(args: TArgs, context: AgentContextState): Promise<ToolResult>;
 }
 
 export interface StepResult extends AgentResult {

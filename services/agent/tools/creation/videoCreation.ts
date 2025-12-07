@@ -12,9 +12,8 @@ import * as replicateService from '../../../replicateService';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { VIDEO_PROVIDERS, DEFAULT_VIDEO_PROVIDERS, PROVIDERS } from '../../config/constants';
 import { REQUIRED, ERROR } from '../../../../config/messages';
+import { createTool } from '../base';
 import type {
-  AgentToolContext,
-  ToolResult,
   CreateVideoArgs,
   ImageToVideoArgs,
   VideoProviderResult
@@ -23,8 +22,8 @@ import type {
 /**
  * Tool: Create Video
  */
-export const create_video = {
-  declaration: {
+export const create_video = createTool<CreateVideoArgs>(
+  {
     name: 'create_video',
     description: 'Create a video from text description. Supports Veo3 (Google), Sora (OpenAI), Kling (default).',
     parameters: {
@@ -47,11 +46,11 @@ export const create_video = {
       reason: 'Keep history to support "make it longer" or "change style" requests based on previous generation.'
     }
   },
-  execute: async (args: CreateVideoArgs = {}, context: AgentToolContext = {}): ToolResult => {
+  async (args, context) => {
     logger.debug(`🔧 [Agent Tool] create_video called with provider: ${args.provider || PROVIDERS.VIDEO.KLING}`, {
       prompt: args.prompt?.substring(0, 100),
       provider: args.provider || PROVIDERS.VIDEO.KLING,
-      chatId: context?.chatId
+      chatId: context.chatId
     });
 
     try {
@@ -65,14 +64,14 @@ export const create_video = {
       const { geminiService, openaiService } = getServices();
       const prompt = args.prompt.trim();
       const requestedProvider = args.provider || null;
-      // If user requested a specific provider, only try that one (no fallback)
-      // If no provider specified (default), try all providers with fallback
+
       const providersToTry = requestedProvider
         ? [requestedProvider]
         : [...DEFAULT_VIDEO_PROVIDERS];
+
+      // Update expected media type in context
       context.expectedMediaType = 'video';
 
-      // Use ProviderFallback utility for DRY code
       const fallback = new ProviderFallback({
         toolName: 'create_video',
         providersToTry,
@@ -131,7 +130,6 @@ export const create_video = {
           ? formattedVideoProviderName
           : videoProviderKey;
 
-      // Extract caption from video result (description or revisedPrompt)
       let caption = videoResult.description || videoResult.revisedPrompt || videoResult.caption || '';
       if (caption) {
         caption = cleanMarkdown(caption);
@@ -150,7 +148,7 @@ export const create_video = {
         ...formatErrorForLogging(error),
         prompt: args.prompt?.substring(0, 100),
         provider: args.provider,
-        chatId: context?.chatId
+        chatId: context.chatId
       });
       return {
         success: false,
@@ -158,13 +156,13 @@ export const create_video = {
       };
     }
   }
-};
+);
 
 /**
  * Tool: Image to Video
  */
-export const image_to_video = {
-  declaration: {
+export const image_to_video = createTool<ImageToVideoArgs>(
+  {
     name: 'image_to_video',
     description: 'Convert/Animate an image to video. USE THIS when user says "image to video", "animate", or specifies provider. CRITICAL: If prompt contains "Use this image_url parameter directly", extract URL from there!',
     parameters: {
@@ -187,12 +185,12 @@ export const image_to_video = {
       required: ['image_url', 'prompt']
     }
   },
-  execute: async (args: ImageToVideoArgs = {}, context: AgentToolContext = {}): ToolResult => {
+  async (args, context) => {
     logger.debug(`🔧 [Agent Tool] image_to_video called`, {
       imageUrl: args.image_url?.substring(0, 50),
       prompt: args.prompt?.substring(0, 100),
       provider: args.provider || PROVIDERS.VIDEO.KLING,
-      chatId: context?.chatId
+      chatId: context.chatId
     });
 
     try {
@@ -215,17 +213,12 @@ export const image_to_video = {
       const imageUrl = args.image_url;
       const prompt = args.prompt.trim();
 
-      // CRITICAL: All providers need imageBuffer (not URL)!
-      // Download the image once, then pass to provider
       const imageBuffer = await greenApiService.downloadFile(imageUrl);
 
-      // If user requested a specific provider, only try that one (no fallback)
-      // If no provider specified (default), try all providers with fallback
       const providersToTry = requestedProvider
         ? [requestedProvider]
         : [...DEFAULT_VIDEO_PROVIDERS];
 
-      // Use ProviderFallback utility for DRY code
       const fallback = new ProviderFallback({
         toolName: 'image_to_video',
         providersToTry,
@@ -246,7 +239,6 @@ export const image_to_video = {
             { model }
           )) as VideoProviderResult & { error?: string };
         } else {
-          // Kling also needs imageBuffer
           result = (await replicateService.generateVideoFromImageForWhatsApp(imageBuffer, prompt)) as VideoProviderResult & { error?: string };
         }
 
@@ -295,7 +287,7 @@ export const image_to_video = {
         imageUrl: args.image_url?.substring(0, 50),
         prompt: args.prompt?.substring(0, 100),
         provider: args.provider,
-        chatId: context?.chatId
+        chatId: context.chatId
       });
       return {
         success: false,
@@ -303,5 +295,5 @@ export const image_to_video = {
       };
     }
   }
-};
+);
 

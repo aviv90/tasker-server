@@ -2,16 +2,18 @@
 import * as googleFlights from '../../../serpApi/googleFlights';
 import logger from '../../../../utils/logger';
 
-interface ToolResult {
-    success: boolean;
-    data?: string;
-    error?: string;
-    flightResult?: googleFlights.FlightOffer;
-    [key: string]: unknown;
+import { createTool } from '../base';
+
+interface FlightArgs {
+    origin: string;
+    destination?: string;
+    date?: string;
+    return_date?: string;
+    max_stops?: number;
 }
 
-export const random_flight = {
-    declaration: {
+export const random_flight = createTool<FlightArgs>(
+    {
         name: 'random_flight',
         description: 'Find a flight from a specific origin to a destination (optional). Supports specific dates or date ranges. If a range is given (e.g. "between 2nd and 5th"), use the start date as the flight date.',
         parameters: {
@@ -41,8 +43,7 @@ export const random_flight = {
             required: ['origin']
         }
     },
-    // ... historyContext ...
-    execute: async (args: { origin: string; destination?: string; date?: string; return_date?: string; max_stops?: number }, _context: unknown): Promise<ToolResult> => {
+    async (args) => {
         // Default date to tomorrow if not provided
         let targetDate = args.date;
         if (!targetDate) {
@@ -105,15 +106,18 @@ export const random_flight = {
             return {
                 success: true,
                 data: message,
+                // flightResult property is not in standard ToolResult, but we can verify if we need to extend ToolResult or put it in data
+                // For now, ToolResult in types.ts has [key: string]: unknown, so it should be fine.
                 flightResult: offer
             };
 
-        } catch (error: any) {
-            logger.error('❌ Error in random_flight tool:', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            logger.error('❌ Error in random_flight tool:', err.message);
             return {
                 success: false,
-                error: error.message
+                error: err.message
             };
         }
     }
-};
+);

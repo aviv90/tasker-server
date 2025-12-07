@@ -17,6 +17,7 @@ import { allTools as agentTools } from '../tools';
 import { cleanJsonWrapper } from '../../../utils/textSanitizer';
 import logger from '../../../utils/logger';
 import { StepResult, ToolResult } from '../types';
+import agentContext from './context';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -155,8 +156,10 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
           continue;
         }
 
-        // Execute with proper context (chatId needed for some tools)
-        const toolResult = await toolFunction.execute(toolArgs, { chatId }) as ToolResult;
+
+        // Execute with proper context
+        const stepContext = agentContext.createInitialContext(chatId);
+        const toolResult = await toolFunction.execute(toolArgs, stepContext) as ToolResult;
         functionResponses.push({
           name: toolName,
           response: toolResult

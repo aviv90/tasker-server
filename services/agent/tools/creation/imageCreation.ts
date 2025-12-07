@@ -1,8 +1,3 @@
-/**
- * Image Creation Tool
- * Clean, modular tool definition following SOLID principles
- */
-
 import { formatProviderName } from '../../utils/providerUtils';
 import { getServices } from '../../utils/serviceLoader';
 import { cleanMarkdown } from '../../../../utils/textSanitizer';
@@ -11,18 +6,14 @@ import logger from '../../../../utils/logger';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { IMAGE_PROVIDERS, DEFAULT_IMAGE_PROVIDERS, PROVIDERS } from '../../config/constants';
 import { REQUIRED, ERROR } from '../../../../config/messages';
-import type {
-  AgentToolContext,
-  ToolResult,
-  CreateImageArgs,
-  ImageProviderResult
-} from './types';
+import { createTool } from '../base';
+import type { CreateImageArgs, ImageProviderResult } from './types';
 
 /**
  * Tool: Create Image
  */
-export const create_image = {
-  declaration: {
+export const create_image = createTool<CreateImageArgs>(
+  {
     name: 'create_image',
     description: 'Create a new image. Default provider: Gemini. Use "provider" arg for others. Important: Do NOT use this for WhatsApp group icons - use create_group instead.',
     parameters: {
@@ -45,11 +36,11 @@ export const create_image = {
       reason: 'Keep history for context like "similar to the last one".'
     }
   },
-  execute: async (args: CreateImageArgs = {}, context: AgentToolContext = {}): ToolResult => {
+  async (args, context) => {
     logger.debug(`🔧 [Agent Tool] create_image called`, {
       prompt: args.prompt?.substring(0, 100),
       provider: args.provider,
-      chatId: context?.chatId
+      chatId: context.chatId
     });
 
     try {
@@ -60,7 +51,7 @@ export const create_image = {
         };
       }
 
-      if (context?.expectedMediaType === 'video') {
+      if (context.expectedMediaType === 'video') {
         return {
           success: false,
           error: 'התבקשת ליצור וידאו, לא תמונה. בחר ספק וידאו מתאים או נסה שוב.'
@@ -68,14 +59,11 @@ export const create_image = {
       }
 
       const requestedProvider = args.provider ?? null;
-      // If user requested a specific provider, only try that one (no fallback)
-      // If no provider specified (default), try all providers with fallback
       const providersToTry = requestedProvider
         ? [requestedProvider]
         : [...DEFAULT_IMAGE_PROVIDERS];
       const { geminiService, openaiService, grokService } = getServices();
 
-      // Use ProviderFallback utility for DRY code
       const fallback = new ProviderFallback({
         toolName: 'create_image',
         providersToTry,
@@ -155,7 +143,7 @@ export const create_image = {
         ...formatErrorForLogging(error),
         prompt: args.prompt?.substring(0, 100),
         provider: args.provider,
-        chatId: context?.chatId
+        chatId: context.chatId
       });
       return {
         success: false,
@@ -163,5 +151,5 @@ export const create_image = {
       };
     }
   }
-};
+);
 

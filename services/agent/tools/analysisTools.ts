@@ -5,6 +5,7 @@
 import { getServices } from '../utils/serviceLoader';
 import logger from '../../../utils/logger';
 import { FAILED, ERROR } from '../../../config/messages';
+import { createTool } from './base';
 
 type AnalyzeArgs = {
   image_url?: string;
@@ -12,15 +13,8 @@ type AnalyzeArgs = {
   question: string;
 };
 
-type ToolResult = Promise<{
-  success: boolean;
-  data?: string;
-  analysis?: string;
-  error?: string;
-}>;
-
-export const analyze_image = {
-  declaration: {
+export const analyze_image = createTool<AnalyzeArgs>(
+  {
     name: 'analyze_image',
     description: 'Analyze an image from a direct URL. Use this if an input image URL is provided. For chat history images, use analyze_image_from_history.',
     parameters: {
@@ -38,7 +32,7 @@ export const analyze_image = {
       required: ['image_url', 'question']
     }
   },
-  execute: async (args: AnalyzeArgs): ToolResult => {
+  async (args) => {
     logger.debug(`🔧 [Agent Tool] analyze_image called with image_url: ${args.image_url?.substring(0, 60)}...`);
 
     let imageBuffer: Buffer | null = null;
@@ -79,10 +73,10 @@ export const analyze_image = {
       };
     }
   }
-};
+);
 
-export const analyze_video = {
-  declaration: {
+export const analyze_video = createTool<AnalyzeArgs>(
+  {
     name: 'analyze_video',
     description: 'Analyze a video from a direct URL. Use this if an input video URL is provided.',
     parameters: {
@@ -100,7 +94,7 @@ export const analyze_video = {
       required: ['video_url', 'question']
     }
   },
-  execute: async (args: AnalyzeArgs): ToolResult => {
+  async (args) => {
     logger.debug('🔧 [Agent Tool] analyze_video called');
 
     try {
@@ -136,7 +130,7 @@ export const analyze_video = {
       };
     }
   }
-};
+);
 
 export default {
   analyze_image,

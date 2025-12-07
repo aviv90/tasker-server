@@ -10,27 +10,7 @@ import logger from '../../../utils/logger';
 import * as replicateService from '../../replicateService';
 import { formatErrorForLogging } from '../../../utils/errorHandler';
 import { REQUIRED, ERROR } from '../../../config/messages';
-
-type AgentToolContext = {
-  chatId?: string;
-  originalInput?: {
-    userText?: string;
-    language?: string;
-    originalMessageId?: string;
-  };
-  normalized?: {
-    text?: string;
-    language?: string;
-  };
-  [key: string]: unknown;
-};
-
-type CommonToolResult = Promise<{
-  success: boolean;
-  data?: string;
-  error?: string;
-  [key: string]: unknown;
-}>;
+import { createTool } from './base';
 
 type EditImageArgs = {
   image_url?: string;
@@ -57,8 +37,8 @@ type VideoEditResult = ProviderResult & {
 /**
  * Tool: Edit Image
  */
-export const edit_image = {
-  declaration: {
+export const edit_image = createTool<EditImageArgs>(
+  {
     name: 'edit_image',
     description: 'Edit an existing image. CRITICAL: If prompt contains "Use this image_url parameter directly", extract URL from there!',
     parameters: {
@@ -81,12 +61,12 @@ export const edit_image = {
       required: ['image_url', 'edit_instruction']
     }
   },
-  execute: async (args: EditImageArgs = {}, context: AgentToolContext = {}): CommonToolResult => {
+  async (args, context) => {
     logger.debug(`🔧 [Agent Tool] edit_image called`, {
       imageUrl: args.image_url?.substring(0, 50),
       editInstruction: args.edit_instruction?.substring(0, 100),
       service: args.service,
-      chatId: context?.chatId
+      chatId: context.chatId
     });
 
     try {
@@ -169,7 +149,7 @@ export const edit_image = {
         imageUrl: args.image_url?.substring(0, 50),
         editInstruction: args.edit_instruction?.substring(0, 100),
         service: args.service,
-        chatId: context?.chatId
+        chatId: context.chatId
       });
       return {
         success: false,
@@ -177,13 +157,13 @@ export const edit_image = {
       };
     }
   }
-};
+);
 
 /**
  * Tool: Edit Video
  */
-export const edit_video = {
-  declaration: {
+export const edit_video = createTool<EditVideoArgs>(
+  {
     name: 'edit_video',
     description:
       'Edit an existing video. CRITICAL: If prompt contains "Use this video_url parameter directly", extract URL from there!',
@@ -203,11 +183,11 @@ export const edit_video = {
       required: ['video_url', 'edit_instruction']
     }
   },
-  execute: async (args: EditVideoArgs = {}, context: AgentToolContext = {}): CommonToolResult => {
+  async (args, context) => {
     logger.debug(`🔧 [Agent Tool] edit_video called`, {
       videoUrl: args.video_url?.substring(0, 50),
       editInstruction: args.edit_instruction?.substring(0, 100),
-      chatId: context?.chatId
+      chatId: context.chatId
     });
 
     try {
@@ -279,7 +259,7 @@ export const edit_video = {
         ...formatErrorForLogging(error),
         videoUrl: args.video_url?.substring(0, 50),
         editInstruction: args.edit_instruction?.substring(0, 100),
-        chatId: context?.chatId
+        chatId: context.chatId
       });
       return {
         success: false,
@@ -287,8 +267,5 @@ export const edit_video = {
       };
     }
   }
-};
-
-// ES6 exports only - CommonJS not needed in TypeScript
-export default { edit_image, edit_video };
+);
 

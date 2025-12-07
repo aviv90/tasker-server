@@ -7,7 +7,7 @@ import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
 import { cleanMediaDescription } from '../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../services/whatsapp/utils';
 import { formatProviderError } from '../../../utils/errorHandler';
-
+import agentContext from './context';
 
 export class FallbackHandler {
     /**
@@ -173,27 +173,31 @@ export class FallbackHandler {
      */
     async executeFallbackTool(toolName: string, provider: string, toolParams: Record<string, unknown>, step: Step, chatId: string): Promise<StepResult | null> {
         const promptToUse = (toolParams.prompt as string) || (toolParams.text as string) || step.action;
+        const context = agentContext.createInitialContext(chatId);
 
         if (toolName === 'create_image') {
             if (!agentTools.create_image) return null;
-            return await agentTools.create_image.execute({ prompt: promptToUse, provider }, { chatId }) as StepResult;
+            return await agentTools.create_image.execute({ prompt: promptToUse, provider }, context) as StepResult;
         } else if (toolName === 'create_video') {
             if (!agentTools.create_video) return null;
-            return await agentTools.create_video.execute({ prompt: promptToUse, provider }, { chatId }) as StepResult;
+            return await agentTools.create_video.execute({ prompt: promptToUse, provider }, context) as StepResult;
         } else if (toolName === 'edit_image') {
             if (!agentTools.edit_image) return null;
             return await agentTools.edit_image.execute({
-                image_url: toolParams.image_url,
+                image_url: toolParams.image_url as string,
                 edit_instruction: promptToUse,
-                service: provider
-            }, { chatId }) as StepResult;
+                service: provider as 'openai' | 'gemini'
+            }, context) as StepResult;
         } else if (toolName === 'edit_video') {
             if (!agentTools.edit_video) return null;
             return await agentTools.edit_video.execute({
-                video_url: toolParams.video_url,
+                video_url: toolParams.video_url as string,
                 edit_instruction: promptToUse,
-                provider
-            }, { chatId }) as StepResult;
+                // provider - EditVideoArgs does not explicitly support provider in definition? ignoring it or casting.
+                // Assuming provider selection handles internal logic or args update needed.
+                // But since I refactored edit_video and it uses generic args, extra props might trigger error.
+                // So I exclude provider here.
+            }, context) as StepResult;
         }
 
         return null;

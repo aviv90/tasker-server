@@ -1,25 +1,28 @@
-/**
- * Music Creation Tool
- * Clean, modular tool definition following SOLID principles
- */
-
 import logger from '../../../../utils/logger';
 import { extractCommandPrompt } from '../../../../utils/commandUtils';
 import { generateMusicWithLyrics } from '../../../musicService';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { REQUIRED, FAILED, ERROR } from '../../../../config/messages';
+import { createTool } from '../base';
 import type {
-  AgentToolContext,
-  ToolResult,
   CreateMusicArgs,
   MusicGenerationResponse
 } from './types';
 
+interface SenderData {
+  senderId?: string;
+  sender?: string;
+  senderName?: string;
+  senderContactName?: string;
+  chatName?: string;
+  [key: string]: unknown;
+}
+
 /**
  * Tool: Create Music
  */
-export const create_music = {
-  declaration: {
+export const create_music = createTool<CreateMusicArgs>(
+  {
     name: 'create_music',
     description: `Create a new song/music from scratch using Suno AI (lyrics + melody).
 WHEN TO USE: 'create song', 'make music', 'song with melody'.
@@ -39,7 +42,7 @@ WHEN *NOT* TO USE: 'write song lyrics' (use text generation - just write it), 'l
       required: ['prompt']
     }
   },
-  execute: async (args: CreateMusicArgs = {}, context: AgentToolContext = {}): ToolResult => {
+  async (args, context) => {
     logger.debug(`🔧 [Agent Tool] create_music called`);
 
     try {
@@ -56,7 +59,7 @@ WHEN *NOT* TO USE: 'write song lyrics' (use text generation - just write it), 'l
       const cleanPrompt = args.prompt || cleanedOriginal || '';
       const wantsVideo = Boolean(args.make_video);
 
-      const senderData = context.originalInput?.senderData || {};
+      const senderData = (context.originalInput?.senderData as SenderData) || {};
       const whatsappContext = context.chatId
         ? {
           chatId: context.chatId,
@@ -100,7 +103,7 @@ WHEN *NOT* TO USE: 'write song lyrics' (use text generation - just write it), 'l
         ...formatErrorForLogging(error),
         prompt: args.prompt?.substring(0, 100),
         makeVideo: args.make_video,
-        chatId: context?.chatId
+        chatId: context.chatId
       });
       return {
         success: false,
@@ -108,5 +111,5 @@ WHEN *NOT* TO USE: 'write song lyrics' (use text generation - just write it), 'l
       };
     }
   }
-};
+);
 

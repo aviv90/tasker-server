@@ -22,6 +22,11 @@ import * as schedulingTools from './schedulingTools';
 import * as flightTools from './flight/flightTools';
 import * as shoppingTools from './shoppingTools';
 import fallbackTools from './meta/fallbackTools';
+// Missing modules commented out
+// import * as metaTools from './meta/metaTools'; 
+// import * as utilityTools from './utilityTools';
+// import * as reminderTools from './reminderTools';
+// import * as storageTools from './storageTools';
 
 // Re-export specific functions for individual use
 export const {
@@ -96,115 +101,106 @@ export const {
   retry_with_different_provider
 } = fallbackTools;
 
-/**
- * Tool declaration interface
- */
-export interface ToolDeclaration {
-  name: string;
-  description: string;
-  parameters: {
-    type: string;
-    properties?: Record<string, unknown>;
-    required?: string[];
-  };
-  historyContext?: {
-    ignore: boolean;
-    reason: string;
-  };
-}
-
-/**
- * Tool interface
- */
-export interface Tool {
-  declaration: ToolDeclaration;
-  execute: (args: unknown, context: unknown) => Promise<unknown>;
-}
+import { AgentTool } from '../types';
 
 /**
  * All Agent Tools - Complete collection
  * Organized by category for easy reference
  */
-export const allTools: Record<string, Tool> = {
+export const allTools: Record<string, AgentTool> = {
   // Context & Memory
-  get_chat_history: contextTools.get_chat_history as unknown as Tool,
-  analyze_image_from_history: contextTools.analyze_image_from_history as unknown as Tool,
-  save_user_preference: contextTools.save_user_preference as unknown as Tool,
-  get_long_term_memory: contextTools.get_long_term_memory as unknown as Tool,
+  get_chat_history: contextTools.get_chat_history as unknown as AgentTool,
+  analyze_image_from_history: contextTools.analyze_image_from_history as unknown as AgentTool,
+  save_user_preference: contextTools.save_user_preference as unknown as AgentTool,
+  get_long_term_memory: contextTools.get_long_term_memory as unknown as AgentTool,
 
   // Creation
-  create_image: creationTools.create_image as unknown as Tool,
-  create_video: creationTools.create_video as unknown as Tool,
-  image_to_video: creationTools.image_to_video as unknown as Tool,
-  create_music: creationTools.create_music as unknown as Tool,
-  create_poll: creationTools.create_poll as unknown as Tool,
+  create_image: creationTools.create_image,
+  create_video: creationTools.create_video,
+  image_to_video: creationTools.image_to_video,
+  create_music: creationTools.create_music,
+  create_poll: creationTools.create_poll,
 
   // Shopping
-  random_amazon_product: shoppingTools.random_amazon_product as unknown as Tool,
-
+  random_amazon_product: shoppingTools.random_amazon_product as unknown as AgentTool,
+  // search_products: shoppingTools.search_products as unknown as AgentTool, // Missing
+  // search_products_v2: shoppingTools.search_products_v2 as unknown as AgentTool, // Missing
 
   // Analysis
-  analyze_image: analysisTools.analyze_image as unknown as Tool,
-  analyze_video: analysisTools.analyze_video as unknown as Tool,
+  analyze_image: analysisTools.analyze_image,
+  analyze_video: analysisTools.analyze_video,
 
   // Editing
-  edit_image: editingTools.edit_image as unknown as Tool,
-  edit_video: editingTools.edit_video as unknown as Tool,
+  edit_image: editingTools.edit_image,
+  edit_video: editingTools.edit_video,
+
+  // Utils
+  // add_group_members: groupTools.add_group_members as unknown as AgentTool, // Missing
+  // reminder: reminderTools.reminder as unknown as AgentTool, // Missing
+  // remove_bg: utilityTools.remove_bg as unknown as AgentTool, // Missing
 
   // Audio & Voice
-  transcribe_audio: audioTools.transcribe_audio as unknown as Tool,
-  text_to_speech: audioTools.text_to_speech as unknown as Tool,
-  voice_clone_and_speak: audioTools.voice_clone_and_speak as unknown as Tool,
-  creative_audio_mix: audioTools.creative_audio_mix as unknown as Tool,
-  translate_text: audioTools.translate_text as unknown as Tool,
-  translate_and_speak: audioTools.translate_and_speak as unknown as Tool,
+  transcribe_audio: audioTools.transcribe_audio as unknown as AgentTool,
+  text_to_speech: audioTools.text_to_speech as unknown as AgentTool,
+  voice_clone_and_speak: audioTools.voice_clone_and_speak as unknown as AgentTool,
+  creative_audio_mix: audioTools.creative_audio_mix as unknown as AgentTool,
+  translate_text: audioTools.translate_text as unknown as AgentTool,
+  translate_and_speak: audioTools.translate_and_speak as unknown as AgentTool,
+  // record_voice: audioTools.record_voice as unknown as AgentTool, // Check if this exists
 
   // Search & Info
-  search_web: searchTools.search_web as unknown as Tool,
-  search_google_drive: driveTools.search_google_drive as unknown as Tool,
-  chat_summary: summaryTools.chat_summary as unknown as Tool,
+  search_web: searchTools.search_web as unknown as AgentTool,
+  // deep_research: searchTools.deep_research as unknown as AgentTool, // Missing
+  search_google_drive: driveTools.search_google_drive as unknown as AgentTool,
+  chat_summary: summaryTools.chat_summary as unknown as AgentTool,
+
+  // Storage
+  // upload_file: storageTools.upload_file as unknown as AgentTool, // Missing
+  // file_search: storageTools.file_search as unknown as AgentTool, // Missing
 
   // Location & Social
-  send_location: locationTools.send_location as unknown as Tool,
-  create_group: groupTools.create_group as unknown as Tool,
+  send_location: locationTools.send_location as unknown as AgentTool,
+  create_group: groupTools.create_group as unknown as AgentTool,
 
   // Meta & Retry
-  retry_last_command: retryTools.retry_last_command as unknown as Tool,
-  smart_execute_with_fallback: fallbackTools.smart_execute_with_fallback as unknown as Tool,
-  retry_with_different_provider: fallbackTools.retry_with_different_provider as unknown as Tool,
+  retry_last_command: retryTools.retry_last_command as unknown as AgentTool,
+  smart_execute_with_fallback: fallbackTools.smart_execute_with_fallback as unknown as AgentTool,
+  retry_with_different_provider: fallbackTools.retry_with_different_provider as unknown as AgentTool,
+  // self_update: metaTools.self_update as unknown as AgentTool, // Missing
+  // agent_chat: metaTools.agent_chat as unknown as AgentTool, // Missing
 
   // Scheduling
-  schedule_message: schedulingTools.schedule_message as unknown as Tool,
+  schedule_message: schedulingTools.schedule_message as unknown as AgentTool,
 
   // Flight
-  random_flight: flightTools.random_flight as unknown as Tool
+  random_flight: flightTools.random_flight
 };
 
 // Initialize retry tools with reference to all tools
-retryTools.setAgentToolsReference(allTools);
+retryTools.setAgentToolsReference(allTools as unknown as Record<string, { execute: (args: unknown, context: unknown) => Promise<unknown> }>);
 
 /**
  * Get tool declarations for Gemini Function Calling
- * @returns {ToolDeclaration[]} Array of tool declarations
+ * @returns {Array<any>} Array of tool declarations
  */
-export function getToolDeclarations(): ToolDeclaration[] {
+export function getToolDeclarations(): { name: string; description: string; parameters: unknown }[] {
   return Object.values(allTools)
-    .filter((tool): tool is Tool => tool !== null && tool !== undefined && typeof tool === 'object' && 'declaration' in tool)
+    .filter((tool): tool is AgentTool => tool !== null && tool !== undefined && typeof tool === 'object' && 'declaration' in tool && !!tool.declaration)
     .map(tool => {
       // Create a shallow copy to avoid mutating the original
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { historyContext, ...declaration } = tool.declaration;
-      return declaration;
+      const { historyContext, ...declaration } = (tool.declaration || {}) as any;
+      return declaration as { name: string; description: string; parameters: unknown };
     });
 }
 
 /**
  * Get tool by name
  * @param {string} name - Tool name
- * @returns {Tool | null} Tool object or null if not found
+ * @returns {AgentTool | null} Tool object or null if not found
  */
-export function getToolByName(name: string): Tool | null {
-  return (allTools[name] as Tool) || null;
+export function getToolByName(name: string): AgentTool | null {
+  return (allTools[name] as AgentTool) || null;
 }
 
 /**

@@ -1,23 +1,22 @@
-/**
- * Poll Creation Tool
- * Clean, modular tool definition following SOLID principles
- */
-
 import { getServices } from '../../utils/serviceLoader';
 import logger from '../../../../utils/logger';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { REQUIRED, ERROR } from '../../../../config/messages';
-import type {
-  AgentToolContext,
-  ToolResult,
-  CreatePollArgs
-} from './types';
+import { createTool } from '../base';
+import type { CreatePollArgs } from './types';
+
+interface PollData {
+  error?: string;
+  question?: string;
+  options?: string[];
+  [key: string]: unknown;
+}
 
 /**
  * Tool: Create Poll
  */
-export const create_poll = {
-  declaration: {
+export const create_poll = createTool<CreatePollArgs>(
+  {
     name: 'create_poll',
     description: 'Create a creative poll with question and answers. Supports rhyming!',
     parameters: {
@@ -35,7 +34,7 @@ export const create_poll = {
       required: ['topic']
     }
   },
-  execute: async (args: CreatePollArgs = {}, context: AgentToolContext = {}): ToolResult => {
+  async (args, context) => {
     logger.debug(`🔧 [Agent Tool] create_poll called with topic: ${args.topic}, with_rhyme: ${args.with_rhyme !== false}`);
 
     try {
@@ -50,10 +49,10 @@ export const create_poll = {
 
       // Default to true (with rhyme) if not specified
       const withRhyme = args.with_rhyme !== false;
-      const language = context?.originalInput?.language || context?.normalized?.language || 'he';
+      const language = context.originalInput?.language || 'he';
 
       // Fix: cast pollData to expected type
-      const pollData = (await geminiService.generateCreativePoll(args.topic, withRhyme, language)) as { error?: string; question?: string; options?: string[] };
+      const pollData = (await geminiService.generateCreativePoll(args.topic, withRhyme, language)) as PollData;
 
       if (pollData.error) {
         return {
@@ -64,19 +63,32 @@ export const create_poll = {
         };
       }
 
+      // Ensure pollData matches what ToolResult expects for 'poll'
+      // ToolResult expects { question: string; options: string[] }
+      if (!pollData.question || !pollData.options) {
+        return {
+          success: false,
+          error: 'Poll generation returned incomplete data'
+        };
+      }
+
+      const validPoll = {
+        question: pollData.question,
+        options: pollData.options
+      };
+
       return {
         success: true,
         data: language === 'he'
           ? `✅ הסקר נוצר${withRhyme ? ' עם חרוזים' : ' בלי חרוזים'}!`
           : `✅ Poll generated${withRhyme ? ' with rhymes' : ' without rhymes'}!`,
-        poll: pollData
+        poll: validPoll
       };
     } catch (error) {
       logger.error('❌ Error in create_poll', {
         ...formatErrorForLogging(error),
         topic: args.topic?.substring(0, 100),
-        options: args.options,
-        chatId: context?.chatId
+        chatId: context.chatId
       });
       return {
         success: false,
@@ -84,5 +96,5 @@ export const create_poll = {
       };
     }
   }
-};
+);
 
