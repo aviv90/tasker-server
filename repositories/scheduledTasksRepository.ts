@@ -24,6 +24,46 @@ class ScheduledTasksRepository {
     }
 
     /**
+     * Check for similar pending task (Idempotency)
+     */
+    async findSimilarPending(chatId: string, content: string, scheduledAt: Date, toleranceMs: number = 2000): Promise<ScheduledTask | null> {
+        const client = await this.pool.connect();
+        try {
+            // Check for tasks with same chatId, same content, and similar time (+/- tolerance)
+            // AND are 'pending'
+            const result = await client.query(`
+                SELECT id, chat_id, content, scheduled_at, status, created_at
+                FROM scheduled_tasks
+                WHERE chat_id = $1 
+                AND content = $2 
+                AND status = 'pending'
+                AND scheduled_at >= $3 
+                AND scheduled_at <= $4
+                LIMIT 1
+            `, [
+                chatId,
+                content,
+                new Date(scheduledAt.getTime() - toleranceMs),
+                new Date(scheduledAt.getTime() + toleranceMs)
+            ]);
+
+            if (result.rows.length === 0) return null;
+
+            const row = result.rows[0];
+            return {
+                id: row.id,
+                chatId: row.chat_id,
+                content: row.content,
+                scheduledAt: row.scheduled_at,
+                status: row.status,
+                createdAt: row.created_at
+            };
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
      * Create a new scheduled task
      */
     async create(chatId: string, content: string, scheduledAt: Date): Promise<ScheduledTask> {

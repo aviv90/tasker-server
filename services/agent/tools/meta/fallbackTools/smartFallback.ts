@@ -119,6 +119,10 @@ const smartExecuteWithFallback = {
       for (const provider of providers) {
         logger.info(`   → Attempting with ${provider}...`);
 
+        // Send Ack to user
+        const ackMessage = `🔄 מנסה עם ${helpers.formatProviderName(provider)}...`;
+        await helpers.sendFallbackAck(context, ackMessage);
+
         try {
           if (args.task_type === 'image_creation') {
             // Image generation with different providers
@@ -206,6 +210,8 @@ const smartExecuteWithFallback = {
         } catch (e) {
           const error = e as Error;
           logger.warn(`   ✗ ${provider} failed: ${error.message}`);
+
+          await helpers.sendFallbackError(context, `❌ ${helpers.formatProviderName(provider)} נכשל: ${error.message}`);
         }
       }
 
@@ -216,6 +222,9 @@ const smartExecuteWithFallback = {
       if (simplifiedPrompt && simplifiedPrompt !== args.original_prompt) {
         logger.info(`   → Original: "${args.original_prompt}"`);
         logger.info(`   → Simplified: "${simplifiedPrompt}"`);
+
+        // Send Ack
+        await helpers.sendFallbackAck(context, `📝 מנסה לפשט את הבקשה...`);
 
         try {
           if (args.task_type === 'image_creation') {
@@ -268,6 +277,7 @@ const smartExecuteWithFallback = {
         } catch (e) {
           const error = e as Error;
           logger.warn(`   ✗ Simplified prompt failed: ${error.message}`);
+          await helpers.sendFallbackError(context, `❌ פישוט הבקשה נכשל: ${error.message}`);
         }
       }
 
@@ -278,6 +288,9 @@ const smartExecuteWithFallback = {
 
         if (genericPrompt && genericPrompt !== args.original_prompt) {
           logger.info(`   → Generic version: "${genericPrompt}"`);
+
+          // Send Ack
+          await helpers.sendFallbackAck(context, `Generalizing request... 🔄`);
 
           if (args.task_type === 'image_creation') {
             const imageResult = (await openaiService.generateImageForWhatsApp(genericPrompt, null)) as ImageResult;
@@ -330,6 +343,7 @@ const smartExecuteWithFallback = {
       } catch (e) {
         const error = e as Error;
         logger.warn(`   ✗ Generic prompt failed: ${error.message}`);
+        await helpers.sendFallbackError(context, `❌ הכללת הבקשה נכשלה: ${error.message}`);
       }
 
       // All strategies failed

@@ -51,7 +51,7 @@ BEHAVIOR:
 • **Directness:** Answer directly and concisely.
 • **Format:** No [image] tags in text. Captions/descriptions MUST be in request language.
 • **Protocol:** **NEVER** announce "I am creating..." or "Processing". just call the tool.
-• **Persona:** Do NOT mimic automated system messages (e.g., "יוצר תמונה...").
+• **Persona:** Do NOT mimic automated system messages (e.g., "Creating image...").
 
 TOOL RULES:
 ${AUDIO_TRANSLATION_RULES}
@@ -102,15 +102,15 @@ RULES:
 export function openaiSystemInstruction(language: string): string {
   switch (language) {
     case 'he':
-      return 'אתה עוזר AI ידידותי. תן תשובות ישירות וטבעיות.\n\nחשוב מאוד: עליך לענות בעברית בלבד. התשובה חייבת להיות בעברית, ללא מילים באנגלית אלא אם כן זה שם פרטי או מונח טכני שאין לו תרגום.';
+      return 'You are a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in Hebrew only. The answer must be in Hebrew.';
     case 'en':
-      return 'You are a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in English only. The answer must be in English.';
+      return 'You are a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in English only.';
     case 'ar':
-      return 'أنت مساعد ذكي وودود. امنح إجابات مباشرة وطبيعية.\n\nمهم جداً: يجب أن تجيب بالعربية فقط. يجب أن تكون الإجابة بالعربية.';
+      return 'You are a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in Arabic only. The answer must be in Arabic.';
     case 'ru':
-      return 'Вы дружелюбный AI-помощник. Давайте прямые и естественные ответы.\n\nОчень важно: вы должны отвечать только на русском языке. Ответ должен быть на русском языке.';
+      return 'You are a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in Russian only. The answer must be in Russian.';
     default:
-      return 'אתה עוזר AI ידידותי. תן תשובות ישירות וטבעיות.\n\nחשוב מאוד: ענה בעברית בלבד.';
+      return 'You are a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: Respond in Hebrew only.';
   }
 }
 
@@ -120,15 +120,15 @@ export function openaiSystemInstruction(language: string): string {
 export function grokSystemInstruction(language: string): string {
   switch (language) {
     case 'he':
-      return 'אתה Grok - עוזר AI ידידותי. תן תשובות ישירות וטבעיות.\n\nחשוב מאוד: עליך לענות בעברית בלבד. התשובה חייבת להיות בעברית, ללא מילים באנגלית אלא אם כן זה שם פרטי או מונח טכני שאין לו תרגום.';
+      return 'You are Grok - a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in Hebrew only. The answer must be in Hebrew.';
     case 'en':
-      return 'You are Grok - a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in English only. The answer must be in English.';
+      return 'You are Grok - a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in English only.';
     case 'ar':
-      return 'أنت Grok - مساعد ذكي وودود. امنح إجابات مباشرة وطبيعية.\n\nمهم جداً: يجب أن تجيب بالعربية فقط. يجب أن تكون الإجابة بالعربية.';
+      return 'You are Grok - a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in Arabic only. The answer must be in Arabic.';
     case 'ru':
-      return 'Вы Grok - дружелюбный AI-помощник. Давайте прямые и естественные ответы.\n\nОчень важно: вы должны отвечать только на русском языке. Ответ должен быть на русском языке.';
+      return 'You are Grok - a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in Russian only. The answer must be in Russian.';
     default:
-      return 'אתה Grok - עוזר AI ידידותי. תן תשובות ישירות וטבעיות.\n\nחשוב מאוד: ענה בעברית בלבד.';
+      return 'You are Grok - a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: Respond in Hebrew only.';
   }
 }
 
@@ -137,12 +137,12 @@ export function grokSystemInstruction(language: string): string {
  */
 export function searchSystemInstruction(query: string, languageInstruction: string): string {
   const isHebrew = languageInstruction.includes('עברית') || languageInstruction.includes('בעברית');
-  const langText = isHebrew ? 'בעברית' : languageInstruction.replace(/^.*?:\s*/, '').toLowerCase();
 
   if (isHebrew) {
-    return `אתה עוזר חיפוש מועיל. חפש "${query}" וענה בעברית. ספק קישורים רלוונטיים אם נמצאו.`;
+    return `You are a helpful search assistant. Search for "${query}" and answer in Hebrew. Provide relevant links if found.`;
   } else {
-    return `You are a helpful search assistant. Search for "${query}" and answer ${langText}. Provide relevant links if found.`;
+    // English instruction is default, extracting language target from string if possible, or defaulting to English
+    return `You are a helpful search assistant. Search for "${query}" and answer in the requested language. Provide relevant links if found.`;
   }
 }
 
@@ -151,34 +151,31 @@ export function searchSystemInstruction(query: string, languageInstruction: stri
  * Google Search System Instruction
  */
 export function googleSearchSystemInstruction(languageInstruction: string, useGoogleSearch: boolean): string {
-  let systemPrompt = `אתה עוזר AI ידידותי. תן תשובות ישירות וטבעיות.
-
-כללי תשובה:
-• תשיב ישירות בלבד - ללא הסברים על תהליך החשיבה
-• אסור: "As an AI", "My thought process", "Let's break down", "translates to", "I should"
-• ${languageInstruction}`;
+  let systemPrompt = `You are a friendly AI assistant. Give direct and natural answers, without explaining your thought process.
+Do NOT use phrases like "As an AI", "My thought process", "Let's break down".
+${languageInstruction}`;
 
   if (useGoogleSearch) {
     systemPrompt += `
 
-🔍 **כלי Google Search מופעל עבורך - חובה להשתמש בו!**
+🔍 **Google Search Tool Active - You MUST use it!**
 
-**הוראות קריטיות:**
-1. ✅ יש לך גישה לכלי Google Search - **השתמש בו לכל בקשת קישור!**
-2. ❌ **אסור מוחלט** לענות מהזיכרון שלך (אימון 2023) - הקישורים ישנים ושבורים
-3. ❌ **אסור להמציא קישורים** - אם Google Search לא מצא, תגיד "לא מצאתי קישור זמין"
-4. ⚠️ הזיכרון שלך מ-2023 - קישורי YouTube/חדשות/אתרים כבר לא עובדים!
+**CRITICAL INSTRUCTIONS:**
+1. ✅ You have access to Google Search - **USE IT for any link request!**
+2. ❌ **NEVER** answer from memory (2023) - links are broken.
+3. ❌ **NEVER** invent links. If Search finds nothing, say "No link available".
+4. ⚠️ Your memory is outdated.
 
-**תהליך נכון (חובה!):**
-משתמש מבקש קישור → השתמש בכלי Google Search → העתק קישור מהתוצאות → שלח למשתמש
+**workflow:**
+User asks for link → Use Google Search → Copy link from results → Send to user.
 
-**דוגמה למה שאסור:**
-❌ "אין לי אפשרות לשלוח קישורים" - **שקר! יש לך Google Search!**
-❌ "הנה קישור: youtube.com/watch?v=abc123" - **מומצא! חפש ב-Google Search!**
+**Examples of FAILURE:**
+❌ "I cannot send links" - **FALSE! You have Google Search!**
+❌ "Here is a link: youtube.com/..." - **INVENTED! Use Search!**
 
-**דוגמה נכונה:**
-✅ [משתמש ב-Google Search tool] → "הנה קישור מאתר ynet: [קישור אמיתי מהחיפוש]"
-✅ אם החיפוש לא הצליח: "לא מצאתי קישור זמין, נסה לחפש ב-Google בעצמך"`;
+**Example of SUCCESS:**
+✅ [Use Google Search tool] → "Here is a link from Ynet: [Real Link]"
+✅ If failed: "I couldn't find a working link, please search Google yourself."`;
   }
 
   return systemPrompt;
@@ -235,7 +232,7 @@ export function googleSearchExample(detectedLang: string): { user: string; model
   switch (detectedLang) {
     case 'he':
       exampleUser = 'שלח לי קישור למזג האוויר בתל אביב';
-      exampleModel = '[משתמש בכלי Google Search לחיפוש "מזג אוויר תל אביב"]\n\nהנה קישור לתחזית מזג האוויר בתל אביב: https://www.ims.gov.il/he/cities/2423';
+      exampleModel = '[Using Google Search tool to search "weather Tel Aviv"]\n\nהנה קישור לתחזית מזג האוויר בתל אביב: https://www.ims.gov.il/he/cities/2423';
       break;
     case 'en':
       exampleUser = 'Send me a link to weather in Tel Aviv';
@@ -243,15 +240,15 @@ export function googleSearchExample(detectedLang: string): { user: string; model
       break;
     case 'ar':
       exampleUser = 'أرسل لي رابط للطقس في تل أبيب';
-      exampleModel = '[استخدام أداة Google Search للبحث عن "طقس تل أبيب"]\n\nإليك رابط لتوقعات الطقس في تل أبيب: https://www.ims.gov.il/he/cities/2423';
+      exampleModel = '[Using Google Search tool to search "weather Tel Aviv"]\n\nإليك رابط لتوقعات الطقس في تل أبيب: https://www.ims.gov.il/he/cities/2423';
       break;
     case 'ru':
       exampleUser = 'Отправь мне ссылку на погоду в Тель-Авиве';
-      exampleModel = '[Использую инструмент Google Search для поиска "погода Тель-Авив"]\n\nВот ссылка на прогноз погоды в Тель-Авиве: https://www.ims.gov.il/he/cities/2423';
+      exampleModel = '[Using Google Search tool to search "weather Tel Aviv"]\n\nВот ссылка на прогноз погоды в Тель-Авиве: https://www.ims.gov.il/he/cities/2423';
       break;
     default:
       exampleUser = 'שלח לי קישור למזג האוויר בתל אביב';
-      exampleModel = '[משתמש בכלי Google Search לחיפוש "מזג אוויר תל אביב"]\n\nהנה קישור לתחזית מזג האוויר בתל אביב: https://www.ims.gov.il/he/cities/2423';
+      exampleModel = '[Using Google Search tool to search "weather Tel Aviv"]\n\nהנה קישור לתחזית מזג האוויר בתל אביב: https://www.ims.gov.il/he/cities/2423';
   }
 
   return {

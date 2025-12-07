@@ -97,6 +97,15 @@ export async function sendToolAckMessage(
     const buildSingleAck = (call: FunctionCall): string => {
       const toolName = call.name;
 
+      // Skip tools that handle their own ACKs (to avoid double notifications)
+      if (
+        toolName === 'retry_with_different_provider' ||
+        toolName === 'retry_last_command' ||
+        toolName === 'smart_execute_with_fallback'
+      ) {
+        return '';
+      }
+
 
 
       const args = call.args || {};

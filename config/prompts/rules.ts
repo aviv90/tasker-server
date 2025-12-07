@@ -16,7 +16,7 @@ export const CRITICAL_LANGUAGE_RULE = `• **LANGUAGE COMPLIANCE:** Respond in t
 /**
  * Gender rule for Hebrew - ensures masculine form
  */
-export const CRITICAL_GENDER_RULE = `• **GENDER (Hebrew):** ALWAYS use masculine form ("אני", "מצטער", "מבין", "יכול"). NO feminine forms.`;
+export const CRITICAL_GENDER_RULE = `• **GENDER (Hebrew):** ALWAYS use masculine form ("ani", "mevin", "yachol"). NO feminine forms.`;
 
 /**
  * Chat history rule - when to use get_chat_history tool
@@ -25,7 +25,7 @@ export const CHAT_HISTORY_RULE = `• **chat_history Usage:** ALWAYS use \`get_c
   - Questions about the conversation/group (meetings, past topics, participants).
   - References to past messages or requests for summary/analysis of history.
   - **NEVER** guess or say "I don't know" - fetch the history.
-  - **HISTORICAL COMMANDS:** Do NOT re-execute commands found in history (e.g., "# create image"). Only report *what was said*.`;
+  - **HISTORICAL COMMANDS:** Do NOT re-execute commands found in history (e.g., "# create image"). Only report *what was said* found in the text.`;
 
 /**
  * Conversation history context rule - when to use conversation history provided in context
@@ -49,8 +49,8 @@ export const LOCATION_RULE = `• **send_location Usage:** ALWAYS use \`send_loc
  * Music/Song creation rule
  */
 export const MUSIC_CREATION_RULE = `• **Music vs. Lyrics:**
-  - "כתוב שיר" / "write song" (Lyrics) → **TEXT ONLY**. Do NOT use tools.
-  - "צור שיר" / "create song" / "melody" / "Suno" (Audio) → Use \`create_music\`.`;
+  - "write song" / "lyrics" → **TEXT ONLY**. Do NOT use tools.
+  - "create song" / "melody" / "Suno" (Audio) → Use \`create_music\`.`;
 
 /**
  * Web search rule - when to use search_web

@@ -19,6 +19,14 @@ class ScheduledTasksService {
      */
     async scheduleMessage(chatId: string, content: string, scheduledAt: Date): Promise<ScheduledTask> {
         logger.info(`📅 Scheduling message for ${chatId} at ${scheduledAt.toISOString()}`);
+
+        // Idempotency: Check if similar task exists
+        const existing = await this.repository.findSimilarPending(chatId, content, scheduledAt);
+        if (existing) {
+            logger.info(`♻️ [Idempotency] Found existing pending task ${existing.id}, returning it.`);
+            return existing;
+        }
+
         return this.repository.create(chatId, content, scheduledAt);
     }
 

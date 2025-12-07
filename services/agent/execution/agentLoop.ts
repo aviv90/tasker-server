@@ -11,7 +11,44 @@ import { AgentResult, AgentConfig } from '../types';
 import { AgentContextState as AgentContext } from './context';
 
 // Type definitions for better type safety
-// AgentContext is now imported from context.ts
+interface ToolResult {
+  success?: boolean;
+  error?: string;
+  data?: string;
+  imageUrl?: string;
+  imageCaption?: string;
+  caption?: string;
+  description?: string;
+  revisedPrompt?: string;
+  videoUrl?: string;
+  videoCaption?: string;
+  audioUrl?: string;
+  poll?: {
+    question: string;
+    options: string[];
+  };
+  provider?: string;
+  latitude?: number;
+  longitude?: number;
+  locationInfo?: string;
+  suppressFinalResponse?: boolean;
+  errorsAlreadySent?: boolean;
+  textOnly?: boolean;
+  [key: string]: unknown;
+}
+
+interface AgentTool {
+  execute(args: unknown, context: AgentContext): Promise<ToolResult>;
+}
+
+interface GeminiChatSession {
+  sendMessage(prompt: string | ToolFunctionResponse[]): Promise<{
+    response: {
+      text(): string;
+      functionCalls(): FunctionCall[] | undefined;
+    };
+  }>;
+}
 
 interface ToolFunctionResponse {
   functionResponse: {
@@ -23,9 +60,6 @@ interface ToolFunctionResponse {
     };
   };
 }
-
-// Note: genAI import removed - not used in this file
-// If direct Gemini API access is needed, use geminiService instead
 
 /**
  * Single-step agent execution loop
@@ -40,8 +74,7 @@ class AgentLoop {
   /**
    * Execute agent loop
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async execute(chat: any, prompt: string, chatId: string, context: AgentContext, maxIterations: number, agentConfig: AgentConfig): Promise<AgentResult> {
+  async execute(chat: GeminiChatSession, prompt: string, chatId: string, context: AgentContext, maxIterations: number, agentConfig: AgentConfig): Promise<AgentResult> {
     // Reset tracking sets for each new execution
     this.ackedTools = new Set();
     this.succeededCreationTools = new Set();
@@ -54,7 +87,7 @@ class AgentLoop {
       logger.debug(`🔄 [Agent] Iteration ${iterationCount}/${maxIterations}`);
 
       const result = response.response;
-      const functionCalls = result.functionCalls() as FunctionCall[] | undefined;
+      const functionCalls = result.functionCalls();
 
       if (!functionCalls || functionCalls.length === 0) {
         // No more function calls - final answer
@@ -89,14 +122,13 @@ class AgentLoop {
           : null;
 
         // Check if send_location was called
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const locationResult = context.previousToolResults['send_location'] as any;
+        const locationResult = context.previousToolResults['send_location'] as ToolResult | undefined;
         const latitude = locationResult?.latitude || null;
         const longitude = locationResult?.longitude || null;
         let locationInfo = locationResult?.locationInfo || locationResult?.data || null;
 
         // Clean JSON wrappers from locationInfo
-        if (locationInfo) {
+        if (typeof locationInfo === 'string') {
           locationInfo = cleanJsonWrapper(locationInfo);
         }
 
@@ -128,7 +160,7 @@ class AgentLoop {
           poll: (latestPollAsset as unknown as { question: string; options: string[] }) || null,
           latitude: latitude,
           longitude: longitude,
-          locationInfo: locationInfo,
+          locationInfo: locationInfo as string | null, // Ensure string type
           toolsUsed: Object.keys(context.previousToolResults),
           iterations: iterationCount,
           toolCalls: context.toolCalls,
@@ -216,8 +248,7 @@ class AgentLoop {
 
       // Check if audio was already transcribed (from voice message flow)
       // If so, skip ACK for transcribe_audio to avoid duplicate "מתמלל הקלטה..." messages
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const originalInput = context.originalInput as Record<string, any> | null;
+      const originalInput = context.originalInput as Record<string, unknown> | null;
       const skipToolsAck: string[] = [];
       if (originalInput?.audioAlreadyTranscribed) {
         skipToolsAck.push('transcribe_audio');
@@ -273,14 +304,16 @@ class AgentLoop {
   /**
    * Execute a single tool
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async executeTool(call: any, context: AgentContext) {
+  async executeTool(call: FunctionCall, context: AgentContext): Promise<ToolFunctionResponse> {
     const toolName = call.name;
-    const toolArgs = call.args;
+    const toolArgs = call.args || {};
 
     logger.debug(`   → Calling tool: ${toolName} with args:`, toolArgs);
 
-    const tool = agentTools[toolName];
+    // Cast agentTools to allow indexing by string, but check existence
+    const tools = agentTools as unknown as Record<string, AgentTool>;
+    const tool = tools[toolName];
+
     if (!tool) {
       logger.error(`❌ Unknown tool: ${toolName}`);
       return {
@@ -296,7 +329,7 @@ class AgentLoop {
 
     try {
       // Execute the tool
-      const toolResult = await tool.execute(toolArgs, context);
+      const toolResult: ToolResult = await tool.execute(toolArgs, context);
 
       // Save result for future tool calls
       context.previousToolResults[toolName] = toolResult;
@@ -305,29 +338,29 @@ class AgentLoop {
       // BUT: Skip if:
       // 1. Errors were already sent (e.g., by ProviderFallback during fallback attempts)
       // 2. Tool will be retried (suppressFinalResponse = true means fallback is happening)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const typedToolResult = toolResult as any;
+
       const shouldSendError = toolResult &&
-        typedToolResult.error &&
+        toolResult.error &&
         context.chatId &&
-        !typedToolResult.errorsAlreadySent &&
-        !typedToolResult.suppressFinalResponse;
+        !toolResult.errorsAlreadySent &&
+        !toolResult.suppressFinalResponse;
 
       if (shouldSendError) {
         try {
           const { greenApiService } = getServices();
-          const errorMessage = typedToolResult.error.startsWith('❌')
-            ? typedToolResult.error
-            : `❌ ${typedToolResult.error}`;
+          const errorMessage = (toolResult.error as string).startsWith('❌')
+            ? (toolResult.error as string)
+            : `❌ ${toolResult.error}`;
           // Get originalMessageId from context for quoting
           const quotedMessageId = extractQuotedMessageId({ context });
           await greenApiService.sendTextMessage(context.chatId!, errorMessage, quotedMessageId || undefined, TIME.TYPING_INDICATOR);
-        } catch (notifyError: any) {
-          logger.error(`❌ Failed to notify user about error:`, { error: notifyError.message, stack: notifyError.stack });
+        } catch (notifyError: unknown) {
+          const err = notifyError as Error;
+          logger.error(`❌ Failed to notify user about error:`, { error: err.message, stack: err.stack });
         }
       }
 
-      if (toolResult && typedToolResult.suppressFinalResponse) {
+      if (toolResult && toolResult.suppressFinalResponse) {
         context.suppressFinalResponse = true;
       }
 
@@ -335,13 +368,13 @@ class AgentLoop {
       context.toolCalls.push({
         tool: toolName,
         args: toolArgs,
-        success: typedToolResult.success !== false,
+        success: toolResult.success !== false,
         timestamp: Date.now()
       });
 
       // Track successful creation tools to prevent duplicates
       const creationToolsList = ['create_image', 'create_video', 'edit_image', 'edit_video', 'image_to_video'];
-      if (creationToolsList.includes(toolName) && typedToolResult.success !== false) {
+      if (creationToolsList.includes(toolName) && toolResult.success !== false) {
         this.succeededCreationTools.add(toolName);
         logger.debug(`✅ [Agent] Marked ${toolName} as succeeded - will block duplicate calls`);
       }
@@ -355,15 +388,16 @@ class AgentLoop {
           response: toolResult
         }
       };
-    } catch (error: any) {
-      logger.error(`❌ Error executing tool ${toolName}:`, { error: error.message, stack: error.stack });
+    } catch (error: unknown) {
+      const err = error as Error;
+      logger.error(`❌ Error executing tool ${toolName}:`, { error: err.message, stack: err.stack });
 
       // Track failed tool call
       context.toolCalls.push({
         tool: toolName,
         args: toolArgs,
         success: false,
-        error: error.message,
+        error: err.message,
         timestamp: Date.now()
       });
 
@@ -372,7 +406,7 @@ class AgentLoop {
           name: toolName,
           response: {
             success: false,
-            error: `Tool execution failed: ${error.message}`
+            error: `Tool execution failed: ${err.message}`
           }
         }
       };
@@ -382,18 +416,20 @@ class AgentLoop {
   /**
    * Track generated assets in context
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  trackGeneratedAssets(context: AgentContext, toolName: string, toolArgs: any, toolResult: any) {
+  trackGeneratedAssets(context: AgentContext, toolName: string, toolArgs: any, toolResult: ToolResult) {
+    // Ensure toolArgs is an object
+    const safeArgs = toolArgs || {};
+
     if (toolResult.imageUrl) {
       // CRITICAL: Check both imageCaption and caption - tools may use either field name
       // Priority: imageCaption > caption > description > revisedPrompt (from provider)
       const imageCaption = toolResult.imageCaption || toolResult.caption || toolResult.description || toolResult.revisedPrompt || '';
       logger.debug(`✅ [Agent] Tracking image: ${toolResult.imageUrl}, caption: ${imageCaption || '(none)'}`);
       context.generatedAssets.images.push({
-        url: toolResult.imageUrl,
+        url: toolResult.imageUrl!,
         caption: imageCaption,
-        prompt: toolArgs.prompt,
-        provider: toolResult.provider || toolArgs.provider,
+        prompt: safeArgs.prompt,
+        provider: (toolResult.provider as string) || safeArgs.provider,
         timestamp: Date.now()
       });
     } else {
@@ -404,9 +440,9 @@ class AgentLoop {
       // CRITICAL: Check both videoCaption and caption - tools may use either field name
       const videoCaption = toolResult.videoCaption || toolResult.caption || toolResult.description || '';
       context.generatedAssets.videos.push({
-        url: toolResult.videoUrl,
+        url: toolResult.videoUrl!,
         caption: videoCaption,
-        prompt: toolArgs.prompt,
+        prompt: safeArgs.prompt,
         timestamp: Date.now()
       });
     }
@@ -414,8 +450,8 @@ class AgentLoop {
     if (toolResult.audioUrl) {
       if (!context.generatedAssets.audio) context.generatedAssets.audio = [];
       context.generatedAssets.audio.push({
-        url: toolResult.audioUrl,
-        prompt: toolArgs.prompt || toolArgs.text_to_speak || toolArgs.text,
+        url: toolResult.audioUrl!,
+        prompt: safeArgs.prompt || safeArgs.text_to_speak || safeArgs.text,
         timestamp: Date.now()
       });
     }
@@ -425,7 +461,7 @@ class AgentLoop {
       context.generatedAssets.polls.push({
         question: toolResult.poll.question,
         options: toolResult.poll.options,
-        topic: toolArgs.topic,
+        topic: safeArgs.topic,
         timestamp: Date.now()
       });
     }

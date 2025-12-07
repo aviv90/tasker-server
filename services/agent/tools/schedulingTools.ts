@@ -5,7 +5,8 @@
 import logger from '../../../utils/logger';
 
 // Simple in-memory cache for deduplication (Idempotency)
-const dedupCache = new Map<string, { timestamp: number, result: any }>();
+// Simple in-memory cache for deduplication (Idempotency) - REMOVED in favor of DB check
+// const dedupCache = new Map<string, { timestamp: number, result: any }>();
 
 export const schedule_message = {
     declaration: {
@@ -31,15 +32,6 @@ export const schedule_message = {
         }
     },
     execute: async (args: { message: string, time: string, recipient?: string }, context: { chatId: string }) => {
-        // 🛡️ Idempotency Check
-        // Prevent double scheduling if the agent calls the tool twice or requests overlap
-        const dedupKey = `${context.chatId}:${args.message}:${args.time}:${args.recipient || 'self'}`;
-        const cached = dedupCache.get(dedupKey);
-        if (cached && Date.now() - cached.timestamp < 5000) {
-            logger.info(`🔄 [Scheduling] Dedup hit for key: ${dedupKey}, returning cached result`);
-            return cached.result;
-        }
-
         try {
             // Lazy load container to avoid circular dependencies
             const { default: container } = await import('../../container');
@@ -112,16 +104,6 @@ export const schedule_message = {
                 scheduledAt: task.scheduledAt.toISOString(),
                 message: successMessage
             };
-
-            // Cache result for idempotency
-            dedupCache.set(dedupKey, { timestamp: Date.now(), result });
-
-            // Clean up old cache entries periodically (simple approach)
-            if (dedupCache.size > 100) {
-                for (const [key, value] of dedupCache.entries()) {
-                    if (Date.now() - value.timestamp > 60000) dedupCache.delete(key);
-                }
-            }
 
             return result;
         } catch (error: any) {
