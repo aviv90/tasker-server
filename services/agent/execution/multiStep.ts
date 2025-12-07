@@ -7,7 +7,7 @@ import { executeSingleStep } from './singleStep';
 import { sendToolAckMessage, FunctionCall } from '../utils/ackUtils';
 import { getServices } from '../utils/serviceLoader';
 import { extractQuotedMessageId } from '../../../utils/messageHelpers';
-import { allTools as agentTools } from '../tools';
+import { getToolDeclarations } from '../tools';
 import prompts from '../../../config/prompts';
 import resultSender from './resultSender';
 import { TIME } from '../../../utils/constants';
@@ -85,7 +85,7 @@ class MultiStepExecution {
     agentConfig.maxIterations = Math.max(agentConfig.maxIterations, 15);
     agentConfig.timeoutMs = Math.max(agentConfig.timeoutMs, TIME.MULTI_STEP_MIN_TIMEOUT);
 
-    const functionDeclarations = Object.values(agentTools).map(tool => tool.declaration);
+    const functionDeclarations = getToolDeclarations();
 
     const stepResults: StepResult[] = [];
     const finalAssets: {
