@@ -13,11 +13,14 @@ type GreenApiService = typeof import('../../greenApiService');
 type ConversationManagerModule = typeof import('../../conversationManager');
 type ConversationManager = ConversationManagerModule['default'];
 
+type ScheduledTasksService = typeof import('../../scheduling/scheduledTasksService').default;
+
 let geminiService: GeminiService | null = null;
 let openaiService: OpenAIService | null = null;
 let grokService: GrokService | null = null;
 let greenApiService: GreenApiService | null = null;
 let conversationManager: ConversationManager | null = null;
+let scheduledTasks: ScheduledTasksService | null = null;
 
 export interface LoadedServices {
   geminiService: GeminiService;
@@ -25,6 +28,7 @@ export interface LoadedServices {
   grokService: GrokService;
   greenApiService: GreenApiService;
   conversationManager: ConversationManager;
+  scheduledTasks: ScheduledTasksService;
 }
 
 /**
@@ -42,12 +46,25 @@ export function getServices(): LoadedServices {
 
   if (!conversationManager) conversationManager = require('../../conversationManager').default || require('../../conversationManager');
 
+  if (!scheduledTasks) {
+    try {
+      const container = require('../../container').default;
+      if (container && typeof container.getService === 'function') {
+        scheduledTasks = container.getService('scheduledTasks');
+      }
+    } catch (error) {
+      // Ignore container errors in scripts/tests where full container isn't initialized
+      // This allows other services (like greenApi) to be loaded independently
+    }
+  }
+
   return {
     geminiService,
     openaiService,
     grokService,
     greenApiService,
-    conversationManager
+    conversationManager,
+    scheduledTasks
   } as LoadedServices;
 }
 

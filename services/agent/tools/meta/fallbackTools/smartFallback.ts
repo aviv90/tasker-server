@@ -64,31 +64,32 @@ interface ToolResult {
   original_prompt?: string;
   simplified_prompt?: string;
   generic_prompt?: string;
+  suppressFinalResponse?: boolean;
 }
 
 const smartExecuteWithFallback = {
   declaration: {
     name: 'smart_execute_with_fallback',
-    description: 'בצע משימה עם אסטרטגיות fallback חכמות. אם ניסיון ראשון נכשל, ננסה אוטומטית: לפשט את הפרומפט, לנסות ספק אחר, או לפצל למשימות קטנות יותר. השתמש בכלי הזה רק לאחר שניסיון רגיל כבר נכשל!',
+    description: 'Execute task with intelligent fallback strategies (different provider, simpler prompt) when initial attempt fails. Use ONLY after a standard tool failure.',
     parameters: {
       type: 'object',
       properties: {
         task_type: {
           type: 'string',
-          description: 'סוג המשימה: image_creation, video_creation, audio_creation',
+          description: 'Task type: image_creation, video_creation, audio_creation',
           enum: ['image_creation', 'video_creation', 'audio_creation']
         },
         original_prompt: {
           type: 'string',
-          description: 'הפרומפט המקורי שנכשל'
+          description: 'The original failed prompt'
         },
         failure_reason: {
           type: 'string',
-          description: 'למה הניסיון הראשון נכשל'
+          description: 'Why the first attempt failed'
         },
         provider_tried: {
           type: 'string',
-          description: 'איזה ספק כבר נוסה (gemini/openai/grok)',
+          description: 'Provider already tried (gemini/openai/grok)',
           enum: ['gemini', 'openai', 'grok']
         }
       },
@@ -108,7 +109,7 @@ const smartExecuteWithFallback = {
       logger.info(`📊 Strategy 1: Trying different provider...`);
       // Fix: normalizeProviders accepts readonly array for first argument
       const providersTried = helpers.normalizeProviders(
-        args.providers_tried || (args.provider_tried ? [args.provider_tried] : []), 
+        args.providers_tried || (args.provider_tried ? [args.provider_tried] : []),
         null
       );
       const providerOrder = VIDEO_PROVIDER_FALLBACK_ORDER;
@@ -136,7 +137,8 @@ const smartExecuteWithFallback = {
                 success: true,
                 data: imageResult.description || '',
                 strategy_used: 'different_provider',
-                provider: provider
+                provider: provider,
+                suppressFinalResponse: true
               };
             }
 
@@ -147,7 +149,8 @@ const smartExecuteWithFallback = {
                 imageUrl: imageResult.imageUrl,
                 imageCaption: imageResult.description || imageResult.revisedPrompt || '',
                 strategy_used: 'different_provider',
-                provider: provider
+                provider: provider,
+                suppressFinalResponse: true
               };
             }
           } else if (args.task_type === 'video_creation') {
@@ -181,7 +184,8 @@ const smartExecuteWithFallback = {
                 data: `✅ הצלחתי ליצור וידאו עם ${helpers.formatProviderName(providerLabel)}! (אסטרטגיה: מודל חלופי)`,
                 videoUrl: videoResult.videoUrl || videoResult.url,
                 strategy_used: 'different_provider',
-                provider: providerLabel
+                provider: providerLabel,
+                suppressFinalResponse: true
               };
             }
           } else if (args.task_type === 'audio_creation') {
@@ -194,7 +198,8 @@ const smartExecuteWithFallback = {
                 data: `✅ הצלחתי ליצור אודיו! (אסטרטגיה: הגדרות משופרות)`,
                 audioUrl: audioResult.url || audioResult.audioUrl,
                 strategy_used: 'improved_settings',
-                provider: 'elevenlabs'
+                provider: 'elevenlabs',
+                suppressFinalResponse: true
               };
             }
           }
@@ -224,7 +229,8 @@ const smartExecuteWithFallback = {
                 caption: imageResult.description || '',
                 strategy_used: 'simplified_prompt',
                 original_prompt: args.original_prompt,
-                simplified_prompt: simplifiedPrompt || undefined
+                simplified_prompt: simplifiedPrompt || undefined,
+                suppressFinalResponse: true
               };
             }
           } else if (args.task_type === 'video_creation') {
@@ -240,7 +246,8 @@ const smartExecuteWithFallback = {
                 videoUrl: videoResult.videoUrl || videoResult.url,
                 strategy_used: 'simplified_prompt',
                 original_prompt: args.original_prompt,
-                simplified_prompt: simplifiedPrompt
+                simplified_prompt: simplifiedPrompt,
+                suppressFinalResponse: true
               };
             }
           } else if (args.task_type === 'audio_creation') {
@@ -253,7 +260,8 @@ const smartExecuteWithFallback = {
                 audioUrl: audioResult.url || audioResult.audioUrl,
                 strategy_used: 'simplified_prompt',
                 original_prompt: args.original_prompt,
-                simplified_prompt: simplifiedPrompt || undefined
+                simplified_prompt: simplifiedPrompt || undefined,
+                suppressFinalResponse: true
               };
             }
           }
@@ -282,7 +290,8 @@ const smartExecuteWithFallback = {
                 caption: imageResult.description || '',
                 strategy_used: 'generic_prompt',
                 original_prompt: args.original_prompt,
-                generic_prompt: genericPrompt || undefined
+                generic_prompt: genericPrompt || undefined,
+                suppressFinalResponse: true
               };
             }
           } else if (args.task_type === 'video_creation') {
@@ -298,7 +307,8 @@ const smartExecuteWithFallback = {
                 videoUrl: videoResult.videoUrl || videoResult.url,
                 strategy_used: 'generic_prompt',
                 original_prompt: args.original_prompt,
-                generic_prompt: genericPrompt || undefined
+                generic_prompt: genericPrompt || undefined,
+                suppressFinalResponse: true
               };
             }
           } else if (args.task_type === 'audio_creation') {
@@ -311,7 +321,8 @@ const smartExecuteWithFallback = {
                 audioUrl: audioResult.url || audioResult.audioUrl,
                 strategy_used: 'generic_prompt',
                 original_prompt: args.original_prompt,
-                generic_prompt: genericPrompt || undefined
+                generic_prompt: genericPrompt || undefined,
+                suppressFinalResponse: true
               };
             }
           }

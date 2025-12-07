@@ -54,35 +54,36 @@ interface ToolResult {
   videoUrl?: string;
   caption?: string;
   provider?: string;
+  suppressFinalResponse?: boolean;
 }
 
 const retryWithDifferentProvider = {
   declaration: {
     name: 'retry_with_different_provider',
-    description: 'נסה ליצור/לערוך תמונה או וידאו עם ספק אחר אם הראשון נכשל או לא טוב. תומך ביצירת תמונות, עריכת תמונות, ויצירת וידאו. אל תשתמש בכלי הזה לפני שניסית!',
+    description: 'Retry image/video creation or editing with a different provider. Use ONLY after a failure with the first provider.',
     parameters: {
       type: 'object',
       properties: {
         original_prompt: {
           type: 'string',
-          description: 'הפרומפט המקורי ליצירה/עריכה',
+          description: 'Original prompt for creation/editing',
         },
         reason: {
           type: 'string',
-          description: 'למה לנסות ספק אחר (לדוגמה: "התמונה לא טובה", "timeout")',
+          description: 'Reason for retry (e.g., "bad quality", "timeout")',
         },
         task_type: {
           type: 'string',
-          description: 'סוג המשימה: image (יצירה), image_edit (עריכה), או video',
+          description: 'Task type: image, image_edit, or video',
           enum: ['image', 'image_edit', 'video']
         },
         avoid_provider: {
           type: 'string',
-          description: 'איזה ספק לא לנסות (למשל: kling, veo3, sora, gemini, openai, grok)',
+          description: 'Provider to avoid (e.g., gemini, openai, grok)',
         },
         image_url: {
           type: 'string',
-          description: 'URL של התמונה (רק לעריכה - task_type=image_edit)',
+          description: 'Image URL (only for task_type=image_edit)',
         }
       },
       required: ['original_prompt', 'reason']
@@ -143,7 +144,8 @@ const retryWithDifferentProvider = {
                 data: `✅ ניסיתי לערוך עם ${helpers.formatProviderName(provider)} והצלחתי!`,
                 imageUrl: editResult.imageUrl,
                 caption: editResult.description || '',
-                provider: provider
+                provider: provider,
+                suppressFinalResponse: true
               };
             }
 
@@ -198,7 +200,8 @@ const retryWithDifferentProvider = {
                 data: `✅ ניסיתי עם ${helpers.formatProviderName(displayProvider)} והצלחתי!`,
                 videoUrl: result.videoUrl || result.url,
                 caption: result.description || '',
-                provider: displayProvider
+                provider: displayProvider,
+                suppressFinalResponse: true
               };
             }
 
@@ -248,7 +251,8 @@ const retryWithDifferentProvider = {
               return {
                 success: true,
                 data: imageResult.description || '',
-                provider: provider
+                provider: provider,
+                suppressFinalResponse: true
               };
             }
 
@@ -258,7 +262,8 @@ const retryWithDifferentProvider = {
                 data: `✅ ניסיתי עם ${helpers.formatProviderName(provider)} והצלחתי!`,
                 imageUrl: imageResult.imageUrl,
                 caption: imageResult.description || '',
-                provider: provider
+                provider: provider,
+                suppressFinalResponse: true
               };
             }
 

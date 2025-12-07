@@ -34,41 +34,28 @@ export function setAgentToolsReference(tools: Record<string, { execute: (args: u
 export const retry_last_command = {
   declaration: {
     name: 'retry_last_command',
-    description: `חזור על הפקודה האחרונה של המשתמש (retry בלבד!). השתמש רק כשהמשתמש אומר במפורש "נסה שוב", "שוב", "תקן", "retry", "again". 
-
-**CRITICAL: DO NOT use retry_last_command for natural follow-ups!**
-- If your last message asked "רוצה עוד מידע?" / "תרצה שאפרט יותר?" / "want more details?" and user says "כן" → This is a NATURAL FOLLOW-UP, NOT a retry! Just continue the conversation with more details. DO NOT use retry_last_command!
-- Only use retry_last_command when user explicitly says "נסה שוב", "שוב", "retry", "again", "תקן", or when you asked about RETRYING and user confirmed.
-
-אם המשתמש מבקש ליצור משהו חדש (תמונה, וידאו, מוזיקה) עם ספק ספציפי (כמו "צור וידאו עם Veo 3") - זו בקשה חדשה, לא retry! השתמש ב-create_image/create_video/create_music במקום.
-
-**תמיכה ב-retry של שלבים ספציפיים בפקודות רב-שלביות:**
-- אם המשתמש אומר "נסה שוב את הפקודה השנייה" / "נסה שוב את השלב השני" / "retry step 2" → ציין step_numbers: [2]
-- אם המשתמש אומר "נסה שוב את פקודת שליחת המיקום" / "retry location" → ציין step_tools: ["send_location"]
-- אם המשתמש אומר "נסה שוב את הפקודה הראשונה והשלישית" / "retry steps 1 and 3" → ציין step_numbers: [1, 3]
-- אם המשתמש אומר "נסה שוב את הסקר והמיקום" → ציין step_tools: ["create_poll", "send_location"]
-- אם המשתמש לא ציין שלבים ספציפיים → retry את כל השלבים (step_numbers: null, step_tools: null)`,
+    description: 'Retry the last command. Use ONLY when user explicitly asks to "retry", "try again", "fix it", or specific step numbers.',
     parameters: {
       type: 'object',
       properties: {
         provider_override: {
           type: 'string',
           enum: [...ALL_PROVIDERS],
-          description: 'ספק חלופי להשתמש (אם המשתמש ביקש). none = אין שינוי'
+          description: 'Alternative provider to use (optional)'
         },
         modifications: {
           type: 'string',
-          description: 'שינויים או הוראות נוספות מהמשתמש (למשל: "עם שיער ארוך", "בלי משקפיים")'
+          description: 'Modifications or additional instructions (e.g., "with long hair")'
         },
         step_numbers: {
           type: 'array',
           items: { type: 'number' },
-          description: 'מספרי השלבים לנסות שוב (1-based). למשל: [2] לשלב השני, [1, 3] לשלב הראשון והשלישי. null = כל השלבים'
+          description: 'Specific step numbers to retry (1-based, e.g., [2]). Null for all steps.'
         },
         step_tools: {
           type: 'array',
           items: { type: 'string' },
-          description: 'שמות הכלים של השלבים לנסות שוב. למשל: ["send_location"] לשליחת מיקום, ["create_poll", "send_location"] לסקר ומיקום. null = כל השלבים'
+          description: 'Specific tool names to retry (e.g., ["send_location"]). Null for all steps.'
         }
       },
       required: []

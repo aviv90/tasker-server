@@ -103,6 +103,11 @@ You must translate Hebrew names to English or keep them in Hebrew, but English i
         throw new Error('Invalid coordinates returned from location service');
       }
 
+      // 🚀 Send the actual location message to the user!
+      if (chatId) {
+        await greenApiService.sendLocation(chatId, latitude, longitude, locationResult.description || '');
+      }
+
       return {
         success: true,
         latitude,

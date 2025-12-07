@@ -22,19 +22,17 @@ type ToolResult = Promise<{
 export const analyze_image = {
   declaration: {
     name: 'analyze_image',
-    description:
-      'נתח תמונה ישירות מ-URL. CRITICAL: אם בפרומפט יש "Use this image_url parameter directly" או "image_url:" - קח את ה-URL משם ישירות! השתמש בכלי הזה כשיש URL זמין (תמונה מצורפת או מצוטטת), ובלי URL השתמש ב-analyze_image_from_history.',
+    description: 'Analyze an image from a direct URL. Use this if an input image URL is provided. For chat history images, use analyze_image_from_history.',
     parameters: {
       type: 'object',
       properties: {
         image_url: {
           type: 'string',
-          description:
-            'URL של התמונה לניתוח. אם זמין בפרומפט (בשורה "image_url:" או "Use this image_url parameter directly"), קח אותו משם.'
+          description: 'Direct URL of the image to analyze.'
         },
         question: {
           type: 'string',
-          description: 'השאלה או הבקשה לגבי התמונה (מה זה, תאר, explain, וכו\')'
+          description: 'Question or prompt about the image.'
         }
       },
       required: ['image_url', 'question']
@@ -48,7 +46,7 @@ export const analyze_image = {
       if (!args.image_url) {
         return {
           success: false,
-          error: 'חסר image_url לניתוח התמונה.'
+          error: 'Missing image_url.'
         };
       }
 
@@ -68,7 +66,7 @@ export const analyze_image = {
       } else {
         return {
           success: false,
-          error: result.error || 'שגיאה בניתוח התמונה'
+          error: result.error || 'Image analysis failed'
         };
       }
     } catch (error) {
@@ -86,19 +84,17 @@ export const analyze_image = {
 export const analyze_video = {
   declaration: {
     name: 'analyze_video',
-    description:
-      'נתח סרטון וידאו. CRITICAL: אם בפרומפט יש "Use this video_url parameter directly", קח את ה-URL משם ישירות ואל תקרא ל-get_chat_history! רק אם אין URL בפרומפט, קרא ל-get_chat_history תחילה.',
+    description: 'Analyze a video from a direct URL. Use this if an input video URL is provided.',
     parameters: {
       type: 'object',
       properties: {
         video_url: {
           type: 'string',
-          description:
-            'URL של הוידאו לניתוח. אם זמין בפרומפט (בשורה "Use this video_url parameter directly"), קח אותו משם.'
+          description: 'Direct URL of the video to analyze.'
         },
         question: {
           type: 'string',
-          description: 'מה לנתח/לשאול על הוידאו'
+          description: 'Question or prompt about the video.'
         }
       },
       required: ['video_url', 'question']

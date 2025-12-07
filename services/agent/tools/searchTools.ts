@@ -38,32 +38,13 @@ type ToolResult = Promise<{
 export const search_web = {
   declaration: {
     name: 'search_web',
-    description: `חפש מידע או לינקים באינטרנט באמצעות Google Search. 
-
-**מתי להשתמש בכלי הזה (חובה!):**
-1. **מידע עדכני** - זמן, תאריך, אזור זמן (דוגמאות: "מה השעה ברומניה", "what time is it in New York", "איזה יום היום", "what date is it")
-2. **חדשות ואירועים** - מידע אקטואלי ועדכני (דוגמאות: "מה קורה בעולם", "latest news about X", "אירועים היום")
-3. **מזג אוויר** - תחזית או תנאי מזג אוויר נוכחיים (דוגמאות: "מזג אוויר בתל אביב", "weather in London", "תחזית מזג אוויר")
-4. **לינקים וקישורים** - המשתמש מבקש לינק/קישור/URL (דוגמאות: "שלח לי לינק לשיר של אריאל זילבר", "send link to news article")
-5. **מידע שעלול להשתנות** - כל מידע שדורש נתונים עדכניים מהאינטרנט
-6. **חיפוש תוכן קיים** - שירים, סרטונים, מאמרים, סרטים
-
-**חשוב מאוד:**
-- כלי זה מחובר ל-Google Search ויחזיר לינקים אמיתיים ועדכניים
-- אם המשתמש מבקש מידע עדכני (זמן, תאריך, חדשות) - חובה להשתמש בכלי הזה!
-- אם המשתמש מבקש לינק - חובה להשתמש בכלי הזה!
-- אסור לומר "אין לי אפשרות לשלוח לינקים" או "אני לא יכול לדעת את השעה" - יש לך את הכלי הזה!
-- אסור לומר "אני לא יכול לגשת לאינטרנט" - יש לך את הכלי הזה!
-
-**מתי לא להשתמש:**
-- אם המשתמש מבקש ליצור משהו חדש (שיר, תמונה, וידאו) → השתמש ב-create_music/create_image/create_video`,
+    description: 'Search the internet using Google Search. Use for real-time information (news, weather, time) and finding links.',
     parameters: {
       type: 'object',
       properties: {
         query: {
           type: 'string',
-          description:
-            'שאילתת החיפוש (לדוגמה: "שיר של אריאל זילבר", "BBC news Israel", "Tel Aviv weather forecast")'
+          description: 'Search query (e.g., "latest news Israel", "weather Tel Aviv", "Youtube link for X")'
         }
       },
       required: ['query']

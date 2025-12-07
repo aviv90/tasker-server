@@ -97,12 +97,7 @@ export async function sendToolAckMessage(
     const buildSingleAck = (call: FunctionCall): string => {
       const toolName = call.name;
 
-      if (
-        toolName === 'send_location' ||
-        toolName === 'retry_with_different_provider' ||
-        toolName === 'retry_last_command' ||
-        toolName === 'smart_execute_with_fallback'
-      ) {
+      if (toolName === 'send_location') {
         return '';
       }
 
