@@ -1,13 +1,6 @@
-/**
- * History Strategy Service
- * 
- * Manages the decision logic for loading conversation history.
- * Determines if history is needed based on the user's prompt (Self-contained vs Context-dependent).
- * Handles the processing of history (e.g., moving leading bot messages to system context).
- */
-
 import logger from '../../utils/logger';
 import { getChatHistory } from '../../utils/chatHistoryService';
+import { ACK_PATTERNS } from './config/constants';
 
 export interface HistoryStrategyResult {
     shouldLoadHistory: boolean;
@@ -56,18 +49,10 @@ export class HistoryStrategy {
                                 const text = msg.content.trim();
                                 // Check for common Ack patterns (Hebrew & English) - Importing constants would be better but keeping simple for now
                                 // TODO: Import TOOL_ACK_MESSAGES for robustness
+                                // Use centralized patterns
                                 const isAck =
-                                    text.startsWith('יוצר') ||
-                                    text.startsWith('מבצע') ||
-                                    text.startsWith('חושב') ||
-                                    text.startsWith('מנתח') ||
-                                    text.startsWith('מחפש') ||
-                                    text.startsWith('מתמלל') ||
-                                    text.startsWith('מתרגם') ||
-                                    text.includes('... ⚙️') ||
-                                    text.includes('... 🎨') ||
-                                    text.includes('... 🎬') ||
-                                    text.includes('... 🔍');
+                                    ACK_PATTERNS.PREFIXES.some(prefix => text.startsWith(prefix)) ||
+                                    ACK_PATTERNS.SUFFIXES_OR_EMOJIS.some(suffix => text.includes(suffix));
 
                                 if (isAck) {
                                     // logger.debug(`🧠 [HistoryStrategy] Filtered out system Ack message`);

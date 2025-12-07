@@ -6,7 +6,7 @@
 import { executeAgentQuery } from '../../../../services/agentService';
 import logger from '../../../../utils/logger';
 import { AgentResult, NormalizedInput } from './types';
-import { sendImageResult } from './media';
+import resultSender from '../../../../services/agent/execution/resultSender';
 
 /**
  * Handle post-processing: generate complementary image if text+image requested
@@ -62,8 +62,14 @@ export async function handlePostProcessing(
         const result = imageResult as AgentResult;
         logger.debug(`📸 [Agent Post] Sending complementary image generated from text: ${result.imageUrl}`);
 
-        // Use centralized image sending function (same logic as regular agent results)
-        await sendImageResult(chatId, result, quotedMessageId);
+        // Use centralized ResultSender
+        // Map AgentResult to StepResult
+        const stepResult = {
+          ...result,
+          text: result.text || '',
+          caption: result.caption || result.imageCaption
+        };
+        await resultSender.sendImage(chatId, stepResult, null, quotedMessageId);
         // Note: textAlreadySent flag not needed here as this is post-processing, not part of main result flow
       } else {
         logger.warn('⚠️ [Agent Post] Failed to generate complementary image for text+image request');

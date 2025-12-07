@@ -58,14 +58,9 @@ export async function routeToAgent(input: NormalizedInput, chatId: string, optio
 
   const userText = input.userText || '';
 
-  // OPTIMIZATION: Skip history for random product commands (stateless, requested by user)
-  // This saves tokens and latency for simple "get me x" commands
-  const isRandomProductCmd = /#\s*(random\s*product|gift\s*idea|unique\s*gift|amazon\s*find)/i.test(userText);
-  const useHistory = isRandomProductCmd ? false : options.useConversationHistory;
-
-  if (isRandomProductCmd) {
-    logger.info('🚀 [AGENT ROUTER] Detected random product command - Skipping history load for optimization');
-  }
+  // No heuristic filtering for history. We rely on HistoryStrategy and LLM intelligence.
+  // Previous regex loop for "random product" optimization removed.
+  const useHistory = options.useConversationHistory;
 
   // Build contextual prompt using the new context builder
   const contextualPrompt = await buildContextualPrompt(input, chatId);
