@@ -51,22 +51,18 @@ export function sanitizeToolResult<T extends Record<string, unknown>>(result: T)
   return sanitized;
 }
 
-interface LastCommand {
-  tool?: string;
-  args?: {
-    toolArgs?: Record<string, unknown>;
-    result?: Record<string, unknown>;
-    [key: string]: unknown;
-  };
-}
+import { LastCommand } from '../../whatsapp/types';
 
-export function summarizeLastCommand(lastCommand?: LastCommand, maxLength = 90): string {
+export function summarizeLastCommand(lastCommand?: LastCommand | null, maxLength = 90): string {
   if (!lastCommand) return '';
 
-  const { tool = '' } = lastCommand;
-  const argsWrapper = lastCommand.args || {};
-  const toolArgs = (argsWrapper.toolArgs || argsWrapper) as Record<string, unknown>;
-  const result = (argsWrapper.result || {}) as Record<string, unknown>;
+  const tool = lastCommand.tool || '';
+
+  // Normalize args/toolArgs
+  const rawArgs = (lastCommand.toolArgs || lastCommand.args || {}) as Record<string, unknown>;
+  // Sometimes args is wrapped in { toolArgs: ... }, handle that legacy case
+  const toolArgs = (rawArgs.toolArgs || rawArgs) as Record<string, unknown>;
+  const result = (rawArgs.result || {}) as Record<string, unknown>;
 
   const parts: string[] = [];
   parts.push(`כלי: ${tool}`);

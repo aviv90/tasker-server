@@ -1,54 +1,6 @@
-/**
- * Context Builder
- * Builds contextual prompts for the agent based on input
- */
-
 import conversationManager from '../../conversationManager';
 import { summarizeLastCommand } from '../utils/resultUtils';
-
-type QuotedContext = {
-  hasImage?: boolean;
-  imageUrl?: string;
-  hasVideo?: boolean;
-  videoUrl?: string;
-  hasAudio?: boolean;
-  audioUrl?: string;
-  text?: string;
-  type?: string;
-  [key: string]: unknown;
-};
-
-type NormalizedInput = {
-  userText?: string;
-  hasImage?: boolean;
-  hasVideo?: boolean;
-  hasAudio?: boolean;
-  imageUrl?: string | null;
-  videoUrl?: string | null;
-  audioUrl?: string | null;
-  audioAlreadyTranscribed?: boolean; // For voice messages that were already transcribed
-  authorizations?: {
-    media_creation?: boolean;
-    group_creation?: boolean;
-    voice_allowed?: boolean;
-    [key: string]: unknown;
-  };
-  quotedContext?: QuotedContext;
-  [key: string]: unknown;
-};
-
-type LastCommandSummary = {
-  tool?: string;
-  args?: Record<string, unknown>;
-  normalized?: Record<string, unknown>;
-  prompt?: string;
-  failed?: boolean;
-  imageUrl?: string | null;
-  videoUrl?: string | null;
-  audioUrl?: string | null;
-  isMultiStep?: boolean;
-  plan?: unknown;
-} | null;
+import { NormalizedInput, LastCommand } from '../../whatsapp/types';
 
 /**
  * Build contextual prompt for agent
@@ -60,9 +12,11 @@ export async function buildContextualPrompt(input: NormalizedInput, chatId: stri
   const userText = input.userText || '';
 
   const lastCommandRaw = await conversationManager.getLastCommand(chatId);
-  let parsedLastCommand: LastCommandSummary = null;
+  let parsedLastCommand: LastCommand | null = null;
+
   if (lastCommandRaw) {
-    const raw = lastCommandRaw as Record<string, any>;
+    // Cast to LastCommand (assuming conversationManager returns compatible object)
+    const raw = lastCommandRaw as LastCommand;
     parsedLastCommand = {
       tool: raw.tool,
       args: raw.toolArgs || raw.args,

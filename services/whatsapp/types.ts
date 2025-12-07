@@ -49,6 +49,7 @@ export interface NormalizedInput {
   imageUrl?: string | null;
   videoUrl?: string | null;
   audioUrl?: string | null;
+  audioAlreadyTranscribed?: boolean; // For voice messages that were already transcribed
   quotedContext?: QuotedContext | null;
   originalMessageId?: string;
   chatType?: 'group' | 'private' | 'unknown';

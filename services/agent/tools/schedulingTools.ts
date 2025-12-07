@@ -1,4 +1,7 @@
 import logger from '../../../utils/logger';
+import container from '../../container';
+import * as groupService from '../../groupService';
+import { DateParser } from '../../../utils/dateParser';
 import { createTool } from './base';
 
 type ScheduleMessageArgs = {
@@ -6,10 +9,6 @@ type ScheduleMessageArgs = {
     time: string;
     recipient?: string;
 };
-
-// Simple in-memory cache for deduplication (Idempotency)
-// Simple in-memory cache for deduplication (Idempotency) - REMOVED in favor of DB check
-// const dedupCache = new Map<string, { timestamp: number, result: any }>();
 
 export const schedule_message = createTool<ScheduleMessageArgs>(
     {
@@ -36,12 +35,6 @@ export const schedule_message = createTool<ScheduleMessageArgs>(
     },
     async (args, context) => {
         try {
-            // Lazy load container to avoid circular dependencies
-            const { default: container } = await import('../../container');
-            const groupService = await import('../../groupService');
-            // Removed DateParser import (or keep only for display formatting if needed)
-            const { DateParser } = await import('../../../utils/dateParser');
-
             let targetChatId = context.chatId;
             let recipientName = 'Current Chat';
 
@@ -67,7 +60,6 @@ export const schedule_message = createTool<ScheduleMessageArgs>(
                     error: 'Invalid time format. Please provide a valid ISO 8601 date string.'
                 };
             }
-
 
             const now = new Date();
             // Allow a buffer of 2 minutes for processing time
