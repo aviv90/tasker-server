@@ -101,7 +101,8 @@ export async function sendToolAckMessage(
       if (
         toolName === 'retry_with_different_provider' ||
         toolName === 'retry_last_command' ||
-        toolName === 'smart_execute_with_fallback'
+        toolName === 'smart_execute_with_fallback' ||
+        toolName === 'send_location'
       ) {
         return '';
       }

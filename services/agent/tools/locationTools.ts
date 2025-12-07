@@ -101,7 +101,9 @@ export const send_location = {
 
       // 🚀 Send the actual location message to the user!
       if (chatId) {
-        await greenApiService.sendLocation(chatId, latitude, longitude, locationResult.description || '').catch(err => {
+        // Pass description as both name and address to ensure visibility
+        const desc = locationResult.description || '';
+        await greenApiService.sendLocation(chatId, latitude, longitude, desc, desc).catch(err => {
           // If main send fails, rethrow to trigger error handler
           throw err;
         });
