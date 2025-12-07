@@ -94,7 +94,7 @@ export const schedule_message = createTool<ScheduleMessageArgs>(
 
             // Trigger immediate check to send the message right away if it's due now
             // This avoids waiting for the next polling interval (10s)
-            container.getService('scheduledTasks').processDueTasks().catch((err: any) => {
+            container.getService('scheduledTasks').processDueTasks().catch((err: unknown) => {
                 logger.error('Error in immediate task processing:', err);
             });
 
@@ -111,10 +111,10 @@ export const schedule_message = createTool<ScheduleMessageArgs>(
             };
 
             return result;
-        } catch (error: any) {
+        } catch (error: unknown) {
             return {
                 success: false,
-                error: `Failed to schedule message: ${error.message}`
+                error: `Failed to schedule message: ${error instanceof Error ? error.message : String(error)}`
             };
         }
     }

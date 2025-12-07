@@ -93,7 +93,7 @@ export class ResultProcessor {
 /**
  * Helper to process final text from multi-step execution
  */
-export function processFinalText(stepResults: any[], _options: any): string {
+export function processFinalText(stepResults: AgentResult[], _options: unknown): string {
     // Logic: Combine text from all steps, or assume the last step is the conclusion.
     // For now, we'll join them, but typically the last step has the answer.
     // If we have a specific "Conclusion" step, we might prioritize it.

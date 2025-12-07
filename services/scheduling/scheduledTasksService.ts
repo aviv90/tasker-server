@@ -44,8 +44,8 @@ class ScheduledTasksService {
             for (const task of dueTasks) {
                 await this.executeTask(task);
             }
-        } catch (error: any) {
-            logger.error('❌ Error processing due tasks:', error);
+        } catch (error: unknown) {
+            logger.error('❌ Error processing due tasks:', error instanceof Error ? error.message : String(error));
         }
     }
 
@@ -63,11 +63,12 @@ class ScheduledTasksService {
             await this.repository.updateStatus(task.id, 'completed');
             logger.info(`✅ Scheduled task ${task.id} completed successfully`);
 
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
             logger.error(`❌ Failed to execute task ${task.id}:`, error);
 
             // Update status to failed
-            await this.repository.updateStatus(task.id, 'failed', error.message || String(error));
+            await this.repository.updateStatus(task.id, 'failed', errorMessage);
         }
     }
 }
