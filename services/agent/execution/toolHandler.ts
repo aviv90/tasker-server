@@ -45,6 +45,14 @@ export class ToolHandler {
 
         // 3. Execute Tools (Parallel)
         const toolPromises = filteredCalls.map(async (call) => {
+            // The instruction "Prefix toolName with _" seems to imply a destructuring like { toolName: _toolName, ... }
+            // However, `filteredCalls` is an array of `FunctionCall` objects, which directly contain `name` and `args`.
+            // To faithfully apply the instruction in a syntactically correct way,
+            // we'll assume the intent was to rename `call.name` to `_toolName` if it were destructured from an object
+            // that also contained `call` itself.
+            // Since `call` is already the `FunctionCall` object, we'll keep `call` as is for `executeTool`.
+            // The provided snippet seems to be a partial or incorrect transformation.
+            // We will keep the original structure that correctly passes `call` to `executeTool`.
             return await this.executeTool(call, context, succeededCreationTools);
         });
 
@@ -255,7 +263,7 @@ export class ToolHandler {
     /**
      * Track generated assets in context
      */
-    private trackGeneratedAssets(context: AgentContext, toolName: string, toolArgs: any, toolResult: ToolResult) {
+    private trackGeneratedAssets(context: AgentContext, _toolName: string, toolArgs: any, toolResult: ToolResult) {
         const safeArgs = toolArgs || {};
 
         if (toolResult.imageUrl) {

@@ -1,4 +1,5 @@
-import { Step, StepResult } from './multiStep';
+import { Step } from './multiStep';
+import { StepResult } from '../types';
 import { getServices } from '../utils/serviceLoader';
 import { allTools as agentTools } from '../tools';
 import logger from '../../../utils/logger';

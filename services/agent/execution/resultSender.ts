@@ -9,27 +9,7 @@ import { cleanJsonWrapper, cleanMediaDescription } from '../../../utils/textSani
 import logger from '../../../utils/logger';
 import { isIntermediateToolOutputInPipeline } from '../utils/pipelineDetection';
 
-interface PollOptions {
-  options: string[];
-  question: string;
-  [key: string]: unknown;
-}
-
-interface StepResult {
-  latitude?: string | null;
-  longitude?: string | null;
-  locationInfo?: string | null;
-  poll?: PollOptions | null;
-  imageUrl?: string | null;
-  imageCaption?: string | null;
-  caption?: string | null;
-  videoUrl?: string | null;
-  videoCaption?: string | null;
-  audioUrl?: string | null;
-  text?: string | null;
-  toolsUsed?: string[];
-  [key: string]: unknown;
-}
+import { StepResult } from '../types';
 
 class ResultSender {
   /**
@@ -49,8 +29,8 @@ class ResultSender {
 
       await greenApiService.sendLocation(
         chatId,
-        parseFloat(stepResult.latitude),
-        parseFloat(stepResult.longitude),
+        stepResult.latitude,
+        stepResult.longitude,
         '',
         '',
         quotedMessageId || undefined,
