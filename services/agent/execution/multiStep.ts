@@ -14,6 +14,7 @@ import { TIME } from '../../../utils/constants';
 import logger from '../../../utils/logger';
 import { FallbackHandler } from './fallbackHandler';
 import { processFinalText } from './resultProcessor';
+import { AgentConfig, StepResult } from '../types';
 
 export interface Step {
   tool?: string;
@@ -34,34 +35,6 @@ export interface ExecutionOptions {
   [key: string]: unknown;
 }
 
-export interface AgentConfig {
-  model: string;
-  maxIterations: number;
-  timeoutMs: number;
-  contextMemoryEnabled?: boolean;
-}
-
-export interface StepResult {
-  success: boolean;
-  text?: string;
-  imageUrl?: string | null;
-  imageCaption?: string;
-  caption?: string;
-  videoUrl?: string | null;
-  videoCaption?: string;
-  audioUrl?: string | null;
-  poll?: { question: string; options: string[] } | null;
-  latitude?: string | null;
-  longitude?: string | null;
-  locationInfo?: string | null;
-  toolsUsed?: string[];
-  iterations?: number;
-  error?: string;
-  errorsAlreadySent?: boolean;
-  data?: string;
-  [key: string]: unknown;
-}
-
 class MultiStepExecution {
   private fallbackHandler: FallbackHandler;
 
@@ -71,12 +44,6 @@ class MultiStepExecution {
 
   /**
    * Execute multi-step plan
-   * @param {Object} plan - Plan from planner
-   * @param {string} chatId - Chat ID
-   * @param {Object} options - Execution options
-   * @param {string} languageInstruction - Language instruction
-   * @param {Object} agentConfig - Agent configuration
-   * @returns {Promise<Object>} - Execution result
    */
   async execute(plan: Plan, chatId: string, options: ExecutionOptions, languageInstruction: string, agentConfig: AgentConfig): Promise<StepResult> {
     logger.info(`✅ [Planner] Entering multi-step execution with ${plan.steps.length} steps`);
@@ -90,12 +57,12 @@ class MultiStepExecution {
     const stepResults: StepResult[] = [];
     const finalAssets: {
       imageUrl: string | null;
-      imageCaption: string;
+      imageCaption?: string;
       videoUrl: string | null;
       audioUrl: string | null;
       poll: { question: string; options: string[] } | null;
-      latitude: string | null;
-      longitude: string | null;
+      latitude: number | null;
+      longitude: number | null;
       locationInfo: string | null;
       error?: string;
     } = {
@@ -189,8 +156,7 @@ class MultiStepExecution {
           logger.debug(`🔍 [MultiStep] quotedMessageId for step ${step.stepNumber}: ${quotedMessageId}, from options.input: ${options.input?.originalMessageId}`);
 
           // Get userText from options.input for pipeline detection
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const userText = (options.input as any)?.userText || null;
+          const userText = (options.input as Record<string, unknown>)?.userText as string | undefined || null;
 
           // Send ALL results immediately in order
           await resultSender.sendStepResults(chatId, stepResult, step.stepNumber, quotedMessageId, userText);
@@ -213,10 +179,11 @@ class MultiStepExecution {
             }
           }
         }
-      } catch (stepError: any) {
-        logger.error(`❌ [Agent] Error executing step ${step.stepNumber}:`, { error: stepError.message });
+      } catch (stepError: unknown) {
+        const err = stepError as Error;
+        logger.error(`❌ [Agent] Error executing step ${step.stepNumber}:`, { error: err.message });
         const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
-        await this.sendError(chatId, stepError.message || stepError.toString(), step.stepNumber, quotedMessageId || null, true);
+        await this.sendError(chatId, err.message || err.toString(), step.stepNumber, quotedMessageId || null, true);
       }
     }
 
@@ -235,7 +202,7 @@ class MultiStepExecution {
       toolsUsed: stepResults.flatMap(r => r.toolsUsed || []),
       iterations: stepResults.reduce((sum, r) => sum + (r.iterations || 0), 0),
       multiStep: true,
-      plan: plan, // CRITICAL: Save the original plan for retry functionality
+      plan: plan as unknown as any, // Cast to match StepResult signature if mismatched in types (StepResult extends AgentResult, AgentResult plan might differ)
       stepsCompleted: stepResults.length,
       totalSteps: plan.steps.length,
       alreadySent: true,
@@ -254,8 +221,9 @@ class MultiStepExecution {
       const errorMessage = error.startsWith('❌') ? error : `${prefix} ${error}`;
       await greenApiService.sendTextMessage(chatId, errorMessage, quotedMessageId || undefined, TIME.TYPING_INDICATOR);
       logger.debug(`📤 [Multi-step] Error sent to user${stepNumber ? ` for step ${stepNumber}` : ''}`);
-    } catch (errorSendError: any) {
-      logger.error(`❌ [Multi-step] Failed to send error message:`, { error: errorSendError.message });
+    } catch (errorSendError: unknown) {
+      const err = errorSendError as Error;
+      logger.error(`❌ [Multi-step] Failed to send error message:`, { error: err.message });
     }
   }
 }

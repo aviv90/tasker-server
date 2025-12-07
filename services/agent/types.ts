@@ -14,6 +14,53 @@ export interface ToolCall {
     [key: string]: unknown;
 }
 
+// Tool Result Structure
+export interface ToolResult {
+    success?: boolean;
+    error?: string;
+    data?: string;
+    imageUrl?: string;
+    imageCaption?: string;
+    caption?: string;
+    description?: string;
+    revisedPrompt?: string;
+    videoUrl?: string;
+    videoCaption?: string;
+    audioUrl?: string;
+    poll?: {
+        question: string;
+        options: string[];
+    };
+    provider?: string;
+    latitude?: number;
+    longitude?: number;
+    locationInfo?: string;
+    suppressFinalResponse?: boolean;
+    errorsAlreadySent?: boolean;
+    textOnly?: boolean;
+    [key: string]: unknown;
+}
+
+export interface ToolFunctionResponse {
+    functionResponse: {
+        name: string;
+        response: {
+            success?: boolean;
+            error?: string;
+            [key: string]: unknown;
+        };
+    };
+}
+
+export interface AgentTool {
+    execute(args: unknown, context: any): Promise<ToolResult>;
+}
+
+export interface StepResult extends AgentResult {
+    data?: string;
+}
+
+
 // Agent Plan Structure (for Multi-step)
 export interface AgentPlan {
     plan: string[];

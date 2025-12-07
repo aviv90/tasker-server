@@ -16,6 +16,7 @@ import { cleanThinkingPatterns } from '../utils/agentHelpers';
 import { allTools as agentTools } from '../tools';
 import { cleanJsonWrapper } from '../../../utils/textSanitizer';
 import logger from '../../../utils/logger';
+import { StepResult, ToolResult } from '../types';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -32,25 +33,6 @@ interface SingleStepOptions {
   functionDeclarations?: SingleStepFunctionDeclaration[];
   systemInstruction?: string;
   expectedTool?: string | null;
-}
-
-interface StepResult {
-  success: boolean;
-  text?: string;
-  imageUrl?: string | null;
-  imageCaption?: string;
-  caption?: string; // Alias for imageCaption
-  videoUrl?: string | null;
-  videoCaption?: string;
-  audioUrl?: string | null;
-  poll?: { question: string; options: string[] } | null;
-  latitude?: string | null;
-  longitude?: string | null;
-  locationInfo?: string | null;
-  error?: string;
-  toolsUsed?: string[];
-  iterations?: number;
-  [key: string]: unknown;
 }
 
 /**
@@ -99,8 +81,8 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
     videoCaption: string;
     audioUrl: string | null;
     poll: { question: string; options: string[] } | null;
-    latitude: string | null;
-    longitude: string | null;
+    latitude: number | null;
+    longitude: number | null;
     locationInfo: string | null;
     error?: string;
   } = {
@@ -174,8 +156,7 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
         }
 
         // Execute with proper context (chatId needed for some tools)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const toolResult = await toolFunction.execute(toolArgs, { chatId }) as any; // Cast result
+        const toolResult = await toolFunction.execute(toolArgs, { chatId }) as ToolResult;
         functionResponses.push({
           name: toolName,
           response: toolResult
@@ -219,7 +200,6 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
       if (expectedTool && targetToolExecuted) {
         // Send function results back to get final text response
         const functionResponseParts = functionResponses
-
           .filter(fr => !fr.response.blocked)
           .map(fr => ({
             functionResponse: {
@@ -237,7 +217,6 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
 
       // Send function results back to the model (for non-multi-step or when no expected tool)
       const functionResponseParts = functionResponses
-
         .filter(fr => !fr.response.blocked)
         .map(fr => ({
           functionResponse: {
@@ -282,7 +261,16 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
   return {
     success: !hasError,
     text: textResponse,
-    ...assets,
+    imageUrl: assets.imageUrl || undefined, // Types compatibility
+    imageCaption: assets.imageCaption || undefined,
+    videoUrl: assets.videoUrl || undefined,
+    videoCaption: assets.videoCaption || undefined,
+    audioUrl: assets.audioUrl || undefined,
+    poll: assets.poll || undefined,
+    latitude: assets.latitude || undefined,
+    longitude: assets.longitude || undefined,
+    locationInfo: assets.locationInfo || undefined,
+    error: assets.error,
     toolsUsed,
     iterations
   };
