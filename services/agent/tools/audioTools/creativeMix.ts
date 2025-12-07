@@ -4,21 +4,15 @@ import { saveBufferToTempFile } from '../../../../utils/tempFileUtils';
 import { getStaticFileUrl } from '../../../../utils/urlUtils';
 import logger from '../../../../utils/logger';
 import { FAILED, ERROR } from '../../../../config/messages';
+import { createTool } from '../base';
 
 type CreativeMixArgs = {
   audio_url: string;
   style?: 'creative' | 'remix' | 'enhance' | string;
 };
 
-type CreativeMixResult = Promise<{
-  success: boolean;
-  data?: string;
-  audioUrl?: string;
-  error?: string;
-}>;
-
-export const creative_audio_mix = {
-  declaration: {
+export const creative_audio_mix = createTool<CreativeMixArgs>(
+  {
     name: 'creative_audio_mix',
     description: 'Create a creative audio mix with effects and music. CRITICAL: If prompt contains "Use this audio_url parameter directly", extract URL from there!',
     parameters: {
@@ -36,7 +30,7 @@ export const creative_audio_mix = {
       required: ['audio_url']
     }
   },
-  execute: async (args: CreativeMixArgs): CreativeMixResult => {
+  async (args) => {
     logger.debug('🔧 [Agent Tool] creative_audio_mix called');
 
     try {
@@ -70,8 +64,5 @@ export const creative_audio_mix = {
       };
     }
   }
-};
-
-// ES6 exports only - CommonJS not needed in TypeScript
-export default { creative_audio_mix };
+);
 

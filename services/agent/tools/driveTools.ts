@@ -6,16 +6,7 @@
 import googleDriveService from '../../googleDriveService';
 import logger from '../../../utils/logger';
 import { REQUIRED, ERROR } from '../../../config/messages';
-
-type AgentToolContext = {
-  chatId?: string;
-  originalInput?: {
-    language?: string;
-  };
-  normalized?: {
-    language?: string;
-  };
-};
+import { createTool } from './base';
 
 type SearchGoogleDriveArgs = {
   query?: string;
@@ -23,17 +14,11 @@ type SearchGoogleDriveArgs = {
   max_results?: number;
 };
 
-type ToolResult = Promise<{
-  success: boolean;
-  data?: string;
-  error?: string;
-}>;
-
 /**
  * Tool: search_google_drive
  */
-export const search_google_drive = {
-  declaration: {
+export const search_google_drive = createTool<SearchGoogleDriveArgs>(
+  {
     name: 'search_google_drive',
     description: `EXPERIMENTAL: Search Google Drive for files/docs.
 CRITICAL: Use ONLY if user explicitly asks (e.g. 'Search in Drive', 'What is in the file').
@@ -61,7 +46,7 @@ Features: Searches file names and content (OCR).`,
       required: ['query']
     }
   },
-  execute: async (args: SearchGoogleDriveArgs = {}, _context: AgentToolContext = {}): ToolResult => {
+  async (args) => {
     logger.debug(`🔧 [Agent Tool] search_google_drive called with query: ${args.query}, folder_id: ${args.folder_id}`);
 
     try {
@@ -154,8 +139,5 @@ Features: Searches file names and content (OCR).`,
       };
     }
   }
-};
-
-// ES6 exports only - CommonJS not needed in TypeScript
-export default { search_google_drive };
+);
 

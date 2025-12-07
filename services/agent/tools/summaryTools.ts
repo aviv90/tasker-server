@@ -7,27 +7,11 @@ import { getServices } from '../utils/serviceLoader';
 import logger from '../../../utils/logger';
 import { getRawChatHistory } from '../../../utils/chatHistoryService';
 import { NOT_FOUND, FAILED, ERROR } from '../../../config/messages';
-
-type AgentToolContext = {
-  chatId?: string;
-  originalInput?: {
-    language?: string;
-  };
-  normalized?: {
-    language?: string;
-  };
-};
+import { createTool } from './base';
 
 type ChatSummaryArgs = {
   count?: number;
 };
-
-type ChatSummaryResult = Promise<{
-  success: boolean;
-  data?: string | unknown;
-  summary?: string | unknown;
-  error?: string;
-}>;
 
 type GreenApiMessage = {
   typeMessage?: string;
@@ -47,8 +31,8 @@ type GreenApiMessage = {
  * instead of our DB, because generateChatSummary expects Green API format
  * with textMessage/caption fields, not our DB format with content/metadata.
  */
-export const chat_summary = {
-  declaration: {
+export const chat_summary = createTool<ChatSummaryArgs>(
+  {
     name: 'chat_summary',
     description: 'Summarize the current chat conversation. Useful for quick overview.',
     parameters: {
@@ -62,7 +46,7 @@ export const chat_summary = {
       required: []
     }
   },
-  execute: async (args: ChatSummaryArgs = {}, context: AgentToolContext = {}): ChatSummaryResult => {
+  async (args, context) => {
     logger.debug(`🔧 [Agent Tool] chat_summary called`);
 
     try {
@@ -148,8 +132,5 @@ export const chat_summary = {
       };
     }
   }
-};
-
-// ES6 exports only - CommonJS not needed in TypeScript
-export default { chat_summary };
+);
 

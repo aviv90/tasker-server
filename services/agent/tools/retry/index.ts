@@ -9,10 +9,11 @@ import conversationManager from '../../../conversationManager';
 import logger from '../../../../utils/logger';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { ALL_PROVIDERS } from '../../config/constants';
-import { RetryArgs, ToolContext, LastCommand, ToolResult } from './types';
+import { RetryArgs, LastCommand } from './types';
 import { handleMultiStepRetry, setAgentToolsReference as setMultiStepTools } from './multiStep';
 import { handleSingleStepRetry, setAgentToolsReference as setSingleStepTools } from './singleStep';
 import { NOT_FOUND, ERROR } from '../../../../config/messages';
+import { createTool } from '../base';
 
 // Reference to agentTools (will be injected)
 let agentTools: Record<string, { execute: (args: unknown, context: unknown) => Promise<unknown> }> | null = null;
@@ -31,8 +32,8 @@ export function setAgentToolsReference(tools: Record<string, { execute: (args: u
 /**
  * Tool: Retry Last Command
  */
-export const retry_last_command = {
-  declaration: {
+export const retry_last_command = createTool<RetryArgs>(
+  {
     name: 'retry_last_command',
     description: 'Retry the last command. Use ONLY when user explicitly asks to "retry", "try again", "fix it", or specific step numbers.',
     parameters: {
@@ -61,7 +62,7 @@ export const retry_last_command = {
       required: []
     }
   },
-  execute: async (args: RetryArgs = {}, context: ToolContext = {}): Promise<ToolResult> => {
+  async (args, context) => {
     logger.debug(`🔧 [Agent Tool] retry_last_command called with provider: ${args.provider_override || 'none'}`);
 
     if (!agentTools) {
@@ -121,6 +122,6 @@ export const retry_last_command = {
       };
     }
   }
-};
+);
 
 export default retry_last_command;

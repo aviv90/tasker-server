@@ -15,7 +15,7 @@ export interface ToolContext {
   originalInput?: {
     originalMessageId?: string;
     [key: string]: unknown;
-  };
+  } | null;
   [key: string]: unknown;
 }
 
@@ -77,5 +77,6 @@ export interface ToolResult {
   error?: string;
   lastTool?: string;
   lastArgs?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 

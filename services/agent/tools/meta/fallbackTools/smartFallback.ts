@@ -1,9 +1,3 @@
-/**
- * Smart Execute with Fallback Tool
- *
- * Executes tasks with intelligent fallback strategies when initial attempts fail.
- */
-
 import { getServices } from '../../../utils/serviceLoader';
 import { VIDEO_PROVIDER_FALLBACK_ORDER } from '../../../config/constants';
 import { simplifyPrompt, makePromptMoreGeneric } from '../../../utils/promptUtils';
@@ -12,6 +6,7 @@ import replicateService from '../../../../replicateService';
 import voiceService from '../../../../voiceService';
 import logger from '../../../../../utils/logger';
 import { ERROR } from '../../../../../config/messages';
+import { createTool } from '../../base';
 
 type TaskType = 'image_creation' | 'video_creation' | 'audio_creation';
 type Provider = 'gemini' | 'openai' | 'grok';
@@ -22,12 +17,6 @@ interface SmartFallbackArgs {
   failure_reason: string;
   provider_tried?: Provider;
   providers_tried?: string[];
-}
-
-interface AgentToolContext {
-  chatId?: string;
-  expectedMediaType?: string | null;
-  [key: string]: unknown;
 }
 
 interface ImageResult {
@@ -50,25 +39,8 @@ interface AudioResult {
   audioUrl?: string;
 }
 
-interface ToolResult {
-  success: boolean;
-  data?: string;
-  error?: string;
-  strategy_used?: string;
-  provider?: string;
-  imageUrl?: string;
-  imageCaption?: string;
-  caption?: string;
-  videoUrl?: string;
-  audioUrl?: string;
-  original_prompt?: string;
-  simplified_prompt?: string;
-  generic_prompt?: string;
-  suppressFinalResponse?: boolean;
-}
-
-const smartExecuteWithFallback = {
-  declaration: {
+const smartExecuteWithFallback = createTool<SmartFallbackArgs>(
+  {
     name: 'smart_execute_with_fallback',
     description: 'Execute task with intelligent fallback strategies (different provider, simpler prompt) when initial attempt fails. Use ONLY after a standard tool failure.',
     parameters: {
@@ -96,7 +68,7 @@ const smartExecuteWithFallback = {
       required: ['task_type', 'original_prompt', 'failure_reason']
     }
   },
-  execute: async (args: SmartFallbackArgs, context: AgentToolContext = {}): Promise<ToolResult> => {
+  async (args, context) => {
     logger.debug(`🧠 [Agent Tool] smart_execute_with_fallback called for ${args.task_type}`);
 
     try {
@@ -364,6 +336,6 @@ const smartExecuteWithFallback = {
       };
     }
   }
-};
+);
 
 export default smartExecuteWithFallback;

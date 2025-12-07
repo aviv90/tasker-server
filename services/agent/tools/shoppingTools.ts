@@ -1,14 +1,9 @@
-
 import * as amazonSearch from '../../serpApi/amazonSearch';
 import logger from '../../../utils/logger';
+import { createTool } from './base';
 
-interface ToolResult {
-    success: boolean;
-    data?: string;
-    error?: string;
-    product?: amazonSearch.AmazonProduct;
-    imageUrl?: string;
-    [key: string]: unknown;
+interface AmazonArgs {
+    topic?: string;
 }
 
 const GENERIC_SEARCH_TERMS = [
@@ -24,8 +19,8 @@ const GENERIC_SEARCH_TERMS = [
     'outdoor camping gear'
 ];
 
-export const random_amazon_product = {
-    declaration: {
+export const random_amazon_product = createTool<AmazonArgs>(
+    {
         name: 'random_amazon_product',
         description: 'Find a random product on Amazon. Use this when the user asks for a "random product", "gift idea", "something cool from Amazon", or a specific type of random item (e.g. "random toy").',
         parameters: {
@@ -39,7 +34,7 @@ export const random_amazon_product = {
             required: []
         }
     },
-    execute: async (args: { topic?: string }, _context: unknown): Promise<ToolResult> => {
+    async (args) => {
         try {
             let query = args.topic;
 
@@ -93,4 +88,4 @@ export const random_amazon_product = {
             };
         }
     }
-};
+);

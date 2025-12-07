@@ -1,15 +1,18 @@
-/**
- * Scheduling Tools
- * Tools for scheduling messages and reminders.
- */
 import logger from '../../../utils/logger';
+import { createTool } from './base';
+
+type ScheduleMessageArgs = {
+    message: string;
+    time: string;
+    recipient?: string;
+};
 
 // Simple in-memory cache for deduplication (Idempotency)
 // Simple in-memory cache for deduplication (Idempotency) - REMOVED in favor of DB check
 // const dedupCache = new Map<string, { timestamp: number, result: any }>();
 
-export const schedule_message = {
-    declaration: {
+export const schedule_message = createTool<ScheduleMessageArgs>(
+    {
         name: 'schedule_message',
         description: 'Schedule a message. You MUST calculate the exact ISO 8601 time based on the user request and Current Time. Do NOT pass natural language.',
         parameters: {
@@ -31,7 +34,7 @@ export const schedule_message = {
             required: ['message', 'time']
         }
     },
-    execute: async (args: { message: string, time: string, recipient?: string }, context: { chatId: string }) => {
+    async (args, context) => {
         try {
             // Lazy load container to avoid circular dependencies
             const { default: container } = await import('../../container');
@@ -60,6 +63,7 @@ export const schedule_message = {
 
             if (isNaN(scheduledAt.getTime())) {
                 return {
+                    success: false,
                     error: 'Invalid time format. Please provide a valid ISO 8601 date string.'
                 };
             }
@@ -100,6 +104,7 @@ export const schedule_message = {
 
             const result = {
                 success: true,
+                data: successMessage,
                 taskId: task.id,
                 scheduledAt: task.scheduledAt.toISOString(),
                 message: successMessage
@@ -108,12 +113,9 @@ export const schedule_message = {
             return result;
         } catch (error: any) {
             return {
+                success: false,
                 error: `Failed to schedule message: ${error.message}`
             };
         }
     }
-};
-
-export default {
-    schedule_message
-};
+);

@@ -1,27 +1,31 @@
-/**
- * Context Tools - Chat history, image analysis, preferences, and long-term memory
- */
-
 import { getChatHistory } from '../../../utils/chatHistoryService';
 import logger from '../../../utils/logger';
 import { getServices } from '../utils/serviceLoader';
 import { NOT_FOUND, ERROR } from '../../../config/messages';
+import { createTool } from './base';
 
-export interface ToolContext {
-  chatId?: string;
-  previousToolResults?: Record<string, unknown>;
-}
+type GetChatHistoryArgs = {
+  limit?: number;
+};
 
-type ToolResult<T = unknown> = Promise<{
-  success: boolean;
-  data?: T;
-  messages?: unknown[];
-  error?: string;
-  [key: string]: unknown;
-}>;
+type AnalyzeImageArgs = {
+  image_id: number;
+  question: string;
+};
 
-export const get_chat_history = {
-  declaration: {
+type SavePreferenceArgs = {
+  preference_key: string;
+  preference_value: string;
+  description?: string;
+};
+
+type GetMemoryArgs = {
+  include_summaries?: boolean;
+  include_preferences?: boolean;
+};
+
+export const get_chat_history = createTool<GetChatHistoryArgs>(
+  {
     name: 'get_chat_history',
     description: 'Retrieve chat history messages. Use when asking about conversation details, past messages, or group information.',
     parameters: {
@@ -35,7 +39,7 @@ export const get_chat_history = {
       required: []
     }
   },
-  execute: async (args: { limit?: number }, context: ToolContext): ToolResult => {
+  async (args, context) => {
     const limit = args.limit || 20;
     logger.debug(`🔧 [Agent Tool] get_chat_history called with limit: ${limit}`);
 
@@ -66,10 +70,10 @@ export const get_chat_history = {
       };
     }
   }
-};
+);
 
-export const analyze_image_from_history = {
-  declaration: {
+export const analyze_image_from_history = createTool<AnalyzeImageArgs>(
+  {
     name: 'analyze_image_from_history',
     description: 'Analyze an image from chat history. Use this when an image was previously shared in the chat.',
     parameters: {
@@ -87,12 +91,17 @@ export const analyze_image_from_history = {
       required: ['image_id', 'question']
     }
   },
-  execute: async (args: { image_id: number; question: string }, context: ToolContext): ToolResult => {
+  async (args, context) => {
     logger.debug(`🔧 [Agent Tool] analyze_image_from_history called with image_id: ${args.image_id}`);
 
     let imageBuffer: Buffer | null = null;
     try {
-      const history = (context.previousToolResults?.get_chat_history as { messages?: unknown[] })?.messages;
+      // Use helper to safely access previous results if possible, or assume context has it
+      // AgentContextState defines previousToolResults as Record<string, ToolResult> | undefined
+      // ToolResult in agent types has 'messages'
+      const historyToolResult = context.previousToolResults?.get_chat_history as { messages?: unknown[] } | undefined;
+      const history = historyToolResult?.messages;
+
       if (!history || !history[args.image_id]) {
         return {
           success: false,
@@ -139,10 +148,10 @@ export const analyze_image_from_history = {
       };
     }
   }
-};
+);
 
-export const save_user_preference = {
-  declaration: {
+export const save_user_preference = createTool<SavePreferenceArgs>(
+  {
     name: 'save_user_preference',
     description: 'Save a long-term user preference (e.g., favorites, dislikes, preferred modes).',
     parameters: {
@@ -164,7 +173,7 @@ export const save_user_preference = {
       required: ['preference_key', 'preference_value']
     }
   },
-  execute: async (args: { preference_key: string; preference_value: string }, context: ToolContext): ToolResult => {
+  async (args, context) => {
     logger.debug(
       `🔧 [Agent Tool] save_user_preference called: ${args.preference_key} = ${args.preference_value}`
     );
@@ -186,10 +195,10 @@ export const save_user_preference = {
       };
     }
   }
-};
+);
 
-export const get_long_term_memory = {
-  declaration: {
+export const get_long_term_memory = createTool<GetMemoryArgs>(
+  {
     name: 'get_long_term_memory',
     description: 'Retrieve long-term memory (summaries and preferences). Use for context on user likes/dislikes.',
     parameters: {
@@ -207,10 +216,7 @@ export const get_long_term_memory = {
       required: []
     }
   },
-  execute: async (
-    args: { include_summaries?: boolean; include_preferences?: boolean },
-    context: ToolContext
-  ): ToolResult => {
+  async (args, context) => {
     logger.debug('🔧 [Agent Tool] get_long_term_memory called');
 
     try {
@@ -271,7 +277,7 @@ export const get_long_term_memory = {
       };
     }
   }
-};
+);
 
 export default {
   get_chat_history,

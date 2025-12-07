@@ -9,34 +9,19 @@ import logger from '../../../utils/logger';
 import prompts from '../../../config/prompts';
 import { getLanguageInstruction } from '../utils/languageUtils';
 import { REQUIRED, ERROR } from '../../../config/messages';
-
-type AgentToolContext = {
-  chatId?: string;
-  originalInput?: {
-    language?: string;
-  };
-  normalized?: {
-    language?: string;
-  };
-};
+import { createTool } from './base';
 
 type SearchWebArgs = {
   query?: string;
 };
-
-type ToolResult = Promise<{
-  success: boolean;
-  data?: string;
-  error?: string;
-}>;
 
 // Initialize Gemini client for search_web (Google Search)
 
 /**
  * Tool: search_web
  */
-export const search_web = {
-  declaration: {
+export const search_web = createTool<SearchWebArgs>(
+  {
     name: 'search_web',
     description: 'Search the internet using Google Search. Use for real-time information (news, weather, time) and finding links.',
     parameters: {
@@ -50,7 +35,7 @@ export const search_web = {
       required: ['query']
     }
   },
-  execute: async (args: SearchWebArgs = {}, context: AgentToolContext = {}): ToolResult => {
+  async (args, context) => {
     logger.debug(`🔧 [Agent Tool] search_web called with query: ${args.query}`);
 
     try {
@@ -61,7 +46,7 @@ export const search_web = {
         };
       }
 
-      const language = context?.originalInput?.language || context?.normalized?.language || 'he';
+      const language = context?.originalInput?.language || 'he';
       const normalizedLanguage = typeof language === 'string' ? language.toLowerCase() : 'he';
       const languageInstruction = getLanguageInstruction(normalizedLanguage);
 
@@ -96,8 +81,5 @@ export const search_web = {
       };
     }
   }
-};
-
-// ES6 exports only - CommonJS not needed in TypeScript
-export default { search_web };
+);
 

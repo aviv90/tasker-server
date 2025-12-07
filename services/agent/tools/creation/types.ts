@@ -5,31 +5,12 @@
 
 import { ProviderResult } from '../../../../utils/providerFallback';
 import { PROVIDERS } from '../../config/constants';
+import { AgentContextState } from '../../types';
 
 /**
  * Agent tool context type
  */
-export type AgentToolContext = {
-  chatId?: string;
-  expectedMediaType?: string | null;
-  originalInput?: {
-    userText?: string;
-    language?: string;
-    originalMessageId?: string;
-    senderData?: {
-      senderId?: string;
-      sender?: string;
-      senderName?: string;
-      senderContactName?: string;
-      chatName?: string;
-    };
-  };
-  normalized?: {
-    text?: string;
-    language?: string;
-  };
-  [key: string]: unknown;
-};
+export type AgentToolContext = AgentContextState;
 
 /**
  * Tool result type

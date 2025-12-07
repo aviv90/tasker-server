@@ -3,6 +3,7 @@ import voiceService from '../../../voiceService';
 import { getAudioDuration } from '../../utils/audioUtils';
 import logger from '../../../../utils/logger';
 import { NOT_FOUND, FAILED, UNABLE, ERROR } from '../../../../config/messages';
+import { createTool } from '../base';
 
 type TextToSpeechArgs = {
   text: string;
@@ -15,20 +16,6 @@ type VoiceCloneArgs = {
   text_to_speak: string;
   language?: string;
 };
-
-type ToolContext = {
-  quotedContext?: { audioUrl?: string };
-  audioUrl?: string;
-};
-
-type ToolResponse = Promise<{
-  success: boolean;
-  data?: string;
-  audioUrl?: string;
-  voiceCloned?: boolean;
-  error?: string;
-  voiceId?: string;
-}>;
 
 type VoiceCloneResult = {
   error?: string;
@@ -47,8 +34,8 @@ type TTSResult = {
 
 const MIN_DURATION_FOR_CLONING = 4.6;
 
-export const text_to_speech = {
-  declaration: {
+export const text_to_speech = createTool<TextToSpeechArgs>(
+  {
     name: 'text_to_speech',
     description: 'Convert text to speech (TTS). Use when user asks: "Say X", "Speak X", "Read X". If quoted audio exists, clones the voice! Uses ElevenLabs. CRITICAL: If user uses speaking verbs (Say/Speak), output MUST be audio!',
     parameters: {
@@ -70,7 +57,7 @@ export const text_to_speech = {
       required: ['text']
     }
   },
-  execute: async (args: TextToSpeechArgs, context?: ToolContext): ToolResponse => {
+  async (args, context) => {
     logger.debug(`🔧 [Agent Tool] text_to_speech called: "${args.text}"`);
 
     try {
@@ -80,7 +67,7 @@ export const text_to_speech = {
       let voiceId: string | null = null;
       let shouldDeleteVoice = false;
 
-      const quotedAudioUrl = context?.quotedContext?.audioUrl || context?.audioUrl;
+      const quotedAudioUrl = context.quotedContext?.audioUrl as string || context.audioUrl;
 
       if (quotedAudioUrl) {
         logger.debug(`🎤 Quoted audio detected for voice cloning: ${quotedAudioUrl.substring(0, 50)}...`);
@@ -190,10 +177,10 @@ export const text_to_speech = {
       };
     }
   }
-};
+);
 
-export const voice_clone_and_speak = {
-  declaration: {
+export const voice_clone_and_speak = createTool<VoiceCloneArgs>(
+  {
     name: 'voice_clone_and_speak',
     description: 'Clone voice from an existing recording and use it to speak new text. CRITICAL: If prompt contains "Use this audio_url parameter directly", extract URL from there!',
     parameters: {
@@ -215,7 +202,7 @@ export const voice_clone_and_speak = {
       required: ['audio_url', 'text_to_speak']
     }
   },
-  execute: async (args: VoiceCloneArgs): ToolResponse => {
+  async (args) => {
     logger.debug('🔧 [Agent Tool] voice_clone_and_speak called');
 
     try {
@@ -275,11 +262,5 @@ export const voice_clone_and_speak = {
       };
     }
   }
-};
-
-// ES6 exports only - CommonJS not needed in TypeScript
-export default {
-  text_to_speech,
-  voice_clone_and_speak
-};
+);
 

@@ -15,7 +15,7 @@ type ToolContext = {
   originalInput?: {
     originalMessageId?: string;
     [key: string]: unknown;
-  };
+  } | null;
   [key: string]: unknown;
 };
 

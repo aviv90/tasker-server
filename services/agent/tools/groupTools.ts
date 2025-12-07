@@ -11,6 +11,7 @@ import { createGroup, setGroupPicture, sendTextMessage, getGroupInviteLink } fro
 import { generateImageForWhatsApp } from '../../geminiService';
 import { createTempFilePath } from '../../../utils/tempFileUtils';
 import logger from '../../../utils/logger';
+import { createTool } from './base';
 
 // Types
 type CreateGroupArgs = {
@@ -25,28 +26,6 @@ type SenderData = {
   senderName?: string;
   senderContactName?: string;
 };
-
-type ToolContext = {
-  chatId?: string;
-  originalInput?: {
-    userText?: string;
-    originalMessageId?: string;
-    senderData?: SenderData;
-  };
-  normalized?: {
-    text?: string;
-  };
-};
-
-type ToolResult = Promise<{
-  success: boolean;
-  data?: string;
-  groupId?: string | null;
-  groupInviteLink?: string | null;
-  participantsAdded?: number;
-  suppressFinalResponse?: boolean;
-  error?: string;
-}>;
 
 type ParticipantResolution = {
   resolved: Array<{
@@ -72,8 +51,8 @@ type ImageGenerationResult = {
 /**
  * Tool: Create Group
  */
-export const create_group = {
-  declaration: {
+export const create_group = createTool<CreateGroupArgs>(
+  {
     name: 'create_group',
     description: 'Create a new WhatsApp group with participants. Extract group name and list of participants. If a group picture description is provided, extract it as well.',
     parameters: {
@@ -98,7 +77,7 @@ export const create_group = {
       required: ['group_name', 'participants']
     }
   },
-  execute: async (args: CreateGroupArgs, context: ToolContext = {}): ToolResult => {
+  async (args, context) => {
     logger.info(`🔧 [Agent Tool] create_group called`, { args });
 
     try {
@@ -110,8 +89,12 @@ export const create_group = {
         };
       }
 
+      // We don't construct context object manually anymore, we use the passed context (AgentContextState)
+      // AgentContextState has quotedContext, originalInput etc.
+
       const quotedMessageId = extractQuotedMessageId({ context });
-      const senderData = context.originalInput?.senderData ?? {};
+
+      const senderData = (context.originalInput?.senderData as SenderData) ?? {};
       const senderId = senderData.senderId || senderData.sender || '';
 
       await sendTextMessage(chatId, '👥 מתחיל יצירת קבוצה...', quotedMessageId, 1000);
@@ -262,7 +245,4 @@ export const create_group = {
       };
     }
   }
-};
-
-// ES6 exports only - CommonJS not needed in TypeScript
-export default { create_group };
+);

@@ -1,14 +1,9 @@
-/**
- * Retry with Different Provider Tool
- * 
- * Retries image/video creation or editing with a different provider when initial attempts fail.
- */
-
 import { getServices } from '../../../utils/serviceLoader';
 import * as helpers from './helpers';
 import replicateService from '../../../../replicateService';
 import logger from '../../../../../utils/logger';
 import { FAILED, ERROR } from '../../../../../config/messages';
+import { createTool } from '../../base';
 
 type TaskType = 'image' | 'image_edit' | 'video';
 
@@ -18,12 +13,6 @@ interface RetryProviderArgs {
   task_type?: TaskType;
   avoid_provider?: string;
   image_url?: string;
-}
-
-interface AgentToolContext {
-  chatId?: string;
-  expectedMediaType?: string | null;
-  [key: string]: unknown;
 }
 
 interface ImageResult {
@@ -46,19 +35,8 @@ interface EditResult {
   description?: string;
 }
 
-interface ToolResult {
-  success: boolean;
-  data?: string;
-  error?: string;
-  imageUrl?: string;
-  videoUrl?: string;
-  caption?: string;
-  provider?: string;
-  suppressFinalResponse?: boolean;
-}
-
-const retryWithDifferentProvider = {
-  declaration: {
+const retryWithDifferentProvider = createTool<RetryProviderArgs>(
+  {
     name: 'retry_with_different_provider',
     description: 'Retry image/video creation or editing with a different provider. Use ONLY after a failure with the first provider.',
     parameters: {
@@ -89,7 +67,7 @@ const retryWithDifferentProvider = {
       required: ['original_prompt', 'reason']
     }
   },
-  execute: async (args: RetryProviderArgs, context: AgentToolContext = {}): Promise<ToolResult> => {
+  async (args, context) => {
     logger.debug(`🔧 [Agent Tool] retry_with_different_provider called for ${args.task_type || 'image'}`);
 
     try {
@@ -298,6 +276,6 @@ const retryWithDifferentProvider = {
       };
     }
   }
-};
+);
 
 export default retryWithDifferentProvider;

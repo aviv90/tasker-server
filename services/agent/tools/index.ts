@@ -109,10 +109,10 @@ import { AgentTool } from '../types';
  */
 export const allTools: Record<string, AgentTool> = {
   // Context & Memory
-  get_chat_history: contextTools.get_chat_history as unknown as AgentTool,
-  analyze_image_from_history: contextTools.analyze_image_from_history as unknown as AgentTool,
-  save_user_preference: contextTools.save_user_preference as unknown as AgentTool,
-  get_long_term_memory: contextTools.get_long_term_memory as unknown as AgentTool,
+  get_chat_history: contextTools.get_chat_history,
+  analyze_image_from_history: contextTools.analyze_image_from_history,
+  save_user_preference: contextTools.save_user_preference,
+  get_long_term_memory: contextTools.get_long_term_memory,
 
   // Creation
   create_image: creationTools.create_image,
@@ -122,9 +122,9 @@ export const allTools: Record<string, AgentTool> = {
   create_poll: creationTools.create_poll,
 
   // Shopping
-  random_amazon_product: shoppingTools.random_amazon_product as unknown as AgentTool,
-  // search_products: shoppingTools.search_products as unknown as AgentTool, // Missing
-  // search_products_v2: shoppingTools.search_products_v2 as unknown as AgentTool, // Missing
+  random_amazon_product: shoppingTools.random_amazon_product,
+  // search_products: shoppingTools.search_products, // Missing
+  // search_products_v2: shoppingTools.search_products_v2, // Missing
 
   // Analysis
   analyze_image: analysisTools.analyze_image,
@@ -135,42 +135,42 @@ export const allTools: Record<string, AgentTool> = {
   edit_video: editingTools.edit_video,
 
   // Utils
-  // add_group_members: groupTools.add_group_members as unknown as AgentTool, // Missing
-  // reminder: reminderTools.reminder as unknown as AgentTool, // Missing
-  // remove_bg: utilityTools.remove_bg as unknown as AgentTool, // Missing
+  // add_group_members: groupTools.add_group_members, // Missing
+  // reminder: reminderTools.reminder, // Missing
+  // remove_bg: utilityTools.remove_bg, // Missing
 
   // Audio & Voice
-  transcribe_audio: audioTools.transcribe_audio as unknown as AgentTool,
-  text_to_speech: audioTools.text_to_speech as unknown as AgentTool,
-  voice_clone_and_speak: audioTools.voice_clone_and_speak as unknown as AgentTool,
-  creative_audio_mix: audioTools.creative_audio_mix as unknown as AgentTool,
-  translate_text: audioTools.translate_text as unknown as AgentTool,
-  translate_and_speak: audioTools.translate_and_speak as unknown as AgentTool,
-  // record_voice: audioTools.record_voice as unknown as AgentTool, // Check if this exists
+  transcribe_audio: audioTools.transcribe_audio,
+  text_to_speech: audioTools.text_to_speech,
+  voice_clone_and_speak: audioTools.voice_clone_and_speak,
+  creative_audio_mix: audioTools.creative_audio_mix,
+  translate_text: audioTools.translate_text,
+  translate_and_speak: audioTools.translate_and_speak,
+  // record_voice: audioTools.record_voice, // Missing
 
   // Search & Info
-  search_web: searchTools.search_web as unknown as AgentTool,
-  // deep_research: searchTools.deep_research as unknown as AgentTool, // Missing
-  search_google_drive: driveTools.search_google_drive as unknown as AgentTool,
-  chat_summary: summaryTools.chat_summary as unknown as AgentTool,
+  search_web: searchTools.search_web,
+  // deep_research: searchTools.deep_research, // Missing
+  search_google_drive: driveTools.search_google_drive,
+  chat_summary: summaryTools.chat_summary,
 
   // Storage
-  // upload_file: storageTools.upload_file as unknown as AgentTool, // Missing
-  // file_search: storageTools.file_search as unknown as AgentTool, // Missing
+  // upload_file: storageTools.upload_file, // Missing
+  // file_search: storageTools.file_search, // Missing
 
   // Location & Social
-  send_location: locationTools.send_location as unknown as AgentTool,
-  create_group: groupTools.create_group as unknown as AgentTool,
+  send_location: locationTools.send_location,
+  create_group: groupTools.create_group,
 
   // Meta & Retry
-  retry_last_command: retryTools.retry_last_command as unknown as AgentTool,
-  smart_execute_with_fallback: fallbackTools.smart_execute_with_fallback as unknown as AgentTool,
-  retry_with_different_provider: fallbackTools.retry_with_different_provider as unknown as AgentTool,
-  // self_update: metaTools.self_update as unknown as AgentTool, // Missing
-  // agent_chat: metaTools.agent_chat as unknown as AgentTool, // Missing
+  retry_last_command: retryTools.retry_last_command,
+  smart_execute_with_fallback: fallbackTools.smart_execute_with_fallback,
+  retry_with_different_provider: fallbackTools.retry_with_different_provider,
+  // self_update: metaTools.self_update, // Missing
+  // agent_chat: metaTools.agent_chat, // Missing
 
   // Scheduling
-  schedule_message: schedulingTools.schedule_message as unknown as AgentTool,
+  schedule_message: schedulingTools.schedule_message,
 
   // Flight
   random_flight: flightTools.random_flight

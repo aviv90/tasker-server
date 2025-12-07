@@ -3,33 +3,12 @@ import voiceService from '../../../voiceService';
 import { getAudioDuration } from '../../utils/audioUtils';
 import logger from '../../../../utils/logger';
 import { FAILED, ERROR } from '../../../../config/messages';
+import { createTool } from '../base';
 
 type TranslateArgs = {
   text: string;
   target_language: string;
 };
-
-type ToolContext = {
-  chatId?: string;
-  originalInput?: { language?: string };
-  normalized?: { language?: string };
-  quotedContext?: { audioUrl?: string };
-  audioUrl?: string;
-};
-
-type ToolResult = Promise<{
-  success: boolean;
-  data?: string;
-  translation?: string;
-  translatedText?: string;
-  provider?: string;
-  audioUrl?: string;
-  targetLanguage?: string;
-  languageCode?: string;
-  voiceCloned?: boolean;
-  ttsError?: string;
-  error?: string;
-}>;
 
 type TranslationResponse = {
   error?: string;
@@ -76,8 +55,8 @@ const languageCodeMap: Record<string, string> = {
   czech: 'cs'
 };
 
-export const translate_text = {
-  declaration: {
+export const translate_text = createTool<TranslateArgs>(
+  {
     name: 'translate_text',
     description: 'Translate text to another language (returns text only). To Speak it, use translate_and_speak! Supports 20+ languages.',
     parameters: {
@@ -95,7 +74,7 @@ export const translate_text = {
       required: ['text', 'target_language']
     }
   },
-  execute: async (args: TranslateArgs): ToolResult => {
+  async (args) => {
     logger.debug('🔧 [Agent Tool] translate_text called');
 
     try {
@@ -126,10 +105,10 @@ export const translate_text = {
       };
     }
   }
-};
+);
 
-export const translate_and_speak = {
-  declaration: {
+export const translate_and_speak = createTool<TranslateArgs>(
+  {
     name: 'translate_and_speak',
     description: 'Translate text AND convert to speech (returns audio + text). If quoted audio exists, clones the voice! Use when user asks: "Say X in Japanese", "Translate X and speak". DO NOT use for simple greetings.',
     parameters: {
@@ -147,7 +126,7 @@ export const translate_and_speak = {
       required: ['text', 'target_language']
     }
   },
-  execute: async (args: TranslateArgs, context?: ToolContext): ToolResult => {
+  async (args, context) => {
     logger.debug(`🔧 [Agent Tool] translate_and_speak called: "${args.text}" -> ${args.target_language}`);
 
     try {
@@ -176,7 +155,7 @@ export const translate_and_speak = {
       let voiceId: string | null = null;
       let shouldDeleteVoice = false;
 
-      const quotedAudioUrl = context?.quotedContext?.audioUrl || context?.audioUrl;
+      const quotedAudioUrl = context.quotedContext?.audioUrl as string || context.audioUrl;
 
       if (quotedAudioUrl) {
         logger.info(
@@ -305,9 +284,4 @@ export const translate_and_speak = {
       };
     }
   }
-};
-
-export default {
-  translate_text,
-  translate_and_speak
-};
+);

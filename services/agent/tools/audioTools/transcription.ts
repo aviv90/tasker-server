@@ -3,17 +3,10 @@ import speechService from '../../../speechService';
 import voiceService from '../../../voiceService';
 import logger from '../../../../utils/logger';
 import { NOT_FOUND, FAILED, ERROR } from '../../../../config/messages';
+import { createTool } from '../base';
 
 type TranscribeArgs = {
   audio_url: string;
-};
-
-type TranscribeResultPayload = {
-  success: boolean;
-  data?: string;
-  transcription?: string;
-  language?: string;
-  error?: string;
 };
 
 type SpeechTranscriptionResponse = {
@@ -22,10 +15,8 @@ type SpeechTranscriptionResponse = {
   error?: string;
 };
 
-type TranscribeResult = Promise<TranscribeResultPayload>;
-
-export const transcribe_audio = {
-  declaration: {
+export const transcribe_audio = createTool<TranscribeArgs>(
+  {
     name: 'transcribe_audio',
     description: 'Transcribe audio to text (STT). CRITICAL: If prompt contains "Use this audio_url parameter directly", extract URL from there!',
     parameters: {
@@ -39,7 +30,7 @@ export const transcribe_audio = {
       required: ['audio_url']
     }
   },
-  execute: async (args: TranscribeArgs): TranscribeResult => {
+  async (args) => {
     logger.debug('🔧 [Agent Tool] transcribe_audio called');
 
     try {
@@ -88,8 +79,5 @@ export const transcribe_audio = {
       };
     }
   }
-};
-
-// ES6 exports only - CommonJS not needed in TypeScript
-export default { transcribe_audio };
+);
 
