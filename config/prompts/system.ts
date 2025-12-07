@@ -88,6 +88,7 @@ TOOL MAPPING:
 • "translate to X" → \`translate_and_speak\`
 • "say X" → \`text_to_speech\`
 • "remind/schedule" → \`schedule_message\`
+• "product/gift/amazon" → \`random_amazon_product\`
 
 RULES:
 • **NEVER** say "I don't know" for real-time info → Use \`search_web\`.
