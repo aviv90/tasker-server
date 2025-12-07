@@ -1,20 +1,24 @@
 import { jest } from '@jest/globals';
 import ScheduledTasksService from '../../services/scheduling/scheduledTasksService';
 import ScheduledTasksRepository from '../../repositories/scheduledTasksRepository';
-import { sendTextMessage } from '../../services/greenApi/messaging';
+import { GreenApiMessagingService } from '../../services/greenApi/messagingService';
 
 // Mock dependencies
 jest.mock('../../repositories/scheduledTasksRepository');
-jest.mock('../../services/greenApi/messaging');
+jest.mock('../../services/greenApi/messagingService');
 jest.mock('../../utils/logger');
 
 describe('ScheduledTasksService', () => {
     let service: ScheduledTasksService;
     let repositoryMock: jest.Mocked<ScheduledTasksRepository>;
+    let messagingServiceMock: jest.Mocked<GreenApiMessagingService>;
 
     beforeEach(() => {
         repositoryMock = new ScheduledTasksRepository({} as any) as jest.Mocked<ScheduledTasksRepository>;
-        service = new ScheduledTasksService(repositoryMock);
+        messagingServiceMock = new GreenApiMessagingService({} as any, {} as any) as jest.Mocked<GreenApiMessagingService>;
+
+        service = new ScheduledTasksService(repositoryMock, messagingServiceMock);
+
         jest.clearAllMocks();
     });
 
@@ -49,14 +53,14 @@ describe('ScheduledTasksService', () => {
             ];
 
             repositoryMock.findDue.mockResolvedValue(dueTasks as any);
-            (sendTextMessage as jest.Mock).mockResolvedValue({});
+            messagingServiceMock.sendTextMessage.mockResolvedValue({});
 
             await service.processDueTasks();
 
             expect(repositoryMock.findDue).toHaveBeenCalled();
-            expect(sendTextMessage).toHaveBeenCalledTimes(2);
-            expect(sendTextMessage).toHaveBeenCalledWith('chat1', 'msg1');
-            expect(sendTextMessage).toHaveBeenCalledWith('chat2', 'msg2');
+            expect(messagingServiceMock.sendTextMessage).toHaveBeenCalledTimes(2);
+            expect(messagingServiceMock.sendTextMessage).toHaveBeenCalledWith('chat1', 'msg1');
+            expect(messagingServiceMock.sendTextMessage).toHaveBeenCalledWith('chat2', 'msg2');
             expect(repositoryMock.updateStatus).toHaveBeenCalledWith('1', 'completed');
             expect(repositoryMock.updateStatus).toHaveBeenCalledWith('2', 'completed');
         });
@@ -67,11 +71,11 @@ describe('ScheduledTasksService', () => {
             ];
 
             repositoryMock.findDue.mockResolvedValue(dueTasks as any);
-            (sendTextMessage as jest.Mock).mockRejectedValue(new Error('Send failed'));
+            messagingServiceMock.sendTextMessage.mockRejectedValue(new Error('Send failed'));
 
             await service.processDueTasks();
 
-            expect(sendTextMessage).toHaveBeenCalledWith('chat1', 'msg1');
+            expect(messagingServiceMock.sendTextMessage).toHaveBeenCalledWith('chat1', 'msg1');
             expect(repositoryMock.updateStatus).toHaveBeenCalledWith('1', 'failed', 'Send failed');
         });
 
@@ -80,7 +84,7 @@ describe('ScheduledTasksService', () => {
 
             await service.processDueTasks();
 
-            expect(sendTextMessage).not.toHaveBeenCalled();
+            expect(messagingServiceMock.sendTextMessage).not.toHaveBeenCalled();
         });
     });
 });

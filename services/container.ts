@@ -23,6 +23,7 @@ import MessagesManager from './conversation/messages';
 import TasksManager from './conversation/tasks';
 import MigrationRunner from './conversation/migrationRunner';
 import ScheduledTasksService from './scheduling/scheduledTasksService';
+import { GreenApiMessagingService } from './greenApi/messagingService';
 
 interface Services {
     commands: CommandsManager;
@@ -34,6 +35,7 @@ interface Services {
     messages: MessagesManager;
     tasks: TasksManager;
     scheduledTasks: ScheduledTasksService;
+    messaging: GreenApiMessagingService;
 }
 
 interface Repositories {
@@ -95,17 +97,29 @@ class Container {
             };
 
             // Initialize Services
-            // Using ! assertion because we just initialized them above.
+            const commandsManager = new CommandsManager(conversationManagerMock, this.repositories.commands!);
+            const messageTypesManager = new MessageTypesManager(conversationManagerMock, this.repositories.messageTypes!);
+            const agentContextManager = new AgentContextManager(conversationManagerMock, this.repositories.agentContext!);
+            const summariesManager = new SummariesManager(conversationManagerMock, this.repositories.summaries!);
+            const allowListsManager = new AllowListsManager(this.repositories.allowLists!);
+            const contactsManager = new ContactsManager(conversationManagerMock, this.repositories.contacts!);
+            const messagesManager = new MessagesManager(conversationManagerMock);
+            const tasksManager = new TasksManager(conversationManagerMock, this.repositories.tasks!);
+
+            const messagingService = new GreenApiMessagingService(messageTypesManager, messagesManager);
+            const scheduledTasksService = new ScheduledTasksService(this.repositories.scheduledTasks!, messagingService);
+
             this.services = {
-                commands: new CommandsManager(conversationManagerMock, this.repositories.commands!),
-                messageTypes: new MessageTypesManager(conversationManagerMock, this.repositories.messageTypes!),
-                agentContext: new AgentContextManager(conversationManagerMock, this.repositories.agentContext!),
-                summaries: new SummariesManager(conversationManagerMock, this.repositories.summaries!),
-                allowLists: new AllowListsManager(this.repositories.allowLists!),
-                contacts: new ContactsManager(conversationManagerMock, this.repositories.contacts!),
-                messages: new MessagesManager(conversationManagerMock),
-                tasks: new TasksManager(conversationManagerMock, this.repositories.tasks!),
-                scheduledTasks: new ScheduledTasksService(this.repositories.scheduledTasks!)
+                commands: commandsManager,
+                messageTypes: messageTypesManager,
+                agentContext: agentContextManager,
+                summaries: summariesManager,
+                allowLists: allowListsManager,
+                contacts: contactsManager,
+                messages: messagesManager,
+                tasks: tasksManager,
+                scheduledTasks: scheduledTasksService,
+                messaging: messagingService
             };
 
             // Run Migrations

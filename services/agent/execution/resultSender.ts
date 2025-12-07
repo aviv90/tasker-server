@@ -5,7 +5,7 @@
 
 import { getServices } from '../utils/serviceLoader';
 import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
-import { cleanJsonWrapper, cleanMediaDescription } from '../../../utils/textSanitizer';
+import { cleanJsonWrapper, cleanMediaDescription, cleanAmazonPrefix } from '../../../utils/textSanitizer';
 import logger from '../../../utils/logger';
 import { isIntermediateToolOutputInPipeline } from '../utils/pipelineDetection';
 
@@ -110,7 +110,7 @@ class ResultSender {
 
       // If no caption but text exists, use text as caption
       if (!caption && stepResult.text && stepResult.text.trim()) {
-        caption = stepResult.text;
+        caption = cleanAmazonPrefix(stepResult.text);
       }
 
       const toolsWithUrls = new Set(['search_web', 'get_chat_history', 'chat_summary', 'translate_text', 'random_amazon_product', 'random_flight']);
@@ -156,7 +156,7 @@ class ResultSender {
 
       // If no caption but text exists, use text as caption
       if (!caption && stepResult.text && stepResult.text.trim()) {
-        caption = stepResult.text;
+        caption = cleanAmazonPrefix(stepResult.text);
       }
 
       const toolsWithUrls = new Set(['search_web', 'get_chat_history', 'chat_summary', 'translate_text', 'random_amazon_product', 'random_flight']);
@@ -314,6 +314,9 @@ class ResultSender {
       logger.debug(`📝 [ResultSender] Sending text${stepInfo}`);
 
       let cleanText = stepResult.text.trim();
+
+      // Clean Amazon prefix (remove "Sure, here is..." if Amazon header exists)
+      cleanText = cleanAmazonPrefix(cleanText);
 
       // Clean JSON wrappers first (before other cleaning)
       cleanText = cleanJsonWrapper(cleanText);

@@ -149,6 +149,25 @@ export function cleanMultiStepText(text: unknown): string {
 }
 
 /**
+ * Clean Amazon conversational filler
+ * If text contains the specific Amazon product header, return only from that header onwards.
+ * @param text - Input text
+ * @returns Cleaned text
+ */
+export function cleanAmazonPrefix(text: unknown): string {
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+
+  // Look for the header: "📦 *מוצר אקראי מאמזון:*"
+  const match = text.match(/(📦\s*\*מוצר אקראי מאמזון:\*[\s\S]*)/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  return text;
+}
+
+/**
  * JSON content extraction fields (in priority order)
  */
 const JSON_CONTENT_FIELDS = ['answer', 'text', 'message', 'content', 'description', 'data', 'formatted_address', 'address'] as const;

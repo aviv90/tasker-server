@@ -22,7 +22,7 @@ const GENERIC_SEARCH_TERMS = [
 export const random_amazon_product = createTool<AmazonArgs>(
     {
         name: 'random_amazon_product',
-        description: 'Find a random product on Amazon. Use this for ANY request to "send product", "find product", "random product", "gift idea", or "something cool from Amazon". If user says "send product [topic]", use [topic].',
+        description: 'Find a random product on Amazon. Use this for ANY request to "send product", "find product", "random product", "gift idea", or "something cool from Amazon". The tool returns a PRE-FORMATTED string. Output the tool result EXACTLY AS IS. Do NOT add any conversational filler like "Here is the product". Do NOT translate the tool output.',
         parameters: {
             type: 'object',
             properties: {
