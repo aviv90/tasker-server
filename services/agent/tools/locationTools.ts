@@ -100,6 +100,8 @@ export const send_location = {
       }
 
       // 🚀 Send the actual location message to the user!
+      // REMOVED: Duplicate sending. The AgentOrchestrator handles sending the result via sendLocationResult.
+      /*
       if (chatId) {
         // Pass description as both name and address to ensure visibility
         const desc = locationResult.description || '';
@@ -108,6 +110,7 @@ export const send_location = {
           throw err;
         });
       }
+      */
 
       return {
         success: true,
