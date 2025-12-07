@@ -367,7 +367,7 @@ class AgentLoop {
       // Track tool call for context memory
       context.toolCalls.push({
         tool: toolName,
-        args: toolArgs,
+        args: toolArgs as Record<string, unknown>,
         success: toolResult.success !== false,
         timestamp: Date.now()
       });
@@ -395,7 +395,7 @@ class AgentLoop {
       // Track failed tool call
       context.toolCalls.push({
         tool: toolName,
-        args: toolArgs,
+        args: toolArgs as Record<string, unknown>,
         success: false,
         error: err.message,
         timestamp: Date.now()

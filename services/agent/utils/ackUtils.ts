@@ -16,7 +16,7 @@ type ProviderKey = string | null | undefined;
 
 export interface FunctionCall {
   name: string;
-  args?: Record<string, unknown>;
+  args?: object;
 }
 
 /**
@@ -108,7 +108,7 @@ export async function sendToolAckMessage(
 
 
 
-      const args = call.args || {};
+      const args = (call.args || {}) as Record<string, unknown>;
       const providerRaw = (args.provider || args.service) as ProviderKey;
       let provider = normalizeProviderKey(providerRaw);
 
