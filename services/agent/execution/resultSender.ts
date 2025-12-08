@@ -210,16 +210,13 @@ class ResultSender {
    * @param {string} [userText] - Optional: User's original text (for pipeline detection)
    */
   async sendText(chatId: string, stepResult: StepResult, stepNumber: number | null = null, quotedMessageId: string | null = null, userText: string | null = null): Promise<void> {
-    // Pre-clean text for valid comparison
-    let cleanText = stepResult.text ? stepResult.text.trim() : '';
-
-    // Clean Amazon prefix (remove "Sure, here is..." if Amazon header exists)
-    // We do this EARLY so that equality checks against captions (which use this logic) are accurate
-    cleanText = cleanAmazonPrefix(cleanText);
-
-    if (!cleanText) {
+    if (!stepResult.text || !stepResult.text.trim()) {
       return;
     }
+
+    // Pre-clean text for use in comparisons and sending
+    // We do NOT use cleanAmazonPrefix here to avoid ad-hoc logic, but rely on robust comparison below
+    let cleanText = stepResult.text.trim();
 
     // CRITICAL: Suppress intermediate tool output when it's part of a pipeline
     // Example: get_chat_history → create_image (user asked "צייר גרף שמתאר את היסטוריית השיחה")
@@ -267,16 +264,27 @@ class ResultSender {
 
         const captionToCheck = cleanMediaDescription(effectiveCaption);
 
-        // If text is effectively the same as the caption (implicit or explicit), SKIP
+        // Case 1: Identical (Trimmed)
         if (textToCheck.trim() === captionToCheck.trim()) {
-          logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - already sent as image caption`);
+          logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - identical to image caption`);
           return;
         }
 
-        // If text is different but very short compared to caption, skip (likely redundancy)
+        // Case 2: Text is Subset of Caption (Text < Caption)
         if (textToCheck.length < captionToCheck.length + 10 && captionToCheck.includes(textToCheck)) {
-          logger.debug(`⏭️ [ResultSender] Skipping text - contained in caption and not significantly longer`);
+          logger.debug(`⏭️ [ResultSender] Skipping text - subset of image caption`);
           return;
+        }
+
+        // Case 3: Caption is Subset of Text (Text > Caption)
+        // Example: Text="Sure, here is [Caption]", Caption="[Caption]"
+        if (textToCheck.includes(captionToCheck)) {
+          const residue = textToCheck.replace(captionToCheck, '').trim();
+          // Allow up to 60 chars of filler/prefix/suffix tolerance
+          if (residue.length < 60) {
+            logger.debug(`⏭️ [ResultSender] Skipping text - superset of image caption (only filler diff)`);
+            return;
+          }
         }
       }
       // For videos: text is already sent separately in sendVideo
@@ -289,12 +297,32 @@ class ResultSender {
           effectiveCaption = cleanText;
         }
 
-        const captionToCheck = cleanMediaDescription(effectiveCaption);
+        const captionToCheck = cleanMediaDescription(effectiveCaption); // Re-declared in separate block from image logic, so safe if scoped correctly. But here using one scope?
+        // Ah, 'const' is block scoped. If 'else if' is separate block, it's fine. 
+        // Note: The previous code had scope issues because I pasted into the middle of the function.
+        // This replacement rewrites the whole function, so I can ensure proper scoping or use 'let'.
+        // Better to use 'let' for variable that might be reused or distinct names.
+        // Actually, inside 'else if' block, 'const' is fine.
 
-        // If text is effectively the same as the caption (implicit or explicit), SKIP
+        // Case 1: Identical (Trimmed)
         if (textToCheck.trim() === captionToCheck.trim()) {
-          logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - already sent as video caption`);
+          logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - identical to video caption`);
           return;
+        }
+
+        // Case 2: Text is Subset of Caption (Text < Caption)
+        if (textToCheck.length < captionToCheck.length + 10 && captionToCheck.includes(textToCheck)) {
+          logger.debug(`⏭️ [ResultSender] Skipping text - subset of video caption`);
+          return;
+        }
+
+        // Case 3: Caption is Subset of Text (Text > Caption)
+        if (textToCheck.includes(captionToCheck)) {
+          const residue = textToCheck.replace(captionToCheck, '').trim();
+          if (residue.length < 60) {
+            logger.debug(`⏭️ [ResultSender] Skipping text - superset of video caption (only filler diff)`);
+            return;
+          }
         }
       }
       // For audio: audio IS the response, no additional text needed
@@ -317,7 +345,6 @@ class ResultSender {
       logger.debug(`📝 [ResultSender] Sending text${stepInfo}`);
 
       // Clean JSON wrappers first (before other cleaning)
-      // Note: cleanText is already Amazon-cleaned
       cleanText = cleanJsonWrapper(cleanText);
 
       // CRITICAL: For search_web and similar tools, URLs ARE the content - don't remove them!
