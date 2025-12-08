@@ -4,6 +4,7 @@ import voiceService from '../../../voiceService';
 import logger from '../../../../utils/logger';
 import { NOT_FOUND, FAILED, ERROR } from '../../../../config/messages';
 import { createTool } from '../base';
+import { repairMediaUrl } from '../urlRepair';
 
 type TranscribeArgs = {
   audio_url: string;
@@ -30,19 +31,21 @@ export const transcribe_audio = createTool<TranscribeArgs>(
       required: ['audio_url']
     }
   },
-  async (args) => {
+  async (args, context) => {
     logger.debug('🔧 [Agent Tool] transcribe_audio called');
 
     try {
-      if (!args.audio_url) {
+      const audioUrl = repairMediaUrl(args.audio_url, 'audio', context);
+
+      if (!audioUrl) {
         return {
           success: false,
           error: NOT_FOUND.AUDIO_URL
         };
       }
 
-      logger.debug(`📥 Downloading audio: ${args.audio_url}`);
-      const audioResponse = await axios.get<ArrayBuffer>(args.audio_url, { responseType: 'arraybuffer' });
+      logger.debug(`📥 Downloading audio: ${audioUrl}`);
+      const audioResponse = await axios.get<ArrayBuffer>(audioUrl, { responseType: 'arraybuffer' });
       const audioBuffer = Buffer.from(audioResponse.data);
 
       logger.debug('🎤 Transcribing audio...');

@@ -7,6 +7,8 @@ import logger from '../../../utils/logger';
 import { FAILED, ERROR } from '../../../config/messages';
 import { createTool } from './base';
 
+import { repairMediaUrl } from './urlRepair';
+
 type AnalyzeArgs = {
   image_url?: string;
   video_url?: string;
@@ -32,12 +34,13 @@ export const analyze_image = createTool<AnalyzeArgs>(
       required: ['image_url', 'question']
     }
   },
-  async (args) => {
-    logger.debug(`🔧 [Agent Tool] analyze_image called with image_url: ${args.image_url?.substring(0, 60)}...`);
+  async (args, context) => {
+    let imageUrl = repairMediaUrl(args.image_url, 'image', context);
+    logger.debug(`🔧 [Agent Tool] analyze_image called with image_url: ${imageUrl?.substring(0, 60)}...`);
 
     let imageBuffer: Buffer | null = null;
     try {
-      if (!args.image_url) {
+      if (!imageUrl) {
         return {
           success: false,
           error: 'Missing image_url.'
@@ -45,7 +48,7 @@ export const analyze_image = createTool<AnalyzeArgs>(
       }
 
       const { geminiService, greenApiService } = getServices();
-      imageBuffer = await greenApiService.downloadFile(args.image_url);
+      imageBuffer = await greenApiService.downloadFile(imageUrl);
       const base64Image = imageBuffer.toString('base64');
 
       const result = (await geminiService.analyzeImageWithText(args.question, base64Image)) as { success: boolean; text?: string; error?: string };
@@ -94,11 +97,13 @@ export const analyze_video = createTool<AnalyzeArgs>(
       required: ['video_url', 'question']
     }
   },
-  async (args) => {
+  async (args, context) => {
     logger.debug('🔧 [Agent Tool] analyze_video called');
 
     try {
-      if (!args.video_url) {
+      let videoUrl = repairMediaUrl(args.video_url, 'video', context);
+
+      if (!videoUrl) {
         return {
           success: false,
           error: 'חסר video_url לניתוח הוידאו.'
@@ -106,7 +111,7 @@ export const analyze_video = createTool<AnalyzeArgs>(
       }
 
       const { geminiService, greenApiService } = getServices();
-      const videoBuffer: Buffer = await greenApiService.downloadFile(args.video_url);
+      const videoBuffer: Buffer = await greenApiService.downloadFile(videoUrl);
       const result = (await geminiService.analyzeVideoWithText(args.question, videoBuffer)) as { error?: string; text?: string };
 
       if (result.error) {

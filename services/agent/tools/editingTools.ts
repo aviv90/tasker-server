@@ -1,10 +1,6 @@
-/**
- * Editing Tools - Image and Video editing
- * Clean, modular tool definitions following SOLID principles
- */
-
-import { formatProviderName } from '../utils/providerUtils';
 import { getServices } from '../utils/serviceLoader';
+import { formatProviderName } from '../utils/providerUtils';
+import { repairMediaUrl } from './urlRepair';
 import { ProviderFallback, ProviderResult } from '../../../utils/providerFallback';
 import logger from '../../../utils/logger';
 import * as replicateService from '../../replicateService';
@@ -70,12 +66,15 @@ export const edit_image = createTool<EditImageArgs>(
     });
 
     try {
-      if (!args.image_url) {
+      let imageUrl = repairMediaUrl(args.image_url, 'image', context);
+
+      if (!imageUrl) {
         return {
           success: false,
           error: REQUIRED.IMAGE_URL_FOR_EDIT
         };
       }
+
       if (!args.edit_instruction) {
         return {
           success: false,
@@ -87,8 +86,9 @@ export const edit_image = createTool<EditImageArgs>(
       const requestedService = args.service || null;
       const servicesToTry = requestedService ? [requestedService] : ['gemini', 'openai'];
 
-      const imageBuffer = await greenApiService.downloadFile(args.image_url);
+      const imageBuffer = await greenApiService.downloadFile(imageUrl);
       const base64Image = imageBuffer.toString('base64');
+
 
       const fallback = new ProviderFallback({
         toolName: 'edit_image',
@@ -191,7 +191,9 @@ export const edit_video = createTool<EditVideoArgs>(
     });
 
     try {
-      if (!args.video_url) {
+      let videoUrl = repairMediaUrl(args.video_url, 'video', context);
+
+      if (!videoUrl) {
         return {
           success: false,
           error: REQUIRED.VIDEO_URL_FOR_EDIT
@@ -206,7 +208,7 @@ export const edit_video = createTool<EditVideoArgs>(
 
       const { greenApiService } = getServices();
 
-      const videoBuffer = await greenApiService.downloadFile(args.video_url);
+      const videoBuffer = await greenApiService.downloadFile(videoUrl);
       const providersToTry = ['replicate'];
 
       const fallback = new ProviderFallback({

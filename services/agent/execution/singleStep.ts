@@ -175,7 +175,7 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
 
 
         // Execute with proper context
-        const stepContext = agentContext.createInitialContext(chatId);
+        const stepContext = agentContext.createInitialContext(chatId, { input: options.input });
         const toolResult = await toolFunction.execute(toolArgs, stepContext) as ToolResult;
         functionResponses.push({
           name: toolName,
