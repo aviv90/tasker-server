@@ -47,9 +47,7 @@ export class HistoryStrategy {
                             // Filter out system Ack messages to prevent hallucination/mimicking
                             if (msg.role === 'assistant') {
                                 const text = msg.content.trim();
-                                // Check for common Ack patterns (Hebrew & English) - Importing constants would be better but keeping simple for now
-                                // TODO: Import TOOL_ACK_MESSAGES for robustness
-                                // Use centralized patterns
+                                // Filter system Ack messages using centralized patterns from config/constants.ts
                                 const isAck =
                                     ACK_PATTERNS.PREFIXES.some(prefix => text.startsWith(prefix)) ||
                                     ACK_PATTERNS.SUFFIXES_OR_EMOJIS.some(suffix => text.includes(suffix));
