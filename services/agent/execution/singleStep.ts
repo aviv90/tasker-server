@@ -18,6 +18,8 @@ import { cleanJsonWrapper } from '../../../utils/textSanitizer';
 import logger from '../../../utils/logger';
 import { StepResult, ToolResult } from '../types';
 import agentContext from './context';
+import { sendToolAckMessage, FunctionCall } from '../utils/ackUtils';
+import { extractQuotedMessageId } from '../../../utils/messageHelpers';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -34,6 +36,7 @@ interface SingleStepOptions {
   functionDeclarations?: SingleStepFunctionDeclaration[];
   systemInstruction?: string;
   expectedTool?: string | null;
+  input?: Record<string, unknown>;
 }
 
 /**
@@ -145,6 +148,20 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
         }
 
         toolsUsed.push(toolName);
+
+        // Send Ack if not handled by multi-step planner (i.e., expectedTool is not set)
+        if (!expectedTool) {
+          const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId as string | undefined });
+          const ackCalls: FunctionCall[] = [{ name: toolName, args: toolArgs as object }];
+
+          // Check if audio was already transcribed (skip ACK for transcribe_audio)
+          const skipToolsAck: string[] = [];
+          if (options.input?.audioAlreadyTranscribed) {
+            skipToolsAck.push('transcribe_audio');
+          }
+
+          await sendToolAckMessage(chatId, ackCalls, { quotedMessageId, skipToolsAck });
+        }
 
         // Execute the tool
         const toolFunction = agentTools[toolName];
