@@ -1,9 +1,8 @@
 import container from './container';
 
 import TasksManager from './conversation/tasks';
-import logger from '../utils/logger';
 import { Pool } from 'pg';
-import { TIME } from '../utils/constants';
+import logger from '../utils/logger';
 
 // Import interfaces/classes
 import CommandsManager, { CommandMetadata } from './conversation/commands';
@@ -24,50 +23,35 @@ interface AgentContext {
 }
 
 class ConversationManager {
-  public isInitialized: boolean = false;
-  public pool: Pool | null = null;
+  // ═══════════════════ PROXY STATE ═══════════════════
 
-  public tasksManager: TasksManager;
-  private cleanupIntervalHandle: NodeJS.Timeout | null = null;
+  get isInitialized(): boolean {
+    return container.isInitialized;
+  }
 
-  constructor() {
-    // We keep these here for backward compatibility API
-    // But they will delegate to the container's managers where possible
-
-    // @ts-expect-error - TasksManager expects ConversationManager interface, but we pass 'this'
-    this.tasksManager = new TasksManager(this);
-
-    // Note: We do NOT start initialization here anymore to avoid side effects on import.
-    // Call initialize() explicitly.
+  get pool(): Pool | null {
+    return container.pool;
   }
 
   // ═══════════════════ INITIALIZATION ═══════════════════
 
   async initialize(): Promise<void> {
-    if (this.isInitialized) return;
-
-    try {
-      logger.info('💭 ConversationManager initializing with DI Container...');
-      await container.initialize();
-      this.pool = container.pool; // Expose pool for legacy components
-      this.isInitialized = true;
-
-      this.startPeriodicCleanup();
-
-    } catch (error: unknown) {
-      logger.error('❌ Failed to initialize ConversationManager:', error);
-      throw error;
-    }
+    logger.info('💭 ConversationManager initializing (via Container)...');
+    return container.initialize();
   }
 
   /**
-   * @deprecated Use initialize() instead. Kept for backward compatibility if any.
+   * @deprecated Use initialize() instead. Kept for backward compatibility.
    */
   async initializeDatabase(): Promise<void> {
     return this.initialize();
   }
 
   // ═══════════════════ GETTERS (DI) ═══════════════════
+
+  get tasksManager(): TasksManager {
+    return container.getService('tasks');
+  }
 
   get messageTypesManager(): MessageTypesManager {
     return container.getService('messageTypes');
@@ -94,9 +78,7 @@ class ConversationManager {
   }
 
   // Legacy support for messagesManager (it's deprecated)
-  // We explicitly redirect to chatHistoryService as per previous implementation
   get messagesManager(): MessagesManager {
-    // Return the real MessagesManager from container (no deprecation warning)
     return container.getService('messages');
   }
 
@@ -171,13 +153,10 @@ class ConversationManager {
   }
 
   async clearAllConversations(): Promise<void> {
-    // Clear conversations from DB (MessagesManager handles both DB and cache)
-    // Use container's messages service directly (no deprecation warning)
     await container.getService('messages').clearAllConversations();
   }
 
   async clearConversationsForChat(chatId: string): Promise<number> {
-    // Use container's messages service directly (no deprecation warning)
     return container.getService('messages').clearConversationsForChat(chatId);
   }
 
@@ -221,8 +200,6 @@ class ConversationManager {
   async getLastCommand(chatId: string): Promise<unknown> {
     return this.commandsManager.getLastCommand(chatId);
   }
-
-
 
   get commandsManagerClearAll(): () => Promise<void> {
     return () => this.commandsManager.clearAll();
@@ -297,52 +274,11 @@ class ConversationManager {
 
   // Cleanup
   async runFullCleanup(): Promise<{ contextDeleted: number; summariesDeleted: number; totalDeleted: number }> {
-    // Cleanup message types (30 days TTL)
-    await this.messageTypesManager.cleanup(30 * TIME.DAY);
-
-    // Cleanup old commands (30 days TTL)
-    await this.commandsManager.cleanup(30 * TIME.DAY);
-
-    logger.info('🧹 Starting full cleanup...');
-    const contextDeleted = await this.agentContextManager.cleanupOldAgentContext(30);
-    const summariesDeleted = await this.summariesManager.cleanupOldSummaries(10);
-
-    const stats = { contextDeleted, summariesDeleted, totalDeleted: contextDeleted + summariesDeleted };
-    logger.info(`✅ Full cleanup completed:`, stats);
-    return stats;
-  }
-
-  startPeriodicCleanup(): void {
-    if (this.cleanupIntervalHandle) return;
-
-    const CLEANUP_INTERVAL_MS = Math.min(TIME.CLEANUP_INTERVAL, 2147483647);
-
-    setTimeout(async () => {
-      logger.info('🧹 Running first scheduled cleanup...');
-      await this.runFullCleanup();
-
-      this.cleanupIntervalHandle = setInterval(async () => {
-        logger.info('🧹 Running scheduled cleanup...');
-        await this.runFullCleanup();
-      }, CLEANUP_INTERVAL_MS);
-    }, 1000); // 1 second delay before first cleanup
-
-    logger.info(`✅ Periodic cleanup scheduled (~every 30 days)`);
+    return container.runFullCleanup();
   }
 
   async close(): Promise<void> {
-    if (this.pool) {
-      // Pool is managed by container, we just explicitly close it here if needed
-      // But container.pool is shared.
-      // conversationManager.close() calls this.
-    }
-    if (this.cleanupIntervalHandle) {
-      clearInterval(this.cleanupIntervalHandle);
-      this.cleanupIntervalHandle = null;
-    }
-    // We should really call container shutdown/close if it existed, but it relies on pool end.
-    // We can assume pool ending happens at container level if we added a close method there.
-    // But here we just clear interval.
+    return container.close();
   }
 }
 

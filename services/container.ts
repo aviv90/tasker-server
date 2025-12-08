@@ -104,7 +104,7 @@ class Container {
             const allowListsManager = new AllowListsManager(this.repositories.allowLists!);
             const contactsManager = new ContactsManager(conversationManagerMock, this.repositories.contacts!);
             const messagesManager = new MessagesManager(conversationManagerMock);
-            const tasksManager = new TasksManager(conversationManagerMock, this.repositories.tasks!);
+            const tasksManager = new TasksManager(this.repositories.tasks!);
 
             const messagingService = new GreenApiMessagingService(messageTypesManager, messagesManager);
             const scheduledTasksService = new ScheduledTasksService(this.repositories.scheduledTasks!, messagingService);
@@ -127,6 +127,7 @@ class Container {
             await migrationRunner.run();
 
             this.isInitialized = true;
+            this.startPeriodicCleanup();
             logger.info('🚀 [Container] Initialization complete');
 
         } catch (error: unknown) {
@@ -140,6 +141,59 @@ class Container {
             throw new Error(`Service ${name} not found in container`);
         }
         return this.services[name] as Services[K];
+    }
+
+    // ═══════════════════ CLEANUP ═══════════════════
+    private cleanupIntervalHandle: NodeJS.Timeout | null = null;
+
+    async runFullCleanup(): Promise<{ contextDeleted: number; summariesDeleted: number; totalDeleted: number }> {
+        const messageTypesManager = this.getService('messageTypes');
+        const commandsManager = this.getService('commands');
+        const agentContextManager = this.getService('agentContext');
+        const summariesManager = this.getService('summaries');
+
+        // Cleanup message types (30 days TTL)
+        await messageTypesManager.cleanup(30 * TIME.DAY);
+
+        // Cleanup old commands (30 days TTL)
+        await commandsManager.cleanup(30 * TIME.DAY);
+
+        logger.info('🧹 [Container] Starting full cleanup...');
+        const contextDeleted = await agentContextManager.cleanupOldAgentContext(30);
+        const summariesDeleted = await summariesManager.cleanupOldSummaries(10);
+
+        const stats = { contextDeleted, summariesDeleted, totalDeleted: contextDeleted + summariesDeleted };
+        logger.info(`✅ [Container] Full cleanup completed:`, stats);
+        return stats;
+    }
+
+    startPeriodicCleanup(): void {
+        if (this.cleanupIntervalHandle) return;
+
+        const CLEANUP_INTERVAL_MS = Math.min(TIME.CLEANUP_INTERVAL, 2147483647);
+
+        setTimeout(async () => {
+            logger.info('🧹 [Container] Running first scheduled cleanup...');
+            await this.runFullCleanup();
+
+            this.cleanupIntervalHandle = setInterval(async () => {
+                logger.info('🧹 [Container] Running scheduled cleanup...');
+                await this.runFullCleanup();
+            }, CLEANUP_INTERVAL_MS);
+        }, 1000); // 1 second delay before first cleanup
+
+        logger.info(`✅ [Container] Periodic cleanup scheduled (~every 30 days)`);
+    }
+
+    async close(): Promise<void> {
+        if (this.cleanupIntervalHandle) {
+            clearInterval(this.cleanupIntervalHandle);
+            this.cleanupIntervalHandle = null;
+        }
+        if (this.pool) {
+            await this.pool.end();
+            logger.info('🔌 [Container] Database pool closed');
+        }
     }
 
     getRepository<K extends keyof Repositories>(name: K): Repositories[K] {
