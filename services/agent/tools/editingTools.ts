@@ -6,6 +6,7 @@ import logger from '../../../utils/logger';
 import * as replicateService from '../../replicateService';
 import { formatErrorForLogging } from '../../../utils/errorHandler';
 import { REQUIRED, ERROR } from '../../../config/messages';
+import { PROVIDERS } from '../config/constants';
 import { createTool } from './base';
 
 type EditImageArgs = {
@@ -84,7 +85,8 @@ export const edit_image = createTool<EditImageArgs>(
 
       const { openaiService, geminiService, greenApiService } = getServices();
       const requestedService = args.service || null;
-      const servicesToTry = requestedService ? [requestedService] : ['gemini', 'openai'];
+      // Grok does not support editing, so we strictly use Gemini and OpenAI
+      const servicesToTry = requestedService ? [requestedService] : [PROVIDERS.IMAGE.GEMINI, PROVIDERS.IMAGE.OPENAI];
 
       const imageBuffer = await greenApiService.downloadFile(imageUrl);
       const base64Image = imageBuffer.toString('base64');
@@ -98,7 +100,7 @@ export const edit_image = createTool<EditImageArgs>(
       });
 
       const providerResult = (await fallback.tryWithFallback<ImageEditResult>(async service => {
-        if (service === 'openai') {
+        if (service === PROVIDERS.IMAGE.OPENAI) {
           const result = (await openaiService.editImageForWhatsApp(
             args.edit_instruction as string,
             base64Image,
@@ -107,6 +109,8 @@ export const edit_image = createTool<EditImageArgs>(
           result.provider = service;
           return result;
         }
+
+        // Default to Gemini
         const result = (await geminiService.editImageForWhatsApp(
           args.edit_instruction as string,
           base64Image,
