@@ -210,7 +210,14 @@ class ResultSender {
    * @param {string} [userText] - Optional: User's original text (for pipeline detection)
    */
   async sendText(chatId: string, stepResult: StepResult, stepNumber: number | null = null, quotedMessageId: string | null = null, userText: string | null = null): Promise<void> {
-    if (!stepResult.text || !stepResult.text.trim()) {
+    // Pre-clean text for valid comparison
+    let cleanText = stepResult.text ? stepResult.text.trim() : '';
+
+    // Clean Amazon prefix (remove "Sure, here is..." if Amazon header exists)
+    // We do this EARLY so that equality checks against captions (which use this logic) are accurate
+    cleanText = cleanAmazonPrefix(cleanText);
+
+    if (!cleanText) {
       return;
     }
 
@@ -230,17 +237,15 @@ class ResultSender {
       stepResult.imageUrl || stepResult.videoUrl ||
       stepResult.audioUrl || stepResult.locationInfo;
 
-
-
     // If structured output exists, check if text is just the caption/description (already sent)
     if (hasStructuredOutput) {
-      const textToCheck = cleanMediaDescription(stepResult.text);
+      const textToCheck = cleanMediaDescription(cleanText);
 
       // CRITICAL: For location - locationInfo is ALREADY sent by sendLocation
       // If text equals or contains locationInfo, skip sending it again
       if (stepResult.locationInfo && stepResult.locationInfo.trim()) {
         const locationInfoClean = cleanJsonWrapper(stepResult.locationInfo).trim();
-        const textClean = cleanJsonWrapper(stepResult.text).trim();
+        const textClean = cleanJsonWrapper(cleanText).trim();
 
         // Check if text is the same as locationInfo (or contains it)
         if (textClean === locationInfoClean ||
@@ -255,12 +260,11 @@ class ResultSender {
         // Determine the effective caption used by sendImage
         let effectiveCaption = stepResult.imageCaption || stepResult.caption || '';
 
-        // If no explicit caption, sendImage uses text as caption
-        if (!effectiveCaption && stepResult.text) {
-          effectiveCaption = stepResult.text;
+        // If no explicit caption, sendImage uses text as caption (and cleans it!)
+        if (!effectiveCaption) {
+          effectiveCaption = cleanText;
         }
 
-        const textToCheck = cleanMediaDescription(stepResult.text);
         const captionToCheck = cleanMediaDescription(effectiveCaption);
 
         // If text is effectively the same as the caption (implicit or explicit), SKIP
@@ -281,11 +285,10 @@ class ResultSender {
         let effectiveCaption = stepResult.videoCaption || stepResult.caption || '';
 
         // If no explicit caption, sendVideo uses text as caption
-        if (!effectiveCaption && stepResult.text) {
-          effectiveCaption = stepResult.text;
+        if (!effectiveCaption) {
+          effectiveCaption = cleanText;
         }
 
-        const textToCheck = cleanMediaDescription(stepResult.text);
         const captionToCheck = cleanMediaDescription(effectiveCaption);
 
         // If text is effectively the same as the caption (implicit or explicit), SKIP
@@ -313,12 +316,8 @@ class ResultSender {
       const stepInfo = stepNumber ? ` for step ${stepNumber}` : '';
       logger.debug(`📝 [ResultSender] Sending text${stepInfo}`);
 
-      let cleanText = stepResult.text.trim();
-
-      // Clean Amazon prefix (remove "Sure, here is..." if Amazon header exists)
-      cleanText = cleanAmazonPrefix(cleanText);
-
       // Clean JSON wrappers first (before other cleaning)
+      // Note: cleanText is already Amazon-cleaned
       cleanText = cleanJsonWrapper(cleanText);
 
       // CRITICAL: For search_web and similar tools, URLs ARE the content - don't remove them!
