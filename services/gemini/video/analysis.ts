@@ -60,6 +60,7 @@ class VideoAnalysis {
   async prepareVideoPart(videoBuffer: Buffer): Promise<VideoPart> {
     // gemini-3-pro-preview requires Files API for video - inline data causes 400 errors
     logger.info('📤 Uploading video to Files API (required for gemini-3-pro-preview)...');
+    logger.info(`📹 Video buffer size: ${(videoBuffer.length / 1024 / 1024).toFixed(2)} MB`);
 
     const tempFileName = `temp_analysis_video_${uuidv4()}.mp4`;
     const tempFilePath = createTempFilePath(tempFileName);
@@ -70,14 +71,16 @@ class VideoAnalysis {
     }
 
     fs.writeFileSync(tempFilePath, videoBuffer);
+    logger.info(`📁 Temp file written: ${tempFilePath}`);
 
     try {
+      // @google/genai SDK requires mimeType at config level
       const uploadResult = await veoClient.files.upload({
-        file: {
-          path: tempFilePath,
+        file: tempFilePath,
+        config: {
           mimeType: 'video/mp4'
         }
-      } as any);
+      });
 
       logger.info('✅ Video uploaded to Files API successfully');
 
@@ -91,10 +94,12 @@ class VideoAnalysis {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const uploadResultAny = uploadResult as any;
+      logger.info(`📎 File URI: ${uploadResultAny.uri || uploadResultAny.file?.uri}`);
+
       return {
         fileData: {
-          fileUri: uploadResultAny.file.uri,
-          mimeType: uploadResultAny.file.mimeType
+          fileUri: uploadResultAny.uri || uploadResultAny.file?.uri,
+          mimeType: uploadResultAny.mimeType || uploadResultAny.file?.mimeType || 'video/mp4'
         }
       };
     } catch (uploadErr: unknown) {
@@ -105,7 +110,13 @@ class VideoAnalysis {
         fs.unlinkSync(tempFilePath);
       } catch (_) { /* ignore */ }
 
-      // Note: We don't fallback to inline data because gemini-3-pro-preview doesn't support it
+      // Fallback to inline data for smaller files
+      if (videoBuffer.length < 20 * 1024 * 1024) {
+        logger.info('🔄 Falling back to inline data...');
+        const base64Video = videoBuffer.toString('base64');
+        return { inlineData: { mimeType: "video/mp4", data: base64Video } };
+      }
+
       throw new Error(`Failed to upload video to Files API: ${uploadErr instanceof Error ? uploadErr.message : 'Unknown error'}`);
     }
   }
