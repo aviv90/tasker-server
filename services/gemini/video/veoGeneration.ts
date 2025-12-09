@@ -57,6 +57,7 @@ interface VideoGenerationResult {
   text?: string;
   videoBuffer?: Buffer;
   result?: string;
+  filePath?: string;
   error?: string;
 }
 
@@ -187,7 +188,7 @@ class VeoGeneration {
       logger.info('🎬 Starting Veo 3 text-to-video generation - Stable version');
       const cleanPrompt = sanitizeText(prompt);
 
-       
+
       let operation = await veoClient.models.generateVideos({
         model: "veo-3.1-generate-preview",
         prompt: cleanPrompt,
@@ -198,7 +199,7 @@ class VeoGeneration {
 
       const pollResult = await this.pollOperation(operation, 'text-to-video generation');
       if (pollResult.error) {
-        return pollResult;
+        return { error: pollResult.error };
       }
       operation = pollResult;
 
@@ -230,7 +231,8 @@ class VeoGeneration {
       return {
         text: cleanPrompt,
         videoBuffer: videoBuffer,
-        result: publicPath
+        result: publicPath,
+        filePath: filePath
       };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -249,7 +251,6 @@ class VeoGeneration {
       const cleanPrompt = sanitizeText(prompt);
       const imageBase64 = imageBuffer.toString('base64');
 
-       
       let operation = await veoClient.models.generateVideos({
         model: "veo-3.1-generate-preview",
         prompt: cleanPrompt,
@@ -264,7 +265,7 @@ class VeoGeneration {
 
       const pollResult = await this.pollOperation(operation, 'image-to-video generation');
       if (pollResult.error) {
-        return pollResult;
+        return { error: pollResult.error };
       }
       operation = pollResult;
 
@@ -296,7 +297,8 @@ class VeoGeneration {
       return {
         text: cleanPrompt,
         videoBuffer: videoBuffer,
-        result: publicPath
+        result: publicPath,
+        filePath: filePath
       };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -307,4 +309,3 @@ class VeoGeneration {
 }
 
 export default new VeoGeneration();
-

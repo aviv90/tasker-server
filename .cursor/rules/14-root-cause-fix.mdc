@@ -1,0 +1,23 @@
+---
+description: Rule demanding root cause fixes for all bugs
+globs: *
+---
+# Root Cause Fix Rule
+
+All bugs and issues MUST be solved from the root cause.
+
+## Requirements
+1.  **Deep Investigation**: Do not just fix the symptom. Understand WHY the issue occurred.
+2.  **No Band-Aids**: Do NOT apply temporary fixes, "plasters", or fragile heuristics (like crude regexes) unless explicitly requested as a temporary measure.
+3.  **Cross-Cutting**: Verify if the root cause affects other parts of the system and fix it widely.
+4.  **Robustness**: The fix must be durable and align with the system's architecture (e.g., using SSOT, correct data flow).
+
+## Process
+1.  **Analyze**: Look at logs, reproduce the issue, trace the execution.
+2.  **Identify**: Pinpoint the exact failure point logic.
+3.  **Fix**: Rewrite or adjust the core logic causing the failure.
+4.  **Verify**: Ensure the fix works and doesn't break other things.
+
+**Example**:
+*   *Bad*: Adding a specific regex to ignore a specific bad input.
+*   *Good*: Fixing the input parsing logic or history handling so the bad input is handled correctly by design.

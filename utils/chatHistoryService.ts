@@ -4,64 +4,24 @@
  * SSOT (Single Source of Truth) for retrieving chat history.
  * Centralizes all history retrieval logic to ensure consistency.
  * 
- * Architecture:
- * - Primary: Green API getChatHistory (complete message history)
- * - Fallback: None (DB doesn't contain full history, only old commands)
- * - Message Type Identification: conversationManager (DB-backed)
+ * Refactored to separate formatting logic (v1398).
  */
 
 import { getServices } from '../services/agent/utils/serviceLoader';
-import conversationManager from '../services/conversationManager';
 import logger from './logger';
+import {
+  GreenApiMessage,
+  InternalMessage,
+  formatDisplayMessage,
+  formatInternal
+} from './chat/messageFormatter';
 
-/**
- * Green API message structure
- */
-interface GreenApiMessage {
-  idMessage?: string;
-  typeMessage?: string;
-  textMessage?: string;
-  caption?: string;
-  extendedTextMessage?: {
-    text?: string;
-  };
-  imageMessageData?: {
-    downloadUrl?: string;
-  };
-  videoMessageData?: {
-    downloadUrl?: string;
-  };
-  audioMessageData?: {
-    downloadUrl?: string;
-  };
-  downloadUrl?: string;
-  urlFile?: string;
-  senderName?: string;
-  timestamp?: number;
-  type?: string;
-}
-
-/**
- * Internal message format
- */
-interface InternalMessage {
-  role: 'assistant' | 'user';
-  content: string;
-  metadata: {
-    hasImage?: boolean;
-    hasVideo?: boolean;
-    hasAudio?: boolean;
-    imageUrl?: string;
-    videoUrl?: string;
-    audioUrl?: string;
-  };
-  timestamp: number;
-}
+export { ChatHistoryOptions, ChatHistoryResult };
 
 /**
  * Chat history options
  */
-export interface ChatHistoryOptions {
+interface ChatHistoryOptions {
   includeSystemMessages?: boolean;
   format?: 'internal' | 'display';
   useDbCache?: boolean; // Use DB cache for fast retrieval (for agent history, limit <= 10)
@@ -70,7 +30,7 @@ export interface ChatHistoryOptions {
 /**
  * Chat history result
  */
-export interface ChatHistoryResult {
+interface ChatHistoryResult {
   success: boolean;
   data?: string;
   error?: string;
@@ -91,10 +51,9 @@ export async function getChatHistory(
   options: ChatHistoryOptions = {}
 ): Promise<ChatHistoryResult> {
   const { includeSystemMessages = false, format = 'internal', useDbCache = false } = options;
-  
+
   try {
     // For agent history (10 messages), use DB cache for performance
-    // For tool history (50 messages), use Green API for completeness
     // Only use DB cache if limit is reasonable (<= 10) to avoid performance issues
     if (useDbCache && limit > 0 && limit <= 10) {
       // Use container's messages service directly (no deprecation warning)
@@ -104,53 +63,38 @@ export async function getChatHistory(
         try {
           // Pass limit directly to DB query for optimal performance (no slice needed)
           const messagesManager = container.getService('messages');
-          const dbHistory = await messagesManager.getConversationHistory(chatId, limit) as Array<{
-            role: string;
-            content: string;
-            metadata?: Record<string, unknown>;
-            timestamp: number;
-          }>;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const dbHistory = await messagesManager.getConversationHistory(chatId, limit) as any[];
+
           if (dbHistory && dbHistory.length > 0) {
             logger.debug(`📜 [ChatHistory] Using DB cache: ${dbHistory.length} messages for chat: ${chatId}`);
-            
+
             // Convert DB format to InternalMessage format
-            const messages: InternalMessage[] = dbHistory.map((msg: {
-              role: string;
-              content: string;
-              metadata?: Record<string, unknown>;
-              timestamp: number;
-            }) => ({
+            const messages: InternalMessage[] = dbHistory.map(msg => ({
               role: msg.role === 'assistant' ? 'assistant' : 'user',
               content: msg.content,
-              metadata: (msg.metadata || {}) as {
-                hasImage?: boolean;
-                hasVideo?: boolean;
-                hasAudio?: boolean;
-                imageUrl?: string;
-                videoUrl?: string;
-                audioUrl?: string;
-              },
+              metadata: (msg.metadata || {}) as InternalMessage['metadata'],
               timestamp: msg.timestamp
             }));
-            
+
             if (format === 'display') {
+              // Re-map internal messages to GreenApiMessage like structure for display formatter? 
+              // Actually formatDisplayMessage expects GreenApiMessage.
+              // It might be better to have formatDisplayMessageFromInternal.
+              // For now, let's keep the simple logic here for DB cache or verify if we need full formatter.
+              // The DB cache path is optimization. Let's simple format it here or reuse logic.
+
               const formattedHistory = messages.map((msg, idx) => {
                 const role = msg.role === 'assistant' ? 'בוט' : 'משתמש';
                 let content = `${role}: ${msg.content}`;
-                
-                if (msg.metadata.imageUrl) {
-                  content += ` [תמונה: image_id=${idx}, url=${msg.metadata.imageUrl}]`;
-                }
-                if (msg.metadata.videoUrl) {
-                  content += ` [וידאו: video_id=${idx}, url=${msg.metadata.videoUrl}]`;
-                }
-                if (msg.metadata.audioUrl) {
-                  content += ` [אודיו: audio_id=${idx}, url=${msg.metadata.audioUrl}]`;
-                }
-                
+
+                if (msg.metadata.imageUrl) content += ` [תמונה: image_id=${idx}, url=${msg.metadata.imageUrl}]`;
+                if (msg.metadata.videoUrl) content += ` [וידאו: video_id=${idx}, url=${msg.metadata.videoUrl}]`;
+                if (msg.metadata.audioUrl) content += ` [אודיו: audio_id=${idx}, url=${msg.metadata.audioUrl}]`;
+
                 return content;
               }).join('\n');
-              
+
               return {
                 success: true,
                 data: `היסטוריה של ${messages.length} הודעות אחרונות:\n\n${formattedHistory}`,
@@ -171,13 +115,13 @@ export async function getChatHistory(
         }
       }
     }
-    
+
     // Fallback to Green API (for tool usage or if DB cache unavailable)
     const { greenApiService } = getServices();
     logger.debug(`📜 [ChatHistory] Fetching last ${limit} messages from Green API for chat: ${chatId}`);
-    
+
     const greenApiHistory = await greenApiService.getChatHistory(chatId, limit) as GreenApiMessage[];
-    
+
     if (!greenApiHistory || greenApiHistory.length === 0) {
       return {
         success: true,
@@ -186,82 +130,26 @@ export async function getChatHistory(
         formatted: ''
       };
     }
-    
+
     // Filter system messages if needed
-    const filteredHistory = includeSystemMessages 
-      ? greenApiHistory 
+    const filteredHistory = includeSystemMessages
+      ? greenApiHistory
       : greenApiHistory.filter(msg => {
-          const isSystemMessage = 
-            msg.typeMessage === 'notificationMessage' ||
-            msg.type === 'notification' ||
-            (msg.textMessage && msg.textMessage.startsWith('System:'));
-          return !isSystemMessage;
-        });
-    
-    // CRITICAL: Green API returns messages newest-first (reverse chronological)
-    // We need to reverse to get chronological order (oldest to newest)
-    // This is essential for proper history display and context understanding
+        const isSystemMessage =
+          msg.typeMessage === 'notificationMessage' ||
+          msg.type === 'notification' ||
+          (msg.textMessage && msg.textMessage.startsWith('System:'));
+        return !isSystemMessage;
+      });
+
+    // CRITICAL: Green API returns newest-first. Reverse to chronological.
     const chronologicalHistory = [...filteredHistory].reverse();
-    
-    // Format based on requested format
+
     if (format === 'display') {
-      const formattedHistoryPromises = chronologicalHistory.map(async (msg, idx) => {
-          const isFromBot = msg.idMessage ? await conversationManager.isBotMessage(chatId, msg.idMessage) : false;
-          const role = isFromBot ? 'בוט' : 'משתמש';
-          const senderName = msg.senderName || (isFromBot ? 'בוט' : 'משתמש');
-          
-          const textContent = msg.textMessage || 
-                            msg.caption || 
-                            (msg.extendedTextMessage && msg.extendedTextMessage.text) ||
-                            (msg.typeMessage === 'extendedTextMessage' && msg.extendedTextMessage?.text);
-          
-          let content = '';
-          if (textContent && textContent.trim()) {
-            content = `${role} (${senderName}): ${textContent}`;
-          } else {
-            content = `${role} (${senderName}): [הודעה ללא טקסט]`;
-          }
-          
-          // Add media indicators
-          if (msg.typeMessage === 'imageMessage' || msg.typeMessage === 'image') {
-            const imageUrl = msg.downloadUrl || msg.urlFile || msg.imageMessageData?.downloadUrl;
-            if (imageUrl) {
-              content += ` [תמונה: image_id=${idx}, url=${imageUrl}]`;
-            } else {
-              content += ' [תמונה מצורפת]';
-            }
-          }
-          
-          if (msg.typeMessage === 'videoMessage' || msg.typeMessage === 'video') {
-            const videoUrl = msg.downloadUrl || msg.urlFile || msg.videoMessageData?.downloadUrl;
-            if (videoUrl) {
-              content += ` [וידאו: video_id=${idx}, url=${videoUrl}]`;
-            } else {
-              content += ' [וידאו מצורף]';
-            }
-          }
-          
-          if (msg.typeMessage === 'audioMessage' || msg.typeMessage === 'audio') {
-            const audioUrl = msg.downloadUrl || msg.urlFile || msg.audioMessageData?.downloadUrl;
-            if (audioUrl) {
-              content += ` [אודיו: audio_id=${idx}, url=${audioUrl}]`;
-            } else {
-              content += ' [הקלטה קולית]';
-            }
-          }
-          
-          // Add timestamp if available
-          if (msg.timestamp) {
-            const date = new Date(msg.timestamp * 1000);
-            content += ` [${date.toLocaleString('he-IL')}]`;
-          }
-          
-          return content;
-        });
-      
+      const formattedHistoryPromises = chronologicalHistory.map((msg, idx) => formatDisplayMessage(msg, idx, chatId));
       const formattedHistory = (await Promise.all(formattedHistoryPromises)).join('\n');
       const internalFormat = await formatInternal(chronologicalHistory, chatId);
-      
+
       return {
         success: true,
         data: `היסטוריה של ${chronologicalHistory.length} הודעות אחרונות:\n\n${formattedHistory}`,
@@ -269,7 +157,6 @@ export async function getChatHistory(
         formatted: formattedHistory
       };
     } else {
-      // Internal format (default)
       return {
         success: true,
         data: `היסטוריה של ${chronologicalHistory.length} הודעות אחרונות`,
@@ -280,15 +167,13 @@ export async function getChatHistory(
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
-    
+
     logger.error('❌ [ChatHistory] Error fetching chat history from Green API:', {
       error: errorMessage,
       chatId,
       stack: errorStack
     });
-    
-    // No fallback to DB - DB doesn't contain full history
-    // Only contains old commands, which is not useful for full history
+
     return {
       success: false,
       error: `שגיאה בשליפת היסטוריית השיחה: ${errorMessage}`,
@@ -299,52 +184,7 @@ export async function getChatHistory(
 }
 
 /**
- * Format history to internal format
- * @param history - Green API history array
- * @param chatId - Chat ID
- * @returns Internal format messages
- */
-export async function formatInternal(history: GreenApiMessage[], chatId: string): Promise<InternalMessage[]> {
-  const formatted: InternalMessage[] = [];
-  for (const msg of history) {
-    const isFromBot = msg.idMessage ? await conversationManager.isBotMessage(chatId, msg.idMessage) : false;
-    
-    const textContent = msg.textMessage || 
-                      msg.caption || 
-                      (msg.extendedTextMessage && msg.extendedTextMessage.text) ||
-                      (msg.typeMessage === 'extendedTextMessage' && msg.extendedTextMessage?.text);
-    
-    const metadata: InternalMessage['metadata'] = {};
-    if (msg.typeMessage === 'imageMessage' || msg.typeMessage === 'image') {
-      metadata.hasImage = true;
-      metadata.imageUrl = msg.downloadUrl || msg.urlFile || msg.imageMessageData?.downloadUrl;
-    }
-    if (msg.typeMessage === 'videoMessage' || msg.typeMessage === 'video') {
-      metadata.hasVideo = true;
-      metadata.videoUrl = msg.downloadUrl || msg.urlFile || msg.videoMessageData?.downloadUrl;
-    }
-    if (msg.typeMessage === 'audioMessage' || msg.typeMessage === 'audio') {
-      metadata.hasAudio = true;
-      metadata.audioUrl = msg.downloadUrl || msg.urlFile || msg.audioMessageData?.downloadUrl;
-    }
-    
-    formatted.push({
-      role: isFromBot ? 'assistant' : 'user',
-      content: textContent || '',
-      metadata: Object.keys(metadata).length > 0 ? metadata : {},
-      timestamp: msg.timestamp || Date.now()
-    });
-  }
-  return formatted;
-}
-
-/**
- * Get raw chat history from Green API (for services that need GreenApiMessage[] format)
- * This is a convenience function that uses the SSOT getChatHistory but returns raw format
- * @param chatId - Chat ID
- * @param limit - Number of messages to retrieve
- * @param includeSystemMessages - Whether to include system messages
- * @returns Raw Green API messages array
+ * Get raw chat history from Green API
  */
 export async function getRawChatHistory(
   chatId: string,
@@ -353,36 +193,29 @@ export async function getRawChatHistory(
 ): Promise<GreenApiMessage[]> {
   try {
     const { greenApiService } = getServices();
-    logger.debug(`📜 [ChatHistory] Fetching raw last ${limit} messages from Green API for chat: ${chatId}`);
-    
     const greenApiHistory = await greenApiService.getChatHistory(chatId, limit) as GreenApiMessage[];
-    
+
     if (!greenApiHistory || greenApiHistory.length === 0) {
       return [];
     }
-    
-    // Filter system messages if needed
+
+    // Filter system messages
     let filteredHistory = greenApiHistory;
     if (!includeSystemMessages) {
       filteredHistory = greenApiHistory.filter(msg => {
-        const isSystemMessage = 
+        const isSystemMessage =
           msg.typeMessage === 'notificationMessage' ||
           msg.type === 'notification' ||
           (msg.textMessage && msg.textMessage.startsWith('System:'));
         return !isSystemMessage;
       });
     }
-    
-    // CRITICAL: Green API returns messages newest-first (reverse chronological)
-    // Reverse to get chronological order (oldest to newest)
+
+    // Reverse to chronological
     return [...filteredHistory].reverse();
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error('❌ [ChatHistory] Error fetching raw chat history from Green API:', {
-      error: errorMessage,
-      chatId
-    });
+    logger.error('❌ [ChatHistory] Error fetching raw chat history:', { error: errorMessage, chatId });
     throw error;
   }
 }
-

@@ -33,6 +33,7 @@ export const ERROR_MESSAGES = {
   CREATING_VIDEO: 'שגיאה ביצירת וידאו מהתמונה',
   SENDING_SONG: 'שגיאה בשליחת השיר',
   SENDING_POLL: 'שגיאה בשליחת הסקר',
+  MANAGEMENT_CMD: 'שגיאה בפקודת ניהול',
   UNKNOWN: 'לא הצלחתי לעבד את הבקשה',
   UNKNOWN_ERROR: 'שגיאה לא ידועה'
 } as const;
@@ -88,20 +89,20 @@ export async function sendErrorToUser(
   }
   // If provider specified, use formatProviderError
   else if (provider) {
-    const errorText = typeof error === 'string' 
-      ? error 
-      : ((error as ErrorWithMessage)?.message || 
-         (error as ErrorWithMessage)?.error || 
-         ERROR_MESSAGES.UNKNOWN_ERROR);
+    const errorText = typeof error === 'string'
+      ? error
+      : ((error as ErrorWithMessage)?.message ||
+        (error as ErrorWithMessage)?.error ||
+        ERROR_MESSAGES.UNKNOWN_ERROR);
     errorMessage = formatProviderError(provider, errorText);
   }
   // If context specified, use template
   else if (context && ERROR_MESSAGES[context]) {
-    const errorText = typeof error === 'string' 
-      ? error 
-      : ((error as ErrorWithMessage)?.message || 
-         (error as ErrorWithMessage)?.error || 
-         ERROR_MESSAGES.UNKNOWN_ERROR);
+    const errorText = typeof error === 'string'
+      ? error
+      : ((error as ErrorWithMessage)?.message ||
+        (error as ErrorWithMessage)?.error ||
+        ERROR_MESSAGES.UNKNOWN_ERROR);
     errorMessage = `❌ ${ERROR_MESSAGES[context]}: ${errorText}`;
   }
   // Default: use extractErrorMessage with generic prefix
@@ -113,9 +114,9 @@ export async function sendErrorToUser(
   try {
     await sendTextMessage(chatId, errorMessage, quotedMessageId || undefined, typingTime);
   } catch (sendError) {
-    logger.error('❌ Failed to send error message to user:', { 
-      error: sendError instanceof Error ? sendError.message : String(sendError), 
-      chatId 
+    logger.error('❌ Failed to send error message to user:', {
+      error: sendError instanceof Error ? sendError.message : String(sendError),
+      chatId
     });
     // Don't throw - error sending shouldn't break the flow
   }

@@ -1,8 +1,3 @@
-/**
- * System Prompts - Base instructions for AI models
- * Extracted from main prompts.ts for better organization
- */
-
 import {
   CRITICAL_LANGUAGE_RULE,
   CRITICAL_GENDER_RULE,
@@ -17,7 +12,13 @@ import {
   RETRY_SPECIFIC_STEPS_RULE,
   FOLLOW_UP_VS_RETRY_RULE,
   SCHEDULING_RULE,
-
+  SINGLE_STEP_TOOL_MAPPING,
+  SINGLE_STEP_RULES,
+  OPENAI_SYSTEM_RULES,
+  GROK_SYSTEM_RULES,
+  SEARCH_ASSISTANT_RULES,
+  GOOGLE_SEARCH_SYSTEM_INSTRUCTION,
+  GOOGLE_SEARCH_RULES
 } from './rules';
 import { getHistoryContextRules } from '../tools-list';
 
@@ -32,6 +33,7 @@ AI Assistant. ${languageInstruction}
 CORE RULES:
 ${CRITICAL_GENDER_RULE}
 ${CRITICAL_LANGUAGE_RULE}
+• **ROOT CAUSE ONLY:** Solve problems from the ROOT. Do NOT use "band-aid" fixes or temporary patches. Analyze continuously until the deep source of the issue is found and fixed.
 
 CONTEXT & HISTORY:
 • **CRITICAL - CURRENT REQUEST ONLY:** The history shows past conversation. **ONLY the LAST user message is your current task.** All previous user requests were ALREADY handled - do NOT re-execute them!
@@ -79,60 +81,23 @@ ${CRITICAL_LANGUAGE_RULE}
 • **Isolation:** Do NOT use tools from other steps (like \`get_chat_history\`).
 • **Language:** Captions and text MUST match request language.
 
-TOOL MAPPING:
-• "send location" → \`send_location\`
-• "create image" → \`create_image\`
-• "create video" → \`create_video\`
-• "create music" (melody) → \`create_music\`
-• "write song" (lyrics) → **TEXT ONLY** (No tool)
-• "search/time/weather/news" → \`search_web\`
-• "chat info" → \`get_chat_history\`
-• "translate to X" → \`translate_and_speak\`
-• "say X" → \`text_to_speech\`
-• "remind/schedule" → \`schedule_message\`
-• "product/gift/amazon" → \`random_amazon_product\`
+${SINGLE_STEP_TOOL_MAPPING}
 
-RULES:
-• **NEVER** say "I don't know" for real-time info → Use \`search_web\`.
-• **NEVER** say "I don't have access" for chat info → Use \`get_chat_history\`.
-• **NEVER** announce actions ("Ack"). Call the tool.
-• Return the result and stop.`;
+${SINGLE_STEP_RULES}`;
 }
 
 /**
  * OpenAI system instruction - for OpenAI Chat API
  */
 export function openaiSystemInstruction(language: string): string {
-  switch (language) {
-    case 'he':
-      return 'You are a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in Hebrew only. The answer must be in Hebrew.';
-    case 'en':
-      return 'You are a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in English only.';
-    case 'ar':
-      return 'You are a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in Arabic only. The answer must be in Arabic.';
-    case 'ru':
-      return 'You are a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in Russian only. The answer must be in Russian.';
-    default:
-      return 'You are a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: Respond in Hebrew only.';
-  }
+  return OPENAI_SYSTEM_RULES[language as keyof typeof OPENAI_SYSTEM_RULES] || OPENAI_SYSTEM_RULES.default;
 }
 
 /**
  * Grok system instruction - for Grok Chat API
  */
 export function grokSystemInstruction(language: string): string {
-  switch (language) {
-    case 'he':
-      return 'You are Grok - a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in Hebrew only. The answer must be in Hebrew.';
-    case 'en':
-      return 'You are Grok - a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in English only.';
-    case 'ar':
-      return 'You are Grok - a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in Arabic only. The answer must be in Arabic.';
-    case 'ru':
-      return 'You are Grok - a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: You must respond in Russian only. The answer must be in Russian.';
-    default:
-      return 'You are Grok - a friendly AI assistant. Give direct and natural answers.\n\nIMPORTANT: Respond in Hebrew only.';
-  }
+  return GROK_SYSTEM_RULES[language as keyof typeof GROK_SYSTEM_RULES] || GROK_SYSTEM_RULES.default;
 }
 
 /**
@@ -140,45 +105,18 @@ export function grokSystemInstruction(language: string): string {
  */
 export function searchSystemInstruction(query: string, languageInstruction: string): string {
   const isHebrew = languageInstruction.includes('עברית') || languageInstruction.includes('בעברית');
-
-  if (isHebrew) {
-    return `You are a helpful search assistant. Search for "${query}" and answer in Hebrew. Provide relevant links if found.`;
-  } else {
-    // English instruction is default, extracting language target from string if possible, or defaulting to English
-    return `You are a helpful search assistant. Search for "${query}" and answer in the requested language. Provide relevant links if found.`;
-  }
+  return isHebrew ? SEARCH_ASSISTANT_RULES.he(query) : SEARCH_ASSISTANT_RULES.en(query);
 }
-
 
 /**
  * Google Search System Instruction
  */
 export function googleSearchSystemInstruction(languageInstruction: string, useGoogleSearch: boolean): string {
-  let systemPrompt = `You are a friendly AI assistant. Give direct and natural answers, without explaining your thought process.
-Do NOT use phrases like "As an AI", "My thought process", "Let's break down".
+  let systemPrompt = `${GOOGLE_SEARCH_SYSTEM_INSTRUCTION}
 ${languageInstruction}`;
 
   if (useGoogleSearch) {
-    systemPrompt += `
-
-🔍 **Google Search Tool Active - You MUST use it!**
-
-**CRITICAL INSTRUCTIONS:**
-1. ✅ You have access to Google Search - **USE IT for any link request!**
-2. ❌ **NEVER** answer from memory (2023) - links are broken.
-3. ❌ **NEVER** invent links. If Search finds nothing, say "No link available".
-4. ⚠️ Your memory is outdated.
-
-**workflow:**
-User asks for link → Use Google Search → Copy link from results → Send to user.
-
-**Examples of FAILURE:**
-❌ "I cannot send links" - **FALSE! You have Google Search!**
-❌ "Here is a link: youtube.com/..." - **INVENTED! Use Search!**
-
-**Example of SUCCESS:**
-✅ [Use Google Search tool] → "Here is a link from Ynet: [Real Link]"
-✅ If failed: "I couldn't find a working link, please search Google yourself."`;
+    systemPrompt += GOOGLE_SEARCH_RULES;
   }
 
   return systemPrompt;
