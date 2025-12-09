@@ -179,9 +179,9 @@ export const config = {
   },
 
   // Agent Configuration (SSOT for agent settings)
-  // NOTE: Agent uses gemini-2.0-flash for speed, vision tasks use gemini-3-pro-preview for quality
+  // NOTE: Agent uses gemini-2.5-flash for speed, vision tasks use gemini-3-pro-preview for quality
   agent: {
-    model: process.env.AGENT_MODEL || 'gemini-2.0-flash',
+    model: process.env.AGENT_MODEL || 'gemini-2.5-flash',
     maxIterations: parseInt(process.env.AGENT_MAX_ITERATIONS || '8', 10),
     timeoutMs: parseInt(process.env.AGENT_TIMEOUT_MS || '240000', 10), // 4 minutes
     contextMemoryEnabled: (process.env.AGENT_CONTEXT_MEMORY_ENABLED || 'false').toLowerCase() === 'true'
