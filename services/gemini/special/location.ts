@@ -57,14 +57,14 @@ class LocationService {
 
       let text = '';
       let usedMapsGrounding = false;
-      
+
       try {
         logger.debug('🗺️ Trying Google Maps Grounding first...');
-        
+
         // Use SSOT prompt from config/prompts.ts
         const mapsPrompt = prompts.locationMapsPrompt(latitude, longitude, language);
 
-         
+
         const mapsResult = await model.generateContent({
           contents: [{ role: "user", parts: [{ text: mapsPrompt }] }],
           tools: [{
@@ -122,7 +122,7 @@ class LocationService {
       // Fallback: Use Gemini's general geographic knowledge
       if (!text || text.trim().length === 0) {
         logger.debug('🌍 Using Gemini general geographic knowledge...');
-        
+
         // Use SSOT prompt from config/prompts.ts
         const generalPrompt = prompts.locationGeneralPrompt(latitude, longitude, language);
 
@@ -157,7 +157,7 @@ class LocationService {
       // Final validation: ensure we still have meaningful text
       if (!text || text.length < 10) {
         const isHebrew = language === 'he' || language === 'Hebrew';
-        text = isHebrew 
+        text = isHebrew
           ? `מיקום: קו רוחב ${latitude}°, קו אורך ${longitude}°`
           : `Location: Latitude ${latitude}°, Longitude ${longitude}°`;
       }
@@ -225,8 +225,8 @@ class LocationService {
         };
 
         // If viewport found, add it
-        if (northMatch && northMatch[1] && southMatch && southMatch[1] && 
-            eastMatch && eastMatch[1] && westMatch && westMatch[1]) {
+        if (northMatch && northMatch[1] && southMatch && southMatch[1] &&
+          eastMatch && eastMatch[1] && westMatch && westMatch[1]) {
           data.viewport = {
             north: parseFloat(northMatch[1]),
             south: parseFloat(southMatch[1]),

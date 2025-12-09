@@ -71,11 +71,11 @@ export async function searchFiles(options: SearchOptions = {}): Promise<{
         conditions.push(`(${tokenConditions.join(' or ')})`);
       }
     }
-    
+
     if (folderId) {
       conditions.push(`'${folderId}' in parents`);
     }
-    
+
     if (mimeType) {
       conditions.push(`mimeType='${mimeType}'`);
     }
@@ -116,7 +116,7 @@ export async function searchFiles(options: SearchOptions = {}): Promise<{
   } catch (error) {
     const err = error as Error;
     logger.error('❌ Error searching Google Drive:', { error: err.message, stack: err.stack });
-    
+
     // Check if it's an authentication error
     if (err.message.includes('invalid_grant') || err.message.includes('unauthorized')) {
       return {
@@ -124,7 +124,7 @@ export async function searchFiles(options: SearchOptions = {}): Promise<{
         error: 'נדרש אימות מחדש ל-Google Drive. אנא התחבר מחדש.'
       };
     }
-    
+
     return {
       success: false,
       error: `שגיאה בחיפוש ב-Google Drive: ${err.message}`
@@ -142,7 +142,7 @@ export async function getFileMetadata(fileId: string): Promise<{
 }> {
   try {
     const drive = getAuthenticatedDriveClient();
-    
+
     const response = await drive.files.get({
       fileId,
       fields: 'id, name, mimeType, size, modifiedTime, webViewLink, thumbnailLink, description',
@@ -185,7 +185,7 @@ export async function downloadFile(fileId: string, mimeType?: string): Promise<{
 }> {
   try {
     const drive = getAuthenticatedDriveClient();
-    
+
     // Get file metadata first
     const metadataResult = await getFileMetadata(fileId);
     if (!metadataResult.success || !metadataResult.file) {
@@ -254,7 +254,7 @@ export async function extractTextFromDocument(fileId: string, mimeType: string):
     if (mimeType.startsWith('image/')) {
       // Use Gemini vision API for images
       const base64 = downloadResult.data.toString('base64');
-      
+
       const result = await geminiService.analyzeImageWithText(
         'תאר את התוכן של התמונה בפירוט. אם יש טקסט בתמונה, העתק אותו במלואו.',
         base64
@@ -281,7 +281,7 @@ export async function extractTextFromDocument(fileId: string, mimeType: string):
         'וכל דבר שרלוונטי להבנת השרטוט או התכנית. ' +
         'ענה בעברית ברורה, עם bullet points מסודרים.';
 
-       
+
       const result = await model.generateContent({
         contents: [
           {

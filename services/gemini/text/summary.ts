@@ -41,7 +41,7 @@ class SummaryService {
   async generateChatSummary(messages: ChatMessage[]): Promise<SummaryResult> {
     try {
       logger.info(`📝 Generating chat summary for ${messages.length} messages`);
-      
+
       // Format messages for Gemini
       let formattedMessages = '';
       messages.forEach((msg, index) => {
@@ -59,7 +59,7 @@ class SummaryService {
           timestamp = new Date(); // Fallback to current time
         }
         const timestampStr = timestamp.toLocaleString('he-IL');
-        
+
         // Use WhatsApp display name only (chatName), fallback to phone number
         let sender = 'משתמש';
         if (msg.chatName) {
@@ -71,19 +71,19 @@ class SummaryService {
           const phoneMatch = String(msg.sender).match(/^(\d+)@/);
           sender = phoneMatch && phoneMatch[1] ? phoneMatch[1] : String(msg.sender);
         }
-        
+
         // Get message text - Green API format
         let messageText = msg.textMessage || msg.caption || '';
-        
+
         // If no text found, check extendedTextMessage
         if (!messageText && msg.typeMessage === 'extendedTextMessage' && msg.extendedTextMessage) {
           messageText = msg.extendedTextMessage.text || '';
         }
-        
+
         // If no text, determine media type and create descriptive label
         if (!messageText) {
           let mediaType = '[מדיה]';
-          
+
           // Detect media type from Green API format
           if (msg.typeMessage === 'imageMessage' || msg.typeMessage === 'stickerMessage') {
             mediaType = '[תמונה]';
@@ -102,7 +102,7 @@ class SummaryService {
             const typeMsg = String(msg.typeMessage);
             mediaType = `[${typeMsg.replace('Message', '')}]`;
           }
-          
+
           // Add caption if exists (for media with caption)
           if (msg.caption) {
             messageText = `${mediaType} - ${msg.caption}`;
@@ -123,28 +123,28 @@ class SummaryService {
           }
           messageText = messageText + mediaIndicator;
         }
-        
+
         formattedMessages += `${index + 1}. ${timestampStr} - ${sender}: ${messageText}\n`;
       });
-      
+
       // Use SSOT prompt from config/prompts.ts
       const summaryPrompt = prompts.chatSummaryPrompt(formattedMessages);
 
       const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-preview' });
       const result = await model.generateContent(summaryPrompt);
-      
+
       if (!result.response) {
         throw new Error('No response from Gemini');
       }
-      
+
       const summaryText = result.response.text();
       logger.info(`✅ Chat summary generated: ${summaryText.length} characters`);
-      
+
       return {
         success: true,
         text: summaryText
       };
-      
+
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Chat summary generation failed';
       logger.error('❌ Chat summary generation error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });

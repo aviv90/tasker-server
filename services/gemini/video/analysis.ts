@@ -53,62 +53,60 @@ class VideoAnalysis {
   }
 
   /**
-   * Prepare video part for Gemini API (Files API for large videos, inline for small)
+   * Prepare video part for Gemini API
+   * IMPORTANT: gemini-3-pro-preview does NOT support inline video data,
+   * so we ALWAYS use the Files API for video uploads.
    */
   async prepareVideoPart(videoBuffer: Buffer): Promise<VideoPart> {
-    // For videos larger than 2MB, use Files API; otherwise use inline data
-    if (videoBuffer.length > 2 * 1024 * 1024) {
-      logger.info('📤 Video is large, uploading to Files API first...');
+    // gemini-3-pro-preview requires Files API for video - inline data causes 400 errors
+    logger.info('📤 Uploading video to Files API (required for gemini-3-pro-preview)...');
 
-      const tempFileName = `temp_analysis_video_${uuidv4()}.mp4`;
-      // Use process.cwd() for safe path resolution
-      // Use createTempFilePath for consistent path resolution (uses config.paths.tmp)
-      const tempFilePath = createTempFilePath(tempFileName);
-      const tmpDir = path.dirname(tempFilePath);
+    const tempFileName = `temp_analysis_video_${uuidv4()}.mp4`;
+    const tempFilePath = createTempFilePath(tempFileName);
+    const tmpDir = path.dirname(tempFilePath);
 
-      if (!fs.existsSync(tmpDir)) {
-        fs.mkdirSync(tmpDir, { recursive: true });
-      }
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
 
-      fs.writeFileSync(tempFilePath, videoBuffer);
+    fs.writeFileSync(tempFilePath, videoBuffer);
 
-      try {
-
-        const uploadResult = await veoClient.files.upload({
-          file: {
-            path: tempFilePath,
-            mimeType: 'video/mp4'
-          }
-        } as any);
-
-        logger.info('✅ Video uploaded to Files API');
-
-        // Clean up temp file after upload
-        try {
-          fs.unlinkSync(tempFilePath);
-          logger.info('🧹 Cleaned up temporary video file');
-        } catch (cleanupErr: unknown) {
-          logger.warn('⚠️ Could not delete temp file:', cleanupErr as Error);
+    try {
+      const uploadResult = await veoClient.files.upload({
+        file: {
+          path: tempFilePath,
+          mimeType: 'video/mp4'
         }
+      } as any);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const uploadResultAny = uploadResult as any;
-        return {
-          fileData: {
-            fileUri: uploadResultAny.file.uri,
-            mimeType: uploadResultAny.file.mimeType
-          }
-        };
-      } catch (uploadErr: unknown) {
-        logger.error('❌ Failed to upload video to Files API:', uploadErr as Error);
-        logger.info('🔄 Falling back to inline data...');
-        const base64Video = videoBuffer.toString('base64');
-        return { inlineData: { mimeType: "video/mp4", data: base64Video } };
+      logger.info('✅ Video uploaded to Files API successfully');
+
+      // Clean up temp file after upload
+      try {
+        fs.unlinkSync(tempFilePath);
+        logger.info('🧹 Cleaned up temporary video file');
+      } catch (cleanupErr: unknown) {
+        logger.warn('⚠️ Could not delete temp file:', cleanupErr as Error);
       }
-    } else {
-      logger.info('📦 Video is small enough, using inline data');
-      const base64Video = videoBuffer.toString('base64');
-      return { inlineData: { mimeType: "video/mp4", data: base64Video } };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const uploadResultAny = uploadResult as any;
+      return {
+        fileData: {
+          fileUri: uploadResultAny.file.uri,
+          mimeType: uploadResultAny.file.mimeType
+        }
+      };
+    } catch (uploadErr: unknown) {
+      logger.error('❌ Failed to upload video to Files API:', uploadErr as Error);
+
+      // Clean up temp file on error
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch (_) { /* ignore */ }
+
+      // Note: We don't fallback to inline data because gemini-3-pro-preview doesn't support it
+      throw new Error(`Failed to upload video to Files API: ${uploadErr instanceof Error ? uploadErr.message : 'Unknown error'}`);
     }
   }
 

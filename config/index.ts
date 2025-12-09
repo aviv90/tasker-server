@@ -58,9 +58,9 @@ export const config = {
     // SSL is required for remote databases (Heroku, etc.)
     needsSSL: (() => {
       const databaseUrl = process.env.DATABASE_URL || '';
-      const isRemoteDB = databaseUrl && 
-                        !databaseUrl.includes('localhost') && 
-                        !databaseUrl.includes('127.0.0.1');
+      const isRemoteDB = databaseUrl &&
+        !databaseUrl.includes('localhost') &&
+        !databaseUrl.includes('127.0.0.1');
       return process.env.NODE_ENV === 'production' || isRemoteDB;
     })(),
     pool: {
@@ -230,7 +230,7 @@ export function validateConfig(): void {
 export function get(configPath: string, defaultValue: unknown = undefined): unknown {
   const keys = configPath.split('.');
   let value: unknown = config;
-  
+
   for (const key of keys) {
     if (value && typeof value === 'object' && value !== null && key in value) {
       value = (value as Record<string, unknown>)[key];
@@ -238,7 +238,7 @@ export function get(configPath: string, defaultValue: unknown = undefined): unkn
       return defaultValue;
     }
   }
-  
+
   return value;
 }
 
