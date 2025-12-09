@@ -8,6 +8,58 @@ export interface HistoryStrategyResult {
     systemContextAddition: string;
 }
 
+/**
+ * Patterns for SELF-CONTAINED user requests that should be FILTERED from history
+ * These requests are already completed - showing them in history makes LLM think they're pending
+ * 
+ * IMPORTANT: This is based on TOOLS_SKIP_HISTORY from toolHistoryConfig.ts
+ */
+const CREATION_REQUEST_PATTERNS = [
+    // Image creation
+    /^#?\s*(צור|שלח|תן|עשה|הכן)\s+(תמונה|תמונות|ציור|איור)/i,
+    /^#?\s*(create|send|make|draw|generate)\s+(image|picture|drawing)/i,
+    /^#?\s*תמונה\s+של/i,
+    /^#?\s*שלח\s+\S+$/i,  // "שלח ארנב" - single word after שלח = likely image
+
+    // Video creation
+    /^#?\s*(צור|שלח|עשה|הכן)\s+(וידאו|סרטון|video)/i,
+    /^#?\s*(create|make|generate)\s+video/i,
+
+    // Sound effects
+    /^#?\s*(צור|שלח|עשה|הכן)\s+(אפקט\s*קולי|צליל|sound)/i,
+    /^#?\s*(create|make|generate)\s+sound\s*effect/i,
+
+    // Music creation
+    /^#?\s*(צור|שלח|עשה)\s+(שיר|מוזיקה|מנגינה)/i,
+    /^#?\s*(create|make|generate)\s+(song|music)/i,
+
+    // Amazon product (self-contained)
+    /^#?\s*(שלח|תן|מצא)\s+(מוצר|פריט)/i,
+    /^#?\s*(send|find|get)\s+(product|item)/i,
+    /^#?\s*מוצר\s*(אקראי|מאמזון)/i,
+
+    // Location (self-contained)
+    /^#?\s*(שלח|תן)\s+מיקום/i,
+    /^#?\s*send\s+location/i,
+
+    // TTS (self-contained) 
+    /^#?\s*(אמור|תגיד|תשמיע)\s+/i,
+    /^#?\s*(say|speak)\s+/i,
+
+    // Web search (self-contained)
+    /^#?\s*(חפש|מצא|תן\s+לינק)/i,
+    /^#?\s*(search|find|look\s+up)/i,
+];
+
+/**
+ * Check if a message is a self-contained creation request
+ * These should be filtered from history as they're already completed
+ */
+function isSelfContainedRequest(text: string): boolean {
+    const trimmed = text.trim();
+    return CREATION_REQUEST_PATTERNS.some(pattern => pattern.test(trimmed));
+}
+
 export class HistoryStrategy {
 
     /**
@@ -21,48 +73,57 @@ export class HistoryStrategy {
         let history: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
         let systemContextAddition = '';
 
-        // If explicitly disabled by caller (e.g. for specific stateless tools), respect it.
-        // Otherwise, we leverage the LLM's ability to discern context, so we DEFAULT TO TRUE.
+        // If explicitly disabled by caller (e.g. for media analysis), respect it.
         if (!useConversationHistory) {
             logger.info('🧠 [HistoryStrategy] Conversation history disabled for this request');
             return { shouldLoadHistory: false, history, systemContextAddition };
         }
-
-        // HEURISTIC REMOVAL:
-        // Previously, we used ~100 lines of Regex to guess if "history is needed".
-        // Now, we rely on the LLM (Gemini 1.5) to handle context intelligently.
-        // We always provide the last 20 messages. The cost is negligible, the gain is Contextual Intelligence.
 
         const shouldLoadHistory = true;
         logger.info('🧠 [HistoryStrategy] Loading history (Always-On LLM-First Strategy)');
 
         if (shouldLoadHistory) {
             try {
-                // Use DB cache for fast retrieval - REDUCED to 5 messages to prevent old request confusion
-                const historyResult = await getChatHistory(chatId, 5, { format: 'internal', useDbCache: true });
+                // Load 20 messages for context
+                const historyResult = await getChatHistory(chatId, 20, { format: 'internal', useDbCache: true });
 
                 if (historyResult.success && historyResult.messages.length > 0) {
+                    let filteredCount = 0;
+
                     const rawHistory: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = historyResult.messages
                         .filter(msg => {
-                            // Filter out system Ack messages to prevent hallucination/mimicking
+                            const text = msg.content.trim();
+
+                            // Filter out system Ack messages (from bot)
                             if (msg.role === 'assistant') {
-                                const text = msg.content.trim();
-                                // Filter system Ack messages using centralized patterns from config/constants.ts
                                 const isAck =
                                     ACK_PATTERNS.PREFIXES.some(prefix => text.startsWith(prefix)) ||
                                     ACK_PATTERNS.SUFFIXES_OR_EMOJIS.some(suffix => text.includes(suffix));
 
                                 if (isAck) {
-                                    // logger.debug(`🧠 [HistoryStrategy] Filtered out system Ack message`);
                                     return false;
                                 }
                             }
+
+                            // CRITICAL FIX: Filter out old self-contained creation requests from USER
+                            // These requests are already completed - showing them makes LLM think they're pending
+                            if (msg.role === 'user') {
+                                if (isSelfContainedRequest(text)) {
+                                    filteredCount++;
+                                    return false;
+                                }
+                            }
+
                             return true;
                         })
                         .map(msg => ({
                             role: (msg.role === 'assistant' ? 'model' : 'user') as 'user' | 'model',
                             parts: [{ text: msg.content }]
                         }));
+
+                    if (filteredCount > 0) {
+                        logger.info(`🧠 [HistoryStrategy] Filtered ${filteredCount} self-contained creation requests from history`);
+                    }
 
                     // Handle leading bot messages (Gemini requirement: history must start with user)
                     let validHistory = rawHistory;
