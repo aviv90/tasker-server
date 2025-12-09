@@ -95,13 +95,14 @@ export const audioTools: Record<string, Tool> = {
     create_sound_effect: {
         name: 'create_sound_effect',
         category: 'audio',
-        description: 'Generate sound effects from text description (in English)',
-        usage: ['צור צליל של X', 'צור אפקט קולי X', 'שלח קול של X', 'create sound effect X'],
+        description: 'Generate sound effects from text description. Use ONLY when user EXPLICITLY requests a sound effect or audio effect.',
+        usage: ['צור אפקט קולי', 'צור צליל', 'הפק אפקט צליל', 'create sound effect', 'make sound effect', 'generate audio effect'],
         parameters: {
             text: { type: 'string', required: true, description: 'ENGLISH description of the sound effect (e.g. "cat meowing", "explosion")' },
             duration_seconds: { type: 'number', required: false, description: 'Duration in seconds (0.5-30, default: auto)' },
             loop: { type: 'boolean', required: false, description: 'Whether the sound should loop smoothly' }
         },
+        critical: 'Use ONLY for EXPLICIT sound effect requests. "שלח ארנב" = create_image (NOT sound effect!). "שלח תמונה של X" = create_image. Only use create_sound_effect when user says "אפקט קולי", "צליל", "sound effect", or similar explicit audio effect terminology.',
         historyContext: {
             ignore: true,
             reason: 'Sound effect requests are self-contained. Each request describes the specific sound to generate.'
