@@ -54,12 +54,10 @@ class VideoAnalysis {
 
   /**
    * Prepare video part for Gemini API
-   * IMPORTANT: gemini-3-pro-preview does NOT support inline video data,
-   * so we ALWAYS use the Files API for video uploads.
+   * Uses Files API for reliable video handling.
    */
   async prepareVideoPart(videoBuffer: Buffer): Promise<VideoPart> {
-    // gemini-3-pro-preview requires Files API for video - inline data causes 400 errors
-    logger.info('📤 Uploading video to Files API (required for gemini-3-pro-preview)...');
+    logger.info('📤 Uploading video to Files API...');
     logger.info(`📹 Video buffer size: ${(videoBuffer.length / 1024 / 1024).toFixed(2)} MB`);
 
     const tempFileName = `temp_analysis_video_${uuidv4()}.mp4`;
@@ -74,7 +72,7 @@ class VideoAnalysis {
     logger.info(`📁 Temp file written: ${tempFilePath}`);
 
     try {
-      // @google/genai SDK requires mimeType at config level
+      // Upload file to Files API
       const uploadResult = await veoClient.files.upload({
         file: tempFilePath,
         config: {
@@ -82,7 +80,7 @@ class VideoAnalysis {
         }
       });
 
-      logger.info('✅ Video uploaded to Files API successfully');
+      logger.info('✅ Video uploaded to Files API');
 
       // Clean up temp file after upload
       try {
@@ -94,12 +92,42 @@ class VideoAnalysis {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const uploadResultAny = uploadResult as any;
-      logger.info(`📎 File URI: ${uploadResultAny.uri || uploadResultAny.file?.uri}`);
+      const fileName = uploadResultAny.name;
+      const fileUri = uploadResultAny.uri;
+
+      logger.info(`📎 File name: ${fileName}, URI: ${fileUri}`);
+
+      // Wait for file to be in ACTIVE state (required for generateContent)
+      logger.info('⏳ Waiting for file to be ready (ACTIVE state)...');
+      let fileState = uploadResultAny.state;
+      let attempts = 0;
+      const maxAttempts = 30; // 30 seconds max wait
+
+      while (fileState !== 'ACTIVE' && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempts++;
+
+        try {
+          const fileInfo = await veoClient.files.get({ name: fileName });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          fileState = (fileInfo as any).state;
+          logger.debug(`📊 File state check ${attempts}: ${fileState}`);
+        } catch (getErr) {
+          logger.warn(`⚠️ Could not check file state (attempt ${attempts}):`, getErr);
+        }
+      }
+
+      if (fileState !== 'ACTIVE') {
+        logger.error(`❌ File did not become ACTIVE after ${maxAttempts} seconds. State: ${fileState}`);
+        throw new Error(`File upload timed out - file state: ${fileState}`);
+      }
+
+      logger.info(`✅ File is now ACTIVE and ready to use`);
 
       return {
         fileData: {
-          fileUri: uploadResultAny.uri || uploadResultAny.file?.uri,
-          mimeType: uploadResultAny.mimeType || uploadResultAny.file?.mimeType || 'video/mp4'
+          fileUri: fileUri,
+          mimeType: uploadResultAny.mimeType || 'video/mp4'
         }
       };
     } catch (uploadErr: unknown) {
@@ -110,14 +138,14 @@ class VideoAnalysis {
         fs.unlinkSync(tempFilePath);
       } catch (_) { /* ignore */ }
 
-      // Fallback to inline data for smaller files
-      if (videoBuffer.length < 20 * 1024 * 1024) {
+      // Fallback to inline data for smaller files (under 15MB)
+      if (videoBuffer.length < 15 * 1024 * 1024) {
         logger.info('🔄 Falling back to inline data...');
         const base64Video = videoBuffer.toString('base64');
         return { inlineData: { mimeType: "video/mp4", data: base64Video } };
       }
 
-      throw new Error(`Failed to upload video to Files API: ${uploadErr instanceof Error ? uploadErr.message : 'Unknown error'}`);
+      throw new Error(`Failed to upload video: ${uploadErr instanceof Error ? uploadErr.message : 'Unknown error'}`);
     }
   }
 
