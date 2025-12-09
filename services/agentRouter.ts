@@ -58,18 +58,28 @@ export async function routeToAgent(input: NormalizedInput, chatId: string, optio
 
   const userText = input.userText || '';
 
-  // Skip history for image/video analysis - these are self-contained requests
-  // that don't need context from previous messages
-  const hasMedia = !!(input.imageUrl || input.videoUrl ||
-    (input as Record<string, unknown>).hasImage || (input as Record<string, unknown>).hasVideo);
+  // LLM-FIRST PRINCIPLE:
+  // We don't guess intent - we use observable facts from the input.
+  // If media is attached, the request is self-contained (analyze/edit media).
+  // If no media, let LLM have full context from history.
+  //
+  // See: services/agent/config/toolHistoryConfig.ts for full tool-level documentation
+  const hasMedia = !!(
+    input.imageUrl ||
+    input.videoUrl ||
+    input.audioUrl ||
+    (input as Record<string, unknown>).hasImage ||
+    (input as Record<string, unknown>).hasVideo ||
+    (input as Record<string, unknown>).hasAudio
+  );
 
-  // Use explicit option if provided, otherwise skip history for media analysis
+  // Use explicit option if provided, otherwise skip history for media (self-contained)
   const useHistory = options.useConversationHistory !== undefined
     ? options.useConversationHistory
     : !hasMedia;
 
-  if (hasMedia) {
-    logger.info('📷 [AGENT ROUTER] Media detected - skipping history for self-contained analysis');
+  if (hasMedia && !useHistory) {
+    logger.info('📷 [AGENT ROUTER] Media attached - skipping history (self-contained request)');
   }
 
   // Build contextual prompt using the new context builder
