@@ -131,8 +131,9 @@ export async function sendToolAckMessage(
       return getToolAckMessage(toolName, provider || providerRaw);
     };
 
-    // Calculate acks list
-    const acks = functionCalls.map(buildSingleAck).filter((msg) => msg && msg.trim());
+    // Calculate acks list and deduplicate (same tool called multiple times = one ACK)
+    const acksRaw = functionCalls.map(buildSingleAck).filter((msg) => msg && msg.trim());
+    const acks = [...new Set(acksRaw)]; // Remove duplicates
 
     if (acks.length === 0) return;
 
