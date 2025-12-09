@@ -30,14 +30,14 @@ describe('HistoryStrategy', () => {
         const result = await strategy.processHistory('test-chat', 'test prompt', true);
 
         expect(result.shouldLoadHistory).toBe(true);
-        expect(result.history).toHaveLength(3); // 5 messages - 2 filtered = 3
+        expect(result.history).toHaveLength(5); // No filtering anymore
 
-        // Check content of filtered history
+        // Check content - all messages should be present
         const contents = result.history.map(h => h.parts[0].text);
         expect(contents).toContain('שלח לי תמונה של חתול');
         expect(contents).toContain('הנה התמונה שלך');
         expect(contents).toContain('תודה');
-        expect(contents).not.toContain('יוצר תמונה עם Gemini... 🎨');
-        expect(contents).not.toContain('חושב... 🤖');
+        expect(contents).toContain('יוצר תמונה עם Gemini... 🎨'); // Should now be present
+        expect(contents).toContain('חושב... 🤖'); // Should now be present
     });
 });

@@ -47,9 +47,9 @@ describe('HistoryStrategy Edge Cases', () => {
 
         const result = await strategy.processHistory('test-chat', 'test prompt', true);
 
-        expect(result.history).toHaveLength(4); // 5 - 1 filtered = 4
+        expect(result.history).toHaveLength(5); // No filtering
         const contents = result.history.map(h => h.parts[0].text);
-        expect(contents).not.toContain('יוצר תמונה עם Gemini... 🎨');
+        expect(contents).toContain('יוצר תמונה עם Gemini... 🎨');
         expect(contents).toContain('הנה התמונה');
     });
 
