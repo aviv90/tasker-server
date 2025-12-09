@@ -90,5 +90,21 @@ export const audioTools: Record<string, Tool> = {
             ignore: false,
             reason: 'If audio_urls are provided in prompt, ignore history. If audio_urls are missing, use history to find the audio files from previous messages.'
         }
+    },
+
+    create_sound_effect: {
+        name: 'create_sound_effect',
+        category: 'audio',
+        description: 'Generate sound effects from text description',
+        usage: ['צור צליל של X', 'צור אפקט קולי X', 'שלח קול של X', 'create sound effect X'],
+        parameters: {
+            text: { type: 'string', required: true, description: 'Description of the sound effect to generate' },
+            duration_seconds: { type: 'number', required: false, description: 'Duration in seconds (0.5-30, default: auto)' },
+            loop: { type: 'boolean', required: false, description: 'Whether the sound should loop smoothly' }
+        },
+        historyContext: {
+            ignore: true,
+            reason: 'Sound effect requests are self-contained. Each request describes the specific sound to generate.'
+        }
     }
 };

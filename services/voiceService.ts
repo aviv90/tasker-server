@@ -8,6 +8,7 @@ import * as voiceCloning from './voice/voiceCloning';
 import * as voiceManagement from './voice/voiceManagement';
 import * as textToSpeechModule from './voice/textToSpeech';
 import * as voiceSelection from './voice/voiceSelection';
+import * as soundEffectsModule from './voice/soundEffects';
 
 class VoiceService {
     private client: ElevenLabsClient | null = null;
@@ -73,6 +74,11 @@ class VoiceService {
     // Alias for textToSpeechWithRandomVoice (used by smartFallback)
     async textToSpeechForBot(text: string, options: Record<string, unknown> = {}): Promise<unknown> {
         return this.textToSpeechWithRandomVoice(text, options);
+    }
+
+    // Sound Effects generation
+    async generateSoundEffect(text: string, options: Record<string, unknown> = {}): Promise<unknown> {
+        return soundEffectsModule.generateSoundEffect.call(this as any, text, options);
     }
 }
 

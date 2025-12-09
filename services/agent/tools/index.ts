@@ -60,7 +60,8 @@ export const {
   voice_clone_and_speak,
   creative_audio_mix,
   translate_text,
-  translate_and_speak
+  translate_and_speak,
+  create_sound_effect
 } = audioTools;
 
 export const {
@@ -146,6 +147,7 @@ export const allTools: Record<string, AgentTool> = {
   creative_audio_mix: audioTools.creative_audio_mix,
   translate_text: audioTools.translate_text,
   translate_and_speak: audioTools.translate_and_speak,
+  create_sound_effect: audioTools.create_sound_effect,
   // record_voice: audioTools.record_voice, // Missing
 
   // Search & Info

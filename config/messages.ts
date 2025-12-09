@@ -57,7 +57,8 @@ export const REQUIRED = {
   EDIT_INSTRUCTIONS_IMAGE: 'חובה לספק הוראות עריכה לתמונה',
   EDIT_INSTRUCTIONS_VIDEO: 'חובה לספק הוראות עריכה לוידאו',
   IMAGE_QUESTION: 'חובה לציין שאלה לניתוח התמונה',
-  PREFERENCE_KEY_VALUE: 'חובה לציין מפתח וערך להעדפה'
+  PREFERENCE_KEY_VALUE: 'חובה לציין מפתח וערך להעדפה',
+  SOUND_EFFECT_DESCRIPTION: 'חובה לספק תיאור לאפקט הקולי'
 } as const;
 
 /**
@@ -94,7 +95,8 @@ export const FAILED = {
   VIDEO_ANALYSIS: (error: string) => `ניתוח וידאו נכשל: ${error}`,
   CREATIVE_MIX: (error: string) => `מיקס יצירתי נכשל: ${error}`,
   ALL_PROVIDERS: (errors: string) => `כל הספקים נכשלו:\n${errors}`,
-  ALL_EDIT_PROVIDERS: (errors: string) => `כל ספקי העריכה נכשלו:\n${errors}`
+  ALL_EDIT_PROVIDERS: (errors: string) => `כל ספקי העריכה נכשלו:\n${errors}`,
+  SOUND_EFFECT: (error: string) => `יצירת אפקט קולי נכשלה: ${error}`
 } as const;
 
 /**
