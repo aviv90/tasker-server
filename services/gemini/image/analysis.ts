@@ -48,7 +48,7 @@ class ImageAnalysis {
       const languageInstruction = this.buildLanguageInstruction(detectedLang);
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash"
+        model: "gemini-3-pro-preview"
       });
 
 

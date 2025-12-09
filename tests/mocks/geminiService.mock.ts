@@ -8,7 +8,7 @@ export const mockGeminiService = {
     text: 'Mock Gemini text response',
     metadata: {
       service: 'gemini',
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-pro-preview',
       characterCount: 25
     }
   }),
@@ -41,7 +41,7 @@ export const mockGeminiService = {
     text: 'Mock image analysis',
     metadata: {
       service: 'gemini',
-      model: 'gemini-2.5-flash'
+      model: 'gemini-3-pro-preview'
     }
   }),
 
@@ -73,7 +73,7 @@ export const mockGeminiService = {
     text: 'Mock video analysis',
     metadata: {
       service: 'gemini',
-      model: 'gemini-2.5-flash'
+      model: 'gemini-3-pro-preview'
     }
   }),
 

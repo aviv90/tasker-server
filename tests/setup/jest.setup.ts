@@ -130,7 +130,7 @@ jest.mock('../../config', () => {
 
       // Models
       models: {
-        gemini: { defaultModel: 'gemini-2.5-flash' },
+        gemini: { defaultModel: 'gemini-3-pro-preview' },
         openai: { defaultModel: 'gpt-4o', imageModel: 'dall-e-3' },
         elevenlabs: { defaultModel: 'eleven_v3' }
       },

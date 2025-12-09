@@ -26,19 +26,21 @@ type SoundEffectResult = {
 export const create_sound_effect = createTool<CreateSoundEffectArgs>(
     {
         name: 'create_sound_effect',
-        description: `Generate sound effects from text description. Use when user asks for sound/audio effects like:
-- "צור צליל של פיצוץ" (create explosion sound)
-- "שלח קול של גשם" (send rain sound)
-- "צור אפקט קולי של צעדים" (create footsteps effect)
-- "create sound effect of thunder"
-- "generate whoosh sound"
-Uses ElevenLabs sound effects API. NOT for speech/TTS - use text_to_speech for that.`,
+        description: `Generate sound effects/audio effects from a description. Use when user asks for sounds like:
+- "צור צליל של פיצוץ" → generate explosion sound
+- "שלח קול של גשם" → generate rain falling sound  
+- "צור אפקט קולי של צעדים" → generate footsteps sound
+- "צליל של חתול" → generate cat meowing sound
+- "קול של פיל" → generate elephant trumpeting sound
+CRITICAL: The 'text' parameter must be a descriptive sound effect prompt IN ENGLISH, not Hebrew.
+Convert the user's request to an English sound description. Example: "צליל של חתול" → text: "cat meowing sound"
+NOT for speech/TTS - use text_to_speech for spoken words.`,
         parameters: {
             type: 'object',
             properties: {
                 text: {
                     type: 'string',
-                    description: 'Description of the sound effect to generate (e.g., "cinematic explosion", "rain falling on roof", "spooky footsteps")'
+                    description: 'ENGLISH description of the sound effect to generate. Examples: "cat meowing", "explosion boom", "rain on roof", "footsteps on gravel", "thunder rumble", "elephant trumpeting". MUST be in English for best results.'
                 },
                 duration_seconds: {
                     type: 'number',

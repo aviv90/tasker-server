@@ -107,7 +107,7 @@ export const config = {
   // AI Model Configuration
   models: {
     gemini: {
-      defaultModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+      defaultModel: process.env.GEMINI_MODEL || 'gemini-3-pro-preview',
       apiVersion: 'v1beta'
     },
     openai: {
@@ -180,7 +180,7 @@ export const config = {
 
   // Agent Configuration (SSOT for agent settings)
   agent: {
-    model: process.env.AGENT_MODEL || 'gemini-2.5-flash',
+    model: process.env.AGENT_MODEL || 'gemini-3-pro-preview',
     maxIterations: parseInt(process.env.AGENT_MAX_ITERATIONS || '8', 10),
     timeoutMs: parseInt(process.env.AGENT_TIMEOUT_MS || '240000', 10), // 4 minutes
     contextMemoryEnabled: (process.env.AGENT_CONTEXT_MEMORY_ENABLED || 'false').toLowerCase() === 'true'

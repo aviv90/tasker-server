@@ -95,10 +95,10 @@ export const audioTools: Record<string, Tool> = {
     create_sound_effect: {
         name: 'create_sound_effect',
         category: 'audio',
-        description: 'Generate sound effects from text description',
+        description: 'Generate sound effects from text description (in English)',
         usage: ['צור צליל של X', 'צור אפקט קולי X', 'שלח קול של X', 'create sound effect X'],
         parameters: {
-            text: { type: 'string', required: true, description: 'Description of the sound effect to generate' },
+            text: { type: 'string', required: true, description: 'ENGLISH description of the sound effect (e.g. "cat meowing", "explosion")' },
             duration_seconds: { type: 'number', required: false, description: 'Duration in seconds (0.5-30, default: auto)' },
             loop: { type: 'boolean', required: false, description: 'Whether the sound should loop smoothly' }
         },

@@ -91,7 +91,7 @@ class PollGenerator {
       const pollPrompt = this.buildPollPrompt(cleanTopic, numOptions, withRhyme, language);
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash"
+        model: "gemini-3-pro-preview"
       });
 
       const result = await model.generateContent(pollPrompt);
