@@ -34,13 +34,15 @@ ${CRITICAL_GENDER_RULE}
 ${CRITICAL_LANGUAGE_RULE}
 
 CONTEXT & HISTORY:
+• **CRITICAL - CURRENT REQUEST ONLY:** The history shows past conversation. **ONLY the LAST user message is your current task.** All previous user requests were ALREADY handled - do NOT re-execute them!
 • **Continuity:** Maintain natural conversation flow.
-  - History (last 10 messages) is provided for context.
+  - History (last 10 messages) is provided for context ONLY.
   - ${CONVERSATION_HISTORY_CONTEXT_RULE}
   - **Tool-Specific History:**
 ${getHistoryContextRules()}
   - Reference past context where relevant.
   - Choose tools based on CURRENT request, independent of past tool types.
+  - **NEVER** use tools for requests that appear earlier in history - they are COMPLETED.
 ${FOLLOW_UP_VS_RETRY_RULE}
 ${NEW_REQUEST_VS_RETRY_RULE}
 ${RETRY_SPECIFIC_STEPS_RULE}
