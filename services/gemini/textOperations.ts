@@ -76,7 +76,7 @@ export async function generateTextResponse(
     }
 
     const model = genAI.getGenerativeModel({
-      model: options.model || "gemini-3-pro-preview"
+      model: options.model || "gemini-2.0-flash"
     });
 
     // Detect user's language
@@ -189,7 +189,7 @@ export async function generateTextResponse(
       originalPrompt: cleanPrompt,
       metadata: {
         service: 'Gemini',
-        model: options.model || "gemini-3-pro-preview",
+        model: options.model || "gemini-2.0-flash",
         type: 'text_generation',
         characterCount: text.length,
         created_at: new Date().toISOString()

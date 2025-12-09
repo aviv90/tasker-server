@@ -25,7 +25,7 @@ class TranslationService {
       logger.debug(`🌐 Translating "${text}" to ${targetLanguage}`);
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-3-pro-preview"
+        model: "gemini-2.0-flash"
       });
 
       const translationPrompt = prompts.translationPrompt(text, targetLanguage);

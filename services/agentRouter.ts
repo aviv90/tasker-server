@@ -58,9 +58,19 @@ export async function routeToAgent(input: NormalizedInput, chatId: string, optio
 
   const userText = input.userText || '';
 
-  // No heuristic filtering for history. We rely on HistoryStrategy and LLM intelligence.
-  // Previous regex loop for "random product" optimization removed.
-  const useHistory = options.useConversationHistory;
+  // Skip history for image/video analysis - these are self-contained requests
+  // that don't need context from previous messages
+  const hasMedia = !!(input.imageUrl || input.videoUrl ||
+    (input as Record<string, unknown>).hasImage || (input as Record<string, unknown>).hasVideo);
+
+  // Use explicit option if provided, otherwise skip history for media analysis
+  const useHistory = options.useConversationHistory !== undefined
+    ? options.useConversationHistory
+    : !hasMedia;
+
+  if (hasMedia) {
+    logger.info('📷 [AGENT ROUTER] Media detected - skipping history for self-contained analysis');
+  }
 
   // Build contextual prompt using the new context builder
   const contextualPrompt = await buildContextualPrompt(input, chatId);

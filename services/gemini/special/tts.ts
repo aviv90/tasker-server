@@ -26,7 +26,7 @@ class TTSParser {
       logger.info('🔍 Parsing TTS request for translation needs');
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-3-pro-preview"
+        model: "gemini-2.0-flash"
       });
 
       const analysisPrompt = prompts.ttsParsingPrompt(prompt);

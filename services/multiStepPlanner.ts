@@ -35,7 +35,7 @@ interface MultiStepPlan {
  */
 export async function planMultiStepExecution(userRequest: string): Promise<MultiStepPlan> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-preview' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
     const result = await model.generateContent(prompts.multiStepPlanner(userRequest));
     const response = result.response;

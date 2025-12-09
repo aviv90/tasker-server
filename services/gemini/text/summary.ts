@@ -130,7 +130,7 @@ class SummaryService {
       // Use SSOT prompt from config/prompts.ts
       const summaryPrompt = prompts.chatSummaryPrompt(formattedMessages);
 
-      const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-preview' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
       const result = await model.generateContent(summaryPrompt);
 
       if (!result.response) {
