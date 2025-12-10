@@ -5,6 +5,11 @@ import { handleRemixVoice } from './voice/remixHandler';
 export const edit_voice_style: AgentTool = {
     declaration: remix_voice as any, // Cast if type mismatch or just use config
     execute: async (args: any, context: any) => {
-        return await handleRemixVoice(args.style_description, context);
+        // Map quotedContext to quotedMessage as expected by handleRemixVoice
+        const toolContext = {
+            ...context,
+            quotedMessage: context.quotedContext
+        };
+        return await handleRemixVoice(args.style_description, toolContext);
     }
 };
