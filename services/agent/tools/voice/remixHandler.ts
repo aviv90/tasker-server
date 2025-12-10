@@ -5,6 +5,7 @@ import { createInstantVoiceClone } from '../../../../services/voice/voiceCloning
 import { deleteVoice } from '../../../../services/voice/voiceManagement';
 import { downloadFile } from '../../../../services/greenApi/fileHandling';
 import fs from 'fs';
+import path from 'path';
 
 
 export async function handleRemixVoice(
@@ -116,7 +117,7 @@ export async function handleRemixVoice(
         return {
             success: true,
             data: `🎤 Here is the remixed audio ("${styleDescription}")`,
-            audioUrl: tempRemixPath
+            audioUrl: path.basename(tempRemixPath)
         };
 
     } catch (error) {
