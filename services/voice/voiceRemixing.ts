@@ -40,11 +40,7 @@ export class VoiceRemixingService {
 
             // Take the first preview for now
             const preview = response.previews[0];
-
-            logger.info('🐛 Debug Remix Response keys:', Object.keys(preview));
-            if (preview.audio_base_64) logger.info('🐛 Debug audio_base_64 length:', preview.audio_base_64.length);
-
-            const audioBase64 = preview.audio_base_64;
+            const audioBase64 = preview.audioBase64;
 
             if (!audioBase64) {
                 throw new Error('No audio data in remix preview');
@@ -57,7 +53,7 @@ export class VoiceRemixingService {
 
             await fs.promises.writeFile(filePath, buffer);
 
-            logger.info('✅ Voice remix generated successfully', { filePath, generatedVoiceId: preview.generated_voice_id });
+            logger.info('✅ Voice remix generated successfully', { filePath, generatedVoiceId: preview.generatedVoiceId });
 
             return filePath;
 
