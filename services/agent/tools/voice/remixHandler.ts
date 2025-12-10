@@ -121,7 +121,7 @@ export async function handleRemixVoice(
         logger.error('❌ Error in handleRemixVoice:', error);
         return {
             success: false,
-            error: `Failed to remix voice: ${error instanceof Error ? error.message : String(error)}`
+            error: `Failed to remix voice: ${error instanceof Error ? error.message : String(error)}. CRITICAL: DO NOT Try to fix this or use other tools. DO NOT transcribe. STOP and inform the user of the error.`
         };
     } finally {
         if (audioPath && fs.existsSync(audioPath)) {

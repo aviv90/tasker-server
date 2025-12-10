@@ -26,8 +26,7 @@ export class VoiceRemixingService {
             // but we'll try standard access first.
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const response = await (client as any).textToVoice.remix({
-                voice_id: voiceId,
+            const response = await (client as any).textToVoice.remix(voiceId, {
                 text: text,
                 voice_description: voiceDescription
             });
