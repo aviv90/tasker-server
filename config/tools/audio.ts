@@ -86,7 +86,7 @@ export const audioTools: Record<string, Tool> = {
             audio_urls: { type: 'array', required: true, description: 'Audio files to mix' },
             instruction: { type: 'string', required: true, description: 'How to mix' }
         },
-        critical: 'Use ONLY when mixing MULTIPLE audio sources or adding background music/SFX. For changing the emotion/style of a voice note, use \'remix_voice\'.',
+        critical: 'Use ONLY when mixing MULTIPLE audio sources or adding background music/SFX. For changing the emotion/style of a voice note, use \'edit_voice_style\'.',
         historyContext: {
             ignore: false,
             reason: 'If audio_urls are provided in prompt, ignore history. If audio_urls are missing, use history to find the audio files from previous messages.'

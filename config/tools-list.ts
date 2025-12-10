@@ -23,9 +23,9 @@ const TOOLS: Record<string, Tool> = {
   ...searchTools,
   ...contextTools,
   ...metaTools,
-  remix_voice: {
-    name: 'remix_voice',
-    description: 'Transform the style, emotion, or tone of a quoted voice note (e.g. make it happy, sad, ghost-like). This is NOT for mixing multiple files.',
+  edit_voice_style: {
+    name: 'edit_voice_style',
+    description: 'Edit the style, emotion, or tone of a quoted voice note. Use this for "Edit", "Change", "Modify" requests on voice/audio styling.',
     parameters: {
       style_description: {
         type: 'string',
@@ -34,10 +34,10 @@ const TOOLS: Record<string, Tool> = {
       }
     },
     usage: [
-      'Quote a voice note and say: "Remix this to sound happy"',
-      'Quote a voice note and say: "Make this sound like a whispering ghost"'
+      'Quote a voice note and say: "Edit this to sound happy"',
+      'Quote a voice note and say: "Change to a whispering ghost voice"'
     ],
-    category: 'creation'
+    category: 'editing'
   }
 };
 

@@ -21,6 +21,7 @@ import * as retryTools from './retry';
 import * as schedulingTools from './schedulingTools';
 import * as flightTools from './flight/flightTools';
 import * as shoppingTools from './shoppingTools';
+import { edit_voice_style } from './remixTools'; // Importing the tool implementation
 import fallbackTools from './meta/fallbackTools';
 // Missing modules commented out
 // import * as metaTools from './meta/metaTools'; 
@@ -148,6 +149,7 @@ export const allTools: Record<string, AgentTool> = {
   translate_text: audioTools.translate_text,
   translate_and_speak: audioTools.translate_and_speak,
   create_sound_effect: audioTools.create_sound_effect,
+  edit_voice_style: edit_voice_style,
   // record_voice: audioTools.record_voice, // Missing
 
   // Search & Info
