@@ -26,56 +26,48 @@ export class SystemManagementService {
     }
 
     async syncContacts(chatId: string, senderName: string, originalMessageId?: string) {
-        try {
-            await greenApiService.sendTextMessage(chatId, '📇 מעדכן רשימת אנשי קשר...', originalMessageId, TIME.TYPING_INDICATOR);
+        await greenApiService.sendTextMessage(chatId, '📇 מעדכן רשימת אנשי קשר...', originalMessageId, TIME.TYPING_INDICATOR);
 
-            // Fetch contacts from Green API
-            const contacts = await greenApiService.getContacts();
+        // Fetch contacts from Green API
+        const contacts = await greenApiService.getContacts();
 
-            if (!contacts || contacts.length === 0) {
-                await greenApiService.sendTextMessage(chatId, '⚠️ לא נמצאו אנשי קשר', originalMessageId, TIME.TYPING_INDICATOR);
-                return;
-            }
+        if (!contacts || contacts.length === 0) {
+            await greenApiService.sendTextMessage(chatId, '⚠️ לא נמצאו אנשי קשר', originalMessageId, TIME.TYPING_INDICATOR);
+            return;
+        }
 
-            // Sync to database
-            const syncResult = await conversationManager.syncContacts(contacts as unknown as GreenApiContact[]);
+        // Sync to database
+        const syncResult = await conversationManager.syncContacts(contacts as unknown as GreenApiContact[]);
 
-            const resultMessage = `✅ עדכון אנשי קשר הושלם!
+        const resultMessage = `✅ עדכון אנשי קשר הושלם!
 📊 סטטיסטיקה:
 • חדשים: ${syncResult.inserted}
 • עודכנו: ${syncResult.updated}  
 • סה"כ: ${syncResult.total}
 💾 כל אנשי הקשר נשמרו במסד הנתונים`;
 
-            await greenApiService.sendTextMessage(chatId, resultMessage, originalMessageId, TIME.TYPING_INDICATOR);
-            logger.info(`✅ Contacts synced successfully by ${senderName}`);
-        } catch (error: unknown) {
-            throw error; // Let the caller handle logging/user notification
-        }
+        await greenApiService.sendTextMessage(chatId, resultMessage, originalMessageId, TIME.TYPING_INDICATOR);
+        logger.info(`✅ Contacts synced successfully by ${senderName}`);
     }
 
     async showHistory(chatId: string, originalMessageId?: string) {
         // Use chatHistoryService (SSOT) for proper chronological ordering
-        try {
-            const { getChatHistory } = await import('../../../utils/chatHistoryService');
-            const historyResult = await getChatHistory(chatId, 20, { format: 'display' });
+        const { getChatHistory } = await import('../../../utils/chatHistoryService');
+        const historyResult = await getChatHistory(chatId, 20, { format: 'display' });
 
-            if (historyResult.success && historyResult.messages.length > 0) {
-                let historyText = '📜 **היסטוריית שיחה (20 הודעות אחרונות):**\n\n';
+        if (historyResult.success && historyResult.messages.length > 0) {
+            let historyText = '📜 **היסטוריית שיחה (20 הודעות אחרונות):**\n\n';
 
-                // Process messages
-                for (const msg of historyResult.messages) {
-                    const textContent = msg.content || '[הודעה ללא טקסט]';
-                    const role = msg.role === 'assistant' ? '🤖' : '👤';
-                    historyText += `${role} ${textContent}\n\n`;
-                }
-
-                await greenApiService.sendTextMessage(chatId, historyText, originalMessageId, TIME.TYPING_INDICATOR);
-            } else {
-                await greenApiService.sendTextMessage(chatId, 'ℹ️ אין היסטוריית שיחה', originalMessageId, TIME.TYPING_INDICATOR);
+            // Process messages
+            for (const msg of historyResult.messages) {
+                const textContent = msg.content || '[הודעה ללא טקסט]';
+                const role = msg.role === 'assistant' ? '🤖' : '👤';
+                historyText += `${role} ${textContent}\n\n`;
             }
-        } catch (error: unknown) {
-            throw error;
+
+            await greenApiService.sendTextMessage(chatId, historyText, originalMessageId, TIME.TYPING_INDICATOR);
+        } else {
+            await greenApiService.sendTextMessage(chatId, 'ℹ️ אין היסטוריית שיחה', originalMessageId, TIME.TYPING_INDICATOR);
         }
     }
 }

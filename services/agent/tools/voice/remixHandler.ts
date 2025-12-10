@@ -13,21 +13,35 @@ export async function handleRemixVoice(
     const { quotedMessage } = context;
 
     if (!quotedMessage) {
+        logger.warn('⚠️ handleRemixVoice called without quotedMessage');
         return {
             success: false,
             error: 'You must quote a voice note to remix it.'
         };
     }
 
-    // Check if quoted message has audio
-    const isAudio = quotedMessage.type === 'audio' ||
+    logger.info('🐛 Debug handleRemixVoice context:', {
+        type: quotedMessage.type,
+        mimetype: quotedMessage.mimetype,
+        hasAudio: quotedMessage.hasAudio,
+        url: quotedMessage.url,
+        audioUrl: quotedMessage.audioUrl
+    });
+
+    // Check if quoted message has audio - Relaxed check for PTT/Voice
+    const isAudio =
+        quotedMessage.type === 'audio' ||
         quotedMessage.type === 'voice' ||
-        quotedMessage.hasAudio;
+        quotedMessage.type === 'ptt' || // Common for voice notes
+        quotedMessage.type === 'audioMessage' || // Another common type
+        quotedMessage.hasAudio === true ||
+        (quotedMessage.mimetype && quotedMessage.mimetype.startsWith('audio/'));
 
     if (!isAudio) {
+        logger.error(`❌ Remix validation failed. Type: ${quotedMessage.type}, Mime: ${quotedMessage.mimetype}`);
         return {
             success: false,
-            error: 'The quoted message must be a voice note or audio file.'
+            error: 'CRITICAL ERROR: The quoted message is NOT audio. You must QUOTE a voice note to use this tool. Stop and tell the user they quoted a text message instead of a voice note.'
         };
     }
 

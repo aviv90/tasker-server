@@ -25,7 +25,7 @@ const TOOLS: Record<string, Tool> = {
   ...metaTools,
   edit_voice_style: {
     name: 'edit_voice_style',
-    description: 'Edit the style, emotion, or tone of a quoted voice note. Use this for "Edit", "Change", "Modify" requests on voice/audio styling.',
+    description: 'Edit the style, emotion, or tone of a QUOTED voice note. REQUIRED: User must quote a voice note (audio). If they quote text, this will fail.',
     parameters: {
       style_description: {
         type: 'string',

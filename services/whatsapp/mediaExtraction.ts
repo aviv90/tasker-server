@@ -26,12 +26,14 @@ interface GreenApiMessage {
     imageMessageData?: { downloadUrl?: string };
     videoMessageData?: { downloadUrl?: string };
     audioMessageData?: { downloadUrl?: string };
+    documentMessageData?: { downloadUrl?: string };
     stickerMessageData?: { downloadUrl?: string };
     messageData?: {
         fileMessageData?: { downloadUrl?: string };
         imageMessageData?: { downloadUrl?: string };
         videoMessageData?: { downloadUrl?: string };
         audioMessageData?: { downloadUrl?: string };
+        documentMessageData?: { downloadUrl?: string };
         stickerMessageData?: { downloadUrl?: string };
     };
     [key: string]: unknown;
@@ -118,6 +120,9 @@ export async function fetchMediaUrlFromAPI(chatId: string, messageId: string, me
                 originalMessage.audioMessageData?.downloadUrl ||
                 originalMessage.messageData?.fileMessageData?.downloadUrl ||
                 originalMessage.messageData?.audioMessageData?.downloadUrl ||
+                // Fallback for audio sent as documents
+                originalMessage.documentMessageData?.downloadUrl ||
+                originalMessage.messageData?.documentMessageData?.downloadUrl ||
                 null;
         }
         return null;
@@ -135,12 +140,15 @@ export async function extractQuotedMediaUrls(quotedMessage: MessageData, chatId:
     const hasImage = quotedMessage.typeMessage === 'imageMessage' || quotedMessage.typeMessage === 'stickerMessage';
     const hasVideo = quotedMessage.typeMessage === 'videoMessage';
     const hasAudio = quotedMessage.typeMessage === 'audioMessage';
+    // Add support for audio documents
+    const hasDocument = quotedMessage.typeMessage === 'documentMessage';
+    const isAudioDocument = hasDocument && quotedMessage.mimetype?.startsWith('audio/');
 
     let imageUrl: string | null = null;
     let videoUrl: string | null = null;
     let audioUrl: string | null = null;
 
-    if (!hasImage && !hasVideo && !hasAudio) {
+    if (!hasImage && !hasVideo && !hasAudio && !isAudioDocument) {
         return { hasImage: false, hasVideo: false, hasAudio: false, imageUrl: null, videoUrl: null, audioUrl: null };
     }
 
@@ -158,17 +166,22 @@ export async function extractQuotedMediaUrls(quotedMessage: MessageData, chatId:
         audioUrl = quotedMessage.downloadUrl ||
             quotedMessage.fileMessageData?.downloadUrl ||
             quotedMessage.audioMessageData?.downloadUrl || null;
+    } else if (isAudioDocument) {
+        // Handle document as audio
+        audioUrl = quotedMessage.downloadUrl ||
+            quotedMessage.fileMessageData?.downloadUrl ||
+            quotedMessage.documentMessageData?.downloadUrl || null;
     }
 
     // STEP 2: If not found, try to fetch the QUOTED message ID (if stanzaId exists)
-    if ((hasImage && !imageUrl) || (hasVideo && !videoUrl) || (hasAudio && !audioUrl)) {
+    if ((hasImage && !imageUrl) || (hasVideo && !videoUrl) || ((hasAudio || isAudioDocument) && !audioUrl)) {
         if (quotedMessage.stanzaId) {
-            const mediaType = hasImage ? 'image' : hasVideo ? 'video' : 'audio';
+            const mediaType = hasImage ? 'image' : hasVideo ? 'video' : (hasAudio || isAudioDocument) ? 'audio' : 'document';
             const fetchedUrl = await fetchMediaUrlFromAPI(chatId, quotedMessage.stanzaId, mediaType);
             if (fetchedUrl) {
                 if (hasImage) imageUrl = fetchedUrl;
                 if (hasVideo) videoUrl = fetchedUrl;
-                if (hasAudio) audioUrl = fetchedUrl;
+                if (hasAudio || isAudioDocument) audioUrl = fetchedUrl;
                 logger.debug(`✅ Found media URL for quoted message via getMessage (quoted ID)`);
             }
         }

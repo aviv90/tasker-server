@@ -34,10 +34,10 @@ describe('commandUtils', () => {
         });
 
         it('should return empty string for null/undefined', () => {
-            // @ts-ignore
-            expect(extractCommandPrompt(null)).toBe('');
-            // @ts-ignore
-            expect(extractCommandPrompt(undefined)).toBe('');
+            // @ts-expect-error - Testing undefined input
+            expect(commandUtils.sanitizeCommand(undefined)).toBe('');
+            // @ts-expect-error - Testing null input
+            expect(commandUtils.sanitizeCommand(null)).toBe('');
         });
     });
 });

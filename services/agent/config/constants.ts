@@ -49,9 +49,10 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
   // Audio tools
   voice_clone_and_speak: 'משכפל קול... 🎙️',
   creative_audio_mix: 'מערבב אודיו... 🎧',
-  create_sound_effect: 'יוצר אפקט קולי... 🔊',
+  create_sound_effect: '🎵 מייצר אפקט קולי... 🔊',
+  edit_voice_style: '🎤 עורך את הסגנון הקולי... 🎼',
 
-  // Meta-tools
+  // Search & Infools
   history_aware_create: 'יוצר עם context... 🧠',
   create_with_memory: 'יוצר לפי העדפות... 💡',
   search_and_create: 'מחפש ויוצר... 🔍➡️🎨',

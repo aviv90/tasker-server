@@ -12,9 +12,11 @@ export interface MessageData {
   typeMessage: string;
   textMessage?: string;
   caption?: string;
+  mimetype?: string;
   downloadUrl?: string;
   fileMessageData?: { downloadUrl?: string; caption?: string; fileName?: string; mimeType?: string;[key: string]: unknown };
   audioMessageData?: { downloadUrl?: string; duration?: number;[key: string]: unknown };
+  documentMessageData?: { downloadUrl?: string; mimeType?: string; fileName?: string;[key: string]: unknown };
   imageMessageData?: { downloadUrl?: string; caption?: string;[key: string]: unknown };
   videoMessageData?: { downloadUrl?: string; caption?: string;[key: string]: unknown };
   stickerMessageData?: { downloadUrl?: string; caption?: string;[key: string]: unknown };

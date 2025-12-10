@@ -133,8 +133,8 @@ export async function getRandomFlight(
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
         // Normalize inputs
-        let finalOutbound = outboundDate ? normalizeDate(outboundDate) : '';
-        let finalReturn = returnDate ? normalizeDate(returnDate) : '';
+        const finalOutbound = outboundDate ? normalizeDate(outboundDate) : '';
+        const finalReturn = returnDate ? normalizeDate(returnDate) : '';
 
         if (finalOutbound) {
             if (!dateRegex.test(finalOutbound)) {
