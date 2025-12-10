@@ -35,9 +35,9 @@ describe('commandUtils', () => {
 
         it('should return empty string for null/undefined', () => {
             // @ts-expect-error - Testing undefined input
-            expect(commandUtils.sanitizeCommand(undefined)).toBe('');
+            expect(extractCommandPrompt(undefined)).toBe('');
             // @ts-expect-error - Testing null input
-            expect(commandUtils.sanitizeCommand(null)).toBe('');
+            expect(extractCommandPrompt(null)).toBe('');
         });
     });
 });
