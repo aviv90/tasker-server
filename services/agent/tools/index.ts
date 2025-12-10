@@ -192,9 +192,15 @@ export function getToolDeclarations(): { name: string; description: string; para
     .filter((tool): tool is AgentTool => tool !== null && tool !== undefined && typeof tool === 'object' && 'declaration' in tool && !!tool.declaration)
     .map(tool => {
       // Create a shallow copy to avoid mutating the original
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { historyContext, ...declaration } = (tool.declaration || {}) as any;
-      return declaration as { name: string; description: string; parameters: unknown };
+      const originalDeclaration = (tool.declaration || {}) as any;
+
+      // STRICTLY pick only the fields that Gemini API accepts
+      // This prevents "Unknown name" errors for internal metadata fields like 'usage', 'category', 'critical', etc.
+      return {
+        name: originalDeclaration.name,
+        description: originalDeclaration.description,
+        parameters: originalDeclaration.parameters
+      };
     });
 }
 
