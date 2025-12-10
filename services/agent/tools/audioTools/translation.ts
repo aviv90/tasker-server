@@ -129,6 +129,9 @@ export const translate_and_speak = createTool<TranslateArgs>(
   async (args, context) => {
     logger.debug(`🔧 [Agent Tool] translate_and_speak called: "${args.text}" -> ${args.target_language}`);
 
+    let voiceId: string | null = null;
+    let shouldDeleteVoice = false;
+
     try {
       const { geminiService, greenApiService } = getServices();
 
@@ -151,9 +154,6 @@ export const translate_and_speak = createTool<TranslateArgs>(
 
       const translatedText = translationResult.translatedText || args.text;
       logger.info(`✅ Translated: "${translatedText}"`);
-
-      let voiceId: string | null = null;
-      let shouldDeleteVoice = false;
 
       const quotedAudioUrl = context.quotedContext?.audioUrl as string || context.audioUrl;
 
@@ -247,16 +247,6 @@ export const translate_and_speak = createTool<TranslateArgs>(
         languageCode: targetLangCode
       })) as TTSResult;
 
-      if (shouldDeleteVoice && voiceId) {
-        try {
-          await voiceService.deleteVoice(voiceId as string);
-          logger.info(`🧹 Cleanup: Cloned voice ${voiceId} deleted`);
-        } catch (cleanupError) {
-          const err = cleanupError as Error;
-          logger.warn('⚠️ Voice cleanup failed:', err.message);
-        }
-      }
-
       if (ttsResult.error) {
         return {
           success: true,
@@ -282,6 +272,16 @@ export const translate_and_speak = createTool<TranslateArgs>(
         success: false,
         error: ERROR.generic(err.message)
       };
+    } finally {
+      if (shouldDeleteVoice && voiceId) {
+        try {
+          await voiceService.deleteVoice(voiceId as string);
+          logger.info(`🧹 Cleanup: Cloned voice ${voiceId} deleted`);
+        } catch (cleanupError) {
+          const err = cleanupError as Error;
+          logger.warn('⚠️ Voice cleanup failed:', err.message);
+        }
+      }
     }
   }
 );

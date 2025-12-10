@@ -60,12 +60,12 @@ export const text_to_speech = createTool<TextToSpeechArgs>(
   async (args, context) => {
     logger.debug(`🔧 [Agent Tool] text_to_speech called: "${args.text}"`);
 
+    let voiceId: string | null = null;
+    let shouldDeleteVoice = false;
+
     try {
       const { greenApiService } = getServices();
       const language = args.language || 'he';
-
-      let voiceId: string | null = null;
-      let shouldDeleteVoice = false;
 
       const quotedAudioUrl = context.quotedContext?.audioUrl as string || context.audioUrl;
 
@@ -145,16 +145,6 @@ export const text_to_speech = createTool<TextToSpeechArgs>(
         output_format: 'mp3_44100_128'
       })) as TTSResult;
 
-      if (shouldDeleteVoice && voiceId) {
-        try {
-          await voiceService.deleteVoice(voiceId);
-          logger.debug(`🧹 Cleanup: Cloned voice ${voiceId} deleted`);
-        } catch (cleanupError) {
-          const err = cleanupError as Error;
-          logger.warn('⚠️ Voice cleanup failed:', { error: err.message });
-        }
-      }
-
       if (ttsResult.error) {
         return {
           success: false,
@@ -175,6 +165,16 @@ export const text_to_speech = createTool<TextToSpeechArgs>(
         success: false,
         error: ERROR.generic(err.message)
       };
+    } finally {
+      if (shouldDeleteVoice && voiceId) {
+        try {
+          await voiceService.deleteVoice(voiceId);
+          logger.debug(`🧹 Cleanup: Cloned voice ${voiceId} deleted`);
+        } catch (cleanupError) {
+          const err = cleanupError as Error;
+          logger.warn('⚠️ Voice cleanup failed:', { error: err.message });
+        }
+      }
     }
   }
 );
@@ -205,6 +205,8 @@ export const voice_clone_and_speak = createTool<VoiceCloneArgs>(
   async (args) => {
     logger.debug('🔧 [Agent Tool] voice_clone_and_speak called');
 
+    let voiceId: string | null = null;
+
     try {
       const { greenApiService } = getServices();
 
@@ -234,7 +236,9 @@ export const voice_clone_and_speak = createTool<VoiceCloneArgs>(
         };
       }
 
-      const ttsResult = (await voiceService.textToSpeech(cloneResult.voiceId, args.text_to_speak, {
+      voiceId = cloneResult.voiceId;
+
+      const ttsResult = (await voiceService.textToSpeech(voiceId, args.text_to_speak, {
         model_id: 'eleven_v3',
         optimize_streaming_latency: 0,
         output_format: 'mp3_44100_128'
@@ -245,17 +249,6 @@ export const voice_clone_and_speak = createTool<VoiceCloneArgs>(
           success: false,
           error: FAILED.CLONED_VOICE_SPEAK(ttsResult.error)
         };
-      }
-
-      // Cleanup the cloned voice
-      if (cloneResult.voiceId) {
-        try {
-          await voiceService.deleteVoice(cloneResult.voiceId);
-          logger.debug(`🧹 Cleanup: Cloned voice ${cloneResult.voiceId} deleted`);
-        } catch (cleanupError) {
-          const err = cleanupError as Error;
-          logger.warn('⚠️ Voice cleanup failed:', { error: err.message });
-        }
       }
 
       return {
@@ -271,6 +264,17 @@ export const voice_clone_and_speak = createTool<VoiceCloneArgs>(
         success: false,
         error: ERROR.generic(err.message)
       };
+    } finally {
+      // Cleanup the cloned voice
+      if (voiceId) {
+        try {
+          await voiceService.deleteVoice(voiceId);
+          logger.debug(`🧹 Cleanup: Cloned voice ${voiceId} deleted`);
+        } catch (cleanupError) {
+          const err = cleanupError as Error;
+          logger.warn('⚠️ Voice cleanup failed:', { error: err.message });
+        }
+      }
     }
   }
 );
