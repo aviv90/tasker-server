@@ -27,7 +27,8 @@ export class VoiceRemixingService {
             // but we'll try standard access first.
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const response = await (client as any).textToVoice.remix(voiceId, {
+            // Using official SDK method signature
+            const response = await client.textToVoice.remix(voiceId, {
                 text: text,
                 voiceDescription: voiceDescription
             });
@@ -41,6 +42,13 @@ export class VoiceRemixingService {
 
             // Take the first preview for now
             const preview = response.previews[0];
+
+            if (!preview) { // Double check for TS
+                throw new Error('Preview is undefined');
+            }
+
+            logger.info(`🎨 Received ${response.previews.length} previews. Using first one: ${preview.generatedVoiceId}`);
+
             const audioBase64 = preview.audioBase64;
 
             if (!audioBase64) {
