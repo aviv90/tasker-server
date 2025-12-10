@@ -40,6 +40,10 @@ export class VoiceRemixingService {
 
             // Take the first preview for now
             const preview = response.previews[0];
+
+            logger.info('🐛 Debug Remix Response keys:', Object.keys(preview));
+            if (preview.audio_base_64) logger.info('🐛 Debug audio_base_64 length:', preview.audio_base_64.length);
+
             const audioBase64 = preview.audio_base_64;
 
             if (!audioBase64) {
