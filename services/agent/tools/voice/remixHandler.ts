@@ -77,27 +77,16 @@ export async function handleRemixVoice(
         // 3. Transcribe Content
         logger.info('📝 Transcribing audio...');
 
-        const containerModule = await import('../../../../services/container');
-        const container = containerModule.default;
+        // Use speechToText directly (ElevenLabs Scribe)
+        const { speechToText } = await import('../../../../services/speech/transcription');
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const openaiService = (container as any).getService('openai');
+        const transcriptionResult = await speechToText(audioBuffer);
 
-        if (!openaiService || typeof openaiService.transcribeAudio !== 'function') {
-            throw new Error('OpenAI service or transcription unavailable');
+        if (!transcriptionResult || !transcriptionResult.text) {
+            throw new Error(transcriptionResult.error || 'Could not transcribe audio content.');
         }
 
-        // Use tempFileUtils to get the path explicitly from the buffer we downloaded
-        const tempFileUtils = await import('../../../../utils/tempFileUtils');
-        const { filePath: audioFilePath } = tempFileUtils.saveBufferToTempFile(audioBuffer, tempName);
-        audioPath = audioFilePath;
-
-        const transcriptionText = await openaiService.transcribeAudio(fs.createReadStream(audioFilePath));
-
-        if (!transcriptionText) {
-            throw new Error('Could not transcribe audio content.');
-        }
-
+        const transcriptionText = transcriptionResult.text;
         logger.info(`📝 Transcription: "${transcriptionText}"`);
 
         // 4. Generate Remix
