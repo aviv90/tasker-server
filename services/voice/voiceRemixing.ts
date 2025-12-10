@@ -28,7 +28,7 @@ export class VoiceRemixingService {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const response = await (client as any).textToVoice.remix(voiceId, {
                 text: text,
-                voice_description: voiceDescription
+                voiceDescription: voiceDescription
             });
 
             // Response contains structure with previews. We take the first one or iterate.

@@ -248,9 +248,14 @@ export class ToolHandler {
         if (shouldSendError) {
             try {
                 const { greenApiService } = getServices();
-                const errorMessage = (toolResult.error as string).startsWith('❌')
+                let errorMessage = (toolResult.error as string).startsWith('❌')
                     ? (toolResult.error as string)
                     : `❌ ${toolResult.error}`;
+
+                // Strip internal instructions from user facing message
+                if (errorMessage.includes('CRITICAL:')) {
+                    errorMessage = errorMessage.split('CRITICAL:')[0]?.trim() || errorMessage;
+                }
                 const quotedMessageId = extractQuotedMessageId({ context });
                 await greenApiService.sendTextMessage(context.chatId!, errorMessage, quotedMessageId || undefined, TIME.TYPING_INDICATOR);
             } catch (notifyError: unknown) {
