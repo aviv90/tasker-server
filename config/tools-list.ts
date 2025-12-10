@@ -22,7 +22,23 @@ const TOOLS: Record<string, Tool> = {
   ...audioTools,
   ...searchTools,
   ...contextTools,
-  ...metaTools
+  ...metaTools,
+  remix_voice: {
+    name: 'remix_voice',
+    description: 'Remix a quoted voice note to change its style or emotion.',
+    parameters: {
+      style_description: {
+        type: 'string',
+        required: true,
+        description: 'Description of the desired voice style/emotion (e.g. "excited", "whispering")'
+      }
+    },
+    usage: [
+      'Quote a voice note and say: "Remix this to sound happy"',
+      'Quote a voice note and say: "Make this sound like a whispering ghost"'
+    ],
+    category: 'creation'
+  }
 };
 
 /**
