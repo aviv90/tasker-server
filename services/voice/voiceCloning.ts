@@ -52,14 +52,14 @@ export async function createInstantVoiceClone(
 ): Promise<VoiceCloningResult> {
   try {
     logger.info(`🎤 Creating instant voice clone: ${options.name || 'Unnamed Voice'}`);
-    
+
     if (!audioBuffers) {
       return { error: 'No audio provided for voice cloning' };
     }
 
     // Ensure audioBuffers is an array
     const buffers = Array.isArray(audioBuffers) ? audioBuffers : [audioBuffers];
-    
+
     // Validate all buffers
     for (let i = 0; i < buffers.length; i++) {
       if (!Buffer.isBuffer(buffers[i])) {
@@ -68,7 +68,7 @@ export async function createInstantVoiceClone(
     }
 
     const client = this.initializeClient();
-    
+
     const tempFiles: string[] = [];
     const fileStreams: fs.ReadStream[] = [];
 
@@ -79,7 +79,7 @@ export async function createInstantVoiceClone(
         if (!buffer) continue;
         const filename = `voice_sample_${Date.now()}_${i}.${options.format || 'wav'}`;
         const tempPath = path.join(os.tmpdir(), filename);
-        
+
         fs.writeFileSync(tempPath, buffer);
         tempFiles.push(tempPath);
         fileStreams.push(fs.createReadStream(tempPath));

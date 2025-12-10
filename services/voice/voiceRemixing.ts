@@ -1,9 +1,10 @@
 import { SpeechClient } from '../speech/client';
 import logger from '../../utils/logger';
 import path from 'path';
-import os from 'os';
+
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
+import { config } from '../../config';
 
 export class VoiceRemixingService {
     /**
@@ -49,11 +50,23 @@ export class VoiceRemixingService {
             // Decode and save
             const buffer = Buffer.from(audioBase64, 'base64');
             const fileName = `remix_${uuidv4()}.mp3`;
-            const filePath = path.join(os.tmpdir(), fileName);
+
+            // Use config.paths.tmp (public/tmp) so it can be served via static URL
+            const tempDir = config.paths.tmp;
+
+            if (!fs.existsSync(tempDir)) {
+                fs.mkdirSync(tempDir, { recursive: true });
+            }
+
+            const filePath = path.join(tempDir, fileName);
 
             await fs.promises.writeFile(filePath, buffer);
 
-            logger.info('✅ Voice remix generated successfully', { filePath, generatedVoiceId: preview.generatedVoiceId });
+            logger.info('✅ Voice remix generated successfully', {
+                filePath,
+                generatedVoiceId: preview.generatedVoiceId,
+                publicUrl: `/static/${fileName}`
+            });
 
             return filePath;
 

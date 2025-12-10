@@ -104,7 +104,8 @@ export class ToolHandler {
             // Block IDENTICAL calls
             const isDuplicate = context.toolCalls.some(previous =>
                 previous.tool === call.name &&
-                JSON.stringify(previous.args) === JSON.stringify(call.args)
+                JSON.stringify(previous.args) === JSON.stringify(call.args) &&
+                previous.success === true
             );
 
             if (isDuplicate && !stochasticTools.includes(call.name)) {

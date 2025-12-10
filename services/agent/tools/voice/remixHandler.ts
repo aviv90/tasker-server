@@ -2,6 +2,7 @@ import { ToolResult } from '../../types';
 import logger from '../../../../utils/logger';
 import { voiceRemixingService } from '../../../../services/voice/voiceRemixing';
 import { createInstantVoiceClone } from '../../../../services/voice/voiceCloning';
+import { deleteVoice } from '../../../../services/voice/voiceManagement';
 import { downloadFile } from '../../../../services/greenApi/fileHandling';
 import fs from 'fs';
 
@@ -41,7 +42,7 @@ export async function handleRemixVoice(
         logger.error(`❌ Remix validation failed. Type: ${quotedMessage.type}, Mime: ${quotedMessage.mimetype}`);
         return {
             success: false,
-            error: 'CRITICAL ERROR: The quoted message is NOT audio. You must QUOTE a voice note to use this tool. Stop and tell the user they quoted a text message instead of a voice note.'
+            error: 'CRITICAL ERROR: The quoted message is NOT audio. You must quote a voice note to use this tool. Stop and tell the user they quoted a text message instead of a voice note.'
         };
     }
 
@@ -57,6 +58,7 @@ export async function handleRemixVoice(
     let audioPath: string | null = null;
     let tempRemixPath: string | null = null;
     let voiceId: string | null = null;
+    let voiceContext: any = null;
 
     try {
         // 1. Download Audio
@@ -68,7 +70,7 @@ export async function handleRemixVoice(
         const audioBuffer = await downloadFile(audioUrl, tempName);
 
         // 2. Clone Voice
-        const voiceContext = {
+        voiceContext = {
             initializeClient: () => {
                 // eslint-disable-next-line @typescript-eslint/no-var-requires
                 const clientModule = require('../../../../services/speech/client');
@@ -124,8 +126,20 @@ export async function handleRemixVoice(
             error: `Failed to remix voice: ${error instanceof Error ? error.message : String(error)}. CRITICAL: DO NOT Try to fix this or use other tools. DO NOT transcribe. STOP and inform the user of the error.`
         };
     } finally {
+        // Cleanup local file
         if (audioPath && fs.existsSync(audioPath)) {
             try { await fs.promises.unlink(audioPath); } catch (e) { }
+        }
+
+        // Cleanup cloned voice from ElevenLabs
+        if (voiceId && voiceContext) {
+            try {
+                logger.info(`🧹 Cleaning up temporary voice: ${voiceId}`);
+                // @ts-ignore - Calling loose function with mock context
+                await deleteVoice.call(voiceContext, voiceId);
+            } catch (e) {
+                logger.error(`❌ Failed to cleanup voice ${voiceId}:`, e);
+            }
         }
     }
 }

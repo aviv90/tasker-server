@@ -247,11 +247,22 @@ export const voice_clone_and_speak = createTool<VoiceCloneArgs>(
         };
       }
 
+      // Cleanup the cloned voice
+      if (cloneResult.voiceId) {
+        try {
+          await voiceService.deleteVoice(cloneResult.voiceId);
+          logger.debug(`🧹 Cleanup: Cloned voice ${cloneResult.voiceId} deleted`);
+        } catch (cleanupError) {
+          const err = cleanupError as Error;
+          logger.warn('⚠️ Voice cleanup failed:', { error: err.message });
+        }
+      }
+
       return {
         success: true,
         data: '✅ שיבטתי את הקול והוא מדבר את הטקסט שביקשת!',
         audioUrl: ttsResult.audioUrl,
-        voiceId: cloneResult.voiceId
+        // voiceId: cloneResult.voiceId // Do not leak ID if deleted
       };
     } catch (error) {
       const err = error as Error;
