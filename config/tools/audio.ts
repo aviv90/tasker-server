@@ -80,12 +80,13 @@ export const audioTools: Record<string, Tool> = {
     creative_audio_mix: {
         name: 'creative_audio_mix',
         category: 'audio',
-        description: 'Mix/combine audio files creatively',
-        usage: ['ערבב אודיו'],
+        description: 'Mix multiple audio files together or add background music/SFX. Do NOT use for changing the style/tone of a SINGLE voice note (use remix_voice for that).',
+        usage: ['ערבב אודיו', 'mix audio files', 'add background music'],
         parameters: {
             audio_urls: { type: 'array', required: true, description: 'Audio files to mix' },
             instruction: { type: 'string', required: true, description: 'How to mix' }
         },
+        critical: 'Use ONLY when mixing MULTIPLE audio sources or adding background music/SFX. For changing the emotion/style of a voice note, use \'remix_voice\'.',
         historyContext: {
             ignore: false,
             reason: 'If audio_urls are provided in prompt, ignore history. If audio_urls are missing, use history to find the audio files from previous messages.'

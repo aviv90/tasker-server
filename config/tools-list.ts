@@ -25,7 +25,7 @@ const TOOLS: Record<string, Tool> = {
   ...metaTools,
   remix_voice: {
     name: 'remix_voice',
-    description: 'Remix a quoted voice note to change its style or emotion.',
+    description: 'Transform the style, emotion, or tone of a quoted voice note (e.g. make it happy, sad, ghost-like). This is NOT for mixing multiple files.',
     parameters: {
       style_description: {
         type: 'string',
