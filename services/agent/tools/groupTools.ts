@@ -7,7 +7,7 @@ import fs from 'fs';
 import { extractQuotedMessageId } from '../../../utils/messageHelpers';
 import { NOT_FOUND, ERROR } from '../../../config/messages';
 import { resolveParticipants } from '../../groupService';
-import { createGroup, setGroupPicture, sendTextMessage, getGroupInviteLink } from '../../greenApiService';
+import { createGroup, setGroupPicture, sendTextMessage } from '../../greenApiService';
 import { generateImageForWhatsApp } from '../../geminiService';
 import { createTempFilePath } from '../../../utils/tempFileUtils';
 import logger from '../../../utils/logger';
@@ -213,15 +213,6 @@ export const create_group = createTool<CreateGroupArgs>(
         }
       }
 
-      let inviteLink = groupResult.groupInviteLink;
-      if (!inviteLink && groupResult.chatId) {
-        try {
-          inviteLink = await getGroupInviteLink(groupResult.chatId) || undefined;
-        } catch (err) {
-          logger.warn('⚠️ Failed to fetch invite link', { error: err });
-        }
-      }
-
       const summaryLines = [
         `✅ הקבוצה "${groupName}" מוכנה!`,
         `👥 משתתפים: ${resolution.resolved.length + 1}`, // +1 for the creator
@@ -232,7 +223,6 @@ export const create_group = createTool<CreateGroupArgs>(
         success: true,
         data: summaryLines.join('\n'),
         groupId: groupResult.chatId || null,
-        groupInviteLink: inviteLink || null,
         participantsAdded: resolution.resolved.length,
         suppressFinalResponse: true
       };
