@@ -44,7 +44,7 @@ NOT for speech/TTS - use text_to_speech for spoken words.`,
                 },
                 duration_seconds: {
                     type: 'number',
-                    description: 'Duration in seconds (0.5-30). If not specified, auto-detected from prompt.'
+                    description: 'Duration in seconds (0.5-30). If not specified, defaults to 5 seconds (optimal for most effects).'
                 },
                 loop: {
                     type: 'boolean',

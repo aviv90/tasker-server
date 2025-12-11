@@ -76,33 +76,27 @@ async function generateSoundEffect(
             promptInfluence?: number;
         } = {
             text: text.trim(),
-            outputFormat: options.outputFormat || 'mp3_44100_128'
+            outputFormat: options.outputFormat || 'mp3_44100_128',
+            // Default duration if not specified (API auto-detect is often too short)
+            durationSeconds: options.durationSeconds !== undefined
+                ? Math.max(0.5, Math.min(30, options.durationSeconds))
+                : 5.0, // Default to 5 seconds
+            // Default prompt influence (API default 0.3 is often too loose)
+            promptInfluence: options.promptInfluence !== undefined
+                ? Math.max(0, Math.min(1, options.promptInfluence))
+                : 0.5 // Default to 0.5
         };
-
-        // Add optional parameters
-        if (options.durationSeconds !== undefined) {
-            // Validate duration (0.5-30 seconds per API docs)
-            const duration = Math.max(0.5, Math.min(30, options.durationSeconds));
-            requestParams.durationSeconds = duration;
-            logger.debug(`⏱️ Sound effect duration: ${duration}s`);
-        }
 
         if (options.loop !== undefined) {
             requestParams.loop = options.loop;
             logger.debug(`🔁 Sound effect loop: ${options.loop}`);
         }
 
-        if (options.promptInfluence !== undefined) {
-            // Validate prompt influence (0-1)
-            const influence = Math.max(0, Math.min(1, options.promptInfluence));
-            requestParams.promptInfluence = influence;
-        }
-
-        logger.debug(`🔄 Requesting sound effect from ElevenLabs...`);
+        logger.debug(`🔄 Requesting sound effect from ElevenLabs (Duration: ${requestParams.durationSeconds}s, Influence: ${requestParams.promptInfluence})...`);
 
         // Call ElevenLabs API
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const audioStream = await (client.textToSoundEffects as any).convert(requestParams);
+        const audioStream = await client.textToSoundEffects.convert(requestParams as any);
 
         // Collect audio chunks
         const chunks: Uint8Array[] = [];
