@@ -35,7 +35,7 @@ export const analyze_image = createTool<AnalyzeArgs>(
     }
   },
   async (args, context) => {
-    let imageUrl = repairMediaUrl(args.image_url, 'image', context);
+    const imageUrl = repairMediaUrl(args.image_url, 'image', context);
     logger.debug(`🔧 [Agent Tool] analyze_image called with image_url: ${imageUrl?.substring(0, 60)}...`);
 
     let imageBuffer: Buffer | null = null;
@@ -101,7 +101,7 @@ export const analyze_video = createTool<AnalyzeArgs>(
     logger.debug('🔧 [Agent Tool] analyze_video called');
 
     try {
-      let videoUrl = repairMediaUrl(args.video_url, 'video', context);
+      const videoUrl = repairMediaUrl(args.video_url, 'video', context);
 
       if (!videoUrl) {
         return {

@@ -11,7 +11,7 @@ export function repairMediaUrl(
     type: 'image' | 'video' | 'audio',
     context: AgentContextState
 ): string | undefined {
-    let repairedUrl = url;
+    const repairedUrl = url;
 
     // Validation criteria
     const isTruncated = url?.endsWith('...') || false;

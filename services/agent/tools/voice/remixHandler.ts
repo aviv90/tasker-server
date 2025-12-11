@@ -4,6 +4,7 @@ import { voiceRemixingService } from '../../../../services/voice/voiceRemixing';
 import { createInstantVoiceClone } from '../../../../services/voice/voiceCloning';
 import { deleteVoice } from '../../../../services/voice/voiceManagement';
 import { downloadFile } from '../../../../services/greenApi/fileHandling';
+import { SpeechClient } from '../../../../services/speech/client';
 import fs from 'fs';
 import path from 'path';
 
@@ -56,7 +57,7 @@ export async function handleRemixVoice(
         };
     }
 
-    let audioPath: string | null = null;
+    const audioPath: string | null = null;
     let tempRemixPath: string | null = null;
     let voiceId: string | null = null;
     let voiceContext: any = null;
@@ -73,14 +74,12 @@ export async function handleRemixVoice(
         // 2. Clone Voice
         voiceContext = {
             initializeClient: () => {
-                // eslint-disable-next-line @typescript-eslint/no-var-requires
-                const clientModule = require('../../../../services/speech/client');
-                return clientModule.SpeechClient.getInstance();
+                // Return singleton instance directly
+                return SpeechClient.getInstance();
             }
         };
 
         logger.info('🧬 Cloning voice from audio...');
-        // @ts-ignore - Calling loose function with mock context
         const cloneResult = await createInstantVoiceClone.call(voiceContext, audioBuffer, {
             name: `Remix_Temp_${Date.now()}`,
             description: 'Temporary clone for remixing'
@@ -129,14 +128,13 @@ export async function handleRemixVoice(
     } finally {
         // Cleanup local file
         if (audioPath && fs.existsSync(audioPath)) {
-            try { await fs.promises.unlink(audioPath); } catch (e) { }
+            try { await fs.promises.unlink(audioPath); } catch (_e) { /* Ignore cleanup error */ }
         }
 
         // Cleanup cloned voice from ElevenLabs
         if (voiceId && voiceContext) {
             try {
                 logger.info(`🧹 Cleaning up temporary voice: ${voiceId}`);
-                // @ts-ignore - Calling loose function with mock context
                 await deleteVoice.call(voiceContext, voiceId);
             } catch (e) {
                 logger.error(`❌ Failed to cleanup voice ${voiceId}:`, e);

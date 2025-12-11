@@ -25,7 +25,7 @@ export function extractMessageText(messageData: MessageData): string | null {
     case 'extendedTextMessage':
       return messageData.extendedTextMessageData?.text || null;
 
-    case 'quotedMessage':
+    case 'quotedMessage': {
       // When replying to a message, the text is in extendedTextMessageData
       const quotedText = messageData.extendedTextMessageData?.text;
       if (quotedText) return quotedText;
@@ -36,6 +36,7 @@ export function extractMessageText(messageData: MessageData): string | null {
         messageData.videoMessageData?.caption ||
         messageData.stickerMessageData?.caption ||
         null;
+    }
 
     case 'editedMessage':
       return messageData.editedMessageData?.textMessage || null;

@@ -19,7 +19,7 @@ export class ResultProcessor {
         iterationCount: number
     ): AgentResult {
         // 1. Clean Thinking Patterns
-        let text = cleanThinkingPatterns(rawText);
+        const text = cleanThinkingPatterns(rawText);
 
         // 2. Extract Assets (Latest)
         const latestImageAsset = context.generatedAssets.images.length > 0

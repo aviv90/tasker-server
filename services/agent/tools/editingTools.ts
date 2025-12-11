@@ -67,7 +67,7 @@ export const edit_image = createTool<EditImageArgs>(
     });
 
     try {
-      let imageUrl = repairMediaUrl(args.image_url, 'image', context);
+      const imageUrl = repairMediaUrl(args.image_url, 'image', context);
 
       if (!imageUrl) {
         return {
@@ -195,7 +195,7 @@ export const edit_video = createTool<EditVideoArgs>(
     });
 
     try {
-      let videoUrl = repairMediaUrl(args.video_url, 'video', context);
+      const videoUrl = repairMediaUrl(args.video_url, 'video', context);
 
       if (!videoUrl) {
         return {

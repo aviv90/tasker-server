@@ -26,7 +26,7 @@ export class VoiceRemixingService {
             // We use `any` cast if strict types are missing in our current SDK version, 
             // but we'll try standard access first.
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             // Using official SDK method signature
             const response = await client.textToVoice.remix(voiceId, {
                 text: text,

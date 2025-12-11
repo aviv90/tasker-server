@@ -1,4 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+ 
 import { getStaticFileUrl } from '../../../utils/urlUtils';
 import { Request } from 'express';
 import logger from '../../../utils/logger';

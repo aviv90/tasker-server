@@ -211,7 +211,7 @@ export async function getRandomFlight(
         const flight = allFlights[0];
 
         // Extract legs
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const rawLegs = flight.flights || [];
         const legs: FlightLeg[] = rawLegs.map((leg: any) => ({
             origin: leg.departure_airport?.name || leg.departure_airport?.id,
