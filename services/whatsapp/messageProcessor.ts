@@ -67,9 +67,13 @@ export class MessageProcessor {
 
         // Helper to check if text is a command
         const isCmd = isCommand(messageText);
+        // Logic Gate: When to process?
+        // 1. It IS a command (starts with #) - Process it.
+        // 2. It is a Voice Message (handled separately later, but we let it pass here? No, existing logic returns false context)
 
-        if (!isCmd && isIncoming && messageData.typeMessage !== 'audioMessage') {
-            // Not a command, not audio, incoming -> just save to history (handled by caller)
+        // REVERTED: Strict mode requested. ALL commands must start with # (hash + space).
+        if (!isCmd) {
+            // Not a command (and not audio handled by flow), ignore.
             return { shouldProcess: false, messageText: messageText || undefined, isCommand: false };
         }
 
