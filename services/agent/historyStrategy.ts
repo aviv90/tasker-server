@@ -87,6 +87,17 @@ export class HistoryStrategy {
                         systemContextAddition = `\n\nIMPORTANT CONTEXT: The last thing(s) you (the AI) said to the user were:${orphanedContext}\nThe user is responding to this.`;
                     }
 
+                    // CRITICAL GUARDRAIL: Strong separator to prevent history hallucinations
+                    // The LLM sometimes treats history as active tasks to resume. We must explicitly forbid this.
+                    if (validHistory.length > 0) {
+                        systemContextAddition += `\n\n🛑 HISTORY BOUNDARY 🛑
+The conversation logic above this point represents PAST interactions.
+The user's NEW message (the final one) is your ONLY current task.
+1. DO NOT resume previous tasks found in history.
+2. DO NOT re-schedule or re-execute actions from the past.
+3. Treat history purely as memory/context, not as instructions.`;
+                    }
+
                     history = validHistory;
                     logger.info(`🧠 [HistoryStrategy] Using ${history.length} previous messages`);
                 } else {
