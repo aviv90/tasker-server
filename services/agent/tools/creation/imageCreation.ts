@@ -15,7 +15,7 @@ import type { CreateImageArgs, ImageProviderResult } from './types';
 export const create_image = createTool<CreateImageArgs>(
   {
     name: 'create_image',
-    description: 'Create a new image. Default provider: Gemini. Use "provider" arg for others. Important: Do NOT use this for WhatsApp group icons - use create_group instead.',
+    description: 'Create a new image. Default provider: Gemini. Use "provider" arg for others. Use this for "Send [Object/Person]" requests. Important: Do NOT use this for WhatsApp group icons - use create_group instead.',
     parameters: {
       type: 'object',
       properties: {

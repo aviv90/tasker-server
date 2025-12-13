@@ -37,7 +37,7 @@ const MIN_DURATION_FOR_CLONING = 4.6;
 export const text_to_speech = createTool<TextToSpeechArgs>(
   {
     name: 'text_to_speech',
-    description: 'Convert text to speech (TTS). Use when user asks: "Say X", "Speak X", "Read X". If quoted audio exists, clones the voice! Uses ElevenLabs. CRITICAL: If user uses speaking verbs (Say/Speak), output MUST be audio!',
+    description: 'Convert text to speech (TTS). Use when user asks: "Say X", "Speak X", "Read X". If quoted audio exists, clones the voice! Uses ElevenLabs. CRITICAL: If user uses speaking verbs (Say/Speak), output MUST be audio! DO NOT use for generic "Send [Object/Person]" requests - use image generation or search instead.',
     parameters: {
       type: 'object',
       properties: {
