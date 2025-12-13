@@ -6,6 +6,7 @@ import logger from '../../../utils/logger';
 import * as replicateService from '../../replicateService';
 import { formatErrorForLogging } from '../../../utils/errorHandler';
 import { REQUIRED, ERROR } from '../../../config/messages';
+import { TIME } from '../../../utils/constants';
 import { PROVIDERS } from '../config/constants';
 import { createTool } from './base';
 
@@ -130,12 +131,10 @@ export const edit_image = createTool<EditImageArgs>(
       if (providerResult.error) {
         return {
           success: false,
-          error:
-            typeof providerResult.error === 'string'
-              ? providerResult.error
-              : 'העריכה נכשלה אצל הספק המבוקש'
+          error: `${typeof providerResult.error === 'string' ? providerResult.error : 'העריכה נכשלה אצל הספק המבוקש'} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
         };
       }
+
 
       const providerKey = (providerResult.provider as string) || requestedService || servicesToTry[0];
       const providerName = formatProviderName(providerKey) || providerKey;
@@ -219,7 +218,8 @@ export const edit_video = createTool<EditVideoArgs>(
         toolName: 'edit_video',
         providersToTry,
         requestedProvider: null,
-        context
+        context,
+        timeout: TIME.VIDEO_GENERATION_TIMEOUT // Video editing is slow, use video timeout
       });
 
       const providerResult = (await fallback.tryWithFallback<VideoEditResult>(async provider => {
@@ -244,10 +244,7 @@ export const edit_video = createTool<EditVideoArgs>(
       if (providerResult.error) {
         return {
           success: false,
-          error:
-            typeof providerResult.error === 'string'
-              ? providerResult.error
-              : 'העריכה נכשלה אצל הספק המבוקש'
+          error: `${typeof providerResult.error === 'string' ? providerResult.error : 'העריכה נכשלה אצל הספק המבוקש'} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
         };
       }
 

@@ -99,7 +99,7 @@ export const create_image = createTool<CreateImageArgs>(
             : 'הבקשה נכשלה אצל הספק המבוקש';
         return {
           success: false,
-          error: errorMessage
+          error: `${errorMessage} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
         };
       }
 

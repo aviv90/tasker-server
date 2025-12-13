@@ -78,7 +78,7 @@ WHEN *NOT* TO USE: 'write song lyrics' (use text generation - just write it), 'l
       if (result.error) {
         return {
           success: false,
-          error: FAILED.MUSIC_CREATION(result.error)
+          error: `${FAILED.MUSIC_CREATION(result.error)} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
         };
       }
 
@@ -107,7 +107,7 @@ WHEN *NOT* TO USE: 'write song lyrics' (use text generation - just write it), 'l
       });
       return {
         success: false,
-        error: ERROR.generic(error instanceof Error ? error.message : String(error))
+        error: `${ERROR.generic(error instanceof Error ? error.message : String(error))} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
       };
     }
   }

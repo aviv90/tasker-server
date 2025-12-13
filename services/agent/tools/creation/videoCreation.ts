@@ -12,6 +12,7 @@ import * as replicateService from '../../../replicateService';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { VIDEO_PROVIDERS, DEFAULT_VIDEO_PROVIDERS, PROVIDERS } from '../../config/constants';
 import { REQUIRED, ERROR } from '../../../../config/messages';
+import { TIME } from '../../../../utils/constants'; // Import TIME CONSTANTS
 import { createTool } from '../base';
 import type {
   CreateVideoArgs,
@@ -76,7 +77,8 @@ export const create_video = createTool<CreateVideoArgs>(
         toolName: 'create_video',
         providersToTry,
         requestedProvider,
-        context
+        context,
+        timeout: TIME.VIDEO_GENERATION_TIMEOUT
       });
 
       const videoResult = (await fallback.tryWithFallback<VideoProviderResult>(async provider => {
@@ -115,7 +117,7 @@ export const create_video = createTool<CreateVideoArgs>(
             : 'הבקשה נכשלה אצל הספק המבוקש';
         return {
           success: false,
-          error: errorMessage
+          error: `${errorMessage} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
         };
       }
 
@@ -223,7 +225,8 @@ export const image_to_video = createTool<ImageToVideoArgs>(
         toolName: 'image_to_video',
         providersToTry,
         requestedProvider,
-        context
+        context,
+        timeout: TIME.VIDEO_GENERATION_TIMEOUT
       });
 
       const videoResult = (await fallback.tryWithFallback<VideoProviderResult>(async provider => {
@@ -260,7 +263,7 @@ export const image_to_video = createTool<ImageToVideoArgs>(
             : 'הבקשה נכשלה אצל הספק המבוקש';
         return {
           success: false,
-          error: errorMessage
+          error: `${errorMessage} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
         };
       }
 

@@ -57,7 +57,7 @@ export const transcribe_audio = createTool<TranscribeArgs>(
       if (transcriptionResult.error) {
         return {
           success: false,
-          error: FAILED.TRANSCRIPTION(transcriptionResult.error)
+          error: `${FAILED.TRANSCRIPTION(transcriptionResult.error)} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
         };
       }
 
@@ -78,7 +78,7 @@ export const transcribe_audio = createTool<TranscribeArgs>(
       logger.error('❌ Error in transcribe_audio:', { error: err.message, stack: err.stack });
       return {
         success: false,
-        error: ERROR.generic(err.message)
+        error: `${ERROR.generic(err.message)} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
       };
     }
   }

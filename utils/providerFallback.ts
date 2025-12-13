@@ -71,6 +71,7 @@ export class ProviderFallback {
   private chatId: string | null;
   private greenApiService: ReturnType<typeof getServices>['greenApiService'];
   private services: ReturnType<typeof getServices>;
+  private timeout: number;
 
   /**
    * @param options - Configuration options
@@ -78,14 +79,16 @@ export class ProviderFallback {
    * @param options.providersToTry - List of providers to try in order
    * @param options.requestedProvider - User-requested provider (if any)
    * @param options.context - Agent context (with chatId, etc.)
+   * @param options.timeout - Custom timeout for circuit breaker (optional)
    */
-  constructor({ toolName, providersToTry, requestedProvider, context }: ProviderFallbackOptions) {
+  constructor({ toolName, providersToTry, requestedProvider, context, timeout }: ProviderFallbackOptions & { timeout?: number }) {
     this.toolName = toolName;
     this.providersToTry = providersToTry;
     this.requestedProvider = requestedProvider;
     this.context = context;
     this.errorStack = [];
     this.chatId = context?.chatId || null;
+    this.timeout = timeout || TIME.CIRCUIT_BREAKER_TIMEOUT;
 
     // Get services once (reused for all attempts)
     const services = getServices();
@@ -118,13 +121,14 @@ export class ProviderFallback {
           toolName: this.toolName,
           provider,
           attempt: idx + 1,
-          totalProviders: this.providersToTry.length
+          totalProviders: this.providersToTry.length,
+          timeout: this.timeout
         });
 
         // Check circuit breaker (skip if open)
         const breaker = circuitBreakerManager.getBreaker(`${provider}_${this.toolName}`, {
           failureThreshold: 5,
-          timeout: TIME.CIRCUIT_BREAKER_TIMEOUT,
+          timeout: this.timeout, // Use custom timeout
           resetTimeout: TIME.CIRCUIT_BREAKER_RESET
         });
 
