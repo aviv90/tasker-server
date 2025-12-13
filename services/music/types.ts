@@ -2,13 +2,15 @@
  * Music service types
  */
 
+import MusicTasksRepository from '../../repositories/musicTasksRepository';
+
 /**
  * Music service interface
  */
 export interface MusicService {
     baseUrl: string;
     headers: Record<string, string>;
-    pendingTasks?: Map<string, unknown>;
+    musicTasksRepository: MusicTasksRepository;
 }
 
 /**

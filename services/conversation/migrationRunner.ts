@@ -47,18 +47,26 @@ class MigrationRunner {
       const appliedMigrations = new Set(result.rows.map((row: { name: string }) => row.name));
 
       // Get all migration files
-      const migrationsDir = path.join(__dirname, '..', '..', '..', 'migrations');
-      
+      // Get all migration files
+      let migrationsDir = path.join(__dirname, '..', '..', '..', 'migrations');
+
       // Check if directory exists
       try {
         await fs.access(migrationsDir);
       } catch (error: unknown) {
-        logger.warn('⚠️ Migrations directory not found, skipping migrations.');
-        return;
+        // Try checking 2 levels up (for ts-node/dev environment where services is at root)
+        migrationsDir = path.join(__dirname, '..', '..', 'migrations');
+        try {
+          await fs.access(migrationsDir);
+          logger.debug(`Found migrations at dev path: ${migrationsDir}`);
+        } catch (e) {
+          logger.warn('⚠️ Migrations directory not found (checked dist and src), skipping migrations.');
+          return;
+        }
       }
 
       const files = await fs.readdir(migrationsDir);
-      
+
       // Filter SQL files and sort them
       const migrationFiles = files
         .filter(f => f.endsWith('.sql'))
@@ -69,7 +77,7 @@ class MigrationRunner {
       for (const file of migrationFiles) {
         if (!appliedMigrations.has(file)) {
           logger.info(`🔄 Running migration: ${file}`);
-          
+
           const filePath = path.join(migrationsDir, file);
           const sql = await fs.readFile(filePath, 'utf8');
 
@@ -78,7 +86,7 @@ class MigrationRunner {
             await client.query(sql);
             await client.query(`INSERT INTO ${this.migrationsTable} (name) VALUES ($1)`, [file]);
             await client.query('COMMIT');
-            
+
             logger.info(`✅ Migration completed: ${file}`);
             runCount++;
           } catch (error: unknown) {

@@ -30,9 +30,16 @@ export interface MusicGenerationOptions {
 export interface MusicServiceInterface {
   baseUrl: string;
   headers: Record<string, string>;
-  pendingTasks?: Map<string, unknown>;
-  pendingVideoTasks?: Map<string, unknown>;
+  musicTasksRepository: MusicTasksRepository;
+  // pendingTasks?: Map<string, unknown>; // Removed
+  // pendingVideoTasks?: Map<string, unknown>;
 }
+
+/**
+ * Music Service class
+ */
+import container from './container';
+import MusicTasksRepository from '../repositories/musicTasksRepository';
 
 /**
  * Music Service class
@@ -45,8 +52,7 @@ class MusicService implements MusicServiceInterface {
   public callbacksManager: MusicCallbacks;
   public videoManager: MusicVideo;
   public whatsappDelivery: MusicWhatsAppDelivery;
-  public pendingTasks: Map<string, unknown>;
-  public pendingVideoTasks: Map<string, unknown>;
+  // public pendingTasks: Map<string, unknown>; // Removed in favor of DB
 
   constructor() {
     this.apiKey = process.env.KIE_API_KEY;
@@ -63,8 +69,12 @@ class MusicService implements MusicServiceInterface {
     this.whatsappDelivery = new MusicWhatsAppDelivery();
 
     // Task tracking maps
-    this.pendingTasks = new Map();
-    this.pendingVideoTasks = new Map();
+    // this.pendingTasks = new Map(); // Removed
+    // this.pendingVideoTasks = new Map(); // Video tasks also need migration? For now, we focus on generation.
+  }
+
+  get musicTasksRepository(): MusicTasksRepository {
+    return container.getRepository('musicTasks');
   }
 
   // ═══════════════════ GENERATION ═══════════════════

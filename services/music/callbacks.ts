@@ -47,27 +47,7 @@ interface TaskInfo {
   instrumentalOptions?: unknown;
 }
 
-/**
- * Task information structure
- */
-interface TaskInfo {
-  taskId: string;
-  type: string;
-  musicOptions?: {
-    prompt?: string;
-    title?: string;
-  };
-  timestamp: number;
-  whatsappContext?: {
-    chatId: string;
-    originalMessageId?: string;
-    senderName?: string;
-  } | null;
-  wantsVideo?: boolean;
-  extendOptions?: unknown;
-  coverOptions?: unknown;
-  instrumentalOptions?: unknown;
-}
+
 
 /**
  * Song data structure from callback
@@ -137,11 +117,22 @@ export class MusicCallbacks {
    */
   async handleCallbackCompletion(taskId: string, callbackData: CallbackData): Promise<CallbackResult | undefined> {
     try {
-      const taskInfo = this.musicService.pendingTasks?.get(taskId) as TaskInfo | undefined;
-      if (!taskInfo) {
+      const taskData = await this.musicService.musicTasksRepository.get(taskId);
+
+      if (!taskData) {
         logger.warn(`⚠️ No task info found for callback: ${taskId}`);
         return;
       }
+
+      // Map DB data to local TaskInfo shape for compatibility
+      const taskInfo: TaskInfo = {
+        taskId: taskData.taskId,
+        type: taskData.type,
+        musicOptions: taskData.musicOptions as TaskInfo['musicOptions'],
+        timestamp: taskData.createdAt ? taskData.createdAt.getTime() : Date.now(),
+        whatsappContext: taskData.whatsappContext,
+        wantsVideo: taskData.metadata?.wantsVideo as boolean | undefined
+      };
 
       logger.info(`🎵 Processing callback for ${taskInfo.type} music task: ${taskId}`);
       logger.debug(`📋 Callback received: ${callbackData.data?.callbackType} for task ${taskId}`);
@@ -149,13 +140,13 @@ export class MusicCallbacks {
       if (callbackData.code === 200 && callbackData.data?.callbackType === 'complete') {
         const songs = callbackData.data.data || [];
         logger.debug(`🎵 Found ${songs.length} songs in callback`);
-        
+
         if (songs.length > 0) {
           const firstSong = songs[0] as SongData;
           logger.info(`🎵 First song: ${firstSong.title || 'Unknown'} (${firstSong.duration || 0}s)`);
           const songUrl = firstSong.audioUrl || firstSong.audio_url || firstSong.url || firstSong.stream_audio_url || firstSong.source_stream_audio_url;
           logger.debug(`🎵 Song URL: ${songUrl}`);
-          
+
           if (songUrl) {
             // Download and process the audio
             const audioResponse = await fetch(songUrl);
@@ -164,7 +155,7 @@ export class MusicCallbacks {
             }
 
             const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
-            
+
             // Save to temp file in centralized temp directory
             const tempFileName = `temp_music_${uuidv4()}.mp3`;
             const { filePath: tempFilePath, publicPath } = saveBufferToTempFile(audioBuffer, tempFileName);
@@ -176,9 +167,9 @@ export class MusicCallbacks {
             }
 
             logger.info(`✅ Suno ${taskInfo.type} music generated successfully via callback`);
-        
+
             const finalAudioBuffer = fs.readFileSync(tempFilePath);
-                    
+
             const result: CallbackResult = {
               text: taskInfo.musicOptions?.prompt || taskInfo.musicOptions?.title || `Generated ${taskInfo.type} music`,
               audioBuffer: finalAudioBuffer,
@@ -193,11 +184,18 @@ export class MusicCallbacks {
                 lyrics: firstSong.lyric || firstSong.lyrics || firstSong.prompt || firstSong.gptDescriptionPrompt || ''
               }
             };
-                    
+
+            // Update DB status to completed
+            await this.musicService.musicTasksRepository.save({
+              ...taskData,
+              status: 'completed',
+              result: result as unknown as Record<string, unknown>
+            });
+
             // If WhatsApp context exists, send result directly to WhatsApp client
             if (taskInfo.whatsappContext && this.musicService.whatsappDelivery) {
               logger.info(`📱 Sending music to WhatsApp client: ${taskInfo.whatsappContext.chatId}`);
-              
+
               try {
                 await this.musicService.whatsappDelivery.sendMusicToWhatsApp(taskInfo.whatsappContext, result);
                 logger.info('✅ Music sent to WhatsApp successfully');
@@ -205,23 +203,23 @@ export class MusicCallbacks {
                 logger.error('❌ Failed to send music to WhatsApp:', whatsappError);
               }
             }
-                    
+
             // If video was requested, generate it now (separate API call)
             if (taskInfo.wantsVideo && firstSong.id && this.musicService.videoManager) {
               logger.info('🎬 Initiating video generation');
-              
+
               try {
                 const videoResult = await this.musicService.videoManager.generateMusicVideo(taskId, firstSong.id, {
                   whatsappContext: taskInfo.whatsappContext,
                   author: taskInfo.whatsappContext?.senderName
                 }) as { error?: string; videoTaskId?: string };
-                
+
                 if (videoResult.error) {
                   logger.error('❌ Failed to start video generation:', videoResult.error);
                   // Send error message to user
                   if (taskInfo.whatsappContext) {
                     const quotedMessageId = extractQuotedMessageId({ originalMessageId: taskInfo.whatsappContext.originalMessageId });
-                    await sendErrorToUser(taskInfo.whatsappContext.chatId, videoResult.error, { 
+                    await sendErrorToUser(taskInfo.whatsappContext.chatId, videoResult.error, {
                       customMessage: `⚠️ השיר נוצר אבל הייתה בעיה ביצירת הוידאו: ${videoResult.error}`,
                       quotedMessageId: quotedMessageId || undefined
                     });
@@ -247,10 +245,7 @@ export class MusicCallbacks {
             } else if (taskInfo.wantsVideo && !firstSong.id) {
               logger.warn('⚠️ Video was requested but no audio ID available');
             }
-                    
-            // Clean up task info
-            this.musicService.pendingTasks?.delete(taskId);
-                    
+
             // Notify creativeAudioService if it's waiting for this callback
             try {
               // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -261,7 +256,7 @@ export class MusicCallbacks {
               const errorMessage = err instanceof Error ? err.message : String(err);
               logger.warn(`⚠️ Could not notify creativeAudioService: ${errorMessage}`);
             }
-        
+
             return result;
           }
         }
@@ -278,14 +273,13 @@ export class MusicCallbacks {
         logger.debug(`📋 Callback code: ${callbackData.code}, type: ${callbackData.data?.callbackType}`);
       }
 
-      // Clean up task info
-      this.musicService.pendingTasks?.delete(taskId);
+      await this.musicService.musicTasksRepository.updateStatus(taskId, 'failed', 'Callback returned no songs or error');
       return { error: 'Callback processing failed' };
 
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error(`❌ Error processing callback for task ${taskId}:`, errorMessage);
-      this.musicService.pendingTasks?.delete(taskId);
+      await this.musicService.musicTasksRepository.updateStatus(taskId, 'failed', errorMessage);
       return { error: errorMessage || 'Callback processing failed' };
     }
   }

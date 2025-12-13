@@ -11,6 +11,7 @@ import AllowListsRepository from '../repositories/allowListsRepository';
 import ContactsRepository from '../repositories/contactsRepository';
 import ScheduledTasksRepository from '../repositories/scheduledTasksRepository';
 import TasksRepository from '../repositories/tasksRepository';
+import MusicTasksRepository from '../repositories/musicTasksRepository';
 
 // Services
 import CommandsManager from './conversation/commands';
@@ -47,6 +48,7 @@ interface Repositories {
     contacts: ContactsRepository;
     scheduledTasks: ScheduledTasksRepository;
     tasks: TasksRepository;
+    musicTasks: MusicTasksRepository;
 }
 
 class Container {
@@ -86,7 +88,8 @@ class Container {
                 allowLists: new AllowListsRepository(this.pool),
                 contacts: new ContactsRepository(this.pool),
                 scheduledTasks: new ScheduledTasksRepository(this.pool),
-                tasks: new TasksRepository(this.pool)
+                tasks: new TasksRepository(this.pool),
+                musicTasks: new MusicTasksRepository(this.pool)
             };
 
             // Mock for legacy compatibility

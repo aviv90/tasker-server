@@ -12,7 +12,7 @@ import logger from '../../utils/logger';
 
 import {
   MusicService,
-  TaskInfo,
+
   MusicOptions,
   MusicGenerationOptions,
   GenerationResult,
@@ -75,23 +75,19 @@ export class MusicGeneration {
 
       logger.debug('📞 Waiting for callback notification instead of polling...');
 
-      // Store task info for callback handling
-      const taskInfo: TaskInfo = {
-        taskId: taskId,
+      // Store in DB
+      await this.musicService.musicTasksRepository.save({
+        taskId,
+        status: 'pending',
         type: 'with-lyrics',
-        musicOptions: musicOptions,
-        timestamp: Date.now(),
-        // Store WhatsApp context for callback delivery
-        whatsappContext: options.whatsappContext || null,
-        // Store if video was requested (for separate video generation after music completes)
-        wantsVideo: options.makeVideo === true
-      };
-
-      // Store in a simple in-memory map (in production, use Redis or database)
-      if (!this.musicService.pendingTasks) {
-        this.musicService.pendingTasks = new Map();
-      }
-      this.musicService.pendingTasks.set(taskId, taskInfo);
+        prompt: cleanPrompt,
+        musicOptions: musicOptions as unknown as Record<string, unknown>,
+        whatsappContext: options.whatsappContext || undefined,
+        metadata: {
+          wantsVideo: options.makeVideo === true,
+          model: options.model
+        }
+      });
 
       // Return immediately - callback will handle completion
       return {
@@ -131,7 +127,10 @@ export class MusicGeneration {
       logger.debug('🎹 Using automatic instrumental mode');
 
       // Use the same logic as generateMusicWithLyrics but with instrumental settings
-      return await this._generateMusic(musicOptions, 'instrumental');
+      return await this._generateMusic(musicOptions, 'instrumental', {
+        whatsappContext: options.whatsappContext,
+        wantsVideo: options.makeVideo === true
+      });
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -140,7 +139,7 @@ export class MusicGeneration {
     }
   }
 
-  private async _generateMusic(musicOptions: MusicOptions, type: string = 'with-lyrics'): Promise<GenerationResult> {
+  private async _generateMusic(musicOptions: MusicOptions, type: string = 'with-lyrics', metadata: { whatsappContext?: unknown; wantsVideo?: boolean } = {}): Promise<GenerationResult> {
     // Submit generation task
     const generateResponse = await fetch(`${this.musicService.baseUrl}/api/v1/generate`, {
       method: 'POST',
@@ -164,19 +163,18 @@ export class MusicGeneration {
 
     logger.debug('📞 Waiting for callback notification instead of polling...');
 
-    // Store task info for callback handling
-    const taskInfo: TaskInfo = {
-      taskId: taskId,
-      type: type,
-      musicOptions: musicOptions,
-      timestamp: Date.now()
-    };
-
-    // Store in a simple in-memory map (in production, use Redis or database)
-    if (!this.musicService.pendingTasks) {
-      this.musicService.pendingTasks = new Map();
-    }
-    this.musicService.pendingTasks.set(taskId, taskInfo);
+    // Store in DB
+    await this.musicService.musicTasksRepository.save({
+      taskId,
+      status: 'pending',
+      type,
+      prompt: musicOptions.prompt,
+      musicOptions: musicOptions as unknown as Record<string, unknown>,
+      whatsappContext: (metadata.whatsappContext as { chatId: string }) || undefined,
+      metadata: {
+        wantsVideo: metadata.wantsVideo
+      }
+    });
 
     // Return immediately - callback will handle completion
     return {
@@ -240,7 +238,10 @@ export class MusicGeneration {
       logger.debug('🎼 Using advanced V5 mode');
 
       // Use the same generation logic but with advanced options
-      return await this._generateMusic(musicOptions, 'advanced');
+      return await this._generateMusic(musicOptions, 'advanced', {
+        whatsappContext: options.whatsappContext,
+        wantsVideo: options.makeVideo === true
+      });
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -286,7 +287,10 @@ export class MusicGeneration {
 
       logger.debug('🎼 Using Upload-Extend API with speech preservation:', { extendOptions });
 
-      return await this._generateExtend(extendOptions);
+      return await this._generateExtend(extendOptions, {
+        whatsappContext: options.whatsappContext,
+        wantsVideo: options.makeVideo === true
+      });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       logger.error('❌ Speech-to-Song generation error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
@@ -294,7 +298,7 @@ export class MusicGeneration {
     }
   }
 
-  private async _generateExtend(extendOptions: Record<string, unknown>): Promise<GenerationResult> {
+  private async _generateExtend(extendOptions: Record<string, unknown>, metadata: { whatsappContext?: unknown; wantsVideo?: boolean } = {}): Promise<GenerationResult> {
     try {
       logger.debug('🎼 Submitting Upload-Extend request');
 
@@ -321,19 +325,18 @@ export class MusicGeneration {
 
       logger.debug('📞 Waiting for callback notification instead of polling...');
 
-      // Store task info for callback handling
-      const taskInfo: TaskInfo = {
-        taskId: taskId,
+      // Store in DB
+      await this.musicService.musicTasksRepository.save({
+        taskId,
+        status: 'pending',
         type: 'upload-extend',
-        musicOptions: extendOptions as unknown as MusicOptions,
-        timestamp: Date.now()
-      };
-
-      // Store in a simple in-memory map (in production, use Redis or database)
-      if (!this.musicService.pendingTasks) {
-        this.musicService.pendingTasks = new Map();
-      }
-      this.musicService.pendingTasks.set(taskId, taskInfo);
+        prompt: (extendOptions.prompt as string) || undefined,
+        musicOptions: extendOptions as Record<string, unknown>,
+        whatsappContext: (metadata.whatsappContext as { chatId: string }) || undefined,
+        metadata: {
+          wantsVideo: metadata.wantsVideo
+        }
+      });
 
       // Return immediately - callback will handle completion
       return {
@@ -346,13 +349,6 @@ export class MusicGeneration {
       logger.error('❌ Upload-Extend generation error:', { error: errorMessage, stack: err instanceof Error ? err.stack : undefined });
       return { error: errorMessage || 'Unknown error' };
     }
-  }
-
-  // Reserved for future use
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore - Reserved for future use
-  private async _generateCover(_coverOptions: Record<string, unknown>): Promise<GenerationResult> {
-    return { error: 'Upload-Cover not yet implemented' };
   }
 
   private async _uploadAudioFile(audioBuffer: Buffer): Promise<UploadResult> {
@@ -386,12 +382,7 @@ export class MusicGeneration {
     }
   }
 
-  // Reserved for future use
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore - Reserved for future use
-  private async _generateInstrumental(_instrumentalOptions: Record<string, unknown>): Promise<GenerationResult> {
-    return { error: 'Add Instrumental not yet implemented' };
-  }
+
 
   private _getCallbackUrl(): string {
     return getApiUrl('/api/music/callback');
