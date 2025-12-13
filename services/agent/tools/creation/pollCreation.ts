@@ -80,8 +80,8 @@ export const create_poll = createTool<CreatePollArgs>(
       return {
         success: true,
         data: language === 'he'
-          ? `✅ הסקר נוצר${withRhyme ? ' עם חרוזים' : ' בלי חרוזים'}!`
-          : `✅ Poll generated${withRhyme ? ' with rhymes' : ' without rhymes'}!`,
+          ? `✅ הסקר נוצר${withRhyme ? ' עם חרוזים' : ' בלי חרוזים'}! (אין צורך לחזור על השאלות והתשובות בהודעה שלך, הן מופיעות בסקר עצמו)`
+          : `✅ Poll generated${withRhyme ? ' with rhymes' : ' without rhymes'}! (Do not repeat the question and options in your message)`,
         poll: validPoll
       };
     } catch (error) {
