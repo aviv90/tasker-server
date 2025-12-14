@@ -77,8 +77,10 @@ export const AUDIO_TRANSLATION_RULES = `• **Audio/Translation:**
 /**
  * New request vs retry rule
  */
-export const NEW_REQUEST_VS_RETRY_RULE = `• **New Request vs. Retry:**
-  - New creation request (even with specific provider) → Use the creation tool (e.g., \`create_image\`).
+export const NEW_REQUEST_VS_RETRY_RULE = `• **New Request vs. Retry/Correction:**
+  - New creation request (fresh topic) → Use the creation tool (e.g., \`create_image\`).
+  - **Correction/Refinement** (e.g., "hair is wrong", "change style", "make it faster", "not good") → Use \`retry_last_command(modifications: "...")\`.
+  - Quoted Output + Correction → Use \`retry_last_command\`.
   - Explicit "retry", "again", "fix" → Use \`retry_last_command\`.`;
 
 /**

@@ -117,7 +117,8 @@ export const create_video = createTool<CreateVideoArgs>(
             : 'הבקשה נכשלה אצל הספק המבוקש';
         return {
           success: false,
-          error: `${errorMessage} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
+          error: `${errorMessage} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`,
+          errorsAlreadySent: videoResult.errorsAlreadySent
         };
       }
 
@@ -142,7 +143,8 @@ export const create_video = createTool<CreateVideoArgs>(
         data: `✅ הוידאו נוצר בהצלחה עם ${providerName}!`,
         videoUrl: videoResult.videoUrl || videoResult.url,
         videoCaption: caption,
-        provider: providerName
+        provider: providerName,
+        providerKey: videoProviderKey
       };
     } catch (error) {
       context.expectedMediaType = null;
@@ -263,7 +265,8 @@ export const image_to_video = createTool<ImageToVideoArgs>(
             : 'הבקשה נכשלה אצל הספק המבוקש';
         return {
           success: false,
-          error: `${errorMessage} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
+          error: `${errorMessage} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`,
+          errorsAlreadySent: videoResult.errorsAlreadySent
         };
       }
 
@@ -282,7 +285,8 @@ export const image_to_video = createTool<ImageToVideoArgs>(
         success: true,
         data: `✅ התמונה הומרה לוידאו בהצלחה עם ${providerName}!`,
         videoUrl: videoResult.videoUrl || videoResult.url,
-        provider: providerName
+        provider: providerName,
+        providerKey: providerKey
       };
     } catch (error) {
       logger.error('❌ Error in image_to_video', {

@@ -123,7 +123,8 @@ export const create_image = createTool<CreateImageArgs>(
         return {
           success: true,
           data: text,
-          provider: providerName
+          provider: providerName,
+          providerKey: providerKey
         };
       }
 
@@ -137,7 +138,8 @@ export const create_image = createTool<CreateImageArgs>(
         // No generic success message - image is sent with caption, no need for redundant text
         imageUrl: providerResult.imageUrl,
         imageCaption: caption,
-        provider: providerName
+        provider: providerName,
+        providerKey: providerKey
       };
     } catch (error) {
       logger.error('❌ Error in create_image tool', {

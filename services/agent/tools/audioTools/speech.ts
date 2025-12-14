@@ -139,7 +139,10 @@ export const text_to_speech = createTool<TextToSpeechArgs>(
         };
       }
 
-      const ttsResult = (await voiceService.textToSpeech(voiceId, args.text, {
+      const { cleanMarkdown } = await import('../../../../utils/textSanitizer');
+      const textToSpeak = cleanMarkdown(args.text);
+
+      const ttsResult = (await voiceService.textToSpeech(voiceId, textToSpeak, {
         model_id: 'eleven_v3',
         optimize_streaming_latency: 0,
         output_format: 'mp3_44100_128'

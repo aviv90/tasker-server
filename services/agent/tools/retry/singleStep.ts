@@ -56,11 +56,13 @@ export async function handleSingleStepRetry(
   let provider: string | null = args.provider_override || null;
   if (provider === 'none' || !provider) {
     // Keep original provider from the saved command
-    provider = (originalArgs.provider ||
-      originalArgs.service ||
-      storedResult.provider ||
-      storedResult.service ||
-      null) as string | null;
+    provider = (args.provider_override && args.provider_override !== 'none' ? args.provider_override : null) ||
+      (originalArgs.provider as string) ||
+      (originalArgs.service as string) ||
+      (storedResult.providerKey as string) || // Prioritize raw key
+      (storedResult.provider as string) ||
+      (storedResult.service as string) ||
+      null;
 
     // If we still don't have a provider, try to infer from tool name
     if (!provider) {

@@ -24,8 +24,8 @@ CRITICAL - Media context:
 • NEVER use analyze_image or analyze_video unless there is an attached image/video or an explicit image_url/video_url in the request.
 • NEVER add analyze_image or analyze_video as an extra step after a different tool just to "think" – only when the user actually asked to analyze media and provided it.
 • When image attached + "הפוך לווידאו"/"animate"/"make video" → SINGLE image_to_video (NOT create_video!)
-• When image attached + "ערוך"/"edit" → SINGLE edit_image
-• When video attached + "ערוך"/"edit" → SINGLE edit_video
+• When image attached OR quoted + "ערוך"/"edit"/"צור"/"make"/"create" → SINGLE edit_image
+• When video attached OR quoted + "ערוך"/"edit" → SINGLE edit_video
 • When audio attached + no specific request → SINGLE transcribe_audio (transcribe by default)
 • NO media attached + "צור וידאו"/"create video" → SINGLE create_video
 • NO media attached + "צור וידאו עם Veo 3"/"create video with Sora" → SINGLE create_video (with provider parameter, NOT retry!)

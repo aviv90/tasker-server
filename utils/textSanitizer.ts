@@ -98,9 +98,9 @@ export function cleanMediaDescription(text: unknown, preserveLinks: boolean = fa
     .replace(/imageUrl:\s*https?:\/\/[^\s\]]+/gi, '')
     .replace(/videoUrl:\s*https?:\/\/[^\s\]]+/gi, '')
     .replace(/✅/g, '')
-    .replace(/[\[\]]/g, '') // Remove remaining square brackets like "]" or "["
-    .replace(/[.)},;:\-]+$/g, '') // Remove trailing punctuation (., ), }, ;, :, -)
-    .replace(/^[,.)},;:\-]+/g, ''); // Remove leading punctuation
+    .replace(/[[]]/g, '') // Remove remaining square brackets like "]" or "["
+    .replace(/[.)},;:-]+$/g, '') // Remove trailing punctuation (., ), }, ;, :, -)
+    .replace(/^[,.)},;:-]+/g, ''); // Remove leading punctuation
 
   // Step 2: Clean up whitespace
   cleaned = cleaned

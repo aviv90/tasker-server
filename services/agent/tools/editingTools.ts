@@ -131,7 +131,8 @@ export const edit_image = createTool<EditImageArgs>(
       if (providerResult.error) {
         return {
           success: false,
-          error: `${typeof providerResult.error === 'string' ? providerResult.error : 'העריכה נכשלה אצל הספק המבוקש'} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
+          error: `${typeof providerResult.error === 'string' ? providerResult.error : 'העריכה נכשלה אצל הספק המבוקש'} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`,
+          errorsAlreadySent: providerResult.errorsAlreadySent
         };
       }
 
@@ -144,7 +145,8 @@ export const edit_image = createTool<EditImageArgs>(
         data: `✅ התמונה נערכה בהצלחה עם ${providerName}!`,
         imageUrl: providerResult.imageUrl,
         caption: providerResult.description || providerResult.caption || '',
-        provider: providerName
+        provider: providerName,
+        providerKey: providerKey
       };
     } catch (error) {
       logger.error('❌ Error in edit_image', {
@@ -244,7 +246,8 @@ export const edit_video = createTool<EditVideoArgs>(
       if (providerResult.error) {
         return {
           success: false,
-          error: `${typeof providerResult.error === 'string' ? providerResult.error : 'העריכה נכשלה אצל הספק המבוקש'} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
+          error: `${typeof providerResult.error === 'string' ? providerResult.error : 'העריכה נכשלה אצל הספק המבוקש'} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`,
+          errorsAlreadySent: providerResult.errorsAlreadySent
         };
       }
 
@@ -255,7 +258,8 @@ export const edit_video = createTool<EditVideoArgs>(
         success: true,
         data: `✅ הוידאו נערך בהצלחה!`,
         videoUrl: providerResult.videoUrl,
-        provider: providerName
+        provider: providerName,
+        providerKey: providerKey
       };
     } catch (error) {
       logger.error('❌ Error in edit_video', {
