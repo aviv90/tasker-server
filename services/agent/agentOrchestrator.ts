@@ -24,6 +24,7 @@ import logger from '../../utils/logger';
 import { AgentContextState } from './execution/context';
 import { AgentConfig, AgentResult } from './types';
 import { AgentOptions } from '../agentService';
+import conversationManager from '../conversationManager';
 
 export class AgentOrchestrator {
     private genAI: GoogleGenerativeAI;
@@ -162,8 +163,18 @@ export class AgentOrchestrator {
         // Prepare tools
         const functionDeclarations = getToolDeclarations();
 
+        // Fetch User Preferences (Long Term Memory)
+        let userPreferences: Record<string, unknown> = {};
+        if (agentConfig.contextMemoryEnabled) {
+            try {
+                userPreferences = await conversationManager.getUserPreferences(chatId);
+            } catch (err) {
+                logger.warn('⚠️ Failed to load user preferences', { error: err });
+            }
+        }
+
         // Prepare system instruction
-        let systemInstruction = prompts.agentSystemInstruction(languageInstruction);
+        let systemInstruction = prompts.agentSystemInstruction(languageInstruction, userPreferences);
 
         // Use Pre-loaded Context & History OR Load them now (fallback)
         let context = preLoadedContext;

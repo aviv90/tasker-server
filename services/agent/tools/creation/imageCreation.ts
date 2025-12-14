@@ -1,4 +1,5 @@
 import { formatProviderName } from '../../utils/providerUtils';
+import { enhancePrompt } from '../../utils/promptEnhancer';
 import { getServices } from '../../utils/serviceLoader';
 import { cleanMarkdown } from '../../../../utils/textSanitizer';
 import { ProviderFallback } from '../../../../utils/providerFallback';
@@ -64,6 +65,9 @@ export const create_image = createTool<CreateImageArgs>(
         : [...DEFAULT_IMAGE_PROVIDERS];
       const { geminiService, openaiService, grokService } = getServices();
 
+
+      // ... (existing imports)
+
       const fallback = new ProviderFallback({
         toolName: 'create_image',
         providersToTry,
@@ -71,7 +75,16 @@ export const create_image = createTool<CreateImageArgs>(
         context
       });
 
-      const prompt = args.prompt.trim();
+      // MAGIC: Enhance prompt before generation
+      let prompt = args.prompt.trim();
+
+
+      try {
+        prompt = await enhancePrompt(prompt, 'image');
+      } catch (err) {
+        logger.warn('Prompt enhancement failed, using original', { error: err });
+      }
+
       const providerResult = (await fallback.tryWithFallback<ImageProviderResult>(async provider => {
         let imageResult: ImageProviderResult;
         if (provider === PROVIDERS.IMAGE.OPENAI) {

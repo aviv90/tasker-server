@@ -26,10 +26,21 @@ import { getHistoryContextRules } from '../tools-list';
 /**
  * Agent system instruction - base behavior for autonomous agent
  */
-export function agentSystemInstruction(languageInstruction: string): string {
+export function agentSystemInstruction(languageInstruction: string, userPreferences: Record<string, unknown> = {}): string {
   const now = new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' });
+
+  // Format user preferences if they exist
+  let preferencesContext = '';
+  if (Object.keys(userPreferences).length > 0) {
+    const prefsList = Object.entries(userPreferences)
+      .map(([key, value]) => `• **${key}:** ${value}`)
+      .join('\n');
+    preferencesContext = `\nUSER PREFERENCES (LONG TERM MEMORY):\n${prefsList}\n(Adapt your behavior/style according to these preferences)\n`;
+  }
+
   return `Current Date & Time: ${now}
 AI Assistant. ${languageInstruction}
+${preferencesContext}
 
 CORE RULES:
 ${CRITICAL_GENDER_RULE}

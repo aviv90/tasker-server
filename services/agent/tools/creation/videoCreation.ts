@@ -4,6 +4,7 @@
  */
 
 import { formatProviderName } from '../../utils/providerUtils';
+import { enhancePrompt } from '../../utils/promptEnhancer';
 import { getServices } from '../../utils/serviceLoader';
 import { ProviderFallback } from '../../../../utils/providerFallback';
 import { cleanMarkdown } from '../../../../utils/textSanitizer';
@@ -63,7 +64,6 @@ export const create_video = createTool<CreateVideoArgs>(
       }
 
       const { geminiService, openaiService } = getServices();
-      const prompt = args.prompt.trim();
       const requestedProvider = args.provider || null;
 
       const providersToTry = requestedProvider
@@ -72,6 +72,15 @@ export const create_video = createTool<CreateVideoArgs>(
 
       // Update expected media type in context
       context.expectedMediaType = 'video';
+
+      // MAGIC: Enhance prompt before generation
+      let prompt = args.prompt.trim();
+
+      try {
+        prompt = await enhancePrompt(prompt, 'video');
+      } catch (err) {
+        logger.warn('Prompt enhancement failed, using original', { error: err });
+      }
 
       const fallback = new ProviderFallback({
         toolName: 'create_video',
@@ -215,7 +224,14 @@ export const image_to_video = createTool<ImageToVideoArgs>(
       }
 
       const imageUrl = args.image_url;
-      const prompt = args.prompt.trim();
+      let prompt = args.prompt.trim();
+
+      // MAGIC: Enhance prompt before animation
+      try {
+        prompt = await enhancePrompt(prompt, 'video');
+      } catch (err) {
+        logger.warn('Prompt enhancement failed, using original', { error: err });
+      }
 
       const imageBuffer = await greenApiService.downloadFile(imageUrl);
 
