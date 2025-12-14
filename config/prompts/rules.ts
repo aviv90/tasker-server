@@ -6,12 +6,17 @@
 /**
  * Language rule - ensures responses match user's language
  */
-export const CRITICAL_LANGUAGE_RULE = `• **LANGUAGE COMPLIANCE:** Respond in the EXACT same language as the user's request:
-  - Hebrew → Hebrew ONLY
+export const CRITICAL_LANGUAGE_RULE = `• **LANGUAGE COMPLIANCE (CRITICAL):** Respond in the EXACT same language as the user's request:
+  - Hebrew → Hebrew ONLY (Even if tools output English)
   - English → English ONLY
   - Arabic → Arabic ONLY
   - Russian → Russian ONLY
-  - No mixed languages unless necessary for proper names or technical terms.`;
+  - **FAILURE condition:** Answering a Hebrew request in English is a CRITICAL FAILURE.`;
+
+export const CRITICAL_MULTI_MODAL_RULE = `• **MULTI-MODAL (Thinking Process):**
+  - **Check Context First:** Does the user's message quote another message (image/video/audio)?
+  - **Quoted Image + "Create/Make X":** This is an EDIT request on the quoted image. Use \`edit_image\`. **DO NOT** use \`create_image\`.
+  - **Quoted Video + "Edit/Change X":** Use \`edit_video\`.`;
 
 /**
  * Gender rule for Hebrew - ensures masculine form
@@ -105,7 +110,8 @@ export const SCHEDULING_RULE = `• **schedule_message Usage:**
  */
 export const SINGLE_STEP_TOOL_MAPPING = `TOOL MAPPING:
 • "send location" → \`send_location\`
-• "create image" → \`create_image\`
+• "create image" (fresh) → \`create_image\`
+• "create/make image" (REPLYING to image) → \`edit_image\` (CRITICAL: Prioritize this over creation)
 • "create video" → \`create_video\`
 • "create music" (melody) → \`create_music\`
 • "write song" (lyrics) → **TEXT ONLY** (No tool)

@@ -73,10 +73,10 @@ export function cleanMediaDescription(text: unknown, preserveLinks: boolean = fa
   let cleaned = cleanMarkdown(text);
 
   if (!preserveLinks) {
-    // USER REQUEST: Disable link filtering globally for now
-    // cleaned = cleaned
-    //   .replace(/\[.*?\]\(https?:\/\/[^)]+\)/g, '') // Remove markdown links
-    //   .replace(/https?:\/\/[^\s]+/gi, ''); // Remove plain URLs
+    // CRITICAL: User requested strict NO LINKS policy
+    cleaned = cleaned
+      .replace(/\[.*?\]\(https?:\/\/[^)]+\)/g, '') // Remove markdown links
+      .replace(/https?:\/\/[^\s]+/gi, ''); // Remove plain URLs
   }
 
   cleaned = cleaned
@@ -97,7 +97,10 @@ export function cleanMediaDescription(text: unknown, preserveLinks: boolean = fa
     .replace(/audioUrl:\s*https?:\/\/[^\s\]]+/gi, '')
     .replace(/imageUrl:\s*https?:\/\/[^\s\]]+/gi, '')
     .replace(/videoUrl:\s*https?:\/\/[^\s\]]+/gi, '')
-    .replace(/✅/g, '');
+    .replace(/✅/g, '')
+    .replace(/[\[\]]/g, '') // Remove remaining square brackets like "]" or "["
+    .replace(/[.)},;:\-]+$/g, '') // Remove trailing punctuation (., ), }, ;, :, -)
+    .replace(/^[,.)},;:\-]+/g, ''); // Remove leading punctuation
 
   // Step 2: Clean up whitespace
   cleaned = cleaned
@@ -126,8 +129,8 @@ export function cleanMultiStepText(text: unknown): string {
   }
 
   return text
-    // USER REQUEST: Disable link filtering globally for now
-    // .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs (image URLs should not be in text)
+    // CRITICAL: User requested strict NO LINKS policy
+    .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs (image URLs should not be in text)
     .replace(/\[image\]/gi, '')
     .replace(/\[image:[^\]]*\]?/gi, '')
     .replace(/\[video\]/gi, '')

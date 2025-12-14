@@ -15,7 +15,7 @@ import type { CreateImageArgs, ImageProviderResult } from './types';
 export const create_image = createTool<CreateImageArgs>(
   {
     name: 'create_image',
-    description: 'Create a new image. Default provider: Gemini. Use "provider" arg for others. Use this for "Send [Object/Person]" requests. Important: Do NOT use this for WhatsApp group icons - use create_group instead.',
+    description: 'Create a new image. Default provider: Gemini. Use "provider" arg for others. Use this for "Send [Object/Person]" requests. Important: Do NOT use this for WhatsApp group icons - use create_group instead. CRITICAL: If the user is quoting an image and asks to create/generate based on it, use "edit_image" instead!',
     parameters: {
       type: 'object',
       properties: {
@@ -99,7 +99,8 @@ export const create_image = createTool<CreateImageArgs>(
             : 'הבקשה נכשלה אצל הספק המבוקש';
         return {
           success: false,
-          error: `${errorMessage} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
+          error: `${errorMessage} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`,
+          errorsAlreadySent: providerResult.errorsAlreadySent
         };
       }
 

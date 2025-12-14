@@ -40,7 +40,7 @@ export async function handleSingleStepRetry(
   const storedWrapper = lastCommand.toolArgs || lastCommand.args || {};
   const originalArgs = storedWrapper as Record<string, unknown>;
   const storedResult = (lastCommand.result || storedWrapper?.result || {}) as Record<string, unknown>;
-  
+
   // Build modified prompt if needed
   let modifiedPrompt = (originalArgs.prompt || originalArgs.text || storedResult.translation || storedResult.translatedText || '') as string;
   if (args.modifications && args.modifications.trim()) {
@@ -49,19 +49,19 @@ export async function handleSingleStepRetry(
       : args.modifications;
   }
   modifiedPrompt = (modifiedPrompt || '').toString().trim();
-  
+
   // Determine provider override
   // CRITICAL: For manual retry, use the SAME provider as the original command
   // Only change provider if user explicitly specified provider_override
   let provider: string | null = args.provider_override || null;
   if (provider === 'none' || !provider) {
     // Keep original provider from the saved command
-    provider = (originalArgs.provider || 
-               originalArgs.service || 
-               storedResult.provider ||
-               storedResult.service ||
-               null) as string | null;
-    
+    provider = (originalArgs.provider ||
+      originalArgs.service ||
+      storedResult.provider ||
+      storedResult.service ||
+      null) as string | null;
+
     // If we still don't have a provider, try to infer from tool name
     if (!provider) {
       if (tool.includes('openai')) provider = 'openai';
@@ -72,11 +72,11 @@ export async function handleSingleStepRetry(
       else if (tool.includes('kling')) provider = 'kling';
     }
   }
-  
+
   // Send specific ACK based on the tool and provider being retried
   const quotedMessageIdForAck = extractQuotedMessageId({ context });
   await sendRetryAck(chatId, tool, provider, quotedMessageIdForAck || null);
-  
+
   // Route to appropriate tool based on last command
   return await routeToTool(tool, modifiedPrompt, originalArgs, storedResult, provider, context);
 }
@@ -136,18 +136,18 @@ async function retryImageGeneration(
       error: UNABLE.RESTORE_PROMPT
     };
   }
-  
+
   const imageArgs = {
     prompt: promptToUse,
     provider: provider || 'gemini'
   };
-  
+
   if (provider) {
     logger.info(`🔄 [Retry] Using original provider: ${provider}`);
   } else {
     logger.warn(`⚠️ [Retry] Original provider not found, using default: gemini`);
   }
-  
+
   logger.debug(`🎨 Retrying image generation with:`, imageArgs);
   if (!agentTools?.create_image) {
     return { success: false, error: 'כלי יצירת תמונה לא זמין' };
@@ -172,18 +172,18 @@ async function retryVideoGeneration(
       error: UNABLE.RESTORE_VIDEO_PROMPT
     };
   }
-  
+
   const videoArgs = {
     prompt: promptToUse,
     provider: provider || 'kling'
   };
-  
+
   if (provider) {
     logger.info(`🔄 [Retry] Using original provider: ${provider}`);
   } else {
     logger.warn(`⚠️ [Retry] Original provider not found, using default: kling`);
   }
-  
+
   logger.debug(`🎬 Retrying video generation with:`, videoArgs);
   if (!agentTools?.create_video) {
     return { success: false, error: 'כלי יצירת וידאו לא זמין' };
@@ -203,26 +203,26 @@ async function retryImageEditing(
 ): Promise<ToolResult> {
   const editInstruction = modifiedPrompt || (originalArgs.edit_instruction || originalArgs.prompt || '') as string;
   const imageUrl = (originalArgs.image_url || storedResult.imageUrl || '') as string;
-  
+
   if (!editInstruction || !imageUrl) {
     return {
       success: false,
       error: UNABLE.RESTORE_EDIT_INSTRUCTIONS
     };
   }
-  
+
   const editArgs = {
     image_url: imageUrl,
     edit_instruction: editInstruction,
-    service: provider || (originalArgs.service || 'openai') as string
+    service: provider || (originalArgs.service || 'gemini') as string
   };
-  
+
   if (provider || originalArgs.service) {
     logger.info(`🔄 [Retry] Using original service: ${provider || originalArgs.service}`);
   } else {
-    logger.warn(`⚠️ [Retry] Original service not found, using default: openai`);
+    logger.warn(`⚠️ [Retry] Original service not found, using default: gemini`);
   }
-  
+
   logger.debug(`✏️ Retrying image edit with:`, editArgs);
   if (!agentTools?.edit_image) {
     return { success: false, error: 'כלי עריכת תמונה לא זמין' };
@@ -239,9 +239,9 @@ async function retryChat(
   provider: string | null
 ): Promise<ToolResult> {
   const chatProvider = provider || (tool.includes('openai') ? 'openai' : tool.includes('grok') ? 'grok' : 'gemini');
-  
+
   const { geminiService, openaiService, grokService } = getServices();
-  
+
   let result;
   if (chatProvider === 'openai') {
     result = await openaiService.generateTextResponse(modifiedPrompt, []);
@@ -250,7 +250,7 @@ async function retryChat(
   } else {
     result = await geminiService.generateTextResponse(modifiedPrompt, []);
   }
-  
+
   return {
     success: !(result as { error?: string }).error,
     data: ((result as { text?: string; error?: string }).text || (result as { error?: string }).error) as string,
@@ -319,7 +319,7 @@ async function retryTranslation(
     text: (originalArgs.text || storedResult.originalText || originalArgs.prompt || '') as string,
     target_language: (originalArgs.target_language || originalArgs.language || storedResult.target_language || storedResult.language || 'he') as string
   };
-  
+
   if (!translationArgs.text || !translationArgs.target_language) {
     return {
       success: false,

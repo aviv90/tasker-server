@@ -67,25 +67,34 @@ export async function downloadFile(downloadUrl: string, fileName: string | null 
 
     logger.info(`📥 Downloading file from URL (${downloadUrl.length} chars)`, { fileName, urlLength: downloadUrl.length });
 
-    const response = await axios.get(downloadUrl, {
-      responseType: 'arraybuffer'
-    });
+    let lastError;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const response = await axios.get(downloadUrl, {
+          responseType: 'arraybuffer',
+          timeout: 30000 // 30s timeout
+        });
+        const buffer = Buffer.from(response.data);
+        logger.info(`📥 File downloaded as buffer: ${buffer.length} bytes (attempt ${attempt})`, { fileName, size: buffer.length });
 
-    const buffer = Buffer.from(response.data);
-    logger.info(`📥 File downloaded as buffer: ${buffer.length} bytes`, { fileName, size: buffer.length });
+        // If fileName is provided... (existing logic)
+        if (fileName) {
+          if (!fs.existsSync(STATIC_DIR)) {
+            fs.mkdirSync(STATIC_DIR, { recursive: true });
+          }
+          const filePath = path.join(STATIC_DIR, fileName);
+          fs.writeFileSync(filePath, buffer);
+          logger.info(`📥 File also saved to: ${filePath}`, { fileName, filePath });
+        }
 
-    // If fileName is provided, also save to file (for backward compatibility)
-    if (fileName) {
-      if (!fs.existsSync(STATIC_DIR)) {
-        fs.mkdirSync(STATIC_DIR, { recursive: true });
+        return buffer;
+      } catch (err) {
+        lastError = err;
+        logger.warn(`⚠️ Download attempt ${attempt} failed: ${err instanceof Error ? err.message : String(err)}`);
+        if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 1000));
       }
-
-      const filePath = path.join(STATIC_DIR, fileName);
-      fs.writeFileSync(filePath, buffer);
-      logger.info(`📥 File also saved to: ${filePath}`, { fileName, filePath });
     }
-
-    return buffer;
+    throw lastError;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error('❌ Error downloading file:', { error: errorMessage, fileName, downloadUrl: downloadUrl?.substring(0, 100) });

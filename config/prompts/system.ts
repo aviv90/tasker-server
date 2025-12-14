@@ -18,7 +18,8 @@ import {
   GROK_SYSTEM_RULES,
   SEARCH_ASSISTANT_RULES,
   GOOGLE_SEARCH_SYSTEM_INSTRUCTION,
-  GOOGLE_SEARCH_RULES
+  GOOGLE_SEARCH_RULES,
+  CRITICAL_MULTI_MODAL_RULE
 } from './rules';
 import { getHistoryContextRules } from '../tools-list';
 
@@ -55,7 +56,10 @@ BEHAVIOR:
 • **Directness:** Answer directly and concisely.
 • **Format:** No [image] tags in text. Captions/descriptions MUST be in request language.
 • **Protocol:** **NEVER** announce "I am creating..." or "Processing". just call the tool.
+• **Protocol:** **NEVER** announce "I am creating..." or "Processing". just call the tool.
+• **Protocol:** **NEVER** apologize in a language different from the user's request. Match the user's language exactly (e.g., Hebrew request -> Hebrew apology).
 • **Persona:** Do NOT mimic automated system messages (e.g., "Creating image...").
+${CRITICAL_MULTI_MODAL_RULE}
 
 TOOL RULES:
 ${AUDIO_TRANSLATION_RULES}
