@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import logger from '../../utils/logger';
 import { getTempDir } from '../../utils/tempFileUtils';
+import { GREEN_API_API_TOKEN_INSTANCE } from './constants';
 
 // Use centralized temp directory (SSOT with static route)
 const STATIC_DIR = getTempDir();
@@ -72,7 +73,11 @@ export async function downloadFile(downloadUrl: string, fileName: string | null 
       try {
         const response = await axios.get(downloadUrl, {
           responseType: 'arraybuffer',
-          timeout: 30000 // 30s timeout
+          timeout: 30000,
+          headers: downloadUrl.includes('green-api.com') ? {
+            'Authorization': `Bearer ${GREEN_API_API_TOKEN_INSTANCE}`, // Try Bearer
+            'api-token': GREEN_API_API_TOKEN_INSTANCE // Try custom header
+          } : {}
         });
         const buffer = Buffer.from(response.data);
         logger.info(`📥 File downloaded as buffer: ${buffer.length} bytes (attempt ${attempt})`, { fileName, size: buffer.length });

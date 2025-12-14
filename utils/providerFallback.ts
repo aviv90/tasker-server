@@ -237,6 +237,9 @@ export class ProviderFallback {
     }
 
     // Send error message to user (only if we have chatId)
+    // DISABLED: To prevent duplicate error messages during fallback (e.g. Gemini failed -> OpenAI failed -> Final Error).
+    // We strictly want to notify only if ALL failed or if it's the final result.
+    /*
     if (this.chatId && this.greenApiService) {
       try {
         // Get originalMessageId from context for quoting
@@ -257,6 +260,7 @@ export class ProviderFallback {
         });
       }
     }
+    */
   }
 
   /**
