@@ -8,6 +8,7 @@ import logger from '../../../utils/logger';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { TIME } from '../../../utils/constants';
 import { createTempFilePath } from '../../../utils/tempFileUtils';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -104,7 +105,7 @@ class VideoAnalysis {
       const maxAttempts = 30; // 30 seconds max wait
 
       while (fileState !== 'ACTIVE' && attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, TIME.SECOND));
         attempts++;
 
         try {

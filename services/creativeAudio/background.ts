@@ -13,6 +13,7 @@ import musicService from '../musicService';
 import { getTempDir, ensureTempDir } from '../../utils/tempFileUtils';
 import logger from '../../utils/logger';
 import ffmpegStatic from 'ffmpeg-static';
+import { TIME } from '../../utils/constants';
 
 const ffmpegBin = ffmpegStatic || 'ffmpeg';
 
@@ -268,7 +269,7 @@ export async function generateSunoInstrumental(duration: number, style: Instrume
         const timeout = setTimeout(() => {
           pendingCallbacks.delete(musicResult.taskId);
           reject(new Error(`Suno instrumental generation timeout - callback not received within 5 minutes`));
-        }, 5 * 60 * 1000);
+        }, TIME.SUNO_GENERATION_TIMEOUT);
 
         pendingCallbacks.set(musicResult.taskId, {
           resolve: (filePath) => {

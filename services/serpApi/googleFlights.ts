@@ -1,6 +1,7 @@
 
 import axios from 'axios';
 import logger from '../../utils/logger';
+import { API_URLS } from '../../utils/constants';
 
 import config from '../../config/env';
 
@@ -181,7 +182,7 @@ export async function getRandomFlight(
             params.return_date = returnDate;
         }
 
-        const response = await axios.get('https://serpapi.com/search.json', { params });
+        const response = await axios.get(API_URLS.SERPAPI, { params });
 
         // Check 'best_flights' and 'other_flights'
         const bestFlights = response.data?.best_flights || [];
@@ -211,7 +212,7 @@ export async function getRandomFlight(
         const flight = allFlights[0];
 
         // Extract legs
-         
+
         const rawLegs = flight.flights || [];
         const legs: FlightLeg[] = rawLegs.map((leg: any) => ({
             origin: leg.departure_airport?.name || leg.departure_airport?.id,

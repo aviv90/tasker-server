@@ -150,14 +150,14 @@ class VeoGeneration {
     const maxRetries = TIME.FILE_VERIFY_RETRIES;
 
     while (!fileReady && retries < maxRetries) {
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, TIME.DELAY_VERY_SHORT));
 
       if (fs.existsSync(filePath)) {
         try {
           const stats = fs.statSync(filePath);
 
           if (stats.size > 0) {
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, TIME.DELAY_SHORT));
             const newStats = fs.statSync(filePath);
 
             if (newStats.size === stats.size && stats.size > minSize) {

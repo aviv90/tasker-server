@@ -14,7 +14,7 @@ export const TIME = {
   MINUTE: 60 * 1000,
   HOUR: 60 * 60 * 1000,
   DAY: 24 * 60 * 60 * 1000,
-  
+
   // Common timeouts (using computed values for consistency)
   TYPING_INDICATOR: 1000, // Default typing time for all messages
   CIRCUIT_BREAKER_TIMEOUT: 60 * 1000, // 60 seconds for AI generation
@@ -25,12 +25,19 @@ export const TIME = {
   MULTI_STEP_MIN_TIMEOUT: 6 * 60 * 1000, // 6 minutes minimum
   CLEANUP_INTERVAL: 30 * 24 * 60 * 60 * 1000, // 30 days
   DB_CONNECTION_TIMEOUT: 10 * 1000, // 10 seconds
-  
+
   // Polling intervals for async operations (video generation, etc.)
   POLL_INTERVAL_FAST: 5 * 1000, // 5 seconds - for OpenAI Sora
   POLL_INTERVAL_STANDARD: 10 * 1000, // 10 seconds - for Gemini Veo, Replicate
   POLL_INTERVAL_SLOW: 30 * 1000, // 30 seconds - for KIE (Kling)
-  POLL_DELAY_CALLBACK: 1 * 1000 // 1 second - for callback verification
+  POLL_DELAY_CALLBACK: 1 * 1000, // 1 second - for callback verification
+
+  // Specific Delays
+  DELAY_SHORT: 500, // 500ms
+  DELAY_VERY_SHORT: 200, // 200ms
+
+  // Service-specific timeouts
+  SUNO_GENERATION_TIMEOUT: 5 * 60 * 1000 // 5 minutes
 } as const;
 
 /**
@@ -64,8 +71,20 @@ export const AUDIO = {
   BYTES_PER_SECOND_ESTIMATE: 10000 // Rough estimate for duration calculation
 } as const;
 
+/**
+ * API URLs
+ * Centralized list of external API endpoints
+ */
+export const API_URLS = {
+  KIE: 'https://api.kie.ai',
+  GROK: 'https://api.x.ai/v1',
+  SERPAPI: 'https://serpapi.com/search.json',
+  GOOGLE_DRIVE_SCOPE: 'https://www.googleapis.com/auth/drive.readonly' // Keeping scope URL here as well
+} as const;
+
 // Type definitions for better type safety
 export type TimeConstants = typeof TIME;
 export type TextLimits = typeof TEXT_LIMITS;
 export type FileSizeConstants = typeof FILE_SIZE;
 export type AudioConstants = typeof AUDIO;
+export type ApiUrls = typeof API_URLS;

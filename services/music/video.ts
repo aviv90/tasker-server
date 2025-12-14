@@ -5,6 +5,7 @@
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { TIME } from '../../utils/constants';
 import { v4 as uuidv4 } from 'uuid';
 import ffmpegStatic from 'ffmpeg-static';
 
@@ -230,7 +231,7 @@ export class MusicVideo {
           fs.writeFileSync(originalVideoFilePath, videoBuffer);
 
           // Verify original file
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, TIME.DELAY_SHORT));
           if (!fs.existsSync(originalVideoFilePath) || fs.statSync(originalVideoFilePath).size < 10000) {
             throw new Error('Original video file was not downloaded successfully');
           }

@@ -44,6 +44,11 @@ import MusicTasksRepository from '../repositories/musicTasksRepository';
 /**
  * Music Service class
  */
+import { API_URLS } from '../utils/constants';
+
+/**
+ * Music Service class
+ */
 class MusicService implements MusicServiceInterface {
   private apiKey: string | undefined;
   public baseUrl: string;
@@ -56,7 +61,7 @@ class MusicService implements MusicServiceInterface {
 
   constructor() {
     this.apiKey = process.env.KIE_API_KEY;
-    this.baseUrl = 'https://api.kie.ai';
+    this.baseUrl = API_URLS.KIE;
     this.headers = {
       'Authorization': `Bearer ${this.apiKey}`,
       'Content-Type': 'application/json'

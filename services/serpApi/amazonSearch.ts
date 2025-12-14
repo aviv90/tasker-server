@@ -1,7 +1,8 @@
-
 import axios from 'axios';
 import logger from '../../utils/logger';
 import config from '../../config/env';
+
+import { API_URLS } from '../../utils/constants';
 
 const SERPAPI_KEY = config.ai.serpApi.apiKey;
 
@@ -40,7 +41,7 @@ export async function searchAmazon(query: string, domain: string = 'amazon.com')
             domain: domain
         };
 
-        const response = await axios.get('https://serpapi.com/search.json', { params });
+        const response = await axios.get(API_URLS.SERPAPI, { params });
 
         // SerpApi returns organic_results
         const results = response.data?.organic_results || [];

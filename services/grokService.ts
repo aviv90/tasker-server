@@ -55,6 +55,8 @@ interface ImageGenerationResult {
   };
 }
 
+import { API_URLS } from '../utils/constants';
+
 class GrokService {
   private apiKey: string | undefined;
   private baseUrl: string;
@@ -62,7 +64,7 @@ class GrokService {
 
   constructor() {
     this.apiKey = process.env.GROK_API_KEY;
-    this.baseUrl = 'https://api.x.ai/v1';
+    this.baseUrl = API_URLS.GROK;
     this.model = 'grok-4'; // Latest and strongest model (upgraded from grok-3)
 
     if (!this.apiKey) {
