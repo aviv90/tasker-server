@@ -69,7 +69,6 @@ export class ProviderFallback {
   private context: AgentContextState;
   private errorStack: ProviderError[];
   private chatId: string | null;
-  private greenApiService: ReturnType<typeof getServices>['greenApiService'];
   private services: ReturnType<typeof getServices>;
   private timeout: number;
 
@@ -92,7 +91,6 @@ export class ProviderFallback {
 
     // Get services once (reused for all attempts)
     const services = getServices();
-    this.greenApiService = services.greenApiService;
     this.services = services;
   }
 
