@@ -89,6 +89,7 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
     longitude: number | null;
     locationInfo: string | null;
     error?: string;
+    text?: string;
   } = {
     imageUrl: null,
     imageCaption: '',
@@ -98,7 +99,8 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
     poll: null,
     latitude: null,
     longitude: null,
-    locationInfo: null
+    locationInfo: null,
+    text: undefined
   };
 
   // Agent execution loop
@@ -205,8 +207,7 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
         }
         // Fallback: if no text response yet and tool returned textual data, use it
         if (!textResponse && typeof toolResult.data === 'string' && toolResult.data.trim()) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (assets as any).text = toolResult.data.trim();
+          assets.text = toolResult.data.trim();
         }
 
         // If tool failed and returned error, save it for return

@@ -64,10 +64,11 @@ ${getCriticalRules()}
 
 OUTPUT (strict JSON only):
 
-SINGLE: {"isMultiStep":false}
+SINGLE: {"isMultiStep":false, "thought_process": "Request only involves creating an image, no sequence."}
 
 MULTI: {
   "isMultiStep":true,
+  "thought_process": "User asked to first send location, then create an image. This requires two sequential steps.",
   "steps":[
     {
       "stepNumber":1,
@@ -95,10 +96,10 @@ EXAMPLES:
 • "create song and then video" → MULTI (HAS "and then")
 
 CRITICAL:
+- REQUIRED: "thought_process" field explanation for your decision.
 - Each step MUST include: stepNumber, tool, action, parameters
 - Extract parameters from user request (e.g., "באזור סלובניה" → parameters: {"region":"Slovenia"})
 - If no tool needed (text response), use: {"tool":null,"action":"tell a joke","parameters":{}}
 
 Return COMPLETE JSON only. NO markdown. NO "...".`;
 }
-

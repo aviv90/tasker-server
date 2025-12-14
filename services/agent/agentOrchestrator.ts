@@ -25,6 +25,7 @@ import { AgentContextState } from './execution/context';
 import { AgentConfig, AgentResult } from './types';
 import { AgentOptions } from '../agentService';
 import conversationManager from '../conversationManager';
+import { HistoryStrategyResult } from './historyStrategy';
 
 export class AgentOrchestrator {
     private genAI: GoogleGenerativeAI;
@@ -33,9 +34,6 @@ export class AgentOrchestrator {
         this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
     }
 
-    /**
-     * Execute an agent query
-     */
     /**
      * Execute an agent query
      */
@@ -142,8 +140,7 @@ export class AgentOrchestrator {
         languageInstruction: string,
         agentConfig: AgentConfig,
         preLoadedContext?: AgentContextState, // AgentContext
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        preLoadedHistory?: any // { history: Content[], systemContextAddition: string }
+        preLoadedHistory?: HistoryStrategyResult // Type-safe history result
     ): Promise<AgentResult> {
         const maxIterations = options.maxIterations || agentConfig.maxIterations;
         const model = this.genAI.getGenerativeModel({ model: agentConfig.model });
@@ -230,8 +227,8 @@ export class AgentOrchestrator {
                     success: false,
                     error: `⏱️ הפעולה ארכה יותר מדי. נסה בקשה פשוטה יותר או נסה שוב מאוחר יותר.`,
                     timeout: true,
-                    toolCalls: context.toolCalls,
-                    toolResults: context.previousToolResults,
+                    toolCalls: context?.toolCalls || [],
+                    toolResults: context?.previousToolResults || [],
                     multiStep: false,
                     alreadySent: false
                 };
