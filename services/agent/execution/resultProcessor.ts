@@ -52,6 +52,12 @@ export class ResultProcessor {
         // 4. Clean JSON wrappers from final text
         let finalText = context.suppressFinalResponse ? '' : cleanJsonWrapper(text);
 
+        // Remove redundant [Image: ...], [Video: ...], [Audio: ...], etc. descriptions
+        // These are unnecessary since we send the actual media with captions
+        if (finalText) {
+            finalText = finalText.replace(/\[(Image|Video|Audio|Music|Song|File|Poll):.*?\]/gis, '').trim();
+        }
+
         // 5. Fallback for Empty Response
         // If text is empty and no assets, something went wrong (e.g. only thinking pattern)
         if (!finalText && !latestImageAsset && !latestVideoAsset && !latestAudioAsset && !latestPollAsset && !latitude) {
