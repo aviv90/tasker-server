@@ -35,11 +35,15 @@ export function getToolAckMessage(toolName: string, provider: ProviderKey = null
   }
 
   if (provider) {
+    // Check if it's a video task OR if the provider exists in video map
+    // This catches generic tools like 'retry_with_different_provider' where toolName is generic but provider is video-specific
     const isVideoTask =
       toolName === 'create_video' || toolName === 'image_to_video' || toolName === 'edit_video';
+
     let providerDisplayKey = provider;
 
-    if (isVideoTask) {
+    // Try mapping if it's a video task OR if the provider key is known in video map
+    if (isVideoTask || mapVideoProviderDisplay(provider) !== provider) {
       const mapped = mapVideoProviderDisplay(provider);
       if (mapped) {
         providerDisplayKey = mapped;
