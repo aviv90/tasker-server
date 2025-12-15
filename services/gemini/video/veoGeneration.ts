@@ -255,8 +255,10 @@ class VeoGeneration {
         model: "veo-3.1-generate-preview",
         prompt: cleanPrompt,
         image: {
-          imageBytes: imageBase64,
-          mimeType: "image/jpeg",
+          inlineData: {
+            data: imageBase64,
+            mimeType: "image/jpeg"
+          }
         },
         config: {
           aspectRatio: "9:16"

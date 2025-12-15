@@ -321,7 +321,7 @@ const smartExecuteWithFallback = createTool<SmartFallbackArgs>(
       // All strategies failed
       const failureBase = `כל האסטרטגיות נכשלו:\n1. ספקים שונים ✗\n2. פישוט פרומפט ✗\n3. פרמטרים כלליים ✗`;
       const additionalHint = args.task_type === 'video_creation'
-        ? '\n\nהבקשה המקורית דורשת וידאו, לא תמונה. נסה לנסח מחדש או לציין סגנון אחר לוידאו.'
+        ? '\n\nהבקשה המקורית דורשת וידאו, לא תמונה. נסה לנסח מחדש או לציין סגנון אחר לווידאו.'
         : '\n\nאולי תנסה לנסח את הבקשה אחרת?';
       return {
         success: false,

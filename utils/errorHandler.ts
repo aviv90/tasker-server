@@ -255,9 +255,10 @@ export function formatUserFacingError(error: unknown, fallback: string = 'שגי
  * Format: ❌ שגיאה ב-<provider name>: <error message as-is>
  * @param provider - Provider name (will be formatted using formatProviderName)
  * @param errorMessage - Error message (will be extracted if not string)
+ * @param language - Optional language code ('he', 'en', etc.)
  * @returns Formatted error message with provider prefix
  */
-export function formatProviderError(provider: string, errorMessage: unknown): string {
+export function formatProviderError(provider: string, errorMessage: unknown, language: string = 'he'): string {
   // Format provider name
   const providerName = formatProviderName(provider);
 
@@ -269,8 +270,11 @@ export function formatProviderError(provider: string, errorMessage: unknown): st
   // Remove any existing ❌ prefix from error message (we'll add it at the start)
   const cleanError = errorText.replace(/^❌\s*/, '').trim();
 
-  // Format: ❌ שגיאה ב-<provider>: <error>
-  return `❌ שגיאה ב-${providerName}: ${cleanError}`;
+  // Localized prefix
+  const prefix = language === 'en' ? `Error in ${providerName}` : `שגיאה ב-${providerName}`;
+
+  // Format: ❌ <Prefix>: <error>
+  return `❌ ${prefix}: ${cleanError}`;
 }
 
 /**

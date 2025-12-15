@@ -88,7 +88,7 @@ export async function sendAgentResults(
     if (!hasContent && !agentResult.suppressedFinalResponse) {
       logger.error(`❌ [Result Handling] Nothing was sent to user! Sending error message.`);
       const { sendErrorToUser, ERROR_MESSAGES } = await import('../../../../utils/errorSender');
-      await sendErrorToUser(chatId, agentResult?.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId: quotedMessageId || undefined });
+      await sendErrorToUser(chatId, agentResult?.error || ERROR_MESSAGES.UNKNOWN, { quotedMessageId: quotedMessageId || undefined, language: normalized.language });
     }
 
     // Handle post-processing (complementary image generation)

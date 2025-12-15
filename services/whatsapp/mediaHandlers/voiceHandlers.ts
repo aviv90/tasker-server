@@ -40,6 +40,9 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
   // Get originalMessageId for quoting all responses
   const quotedMessageId = originalMessageId || null;
 
+  // Define language variable outside try block for error handling
+  let originalLanguage: string = 'he';
+
   try {
     // Send ACK message first (same as when transcribing quoted audio)
     await sendTextMessage(chatId, 'מתמלל הקלטה... 🎤📝', quotedMessageId, TIME.TYPING_INDICATOR);
@@ -56,7 +59,7 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
     if (transcriptionResult.error) {
       logger.error('❌ Transcription failed:', { error: transcriptionResult.error });
       // We don't know the language yet, so use Hebrew as default for error messages
-      await sendErrorToUser(chatId, transcriptionResult.error, { context: 'TRANSCRIPTION', quotedMessageId });
+      await sendErrorToUser(chatId, transcriptionResult.error, { context: 'TRANSCRIPTION', quotedMessageId, language: 'he' });
       return;
     }
 
@@ -65,7 +68,7 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
     logger.debug(`📝 Transcription complete: "${transcribedText}"`);
 
     // Use our own language detection on the transcribed text for consistency
-    const originalLanguage = voiceService.detectLanguage(transcribedText);
+    originalLanguage = voiceService.detectLanguage(transcribedText);
     logger.debug(`🌐 STT detected: ${transcriptionResult.detectedLanguage}, Our detection: ${originalLanguage}`);
 
     // Try to route to agent to see if this is a command (let the Agent/Planner decide)
@@ -188,7 +191,7 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
     const geminiResultTyped = geminiResult as { error?: string; text?: string };
     if (geminiResultTyped.error) {
       logger.error('❌ Gemini generation failed:', { error: geminiResultTyped.error });
-      const errorMessage = formatProviderError('gemini', geminiResultTyped.error);
+      const errorMessage = formatProviderError('gemini', geminiResultTyped.error, originalLanguage);
       await sendTextMessage(chatId, errorMessage, quotedMessageId, TIME.TYPING_INDICATOR);
 
       // Clean up voice clone before returning (only if we cloned)
@@ -297,7 +300,7 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
     logger.error('❌ Error in voice-to-voice processing:', { error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
     // Get quotedMessageId for error response (preserve original message ID)
     const quotedMessageIdForError = originalMessageId || null;
-    await sendErrorToUser(chatId, error, { context: 'PROCESSING_VOICE', quotedMessageId: quotedMessageIdForError });
+    await sendErrorToUser(chatId, error, { context: 'PROCESSING_VOICE', quotedMessageId: quotedMessageIdForError, language: originalLanguage });
   }
 }
 

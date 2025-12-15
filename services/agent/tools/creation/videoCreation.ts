@@ -149,7 +149,7 @@ export const create_video = createTool<CreateVideoArgs>(
 
       return {
         success: true,
-        data: `✅ הוידאו נוצר בהצלחה עם ${providerName}!`,
+        data: `✅ הווידאו נוצר בהצלחה עם ${providerName}!`,
         videoUrl: videoResult.videoUrl || videoResult.url,
         videoCaption: caption,
         provider: providerName,
@@ -299,7 +299,7 @@ export const image_to_video = createTool<ImageToVideoArgs>(
 
       return {
         success: true,
-        data: `✅ התמונה הומרה לוידאו בהצלחה עם ${providerName}!`,
+        data: `✅ התמונה הומרה לווידאו בהצלחה עם ${providerName}!`,
         videoUrl: videoResult.videoUrl || videoResult.url,
         provider: providerName,
         providerKey: providerKey

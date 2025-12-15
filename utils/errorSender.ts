@@ -52,6 +52,7 @@ export interface SendErrorOptions {
   customMessage?: string;
   quotedMessageId?: string | null;
   typingTime?: number;
+  language?: string;
 }
 
 /**
@@ -78,7 +79,8 @@ export async function sendErrorToUser(
     context,
     customMessage,
     quotedMessageId = null,
-    typingTime = DEFAULT_TYPING_TIME
+    typingTime = DEFAULT_TYPING_TIME,
+    language = 'he'
   } = options;
 
   let errorMessage: string;
@@ -94,7 +96,7 @@ export async function sendErrorToUser(
       : ((error as ErrorWithMessage)?.message ||
         (error as ErrorWithMessage)?.error ||
         ERROR_MESSAGES.UNKNOWN_ERROR);
-    errorMessage = formatProviderError(provider, errorText);
+    errorMessage = formatProviderError(provider, errorText, language);
   }
   // If context specified, use template
   else if (context && ERROR_MESSAGES[context]) {

@@ -235,18 +235,20 @@ export class ProviderFallback {
     }
 
     // Send error message to user (only if we have chatId)
-    // DISABLED: To prevent duplicate error messages during fallback (e.g. Gemini failed -> OpenAI failed -> Final Error).
-    // We strictly want to notify only if ALL failed or if it's the final result.
-    /*
-    if (this.chatId && this.greenApiService) {
+    const { greenApiService } = this.services;
+
+    if (this.chatId && greenApiService) {
       try {
         // Get originalMessageId from context for quoting
         const quotedMessageId = this.context?.originalInput?.originalMessageId || null;
+        // Get language from context
+        const language = this.context?.originalInput?.language || 'he';
+
         // Use formatProviderError to format error with provider name prefix
-        const formattedError = formatProviderError(provider, message);
-        if (this.chatId) {
-          await this.greenApiService.sendTextMessage(this.chatId, formattedError, quotedMessageId || undefined, 1000);
-        }
+        const formattedError = formatProviderError(provider, message, language);
+
+        await greenApiService.sendTextMessage(this.chatId, formattedError, quotedMessageId || undefined, 1000);
+
       } catch (sendError: unknown) {
         logger.error('❌ Failed to send error message to user', {
           toolName: this.toolName,
@@ -258,7 +260,6 @@ export class ProviderFallback {
         });
       }
     }
-    */
   }
 
   /**
@@ -271,10 +272,14 @@ export class ProviderFallback {
       const failure = this.errorStack[0];
       const failureMessage = failure?.message || 'סיבה לא ידועה';
 
+      // Get language from context
+      const language = this.context?.originalInput?.language || 'he';
+
       // Format error with provider name prefix
       const errorMessage = formatProviderError(
         this.requestedProvider,
-        failureMessage
+        failureMessage,
+        language
       );
 
       return {
@@ -299,6 +304,12 @@ export class ProviderFallback {
       error: `כל הספקים נכשלו ב${operation} ה${assetType}:\n${failureDetails}`,
       errorsAlreadySent: true // Flag to prevent duplicate error sending in agentLoop
     };
+  }
+  /**
+   * Get accumulated errors
+   */
+  getErrors(): ProviderError[] {
+    return this.errorStack;
   }
 }
 

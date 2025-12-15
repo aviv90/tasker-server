@@ -12,6 +12,7 @@ import prompts from '../../../config/prompts';
 import resultSender from './resultSender';
 import { TIME } from '../../../utils/constants';
 import logger from '../../../utils/logger';
+import { formatProviderError } from '../../../utils/errorHandler';
 import { FallbackHandler } from './fallbackHandler';
 import { processFinalText } from './resultProcessor';
 import { AgentConfig, StepResult } from '../types';
@@ -168,14 +169,16 @@ class MultiStepExecution {
 
           // Get quotedMessageId to pass to fallback
           const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
+          const language = (options.input as Record<string, unknown>)?.language as string || 'he';
 
-          const fallbackResult = await this.fallbackHandler.tryFallback(chatId, toolName, toolParams, step, stepResult, quotedMessageId || null);
+          const fallbackResult = await this.fallbackHandler.tryFallback(chatId, toolName, toolParams, step, stepResult, quotedMessageId || null, language);
           if (fallbackResult) {
             stepResults.push(fallbackResult);
           } else {
             // Send error for non-creation tools
             if (!this.fallbackHandler.isCreationTool(toolName || '')) {
-              await this.sendError(chatId, stepResult.error || 'Unknown error', step.stepNumber, quotedMessageId || null);
+              const language = (options.input as Record<string, unknown>)?.language as string || 'he';
+              await this.sendError(chatId, stepResult.error || 'Unknown error', step.stepNumber, quotedMessageId || null, toolName || 'unknown', language);
             }
           }
         }
@@ -183,7 +186,9 @@ class MultiStepExecution {
         const err = stepError as Error;
         logger.error(`❌ [Agent] Error executing step ${step.stepNumber}:`, { error: err.message });
         const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
-        await this.sendError(chatId, err.message || err.toString(), step.stepNumber, quotedMessageId || null, true);
+        const language = (options.input as Record<string, unknown>)?.language as string || 'he';
+        // Passing 'system' as toolName for general step execution errors
+        await this.sendError(chatId, err.message || err.toString(), step.stepNumber, quotedMessageId || null, 'system', language);
       }
     }
 
@@ -213,13 +218,16 @@ class MultiStepExecution {
   /**
    * Send error message to user
    */
-  async sendError(chatId: string, error: string, stepNumber: number | null = null, quotedMessageId: string | null = null, isException: boolean = false): Promise<void> {
+  async sendError(chatId: string, error: string, stepNumber: number | null = null, quotedMessageId: string | null = null, toolName: string = 'system', language: string = 'he'): Promise<void> {
     try {
       const { greenApiService } = getServices();
-      const stepInfo = stepNumber ? ` שגיאה בביצוע שלב ${stepNumber}:` : '';
-      const prefix = isException ? `❌${stepInfo}` : '❌';
-      const errorMessage = error.startsWith('❌') ? error : `${prefix} ${error}`;
-      await greenApiService.sendTextMessage(chatId, errorMessage, quotedMessageId || undefined, TIME.TYPING_INDICATOR);
+      // Format error using the centralized provider error formatter
+      const errorMessage = formatProviderError(toolName, error, language);
+
+      // Add step info if available
+      const finalMessage = stepNumber ? `${errorMessage} (שלב ${stepNumber})` : errorMessage;
+
+      await greenApiService.sendTextMessage(chatId, finalMessage, quotedMessageId || undefined, TIME.TYPING_INDICATOR);
       logger.debug(`📤 [Multi-step] Error sent to user${stepNumber ? ` for step ${stepNumber}` : ''}`);
     } catch (errorSendError: unknown) {
       const err = errorSendError as Error;

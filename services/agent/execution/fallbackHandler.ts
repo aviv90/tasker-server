@@ -13,7 +13,7 @@ export class FallbackHandler {
     /**
      * Try fallback for creation tools
      */
-    async tryFallback(chatId: string, toolName: string | null, toolParams: Record<string, unknown>, step: Step, stepResult: StepResult, quotedMessageId: string | null = null): Promise<StepResult | null> {
+    async tryFallback(chatId: string, toolName: string | null, toolParams: Record<string, unknown>, step: Step, stepResult: StepResult, quotedMessageId: string | null = null, language: string = 'he'): Promise<StepResult | null> {
 
         if (!toolName || !this.isCreationTool(toolName)) {
             return null;
@@ -144,7 +144,7 @@ export class FallbackHandler {
                         logger.warn(`❌ [Multi-step Fallback] ${provider} failed: ${errorMsg}`);
                         // Don't send error if it was already sent by ProviderFallback
                         if (!result?.errorsAlreadySent) {
-                            const formattedError = formatProviderError(provider, errorMsg);
+                            const formattedError = formatProviderError(provider, errorMsg, language);
                             await greenApiService.sendTextMessage(chatId, formattedError, quotedMessageId || undefined, 1000);
                         }
                     }
@@ -153,7 +153,7 @@ export class FallbackHandler {
                     logger.error(`❌ [Multi-step Fallback] ${provider} threw error:`, { error: errorMsg });
                     // Only send error if it wasn't already sent by ProviderFallback
                     // (ProviderFallback sends errors in _handleProviderError)
-                    const formattedError = formatProviderError(provider, errorMsg);
+                    const formattedError = formatProviderError(provider, errorMsg, language);
                     await greenApiService.sendTextMessage(chatId, formattedError, quotedMessageId || undefined, 1000);
                 }
             }
