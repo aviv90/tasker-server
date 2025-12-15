@@ -30,7 +30,7 @@ export class FallbackHandler {
         // Check if tool handles internal fallback (create_video/image_to_video/create_image)
         // If provider was NOT specified by user, the tool (via ProviderFallback) already tried ALL providers.
         // In that case, we should NOT retry here to avoid double-execution and chaotic logs.
-        const toolsWithInternalFallback = ['create_video', 'image_to_video', 'create_image'];
+        const toolsWithInternalFallback = ['create_video', 'image_to_video', 'create_image', 'edit_image', 'edit_video'];
         const userSpecifiedProvider = !!(toolParams.provider || toolParams.service);
 
         if (toolsWithInternalFallback.includes(toolName) && !userSpecifiedProvider) {
