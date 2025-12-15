@@ -268,7 +268,11 @@ export function formatProviderError(provider: string, errorMessage: unknown, lan
     : extractErrorMessage(errorMessage, 'שגיאה לא ידועה');
 
   // Remove any existing ❌ prefix from error message (we'll add it at the start)
-  const cleanError = errorText.replace(/^❌\s*/, '').trim();
+  let cleanError = errorText.replace(/^❌\s*/, '').trim();
+
+  // Remove trailing single characters on new lines (common API artifact)
+  // e.g. "...\n." -> "..."
+  cleanError = cleanError.replace(/\n\s*[\.\,]\s*$/, '').trim();
 
   // Localized prefix
   const prefix = language === 'en' ? `Error in ${providerName}` : `שגיאה ב-${providerName}`;
