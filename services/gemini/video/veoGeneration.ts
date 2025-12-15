@@ -265,14 +265,13 @@ class VeoGeneration {
 
       logger.info(`🔍 Veo 3 detected image mime-type: ${mimeType}`);
 
-      // CRITICAL FIX: The API error explicitly requested `bytesBase64Encoded` and `mimeType` in the underlying struct.
-      // It seems the ModelService for Veo 3 (via @google/genai) uses a specific proto structure for `image`.
-      // Replacing `inlineData` with direct object structure as hinted by error.
+      // CRITICAL FIX: The Node SDK (@google/genai) expects `imageBytes` and maps it to `bytesBase64Encoded` internally.
+      // Passing `bytesBase64Encoded` directly caused the SDK to ignore it, resulting in an empty payload sent to server, hence the server error.
       let operation = await veoClient.models.generateVideos({
         model: "veo-3.1-generate-preview",
         prompt: cleanPrompt,
         image: {
-          bytesBase64Encoded: imageBase64,
+          imageBytes: imageBase64,
           mimeType: mimeType
         },
         config: {
