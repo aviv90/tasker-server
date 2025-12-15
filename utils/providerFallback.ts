@@ -152,8 +152,8 @@ export class ProviderFallback {
             skipToolsAck.push('transcribe_audio');
           }
           await sendToolAckMessage(this.chatId, [{
-            name: this.toolName,
-            args: { provider: provider, service: provider }
+            name: 'retry_with_different_provider',
+            args: { provider: provider }
           }], { quotedMessageId, skipToolsAck });
         }
 

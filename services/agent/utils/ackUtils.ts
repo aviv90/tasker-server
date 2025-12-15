@@ -99,7 +99,6 @@ export async function sendToolAckMessage(
 
       // Skip tools that handle their own ACKs (to avoid double notifications)
       if (
-        toolName === 'retry_with_different_provider' ||
         toolName === 'retry_last_command' ||
         toolName === 'smart_execute_with_fallback' ||
         toolName === 'send_location'
