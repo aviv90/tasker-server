@@ -11,7 +11,7 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
   // Creation tools (with provider placeholder)
   create_image: 'יוצר תמונה עם __PROVIDER__... 🎨',
   create_video: 'יוצר וידאו עם __PROVIDER__... 🎬',
-  image_to_video: 'ממיר תמונה לוידאו מונפש עם __PROVIDER__... 🎞️',
+  image_to_video: 'ממיר תמונה לווידאו מונפש עם __PROVIDER__... 🎞️',
   create_music: 'יוצר מוזיקה... 🎵',
   text_to_speech: 'ממיר לדיבור... 🎤',
 
@@ -70,15 +70,20 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
  * Video provider fallback order
  * CRITICAL: Order matters! After Veo 3 fails, try Sora 2 next (not Kling)
  */
-export const VIDEO_PROVIDER_FALLBACK_ORDER = ['openai', 'gemini', 'grok'] as const;
+export const VIDEO_PROVIDER_FALLBACK_ORDER = ['kling', 'veo3', 'sora'] as const;
 
 /**
  * Video provider display name mapping
  */
 export const VIDEO_PROVIDER_DISPLAY_MAP: Record<string, string> = {
-  grok: 'kling',
-  gemini: 'veo3',
-  openai: 'sora-2'
+  kling: 'Kling',
+  veo3: 'Veo 3',
+  sora: 'Sora 2',
+  'sora-pro': 'Sora 2 Pro',
+  runway: 'Runway',
+  grok: 'Kling', // Fallback for old keys
+  gemini: 'Veo 3',
+  openai: 'Sora 2'
 };
 
 /**

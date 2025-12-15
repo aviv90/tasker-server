@@ -21,7 +21,10 @@ export function formatProviderName(provider?: string | null): string | null | un
     'sora-2-pro': 'Sora 2 Pro',
     kling: 'Kling',
     runway: 'Runway',
-    suno: 'Suno'
+    suno: 'Suno',
+    // Fallbacks for legacy keys that might still be in use
+    google: 'Gemini',
+    'google-veo3': 'Veo 3'
   };
   return providerNames[provider.toLowerCase()] || provider;
 }

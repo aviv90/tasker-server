@@ -251,13 +251,27 @@ class VeoGeneration {
       const cleanPrompt = sanitizeText(prompt);
       const imageBase64 = imageBuffer.toString('base64');
 
+      // Detect mime type
+      let mimeType = 'image/jpeg'; // Default
+      const header = imageBuffer.toString('hex', 0, 4);
+      if (header.startsWith('89504e47')) {
+        mimeType = 'image/png';
+      } else if (header.startsWith('52494646') && imageBuffer.toString('hex', 8, 12) === '57454250') {
+        // RIFF....WEBP (checking 8-12 for WEBP signature might be safer but this is a heuristic)
+        // actually standard check: valid webp? 
+        // Simple check:
+        mimeType = 'image/webp';
+      }
+
+      logger.info(`🔍 Veo 3 detected image mime-type: ${mimeType}`);
+
       let operation = await veoClient.models.generateVideos({
         model: "veo-3.1-generate-preview",
         prompt: cleanPrompt,
         image: {
           inlineData: {
             data: imageBase64,
-            mimeType: "image/jpeg"
+            mimeType: mimeType
           }
         },
         config: {
