@@ -55,11 +55,21 @@ export class ResultProcessor {
         // 5. Fallback for Empty Response
         // If text is empty and no assets, something went wrong (e.g. only thinking pattern)
         if (!finalText && !latestImageAsset && !latestVideoAsset && !latestAudioAsset && !latestPollAsset && !latitude) {
-            logger.warn('⚠️ [ResultProcessor] Final response is empty after cleaning thinking patterns. Using fallback.');
-            // Try to use original text if available, or generic error
-            // Note: rawText also contains thinking patterns, so we rely on the cleaned `text` variable
-            // If `text` (cleaned) is empty, we fall back to generic error.
-            finalText = text.trim() ? text : 'לא הצלחתי לנסח תשובה ברורה. אנא נסה שנית.';
+
+            // Check if tools were used. If yes, we assume the tool did its job (or sent its own error) and we don't need a generic fallback.
+            const hasToolCalls = context.toolCalls && context.toolCalls.length > 0;
+            const hasToolResults = Object.keys(context.previousToolResults).length > 0;
+
+            if (hasToolCalls || hasToolResults) {
+                logger.debug('⚠️ [ResultProcessor] Final response empty but tools were used. Suppressing generic fallback.');
+                // Leave finalText empty or set to null if cleaner
+            } else {
+                logger.warn('⚠️ [ResultProcessor] Final response is empty after cleaning thinking patterns. Using fallback.');
+                // Try to use original text if available, or generic error
+                // Note: rawText also contains thinking patterns, so we rely on the cleaned `text` variable
+                // If `text` (cleaned) is empty, we fall back to generic error.
+                finalText = text.trim() ? text : 'לא הצלחתי לנסח תשובה ברורה. אנא נסה שנית.';
+            }
         }
 
         // 6. Get originalQuoteId

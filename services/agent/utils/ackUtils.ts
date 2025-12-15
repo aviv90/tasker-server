@@ -29,8 +29,10 @@ export function getToolAckMessage(toolName: string, provider: ProviderKey = null
   if (!provider) {
     if (toolName === 'create_image' || toolName === 'edit_image') {
       provider = 'gemini';
-    } else if (toolName === 'create_video' || toolName === 'edit_video' || toolName === 'image_to_video') {
+    } else if (toolName === 'create_video' || toolName === 'image_to_video') {
       provider = 'grok';
+    } else if (toolName === 'edit_video') {
+      provider = 'runway';
     }
   }
 

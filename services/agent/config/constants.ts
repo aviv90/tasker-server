@@ -22,7 +22,7 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
 
   // Edit tools (with provider placeholder for images, Runway for video)
   edit_image: 'עורך תמונה עם __PROVIDER__... ✏️',
-  edit_video: 'עורך וידאו עם Runway... 🎞️',
+  edit_video: 'עורך וידאו עם __PROVIDER__... 🎞️',
 
   // Info tools
   search_web: 'מחפש מידע... 🔍',
@@ -82,7 +82,6 @@ export const VIDEO_PROVIDER_DISPLAY_MAP: Record<string, string> = {
   'sora-pro': 'Sora 2 Pro',
   runway: 'Runway',
   grok: 'Kling', // Fallback for old keys
-  gemini: 'Veo 3',
   openai: 'Sora 2'
 };
 

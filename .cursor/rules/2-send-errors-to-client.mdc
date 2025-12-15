@@ -127,3 +127,15 @@ if (videoResult.error) {
 - **Logging is not enough** - the user can't see console logs
 - **Don't swallow errors** - even if you handle them, tell the user
 - **Fail visibly** - better to show an error than to fail silently
+
+## 🚫 Single Error Delivery
+
+**CRITICAL: Use the "Single Error" principle.**
+
+1.  **Send ONCE:** If an error occurs, send it to the user exactly **ONE time**.
+2.  **No Redundancy:** Do NOT send a generic "Failed to generate answer" message if a specific tool error has already been sent.
+3.  **No Apologies:** If a tool fails with a critical error, just display the error (e.g., `❌ Error: Output blocked`). Do NOT follow it with "I apologize, I could not complete the request."
+4.  **Implementation:**
+    - Tools should return `{ success: false, error: "..." }`.
+    - The Agent/Executor should detect this and stop additional "filler" messages.
+    - If `resultProcessor` sees that tool calls were made, it should suppress the "Empty Response" fallback.
