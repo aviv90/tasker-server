@@ -55,3 +55,36 @@ export function extractDetectionText(prompt: string | null | undefined): string 
   return prompt.split('\n')[0]?.trim() || '';
 }
 
+/**
+ * Check if the prompt is a "pure creation" request (image/video/music) that should probably NOT see history
+ * strictly to avoid hallucinations or context bleeding.
+ * @param prompt - User prompt
+ * @returns true if history should be suppressed
+ */
+export function isPureCreationRequest(prompt: string): boolean {
+  if (!prompt) return false;
+  const p = prompt.toLowerCase();
+
+  // Keywords that suggest creation
+  const creationKeywords = [
+    'create image', 'generate image', 'draw', 'make a picture',
+    'create video', 'generate video', 'make a video',
+    'create music', 'generate music', 'make a song',
+    'צייר', 'צור תמונה', 'תכין תמונה', 'ג׳נרט תמונה',
+    'צור וידאו', 'תכין וידאו', 'ג׳נרט וידאו',
+    'צור שיר', 'תכין שיר'
+  ];
+
+  // Keywords that suggest context dependency (which means we SHOULD keep history)
+  const contextKeywords = [
+    'like the last one', 'similar to', 'modify', 'change', 'edit',
+    'כמו הקודם', 'דומה ל', 'תשנה', 'תערוך', 'אותו דבר', 'עוד אחד כזה'
+  ];
+
+  const hasCreation = creationKeywords.some(k => p.includes(k));
+  const hasContextRef = contextKeywords.some(k => p.includes(k));
+
+  // If it's a creation request AND does NOT refer to context -> Pure creation -> Suppress history
+  return hasCreation && !hasContextRef;
+}
+

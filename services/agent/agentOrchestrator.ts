@@ -13,7 +13,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import prompts from '../../config/prompts';
 import { config } from '../../config';
 import { detectLanguage } from './utils/languageUtils';
-import { extractDetectionText } from './utils/agentHelpers';
+import { extractDetectionText, isPureCreationRequest } from './utils/agentHelpers';
 import { getLanguageInstruction } from './utils/languageUtils';
 import { planMultiStepExecution } from '../multiStepPlanner';
 import multiStepExecution from './execution/multiStep';
@@ -55,7 +55,15 @@ export class AgentOrchestrator {
         const planPromise = this.planExecution(prompt, options);
 
         // B. Context & History (Lazy load dependencies if needed)
-        const useConversationHistory = options.useConversationHistory !== false;
+
+        // Determine if we should use history
+        // Default: true, unless explicitly false OR it's a pure creation request
+        let useConversationHistory = options.useConversationHistory !== false;
+
+        if (useConversationHistory && isPureCreationRequest(prompt)) {
+            logger.info('🎨 [Agent] "Pure Creation" request detected - Suppressing history to avoid hallucinations');
+            useConversationHistory = false;
+        }
 
         // Initialize context object immediately
         const initialContext = contextManager.createInitialContext(chatId, options);
