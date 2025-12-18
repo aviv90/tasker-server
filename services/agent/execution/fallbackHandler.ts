@@ -15,7 +15,7 @@ export class FallbackHandler {
      */
     async tryFallback(chatId: string, toolName: string | null, toolParams: Record<string, unknown>, step: Step, stepResult: StepResult, quotedMessageId: string | null = null, language: string = 'he'): Promise<StepResult | null> {
 
-        if (!toolName || !this.isCreationTool(toolName)) {
+        if (!toolName || !this.isCreationTool(toolName) || toolName === 'create_music') {
             return null;
         }
 
@@ -30,7 +30,7 @@ export class FallbackHandler {
         // Check if tool handles internal fallback (create_video/image_to_video/create_image)
         // If provider was NOT specified by user, the tool (via ProviderFallback) already tried ALL providers.
         // In that case, we should NOT retry here to avoid double-execution and chaotic logs.
-        const toolsWithInternalFallback = ['create_video', 'image_to_video', 'create_image', 'edit_image', 'edit_video'];
+        const toolsWithInternalFallback = ['create_video', 'image_to_video', 'create_image', 'edit_image'];
         const userSpecifiedProvider = !!(toolParams.provider || toolParams.service);
 
         if (toolsWithInternalFallback.includes(toolName) && !userSpecifiedProvider) {
@@ -199,26 +199,17 @@ export class FallbackHandler {
                 edit_instruction: promptToUse,
                 service: provider as 'openai' | 'gemini'
             }, context) as StepResult;
-        } else if (toolName === 'edit_video') {
-            if (!agentTools.edit_video) return null;
-            return await agentTools.edit_video.execute({
-                video_url: toolParams.video_url as string,
-                edit_instruction: promptToUse,
-                // provider - EditVideoArgs does not explicitly support provider in definition? ignoring it or casting.
-                // Assuming provider selection handles internal logic or args update needed.
-                // But since I refactored edit_video and it uses generic args, extra props might trigger error.
-                // So I exclude provider here.
-            }, context) as StepResult;
-        }
+        }, context) as StepResult;
+    }
 
         return null;
     }
 
-    /**
-     * Check if tool is a creation tool
-     */
-    isCreationTool(toolName: string): boolean {
-        const creationTools = ['create_image', 'create_video', 'edit_image', 'edit_video'];
-        return creationTools.includes(toolName);
-    }
+/**
+ * Check if tool is a creation tool
+ */
+isCreationTool(toolName: string): boolean {
+    const creationTools = ['create_image', 'create_video', 'edit_image'];
+    return creationTools.includes(toolName);
+}
 }
