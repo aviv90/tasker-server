@@ -107,7 +107,7 @@ export const config = {
   // AI Model Configuration
   models: {
     gemini: {
-      defaultModel: process.env.GEMINI_MODEL || 'gemini-3-pro-preview',
+      defaultModel: process.env.GEMINI_MODEL || 'gemini-3-flash-preview',
       apiVersion: 'v1beta'
     },
     openai: {
@@ -179,7 +179,7 @@ export const config = {
   },
 
   // Agent Configuration (SSOT for agent settings)
-  // NOTE: Agent uses gemini-3-flash-preview for speed, vision tasks use gemini-3-pro-preview for quality
+  // NOTE: Agent uses gemini-3-flash-preview for speed, vision tasks use gemini-3-flash-preview for quality
   agent: {
     model: process.env.AGENT_MODEL || 'gemini-3-flash-preview',
     maxIterations: parseInt(process.env.AGENT_MAX_ITERATIONS || '8', 10),

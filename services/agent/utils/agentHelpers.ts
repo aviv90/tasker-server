@@ -19,6 +19,13 @@ export function cleanThinkingPatterns(text: string | null | undefined): string {
   cleaned = cleaned.replace(/✅\s*Step\s+\d+\/\d+\s+completed[.!]?\s*/gi, '');
   cleaned = cleaned.replace(/Now proceeding to Step \d+\/\d+\.{3,}/gi, '');
 
+  // Remove "Status: ... Information: ..." blocks (CRITICAL for multi-step)
+  cleaned = cleaned.replace(/Status:\s*[\s\S]*?Information:\s*[\s\S]*?(?=\n\n|$)/gi, '');
+  // Remove "Status: ... Information: ..." blocks (CRITICAL for multi-step)
+  cleaned = cleaned.replace(/Status:\s*[\s\S]*?Information:\s*[\s\S]*?(?=\n\n|$)/gi, '');
+  cleaned = cleaned.replace(/Activity ID:\s*[\s\S]*?(?=\n\n|$)/gi, '');
+  cleaned = cleaned.replace(/Time:\s*[\d:.]+\s*[\s\S]*?(?=\n\n|$)/gi, '');
+
   // Remove English paragraphs if Hebrew is primary language
   const hebrewChars = (cleaned.match(/[\u0590-\u05FF]/g) || []).length;
   const englishChars = (cleaned.match(/[a-zA-Z]/g) || []).length;

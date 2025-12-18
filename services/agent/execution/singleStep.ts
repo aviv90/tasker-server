@@ -13,6 +13,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import prompts from '../../../config/prompts';
 import { cleanThinkingPatterns } from '../utils/agentHelpers';
+import thinkingCleanup from '../../gemini/text/thinkingCleanup';
 import { allTools as agentTools } from '../tools';
 import { cleanJsonWrapper } from '../../../utils/textSanitizer';
 import logger from '../../../utils/logger';
@@ -274,6 +275,7 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
   // Clean up text response
   if (textResponse) {
     textResponse = cleanThinkingPatterns(textResponse);
+    textResponse = thinkingCleanup.clean(textResponse);
   }
 
   // Check if any tool failed

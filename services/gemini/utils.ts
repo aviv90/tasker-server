@@ -9,6 +9,11 @@ const THINKING_SECTION_PATTERNS = [
   /\*\*My internal thoughts?:?\*\*[\s\S]*?(?=\n\n|\*\*[A-Z]|$)/gi,
   /\[Internal (thought|reasoning|analysis):[\s\S]*?\]/gi,
   /\(thinking:[\s\S]*?\)/gi,
+  // Remove "Status: ... Information: ..." blocks (CRITICAL for multi-step)
+  /Status:\s*[\s\S]*?Information:\s*[\s\S]*?(?=\n\n|$)/gi,
+  /Activity ID:\s*[\s\S]*?(?=\n\n|$)/gi,
+  /Time:\s*[\d:.]+\s*[\s\S]*?(?=\n\n|$)/gi,
+
 ];
 
 const PARENTHETICAL_PATTERNS = [
@@ -45,16 +50,16 @@ export function getGeminiErrorMessage(
   if (candidate?.finishMessage) {
     return candidate.finishMessage;
   }
-  
+
   // Priority 2: Use promptFeedback blockReasonMessage if available
   if (promptFeedback?.blockReasonMessage) {
     return promptFeedback.blockReasonMessage;
   }
-  
+
   // Priority 3: Construct from finishReason
   if (candidate?.finishReason) {
     const reason = candidate.finishReason;
-    
+
     if (reason === 'SAFETY' || reason === 'IMAGE_SAFETY') {
       return 'Gemini blocked the request due to safety concerns. Try a different image or prompt.';
     }
@@ -64,10 +69,10 @@ export function getGeminiErrorMessage(
     if (reason === 'PROHIBITED_CONTENT') {
       return 'Gemini blocked the request due to prohibited content. Try a different image or prompt.';
     }
-    
+
     return `Gemini returned no content (reason: ${reason})`;
   }
-  
+
   // Fallback
   return 'No response from Gemini';
 }
@@ -80,26 +85,26 @@ export function getGeminiErrorMessage(
  */
 export function cleanThinkingPatterns(text: string | null | undefined): string {
   if (!text || typeof text !== 'string') return text || '';
-  
+
   let cleaned = text;
   const originalLength = text.length;
-  
+
   // 1. Remove "My internal thoughts:" or similar sections (CRITICAL!)
   for (const pattern of THINKING_SECTION_PATTERNS) {
     cleaned = cleaned.replace(pattern, '');
   }
-  
+
   // 2. Remove parenthetical thinking/reasoning in English
   for (const pattern of PARENTHETICAL_PATTERNS) {
     cleaned = cleaned.replace(pattern, '');
   }
-  
+
   // 3. Remove duplicate paragraphs/sentences
   // Sometimes Gemini repeats the same text twice
   const lines = cleaned.split('\n');
   const uniqueLines: string[] = [];
   const seenLines = new Set<string>();
-  
+
   for (const line of lines) {
     const trimmedLine = line.trim();
     // Skip empty lines in deduplication (but keep them in output)
@@ -107,7 +112,7 @@ export function cleanThinkingPatterns(text: string | null | undefined): string {
       uniqueLines.push(line);
       continue;
     }
-    
+
     // Only add non-duplicate content lines
     if (!seenLines.has(trimmedLine)) {
       seenLines.add(trimmedLine);
@@ -116,30 +121,30 @@ export function cleanThinkingPatterns(text: string | null | undefined): string {
       logger.debug(`🧹 Removed duplicate line: "${trimmedLine.substring(0, 50)}..."`);
     }
   }
-  
+
   cleaned = uniqueLines.join('\n');
-  
+
   // 4. Remove consecutive duplicate words (sometimes Gemini stutters)
   // Example: "אני מבין מבין את השאלה" -> "אני מבין את השאלה"
   cleaned = cleaned.replace(/\b(\w+)\s+\1\b/g, '$1');
-  
+
   // 5. Detect and handle mixed languages - remove English paragraphs if main content is Hebrew
   // Count Hebrew vs English characters to determine primary language
   const hebrewChars = (cleaned.match(/[\u0590-\u05FF]/g) || []).length;
   const englishChars = (cleaned.match(/[a-zA-Z]/g) || []).length;
-  
+
   // If primary language is Hebrew (Hebrew chars > English chars), remove English-only paragraphs
   if (hebrewChars > englishChars && hebrewChars > 10) {
     logger.debug(`🌐 Detected Hebrew as primary language (${hebrewChars} Hebrew vs ${englishChars} English chars)`);
-    
+
     // Split by double newlines (paragraphs)
     const paragraphs = cleaned.split(/\n\n+/);
     const filteredParagraphs: string[] = [];
-    
+
     for (const para of paragraphs) {
       const paraHebrew = (para.match(/[\u0590-\u05FF]/g) || []).length;
       const paraEnglish = (para.match(/[a-zA-Z]/g) || []).length;
-      
+
       // Keep paragraph if it has Hebrew OR if it's very short (like a single word/emoji)
       if (paraHebrew > 0 || para.trim().length < 20) {
         filteredParagraphs.push(para);
@@ -151,19 +156,19 @@ export function cleanThinkingPatterns(text: string | null | undefined): string {
         filteredParagraphs.push(para);
       }
     }
-    
+
     cleaned = filteredParagraphs.join('\n\n');
   }
-  
+
   // 6. Trim extra whitespace
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n'); // Max 2 consecutive newlines
   cleaned = cleaned.trim();
-  
+
   // Log if significant cleaning happened
   if (cleaned.length < originalLength * 0.8) {
     logger.debug(`🧹 Cleaned thinking patterns: ${originalLength} -> ${cleaned.length} chars (removed ${originalLength - cleaned.length})`);
   }
-  
+
   return cleaned;
 }
 

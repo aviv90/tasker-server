@@ -76,7 +76,7 @@ export async function extractTextFromDocument(fileId: string, mimeType: string):
         // Handle PDFs and documents
         if (mimeType.includes('pdf') || mimeType.includes('document') || mimeType.includes('text')) {
             const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-            const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-preview' });
+            const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
             const base64Pdf = downloadResult.data.toString('base64');
             const prompt =

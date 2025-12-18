@@ -163,7 +163,7 @@ class VideoAnalysis {
       const languageInstruction = this.buildLanguageInstruction(detectedLang);
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-3-pro-preview"
+        model: "gemini-3-flash-preview"
       });
 
       const videoPart = await this.prepareVideoPart(videoBuffer);
