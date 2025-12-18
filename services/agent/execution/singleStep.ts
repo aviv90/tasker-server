@@ -50,7 +50,7 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
   const {
     maxIterations = 5,
     languageInstruction,
-    agentConfig = { model: 'gemini-1.5-flash' },
+    agentConfig = { model: 'gemini-3-flash-preview' },
     functionDeclarations,
     systemInstruction,
     expectedTool = null  // In multi-step, restrict execution to this tool only
