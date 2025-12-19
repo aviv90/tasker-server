@@ -91,6 +91,16 @@ export function cleanMediaDescription(text: unknown, preserveLinks: boolean = fa
     .replace(/תמונה:\s*$/gi, '')
     .replace(/\[וידאו\]/gi, '')
     .replace(/\[אודיו\]/gi, '')
+    // System artifacts (Added to fix [Image sent] bug)
+    .replace(/\[Image sent\]/gi, '')
+    .replace(/\[Video sent\]/gi, '')
+    .replace(/\[Audio sent\]/gi, '')
+    .replace(/\[Image created\]/gi, '')
+    .replace(/\[Video created\]/gi, '')
+    .replace(/\[Audio created\]/gi, '')
+    .replace(/\[Voice message sent\]/gi, '')
+    .replace(/\[Media\]/gi, '')
+    // Gemini tool result artifacts
     .replace(/\[audioUrl:[^\]]*\]?/gi, '')
     .replace(/\[imageUrl:[^\]]*\]?/gi, '')
     .replace(/\[videoUrl:[^\]]*\]?/gi, '')
@@ -140,6 +150,15 @@ export function cleanMultiStepText(text: unknown): string {
     .replace(/\[תמונה\]/gi, '')
     .replace(/\[וידאו\]/gi, '')
     .replace(/\[אודיו\]/gi, '')
+    // System artifacts
+    .replace(/\[Image sent\]/gi, '')
+    .replace(/\[Video sent\]/gi, '')
+    .replace(/\[Audio sent\]/gi, '')
+    .replace(/\[Image created\]/gi, '')
+    .replace(/\[Video created\]/gi, '')
+    .replace(/\[Audio created\]/gi, '')
+    .replace(/\[Voice message sent\]/gi, '')
+    .replace(/\[Media\]/gi, '')
     // CRITICAL: Remove [audioUrl: ...], [imageUrl: ...], [videoUrl: ...] patterns
     // These are added by Gemini when returning tool results and shouldn't be sent to users
     .replace(/\[audioUrl:[^\]]*\]?/gi, '') // Remove [audioUrl: ...]
