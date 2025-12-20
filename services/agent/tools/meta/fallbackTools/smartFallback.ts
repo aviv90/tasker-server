@@ -8,7 +8,7 @@ import logger from '../../../../../utils/logger';
 import { ERROR } from '../../../../../config/messages';
 import { createTool } from '../../base';
 
-type TaskType = 'image_creation' | 'video_creation' | 'audio_creation';
+type TaskType = 'image_creation' | 'video_creation' | 'audio_creation' | 'image_to_video';
 type Provider = 'gemini' | 'openai' | 'grok';
 
 interface SmartFallbackArgs {
@@ -17,6 +17,7 @@ interface SmartFallbackArgs {
   failure_reason: string;
   provider_tried?: Provider;
   providers_tried?: string[];
+  image_url?: string;
 }
 
 interface ImageResult {
@@ -48,8 +49,8 @@ const smartExecuteWithFallback = createTool<SmartFallbackArgs>(
       properties: {
         task_type: {
           type: 'string',
-          description: 'Task type: image_creation, video_creation, audio_creation',
-          enum: ['image_creation', 'video_creation', 'audio_creation']
+          description: 'Task type: image_creation, video_creation, audio_creation, image_to_video',
+          enum: ['image_creation', 'video_creation', 'audio_creation', 'image_to_video']
         },
         original_prompt: {
           type: 'string',
@@ -61,8 +62,11 @@ const smartExecuteWithFallback = createTool<SmartFallbackArgs>(
         },
         provider_tried: {
           type: 'string',
-          description: 'Provider already tried (gemini/openai/grok)',
-          enum: ['gemini', 'openai', 'grok']
+          description: 'Provider already tried (gemini/openai/grok/kling/veo3/sora/runway)',
+        },
+        image_url: {
+          type: 'string',
+          description: 'Image URL for image-to-video tasks',
         }
       },
       required: ['task_type', 'original_prompt', 'failure_reason']
@@ -129,29 +133,58 @@ const smartExecuteWithFallback = createTool<SmartFallbackArgs>(
                 suppressFinalResponse: true
               };
             }
-          } else if (args.task_type === 'video_creation') {
+          } else if (args.task_type === 'video_creation' || args.task_type === 'image_to_video') {
             // Video generation with different providers
             const videoProviderLabelMap: Record<string, string> = {
+              veo3: 'veo3',
+              sora: 'sora',
+              kling: 'kling',
+              'sora-pro': 'sora-pro',
+              runway: 'runway',
+              // Legacy mappings just in case
               gemini: 'veo3',
-              openai: 'sora',
-              grok: 'kling'
+              openai: 'sora'
             };
 
             let videoResult: VideoResult | undefined;
-            if (provider === 'gemini') {
-              videoResult = (await geminiService.generateVideoForWhatsApp(args.original_prompt)) as VideoResult;
-            } else if (provider === 'openai') {
-              videoResult = (await openaiService.generateVideoWithSoraForWhatsApp(
-                args.original_prompt,
-                null,
-                { model: 'sora-2' }
-              )) as VideoResult;
+            const isImageToVideo = args.task_type === 'image_to_video' && args.image_url;
+
+            if (isImageToVideo) {
+              // Image-to-Video
+              const imageBuffer = await getServices().greenApiService.downloadFile(args.image_url!);
+
+              if (provider === 'veo3' || provider === 'gemini') {
+                videoResult = (await geminiService.generateVideoFromImageForWhatsApp(args.original_prompt, imageBuffer)) as VideoResult;
+              } else if (provider === 'sora' || provider === 'openai' || provider === 'sora-2' || provider === 'sora-pro') {
+                const model = (provider === 'sora-pro') ? 'sora-2-pro' : 'sora-2';
+                videoResult = (await openaiService.generateVideoWithSoraFromImageForWhatsApp(
+                  args.original_prompt,
+                  imageBuffer,
+                  { model }
+                )) as VideoResult;
+              } else {
+                // Default to Kling for anything else (or specific 'kling' check)
+                videoResult = (await replicateService.generateVideoFromImageForWhatsApp(imageBuffer, args.original_prompt)) as VideoResult;
+              }
             } else {
-              videoResult = (await replicateService.generateVideoWithTextForWhatsApp(args.original_prompt)) as VideoResult;
+              // Text-to-Video
+              if (provider === 'veo3' || provider === 'gemini') {
+                videoResult = (await geminiService.generateVideoForWhatsApp(args.original_prompt)) as VideoResult;
+              } else if (provider === 'sora' || provider === 'openai' || provider === 'sora-2' || provider === 'sora-pro') {
+                const model = (provider === 'sora-pro') ? 'sora-2-pro' : 'sora-2';
+                videoResult = (await openaiService.generateVideoWithSoraForWhatsApp(
+                  args.original_prompt,
+                  null,
+                  { model }
+                )) as VideoResult;
+              } else {
+                // Default to Kling
+                videoResult = (await replicateService.generateVideoWithTextForWhatsApp(args.original_prompt)) as VideoResult;
+              }
             }
 
             if (videoResult && !videoResult.error) {
-              if (args.task_type === 'video_creation') {
+              if (args.task_type === 'video_creation' || args.task_type === 'image_to_video') {
                 context.expectedMediaType = null;
               }
               const providerLabel = videoProviderLabelMap[provider] || provider;
@@ -182,7 +215,6 @@ const smartExecuteWithFallback = createTool<SmartFallbackArgs>(
         } catch (e) {
           const error = e as Error;
           logger.warn(`   ✗ ${provider} failed: ${error.message}`);
-
           await helpers.sendFallbackError(context, `❌ ${helpers.formatProviderName(provider)} נכשל: ${error.message}`);
         }
       }

@@ -5,7 +5,7 @@ import logger from '../../../../../utils/logger';
 import { FAILED, ERROR } from '../../../../../config/messages';
 import { createTool } from '../../base';
 
-type TaskType = 'image' | 'image_edit' | 'video';
+type TaskType = 'image' | 'image_edit' | 'video' | 'image_to_video';
 
 interface RetryProviderArgs {
   original_prompt: string;
@@ -52,8 +52,8 @@ const retryWithDifferentProvider = createTool<RetryProviderArgs>(
         },
         task_type: {
           type: 'string',
-          description: 'Task type: image, image_edit, or video',
-          enum: ['image', 'image_edit', 'video']
+          description: 'Task type: image, image_edit, video, or image_to_video',
+          enum: ['image', 'image_edit', 'video', 'image_to_video']
         },
         avoid_provider: {
           type: 'string',
@@ -148,7 +148,7 @@ const retryWithDifferentProvider = createTool<RetryProviderArgs>(
           success: false,
           error: FAILED.ALL_EDIT_PROVIDERS(errors.join('\n'))
         };
-      } else if (taskType === 'video') {
+      } else if (taskType === 'video' || taskType === 'image_to_video') {
         // Video fallback
         context.expectedMediaType = 'video';
         const displayProviders = providers.map((p: string) => helpers.getDisplayProvider(p));
@@ -164,15 +164,38 @@ const retryWithDifferentProvider = createTool<RetryProviderArgs>(
 
           try {
             let result: VideoResult | undefined;
-            if (provider === 'grok') {
-              result = (await replicateService.generateVideoWithTextForWhatsApp(args.original_prompt)) as VideoResult;
-            } else if (provider === 'gemini') {
-              result = (await geminiService.generateVideoForWhatsApp(args.original_prompt)) as VideoResult;
-            } else if (provider === 'openai') {
-              result = (await openaiService.generateVideoWithSoraForWhatsApp(args.original_prompt, null)) as VideoResult;
+
+            if (taskType === 'image_to_video' && args.image_url) {
+              // Must download image
+              const imageBuffer = await greenApiService.downloadFile(args.image_url);
+
+              if (provider === 'veo3' || provider === 'gemini') {
+                result = (await geminiService.generateVideoFromImageForWhatsApp(args.original_prompt, imageBuffer)) as VideoResult;
+              } else if (provider === 'sora' || provider === 'openai' || provider === 'sora-2' || provider === 'sora-pro') {
+                const model = (provider === 'sora-pro') ? 'sora-2-pro' : 'sora-2';
+                result = (await openaiService.generateVideoWithSoraFromImageForWhatsApp(
+                  args.original_prompt,
+                  imageBuffer,
+                  { model }
+                )) as VideoResult;
+              } else {
+                result = (await replicateService.generateVideoFromImageForWhatsApp(imageBuffer, args.original_prompt)) as VideoResult;
+              }
+            } else {
+              // Text to video
+              if (provider === 'grok' || provider === 'kling') {
+                result = (await replicateService.generateVideoWithTextForWhatsApp(args.original_prompt)) as VideoResult;
+              } else if (provider === 'gemini' || provider === 'veo3') {
+                result = (await geminiService.generateVideoForWhatsApp(args.original_prompt)) as VideoResult;
+              } else if (provider === 'openai' || provider === 'sora' || provider === 'sora-2') {
+                result = (await openaiService.generateVideoWithSoraForWhatsApp(args.original_prompt, null)) as VideoResult;
+              }
             }
 
             if (result && !result.error) {
+              if (taskType === 'video' || taskType === 'image_to_video') {
+                context.expectedMediaType = null;
+              }
               return {
                 success: true,
                 data: `✅ ניסיתי עם ${helpers.formatProviderName(displayProvider)} והצלחתי!`,
