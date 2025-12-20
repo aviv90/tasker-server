@@ -59,6 +59,16 @@ export const create_image = createTool<CreateImageArgs>(
         };
       }
 
+      // Validate provider: Block Video providers for Image generation
+      // The Agent sometimes hallucinates and tries to use sora/veo/kling for images after a video failure
+      const videoProviders = ['sora', 'sora-2', 'sora-pro', 'veo', 'veo3', 'kling', 'runway'];
+      if (args.provider && videoProviders.includes(args.provider.toLowerCase())) {
+        return {
+          success: false,
+          error: `הספק ${args.provider} הינו ספק וידאו ולא ניתן ליצור איתו תמונות. אנא השתמש ב-create_video או בחר ספק תמונות (Gemini, OpenAI, Grok).`
+        };
+      }
+
       const requestedProvider = args.provider ?? null;
       const providersToTry = requestedProvider
         ? [requestedProvider]

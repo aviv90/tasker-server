@@ -59,7 +59,13 @@ export function normalizeProviderKey(provider: ProviderKey): string | null {
 export function applyProviderToMessage(message: string, providerName?: string | null): string {
   if (message.includes('__PROVIDER__')) {
     if (!providerName) {
-      return message.replace(' עם __PROVIDER__', '').replace('עם __PROVIDER__ ', '');
+      // Remove __PROVIDER__ and any preceding/succeeding prepositions like "עם" or "with"
+      return message
+        .replace(/\s?עם\s?__PROVIDER__/g, '')
+        .replace(/\s?with\s?__PROVIDER__/g, '')
+        .replace(/__PROVIDER__/g, '')
+        .replace(/\s{2,}/g, ' ') // Clean up double spaces
+        .trim();
     }
     return message.replace('__PROVIDER__', providerName);
   }

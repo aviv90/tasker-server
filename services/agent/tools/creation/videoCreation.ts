@@ -63,6 +63,17 @@ export const create_video = createTool<CreateVideoArgs>(
         };
       }
 
+      // Validate provider: Block Image providers for Video generation
+      const imageProviders = ['dalle', 'dall-e', 'dall-e-3', 'flux', 'midjourney']; // Explicit image-only providers
+      // Note: 'openai' and 'gemini' are ambiguous, so we allow them (they map to Sora/Veo usually in this context)
+      // modifying check to be safe
+      if (args.provider && imageProviders.includes(args.provider.toLowerCase())) {
+        return {
+          success: false,
+          error: `הספק ${args.provider} הינו ספק תמונות ולא ניתן ליצור איתו וידאו. אנא השתמש ב-create_image או בחר ספק וידאו (Kling, Veo, Sora).`
+        };
+      }
+
       const { geminiService, openaiService } = getServices();
       const requestedProvider = args.provider || null;
 
