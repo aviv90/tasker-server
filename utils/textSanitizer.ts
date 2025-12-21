@@ -100,6 +100,16 @@ export function cleanMediaDescription(text: unknown, preserveLinks: boolean = fa
     .replace(/\[Audio created\]/gi, '')
     .replace(/\[Voice message sent\]/gi, '')
     .replace(/\[Media\]/gi, '')
+    // CRITICAL: Remove [image_id: ...], [video_id: ...], [audio_id: ...] patterns
+    .replace(/\[image_id:\s*\d+\]/gi, '')
+    .replace(/\[video_id:\s*\d+\]/gi, '')
+    .replace(/\[audio_id:\s*\d+\]/gi, '')
+    .replace(/\[image_id=\s*\d+\]/gi, '')
+    .replace(/\[video_id=\s*\d+\]/gi, '')
+    .replace(/\[audio_id=\s*\d+\]/gi, '')
+    .replace(/\[תמונה:\s*image_id=[^\]]*\]/gi, '')
+    .replace(/\[וידאו:\s*video_id=[^\]]*\]/gi, '')
+    .replace(/\[אודיו:\s*audio_id=[^\]]*\]/gi, '')
     // Gemini tool result artifacts
     .replace(/\[audioUrl:[^\]]*\]?/gi, '')
     .replace(/\[imageUrl:[^\]]*\]?/gi, '')
@@ -159,6 +169,18 @@ export function cleanMultiStepText(text: unknown): string {
     .replace(/\[Audio created\]/gi, '')
     .replace(/\[Voice message sent\]/gi, '')
     .replace(/\[Media\]/gi, '')
+    // CRITICAL: Remove [image_id: ...], [video_id: ...], [audio_id: ...] patterns
+    // These are internal artifacts that the Agent might hallucinate orparrot back from history
+    .replace(/\[image_id:\s*\d+\]/gi, '')
+    .replace(/\[video_id:\s*\d+\]/gi, '')
+    .replace(/\[audio_id:\s*\d+\]/gi, '')
+    .replace(/\[image_id=\s*\d+\]/gi, '')
+    .replace(/\[video_id=\s*\d+\]/gi, '')
+    .replace(/\[audio_id=\s*\d+\]/gi, '')
+    // Also strip localized variants if any
+    .replace(/\[תמונה:\s*image_id=[^\]]*\]/gi, '')
+    .replace(/\[וידאו:\s*video_id=[^\]]*\]/gi, '')
+    .replace(/\[אודיו:\s*audio_id=[^\]]*\]/gi, '')
     // CRITICAL: Remove [audioUrl: ...], [imageUrl: ...], [videoUrl: ...] patterns
     // These are added by Gemini when returning tool results and shouldn't be sent to users
     .replace(/\[audioUrl:[^\]]*\]?/gi, '') // Remove [audioUrl: ...]

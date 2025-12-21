@@ -199,17 +199,16 @@ export class FallbackHandler {
                 edit_instruction: promptToUse,
                 service: provider as 'openai' | 'gemini'
             }, context) as StepResult;
-        }, context) as StepResult;
-    }
+        }
 
         return null;
     }
 
-/**
- * Check if tool is a creation tool
- */
-isCreationTool(toolName: string): boolean {
-    const creationTools = ['create_image', 'create_video', 'edit_image'];
-    return creationTools.includes(toolName);
-}
+    /**
+     * Check if tool is a creation tool
+     */
+    isCreationTool(toolName: string): boolean {
+        const creationTools = ['create_image', 'create_video', 'edit_image'];
+        return creationTools.includes(toolName);
+    }
 }
