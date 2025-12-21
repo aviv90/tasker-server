@@ -36,18 +36,19 @@ export function normalizeProviderKey(provider: ProviderKey): string | null {
   if (!provider) return null;
   const key = String(provider).toLowerCase();
   const mapping: Record<string, string> = {
-    kling: 'grok',
-    'kling-text-to-video': 'grok',
+    kling: 'kling',
+    'kling-text-to-video': 'kling',
     grok: 'grok',
     veo: 'veo3',
     // gemini: 'gemini', // kept as identity by default
     google: 'gemini',
     'google-veo3': 'veo3',
-    sora: 'openai',
-    'sora-2': 'openai',
-    sora2: 'openai',
-    'sora-2-pro': 'openai',
-    'sora-pro': 'openai',
+    // Strict identity for Sora to avoid confusion with generic OpenAI image tools
+    sora: 'sora',
+    'sora-2': 'sora',
+    sora2: 'sora',
+    'sora-2-pro': 'sora-pro',
+    'sora-pro': 'sora-pro',
     openai: 'openai'
   };
   return mapping[key] || key;
