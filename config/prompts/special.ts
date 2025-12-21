@@ -206,3 +206,19 @@ Text to translate: "${text}"
 
 Important: Return only the translation, no explanations, no quotes, no extra text.`;
 }
+
+/**
+ * Drive Document Analysis Prompt (PDFs/Docs)
+ */
+export const driveDocumentAnalysisPrompt =
+  'זהו קובץ מסמך/שרטוט (PDF). ' +
+  'תאר באופן מפורט וברור את התוכן שלו, את המבנה, האלמנטים המרכזיים, הטקסטים החשובים, ' +
+  'וכל דבר שרלוונטי להבנת השרטוט או התכנית. ' +
+  'ענה בעברית ברורה, עם bullet points מסודרים.';
+
+/**
+ * Drive Image Analysis Prompt
+ */
+export const driveImageAnalysisPrompt =
+  'תאר את התוכן של התמונה בפירוט. אם יש טקסט בתמונה, העתק אותו במלואו.';
+

@@ -115,6 +115,22 @@ export const UNABLE = {
 } as const;
 
 /**
+ * Provider Mismatch errors - "ספק לא מתאים..."
+ */
+export const PROVIDER_MISMATCH = {
+  VIDEO_PROVIDER_FOR_IMAGE: (provider: string) => `הספק ${provider} הינו ספק וידאו ולא ניתן ליצור איתו תמונות. אנא השתמש ב-create_video או בחר ספק תמונות (Gemini, OpenAI, Grok).`,
+  IMAGE_PROVIDER_FOR_VIDEO: (provider: string) => `הספק ${provider} הינו ספק תמונות ולא ניתן ליצור איתו וידאו. אנא השתמש ב-create_image או בחר ספק וידאו (Kling, Veo, Sora).`,
+  EXPECTED_VIDEO: 'התבקשת ליצור וידאו, לא תמונה. בחר ספק וידאו מתאים או נסה שוב.'
+} as const;
+
+/**
+ * Common failures
+ */
+export const COMMON = {
+  NO_PROVIDER_RESPONSE: 'לא התקבלה תשובה מהספקים'
+} as const;
+
+/**
  * Generic error wrapper - "שגיאה: ..."
  */
 export const ERROR = {
@@ -128,8 +144,7 @@ export const ERROR = {
   imageAnalysis: (message: string) => `שגיאה בניתוח התמונה: ${message}`,
   savePreference: (message: string) => `שגיאה בשמירת העדפה: ${message}`,
   longTermMemory: (message: string) => `שגיאה בגישה לזיכרון ארוך טווח: ${message}`,
-  retry: (message: string) => `שגיאה בביצוע חוזר: ${message}`,
-  smartMechanism: (message: string) => `שגיאה במנגנון החכם: ${message}`
+  retry: (message: string) => `שגיאה בביצוע חוזר: ${message}`
 } as const;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -153,6 +168,8 @@ export default {
   NOT_FOUND,
   FAILED,
   UNABLE,
-  ERROR
+  ERROR,
+  PROVIDER_MISMATCH,
+  COMMON
 };
 

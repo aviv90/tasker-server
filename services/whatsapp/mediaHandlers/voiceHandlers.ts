@@ -4,22 +4,7 @@
  * Handles voice-to-voice processing (STT + Voice Clone + TTS)
  */
 
-/*
-import { sendTextMessage, sendFileByUrl, downloadFile } from '../../greenApiService';
-import { formatProviderError } from '../../../utils/errorHandler';
-import { sendErrorToUser } from '../../../utils/errorSender';
-import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
-import { MIN_DURATION_FOR_CLONING, TRANSCRIPTION_DEFAULTS } from '../constants';
-import { getAudioDuration } from '../../agent/utils/audioUtils';
-import { generateTextResponse } from '../../geminiService';
-import speechService from '../../speechService';
-import { voiceService } from '../../voiceService';
-import audioConverterService from '../../audioConverterService';
-import logger from '../../../utils/logger';
-import { TIME } from '../../../utils/constants';
-import { routeToAgent } from '../../agentRouter';
-import { sendAgentResults, NormalizedInput, AgentResult as HandlerAgentResult } from '../../../routes/whatsapp/incoming/resultHandling';
-*/
+
 import logger from '../../../utils/logger'; // Keep logger as it is used
 
 

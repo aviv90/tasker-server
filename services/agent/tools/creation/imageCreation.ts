@@ -6,7 +6,7 @@ import { ProviderFallback } from '../../../../utils/providerFallback';
 import logger from '../../../../utils/logger';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { IMAGE_PROVIDERS, DEFAULT_IMAGE_PROVIDERS, PROVIDERS } from '../../config/constants';
-import { REQUIRED, ERROR } from '../../../../config/messages';
+import { REQUIRED, ERROR, PROVIDER_MISMATCH, COMMON } from '../../../../config/messages';
 import { createTool } from '../base';
 import type { CreateImageArgs, ImageProviderResult } from './types';
 
@@ -55,7 +55,7 @@ export const create_image = createTool<CreateImageArgs>(
       if (context.expectedMediaType === 'video') {
         return {
           success: false,
-          error: 'התבקשת ליצור וידאו, לא תמונה. בחר ספק וידאו מתאים או נסה שוב.'
+          error: PROVIDER_MISMATCH.EXPECTED_VIDEO
         };
       }
 
@@ -65,7 +65,7 @@ export const create_image = createTool<CreateImageArgs>(
       if (args.provider && videoProviders.includes(args.provider.toLowerCase())) {
         return {
           success: false,
-          error: `הספק ${args.provider} הינו ספק וידאו ולא ניתן ליצור איתו תמונות. אנא השתמש ב-create_video או בחר ספק תמונות (Gemini, OpenAI, Grok).`
+          error: PROVIDER_MISMATCH.VIDEO_PROVIDER_FOR_IMAGE(args.provider)
         };
       }
 
@@ -111,7 +111,7 @@ export const create_image = createTool<CreateImageArgs>(
       if (!providerResult) {
         return {
           success: false,
-          error: 'לא התקבלה תשובה מהספקים'
+          error: COMMON.NO_PROVIDER_RESPONSE
         };
       }
 

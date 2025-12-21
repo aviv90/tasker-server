@@ -48,6 +48,23 @@ export interface LastCommand {
 import { AgentResult } from './agent/types';
 
 /**
+ * Check if history can be safely skipped for performance
+ */
+function shouldSkipHistory(text: string): boolean {
+  if (!text) return false;
+
+  // Strong indicators of creation/independent tasks
+  // "create", "gen", "generate", "draw", "make", "imagine", "search", "poll", "translate"
+  const isCreation = /^(create|gen|generate|draw|make|imagine|search|poll|translate|define|explain)\b/i.test(text);
+
+  // Indicators that context IS needed (references to past)
+  const hasContextRef = /\b(it|that|this|prev|previous|same|change|again|more|instead)\b/i.test(text);
+
+  // If it's a creation command AND has no context references -> Skip history
+  return isCreation && !hasContextRef;
+}
+
+/**
  * Route incoming request directly to Agent
  * @param input - Normalized input from webhook
  * @param chatId - Chat ID for context
@@ -73,13 +90,18 @@ export async function routeToAgent(input: NormalizedInput, chatId: string, optio
     (input as Record<string, unknown>).hasAudio
   );
 
-  // Use explicit option if provided, otherwise skip history for media (self-contained)
+  // Heuristic optimization: Skip history for clear, standalone creation commands
+  const canSkipHistory = shouldSkipHistory(userText);
+
+  // Use explicit option if provided, otherwise skip history for media OR standalone commands
   const useHistory = options.useConversationHistory !== undefined
     ? options.useConversationHistory
-    : !hasMedia;
+    : (!hasMedia && !canSkipHistory);
 
   if (hasMedia && !useHistory) {
     logger.info('📷 [AGENT ROUTER] Media attached - skipping history (self-contained request)');
+  } else if (canSkipHistory && !useHistory) {
+    logger.info('🚀 [AGENT ROUTER] Fast Path detected - skipping history for standalone command');
   }
 
   // Build contextual prompt using the new context builder

@@ -54,7 +54,7 @@ class ImageGeneration {
   /**
    * Process Gemini image response
    */
-  processImageResponse(response: unknown, prompt: string): ImageGenerationResult {
+  processImageResponse(response: unknown, _prompt: string): ImageGenerationResult {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const responseAny = response as any;
     if (!responseAny.candidates || responseAny.candidates.length === 0) {
@@ -99,7 +99,7 @@ class ImageGeneration {
       return { error: 'לא חזרה תמונה ולא חזר טקסט' };
     }
 
-    return { text: text || prompt, imageBuffer };
+    return { text: text || undefined, imageBuffer };
   }
 
   /**
@@ -132,7 +132,7 @@ class ImageGeneration {
         model: "gemini-3-pro-image-preview"
       });
 
-       
+
       const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: cleanPrompt }] }],
         generationConfig: {
@@ -177,7 +177,7 @@ class ImageGeneration {
         model: "gemini-3-pro-image-preview"
       });
 
-       
+
       const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: cleanPrompt }] }],
         generationConfig: {

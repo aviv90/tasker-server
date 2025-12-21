@@ -58,7 +58,6 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
   search_and_create: 'מחפש ויוצר... 🔍➡️🎨',
   create_and_analyze: 'יוצר ומנתח... 🎨➡️🔍',
   analyze_and_edit: 'מנתח ועורך... 🔍➡️✏️',
-  smart_execute_with_fallback: 'מנסה עם __PROVIDER__... 🔄',
   retry_with_different_provider: 'מנסה עם __PROVIDER__... 🔁',
   retry_last_command: 'חוזר על פקודה קודמת... ↩️',
 
@@ -80,9 +79,7 @@ export const VIDEO_PROVIDER_DISPLAY_MAP: Record<string, string> = {
   veo3: 'Veo 3',
   sora: 'Sora 2',
   'sora-pro': 'Sora 2 Pro',
-  runway: 'Runway',
-  grok: 'Kling', // Fallback for old keys
-  openai: 'Sora 2'
+  runway: 'Runway'
 };
 
 /**

@@ -12,7 +12,7 @@ import logger from '../../../../utils/logger';
 import * as replicateService from '../../../replicateService';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { VIDEO_PROVIDERS, DEFAULT_VIDEO_PROVIDERS, PROVIDERS } from '../../config/constants';
-import { REQUIRED, ERROR } from '../../../../config/messages';
+import { REQUIRED, ERROR, PROVIDER_MISMATCH, COMMON } from '../../../../config/messages';
 import { TIME } from '../../../../utils/constants'; // Import TIME CONSTANTS
 import { createTool } from '../base';
 import type {
@@ -70,7 +70,7 @@ export const create_video = createTool<CreateVideoArgs>(
       if (args.provider && imageProviders.includes(args.provider.toLowerCase())) {
         return {
           success: false,
-          error: `הספק ${args.provider} הינו ספק תמונות ולא ניתן ליצור איתו וידאו. אנא השתמש ב-create_image או בחר ספק וידאו (Kling, Veo, Sora).`
+          error: PROVIDER_MISMATCH.IMAGE_PROVIDER_FOR_VIDEO(args.provider)
         };
       }
 
@@ -126,7 +126,7 @@ export const create_video = createTool<CreateVideoArgs>(
       if (!videoResult) {
         return {
           success: false,
-          error: 'לא התקבלה תשובה מהספקים'
+          error: COMMON.NO_PROVIDER_RESPONSE
         };
       }
 
@@ -281,7 +281,7 @@ export const image_to_video = createTool<ImageToVideoArgs>(
       if (!videoResult) {
         return {
           success: false,
-          error: 'לא התקבלה תשובה מהספקים'
+          error: COMMON.NO_PROVIDER_RESPONSE
         };
       }
 

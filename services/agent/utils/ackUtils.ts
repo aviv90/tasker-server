@@ -30,7 +30,7 @@ export function getToolAckMessage(toolName: string, provider: ProviderKey = null
     if (toolName === 'create_image' || toolName === 'edit_image') {
       provider = 'gemini';
     } else if (toolName === 'create_video' || toolName === 'image_to_video') {
-      provider = 'grok';
+      provider = 'veo3';
     } else if (toolName === 'edit_video') {
       provider = 'runway';
     }

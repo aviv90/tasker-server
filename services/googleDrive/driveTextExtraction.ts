@@ -11,6 +11,7 @@ import { downloadFile } from './driveDownload';
 import { getServices } from '../agent/utils/serviceLoader';
 import { get as getFromCache, set as setInCache, CacheKeys, CacheTTL } from '../../utils/cache';
 import logger from '../../utils/logger';
+import prompts from '../../config/prompts'; // Import SSOT prompts
 
 // Re-export DriveFile for convenience
 export { DriveFile };
@@ -60,7 +61,7 @@ export async function extractTextFromDocument(fileId: string, mimeType: string):
         if (mimeType.startsWith('image/')) {
             const base64 = downloadResult.data.toString('base64');
             const result = await geminiService.analyzeImageWithText(
-                'תאר את התוכן של התמונה בפירוט. אם יש טקסט בתמונה, העתק אותו במלואו.',
+                prompts.driveImageAnalysisPrompt,
                 base64
             ) as { text?: string; error?: string };
 
@@ -79,11 +80,7 @@ export async function extractTextFromDocument(fileId: string, mimeType: string):
             const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
             const base64Pdf = downloadResult.data.toString('base64');
-            const prompt =
-                'זהו קובץ מסמך/שרטוט (PDF). ' +
-                'תאר באופן מפורט וברור את התוכן שלו, את המבנה, האלמנטים המרכזיים, הטקסטים החשובים, ' +
-                'וכל דבר שרלוונטי להבנת השרטוט או התכנית. ' +
-                'ענה בעברית ברורה, עם bullet points מסודרים.';
+            const prompt = prompts.driveDocumentAnalysisPrompt;
 
             const result = await model.generateContent({
                 contents: [{

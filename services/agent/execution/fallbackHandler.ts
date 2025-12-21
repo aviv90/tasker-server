@@ -46,7 +46,8 @@ export class FallbackHandler {
             const imageProviders = ['gemini', 'openai', 'grok'].filter(p => p !== avoidProvider);
             const videoProviders = ['veo3', 'sora', 'kling'].filter(p => p !== avoidProvider);
 
-            const providersToTry = toolName.includes('image') ? imageProviders : videoProviders;
+            const isVideoTool = toolName === 'create_video' || toolName === 'image_to_video' || toolName === 'edit_video';
+            const providersToTry = isVideoTool ? videoProviders : imageProviders;
 
             // Try each provider
             // CRITICAL: Don't send ACK in fallback - the tool already received ACK before execution
@@ -199,6 +200,14 @@ export class FallbackHandler {
                 edit_instruction: promptToUse,
                 service: provider as 'openai' | 'gemini'
             }, context) as StepResult;
+        } else if (toolName === 'image_to_video') {
+            // Support fallback for image_to_video
+            if (!agentTools.image_to_video) return null;
+            return await agentTools.image_to_video.execute({
+                image_url: toolParams.image_url as string,
+                prompt: promptToUse,
+                provider
+            }, context) as StepResult;
         }
 
         return null;
@@ -208,7 +217,7 @@ export class FallbackHandler {
      * Check if tool is a creation tool
      */
     isCreationTool(toolName: string): boolean {
-        const creationTools = ['create_image', 'create_video', 'edit_image'];
+        const creationTools = ['create_image', 'create_video', 'edit_image', 'image_to_video'];
         return creationTools.includes(toolName);
     }
 }

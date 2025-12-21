@@ -99,7 +99,6 @@ export const {
 } = flightTools;
 
 export const {
-  smart_execute_with_fallback,
   retry_with_different_provider
 } = fallbackTools;
 
@@ -168,7 +167,6 @@ export const allTools: Record<string, AgentTool> = {
 
   // Meta & Retry
   retry_last_command: retryTools.retry_last_command,
-  smart_execute_with_fallback: fallbackTools.smart_execute_with_fallback,
   retry_with_different_provider: fallbackTools.retry_with_different_provider,
   // self_update: metaTools.self_update, // Missing
   // agent_chat: metaTools.agent_chat, // Missing
