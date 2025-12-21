@@ -7,6 +7,8 @@ import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
 import { cleanMediaDescription } from '../../../utils/textSanitizer';
 import { cleanAgentText } from '../../../services/whatsapp/utils';
 import { formatProviderError } from '../../../utils/errorHandler';
+import { DEFAULT_IMAGE_PROVIDERS, VIDEO_PROVIDER_FALLBACK_ORDER } from '../config/constants';
+
 import agentContext from './context';
 
 export class FallbackHandler {
@@ -41,10 +43,18 @@ export class FallbackHandler {
         try {
             const { greenApiService } = getServices();
 
+
+
+            // ... (inside class, method tryFallback)
+
             // Determine provider order based on what failed
             const avoidProvider = (toolParams.provider as string) || 'gemini';
-            const imageProviders = ['gemini', 'openai', 'grok'].filter(p => p !== avoidProvider);
-            const videoProviders = ['veo3', 'sora', 'kling'].filter(p => p !== avoidProvider);
+            // Use SSOT constants
+            const imageProviders = DEFAULT_IMAGE_PROVIDERS
+                .filter(p => p !== avoidProvider);
+
+            const videoProviders = VIDEO_PROVIDER_FALLBACK_ORDER
+                .filter(p => p !== avoidProvider);
 
             const isVideoTool = toolName === 'create_video' || toolName === 'image_to_video' || toolName === 'edit_video';
             const providersToTry = isVideoTool ? videoProviders : imageProviders;
