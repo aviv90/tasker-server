@@ -100,7 +100,15 @@ export const analyze_image_from_history = createTool<AnalyzeImageArgs>(
       // AgentContextState defines previousToolResults as Record<string, ToolResult> | undefined
       // ToolResult in agent types has 'messages'
       const historyToolResult = context.previousToolResults?.get_chat_history as { messages?: unknown[] } | undefined;
-      const history = historyToolResult?.messages;
+      let history = historyToolResult?.messages;
+
+      if (!history) {
+        logger.debug('📜 History not found in context for image analysis, fetching explicitly...');
+        const historyResult = await getChatHistory(context.chatId || '', 50, { format: 'display', useDbCache: false });
+        if (historyResult.success) {
+          history = historyResult.messages;
+        }
+      }
 
       if (!history || !history[args.image_id]) {
         return {

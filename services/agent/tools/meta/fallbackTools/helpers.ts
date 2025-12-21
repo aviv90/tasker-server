@@ -54,12 +54,18 @@ export async function sendFallbackError(context: ToolContext, message: string): 
  */
 export function getProviderOrder(taskType: string, avoidProvider: string | null = null): string[] {
   if (taskType === 'image_edit') {
-    return ['gemini', 'openai'].filter((p: string) => p !== avoidProvider);
-  } else if (taskType === 'video' || taskType === 'video_creation') {
+    // STRICT: Only Image Editing providers
+    const validProviders = ['gemini', 'openai'];
+    return validProviders.filter((p: string) => p !== avoidProvider);
+  } else if (taskType === 'video' || taskType === 'video_creation' || taskType === 'image_to_video') {
+    // STRICT: Only Video providers
+    // We must ensure VIDEO_PROVIDER_FALLBACK_ORDER does not contain image-only providers
     return VIDEO_PROVIDER_FALLBACK_ORDER.filter((p: string) => p !== avoidProvider);
   } else {
     // Image creation
-    return ['gemini', 'openai', 'grok'].filter((p: string) => p !== avoidProvider);
+    // STRICT: Only Image Creation providers
+    const validProviders = ['gemini', 'openai', 'grok'];
+    return validProviders.filter((p: string) => p !== avoidProvider);
   }
 }
 

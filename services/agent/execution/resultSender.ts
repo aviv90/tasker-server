@@ -5,7 +5,7 @@
 
 import { getServices } from '../utils/serviceLoader';
 import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
-import { cleanJsonWrapper, cleanMediaDescription, cleanAmazonPrefix } from '../../../utils/textSanitizer';
+import { cleanJsonWrapper, cleanMediaDescription, cleanAmazonPrefix, cleanMultiStepText } from '../../../utils/textSanitizer';
 import logger from '../../../utils/logger';
 import { isIntermediateToolOutputInPipeline } from '../utils/pipelineDetection';
 
@@ -108,9 +108,13 @@ class ResultSender {
       // Priority: imageCaption > caption > text (if text is not generic success message)
       let caption = stepResult.imageCaption || stepResult.caption || '';
 
-      // If no caption but text exists, use text as caption
+      // If no caption but text exists, use text as caption ONLY if it's not a status message
       if (!caption && stepResult.text && stepResult.text.trim()) {
-        caption = cleanAmazonPrefix(stepResult.text);
+        const potentialCaption = cleanAmazonPrefix(stepResult.text);
+        // Avoid using "✅ Edited with..." status messages as captions
+        if (!potentialCaption.includes('✅') && !potentialCaption.includes('Edited with')) {
+          caption = potentialCaption;
+        }
       }
 
       const toolsWithUrls = new Set(['search_web', 'get_chat_history', 'chat_summary', 'translate_text', 'random_amazon_product', 'random_flight']);
@@ -344,8 +348,8 @@ class ResultSender {
       const stepInfo = stepNumber ? ` for step ${stepNumber}` : '';
       logger.debug(`📝 [ResultSender] Sending text${stepInfo}`);
 
-      // Clean JSON wrappers first (before other cleaning)
-      cleanText = cleanJsonWrapper(cleanText);
+      // Clean JSON wrappers and system artifacts (Fixes [Image sent] bug)
+      cleanText = cleanMultiStepText(cleanText);
 
       // CRITICAL: For search_web and similar tools, URLs ARE the content - don't remove them!
       // Only remove URLs for creation tools where they might be duplicate artifacts

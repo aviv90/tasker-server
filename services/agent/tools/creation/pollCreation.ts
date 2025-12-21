@@ -18,7 +18,7 @@ interface PollData {
 export const create_poll = createTool<CreatePollArgs>(
   {
     name: 'create_poll',
-    description: 'Create a creative poll with question and answers. Supports rhyming!',
+    description: 'Create a creative poll. Use ONLY when the user EXPLICITLY asks to create a poll. NEVER use this tool to answer a question or to "check" if something is true/essential. If the user asks a question, just answer it with text.',
     parameters: {
       type: 'object',
       properties: {
