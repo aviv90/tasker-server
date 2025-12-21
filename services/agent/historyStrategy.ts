@@ -32,8 +32,8 @@ export class HistoryStrategy {
 
         if (shouldLoadHistory) {
             try {
-                // Use DB cache for fast retrieval (20 messages)
-                const historyResult = await getChatHistory(chatId, 20, { format: 'internal', useDbCache: true });
+                // Use DB cache for fast retrieval (10 messages is optimal for cache usage)
+                const historyResult = await getChatHistory(chatId, 10, { format: 'internal', useDbCache: true });
 
                 if (historyResult.success && historyResult.messages.length > 0) {
                     const rawHistory: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = historyResult.messages

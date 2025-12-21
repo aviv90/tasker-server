@@ -53,12 +53,18 @@ import { AgentResult } from './agent/types';
 function shouldSkipHistory(text: string): boolean {
   if (!text) return false;
 
+  // Strip command prefix (#) and trim
+  const cleanText = text.replace(/^#\s*/, '').trim();
+
   // Strong indicators of creation/independent tasks
-  // "create", "gen", "generate", "draw", "make", "imagine", "search", "poll", "translate"
-  const isCreation = /^(create|gen|generate|draw|make|imagine|search|poll|translate|define|explain)\b/i.test(text);
+  // English: "create", "gen", "generate", "draw", "make", "imagine", "search", "poll", "translate", "define", "explain"
+  // Hebrew: "צור", "צייר", "הכן", "חפש", "סקר", "תרגם", "הסבר", "דמיין", "כתוב", "ספר"
+  const isCreation = /^(create|gen|generate|draw|make|imagine|search|poll|translate|define|explain|צור|צייר|הכן|חפש|סקר|תרגם|הסבר|דמיין|כתוב|ספר)\b/i.test(cleanText);
 
   // Indicators that context IS needed (references to past)
-  const hasContextRef = /\b(it|that|this|prev|previous|same|change|again|more|instead)\b/i.test(text);
+  // English: "it", "that", "this", "prev", "previous", "same", "change", "again", "more", "instead", "edit"
+  // Hebrew: "זה", "זאת", "הזה", "הזאת", "ההוא", "ההיא", "קודם", "הקודם", "אחרון", "האחרון", "שוב", "עוד", "במקום", "שנה", "ערוך", "תקן"
+  const hasContextRef = /\b(it|that|this|prev|previous|same|change|again|more|instead|edit|זה|זאת|הזה|הזאת|ההוא|ההיא|קודם|הקודם|אחרון|האחרון|שוב|עוד|במקום|שנה|ערוך|תקן)\b/i.test(cleanText);
 
   // If it's a creation command AND has no context references -> Skip history
   return isCreation && !hasContextRef;
