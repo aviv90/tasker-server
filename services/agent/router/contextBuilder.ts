@@ -35,7 +35,7 @@ export async function buildContextualPrompt(input: NormalizedInput, chatId: stri
 
   // CRITICAL: If audio was already transcribed (voice message flow), tell Agent NOT to transcribe again
   if (input.audioAlreadyTranscribed) {
-    contextualPrompt += `\n\n**CRITICAL: This text is ALREADY a transcription of a voice message. DO NOT use transcribe_audio - the audio is already transcribed! Just respond to what the user said.**`;
+    contextualPrompt += `\n\n**CRITICAL: This text is ALREADY a transcription of a voice message. DO NOT use transcribe_audio - the audio is already transcribed! Just respond to what the user said.\nWARNING: Transcription may be imperfect. If the text is short/ambiguous (e.g. "yes", "do it"), Do NOT assume it is a confirmation of a previous command unless it is explicitly clear. Prefer asking for clarification.**`;
   }
 
   const authContext = buildAuthContext(input);

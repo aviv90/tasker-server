@@ -105,8 +105,8 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
       originalMessageId: originalMessageId || undefined
     };
 
-    // Voice messages now use history thanks to the new semantics-aware HistoryStrategy.
-    const agentResult = await routeToAgent(normalized, chatId, { useConversationHistory: true });
+    // Voice messages now use smart history detection via router heuristics
+    const agentResult = await routeToAgent(normalized, chatId);
 
     const NON_COMMAND_TOOLS_FOR_VOICE = ['text_to_speech', 'transcribe_audio'];
 
