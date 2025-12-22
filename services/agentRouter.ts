@@ -50,24 +50,39 @@ import { AgentResult } from './agent/types';
 /**
  * Check if history can be safely skipped for performance
  */
-function shouldSkipHistory(text: string): boolean {
+export function shouldSkipHistory(text: string): boolean {
   if (!text) return false;
 
   // Strip command prefix (#) and trim
   const cleanText = text.replace(/^#\s*/, '').trim();
 
-  // Strong indicators of creation/independent tasks
-  // English: "create", "gen", "generate", "draw", "make", "imagine", "search", "poll", "translate", "define", "explain"
-  // Hebrew: "צור", "צייר", "הכן", "חפש", "סקר", "תרגם", "הסבר", "דמיין", "כתוב", "ספר"
-  const isCreation = /^(create|gen|generate|draw|make|imagine|search|poll|translate|define|explain|צור|צייר|הכן|חפש|סקר|תרגם|הסבר|דמיין|כתוב|ספר)\b/i.test(cleanText);
+  // English indicators (using \b for word boundaries)
+  const isEnglishCreation = /\b(create|gen|generate|draw|make|imagine|search|poll|translate|define|explain|image|photo|video|movie)\b/i.test(cleanText);
+
+  // Hebrew indicators (using space/line boundaries as \b doesn't strictly work for non-ASCII)
+  // Matching: start-or-space + keyword + end-or-space
+  const isHebrewCreation = /(?:^|\s)(צור|צייר|תצייר|ציירי|לצייר|הכן|תכין|תכיני|להכין|חפש|סקר|תרגם|הסבר|דמיין|כתוב|ספר|תמונה|סרטון|וידאו|תביא|בנה|ג'נרט|תג'נרט|לג'נרט|ייצר|תייצר|ליצור)(?:$|\s)/i.test(cleanText);
+
+  const isCreation = isEnglishCreation || isHebrewCreation;
 
   // Indicators that context IS needed (references to past)
   // English: "it", "that", "this", "prev", "previous", "same", "change", "again", "more", "instead", "edit"
-  // Hebrew: "זה", "זאת", "הזה", "הזאת", "ההוא", "ההיא", "קודם", "הקודם", "אחרון", "האחרון", "שוב", "עוד", "במקום", "שנה", "ערוך", "תקן"
-  const hasContextRef = /\b(it|that|this|prev|previous|same|change|again|more|instead|edit|זה|זאת|הזה|הזאת|ההוא|ההיא|קודם|הקודם|אחרון|האחרון|שוב|עוד|במקום|שנה|ערוך|תקן)\b/i.test(cleanText);
+  const isEnglishContextRef = /\b(it|that|this|prev|previous|same|change|again|more|instead|edit)\b/i.test(cleanText);
 
-  // If it's a creation command AND has no context references -> Skip history
-  return isCreation && !hasContextRef;
+  // Hebrew: "זה", "זאת", "הזה", "הזאת", "ההוא", "ההיא", "קודם", "הקודם", "אחרון", "האחרון", "שוב", "עוד", "במקום", "שנה", "ערוך", "תקן"
+  const isHebrewContextRef = /(?:^|\s)(זה|זאת|הזה|הזאת|ההוא|ההיא|קודם|הקודם|אחרון|האחרון|שוב|עוד|במקום|שנה|ערוך|תקן)(?:$|\s)/i.test(cleanText);
+
+  const hasContextRef = isEnglishContextRef || isHebrewContextRef;
+
+  const shouldSkip = isCreation && !hasContextRef;
+
+  if (shouldSkip) {
+    logger.debug(`⏩ [shouldSkipHistory] YES: "${cleanText}" (Creation: ${isCreation}, ContextRef: ${hasContextRef})`);
+  } else {
+    logger.debug(`📜 [shouldSkipHistory] NO: "${cleanText}" (Creation: ${isCreation}, ContextRef: ${hasContextRef})`);
+  }
+
+  return shouldSkip;
 }
 
 /**
