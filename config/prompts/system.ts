@@ -19,8 +19,14 @@ import {
   SEARCH_ASSISTANT_RULES,
   GOOGLE_SEARCH_SYSTEM_INSTRUCTION,
   GOOGLE_SEARCH_RULES,
-  CRITICAL_MULTI_MODAL_RULE
+  CRITICAL_MULTI_MODAL_RULE,
+  HALLUCINATION_RULE,
+  PARALLEL_TOOL_RULE
 } from './rules';
+
+// ...
+
+
 import { getHistoryContextRules } from '../tools-list';
 
 /**
@@ -80,6 +86,8 @@ ${LOCATION_RULE}
 ${MUSIC_CREATION_RULE}
 ${WEB_SEARCH_RULE}
 ${SCHEDULING_RULE}
+${HALLUCINATION_RULE}
+${PARALLEL_TOOL_RULE}
 
 If unsure, respond with text.`;
 }

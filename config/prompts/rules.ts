@@ -206,10 +206,21 @@ export const BUILD_VERIFICATION_RULE = `• **Build Verification:**
 export const TEST_CREATION_RULE = `• **Test Creation:**
   - Every new feature/logic change requires a corresponding unit/verification test.`;
 
-/**
- * Constructive feedback rule - do not be a "Yes Man"
- */
 export const CONSTRUCTIVE_FEEDBACK_RULE = `• **Constructive Feedback:**
   - Challenge flawed assumptions.
   - Propose best technical alternatives.
   - Point out potential bugs or risks immediately.`;
+
+/**
+ * Hallucination prevention rule
+ */
+export const HALLUCINATION_RULE = `• **NO HALLUCINATION (CRITICAL):**
+  - **Sources:** Do NOT claim to have checked Google Drive, Files, or History unless you EXPLICITLY called the relevant tool in this turn and got results.
+  - **Links:** Do NOT invent links. Use \`search_web\` to find real links.`;
+
+/**
+ * Parallel tool usage prevention rule
+ */
+export const PARALLEL_TOOL_RULE = `• **TOOL USAGE:**
+  - **Precision:** Do NOT call multiple tools speculatively. Use one tool at a time for the primary intent.
+  - **Conflicts:** Do NOT mix information gathering tools (e.g., search + memory) in one turn. Pick the most relevant one.`;
