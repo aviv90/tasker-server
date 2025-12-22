@@ -3,7 +3,7 @@
  * Handles conversation-related management commands
  */
 
-import * as greenApiService from '../../../services/greenApiService';
+import { getServices } from '../../../services/agent/utils/serviceLoader';
 import { sendErrorToUser } from '../../../utils/errorSender';
 import conversationManager from '../../../services/conversationManager';
 import logger from '../../../utils/logger';
@@ -17,20 +17,22 @@ export async function handleClearAllConversations(
   senderName: string,
   originalMessageId: string | null | undefined
 ): Promise<void> {
+  const { greenApiService } = getServices();
+
   // Clear DB conversations (includes cache invalidation)
   const deletedCount = await conversationManager.clearAllConversations();
-  
+
   // Clear message types, commands, and agent context in parallel (independent operations)
   await Promise.all([
     conversationManager.clearAllMessageTypes(),
     conversationManager.commandsManager.clearAll(),
     conversationManager.clearAgentContext(chatId)
   ]);
-  
+
   await greenApiService.sendTextMessage(
-    chatId, 
-    `✅ כל ההיסטוריות נוקו בהצלחה (DB + Cache)\n🗑️ ${deletedCount} הודעות נמחקו`, 
-    originalMessageId || undefined, 
+    chatId,
+    `✅ כל ההיסטוריות נוקו בהצלחה (DB + Cache)\n🗑️ ${deletedCount} הודעות נמחקו`,
+    originalMessageId || undefined,
     TIME.TYPING_INDICATOR
   );
   logger.info(`🗑️ All conversation histories cleared by ${senderName} (${deletedCount} messages deleted, cache invalidated)`);
@@ -43,23 +45,25 @@ export async function handleShowHistory(
   chatId: string,
   originalMessageId: string | null | undefined
 ): Promise<void> {
+  const { greenApiService } = getServices();
+
   // Use chatHistoryService (SSOT) for proper chronological ordering
   try {
     const { getChatHistory } = await import('../../../utils/chatHistoryService');
     const historyResult = await getChatHistory(chatId, 20, { format: 'display' });
-    
+
     if (historyResult.success && historyResult.messages.length > 0) {
       let historyText = '📜 **היסטוריית שיחה (20 הודעות אחרונות):**\n\n';
-      
+
       // Process messages in parallel for better performance
       const messageLines = historyResult.messages.map((msg) => {
         const textContent = msg.content || '[הודעה ללא טקסט]';
         const role = msg.role === 'assistant' ? '🤖' : '👤';
         return `${role} ${textContent}`;
       });
-      
+
       historyText += messageLines.join('\n\n') + '\n\n';
-      
+
       await greenApiService.sendTextMessage(chatId, historyText, originalMessageId || undefined, TIME.TYPING_INDICATOR);
     } else {
       await greenApiService.sendTextMessage(chatId, 'ℹ️ אין היסטוריית שיחה', originalMessageId || undefined, TIME.TYPING_INDICATOR);

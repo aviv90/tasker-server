@@ -5,7 +5,7 @@
  */
 
 import logger from '../../../utils/logger';
-import { VOICE_WHITELIST } from '../../../config/whitelist';
+// import { VOICE_WHITELIST } from '../../../config/whitelist'; // Removed in favor of DB
 import { getServices } from '../../agent/utils/serviceLoader';
 import { NormalizedInput, routeToAgent } from '../../agentRouter';
 // import { AgentResult } from '../../agent/types'; // Unused
@@ -13,11 +13,6 @@ import { sendAgentResults } from '../../../routes/whatsapp/incoming/resultHandli
 import { TIME } from '../../../utils/constants';
 import { normalizeStaticFileUrl } from '../../../utils/urlUtils';
 import { sendErrorToUser } from '../../../utils/errorSender';
-
-// Import services directly to avoid circular dependency / missing layout issues in serviceLoader
-import voiceService from '../../voiceService';
-import speechService from '../../speechService';
-import audioConverterService from '../../audioConverterService';
 
 /**
  * Voice message handler parameters
@@ -39,18 +34,28 @@ const TRANSCRIPTION_DEFAULTS = { language: 'he' };
  */
 export async function handleVoiceMessage({ chatId, senderId, senderName, audioUrl, originalMessageId }: VoiceMessageParams): Promise<void> {
   const {
-    greenApiService
+    greenApiService,
+    voiceService,
+    speechService,
+    audioConverterService,
+    conversationManager
   } = getServices();
 
   logger.info(`🎤 Processing voice-to-voice request from ${senderName} (${senderId})`);
 
-  // --- PERMISSION CHECK ---
+  // --- PERMISSION CHECK (Updated to use DB Allow List) ---
   const ownerPhone = process.env.OWNER_PHONE_NUMBER || '';
   const isOwner = senderId?.includes(ownerPhone) || false;
-  const isWhitelisted = VOICE_WHITELIST.includes(senderName || '');
 
-  if (!isOwner && !isWhitelisted) {
-    logger.info(`🎤 Voice processing disabled for ${senderName}. Not in whitelist and not owner.`);
+  // Check authorization via AllowListsManager (DB)
+  const isAuthorized = await conversationManager.isAuthorizedForVoiceTranscription({
+    chatId,
+    senderName,
+    senderContactName: senderName // Assuming senderName is available
+  });
+
+  if (!isOwner && !isAuthorized) {
+    logger.info(`🎤 Voice processing disabled for ${senderName}. Not in Allow List and not owner.`);
     return;
   }
   // ------------------------
@@ -137,6 +142,13 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
       geminiResponse = "Received your message.";
     }
 
+    const geminiResultTyped = { text: geminiResponse };
+
+    const responseLanguage = originalLanguage; // Force same language as original
+    logger.debug(`🌐 Language consistency enforced:`);
+    logger.debug(`   - Original (from user): ${originalLanguage}`);
+    logger.debug(`   - TTS (forced same): ${responseLanguage}`);
+
     logger.debug(`✅ Step 3 complete: Response generated: "${geminiResponse.substring(0, 50)}..."`);
 
     // Step 4: Text-to-Speech with cloned voice or random voice
@@ -172,7 +184,6 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
 
     // If voice wasn't cloned, get a random voice for the target language
     if (!shouldCloneVoice || !voiceId) {
-      const responseLanguage = originalLanguage;
       logger.debug(`🔄 Step 4: Getting random voice for ${responseLanguage} (no cloning)...`);
       const randomVoiceResult = await voiceService.getVoiceForLanguage(responseLanguage) as { error?: string; voiceId?: string };
       if (randomVoiceResult.error) {
@@ -182,15 +193,17 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
       }
       voiceId = randomVoiceResult.voiceId || null;
       logger.debug(`✅ Using random voice: ${voiceId} for language ${responseLanguage}`);
+    } else {
+      logger.debug(`🔄 Step 4: Converting text to speech with cloned voice...`);
     }
 
     const ttsOptions = {
       modelId: 'eleven_v3',
       outputFormat: 'mp3_44100_128',
-      languageCode: originalLanguage
+      languageCode: responseLanguage
     };
 
-    const ttsResult = await voiceService.textToSpeech(voiceId || '', geminiResponse, ttsOptions) as { error?: string; audioUrl?: string };
+    const ttsResult = await voiceService.textToSpeech(voiceId || '', geminiResultTyped.text, ttsOptions) as { error?: string; audioUrl?: string };
 
     if (ttsResult.error) {
       logger.error('❌ Text-to-speech failed:', { error: ttsResult.error });
@@ -211,7 +224,7 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
     // Step 5: Convert and send voice response back to user as voice note
     logger.debug(`🔄 Converting voice-to-voice to Opus format for voice note...`);
     // Assuming 'mp3' as format since outputFormat is mp3_44100_128
-    const conversionResult = await audioConverterService.convertUrlToOpus(ttsResult.audioUrl || '', 'mp3');
+    const conversionResult = await audioConverterService.convertUrlToOpus(ttsResult.audioUrl || '', 'mp3') as { success: boolean; error?: string; fileName?: string };
 
     if (!conversionResult.success) {
       logger.error('❌ Audio conversion failed:', { error: conversionResult.error });

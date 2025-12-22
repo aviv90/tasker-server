@@ -224,3 +224,12 @@ export const HALLUCINATION_RULE = `• **NO HALLUCINATION (CRITICAL):**
 export const PARALLEL_TOOL_RULE = `• **TOOL USAGE:**
   - **Precision:** Do NOT call multiple tools speculatively. Use one tool at a time for the primary intent.
   - **Conflicts:** Do NOT mix information gathering tools (e.g., search + memory) in one turn. Pick the most relevant one.`;
+
+/**
+ * Strict tool adherence rule - prevents unauthorized switching/retries
+ */
+export const STRICT_TOOL_ADHERENCE_RULE = `• **STRICT TOOL ADHERENCE (CRITICAL):**
+  - **Single Attempt:** If a tool fails (e.g., "Payment Required", "Policy Violation"), **STOP IMMEDIATELY**.
+  - **No Unauthorized Switching:** Do NOT switch to a different tool (e.g., Image-to-Video failed → Text-to-Video) unless the user EXPLICITLY authorized it.
+  - **No Endless Loops:** Do NOT retry the same failed tool with the same arguments.
+  - **Error Handling:** Report the error and wait for user input.`;

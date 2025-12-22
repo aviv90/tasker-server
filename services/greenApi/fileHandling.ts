@@ -39,6 +39,16 @@ export function resolveLocalStaticPath(downloadUrl: string | null | undefined): 
     }
   }
 
+  // Case 3: Bare filename or relative path (e.g. from history or cache)
+  if (!downloadUrl.match(/^https?:\/\//)) {
+    // Try exact match in STATIC_DIR
+    const cleanName = path.basename(downloadUrl);
+    const putativePath = path.join(STATIC_DIR, cleanName);
+    if (fs.existsSync(putativePath)) {
+      return putativePath;
+    }
+  }
+
   return null;
 }
 

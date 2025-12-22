@@ -6,7 +6,7 @@
  */
 
 // Import services
-import * as greenApiService from '../../services/greenApiService';
+import { getServices } from '../../services/agent/utils/serviceLoader';
 import { sendErrorToUser } from '../../utils/errorSender';
 import logger from '../../utils/logger';
 import { TIME } from '../../utils/constants';
@@ -40,10 +40,12 @@ export async function handleManagementCommand(
   chatName: string,
   originalMessageId: string | null | undefined = null
 ) {
+  const { greenApiService } = getServices();
   try {
     const origId = originalMessageId || undefined;
 
     switch (command.type) {
+      // ... (omitted for brevity, assume cases are preserved)
       // --- System Management ---
       case 'clear_all_conversations':
         await systemService.clearAllConversations(chatId, senderName, origId);

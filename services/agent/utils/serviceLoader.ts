@@ -14,6 +14,9 @@ type ConversationManagerModule = typeof import('../../conversationManager');
 type ConversationManager = ConversationManagerModule['default'];
 
 type ScheduledTasksService = typeof import('../../scheduling/scheduledTasksService').default;
+type VoiceService = typeof import('../../voiceService').default;
+type SpeechService = typeof import('../../speechService').default;
+type AudioConverterService = typeof import('../../audioConverterService').default;
 
 let geminiService: GeminiService | null = null;
 let openaiService: OpenAIService | null = null;
@@ -29,6 +32,9 @@ export interface LoadedServices {
   greenApiService: GreenApiService;
   conversationManager: ConversationManager;
   scheduledTasks: ScheduledTasksService;
+  voiceService: VoiceService;
+  speechService: SpeechService;
+  audioConverterService: AudioConverterService;
 }
 
 /**
@@ -53,10 +59,14 @@ export function getServices(): LoadedServices {
         scheduledTasks = container.getService('scheduledTasks');
       }
     } catch (error) {
-      // Ignore container errors in scripts/tests where full container isn't initialized
-      // This allows other services (like greenApi) to be loaded independently
+      // Ignore
     }
   }
+
+  // Lazy load additional media services
+  const voiceService = require('../../voiceService').default || require('../../voiceService');
+  const speechService = require('../../speechService').default || require('../../speechService');
+  const audioConverterService = require('../../audioConverterService').default || require('../../audioConverterService');
 
   return {
     geminiService,
@@ -64,7 +74,10 @@ export function getServices(): LoadedServices {
     grokService,
     greenApiService,
     conversationManager,
-    scheduledTasks
+    scheduledTasks,
+    voiceService,
+    speechService,
+    audioConverterService
   } as LoadedServices;
 }
 

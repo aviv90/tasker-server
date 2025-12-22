@@ -229,7 +229,7 @@ export class ToolHandler {
                     name: toolName,
                     response: {
                         success: false,
-                        error: `Tool execution failed: ${err.message}`
+                        error: `Tool execution failed: ${err.message}. CRITICAL: STOP IMMEDIATELY. Do NOT retry. Do NOT switch tools. Report error to user.`
                     }
                 }
             };

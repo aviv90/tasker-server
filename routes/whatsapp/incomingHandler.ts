@@ -166,5 +166,15 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
 
   } catch (error: any) {
     logger.error('❌ Error handling incoming message:', { error: error.message || error, stack: error.stack });
+    // Attempt to notify user of system error, but don't crash if that fails
+    try {
+      const idMessage = webhookData?.idMessage;
+      const chatId = webhookData?.senderData?.chatId;
+      if (chatId) {
+        await sendErrorToUser(chatId, error, { context: 'PROCESSING', quotedMessageId: idMessage });
+      }
+    } catch (notifyError) {
+      logger.error('❌ Failed to send error notification:', notifyError);
+    }
   }
 }
