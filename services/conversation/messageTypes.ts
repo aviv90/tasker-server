@@ -27,9 +27,44 @@ class MessageTypesManager {
   private _conversationManager: ConversationManager;
   private repository: MessageTypesRepository | null;
 
+  // In-memory cache for pending bot messages (to handle race condition with webhooks)
+  // Key format: chatId:messageId
+  private pendingBotMessages: Set<string> = new Set();
+  // @ts-expect-error - Kept for cleanup interval side effect (not read directly)
+  private _pendingCleanupInterval: NodeJS.Timeout | null = null;
+
   constructor(conversationManager: ConversationManager, repository: MessageTypesRepository | null) {
     this._conversationManager = conversationManager;
     this.repository = repository;
+
+    // Start cleanup interval (every 30 seconds, clear entries)
+    this._pendingCleanupInterval = setInterval(() => {
+      this.pendingBotMessages.clear();
+    }, 30000);
+  }
+
+  /**
+   * Mark a message as pending bot message (BEFORE sending)
+   * This is used to handle race condition where webhook arrives before DB write completes.
+   * @param chatId - Chat ID
+   * @param messageId - Message ID (may be temporary/predicted)
+   */
+  markPendingBotMessage(chatId: string, messageId: string): void {
+    if (!chatId || !messageId) return;
+    const key = `${chatId}:${messageId}`;
+    this.pendingBotMessages.add(key);
+    logger.debug(`🕐 [MessageTypes] Marked message ${messageId} as PENDING bot message`);
+  }
+
+  /**
+   * Check if a message is in the pending bot messages cache
+   * @param chatId - Chat ID
+   * @param messageId - Message ID to check
+   */
+  isPendingBotMessage(chatId: string, messageId: string): boolean {
+    if (!chatId || !messageId) return false;
+    const key = `${chatId}:${messageId}`;
+    return this.pendingBotMessages.has(key);
   }
 
   /**
@@ -39,6 +74,10 @@ class MessageTypesManager {
    */
   async markAsBotMessage(chatId: string, messageId: string): Promise<void> {
     if (!chatId || !messageId) return;
+
+    // Also add to pending cache for immediate availability
+    const key = `${chatId}:${messageId}`;
+    this.pendingBotMessages.add(key);
 
     if (!this.repository) {
       logger.warn('⚠️ Repository not initialized, cannot mark bot message');
@@ -84,6 +123,13 @@ class MessageTypesManager {
    */
   async isBotMessage(chatId: string, messageId: string): Promise<boolean> {
     if (!chatId || !messageId) return false;
+
+    // FAST PATH: Check pending cache first (handles race condition with webhooks)
+    const key = `${chatId}:${messageId}`;
+    if (this.pendingBotMessages.has(key)) {
+      logger.debug(`🤖 [MessageTypes] Message ${messageId} found in PENDING cache - is bot message`);
+      return true;
+    }
 
     if (!this.repository) {
       return false;
