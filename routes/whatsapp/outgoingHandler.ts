@@ -44,9 +44,16 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
 
     const chatId = senderData.chatId;
 
-    // CRITICAL FIX: Ghost Session Prevention
-    // Check if this message was sent by the BOT (e.g. video/image sent via API)
-    // If so, we MUST ignore it to prevent the agent from triggering itself in a loop.
+    // CRITICAL FIX: Ghost Session Prevention (Level 1 - Chat Lock)
+    // Check if there's an active bot operation for this chat
+    // This is the primary defense - catches messages sent during active operations
+    if (conversationManager.hasBotOperationActive(chatId)) {
+      logger.info(`🔒 [Outgoing] Ignoring message during active bot operation for chat ${chatId}`);
+      return;
+    }
+
+    // CRITICAL FIX: Ghost Session Prevention (Level 2 - Message ID Check)
+    // Check if this specific message was sent by the BOT
     const isBot = await conversationManager.isBotMessage(chatId, webhookData.idMessage);
 
     if (isBot) {

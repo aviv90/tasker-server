@@ -30,6 +30,12 @@ class MessageTypesManager {
   // In-memory cache for pending bot messages (to handle race condition with webhooks)
   // Key format: chatId:messageId
   private pendingBotMessages: Set<string> = new Set();
+
+  // Active bot operations - tracks chats where bot is currently sending messages
+  // Key: chatId, Value: timestamp when operation started
+  private activeBotOperations: Map<string, number> = new Map();
+  private readonly ACTIVE_OPERATION_TIMEOUT = 30000; // 30 seconds max
+
   // @ts-expect-error - Kept for cleanup interval side effect (not read directly)
   private _pendingCleanupInterval: NodeJS.Timeout | null = null;
 
@@ -40,7 +46,53 @@ class MessageTypesManager {
     // Start cleanup interval (every 30 seconds, clear entries)
     this._pendingCleanupInterval = setInterval(() => {
       this.pendingBotMessages.clear();
+      // Clean up stale active operations
+      const now = Date.now();
+      for (const [chatId, timestamp] of this.activeBotOperations.entries()) {
+        if (now - timestamp > this.ACTIVE_OPERATION_TIMEOUT) {
+          this.activeBotOperations.delete(chatId);
+        }
+      }
     }, 30000);
+  }
+
+  /**
+   * Mark that a bot operation is starting for a chat (BEFORE sending)
+   * Outgoing handler will check this and skip processing
+   * @param chatId - Chat ID
+   */
+  startBotOperation(chatId: string): void {
+    if (!chatId) return;
+    this.activeBotOperations.set(chatId, Date.now());
+    logger.debug(`🔒 [MessageTypes] Started bot operation for chat ${chatId}`);
+  }
+
+  /**
+   * Mark that a bot operation has ended for a chat
+   * @param chatId - Chat ID
+   */
+  endBotOperation(chatId: string): void {
+    if (!chatId) return;
+    this.activeBotOperations.delete(chatId);
+    logger.debug(`🔓 [MessageTypes] Ended bot operation for chat ${chatId}`);
+  }
+
+  /**
+   * Check if a chat has an active bot operation
+   * @param chatId - Chat ID
+   * @returns True if bot operation is active (meaning we should ignore outgoing webhooks)
+   */
+  hasBotOperationActive(chatId: string): boolean {
+    if (!chatId) return false;
+    const timestamp = this.activeBotOperations.get(chatId);
+    if (!timestamp) return false;
+
+    // Check if operation is still valid (not timed out)
+    if (Date.now() - timestamp > this.ACTIVE_OPERATION_TIMEOUT) {
+      this.activeBotOperations.delete(chatId);
+      return false;
+    }
+    return true;
   }
 
   /**

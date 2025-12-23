@@ -188,6 +188,19 @@ class ConversationManager {
     return this.messageTypesManager.isBotMessage(chatId, messageId);
   }
 
+  // Bot operation tracking - prevents ghost sessions
+  startBotOperation(chatId: string): void {
+    this.messageTypesManager.startBotOperation(chatId);
+  }
+
+  endBotOperation(chatId: string): void {
+    this.messageTypesManager.endBotOperation(chatId);
+  }
+
+  hasBotOperationActive(chatId: string): boolean {
+    return this.messageTypesManager.hasBotOperationActive(chatId);
+  }
+
   async clearAllMessageTypes(): Promise<void> {
     return this.messageTypesManager.clearAll();
   }

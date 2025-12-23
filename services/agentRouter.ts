@@ -152,19 +152,32 @@ export async function routeToAgent(input: NormalizedInput, chatId: string, optio
   // Execute agent query with full context
   // NOTE: History management is handled in agentService.ts with smart detection logic
   // (self-contained requests skip history, continuations/chat load history)
-  const agentResult = await executeAgentQuery(
-    contextualPrompt,
-    chatId,
-    {
-      input: {
-        ...input,
-        lastCommand: parsedLastCommand
-      },
-      lastCommand: parsedLastCommand,
-      // Allow overriding useConversationHistory from options, or force false for optimizations
-      useConversationHistory: useHistory
-    }
-  ) as AgentResult;
+
+  // CRITICAL: Mark chat as having active bot operation to prevent ghost sessions
+  conversationManager.startBotOperation(chatId);
+
+  let agentResult: AgentResult;
+  try {
+    agentResult = await executeAgentQuery(
+      contextualPrompt,
+      chatId,
+      {
+        input: {
+          ...input,
+          lastCommand: parsedLastCommand
+        },
+        lastCommand: parsedLastCommand,
+        // Allow overriding useConversationHistory from options, or force false for optimizations
+        useConversationHistory: useHistory
+      }
+    ) as AgentResult;
+  } finally {
+    // Always end bot operation, even if error occurred
+    // Use a small delay to allow any final messages to be sent
+    setTimeout(() => {
+      conversationManager.endBotOperation(chatId);
+    }, 5000); // 5 second grace period for result sending
+  }
 
   // Save the last successful command for retry functionality
   await saveLastCommand(agentResult, chatId, userText, input);
