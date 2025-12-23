@@ -26,7 +26,7 @@ export const create_image = createTool<CreateImageArgs>(
         },
         provider: {
           type: 'string',
-          description: 'Provider: gemini (default), openai, or grok',
+          description: 'Optional. LEAVE EMPTY for default (Gemini). Only set if user SPECIFICALLY asks for "OpenAI" or "Grok".',
           enum: [...IMAGE_PROVIDERS]
         }
       },
