@@ -3,7 +3,7 @@
  */
 import { getServices } from '../../../utils/serviceLoader';
 import { formatProviderName, normalizeProviderKey } from '../../../utils/providerUtils';
-import { VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP } from '../../../config/constants';
+import { VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP, DEFAULT_IMAGE_PROVIDERS } from '../../../config/constants';
 import { extractQuotedMessageId } from '../../../../../utils/messageHelpers';
 import logger from '../../../../../utils/logger';
 
@@ -63,9 +63,8 @@ export function getProviderOrder(taskType: string, avoidProvider: string | null 
     return VIDEO_PROVIDER_FALLBACK_ORDER.filter((p: string) => p !== avoidProvider);
   } else {
     // Image creation
-    // STRICT: Only Image Creation providers
-    const validProviders = ['gemini', 'openai', 'grok'];
-    return validProviders.filter((p: string) => p !== avoidProvider);
+    // Image creation - use centralized constant (SSOT)
+    return [...DEFAULT_IMAGE_PROVIDERS].filter((p: string) => p !== avoidProvider);
   }
 }
 

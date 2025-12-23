@@ -8,7 +8,7 @@ export const creationTools: Record<string, Tool> = {
         usage: ['צור תמונה', 'שלח תמונה', 'תמונה של', 'create image', 'send image', 'draw X', 'image of X', 'צור תמונה עם OpenAI', 'create image with Gemini'],
         parameters: {
             prompt: { type: 'string', required: true, description: 'Image description' },
-            provider: { type: 'string', required: false, description: 'Image generation provider: gemini (default), openai, grok. If user specifies provider like "with OpenAI" or "עם Gemini", use provider: "openai" or "gemini" accordingly.' }
+            provider: { type: 'string', required: false, description: 'Optional. LEAVE EMPTY for default (Gemini). Only set if user explicitly asks for "OpenAI" or "Grok".' }
         },
         critical: 'Use for ANY request to create/send/make an image. "שלח תמונה של X" means CREATE image, not search! If user requests NEW image with provider, use create_image with provider parameter, NOT retry_last_command!',
         historyContext: {
@@ -24,7 +24,7 @@ export const creationTools: Record<string, Tool> = {
         usage: ['צור וידאו', 'create video', 'make video of X', 'צור וידאו עם Veo 3', 'create video with Sora'],
         parameters: {
             prompt: { type: 'string', required: true, description: 'Video description' },
-            provider: { type: 'string', required: false, description: 'Video generation provider: veo3 (Google Veo 3 - best quality), sora/sora-pro (OpenAI Sora 2 - cinematic), kling (Replicate Kling - fast, default). If user specifies provider like "with Veo 3", use provider: "veo3".' }
+            provider: { type: 'string', required: false, description: 'Optional. LEAVE EMPTY for default (Kling). Only set if user explicitly asks for "Veo" or "Sora".' }
         },
         historyContext: {
             ignore: true,
@@ -40,7 +40,7 @@ export const creationTools: Record<string, Tool> = {
         parameters: {
             image_url: { type: 'string', required: true, description: 'Image URL' },
             prompt: { type: 'string', required: false, description: 'Animation instructions' },
-            provider: { type: 'string', required: false, description: 'Image-to-video provider: veo3 (Gemini Veo 3 - best quality), sora/sora-pro (OpenAI Sora 2 - cinematic), kling (Replicate Kling - fast, default). If user specifies provider like "with Veo 3", use provider: "veo3".' }
+            provider: { type: 'string', required: false, description: 'Optional. LEAVE EMPTY for default (Kling). Only set if user explicitly asks for "Veo" or "Sora".' }
         },
         critical: 'Use ONLY when user attached an image and wants to animate/convert it to video. NOT for creating new videos! If user requests NEW image-to-video conversion with provider, use image_to_video with provider parameter, NOT retry_last_command!',
         historyContext: {
