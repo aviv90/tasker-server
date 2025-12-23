@@ -9,7 +9,8 @@ import logger from '../../utils/logger';
 jest.mock('../../services/conversationManager', () => ({
     markAsUserOutgoing: jest.fn(),
     isBotMessage: jest.fn(),
-    markAsBotMessage: jest.fn(), // If needed
+    markAsBotMessage: jest.fn(),
+    hasBotOperationActive: jest.fn().mockReturnValue(false), // New: chat-level lock check
 }));
 
 jest.mock('../../services/agentRouter', () => ({
