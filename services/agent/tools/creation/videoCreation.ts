@@ -78,7 +78,7 @@ export const create_video = createTool<CreateVideoArgs>(
       const requestedProvider = args.provider || null;
 
       const providersToTry = requestedProvider
-        ? [requestedProvider]
+        ? [requestedProvider, ...DEFAULT_VIDEO_PROVIDERS.filter(p => p !== requestedProvider)]
         : [...DEFAULT_VIDEO_PROVIDERS];
 
       // Update expected media type in context
@@ -247,7 +247,7 @@ export const image_to_video = createTool<ImageToVideoArgs>(
       const imageBuffer = await greenApiService.downloadFile(imageUrl);
 
       const providersToTry = requestedProvider
-        ? [requestedProvider]
+        ? [requestedProvider, ...DEFAULT_VIDEO_PROVIDERS.filter(p => p !== requestedProvider)]
         : [...DEFAULT_VIDEO_PROVIDERS];
 
       const fallback = new ProviderFallback({

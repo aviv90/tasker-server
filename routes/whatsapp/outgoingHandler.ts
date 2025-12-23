@@ -34,13 +34,27 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
     const senderData = webhookData.senderData;
 
     // 1. Deduplication
+    // 1. Deduplication (moved after marking check to ensure we don't skip marking valid messages if needed, 
+    // but actually dedupe first is fine. The issue is marking as user outgoing blindly)
+
     const uniqueId = MessageProcessor.getUniqueMessageId(webhookData);
     if (MessageProcessor.isDuplicate(uniqueId, processedMessages)) {
       return;
     }
 
-    // Mark outgoing message type in cache
     const chatId = senderData.chatId;
+
+    // CRITICAL FIX: Ghost Session Prevention
+    // Check if this message was sent by the BOT (e.g. video/image sent via API)
+    // If so, we MUST ignore it to prevent the agent from triggering itself in a loop.
+    const isBot = await conversationManager.isBotMessage(chatId, webhookData.idMessage);
+
+    if (isBot) {
+      logger.info(`🤖 [Outgoing] Ignoring bot-generated message ${webhookData.idMessage} to prevent recursion`);
+      return;
+    }
+
+    // Mark outgoing message type in cache (Only if NOT a bot message)
     await conversationManager.markAsUserOutgoing(chatId, webhookData.idMessage);
 
     const senderId = senderData.sender;

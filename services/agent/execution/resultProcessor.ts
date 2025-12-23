@@ -74,8 +74,12 @@ export class ResultProcessor {
                 // Try to use original text if available, or generic error
                 // Note: rawText also contains thinking patterns, so we rely on the cleaned `text` variable
                 // If `text` (cleaned) is empty, we fall back to generic error.
+                // CRITICAL FIX: Ensure we never send an empty string
                 finalText = text.trim() ? text : 'לא הצלחתי לנסח תשובה ברורה. אנא נסה שנית.';
             }
+        } else if (!finalText && (latestImageAsset || latestVideoAsset || latestAudioAsset || latestPollAsset || latitude)) {
+            // If we have an asset but no text, that's fine - the asset speaks for itself.
+            // But verify if we really want silence.
         }
 
         // 6. Get originalQuoteId

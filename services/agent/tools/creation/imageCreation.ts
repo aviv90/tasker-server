@@ -71,7 +71,7 @@ export const create_image = createTool<CreateImageArgs>(
 
       const requestedProvider = args.provider ?? null;
       const providersToTry = requestedProvider
-        ? [requestedProvider]
+        ? [requestedProvider, ...DEFAULT_IMAGE_PROVIDERS.filter(p => p !== requestedProvider)]
         : [...DEFAULT_IMAGE_PROVIDERS];
       const { geminiService, openaiService, grokService } = getServices();
 

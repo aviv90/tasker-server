@@ -87,7 +87,10 @@ export const edit_image = createTool<EditImageArgs>(
       const { openaiService, geminiService, greenApiService } = getServices();
       const requestedService = args.service || null;
       // Grok does not support editing, so we strictly use Gemini and OpenAI
-      const servicesToTry = requestedService ? [requestedService] : [PROVIDERS.IMAGE.GEMINI, PROVIDERS.IMAGE.OPENAI];
+      const defaultProviders = [PROVIDERS.IMAGE.GEMINI, PROVIDERS.IMAGE.OPENAI];
+      const servicesToTry = requestedService
+        ? [requestedService, ...defaultProviders.filter(p => p !== requestedService)]
+        : defaultProviders;
 
       const imageBuffer = await greenApiService.downloadFile(imageUrl);
       const base64Image = imageBuffer.toString('base64');
