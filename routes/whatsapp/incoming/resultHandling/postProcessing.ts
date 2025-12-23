@@ -4,6 +4,7 @@
  */
 
 import { executeAgentQuery } from '../../../../services/agentService';
+import conversationManager from '../../../../services/conversationManager';
 import logger from '../../../../utils/logger';
 import { AgentResult, NormalizedInput } from './types';
 import resultSender from '../../../../services/agent/execution/resultSender';
@@ -45,18 +46,29 @@ export async function handlePostProcessing(
       const imagePrompt = `צור תמונה שממחישה בצורה ברורה ומצחיקה את הטקסט הבא (אל תכתוב טקסט בתמונה): """${baseText}"""`;
 
       // קריאה שנייה לאג'נט – הפעם בקשת תמונה פשוטה בלבד
+      // CRITICAL: Mark chat as having active bot operation to prevent ghost sessions
+      conversationManager.startBotOperation(chatId);
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const imageResult: any = await executeAgentQuery(imagePrompt, chatId, {
-        // For media-only secondary calls, conversation history may confuse the model.
-        // We explicitly disable history here to keep the prompt focused on image generation.
-        useConversationHistory: false,
-        input: {
-          ...normalized,
-          userText: imagePrompt
-        },
-        lastCommand: null,
-        maxIterations: 4
-      });
+      let imageResult: any;
+      try {
+        imageResult = await executeAgentQuery(imagePrompt, chatId, {
+          // For media-only secondary calls, conversation history may confuse the model.
+          // We explicitly disable history here to keep the prompt focused on image generation.
+          useConversationHistory: false,
+          input: {
+            ...normalized,
+            userText: imagePrompt
+          },
+          lastCommand: null,
+          maxIterations: 4
+        });
+      } finally {
+        // End operation after a delay to allow result sending
+        setTimeout(() => {
+          conversationManager.endBotOperation(chatId);
+        }, 5000);
+      }
 
       if (imageResult && (imageResult as AgentResult).success && (imageResult as AgentResult).imageUrl) {
         const result = imageResult as AgentResult;

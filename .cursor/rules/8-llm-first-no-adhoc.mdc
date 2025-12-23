@@ -170,10 +170,47 @@ Regex and heuristics are ONLY acceptable in these cases:
 
 ---
 
+## No Spontaneous Tool Switching
+
+**CRITICAL: Never switch to different tools than what the user requested.**
+
+### The Problem
+
+When a user asks for one operation (e.g., "convert image to video"), the system should ONLY perform that operation. It MUST NOT:
+- Use additional tools after completion (e.g., analyze_image, edit_image)
+- "Enhance" the request with extra tools
+- Chain tools that weren't requested
+
+### Root Cause Prevention
+
+1. **Outgoing Handler Ghost Sessions**: Bot-sent messages triggering new agent sessions
+   - **Solution**: Chat-level operation lock (`startBotOperation`/`endBotOperation`)
+   - **Check**: `hasBotOperationActive(chatId)` before processing outgoing messages
+
+2. **LLM Over-interpretation**: LLM deciding to use extra tools
+   - **Solution**: Strict tool adherence rules in system prompts (`STRICT_TOOL_ADHERENCE_RULE`)
+   - **Reaction Rule**: Simple reactions (emojis, "thanks") → TEXT ONLY, no tools
+
+3. **Post-processing Re-invocation**: Code that triggers additional agent calls after results
+   - **Solution**: Review all `executeAgentQuery` / `routeToAgent` calls - ensure single invocation per user request
+
+### Implementation Checklist
+
+When implementing or reviewing tool execution:
+
+- [ ] Verify `startBotOperation(chatId)` is called before agent execution
+- [ ] Verify `hasBotOperationActive(chatId)` is checked in outgoing handler
+- [ ] Verify `STRICT_TOOL_ADHERENCE_RULE` is in system prompts
+- [ ] Verify no post-processing code re-invokes the agent
+- [ ] Test: Send image_to_video → should NOT trigger edit_image or analyze_image after
+
+---
+
 ## Summary
 
 - **LLM First**: Use AI for planning, analysis, and generation
 - **Regex as Fallback**: Only when LLM fails or for deterministic validation
 - **Comprehensive Fixes**: Apply fixes horizontally across all similar cases
 - **No Ad-Hoc**: Every fix should prevent the same issue in ALL contexts
+- **No Spontaneous Switching**: Execute ONLY what user requested, never chain extra tools
 - **Test Broadly**: Verify fixes work for all command types and combinations
