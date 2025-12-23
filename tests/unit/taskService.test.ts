@@ -1,23 +1,42 @@
+
 import { TaskService } from '../../services/taskService';
 import * as taskStore from '../../store/taskStore';
-import * as openaiService from '../../services/openai';
-import * as geminiService from '../../services/geminiService';
 import { StartTaskRequest } from '../../schemas/taskSchemas';
 
-// Set dummy API key for testing
-process.env.OPENAI_API_KEY = 'dummy';
-
-// Mock dependencies
+// Mock dependencies with factory functions
 jest.mock('../../store/taskStore');
-jest.mock('../../services/openai', () => ({
-    generateImageWithText: jest.fn(),
-    generateTextResponse: jest.fn()
-}));
-jest.mock('../../services/geminiService');
 jest.mock('../../utils/logger');
 jest.mock('../../utils/textSanitizer', () => ({
     validateAndSanitizePrompt: (prompt: string) => prompt
 }));
+
+// Mock services with mock implementations
+jest.mock('../../services/agent/utils/serviceLoader', () => ({
+    getServices: jest.fn()
+}));
+
+jest.mock('../../services/replicate/whatsapp', () => ({
+    generateVideoWithTextForWhatsApp: jest.fn()
+}));
+
+jest.mock('../../services/musicService', () => ({
+    generateMusicWithLyrics: jest.fn()
+}));
+
+// Import mocked modules to configure them
+import { getServices } from '../../services/agent/utils/serviceLoader';
+import replicateService from '../../services/replicate/whatsapp';
+import musicService from '../../services/musicService';
+
+// We need a way to mock gemini/openai returned by getServices
+const mockGeminiService = {
+    generateImageForWhatsApp: jest.fn(),
+    generateTextResponse: jest.fn()
+};
+const mockOpenAIService = {
+    generateTextResponse: jest.fn()
+};
+
 
 describe('TaskService', () => {
     let taskService: TaskService;
@@ -27,23 +46,24 @@ describe('TaskService', () => {
     };
 
     beforeEach(() => {
+        (getServices as jest.Mock).mockReturnValue({
+            geminiService: mockGeminiService,
+            openaiService: mockOpenAIService,
+            // replicate and music are imported directly in TaskService, so they come from the module mock
+        });
         taskService = new TaskService();
         jest.clearAllMocks();
     });
 
     describe('startTask', () => {
-        it('should start a text-to-image task with openai', async () => {
+        it('should start a text-to-image task (defaults to Gemini)', async () => {
             const request: StartTaskRequest = {
                 type: 'text-to-image',
-                prompt: 'test prompt',
-                provider: 'openai'
+                prompt: 'test prompt'
             };
 
-            (openaiService.generateImageWithText as jest.Mock).mockResolvedValue({
-                imageBuffer: Buffer.from('fake-image'),
-                text: 'generated image',
-                cost: 0.1
-            });
+            const mockResult = { url: 'http://image.url', success: true };
+            mockGeminiService.generateImageForWhatsApp.mockResolvedValue(mockResult);
 
             const taskId = await taskService.startTask(request, mockReq);
 
@@ -53,21 +73,20 @@ describe('TaskService', () => {
             // Wait for async processing
             await new Promise(resolve => setTimeout(resolve, 100));
 
-            expect(openaiService.generateImageWithText).toHaveBeenCalledWith('test prompt');
+            expect(mockGeminiService.generateImageForWhatsApp).toHaveBeenCalledWith('test prompt');
             expect(taskStore.set).toHaveBeenCalledWith(taskId, expect.objectContaining({
                 status: 'done',
-                result: expect.stringContaining(`${taskId}.png`)
+                result: mockResult
             }));
         });
 
         it('should handle errors gracefully', async () => {
             const request: StartTaskRequest = {
                 type: 'text-to-image',
-                prompt: 'test prompt',
-                provider: 'openai'
+                prompt: 'test prompt'
             };
 
-            (openaiService.generateImageWithText as jest.Mock).mockRejectedValue(new Error('API Error'));
+            mockGeminiService.generateImageForWhatsApp.mockRejectedValue(new Error('API Error'));
 
             const taskId = await taskService.startTask(request, mockReq);
 
@@ -77,6 +96,24 @@ describe('TaskService', () => {
             expect(taskStore.set).toHaveBeenCalledWith(taskId, expect.objectContaining({
                 status: 'error',
                 error: 'API Error'
+            }));
+        });
+
+        it('should start a text-to-video task (Replicate)', async () => {
+            const request: StartTaskRequest = {
+                type: 'text-to-video',
+                prompt: 'test video'
+            };
+
+            (replicateService.generateVideoWithTextForWhatsApp as jest.Mock).mockResolvedValue({ videoUrl: 'http://video.url', success: true });
+
+            const taskId = await taskService.startTask(request, mockReq);
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            expect(replicateService.generateVideoWithTextForWhatsApp).toHaveBeenCalledWith('test video', mockReq);
+            expect(taskStore.set).toHaveBeenCalledWith(taskId, expect.objectContaining({
+                status: 'done',
+                result: { url: 'http://video.url', success: true }
             }));
         });
     });
