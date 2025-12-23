@@ -37,7 +37,7 @@ export const create_video = createTool<CreateVideoArgs>(
         },
         provider: {
           type: 'string',
-          description: 'Video provider: kling (default), veo3, sora.',
+          description: 'Optional. LEAVE EMPTY for default (Kling). Only set if user SPECIFICALLY asks for "Veo" or "Sora".',
           enum: [...VIDEO_PROVIDERS]
         }
       },
@@ -202,7 +202,7 @@ export const image_to_video = createTool<ImageToVideoArgs>(
         },
         provider: {
           type: 'string',
-          description: 'Provider: kling (default), veo3, sora. Only specify if user explicitly asks.',
+          description: 'Optional. LEAVE EMPTY for default (Kling). Only set if user SPECIFICALLY asks for "Veo" or "Sora".',
           enum: [...VIDEO_PROVIDERS]
         }
       },

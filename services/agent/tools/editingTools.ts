@@ -52,7 +52,7 @@ export const edit_image = createTool<EditImageArgs>(
         },
         service: {
           type: 'string',
-          description: 'Service: gemini (default) or openai. Only specify if user asks.',
+          description: 'Optional. LEAVE EMPTY for default (Gemini). Only set if user SPECIFICALLY asks for "OpenAI".',
           enum: ['gemini', 'openai']
         }
       },

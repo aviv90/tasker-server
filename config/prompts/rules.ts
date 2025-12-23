@@ -132,6 +132,7 @@ export const SINGLE_STEP_RULES = `RULES:
 • **NEVER** say "I don't know" for real-time info → Use \`search_web\`.
 • **NEVER** say "I don't have access" for chat info → Use \`get_chat_history\`.
 • **NEVER** announce actions ("Ack"). Call the tool.
+• **Reaction Rule:** If input is just emojis (e.g. "🤣🤣") or simple reaction ("wow", "thanks") -> **TEXT RESPONSE ONLY**. DO NOT use creation/edit tools.
 • Return the result and stop.`;
 
 /**
