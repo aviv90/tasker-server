@@ -52,8 +52,8 @@ export const edit_image = createTool<EditImageArgs>(
         },
         service: {
           type: 'string',
-          description: 'Service: openai (default) or gemini',
-          enum: ['openai', 'gemini']
+          description: 'Service: gemini (default) or openai. Only specify if user asks.',
+          enum: ['gemini', 'openai']
         }
       },
       required: ['image_url', 'edit_instruction']

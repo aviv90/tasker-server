@@ -58,7 +58,7 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
   search_and_create: 'מחפש ויוצר... 🔍➡️🎨',
   create_and_analyze: 'יוצר ומנתח... 🎨➡️🔍',
   analyze_and_edit: 'מנתח ועורך... 🔍➡️✏️',
-  retry_with_different_provider: 'מנסה שוב עם ספק אחר... 🔁',
+  retry_with_different_provider: 'מנסה שוב... 🔁',
   retry_last_command: 'חוזר על פקודה קודמת... ↩️',
 
   // Preferences
@@ -136,10 +136,10 @@ export const IMAGE_PROVIDERS = [
  * Video provider enum array (for tool declarations)
  */
 export const VIDEO_PROVIDERS = [
+  PROVIDERS.VIDEO.KLING,
   PROVIDERS.VIDEO.VEO3,
   PROVIDERS.VIDEO.SORA,
-  PROVIDERS.VIDEO.SORA_PRO,
-  PROVIDERS.VIDEO.KLING
+  PROVIDERS.VIDEO.SORA_PRO
 ] as const;
 
 /**
