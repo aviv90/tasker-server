@@ -25,6 +25,19 @@ export async function handlePostProcessing(
   try {
     const userText = normalized.userText || '';
 
+    // CRITICAL: Skip post-processing if a media asset was already created
+    // Video, audio, and poll are complete outputs - don't trigger secondary image generation
+    if (agentResult.videoUrl || agentResult.audioUrl || agentResult.poll) {
+      return;
+    }
+
+    // Also skip if the tool used was a video/audio creation tool (even if URL not in result yet)
+    const videoAudioTools = ['image_to_video', 'create_video', 'create_music', 'text_to_speech', 'creative_audio_mix'];
+    const toolsUsed = agentResult.toolsUsed || [];
+    if (toolsUsed.some(tool => videoAudioTools.includes(tool))) {
+      return;
+    }
+
     // זיהוי בקשה לטקסט (ספר/כתוב/תאר/תגיד/אמור/describe/tell/write)
     const wantsText = /(ספר|תספר|כתוב|תכתוב|תכתבי|תכתבו|תאר|תארי|תארו|הסבר|תסביר|תסבירי|תגיד|תגידי|תאמר|תאמרי|ברכה|בדיחה|סיפור|טקסט|describe|tell|write|say|story|joke|text)/i.test(userText);
 
