@@ -18,7 +18,7 @@ interface PollData {
 export const create_poll = createTool<CreatePollArgs>(
   {
     name: 'create_poll',
-    description: 'Create a creative poll. Use ONLY when the user EXPLICITLY asks to create a poll. NEVER use this tool to answer a question or to "check" if something is true/essential. If the user asks a question, just answer it with text.',
+    description: 'Create a WhatsApp poll. STRICT RULES: Use ONLY when user says "סקר"/"poll"/"הצבעה" EXPLICITLY. Questions like "האם X?" or "Should I X?" are NOT poll requests - just answer them with text! A poll is for GROUP voting, not for answering yes/no questions.',
     parameters: {
       type: 'object',
       properties: {
