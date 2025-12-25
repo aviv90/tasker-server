@@ -36,7 +36,7 @@ WHEN *NOT* TO USE: 'write song lyrics' (use text generation - just write it), 'l
         },
         make_video: {
           type: 'boolean',
-          description: 'Create a video clip for the song? (true/false)'
+          description: 'Set to true ONLY if user EXPLICITLY requests video/clip (וידאו/קליפ/video/clip). Default is FALSE - do not add video unless asked!'
         }
       },
       required: ['prompt']

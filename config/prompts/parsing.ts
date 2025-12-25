@@ -119,31 +119,28 @@ Rules:
 5. IMPORTANT: The presence of other words (like "Suno", "בעזרת", "באמצעות") should NOT affect video detection - focus ONLY on video/clip keywords
 
 Examples:
-Input: "צור שיר בסגנון רוק על אהבה כולל וידאו"
-Output: {"wantsVideo":true,"cleanPrompt":"צור שיר בסגנון רוק על אהבה"}
-
-Input: "צור שיר על הכלב דובי בעזרת Suno, כולל וידאו"
-Output: {"wantsVideo":true,"cleanPrompt":"צור שיר על הכלב דובי בעזרת Suno"}
-
-Input: "create a pop song about summer with video"
-Output: {"wantsVideo":true,"cleanPrompt":"create a pop song about summer"}
-
-Input: "שיר עצוב על פרידה עם קליפ"
-Output: {"wantsVideo":true,"cleanPrompt":"שיר עצוב על פרידה"}
-
-Input: "שיר רומנטי כולל קליפ"
-Output: {"wantsVideo":true,"cleanPrompt":"שיר רומנטי"}
-
-Input: "make a rock song with clip"
-Output: {"wantsVideo":true,"cleanPrompt":"make a rock song"}
-
-Input: "make a song with Suno and video"
-Output: {"wantsVideo":true,"cleanPrompt":"make a song with Suno"}
-
 Input: "צור שיר ג'אז"
 Output: {"wantsVideo":false,"cleanPrompt":"צור שיר ג'אז"}
 
 Input: "make a happy song"
-Output: {"wantsVideo":false,"cleanPrompt":"make a happy song"}`;
+Output: {"wantsVideo":false,"cleanPrompt":"make a happy song"}
+
+Input: "צור שיר עם Suno על החתול שלי"
+Output: {"wantsVideo":false,"cleanPrompt":"צור שיר עם Suno על החתול שלי"}
+
+Input: "make a rock song about love"
+Output: {"wantsVideo":false,"cleanPrompt":"make a rock song about love"}
+
+Input: "שיר יום הולדת לאמא"
+Output: {"wantsVideo":false,"cleanPrompt":"שיר יום הולדת לאמא"}
+
+Input: "צור שיר בסגנון רוק על אהבה כולל וידאו"
+Output: {"wantsVideo":true,"cleanPrompt":"צור שיר בסגנון רוק על אהבה"}
+
+Input: "שיר עצוב על פרידה עם קליפ"
+Output: {"wantsVideo":true,"cleanPrompt":"שיר עצוב על פרידה"}
+
+Input: "make a song with video clip"
+Output: {"wantsVideo":true,"cleanPrompt":"make a song"}`;
 }
 
