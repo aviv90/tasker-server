@@ -293,6 +293,23 @@ class ResultSender {
       }
       // For videos: text is already sent separately in sendVideo
       else if (stepResult.videoUrl) {
+        // CRITICAL: Skip redundant "click here to watch/view" messages
+        // When video is sent directly, Gemini sometimes generates "לחץ כאן כדי לצפות" messages
+        // which are completely unnecessary and confusing (video is already delivered)
+        const redundantVideoLinkPatterns = [
+          /לחץ\s+כאן\s+כדי\s+לצפות/i,     // Hebrew: "Click here to watch"
+          /לחצ[וי]?\s+כאן\s+(ל|כדי\s+ל)?צפו?ת/i, // Hebrew variations
+          /click\s+here\s+to\s+(watch|view)/i,   // English: "Click here to watch/view"
+          /here'?s?\s+the\s+video/i,              // "Here's the video"
+          /הנה\s+הסרטון/i,                        // Hebrew: "Here's the video"
+          /צפה\s+בסרטון/i,                        // Hebrew: "Watch the video"
+        ];
+
+        if (redundantVideoLinkPatterns.some(pattern => pattern.test(textToCheck))) {
+          logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - redundant video link message (video already sent)`);
+          return;
+        }
+
         // Determine the effective caption used by sendVideo
         let effectiveCaption = stepResult.videoCaption || stepResult.caption || '';
 
@@ -301,12 +318,7 @@ class ResultSender {
           effectiveCaption = cleanText;
         }
 
-        const captionToCheck = cleanMediaDescription(effectiveCaption); // Re-declared in separate block from image logic, so safe if scoped correctly. But here using one scope?
-        // Ah, 'const' is block scoped. If 'else if' is separate block, it's fine. 
-        // Note: The previous code had scope issues because I pasted into the middle of the function.
-        // This replacement rewrites the whole function, so I can ensure proper scoping or use 'let'.
-        // Better to use 'let' for variable that might be reused or distinct names.
-        // Actually, inside 'else if' block, 'const' is fine.
+        const captionToCheck = cleanMediaDescription(effectiveCaption);
 
         // Case 1: Identical (Trimmed)
         if (textToCheck.trim() === captionToCheck.trim()) {
