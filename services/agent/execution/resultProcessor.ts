@@ -1,5 +1,5 @@
 import { cleanThinkingPatterns } from '../utils/agentHelpers';
-import { cleanJsonWrapper } from '../../../utils/textSanitizer';
+import { cleanJsonWrapper, cleanMultiStepText } from '../../../utils/textSanitizer';
 import logger from '../../../utils/logger';
 import { AgentResult, ToolResult } from '../types';
 import { AgentContextState as AgentContext } from './context';
@@ -49,13 +49,18 @@ export class ResultProcessor {
 
         logger.debug(`🔍 [ResultProcessor] Extracted assets - Image: ${latestImageAsset?.url}, Video: ${latestVideoAsset?.url}, Audio: ${latestAudioAsset?.url}, Poll: ${latestPollAsset?.question}, Location: ${latitude}, ${longitude}`);
 
-        // 4. Clean JSON wrappers from final text
-        let finalText = context.suppressFinalResponse ? '' : cleanJsonWrapper(text);
+        // 4. Clean JSON wrappers and Artifacts from final text
+        // Use cleanMultiStepText as SSOT for artifact removal
+        let finalText = context.suppressFinalResponse ? '' : cleanMultiStepText(text);
 
-        // Remove redundant [Image: ...], [Video: ...], [Audio: ...], etc. descriptions
-        // These are unnecessary since we send the actual media with captions
-        if (finalText) {
-            finalText = finalText.replace(/\[(Image|Video|Audio|Music|Song|File|Poll):.*?\]/gis, '').trim();
+        // Fallback: If cleanMultiStepText returns empty (e.g. valid JSON response washed away), try cleanJsonWrapper
+        // This handles cases where Gemini returns *only* JSON (like a list) that we implicitly want to clean but keep content
+        if (!finalText && text.trim()) {
+            const jsonCleaned = cleanJsonWrapper(text);
+            if (jsonCleaned) {
+                // Re-clean using multi-step cleaner to ensure no artifacts inside JSON content
+                finalText = cleanMultiStepText(jsonCleaned);
+            }
         }
 
         // 5. Fallback for Empty Response

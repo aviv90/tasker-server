@@ -15,7 +15,13 @@ import prompts from '../../../config/prompts';
 import { cleanThinkingPatterns } from '../utils/agentHelpers';
 import thinkingCleanup from '../../gemini/text/thinkingCleanup';
 import { allTools as agentTools } from '../tools';
-import { cleanJsonWrapper } from '../../../utils/textSanitizer';
+import { cleanMultiStepText, cleanJsonWrapper } from '../../../utils/textSanitizer';
+// ... imports ...
+
+// ...
+
+// Clean up text response
+
 import logger from '../../../utils/logger';
 import { StepResult, ToolResult } from '../types';
 import agentContext from './context';
@@ -273,9 +279,12 @@ export async function executeSingleStep(stepPrompt: string, chatId: string, opti
   }
 
   // Clean up text response
+  // Clean up text response
   if (textResponse) {
     textResponse = cleanThinkingPatterns(textResponse);
     textResponse = thinkingCleanup.clean(textResponse);
+    // CRITICAL: Ensure text is cleaned of artifacts (like {imageUrl: ...}) even in single steps
+    textResponse = cleanMultiStepText(textResponse);
   }
 
   // Check if any tool failed
