@@ -98,7 +98,7 @@ export async function sendToolAckMessage(
   }
 
   try {
-    let ackMessage = '';
+
 
     const buildSingleAck = (call: FunctionCall): string => {
       const toolName = call.name;
@@ -142,22 +142,18 @@ export async function sendToolAckMessage(
 
     if (acks.length === 0) return;
 
-    // For 2 tools, show both (simple format, no "מבצע:")
-    if (acks.length === 2) {
-      ackMessage = `${acks[0] || ''} ${acks[1] || ''}`.trim();
-    } else if (acks.length === 1) {
-      // Only one tool after filtering - send it directly
-      ackMessage = acks[0] || '';
-    } else {
-      // For 3+ tools, show count (but still no "מבצע:" prefix for single-step)
-      ackMessage = `${acks.length} פעולות... ⚙️`;
+    // Send each unique ACK as a separate message
+    if (acks.length > 0) {
+      const { greenApiService } = getServices();
+
+      // If we have multiple acks, send them sequentially
+      for (const msg of acks) {
+        if (msg && msg.trim()) {
+          logger.debug(`📢 [ACK] Sending acknowledgment: "${msg}"`);
+          await greenApiService.sendTextMessage(chatId, msg, quotedMessageId, 500); // 500ms between acks
+        }
+      }
     }
-
-    if (!ackMessage.trim()) return;
-
-    logger.debug(`📢 [ACK] Sending acknowledgment: "${ackMessage}"`);
-    const { greenApiService } = getServices();
-    await greenApiService.sendTextMessage(chatId, ackMessage, quotedMessageId, 1000);
   } catch (error) {
     const err = error as Error;
     logger.error('❌ [ACK] Failed to send acknowledgment:', { error: err.message, stack: err.stack });
