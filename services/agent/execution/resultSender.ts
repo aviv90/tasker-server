@@ -258,6 +258,27 @@ class ResultSender {
       }
 
       if (stepResult.imageUrl) {
+        // CRITICAL: Skip redundant "here is the image" messages
+        // When image is sent directly, we don't need introductory text
+        const redundantImageIntroPatterns = [
+          /ur\s+image\s+is\s+ready/i,
+          /here\s+is\s+(an|the)\s+(image|illustration|picture|drawing)/i,
+          /here['’]s\s+(an|the)\s+(image|illustration|picture|drawing)/i,
+          /i\s+(have\s+)?created\s+(an|the)\s+(image|illustration|picture|drawing)/i,
+          /generated\s+(an|the)\s+(image|illustration|picture|drawing)/i,
+          /הנה\s+(ה)?(תמונה|איור|ציור|רישום)/i,
+          /הנה\s+(ה)?(תמונה|איור)\s+(ש)?יצרתי/i,
+          /זאת\s+(ה)?(תמונה|איור)/i,
+          /האיור\s+מוכן/i,
+          /התמונה\s+מוכנה/i,
+          /יצרתי\s+(עבורך\s+)?(את\s+)?(ה)?(תמונה|איור)/i
+        ];
+
+        if (redundantImageIntroPatterns.some(pattern => pattern.test(textToCheck))) {
+          logger.debug(`⏭️ [ResultSender] Skipping text${stepNumber ? ` for step ${stepNumber}` : ''} - redundant image intro message`);
+          return;
+        }
+
         // Determine the effective caption used by sendImage
         let effectiveCaption = stepResult.imageCaption || stepResult.caption || '';
 

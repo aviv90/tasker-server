@@ -23,7 +23,7 @@ interface Message {
  */
 export function cleanAgentText(text: string | null | undefined): string {
   if (!text || typeof text !== 'string') return text || '';
-  
+
   return text
     .replace(/\[image\]/gi, '')
     .replace(/\[video\]/gi, '')
@@ -39,6 +39,15 @@ export function cleanAgentText(text: string | null | undefined): string {
     .replace(/audioUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove audioUrl: URL without brackets
     .replace(/imageUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove imageUrl: URL without brackets
     .replace(/videoUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove videoUrl: URL without brackets
+    // CRITICAL: Remove curly brace variants and truncated artifacts
+    .replace(/\{imageUrl:[^}]*\}?/gi, '')
+    .replace(/\{videoUrl:[^}]*\}?/gi, '')
+    .replace(/\{audioUrl:[^}]*\}?/gi, '')
+    .replace(/\{imageUrl:\s*["']?$/gi, '') // Truncated at end
+    .replace(/\{videoUrl:\s*["']?$/gi, '') // Truncated at end
+    .replace(/\{audioUrl:\s*["']?$/gi, '') // Truncated at end
+    .replace(/imageUrl:\s*["']?$/gi, '') // Truncated key at end
+    .replace(/videoUrl:\s*["']?$/gi, '') // Truncated key at end
     .replace(/https?:\/\/[^\s]+/gi, '') // Remove plain URLs
     .replace(/\*\*IMPORTANT:.*?\*\*/gs, '') // Remove **IMPORTANT:** instructions
     .replace(/\n\n\[.*$/gs, '') // Remove trailing metadata starting with "["
@@ -57,10 +66,10 @@ export function cleanAgentText(text: string | null | undefined): string {
  */
 export function cleanForLogging(obj: unknown): unknown {
   if (!obj || typeof obj !== 'object' || obj === null) return obj;
-  
+
   // Create a deep copy to avoid modifying the original
   const cleaned = JSON.parse(JSON.stringify(obj)) as Record<string, unknown>;
-  
+
   function cleanObject(o: Record<string, unknown>): void {
     for (const key in o) {
       if (o[key] && typeof o[key] === 'object' && o[key] !== null) {
@@ -82,7 +91,7 @@ export function cleanForLogging(obj: unknown): unknown {
       }
     }
   }
-  
+
   cleanObject(cleaned);
   return cleaned;
 }
@@ -97,7 +106,7 @@ export { isLandLocation };
  */
 export function formatChatHistoryForContext(messages: Message[] | null | undefined): string {
   if (!messages || messages.length === 0) return '';
-  
+
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { getRole } = require('../../config/messages');
   return messages.map(msg => {

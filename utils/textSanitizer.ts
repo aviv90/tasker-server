@@ -117,6 +117,15 @@ export function cleanMediaDescription(text: unknown, preserveLinks: boolean = fa
     .replace(/audioUrl:\s*https?:\/\/[^\s\]]+/gi, '')
     .replace(/imageUrl:\s*https?:\/\/[^\s\]]+/gi, '')
     .replace(/videoUrl:\s*https?:\/\/[^\s\]]+/gi, '')
+    // CRITICAL: Remove curly brace variants and truncated artifacts
+    .replace(/\{imageUrl:[^}]*\}?/gi, '')
+    .replace(/\{videoUrl:[^}]*\}?/gi, '')
+    .replace(/\{audioUrl:[^}]*\}?/gi, '')
+    .replace(/\{imageUrl:\s*["']?$/gi, '') // Truncated at end
+    .replace(/\{videoUrl:\s*["']?$/gi, '') // Truncated at end
+    .replace(/\{audioUrl:\s*["']?$/gi, '') // Truncated at end
+    .replace(/imageUrl:\s*["']?$/gi, '') // Truncated key at end
+    .replace(/videoUrl:\s*["']?$/gi, '') // Truncated key at end
     .replace(/✅/g, '')
     .replace(/[[]]/g, '') // Remove remaining square brackets like "]" or "["
     .replace(/[.)},;:-]+$/g, '') // Remove trailing punctuation (., ), }, ;, :, -)
@@ -189,6 +198,15 @@ export function cleanMultiStepText(text: unknown): string {
     .replace(/audioUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove audioUrl: URL without brackets
     .replace(/imageUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove imageUrl: URL without brackets
     .replace(/videoUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove videoUrl: URL without brackets
+    // CRITICAL: Remove curly brace variants and truncated artifacts
+    .replace(/\{imageUrl:[^}]*\}?/gi, '')
+    .replace(/\{videoUrl:[^}]*\}?/gi, '')
+    .replace(/\{audioUrl:[^}]*\}?/gi, '')
+    .replace(/\{imageUrl:\s*["']?$/gi, '') // Truncated at end
+    .replace(/\{videoUrl:\s*["']?$/gi, '') // Truncated at end
+    .replace(/\{audioUrl:\s*["']?$/gi, '') // Truncated at end
+    .replace(/imageUrl:\s*["']?$/gi, '') // Truncated key at end
+    .replace(/videoUrl:\s*["']?$/gi, '') // Truncated key at end
     .trim();
 }
 
