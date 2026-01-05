@@ -150,7 +150,7 @@ export async function sendToolAckMessage(
       for (const msg of acks) {
         if (msg && msg.trim()) {
           logger.debug(`📢 [ACK] Sending acknowledgment: "${msg}"`);
-          await greenApiService.sendTextMessage(chatId, msg, quotedMessageId, 500); // 500ms between acks
+          await greenApiService.sendTextMessage(chatId, msg, quotedMessageId, 1000); // Green API minimum is 1000ms
         }
       }
     }
