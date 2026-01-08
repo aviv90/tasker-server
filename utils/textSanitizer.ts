@@ -117,6 +117,20 @@ export function cleanMediaDescription(text: unknown, preserveLinks: boolean = fa
     .replace(/audioUrl:\s*https?:\/\/[^\s\]]+/gi, '')
     .replace(/imageUrl:\s*https?:\/\/[^\s\]]+/gi, '')
     .replace(/videoUrl:\s*https?:\/\/[^\s\]]+/gi, '')
+    // CRITICAL: Remove snake_case variants (image_url, video_url, audio_url)
+    .replace(/\[image_url:[^\]]*\]?/gi, '')
+    .replace(/\[video_url:[^\]]*\]?/gi, '')
+    .replace(/\[audio_url:[^\]]*\]?/gi, '')
+    .replace(/\[image_url\]/gi, '')
+    .replace(/\[video_url\]/gi, '')
+    .replace(/\[audio_url\]/gi, '')
+    .replace(/image_url:\s*https?:\/\/[^\s\]]+/gi, '')
+    .replace(/video_url:\s*https?:\/\/[^\s\]]+/gi, '')
+    .replace(/audio_url:\s*https?:\/\/[^\s\]]+/gi, '')
+    // CRITICAL: Remove camelCase tags without colon
+    .replace(/\[imageUrl\]/gi, '')
+    .replace(/\[videoUrl\]/gi, '')
+    .replace(/\[audioUrl\]/gi, '')
     // CRITICAL: Remove curly brace variants and truncated artifacts
     .replace(/\{imageUrl:[^}]*\}?/gi, '')
     .replace(/\{videoUrl:[^}]*\}?/gi, '')
@@ -198,6 +212,20 @@ export function cleanMultiStepText(text: unknown): string {
     .replace(/audioUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove audioUrl: URL without brackets
     .replace(/imageUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove imageUrl: URL without brackets
     .replace(/videoUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove videoUrl: URL without brackets
+    // CRITICAL: Remove snake_case variants (image_url, video_url, audio_url)
+    .replace(/\[image_url:[^\]]*\]?/gi, '')
+    .replace(/\[video_url:[^\]]*\]?/gi, '')
+    .replace(/\[audio_url:[^\]]*\]?/gi, '')
+    .replace(/\[image_url\]/gi, '')
+    .replace(/\[video_url\]/gi, '')
+    .replace(/\[audio_url\]/gi, '')
+    .replace(/image_url:\s*https?:\/\/[^\s\]]+/gi, '')
+    .replace(/video_url:\s*https?:\/\/[^\s\]]+/gi, '')
+    .replace(/audio_url:\s*https?:\/\/[^\s\]]+/gi, '')
+    // CRITICAL: Remove camelCase tags without colon
+    .replace(/\[imageUrl\]/gi, '')
+    .replace(/\[videoUrl\]/gi, '')
+    .replace(/\[audioUrl\]/gi, '')
     // CRITICAL: Remove curly brace variants and truncated artifacts
     .replace(/\{imageUrl:[^}]*\}?/gi, '')
     .replace(/\{videoUrl:[^}]*\}?/gi, '')
