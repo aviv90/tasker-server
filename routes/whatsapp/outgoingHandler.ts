@@ -160,28 +160,13 @@ export async function handleOutgoingMessage(webhookData: WebhookData, processedM
       }
     }
 
-    // 5. Handle Automatic Voice Transcription (Outgoing)
+    // 5. Detected Outgoing Audio - Do NOTHING
+    // User requested to DISABLE automatic transcription for outgoing voice notes.
     if (messageData.typeMessage === 'audioMessage') {
-      logger.debug(`🎤 Detected outgoing audio message from ${senderName}`);
-
-      const audioUrl = messageData.downloadUrl ||
-        messageData.fileMessageData?.downloadUrl ||
-        messageData.audioMessageData?.downloadUrl;
-
-      if (audioUrl) {
-        logger.info(`🎤 Processing outgoing voice message for transcription`);
-        const { processVoiceMessageAsync } = await import('./asyncProcessors');
-
-        processVoiceMessageAsync({
-          chatId,
-          senderId,
-          senderName,
-          audioUrl,
-          originalMessageId: webhookData.idMessage
-        });
-        return;
-      }
+      logger.debug(`🎤 Detected outgoing audio message from ${senderName} - IGNORING (No auto-transcription for outgoing)`);
+      return;
     }
+
 
   } catch (error: any) {
     logger.error('❌ Error handling outgoing message:', { error: error.message || error, stack: error.stack });
