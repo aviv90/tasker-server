@@ -5,7 +5,7 @@ import { ProviderFallback, ProviderResult } from '../../../utils/providerFallbac
 import logger from '../../../utils/logger';
 import * as replicateService from '../../replicateService';
 import { formatErrorForLogging } from '../../../utils/errorHandler';
-import { REQUIRED, ERROR } from '../../../config/messages';
+import { REQUIRED, ERROR, AGENT_INSTRUCTIONS } from '../../../config/messages';
 import { TIME } from '../../../utils/constants';
 import { PROVIDERS } from '../config/constants';
 import { createTool } from './base';
@@ -134,7 +134,7 @@ export const edit_image = createTool<EditImageArgs>(
       if (providerResult.error) {
         return {
           success: false,
-          error: `${typeof providerResult.error === 'string' ? providerResult.error : 'העריכה נכשלה אצל הספק המבוקש'} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`,
+          error: `${typeof providerResult.error === 'string' ? providerResult.error : 'העריכה נכשלה אצל הספק המבוקש'} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`,
           errorsAlreadySent: providerResult.errorsAlreadySent
         };
       }
@@ -249,7 +249,7 @@ export const edit_video = createTool<EditVideoArgs>(
       if (providerResult.error) {
         return {
           success: false,
-          error: `${typeof providerResult.error === 'string' ? providerResult.error : 'העריכה נכשלה אצל הספק המבוקש'} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`,
+          error: `${typeof providerResult.error === 'string' ? providerResult.error : 'העריכה נכשלה אצל הספק המבוקש'} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`,
           errorsAlreadySent: providerResult.errorsAlreadySent
         };
       }

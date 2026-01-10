@@ -1,7 +1,7 @@
 import { getChatHistory } from '../../../utils/chatHistoryService';
 import logger from '../../../utils/logger';
 import { getServices } from '../utils/serviceLoader';
-import { NOT_FOUND, ERROR } from '../../../config/messages';
+import { NOT_FOUND, ERROR, CONTEXT } from '../../../config/messages';
 import { createTool } from './base';
 
 type GetChatHistoryArgs = {
@@ -51,7 +51,7 @@ export const get_chat_history = createTool<GetChatHistoryArgs>(
       if (!historyResult.success) {
         return {
           success: false,
-          error: historyResult.error || 'שגיאה בשליפת היסטוריית השיחה',
+          error: historyResult.error || CONTEXT.SHOW_HISTORY,
           messages: []
         };
       }
@@ -125,6 +125,7 @@ export const analyze_image_from_history = createTool<AnalyzeImageArgs>(
           success: false,
           error: `ההודעה ${args.image_id} לא מכילה תמונה`
         };
+
       }
 
       const { geminiService, greenApiService } = getServices();

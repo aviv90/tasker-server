@@ -54,12 +54,13 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
 
   // Search & Infools
   history_aware_create: 'יוצר עם context... 🧠',
-  create_with_memory: 'יוצר לפי העדפות... 💡',
-  search_and_create: 'מחפש ויוצר... 🔍➡️🎨',
-  create_and_analyze: 'יוצר ומנתח... 🎨➡️🔍',
+  create_with_memory: 'יוצר בהתאמה אישית... 💡',
+  search_and_create: 'מחפש ומייצר... 🔍➡️🎨',
+  create_and_analyze: 'מייצר ומנתח... 🎨➡️🔍',
   analyze_and_edit: 'מנתח ועורך... 🔍➡️✏️',
-  retry_with_different_provider: 'מנסה שוב... 🔁',
-  retry_last_command: 'חוזר על פקודה קודמת... ↩️',
+  retry_with_different_provider: 'מנסה שוב עם ספק אחר... 🔁',
+  retry_last_command: 'חוזר על הפעולה... ↩️',
+  smart_execute_with_fallback: 'מנסה שוב... ⚙️',
 
   // Preferences
   save_user_preference: 'שומר העדפה... 💾'
@@ -67,7 +68,7 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
 
 /**
  * Video provider fallback order
- * CRITICAL: Order matters! After Veo 3 fails, try Sora 2 next (not Kling)
+ * Preferred order for reliability and quality
  */
 export const VIDEO_PROVIDER_FALLBACK_ORDER = ['kling', 'veo3', 'sora'] as const;
 

@@ -2,7 +2,7 @@ import logger from '../../../../utils/logger';
 import { extractCommandPrompt } from '../../../../utils/commandUtils';
 import { generateMusicWithLyrics } from '../../../musicService';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
-import { REQUIRED, FAILED, ERROR } from '../../../../config/messages';
+import { REQUIRED, FAILED, ERROR, AGENT_INSTRUCTIONS } from '../../../../config/messages';
 import { createTool } from '../base';
 import type {
   CreateMusicArgs,
@@ -78,7 +78,7 @@ WHEN *NOT* TO USE: 'write song lyrics' (use text generation - just write it), 'l
       if (result.error) {
         return {
           success: false,
-          error: `${FAILED.MUSIC_CREATION(result.error)} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
+          error: `${FAILED.MUSIC_CREATION(result.error)} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`
         };
       }
 
@@ -107,7 +107,7 @@ WHEN *NOT* TO USE: 'write song lyrics' (use text generation - just write it), 'l
       });
       return {
         success: false,
-        error: `${ERROR.generic(error instanceof Error ? error.message : String(error))} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
+        error: `${ERROR.generic(error instanceof Error ? error.message : String(error))} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`
       };
     }
   }

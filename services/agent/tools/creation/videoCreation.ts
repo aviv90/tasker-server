@@ -12,7 +12,7 @@ import logger from '../../../../utils/logger';
 import * as replicateService from '../../../replicateService';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { VIDEO_PROVIDERS, DEFAULT_VIDEO_PROVIDERS, PROVIDERS } from '../../config/constants';
-import { REQUIRED, ERROR, PROVIDER_MISMATCH, COMMON } from '../../../../config/messages';
+import { REQUIRED, ERROR, PROVIDER_MISMATCH, COMMON, AGENT_INSTRUCTIONS } from '../../../../config/messages';
 import { TIME } from '../../../../utils/constants'; // Import TIME CONSTANTS
 import { createTool } from '../base';
 import type {
@@ -137,7 +137,7 @@ export const create_video = createTool<CreateVideoArgs>(
             : 'הבקשה נכשלה אצל הספק המבוקש';
         return {
           success: false,
-          error: `${errorMessage} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`,
+          error: `${errorMessage} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`,
           errorsAlreadySent: videoResult.errorsAlreadySent
         };
       }
@@ -292,7 +292,7 @@ export const image_to_video = createTool<ImageToVideoArgs>(
             : 'הבקשה נכשלה אצל הספק המבוקש';
         return {
           success: false,
-          error: `${errorMessage} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`,
+          error: `${errorMessage} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`,
           errorsAlreadySent: videoResult.errorsAlreadySent
         };
       }

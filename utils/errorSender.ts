@@ -16,27 +16,8 @@ import { TIME } from './constants';
  */
 export const DEFAULT_TYPING_TIME = TIME.TYPING_INDICATOR;
 
-/**
- * Common error message templates
- */
-export const ERROR_MESSAGES = {
-  PROCESSING: 'שגיאה בעיבוד הפקודה',
-  EXECUTION: 'שגיאה בביצוע הפקודה',
-  REQUEST: 'שגיאה בעיבוד הבקשה',
-  SENDING: 'שגיאה בשליחת',
-  TRANSCRIPTION: 'לא הצלחתי לתמלל את ההקלטה',
-  VOICE_RESPONSE: 'לא הצלחתי ליצור תגובה קולית',
-  PROCESSING_VOICE: 'שגיאה בעיבוד ההקלטה הקולית',
-  PROCESSING_IMAGE: 'שגיאה בעריכת התמונה',
-  SHOW_HISTORY: 'שגיאה בקבלת היסטוריית השיחה',
-  PROCESSING_VIDEO: 'שגיאה בעיבוד הווידאו',
-  CREATING_VIDEO: 'שגיאה ביצירת וידאו מהתמונה',
-  SENDING_SONG: 'שגיאה בשליחת השיר',
-  SENDING_POLL: 'שגיאה בשליחת הסקר',
-  MANAGEMENT_CMD: 'שגיאה בפקודת ניהול',
-  UNKNOWN: 'לא הצלחתי לעבד את הבקשה',
-  UNKNOWN_ERROR: 'שגיאה לא ידועה'
-} as const;
+import { CONTEXT as ERROR_MESSAGES } from '../config/messages';
+export { ERROR_MESSAGES };
 
 /**
  * Error context type

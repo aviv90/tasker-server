@@ -147,6 +147,36 @@ export const ERROR = {
   retry: (message: string) => `שגיאה בביצוע חוזר: ${message}`
 } as const;
 
+/**
+ * Contextual error prefixes - "שגיאה ב..."
+ */
+export const CONTEXT = {
+  PROCESSING: 'שגיאה בעיבוד הפקודה',
+  EXECUTION: 'שגיאה בביצוע הפקודה',
+  REQUEST: 'שגיאה בעיבוד הבקשה',
+  SENDING: 'שגיאה בשליחת',
+  TRANSCRIPTION: 'לא הצלחתי לתמלל את ההקלטה',
+  VOICE_RESPONSE: 'לא הצלחתי ליצור תגובה קולית',
+  PROCESSING_VOICE: 'שגיאה בעיבוד ההקלטה הקולית',
+  PROCESSING_IMAGE: 'שגיאה בעריכת התמונה',
+  SHOW_HISTORY: 'שגיאה בקבלת היסטוריית השיחה',
+  PROCESSING_VIDEO: 'שגיאה בעיבוד הווידאו',
+  CREATING_VIDEO: 'שגיאה ביצירת וידאו מהתמונה',
+  SENDING_SONG: 'שגיאה בשליחת השיר',
+  SENDING_POLL: 'שגיאה בשליחת הסקר',
+  MANAGEMENT_CMD: 'שגיאה בפקודת ניהול',
+  UNKNOWN: 'לא הצלחתי לעבד את הבקשה',
+  UNKNOWN_ERROR: 'שגיאה לא ידועה'
+} as const;
+
+/**
+ * Internal instructions for the Agent (stripped before sending to user)
+ */
+export const AGENT_INSTRUCTIONS = {
+  STOP_ON_ERROR: 'CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.',
+  DO_NOT_RETRY: 'DO NOT retry. DO NOT switch tools. Report error to user.'
+} as const;
+
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPE DEFINITIONS
 // ═══════════════════════════════════════════════════════════════════════════

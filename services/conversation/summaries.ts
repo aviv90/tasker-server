@@ -5,6 +5,8 @@
 import logger from '../../utils/logger';
 import SummariesRepository from '../../repositories/summariesRepository';
 import { getChatHistory } from '../../utils/chatHistoryService';
+import { conversationHistorySummaryPrompt } from '../../config/prompts/special';
+import { generateTextResponse as geminiText } from '../geminiService';
 
 /**
  * Conversation manager interface (for backward compatibility)
@@ -59,42 +61,21 @@ class SummariesManager {
       // Note: Ideally this service should depend on chatHistoryService, not messagesManager
       const historyResult = await getChatHistory(chatId);
       const history = historyResult.messages;
-      
+
       if (!history || history.length < 10) {
         logger.debug(`⏭️ [Auto-Summary] Not enough messages (${history?.length || 0}) for chat ${chatId}`);
         return { error: 'Not enough messages for summary' };
       }
 
       // Format history for Gemini
-      const conversationText = history.map(msg => 
+      const conversationText = history.map(msg =>
         `${msg.role === 'user' ? 'User' : 'Bot'}: ${msg.content}`
       ).join('\n');
 
-      // Generate summary using Gemini
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { generateTextResponse: geminiText } = require('../geminiService');
-      
-      const summaryPrompt = `נתח את השיחה הבאה וצור סיכום מובנה:
-
-${conversationText}
-
-החזר JSON בפורמט הבא (רק JSON, ללא טקסט נוסף):
-{
-  "summary": "סיכום קצר של השיחה (2-3 משפטים)",
-  "keyTopics": ["נושא 1", "נושא 2", "נושא 3"],
-  "userPreferences": {
-    "key": "value"
-  }
-}
-
-הערות:
-- summary: תאר את מה שדובר בשיחה באופן תמציתי
-- keyTopics: 3-5 נושאים מרכזיים שדובר עליהם
-- userPreferences: זהה העדפות משתמש (סגנון, ספקים מועדפים, נושאים שחוזרים)
-- אם אין העדפות ברורות, החזר אובייקט ריק {}`;
+      const summaryPrompt = conversationHistorySummaryPrompt(conversationText);
 
       const result = await geminiText(summaryPrompt) as { error?: string; text?: string };
-      
+
       if (result.error) {
         logger.error('❌ Failed to generate summary:', { error: result.error });
         return { error: result.error };
@@ -150,10 +131,10 @@ ${conversationText}
    * Save conversation summary for long-term memory
    */
   async saveConversationSummary(
-    chatId: string, 
-    summary: string, 
-    keyTopics: string[] = [], 
-    userPreferences: Record<string, unknown> = {}, 
+    chatId: string,
+    summary: string,
+    keyTopics: string[] = [],
+    userPreferences: Record<string, unknown> = {},
     messageCount: number = 0
   ): Promise<void> {
     if (!this.repository) {
@@ -207,7 +188,7 @@ ${conversationText}
 
     try {
       const preferencesList = await this.repository.findPreferences(chatId, 10);
-      
+
       // Merge all preferences (most recent takes precedence)
       const merged: Record<string, unknown> = {};
       for (const prefs of preferencesList.reverse()) {
@@ -215,7 +196,7 @@ ${conversationText}
           Object.assign(merged, prefs as Record<string, unknown>);
         }
       }
-      
+
       return merged;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -279,7 +260,7 @@ ${conversationText}
 
     try {
       const deletedCount = await this.repository.deleteOldSummaries(keepPerChat);
-      
+
       if (deletedCount > 0) {
         logger.info(`🧹 [Summary Cleanup] Deleted ${deletedCount} old summaries (kept ${keepPerChat} per chat)`);
       } else {

@@ -4,6 +4,7 @@ import { getServices } from '../utils/serviceLoader';
 import { extractQuotedMessageId } from '../../../utils/messageHelpers';
 import logger from '../../../utils/logger';
 import { TIME } from '../../../utils/constants';
+import { AGENT_INSTRUCTIONS } from '../../../config/messages';
 import { AgentContextState as AgentContext } from './context';
 import { AgentTool, ToolFunctionResponse, ToolResult } from '../types';
 
@@ -229,7 +230,7 @@ export class ToolHandler {
                     name: toolName,
                     response: {
                         success: false,
-                        error: `Tool execution failed: ${err.message}. CRITICAL: STOP IMMEDIATELY. Do NOT retry. Do NOT switch tools. Report error to user.`
+                        error: `Tool execution failed: ${err.message}. ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`
                     }
                 }
             };

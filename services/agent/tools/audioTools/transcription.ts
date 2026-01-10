@@ -2,7 +2,7 @@ import axios from 'axios';
 import speechService from '../../../speechService';
 import voiceService from '../../../voiceService';
 import logger from '../../../../utils/logger';
-import { NOT_FOUND, FAILED, ERROR } from '../../../../config/messages';
+import { NOT_FOUND, FAILED, ERROR, AGENT_INSTRUCTIONS } from '../../../../config/messages';
 import { createTool } from '../base';
 import { repairMediaUrl } from '../urlRepair';
 
@@ -57,7 +57,7 @@ export const transcribe_audio = createTool<TranscribeArgs>(
       if (transcriptionResult.error) {
         return {
           success: false,
-          error: `${FAILED.TRANSCRIPTION(transcriptionResult.error)} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
+          error: `${FAILED.TRANSCRIPTION(transcriptionResult.error)} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`
         };
       }
 
@@ -78,7 +78,7 @@ export const transcribe_audio = createTool<TranscribeArgs>(
       logger.error('❌ Error in transcribe_audio:', { error: err.message, stack: err.stack });
       return {
         success: false,
-        error: `${ERROR.generic(err.message)} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
+        error: `${ERROR.generic(err.message)} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`
       };
     }
   }

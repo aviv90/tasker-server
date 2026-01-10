@@ -6,7 +6,7 @@ import { ProviderFallback } from '../../../../utils/providerFallback';
 import logger from '../../../../utils/logger';
 import { formatErrorForLogging } from '../../../../utils/errorHandler';
 import { IMAGE_PROVIDERS, DEFAULT_IMAGE_PROVIDERS, PROVIDERS } from '../../config/constants';
-import { REQUIRED, ERROR, PROVIDER_MISMATCH, COMMON } from '../../../../config/messages';
+import { REQUIRED, ERROR, PROVIDER_MISMATCH, COMMON, AGENT_INSTRUCTIONS } from '../../../../config/messages';
 import { createTool } from '../base';
 import type { CreateImageArgs, ImageProviderResult } from './types';
 
@@ -75,9 +75,6 @@ export const create_image = createTool<CreateImageArgs>(
         : [...DEFAULT_IMAGE_PROVIDERS];
       const { geminiService, openaiService, grokService } = getServices();
 
-
-      // ... (existing imports)
-
       const fallback = new ProviderFallback({
         toolName: 'create_image',
         providersToTry,
@@ -122,7 +119,7 @@ export const create_image = createTool<CreateImageArgs>(
             : 'הבקשה נכשלה אצל הספק המבוקש';
         return {
           success: false,
-          error: `${errorMessage} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`,
+          error: `${errorMessage} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`,
           errorsAlreadySent: providerResult.errorsAlreadySent
         };
       }

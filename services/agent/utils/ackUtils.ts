@@ -103,11 +103,10 @@ export async function sendToolAckMessage(
     const buildSingleAck = (call: FunctionCall): string => {
       const toolName = call.name;
 
-      // Skip tools that handle their own ACKs (to avoid double notifications)
+      // Skip tools that handle their own ACKs or are too fast/internal
       if (
-        toolName === 'retry_last_command' ||
-        toolName === 'smart_execute_with_fallback' ||
-        toolName === 'send_location'
+        toolName === 'get_chat_history' ||
+        toolName === 'get_long_term_memory'
       ) {
         return '';
       }

@@ -5,6 +5,7 @@ import { createInstantVoiceClone } from '../../../../services/voice/voiceCloning
 import { deleteVoice } from '../../../../services/voice/voiceManagement';
 import { downloadFile } from '../../../../services/greenApi/fileHandling';
 import { SpeechClient } from '../../../../services/speech/client';
+import { AGENT_INSTRUCTIONS } from '../../../../config/messages';
 import fs from 'fs';
 import path from 'path';
 
@@ -123,7 +124,7 @@ export async function handleRemixVoice(
         logger.error('❌ Error in handleRemixVoice:', error);
         return {
             success: false,
-            error: `Failed to remix voice: ${error instanceof Error ? error.message : String(error)}. CRITICAL: DO NOT Try to fix this or use other tools. DO NOT transcribe. STOP and inform the user of the error.`
+            error: `Failed to remix voice: ${error instanceof Error ? error.message : String(error)}. ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`
         };
     } finally {
         // Cleanup local file

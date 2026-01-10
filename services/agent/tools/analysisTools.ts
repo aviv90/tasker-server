@@ -4,7 +4,7 @@
 
 import { getServices } from '../utils/serviceLoader';
 import logger from '../../../utils/logger';
-import { FAILED, ERROR } from '../../../config/messages';
+import { FAILED, ERROR, AGENT_INSTRUCTIONS } from '../../../config/messages';
 import { createTool } from './base';
 
 import { repairMediaUrl } from './urlRepair';
@@ -63,7 +63,7 @@ export const analyze_image = createTool<AnalyzeArgs>(
       } else {
         return {
           success: false,
-          error: `${result.error || 'Image analysis failed'} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
+          error: `${result.error || 'Image analysis failed'} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`
         };
       }
     } catch (error) {
@@ -72,7 +72,7 @@ export const analyze_image = createTool<AnalyzeArgs>(
       imageBuffer = null;
       return {
         success: false,
-        error: `${ERROR.imageAnalysis(err.message)} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
+        error: `${ERROR.imageAnalysis(err.message)} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`
       };
     }
   }
@@ -117,7 +117,7 @@ export const analyze_video = createTool<AnalyzeArgs>(
       if (result.error) {
         return {
           success: false,
-          error: `${FAILED.VIDEO_ANALYSIS(result.error)} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
+          error: `${FAILED.VIDEO_ANALYSIS(result.error)} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`
         };
       }
 
@@ -131,7 +131,7 @@ export const analyze_video = createTool<AnalyzeArgs>(
       logger.error('❌ Error in analyze_video:', err);
       return {
         success: false,
-        error: `${ERROR.generic(err.message)} CRITICAL: The user has already been notified of this error via a system message. DO NOT generate a text response apologizing or explaining the error again. Just terminate or wait for new input.`
+        error: `${ERROR.generic(err.message)} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`
       };
     }
   }

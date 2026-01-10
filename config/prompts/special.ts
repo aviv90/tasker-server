@@ -177,7 +177,31 @@ Interesting answer in ${langName}.`;
 }
 
 /**
- * Chat summary prompt - for summarizing conversation history
+ * Structured conversation summary prompt - for long-term memory and user preferences
+ */
+export function conversationHistorySummaryPrompt(conversationText: string): string {
+  return `נתח את השיחה הבאה וצור סיכום מובנה:
+
+${conversationText}
+
+החזר JSON בפורמט הבא (רק JSON, ללא טקסט נוסף):
+{
+  "summary": "סיכום קצר של השיחה (2-3 משפטים)",
+  "keyTopics": ["נושא 1", "נושא 2", "נושא 3"],
+  "userPreferences": {
+    "key": "value"
+  }
+}
+
+הערות:
+- summary: תאר את מה שדובר בשיחה באופן תמציתי
+- keyTopics: 3-5 נושאים מרכזיים שדובר עליהם
+- userPreferences: זהה העדפות משתמש (סגנון, ספקים מועדפים, נושאים שחוזרים)
+- אם אין העדפות ברורות, החזר אובייקט ריק {}`;
+}
+
+/**
+ * Chat summary prompt - for summarizing conversation history (regular chat response)
  */
 export function chatSummaryPrompt(formattedMessages: string): string {
   return `אנא צור סיכום קצר וברור של השיחה הבאה. התמקד בנושאים העיקריים, החלטות שהתקבלו, ונקודות חשובות.
