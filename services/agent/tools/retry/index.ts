@@ -87,7 +87,7 @@ export const retry_last_command = createTool<RetryArgs>(
       if (!lastCommand) {
         return {
           success: false,
-          error: 'אין פקודה קודמת לחזור עליה. זו הפעם הראשונה שאתה מבקש משהו.'
+          error: 'אין פקודה מתאימה לחזור עליה. נסה לבקש את הפעולה שוב במפורש.'
         };
       }
 

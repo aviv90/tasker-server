@@ -31,6 +31,15 @@ export function cleanAgentText(text: string | null | undefined): string {
     .replace(/\[תמונה\]/gi, '')
     .replace(/\[וידאו\]/gi, '')
     .replace(/\[אודיו\]/gi, '')
+    // CRITICAL: Remove generic link placeholders (Video Link, Link, etc.)
+    .replace(/\[Video Link\]/gi, '')
+    .replace(/\[Audio Link\]/gi, '')
+    .replace(/\[Image Link\]/gi, '')
+    .replace(/\[Music Link\]/gi, '')
+    .replace(/\[File Link\]/gi, '')
+    .replace(/\[Link\]/gi, '')
+    .replace(/\[קישור[^\]]*\]/gi, '') // Hebrew: [קישור...]
+    .replace(/\[לינק[^\]]*\]/gi, '') // Hebrew: [לינק...]
     // CRITICAL: Remove [audioUrl: ...], [imageUrl: ...], [videoUrl: ...] patterns
     // These are added by Gemini when returning tool results and shouldn't be sent to users
     .replace(/\[audioUrl:[^\]]*\]?/gi, '') // Remove [audioUrl: ...]

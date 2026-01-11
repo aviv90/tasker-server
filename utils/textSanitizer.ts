@@ -100,6 +100,15 @@ export function cleanMediaDescription(text: unknown, preserveLinks: boolean = fa
     .replace(/\[Audio created\]/gi, '')
     .replace(/\[Voice message sent\]/gi, '')
     .replace(/\[Media\]/gi, '')
+    // CRITICAL: Remove generic link placeholders (Video Link, Link, etc.)
+    .replace(/\[Video Link\]/gi, '')
+    .replace(/\[Audio Link\]/gi, '')
+    .replace(/\[Image Link\]/gi, '')
+    .replace(/\[Music Link\]/gi, '')
+    .replace(/\[File Link\]/gi, '')
+    .replace(/\[Link\]/gi, '')
+    .replace(/\[קישור[^\]]*\]/gi, '') // Hebrew: [קישור...]
+    .replace(/\[לינק[^\]]*\]/gi, '') // Hebrew: [לינק...]
     // CRITICAL: Remove [image_id: ...], [video_id: ...], [audio_id: ...] patterns
     .replace(/\[image_id:\s*\d+\]/gi, '')
     .replace(/\[video_id:\s*\d+\]/gi, '')
@@ -135,6 +144,9 @@ export function cleanMediaDescription(text: unknown, preserveLinks: boolean = fa
     .replace(/\{imageUrl:[^}]*\}?/gi, '')
     .replace(/\{videoUrl:[^}]*\}?/gi, '')
     .replace(/\{audioUrl:[^}]*\}?/gi, '')
+    // CRITICAL: Remove taskId leakage (internal tool result artifacts)
+    .replace(/\{taskId:[^}]*\}?/gi, '') // Remove {taskId: "..."}
+    .replace(/taskId:\s*["']?[a-f0-9-]+["']?/gi, '') // Remove taskId: "xxx" or taskId: xxx
     .replace(/\{imageUrl:\s*["']?$/gi, '') // Truncated at end
     .replace(/\{videoUrl:\s*["']?$/gi, '') // Truncated at end
     .replace(/\{audioUrl:\s*["']?$/gi, '') // Truncated at end
@@ -192,6 +204,15 @@ export function cleanMultiStepText(text: unknown): string {
     .replace(/\[Audio created\]/gi, '')
     .replace(/\[Voice message sent\]/gi, '')
     .replace(/\[Media\]/gi, '')
+    // CRITICAL: Remove generic link placeholders (Video Link, Link, etc.)
+    .replace(/\[Video Link\]/gi, '')
+    .replace(/\[Audio Link\]/gi, '')
+    .replace(/\[Image Link\]/gi, '')
+    .replace(/\[Music Link\]/gi, '')
+    .replace(/\[File Link\]/gi, '')
+    .replace(/\[Link\]/gi, '')
+    .replace(/\[קישור[^\]]*\]/gi, '') // Hebrew: [קישור...]
+    .replace(/\[לינק[^\]]*\]/gi, '') // Hebrew: [לינק...]
     // CRITICAL: Remove [image_id: ...], [video_id: ...], [audio_id: ...] patterns
     // These are internal artifacts that the Agent might hallucinate orparrot back from history
     .replace(/\[image_id:\s*\d+\]/gi, '')
@@ -230,6 +251,9 @@ export function cleanMultiStepText(text: unknown): string {
     .replace(/\{imageUrl:[^}]*\}?/gi, '')
     .replace(/\{videoUrl:[^}]*\}?/gi, '')
     .replace(/\{audioUrl:[^}]*\}?/gi, '')
+    // CRITICAL: Remove taskId leakage (internal tool result artifacts)
+    .replace(/\{taskId:[^}]*\}?/gi, '') // Remove {taskId: "..."}
+    .replace(/taskId:\s*["']?[a-f0-9-]+["']?/gi, '') // Remove taskId: "xxx" or taskId: xxx
     .replace(/\{imageUrl:\s*["']?$/gi, '') // Truncated at end
     .replace(/\{videoUrl:\s*["']?$/gi, '') // Truncated at end
     .replace(/\{audioUrl:\s*["']?$/gi, '') // Truncated at end

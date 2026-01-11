@@ -81,7 +81,11 @@ export const NEW_REQUEST_VS_RETRY_RULE = `• **New Request vs. Retry/Correction
   - New creation request (fresh topic) → Use the creation tool (e.g., \`create_image\`).
   - **Correction/Refinement** (e.g., "hair is wrong", "change style", "make it faster", "not good") → Use \`retry_last_command(modifications: "...")\`.
   - Quoted Output + Correction → Use \`retry_last_command\`.
-  - Explicit "retry", "again", "fix" → Use \`retry_last_command\`.`;
+  - Explicit "retry", "again", "fix", "נסה שוב", "שוב" → Use \`retry_last_command\`.
+  - **CRITICAL: Do NOT assume retry intent!**
+    - If user message does NOT contain explicit retry keywords - treat as NEW request or conversation.
+    - General questions like "תיקנו אותך?", "מה נשמע?", "האם אתה עובד?" are NOT retry requests. Just respond naturally.
+    - Comments about the bot (feedback, questions about its state) → Text response only. NO retry!`;
 
 /**
  * Retry specific steps rule
@@ -232,5 +236,7 @@ export const PARALLEL_TOOL_RULE = `• **TOOL USAGE:**
 export const STRICT_TOOL_ADHERENCE_RULE = `• **STRICT TOOL ADHERENCE (CRITICAL):**
   - **Single Attempt:** If a tool fails (e.g., "Payment Required", "Policy Violation"), **STOP IMMEDIATELY**.
   - **No Unauthorized Switching:** Do NOT switch to a different tool (e.g., Image-to-Video failed → Text-to-Video) unless the user EXPLICITLY authorized it.
+  - **No Cross-Domain Switching:** If IMAGE creation failed - do NOT switch to VIDEO or MUSIC. If VIDEO failed - do NOT switch to IMAGE or MUSIC. DOMAIN switching is STRICTLY FORBIDDEN!
+  - **Domain Examples:** image→image_edit OK, image→music FORBIDDEN, video→image FORBIDDEN.
   - **No Endless Loops:** Do NOT retry the same failed tool with the same arguments.
   - **Error Handling:** Report the error and wait for user input.`;

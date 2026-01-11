@@ -58,7 +58,7 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
   search_and_create: 'מחפש ומייצר... 🔍➡️🎨',
   create_and_analyze: 'מייצר ומנתח... 🎨➡️🔍',
   analyze_and_edit: 'מנתח ועורך... 🔍➡️✏️',
-  retry_with_different_provider: 'מנסה שוב עם ספק אחר... 🔁',
+  retry_with_different_provider: 'מנסה שוב עם __PROVIDER__... 🔁',
   retry_last_command: 'חוזר על הפעולה... ↩️',
   smart_execute_with_fallback: 'מנסה שוב... ⚙️',
 
