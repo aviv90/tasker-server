@@ -9,7 +9,7 @@ import {
   applyProviderToMessage,
   mapVideoProviderDisplay
 } from './providerUtils';
-import { TOOL_ACK_MESSAGES, DEFAULT_VIDEO_PROVIDERS } from '../config/constants';
+import { TOOL_ACK_MESSAGES } from '../config/constants';
 import logger from '../../../utils/logger';
 
 type ProviderKey = string | null | undefined;
@@ -117,20 +117,7 @@ export async function sendToolAckMessage(
       const providerRaw = (args.provider || args.service) as ProviderKey;
       let provider = normalizeProviderKey(providerRaw);
 
-      if (!provider && toolName === 'smart_execute_with_fallback') {
-        const providersTriedRaw: ProviderKey[] = [];
-        if (Array.isArray(args.providers_tried)) {
-          providersTriedRaw.push(...(args.providers_tried as ProviderKey[]));
-        }
-        if (args.provider_tried) {
-          providersTriedRaw.push(args.provider_tried as ProviderKey);
-        }
-        const providersTried = providersTriedRaw.map(normalizeProviderKey).filter(Boolean);
-        const availableProviders = DEFAULT_VIDEO_PROVIDERS.filter(
-          (p) => !providersTried.includes(p)
-        );
-        provider = availableProviders[0] || null;
-      }
+      // smart_execute_with_fallback REMOVED - NO AUTOMATIC FALLBACKS
 
       return getToolAckMessage(toolName, provider || providerRaw);
     };

@@ -58,9 +58,9 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
   search_and_create: 'מחפש ומייצר... 🔍➡️🎨',
   create_and_analyze: 'מייצר ומנתח... 🎨➡️🔍',
   analyze_and_edit: 'מנתח ועורך... 🔍➡️✏️',
-  retry_with_different_provider: 'מנסה שוב עם __PROVIDER__... 🔁',
+  // retry_with_different_provider REMOVED - NO AUTOMATIC FALLBACKS
   retry_last_command: 'חוזר על הפעולה... ↩️',
-  smart_execute_with_fallback: 'מנסה שוב... ⚙️',
+  // smart_execute_with_fallback REMOVED - NO AUTOMATIC FALLBACKS
 
   // Preferences
   save_user_preference: 'שומר העדפה... 💾'
@@ -156,20 +156,12 @@ export const ALL_PROVIDERS = [
 /**
  * Default image providers (fallback order)
  */
-export const DEFAULT_IMAGE_PROVIDERS = [
-  PROVIDERS.IMAGE.GEMINI,
-  PROVIDERS.IMAGE.OPENAI,
-  PROVIDERS.IMAGE.GROK
-] as const;
+// DEFAULT_IMAGE_PROVIDERS array REMOVED - NO AUTOMATIC FALLBACKS
 
 /**
  * Default video providers (fallback order)
  */
-export const DEFAULT_VIDEO_PROVIDERS = [
-  PROVIDERS.VIDEO.VEO3,
-  PROVIDERS.VIDEO.SORA,
-  PROVIDERS.VIDEO.KLING
-] as const;
+// DEFAULT_VIDEO_PROVIDERS array REMOVED - NO AUTOMATIC FALLBACKS
 
 /**
  * Patterns to identify system Ack messages (to filter from history)
