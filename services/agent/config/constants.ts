@@ -66,11 +66,7 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
   save_user_preference: 'שומר העדפה... 💾'
 };
 
-/**
- * Video provider fallback order
- * Preferred order for reliability and quality
- */
-export const VIDEO_PROVIDER_FALLBACK_ORDER = ['kling', 'veo3', 'sora'] as const;
+
 
 /**
  * Video provider display name mapping
@@ -170,9 +166,9 @@ export const DEFAULT_IMAGE_PROVIDERS = [
  * Default video providers (fallback order)
  */
 export const DEFAULT_VIDEO_PROVIDERS = [
-  PROVIDERS.VIDEO.KLING,
   PROVIDERS.VIDEO.VEO3,
-  PROVIDERS.VIDEO.SORA
+  PROVIDERS.VIDEO.SORA,
+  PROVIDERS.VIDEO.KLING
 ] as const;
 
 /**

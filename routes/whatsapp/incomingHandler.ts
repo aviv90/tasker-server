@@ -24,6 +24,16 @@ import { saveIncomingUserMessage, extractMediaMetadata } from './incoming/messag
  * @param {Set} processedMessages - Shared cache for message deduplication
  */
 export async function handleIncomingMessage(webhookData: WebhookData, processedMessages: Set<string>): Promise<void> {
+  // 0. CRITICAL FIX: Filter Outgoing API Messages (Bot Echoes) & Status
+  // We MUST process 'outgoingMessageReceived' (User manual send) but IGNORE 'outgoingAPIMessageReceived' (Bot send)
+  if (webhookData.typeWebhook === 'outgoingAPIMessageReceived' || webhookData.typeWebhook === 'outgoingMessageStatus') {
+    // Debug log for API messages to ensure we are filtering correctly, but keep it quiet for status
+    if (webhookData.typeWebhook === 'outgoingAPIMessageReceived') {
+      logger.debug(`⏭️ Skipping Bot API Message Echo: ${webhookData.idMessage}`);
+    }
+    return;
+  }
+
   try {
     const messageData = webhookData.messageData;
     const senderData = webhookData.senderData;

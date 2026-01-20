@@ -1,19 +1,19 @@
 /**
  * Video Creation Tools
- * Clean, modular tool definitions following SOLID principles
+ * 
+ * Default provider: Veo 3
+ * No automatic fallbacks - user can use retry_with_different_provider for manual switching
  */
 
 import { formatProviderName } from '../../utils/providerUtils';
 import { enhancePrompt } from '../../utils/promptEnhancer';
 import { getServices } from '../../utils/serviceLoader';
-import { ProviderFallback } from '../../../../utils/providerFallback';
 import { cleanMarkdown } from '../../../../utils/textSanitizer';
 import logger from '../../../../utils/logger';
 import * as replicateService from '../../../replicateService';
-import { formatErrorForLogging } from '../../../../utils/errorHandler';
-import { VIDEO_PROVIDERS, DEFAULT_VIDEO_PROVIDERS, PROVIDERS } from '../../config/constants';
-import { REQUIRED, ERROR, PROVIDER_MISMATCH, COMMON, AGENT_INSTRUCTIONS } from '../../../../config/messages';
-import { TIME } from '../../../../utils/constants'; // Import TIME CONSTANTS
+import { formatErrorForLogging, formatProviderError } from '../../../../utils/errorHandler';
+import { VIDEO_PROVIDERS, PROVIDERS } from '../../config/constants';
+import { REQUIRED, ERROR, PROVIDER_MISMATCH, AGENT_INSTRUCTIONS } from '../../../../config/messages';
 import { createTool } from '../base';
 import type {
   CreateVideoArgs,
@@ -22,12 +22,40 @@ import type {
 } from './types';
 
 /**
+ * Clean prompt from context markers that may leak from conversation history
+ */
+function cleanPromptFromContext(prompt: string): string {
+  return prompt
+    // Remove quoted message markers
+    .replace(/\[הודעה מצוטטת:[^\]]*\]/g, '')
+    .replace(/\[בקשה נוכחית:\]/g, '')
+    // Remove IMPORTANT instructions meant for LLM
+    .replace(/\*\*IMPORTANT:[^*]*\*\*/g, '')
+    .replace(/\*\*CRITICAL:[^*]*\*\*/g, '')
+    // Remove image_url/video_url instructions
+    .replace(/Use this image_url parameter directly:[^\n]*/gi, '')
+    .replace(/Use this video_url parameter directly:[^\n]*/gi, '')
+    .replace(/image_url: "[^"]*"/gi, '')
+    .replace(/video_url: "[^"]*"/gi, '')
+    // Remove analysis/edit instructions meant for tool selection
+    .replace(/- For analysis\/questions[^-]*/gi, '')
+    .replace(/- For edits[^-]*/gi, '')
+    .replace(/- DO NOT use retry_last_command[^*]*/gi, '')
+    // Clean up whitespace
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
  * Tool: Create Video
+ * 
+ * Default provider: Veo 3
+ * No automatic fallbacks - user can use retry_with_different_provider for manual switching
  */
 export const create_video = createTool<CreateVideoArgs>(
   {
     name: 'create_video',
-    description: 'Create a video from text description. Supports Veo3 (Google), Sora (OpenAI), Kling (default).',
+    description: 'Create a video from text description. Default provider: Veo 3 (Google). Use "provider" arg for others (Sora, Kling).',
     parameters: {
       type: 'object',
       properties: {
@@ -37,7 +65,7 @@ export const create_video = createTool<CreateVideoArgs>(
         },
         provider: {
           type: 'string',
-          description: 'Optional. LEAVE EMPTY for default (Kling). Only set if user SPECIFICALLY asks for "Veo" or "Sora".',
+          description: 'Optional. LEAVE EMPTY for default (Veo 3). Only set if user SPECIFICALLY asks for "Sora" or "Kling".',
           enum: [...VIDEO_PROVIDERS]
         }
       },
@@ -49,9 +77,12 @@ export const create_video = createTool<CreateVideoArgs>(
     }
   },
   async (args, context) => {
-    logger.debug(`🔧 [Agent Tool] create_video called with provider: ${args.provider || PROVIDERS.VIDEO.KLING}`, {
+    // Determine provider: user-requested or default (Veo 3)
+    const provider = args.provider || PROVIDERS.VIDEO.VEO3;
+
+    logger.debug(`🔧 [Agent Tool] create_video called with provider: ${provider}`, {
       prompt: args.prompt?.substring(0, 100),
-      provider: args.provider || PROVIDERS.VIDEO.KLING,
+      provider,
       chatId: context.chatId
     });
 
@@ -64,9 +95,7 @@ export const create_video = createTool<CreateVideoArgs>(
       }
 
       // Validate provider: Block Image providers for Video generation
-      const imageProviders = ['dalle', 'dall-e', 'dall-e-3', 'flux', 'midjourney']; // Explicit image-only providers
-      // Note: 'openai' and 'gemini' are ambiguous, so we allow them (they map to Sora/Veo usually in this context)
-      // modifying check to be safe
+      const imageProviders = ['dalle', 'dall-e', 'dall-e-3', 'flux', 'midjourney'];
       if (args.provider && imageProviders.includes(args.provider.toLowerCase())) {
         return {
           success: false,
@@ -74,84 +103,79 @@ export const create_video = createTool<CreateVideoArgs>(
         };
       }
 
-      const { geminiService, openaiService } = getServices();
-      const requestedProvider = args.provider || null;
-
-      const providersToTry = requestedProvider
-        ? [requestedProvider, ...DEFAULT_VIDEO_PROVIDERS.filter(p => p !== requestedProvider)]
-        : [...DEFAULT_VIDEO_PROVIDERS];
+      const { geminiService, openaiService, greenApiService } = getServices();
 
       // Update expected media type in context
       context.expectedMediaType = 'video';
 
-      // MAGIC: Enhance prompt before generation
-      let prompt = args.prompt.trim();
+      // Clean prompt from any context markers that may have leaked
+      let prompt = cleanPromptFromContext(args.prompt.trim());
 
+      // MAGIC: Enhance prompt before generation
       try {
         prompt = await enhancePrompt(prompt, 'video');
       } catch (err) {
         logger.warn('Prompt enhancement failed, using original', { error: err });
       }
 
-      const fallback = new ProviderFallback({
-        toolName: 'create_video',
-        providersToTry,
-        requestedProvider,
-        context,
-        timeout: TIME.VIDEO_GENERATION_TIMEOUT
-      });
+      logger.info(`🎬 [create_video] Generating with provider: ${provider}`);
 
-      const videoResult = (await fallback.tryWithFallback<VideoProviderResult>(async provider => {
+      // Generate video with selected provider (no fallback)
+      let videoResult: VideoProviderResult;
+      try {
         if (provider === PROVIDERS.VIDEO.VEO3) {
-          const result = (await geminiService.generateVideoForWhatsApp(prompt)) as VideoProviderResult;
-          result.providerUsed = provider;
-          return result;
+          videoResult = (await geminiService.generateVideoForWhatsApp(prompt)) as VideoProviderResult;
         } else if (provider === PROVIDERS.VIDEO.SORA || provider === PROVIDERS.VIDEO.SORA_PRO) {
           const model = provider === PROVIDERS.VIDEO.SORA_PRO ? 'sora-2-pro' : 'sora-2';
-          const result = (await openaiService.generateVideoWithSoraForWhatsApp(
+          videoResult = (await openaiService.generateVideoWithSoraForWhatsApp(
             prompt,
             null,
             { model }
           )) as VideoProviderResult;
-          result.providerUsed = provider;
-          return result;
         } else {
-          const result = (await replicateService.generateVideoWithTextForWhatsApp(prompt)) as VideoProviderResult;
-          result.providerUsed = provider;
-          return result;
+          // Kling (via Replicate)
+          videoResult = (await replicateService.generateVideoWithTextForWhatsApp(prompt)) as VideoProviderResult;
         }
-      })) as VideoProviderResult;
+      } catch (genError) {
+        context.expectedMediaType = null;
+        const errorMessage = genError instanceof Error ? genError.message : String(genError);
+        logger.error(`❌ [create_video] ${provider} generation failed:`, { error: errorMessage });
 
-      context.expectedMediaType = null;
-      if (!videoResult) {
-        return {
-          success: false,
-          error: COMMON.NO_PROVIDER_RESPONSE
-        };
-      }
+        // Send error to user
+        if (context.chatId) {
+          const formattedError = formatProviderError(provider, errorMessage, 'he');
+          await greenApiService.sendTextMessage(context.chatId, formattedError, undefined, 1000);
+        }
 
-      if (videoResult.error) {
-        const errorMessage =
-          typeof videoResult.error === 'string'
-            ? videoResult.error
-            : 'הבקשה נכשלה אצל הספק המבוקש';
         return {
           success: false,
           error: `${errorMessage} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`,
-          errorsAlreadySent: videoResult.errorsAlreadySent
+          errorsAlreadySent: true
         };
       }
 
-      const videoProviderKey =
-        (videoResult.providerUsed as string | undefined) ||
-        requestedProvider ||
-        providersToTry[0] ||
-        PROVIDERS.VIDEO.KLING;
-      const formattedVideoProviderName = formatProviderName(videoProviderKey);
-      const providerName =
-        typeof formattedVideoProviderName === 'string' && formattedVideoProviderName.length > 0
-          ? formattedVideoProviderName
-          : videoProviderKey;
+      context.expectedMediaType = null;
+
+      // Handle error response
+      if (videoResult.error) {
+        const errorMessage = typeof videoResult.error === 'string'
+          ? videoResult.error
+          : 'הבקשה נכשלה אצל הספק המבוקש';
+
+        // Send error to user
+        if (context.chatId) {
+          const formattedError = formatProviderError(provider, errorMessage, 'he');
+          await greenApiService.sendTextMessage(context.chatId, formattedError, undefined, 1000);
+        }
+
+        return {
+          success: false,
+          error: `${errorMessage} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`,
+          errorsAlreadySent: true
+        };
+      }
+
+      const providerName = formatProviderName(provider) || provider;
 
       let caption = videoResult.description || videoResult.revisedPrompt || videoResult.caption || '';
       if (caption) {
@@ -164,7 +188,7 @@ export const create_video = createTool<CreateVideoArgs>(
         videoUrl: videoResult.videoUrl || videoResult.url,
         videoCaption: caption,
         provider: providerName,
-        providerKey: videoProviderKey
+        providerKey: provider
       };
     } catch (error) {
       context.expectedMediaType = null;
@@ -184,11 +208,14 @@ export const create_video = createTool<CreateVideoArgs>(
 
 /**
  * Tool: Image to Video
+ * 
+ * Default provider: Veo 3
+ * No automatic fallbacks - user can use retry_with_different_provider for manual switching
  */
 export const image_to_video = createTool<ImageToVideoArgs>(
   {
     name: 'image_to_video',
-    description: 'Convert/Animate an image to video. USE THIS when user says "image to video", "animate", or specifies provider. CRITICAL: If prompt contains "Use this image_url parameter directly", extract URL from there!',
+    description: 'Convert/Animate an image to video. Default provider: Veo 3. USE THIS when user says "image to video", "animate", or specifies provider. CRITICAL: If prompt contains "Use this image_url parameter directly", extract URL from there!',
     parameters: {
       type: 'object',
       properties: {
@@ -202,7 +229,7 @@ export const image_to_video = createTool<ImageToVideoArgs>(
         },
         provider: {
           type: 'string',
-          description: 'Optional. LEAVE EMPTY for default (Kling). Only set if user SPECIFICALLY asks for "Veo" or "Sora".',
+          description: 'Optional. LEAVE EMPTY for default (Veo 3). Only set if user SPECIFICALLY asks for "Sora" or "Kling".',
           enum: [...VIDEO_PROVIDERS]
         }
       },
@@ -210,16 +237,18 @@ export const image_to_video = createTool<ImageToVideoArgs>(
     }
   },
   async (args, context) => {
+    // Determine provider: user-requested or default (Veo 3)
+    const provider = args.provider || PROVIDERS.VIDEO.VEO3;
+
     logger.debug(`🔧 [Agent Tool] image_to_video called`, {
       imageUrl: args.image_url?.substring(0, 50),
       prompt: args.prompt?.substring(0, 100),
-      provider: args.provider || PROVIDERS.VIDEO.KLING,
+      provider,
       chatId: context.chatId
     });
 
     try {
       const { geminiService, openaiService, greenApiService } = getServices();
-      const requestedProvider = args.provider || null;
 
       if (!args.image_url) {
         return {
@@ -235,7 +264,9 @@ export const image_to_video = createTool<ImageToVideoArgs>(
       }
 
       const imageUrl = args.image_url;
-      let prompt = args.prompt.trim();
+
+      // Clean prompt from any context markers that may have leaked
+      let prompt = cleanPromptFromContext(args.prompt.trim());
 
       // MAGIC: Enhance prompt before animation
       try {
@@ -246,74 +277,68 @@ export const image_to_video = createTool<ImageToVideoArgs>(
 
       const imageBuffer = await greenApiService.downloadFile(imageUrl);
 
-      const providersToTry = requestedProvider
-        ? [requestedProvider, ...DEFAULT_VIDEO_PROVIDERS.filter(p => p !== requestedProvider)]
-        : [...DEFAULT_VIDEO_PROVIDERS];
+      logger.info(`🎬 [image_to_video] Generating with provider: ${provider}`);
 
-      const fallback = new ProviderFallback({
-        toolName: 'image_to_video',
-        providersToTry,
-        requestedProvider,
-        context,
-        timeout: TIME.VIDEO_GENERATION_TIMEOUT
-      });
-
-      const videoResult = (await fallback.tryWithFallback<VideoProviderResult>(async provider => {
-        let result: VideoProviderResult & { error?: string };
-
+      // Generate video with selected provider (no fallback)
+      let videoResult: VideoProviderResult;
+      try {
         if (provider === PROVIDERS.VIDEO.VEO3) {
-          result = (await geminiService.generateVideoFromImageForWhatsApp(prompt, imageBuffer)) as VideoProviderResult & { error?: string };
+          videoResult = (await geminiService.generateVideoFromImageForWhatsApp(prompt, imageBuffer)) as VideoProviderResult;
         } else if (provider === PROVIDERS.VIDEO.SORA || provider === PROVIDERS.VIDEO.SORA_PRO) {
           const model = provider === PROVIDERS.VIDEO.SORA_PRO ? 'sora-2-pro' : 'sora-2';
-          result = (await openaiService.generateVideoWithSoraFromImageForWhatsApp(
+          videoResult = (await openaiService.generateVideoWithSoraFromImageForWhatsApp(
             prompt,
             imageBuffer,
             { model }
-          )) as VideoProviderResult & { error?: string };
+          )) as VideoProviderResult;
         } else {
-          result = (await replicateService.generateVideoFromImageForWhatsApp(imageBuffer, prompt)) as VideoProviderResult & { error?: string };
+          // Kling (via Replicate)
+          videoResult = (await replicateService.generateVideoFromImageForWhatsApp(imageBuffer, prompt)) as VideoProviderResult;
+        }
+      } catch (genError) {
+        const errorMessage = genError instanceof Error ? genError.message : String(genError);
+        logger.error(`❌ [image_to_video] ${provider} generation failed:`, { error: errorMessage });
+
+        // Send error to user
+        if (context.chatId) {
+          const formattedError = formatProviderError(provider, errorMessage, 'he');
+          await greenApiService.sendTextMessage(context.chatId, formattedError, undefined, 1000);
         }
 
-        result.providerUsed = provider;
-        return result;
-      })) as VideoProviderResult;
-
-      if (!videoResult) {
-        return {
-          success: false,
-          error: COMMON.NO_PROVIDER_RESPONSE
-        };
-      }
-
-      if (videoResult.error) {
-        const errorMessage =
-          typeof videoResult.error === 'string'
-            ? videoResult.error
-            : 'הבקשה נכשלה אצל הספק המבוקש';
         return {
           success: false,
           error: `${errorMessage} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`,
-          errorsAlreadySent: videoResult.errorsAlreadySent
+          errorsAlreadySent: true
         };
       }
 
-      const providerKey =
-        (videoResult.providerUsed as string | undefined) ||
-        requestedProvider ||
-        providersToTry[0] ||
-        PROVIDERS.VIDEO.KLING;
-      const formattedProviderName = formatProviderName(providerKey);
-      const providerName =
-        typeof formattedProviderName === 'string' && formattedProviderName.length > 0
-          ? formattedProviderName
-          : providerKey;
+      // Handle error response
+      if (videoResult.error) {
+        const errorMessage = typeof videoResult.error === 'string'
+          ? videoResult.error
+          : 'הבקשה נכשלה אצל הספק המבוקש';
+
+        // Send error to user
+        if (context.chatId) {
+          const formattedError = formatProviderError(provider, errorMessage, 'he');
+          await greenApiService.sendTextMessage(context.chatId, formattedError, undefined, 1000);
+        }
+
+        return {
+          success: false,
+          error: `${errorMessage} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`,
+          errorsAlreadySent: true
+        };
+      }
+
+      const providerName = formatProviderName(provider) || provider;
 
       return {
         success: true,
         data: `✅ התמונה הומרה לווידאו בהצלחה עם ${providerName}!`,
         videoUrl: videoResult.videoUrl || videoResult.url,
         provider: providerName,
-        providerKey: providerKey
+        providerKey: provider
       };
     } catch (error) {
       logger.error('❌ Error in image_to_video', {

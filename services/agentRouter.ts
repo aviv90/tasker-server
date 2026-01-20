@@ -179,8 +179,15 @@ export async function routeToAgent(input: NormalizedInput, chatId: string, optio
     }, 5000); // 5 second grace period for result sending
   }
 
-  // Save the last successful command for retry functionality
-  await saveLastCommand(agentResult, chatId, userText, input);
+  // Save the last successful command for retry functionality (Non-blocking)
+  saveLastCommand(agentResult, chatId, userText, input).catch(err => {
+    logger.warn('⚠️ [AGENT ROUTER] Failed to save last command in background', { error: err.message });
+  });
+
+  // Background cleanup: trim messages to prevent infinite history growth (Non-blocking)
+  conversationManager.trimMessagesForChat(chatId).catch(err => {
+    logger.warn('⚠️ [AGENT ROUTER] Failed to trim messages in background', { error: err.message });
+  });
 
   return agentResult;
 }

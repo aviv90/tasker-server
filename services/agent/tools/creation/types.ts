@@ -3,9 +3,15 @@
  * Single Source of Truth for creation tool types
  */
 
-import { ProviderResult } from '../../../../utils/providerFallback';
 import { PROVIDERS } from '../../config/constants';
 import { AgentContextState } from '../../types';
+
+export type ProviderResult = {
+  success: boolean;
+  error?: string;
+  errorsAlreadySent?: boolean;
+  data?: string;
+};
 
 /**
  * Agent tool context type

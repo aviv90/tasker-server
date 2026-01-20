@@ -40,6 +40,12 @@ export async function saveLastCommand(
   userText: string,
   input: NormalizedInput = {}
 ): Promise<void> {
+  // CRITICAL: Don't save commands during retry execution to prevent infinite retry loops
+  if (agentResult.isRetryExecution) {
+    logger.debug('⏭️ [AGENT ROUTER] Skipping command save during retry execution');
+    return;
+  }
+
   const messageId = input?.originalMessageId || agentResult?.originalMessageId;
   if (!messageId) {
     logger.warn('⚠️ [AGENT ROUTER] No messageId available, cannot save command to cache');

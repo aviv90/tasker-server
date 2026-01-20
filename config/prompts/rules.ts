@@ -198,23 +198,7 @@ User asks for link → Use Google Search → Copy link from results → Send to 
 ✅ [Use Google Search tool] → "Here is a link from Ynet: [Real Link]"
 ✅ If failed: "I couldn't find a working link, please search Google yourself."`;
 
-/**
- * Build verification rule - mandatory check before deployment
- */
-export const BUILD_VERIFICATION_RULE = `• **Build Verification:**
-  - Mandatory \`npm run build\` and \`npm test\` before deployment.
-  - Zero tolerance for TypeScript errors or unused variables.`;
 
-/**
- * Test creation rule - mandatory unit tests for new features
- */
-export const TEST_CREATION_RULE = `• **Test Creation:**
-  - Every new feature/logic change requires a corresponding unit/verification test.`;
-
-export const CONSTRUCTIVE_FEEDBACK_RULE = `• **Constructive Feedback:**
-  - Challenge flawed assumptions.
-  - Propose best technical alternatives.
-  - Point out potential bugs or risks immediately.`;
 
 /**
  * Hallucination prevention rule

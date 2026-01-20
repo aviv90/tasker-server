@@ -1,12 +1,10 @@
 import { getServices } from '../utils/serviceLoader';
 import { formatProviderName } from '../utils/providerUtils';
 import { repairMediaUrl } from './urlRepair';
-import { ProviderFallback, ProviderResult } from '../../../utils/providerFallback';
 import logger from '../../../utils/logger';
 import * as replicateService from '../../replicateService';
 import { formatErrorForLogging } from '../../../utils/errorHandler';
 import { REQUIRED, ERROR, AGENT_INSTRUCTIONS } from '../../../config/messages';
-import { TIME } from '../../../utils/constants';
 import { PROVIDERS } from '../config/constants';
 import { createTool } from './base';
 
@@ -19,17 +17,6 @@ type EditImageArgs = {
 type EditVideoArgs = {
   video_url?: string;
   edit_instruction?: string;
-};
-
-type ImageEditResult = ProviderResult & {
-  imageUrl?: string;
-  description?: string;
-  caption?: string;
-};
-
-type VideoEditResult = ProviderResult & {
-  videoUrl?: string;
-  providerUsed?: string;
 };
 
 /**
@@ -85,71 +72,45 @@ export const edit_image = createTool<EditImageArgs>(
       }
 
       const { openaiService, geminiService, greenApiService } = getServices();
-      const requestedService = args.service || null;
-      // Grok does not support editing, so we strictly use Gemini and OpenAI
-      const defaultProviders = [PROVIDERS.IMAGE.GEMINI, PROVIDERS.IMAGE.OPENAI];
-      const servicesToTry = requestedService
-        ? [requestedService, ...defaultProviders.filter(p => p !== requestedService)]
-        : defaultProviders;
+      // Default to Gemini if no service specified
+      const service = args.service || PROVIDERS.IMAGE.GEMINI;
 
       const imageBuffer = await greenApiService.downloadFile(imageUrl);
       const base64Image = imageBuffer.toString('base64');
 
+      let imageUrlResult: string | undefined;
+      let descriptionResult: string | undefined;
 
-      const fallback = new ProviderFallback({
-        toolName: 'edit_image',
-        providersToTry: servicesToTry,
-        requestedProvider: requestedService,
-        context
-      });
-
-      const providerResult = (await fallback.tryWithFallback<ImageEditResult>(async service => {
-        if (service === PROVIDERS.IMAGE.OPENAI) {
-          const result = (await openaiService.editImageForWhatsApp(
-            args.edit_instruction as string,
-            base64Image,
-            null
-          )) as ImageEditResult;
-          result.provider = service;
-          return result;
-        }
-
-        // Default to Gemini
-        const result = (await geminiService.editImageForWhatsApp(
+      // Execute based on service - NO FALLBACKS
+      if (service === PROVIDERS.IMAGE.OPENAI) {
+        const result = await openaiService.editImageForWhatsApp(
           args.edit_instruction as string,
           base64Image,
           null
-        )) as ImageEditResult;
-        result.provider = service;
-        return result;
-      })) as ImageEditResult;
-
-      if (!providerResult) {
-        return {
-          success: false,
-          error: 'לא התקבלה תשובה מהספקים'
-        };
+        );
+        imageUrlResult = result.imageUrl;
+        descriptionResult = result.description;
+      } else {
+        // Gemini (default)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = await geminiService.editImageForWhatsApp(
+          args.edit_instruction as string,
+          base64Image,
+          null
+        ) as any;
+        imageUrlResult = result.imageUrl;
+        descriptionResult = result.description;
       }
 
-      if (providerResult.error) {
-        return {
-          success: false,
-          error: `${typeof providerResult.error === 'string' ? providerResult.error : 'העריכה נכשלה אצל הספק המבוקש'} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`,
-          errorsAlreadySent: providerResult.errorsAlreadySent
-        };
-      }
-
-
-      const providerKey = (providerResult.provider as string) || requestedService || servicesToTry[0];
-      const providerName = formatProviderName(providerKey) || providerKey;
+      const providerName = formatProviderName(service) || service;
 
       return {
         success: true,
         data: `✅ התמונה נערכה בהצלחה עם ${providerName}!`,
-        imageUrl: providerResult.imageUrl,
-        caption: providerResult.description || providerResult.caption || '',
+        imageUrl: imageUrlResult,
+        caption: descriptionResult || '',
         provider: providerName,
-        providerKey: providerKey
+        providerKey: service
       };
     } catch (error) {
       logger.error('❌ Error in edit_image', {
@@ -159,9 +120,12 @@ export const edit_image = createTool<EditImageArgs>(
         service: args.service,
         chatId: context.chatId
       });
+
+      // Use standard error formatting
+      const errorMsg = error instanceof Error ? error.message : String(error);
       return {
         success: false,
-        error: ERROR.generic(error instanceof Error ? error.message : String(error))
+        error: ERROR.generic(errorMsg)
       };
     }
   }
@@ -217,50 +181,27 @@ export const edit_video = createTool<EditVideoArgs>(
       const { greenApiService } = getServices();
 
       const videoBuffer = await greenApiService.downloadFile(videoUrl);
-      const providersToTry = ['replicate'];
 
-      const fallback = new ProviderFallback({
-        toolName: 'edit_video',
-        providersToTry,
-        requestedProvider: null,
-        context,
-        timeout: TIME.VIDEO_GENERATION_TIMEOUT // Video editing is slow, use video timeout
-      });
+      // Replicate only for now
+      const result = await replicateService.generateVideoFromVideoForWhatsApp(
+        videoBuffer,
+        args.edit_instruction as string
+      );
 
-      const providerResult = (await fallback.tryWithFallback<VideoEditResult>(async provider => {
-        if (provider === 'replicate') {
-          const result = (await replicateService.generateVideoFromVideoForWhatsApp(
-            videoBuffer,
-            args.edit_instruction as string
-          )) as VideoEditResult;
-          result.providerUsed = provider;
-          return result;
-        }
-        throw new Error(`Provider ${provider} not supported for video editing yet`);
-      })) as VideoEditResult;
-
-      if (!providerResult) {
+      if (!result.success || result.error) {
         return {
           success: false,
-          error: 'לא התקבלה תשובה מהספקים'
+          error: `${result.error || 'העריכה נכשלה'} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`
         };
       }
 
-      if (providerResult.error) {
-        return {
-          success: false,
-          error: `${typeof providerResult.error === 'string' ? providerResult.error : 'העריכה נכשלה אצל הספק המבוקש'} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`,
-          errorsAlreadySent: providerResult.errorsAlreadySent
-        };
-      }
-
-      const providerKey = providerResult.providerUsed || 'replicate';
+      const providerKey = 'replicate';
       const providerName = formatProviderName(providerKey) || providerKey;
 
       return {
         success: true,
         data: `✅ הוידאו נערך בהצלחה!`,
-        videoUrl: providerResult.videoUrl,
+        videoUrl: result.videoUrl,
         provider: providerName,
         providerKey: providerKey
       };

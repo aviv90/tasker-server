@@ -108,6 +108,8 @@ export interface AgentResult {
     alreadySent?: boolean;
     suppressedFinalResponse?: boolean;
     error?: string;
+    /** Flag to indicate this result is from a retry execution - prevents re-saving command */
+    isRetryExecution?: boolean;
     [key: string]: unknown;
 }
 

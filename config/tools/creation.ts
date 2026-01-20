@@ -20,11 +20,11 @@ export const creationTools: Record<string, Tool> = {
     create_video: {
         name: 'create_video',
         category: 'creation',
-        description: 'Create NEW video with AI. Supports providers: veo3 (Google Veo 3), sora/sora-pro (OpenAI Sora 2), kling (default). Use this for NEW video requests, even if user specifies provider like "with Veo 3". Do NOT use retry_last_command for new video requests!',
+        description: 'Create NEW video with AI. Default provider: Veo 3 (Google). Other providers: sora/sora-pro (OpenAI), kling. Use this for NEW video requests, even if user specifies provider. Do NOT use retry_last_command for new video requests!',
         usage: ['צור וידאו', 'create video', 'make video of X', 'צור וידאו עם Veo 3', 'create video with Sora'],
         parameters: {
             prompt: { type: 'string', required: true, description: 'Video description' },
-            provider: { type: 'string', required: false, description: 'Optional. LEAVE EMPTY for default (Kling). Only set if user explicitly asks for "Veo" or "Sora".' }
+            provider: { type: 'string', required: false, description: 'Optional. LEAVE EMPTY for default (Veo 3). Only set if user explicitly asks for "Sora" or "Kling".' }
         },
         historyContext: {
             ignore: true,
@@ -35,12 +35,12 @@ export const creationTools: Record<string, Tool> = {
     image_to_video: {
         name: 'image_to_video',
         category: 'creation',
-        description: 'Convert/animate image to video (when image is attached). Supports providers: veo3 (Gemini Veo 3), sora/sora-pro (OpenAI Sora 2), kling (default). Use this for NEW image-to-video requests, even if user specifies provider like "with Veo 3". Do NOT use retry_last_command for new image-to-video requests!',
+        description: 'Convert/animate image to video (when image is attached). Default provider: Veo 3 (Google). Other providers: sora/sora-pro (OpenAI), kling. Use this for NEW image-to-video requests. Do NOT use retry_last_command for new image-to-video requests!',
         usage: ['הפוך לווידאו', 'הפוך תמונה לוידאו', 'animate', 'animate image', 'make video from image', 'convert to video', 'הפוך לווידאו עם Veo 3'],
         parameters: {
             image_url: { type: 'string', required: true, description: 'Image URL' },
             prompt: { type: 'string', required: false, description: 'Animation instructions' },
-            provider: { type: 'string', required: false, description: 'Optional. LEAVE EMPTY for default (Kling). Only set if user explicitly asks for "Veo" or "Sora".' }
+            provider: { type: 'string', required: false, description: 'Optional. LEAVE EMPTY for default (Veo 3). Only set if user explicitly asks for "Sora" or "Kling".' }
         },
         critical: 'Use ONLY when user attached an image and wants to animate/convert it to video. NOT for creating new videos! If user requests NEW image-to-video conversion with provider, use image_to_video with provider parameter, NOT retry_last_command!',
         historyContext: {

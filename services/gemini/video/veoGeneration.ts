@@ -78,14 +78,24 @@ class VeoGeneration {
     let currentOperation = operation as any;
     while (!currentOperation.done) {
       if (Date.now() - startTime > maxWaitTime) {
-        logger.error(`❌ Veo 3 ${operationType} timed out`);
-        return { error: `Video generation timed out after 10 minutes` };
+        logger.error(`❌ Veo 3 ${operationType} timed out after ${TIME.VIDEO_GENERATION_TIMEOUT / 60000} minutes`);
+        return { error: `Video generation timed out after ${TIME.VIDEO_GENERATION_TIMEOUT / 60000} minutes` };
       }
       await new Promise(resolve => setTimeout(resolve, TIME.POLL_INTERVAL_STANDARD));
       pollAttempts++;
       logger.info(`🔄 Polling attempt ${pollAttempts} for Veo 3 ${operationType}`);
       currentOperation = await veoClient.operations.getVideosOperation({ operation: currentOperation });
     }
+
+    // Log final operation state for debugging
+    logger.debug('📊 Veo operation completed:', {
+      done: currentOperation.done,
+      hasResponse: !!currentOperation.response,
+      hasGeneratedVideos: !!currentOperation.response?.generatedVideos?.length,
+      videoCount: currentOperation.response?.generatedVideos?.length || 0,
+      raiReasons: currentOperation.response?.raiMediaFilteredReasons || [],
+      responseKeys: currentOperation.response ? Object.keys(currentOperation.response) : []
+    });
 
     return currentOperation;
   }
@@ -96,15 +106,34 @@ class VeoGeneration {
   validateOperationResponse(operation: unknown): ValidationError | null {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const op = operation as any;
+
+    // Log full response structure for debugging
+    logger.debug('🔍 Validating Veo response:', {
+      hasResponse: !!op.response,
+      hasGeneratedVideos: !!op.response?.generatedVideos?.length,
+      videoCount: op.response?.generatedVideos?.length || 0,
+      raiReasons: op.response?.raiMediaFilteredReasons || [],
+      responseKeys: op.response ? Object.keys(op.response) : [],
+      firstVideoKeys: op.response?.generatedVideos?.[0] ? Object.keys(op.response.generatedVideos[0]) : []
+    });
+
     if (!op.response || !op.response.generatedVideos ||
       !op.response.generatedVideos.length ||
       !op.response.generatedVideos[0] ||
       !op.response.generatedVideos[0].video) {
-      logger.error('❌ Invalid Veo 3 response structure:', operation as Error);
+
+      // Log detailed error information
+      logger.error('❌ Invalid Veo 3 response structure:', {
+        response: op.response ? JSON.stringify(op.response).substring(0, 500) : 'null',
+        generatedVideos: op.response?.generatedVideos || 'undefined',
+        raiReasons: op.response?.raiMediaFilteredReasons || []
+      });
 
       let errorMessage = 'Invalid response from Veo 3 API';
       if (op.response && op.response.raiMediaFilteredReasons && op.response.raiMediaFilteredReasons.length > 0) {
-        errorMessage = op.response.raiMediaFilteredReasons[0];
+        const reasons = op.response.raiMediaFilteredReasons.join(', ');
+        errorMessage = `הבקשה נדחתה: ${reasons}`;
+        logger.warn('⚠️ Veo content filtered:', { reasons: op.response.raiMediaFilteredReasons });
       }
 
       return { error: errorMessage };

@@ -2,16 +2,43 @@ import { formatProviderName } from '../../utils/providerUtils';
 import { enhancePrompt } from '../../utils/promptEnhancer';
 import { getServices } from '../../utils/serviceLoader';
 import { cleanMarkdown } from '../../../../utils/textSanitizer';
-import { ProviderFallback } from '../../../../utils/providerFallback';
 import logger from '../../../../utils/logger';
-import { formatErrorForLogging } from '../../../../utils/errorHandler';
-import { IMAGE_PROVIDERS, DEFAULT_IMAGE_PROVIDERS, PROVIDERS } from '../../config/constants';
-import { REQUIRED, ERROR, PROVIDER_MISMATCH, COMMON, AGENT_INSTRUCTIONS } from '../../../../config/messages';
+import { formatErrorForLogging, formatProviderError } from '../../../../utils/errorHandler';
+import { IMAGE_PROVIDERS, PROVIDERS } from '../../config/constants';
+import { REQUIRED, ERROR, PROVIDER_MISMATCH, AGENT_INSTRUCTIONS } from '../../../../config/messages';
 import { createTool } from '../base';
 import type { CreateImageArgs, ImageProviderResult } from './types';
 
 /**
+ * Clean prompt from context markers that may leak from conversation history
+ */
+function cleanPromptFromContext(prompt: string): string {
+  return prompt
+    // Remove quoted message markers
+    .replace(/\[הודעה מצוטטת:[^\]]*\]/g, '')
+    .replace(/\[בקשה נוכחית:\]/g, '')
+    // Remove IMPORTANT instructions meant for LLM
+    .replace(/\*\*IMPORTANT:[^*]*\*\*/g, '')
+    .replace(/\*\*CRITICAL:[^*]*\*\*/g, '')
+    // Remove image_url/video_url instructions
+    .replace(/Use this image_url parameter directly:[^\n]*/gi, '')
+    .replace(/Use this video_url parameter directly:[^\n]*/gi, '')
+    .replace(/image_url: "[^"]*"/gi, '')
+    .replace(/video_url: "[^"]*"/gi, '')
+    // Remove analysis/edit instructions meant for tool selection
+    .replace(/- For analysis\/questions[^-]*/gi, '')
+    .replace(/- For edits[^-]*/gi, '')
+    .replace(/- DO NOT use retry_last_command[^*]*/gi, '')
+    // Clean up whitespace
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
  * Tool: Create Image
+ * 
+ * Default provider: Gemini
+ * No automatic fallbacks - user can use retry_with_different_provider for manual switching
  */
 export const create_image = createTool<CreateImageArgs>(
   {
@@ -60,7 +87,6 @@ export const create_image = createTool<CreateImageArgs>(
       }
 
       // Validate provider: Block Video providers for Image generation
-      // The Agent sometimes hallucinates and tries to use sora/veo/kling for images after a video failure
       const videoProviders = ['sora', 'sora-2', 'sora-pro', 'veo', 'veo3', 'kling', 'runway'];
       if (args.provider && videoProviders.includes(args.provider.toLowerCase())) {
         return {
@@ -69,74 +95,74 @@ export const create_image = createTool<CreateImageArgs>(
         };
       }
 
-      const requestedProvider = args.provider ?? null;
-      const providersToTry = requestedProvider
-        ? [requestedProvider, ...DEFAULT_IMAGE_PROVIDERS.filter(p => p !== requestedProvider)]
-        : [...DEFAULT_IMAGE_PROVIDERS];
-      const { geminiService, openaiService, grokService } = getServices();
+      // Determine provider: user-requested or default (Gemini)
+      const provider = args.provider || PROVIDERS.IMAGE.GEMINI;
+      const { geminiService, openaiService, grokService, greenApiService } = getServices();
 
-      const fallback = new ProviderFallback({
-        toolName: 'create_image',
-        providersToTry,
-        requestedProvider,
-        context
-      });
+      // Clean prompt from any context markers that may have leaked
+      let prompt = cleanPromptFromContext(args.prompt.trim());
 
       // MAGIC: Enhance prompt before generation
-      let prompt = args.prompt.trim();
-
-
       try {
         prompt = await enhancePrompt(prompt, 'image');
       } catch (err) {
         logger.warn('Prompt enhancement failed, using original', { error: err });
       }
 
-      const providerResult = (await fallback.tryWithFallback<ImageProviderResult>(async provider => {
-        let imageResult: ImageProviderResult;
+      logger.info(`🎨 [create_image] Generating with provider: ${provider}`);
+
+      // Generate image with selected provider (no fallback)
+      let imageResult: ImageProviderResult;
+      try {
         if (provider === PROVIDERS.IMAGE.OPENAI) {
           imageResult = (await openaiService.generateImageForWhatsApp(prompt, null)) as ImageProviderResult;
         } else if (provider === PROVIDERS.IMAGE.GROK) {
           imageResult = (await grokService.generateImageForWhatsApp(prompt)) as ImageProviderResult;
         } else {
+          // Default: Gemini
           imageResult = (await geminiService.generateImageForWhatsApp(prompt, null)) as ImageProviderResult;
         }
-        imageResult.providerUsed = provider;
-        return imageResult;
-      })) as ImageProviderResult;
+      } catch (genError) {
+        const errorMessage = genError instanceof Error ? genError.message : String(genError);
+        logger.error(`❌ [create_image] ${provider} generation failed:`, { error: errorMessage });
 
-      if (!providerResult) {
-        return {
-          success: false,
-          error: COMMON.NO_PROVIDER_RESPONSE
-        };
-      }
+        // Send error to user
+        if (context.chatId) {
+          const formattedError = formatProviderError(provider, errorMessage, 'he');
+          await greenApiService.sendTextMessage(context.chatId, formattedError, undefined, 1000);
+        }
 
-      if (providerResult.error) {
-        const errorMessage =
-          typeof providerResult.error === 'string'
-            ? providerResult.error
-            : 'הבקשה נכשלה אצל הספק המבוקש';
         return {
           success: false,
           error: `${errorMessage} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`,
-          errorsAlreadySent: providerResult.errorsAlreadySent
+          errorsAlreadySent: true
         };
       }
 
-      const providerKey =
-        (providerResult.providerUsed as string | undefined) ||
-        requestedProvider ||
-        providersToTry[0] ||
-        PROVIDERS.IMAGE.GEMINI;
-      const formattedProviderName = formatProviderName(providerKey);
-      const providerName =
-        typeof formattedProviderName === 'string' && formattedProviderName.length > 0
-          ? formattedProviderName
-          : providerKey;
+      // Handle error response
+      if (imageResult.error) {
+        const errorMessage = typeof imageResult.error === 'string'
+          ? imageResult.error
+          : 'הבקשה נכשלה אצל הספק המבוקש';
 
-      if (providerResult.textOnly) {
-        let text = providerResult.description || '';
+        // Send error to user
+        if (context.chatId) {
+          const formattedError = formatProviderError(provider, errorMessage, 'he');
+          await greenApiService.sendTextMessage(context.chatId, formattedError, undefined, 1000);
+        }
+
+        return {
+          success: false,
+          error: `${errorMessage} ${AGENT_INSTRUCTIONS.STOP_ON_ERROR}`,
+          errorsAlreadySent: true
+        };
+      }
+
+      const providerName = formatProviderName(provider) || provider;
+
+      // Handle text-only response
+      if (imageResult.textOnly) {
+        let text = imageResult.description || '';
         if (text) {
           text = cleanMarkdown(text);
         }
@@ -144,22 +170,21 @@ export const create_image = createTool<CreateImageArgs>(
           success: true,
           data: text,
           provider: providerName,
-          providerKey: providerKey
+          providerKey: provider
         };
       }
 
-      let caption = providerResult.description || providerResult.revisedPrompt || '';
+      let caption = imageResult.description || imageResult.revisedPrompt || '';
       if (caption) {
         caption = cleanMarkdown(caption);
       }
 
       return {
         success: true,
-        // No generic success message - image is sent with caption, no need for redundant text
-        imageUrl: providerResult.imageUrl,
+        imageUrl: imageResult.imageUrl,
         imageCaption: caption,
         provider: providerName,
-        providerKey: providerKey
+        providerKey: provider
       };
     } catch (error) {
       logger.error('❌ Error in create_image tool', {

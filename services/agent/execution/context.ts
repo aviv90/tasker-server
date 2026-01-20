@@ -39,6 +39,8 @@ export type AgentContextState = {
   audioUrl?: string | null;
   suppressFinalResponse: boolean;
   expectedMediaType: string | null;
+  /** Flag to indicate this is a retry execution - prevents re-saving command */
+  isRetryExecution?: boolean;
   [key: string]: unknown;
 };
 

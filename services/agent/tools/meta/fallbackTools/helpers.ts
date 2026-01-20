@@ -3,7 +3,7 @@
  */
 import { getServices } from '../../../utils/serviceLoader';
 import { formatProviderName, normalizeProviderKey } from '../../../utils/providerUtils';
-import { VIDEO_PROVIDER_FALLBACK_ORDER, VIDEO_PROVIDER_DISPLAY_MAP, DEFAULT_IMAGE_PROVIDERS } from '../../../config/constants';
+import { DEFAULT_VIDEO_PROVIDERS, VIDEO_PROVIDER_DISPLAY_MAP, DEFAULT_IMAGE_PROVIDERS } from '../../../config/constants';
 import { extractQuotedMessageId } from '../../../../../utils/messageHelpers';
 import logger from '../../../../../utils/logger';
 
@@ -59,8 +59,8 @@ export function getProviderOrder(taskType: string, avoidProvider: string | null 
     return validProviders.filter((p: string) => p !== avoidProvider);
   } else if (taskType === 'video' || taskType === 'video_creation' || taskType === 'image_to_video') {
     // STRICT: Only Video providers
-    // We must ensure VIDEO_PROVIDER_FALLBACK_ORDER does not contain image-only providers
-    return VIDEO_PROVIDER_FALLBACK_ORDER.filter((p: string) => p !== avoidProvider);
+    // We must ensure DEFAULT_VIDEO_PROVIDERS does not contain image-only providers
+    return [...DEFAULT_VIDEO_PROVIDERS].filter((p: string) => p !== avoidProvider);
   } else {
     // Image creation
     // Image creation - use centralized constant (SSOT)

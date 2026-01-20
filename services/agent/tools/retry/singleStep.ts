@@ -28,6 +28,9 @@ export async function handleSingleStepRetry(
   context: ToolContext,
   lastCommand: LastCommand
 ): Promise<ToolResult> {
+  // CRITICAL: Mark this as a retry execution to prevent re-saving the command
+  context.isRetryExecution = true;
+
   const chatId = context.chatId;
   if (!chatId) {
     return {

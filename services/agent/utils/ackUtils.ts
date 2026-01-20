@@ -9,7 +9,7 @@ import {
   applyProviderToMessage,
   mapVideoProviderDisplay
 } from './providerUtils';
-import { TOOL_ACK_MESSAGES, VIDEO_PROVIDER_FALLBACK_ORDER } from '../config/constants';
+import { TOOL_ACK_MESSAGES, DEFAULT_VIDEO_PROVIDERS } from '../config/constants';
 import logger from '../../../utils/logger';
 
 type ProviderKey = string | null | undefined;
@@ -30,7 +30,7 @@ export function getToolAckMessage(toolName: string, provider: ProviderKey = null
     if (toolName === 'create_image' || toolName === 'edit_image') {
       provider = 'gemini';
     } else if (toolName === 'create_video' || toolName === 'image_to_video') {
-      provider = 'kling';
+      provider = 'veo3';
     } else if (toolName === 'edit_video') {
       provider = 'runway';
     }
@@ -126,7 +126,7 @@ export async function sendToolAckMessage(
           providersTriedRaw.push(args.provider_tried as ProviderKey);
         }
         const providersTried = providersTriedRaw.map(normalizeProviderKey).filter(Boolean);
-        const availableProviders = VIDEO_PROVIDER_FALLBACK_ORDER.filter(
+        const availableProviders = DEFAULT_VIDEO_PROVIDERS.filter(
           (p) => !providersTried.includes(p)
         );
         provider = availableProviders[0] || null;
