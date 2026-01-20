@@ -78,14 +78,10 @@ export const AUDIO_TRANSLATION_RULES = `• **Audio/Translation:**
  * New request vs retry rule
  */
 export const NEW_REQUEST_VS_RETRY_RULE = `• **New Request vs. Retry/Correction:**
-  - New creation request (fresh topic) → Use the creation tool (e.g., \`create_image\`).
-  - **Correction/Refinement** (e.g., "hair is wrong", "change style", "make it faster", "not good") → Use \`retry_last_command(modifications: "...")\`.
-  - Quoted Output + Correction → Use \`retry_last_command\`.
-  - Explicit "retry", "again", "fix", "נסה שוב", "שוב" → Use \`retry_last_command\`.
-  - **CRITICAL: Do NOT assume retry intent!**
-    - If user message does NOT contain explicit retry keywords - treat as NEW request or conversation.
-    - General questions like "תיקנו אותך?", "מה נשמע?", "האם אתה עובד?" are NOT retry requests. Just respond naturally.
-    - Comments about the bot (feedback, questions about its state) → Text response only. NO retry!`;
+  - **New Topic:** → Use creation tool (e.g., \`create_image\`).
+  - **Correction:** (e.g., "hair is wrong", "change style") → Use \`retry_last_command(modifications: "...")\`.
+  - **Explicit Retry:** ("retry", "again", "fix") → Use \`retry_last_command\`.
+  - **Default:** Treat ambiguous inputs as NEW requests/conversation.`;
 
 /**
  * Retry specific steps rule
@@ -182,21 +178,12 @@ export const GOOGLE_SEARCH_RULES = `
 🔍 **Google Search Tool Active - You MUST use it!**
 
 **CRITICAL INSTRUCTIONS:**
-1. ✅ You have access to Google Search - **USE IT for any link request!**
-2. ❌ **NEVER** answer from memory (2023) - links are broken.
-3. ❌ **NEVER** invent links. If Search finds nothing, say "No link available".
-4. ⚠️ Your memory is outdated.
+1. ✅ **Links:** USE Google Search for ANY link request.
+2. ❌ **Memory:** NEVER answer from memory (outdated).
+3. ❌ **Invention:** NEVER invent links. If not found, say "No link available".
 
-**workflow:**
-User asks for link → Use Google Search → Copy link from results → Send to user.
-
-**Examples of FAILURE:**
-❌ "I cannot send links" - **FALSE! You have Google Search!**
-❌ "Here is a link: youtube.com/..." - **INVENTED! Use Search!**
-
-**Example of SUCCESS:**
-✅ [Use Google Search tool] → "Here is a link from Ynet: [Real Link]"
-✅ If failed: "I couldn't find a working link, please search Google yourself."`;
+**Success:** [Use Search] → "Here is a link: [Real Link]"
+**Failure:** "I cannot send links" (FALSE) or invented links.`;
 
 
 
@@ -218,9 +205,6 @@ export const PARALLEL_TOOL_RULE = `• **TOOL USAGE:**
  * Strict tool adherence rule - prevents unauthorized switching/retries
  */
 export const STRICT_TOOL_ADHERENCE_RULE = `• **STRICT TOOL ADHERENCE (CRITICAL):**
-  - **Single Attempt:** If a tool fails (e.g., "Payment Required", "Policy Violation"), **STOP IMMEDIATELY**.
-  - **No Unauthorized Switching:** Do NOT switch to a different tool (e.g., Image-to-Video failed → Text-to-Video) unless the user EXPLICITLY authorized it.
-  - **No Cross-Domain Switching:** If IMAGE creation failed - do NOT switch to VIDEO or MUSIC. If VIDEO failed - do NOT switch to IMAGE or MUSIC. DOMAIN switching is STRICTLY FORBIDDEN!
-  - **Domain Examples:** image→image_edit OK, image→music FORBIDDEN, video→image FORBIDDEN.
-  - **No Endless Loops:** Do NOT retry the same failed tool with the same arguments.
-  - **Error Handling:** Report the error and wait for user input.`;
+  - **Single Attempt:** If a tool fails, **STOP** and report error.
+  - **No Switching:** Do NOT switch tools (e.g., Image→Video, Video→Music) without explicit authorization.
+  - **No Loops:** Do NOT retry the same failed call blindly.`;

@@ -7,7 +7,7 @@
 
 import { WebhookData } from './types';
 import logger from '../../utils/logger';
-import { NormalizedInput } from '../../services/agentRouter';
+import { NormalizedInput } from './types';
 import { extractMessageText, logMessageDetails, buildQuotedContext } from '../../routes/whatsapp/messageParser';
 import { extractDirectMediaUrls, extractQuotedMediaUrls, isActualQuote } from './mediaExtraction';
 import { isCommand, extractCommandPrompt } from '../../utils/commandUtils';
@@ -162,12 +162,12 @@ export class MessageProcessor {
                 imageUrl,
                 videoUrl,
                 audioUrl,
-                quotedContext,
+                quotedContext: quotedContext as any,
                 originalMessageId,
                 chatType: chatId.endsWith('@g.us') ? 'group' : chatId.endsWith('@c.us') ? 'private' : 'unknown',
                 language: 'he',
                 authorizations,
-                senderData: { senderContactName, chatName, senderName, chatId, sender: senderData.sender }
+                senderData: { senderContactName, chatName, senderName, chatId, senderId: senderData.sender }
             };
 
 

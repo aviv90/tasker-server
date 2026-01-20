@@ -1,34 +1,19 @@
-import conversationManager from '../../conversationManager';
+// conversationManager import removed
 import { summarizeLastCommand } from '../utils/resultUtils';
 import { NormalizedInput, LastCommand } from '../../whatsapp/types';
 
 /**
  * Build contextual prompt for agent
  * @param input - Normalized input from webhook
- * @param chatId - Chat ID for context
+ * @param lastCommand - Last command context (fetched outside)
  * @returns Contextual prompt
  */
-export async function buildContextualPrompt(input: NormalizedInput, chatId: string): Promise<string> {
+export function buildContextualPrompt(input: NormalizedInput, lastCommand: LastCommand | null): string {
   const userText = input.userText || '';
 
-  const lastCommandRaw = await conversationManager.getLastCommand(chatId);
   let parsedLastCommand: LastCommand | null = null;
-
-  if (lastCommandRaw) {
-    // Cast to LastCommand (assuming conversationManager returns compatible object)
-    const raw = lastCommandRaw as LastCommand;
-    parsedLastCommand = {
-      tool: raw.tool,
-      args: raw.toolArgs || raw.args,
-      normalized: raw.normalized,
-      prompt: raw.prompt,
-      failed: raw.failed,
-      imageUrl: raw.imageUrl,
-      videoUrl: raw.videoUrl,
-      audioUrl: raw.audioUrl,
-      isMultiStep: raw.isMultiStep,
-      plan: raw.plan
-    };
+  if (lastCommand) {
+    parsedLastCommand = lastCommand;
   }
 
   let contextualPrompt = buildMediaContext(input, userText);

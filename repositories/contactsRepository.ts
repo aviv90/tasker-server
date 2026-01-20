@@ -72,7 +72,9 @@ class ContactsRepository {
 
       await client.query(`
         INSERT INTO contacts (contact_id, name, contact_name, type, chat_id, raw_data, updated_at)
-        SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::jsonb[])
+        SELECT t.contact_id, t.name, t.contact_name, t.type, t.chat_id, t.raw_data, CURRENT_TIMESTAMP
+        FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::jsonb[]) 
+        AS t(contact_id, name, contact_name, type, chat_id, raw_data)
         ON CONFLICT (contact_id) 
         DO UPDATE SET 
           name = EXCLUDED.name,

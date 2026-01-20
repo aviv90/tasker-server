@@ -80,9 +80,9 @@ class AllowListsManager {
       // eslint-disable-next-line no-control-regex
       const cleanName = contactName.trim().replace(/[\x00-\x1F\x7F]/g, '');
       if (!cleanName) return false;
-      await this.repository.addToAllowList('voice_allow_list', cleanName);
-      logger.info(`✅ Added ${contactName} to voice allow list`);
-      return true;
+      const result = await this.repository.addToAllowList('voice_allow_list', cleanName);
+      if (result) logger.info(`✅ Added ${contactName} to voice allow list`);
+      return result;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('❌ Error adding to voice allow list:', { error: errorMessage });
@@ -102,9 +102,9 @@ class AllowListsManager {
       // eslint-disable-next-line no-control-regex
       const cleanName = contactName.trim().replace(/[\x00-\x1F\x7F]/g, '');
       if (!cleanName) return false;
-      await this.repository.removeFromAllowList('voice_allow_list', cleanName);
-      logger.info(`🚫 Removed ${contactName} from voice allow list`);
-      return true;
+      const result = await this.repository.removeFromAllowList('voice_allow_list', cleanName);
+      if (result) logger.info(`🚫 Removed ${contactName} from voice allow list`);
+      return result;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('❌ Error removing from voice allow list:', { error: errorMessage });
@@ -210,9 +210,9 @@ class AllowListsManager {
       // eslint-disable-next-line no-control-regex
       const cleanName = contactName.trim().replace(/[\x00-\x1F\x7F]/g, '');
       if (!cleanName) return false;
-      await this.repository.addToAllowList('media_allow_list', cleanName);
-      logger.info(`✅ Added ${contactName} to media allow list`);
-      return true;
+      const result = await this.repository.addToAllowList('media_allow_list', cleanName);
+      if (result) logger.info(`✅ Added ${contactName} to media allow list`);
+      return result;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('❌ Error adding to media allow list:', { error: errorMessage });
@@ -232,9 +232,9 @@ class AllowListsManager {
       // eslint-disable-next-line no-control-regex
       const cleanName = contactName.trim().replace(/[\x00-\x1F\x7F]/g, '');
       if (!cleanName) return false;
-      await this.repository.removeFromAllowList('media_allow_list', cleanName);
-      logger.info(`🚫 Removed ${contactName} from media allow list`);
-      return true;
+      const result = await this.repository.removeFromAllowList('media_allow_list', cleanName);
+      if (result) logger.info(`🚫 Removed ${contactName} from media allow list`);
+      return result;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('❌ Error removing from media allow list:', { error: errorMessage });
@@ -271,9 +271,9 @@ class AllowListsManager {
       // eslint-disable-next-line no-control-regex
       const cleanName = contactName.trim().replace(/[\x00-\x1F\x7F]/g, '');
       if (!cleanName) return false;
-      await this.repository.addToAllowList('group_creation_allow_list', cleanName);
-      logger.info(`✅ Added ${contactName} to group creation allow list`);
-      return true;
+      const result = await this.repository.addToAllowList('group_creation_allow_list', cleanName);
+      if (result) logger.info(`✅ Added ${contactName} to group creation allow list`);
+      return result;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('❌ Error adding to group creation allow list:', { error: errorMessage });
@@ -293,9 +293,9 @@ class AllowListsManager {
       // eslint-disable-next-line no-control-regex
       const cleanName = contactName.trim().replace(/[\x00-\x1F\x7F]/g, '');
       if (!cleanName) return false;
-      await this.repository.removeFromAllowList('group_creation_allow_list', cleanName);
-      logger.info(`🚫 Removed ${contactName} from group creation allow list`);
-      return true;
+      const result = await this.repository.removeFromAllowList('group_creation_allow_list', cleanName);
+      if (result) logger.info(`🚫 Removed ${contactName} from group creation allow list`);
+      return result;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('❌ Error removing from group creation allow list:', { error: errorMessage });

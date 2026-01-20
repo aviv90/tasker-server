@@ -95,13 +95,11 @@ class ConversationManager {
   }
 
   async addToVoiceAllowList(contactName: string): Promise<boolean> {
-    await this.allowListsManager.addToVoiceAllowList(contactName);
-    return true; // Return true to indicate success (for backward compatibility)
+    return this.allowListsManager.addToVoiceAllowList(contactName);
   }
 
   async removeFromVoiceAllowList(contactName: string): Promise<boolean> {
-    await this.allowListsManager.removeFromVoiceAllowList(contactName);
-    return true; // Return true to indicate success (for backward compatibility)
+    return this.allowListsManager.removeFromVoiceAllowList(contactName);
   }
 
   async getVoiceAllowList(): Promise<string[]> {
@@ -117,13 +115,11 @@ class ConversationManager {
   }
 
   async addToMediaAllowList(contactName: string): Promise<boolean> {
-    await this.allowListsManager.addToMediaAllowList(contactName);
-    return true; // Return true to indicate success (for backward compatibility)
+    return this.allowListsManager.addToMediaAllowList(contactName);
   }
 
   async removeFromMediaAllowList(contactName: string): Promise<boolean> {
-    await this.allowListsManager.removeFromMediaAllowList(contactName);
-    return true; // Return true to indicate success (for backward compatibility)
+    return this.allowListsManager.removeFromMediaAllowList(contactName);
   }
 
   async getMediaAllowList(): Promise<string[]> {
@@ -131,13 +127,11 @@ class ConversationManager {
   }
 
   async addToGroupCreationAllowList(contactName: string): Promise<boolean> {
-    await this.allowListsManager.addToGroupCreationAllowList(contactName);
-    return true; // Return true to indicate success (for backward compatibility)
+    return this.allowListsManager.addToGroupCreationAllowList(contactName);
   }
 
   async removeFromGroupCreationAllowList(contactName: string): Promise<boolean> {
-    await this.allowListsManager.removeFromGroupCreationAllowList(contactName);
-    return true; // Return true to indicate success (for backward compatibility)
+    return this.allowListsManager.removeFromGroupCreationAllowList(contactName);
   }
 
   async getGroupCreationAllowList(): Promise<string[]> {
@@ -152,8 +146,8 @@ class ConversationManager {
     return this.allowListsManager.getDatabaseStats();
   }
 
-  async clearAllConversations(): Promise<void> {
-    await container.getService('messages').clearAllConversations();
+  async clearAllConversations(): Promise<number> {
+    return container.getService('messages').clearAllConversations();
   }
 
   async clearConversationsForChat(chatId: string): Promise<number> {

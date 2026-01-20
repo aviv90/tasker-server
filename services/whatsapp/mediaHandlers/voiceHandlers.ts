@@ -7,7 +7,8 @@
 import logger from '../../../utils/logger';
 // import { VOICE_WHITELIST } from '../../../config/whitelist'; // Removed in favor of DB
 import { getServices } from '../../agent/utils/serviceLoader';
-import { NormalizedInput, routeToAgent } from '../../agentRouter';
+import { routeToAgent } from '../../agentRouter';
+import { NormalizedInput } from '../types';
 // import { AgentResult } from '../../agent/types'; // Unused
 import { sendAgentResults } from '../../../routes/whatsapp/incoming/resultHandling';
 import { TIME } from '../../../utils/constants';
@@ -107,7 +108,13 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
       audioAlreadyTranscribed: true, // CRITICAL: Prevents duplicate ACK for transcribe_audio
       chatType: chatId && chatId.endsWith('@g.us') ? 'group' : 'private',
       language: originalLanguage,
-      senderData: { chatId, senderId, senderName },
+      senderData: {
+        chatId,
+        senderId: senderId || '',
+        senderName: senderName || '',
+        senderContactName: senderName || '',
+        chatName: ''
+      },
       originalMessageId: originalMessageId || undefined
     };
 

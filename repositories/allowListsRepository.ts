@@ -32,7 +32,7 @@ class AllowListsRepository {
         UPDATE voice_settings SET enabled = $1, updated_at = CURRENT_TIMESTAMP
         RETURNING enabled
       `, [enabled]);
-      
+
       if (result.rowCount === 0) {
         // Insert if not exists
         await client.query(`
@@ -51,14 +51,15 @@ class AllowListsRepository {
    * @param {string} tableName 
    * @param {string} contactName 
    */
-  async addToAllowList(tableName: string, contactName: string) {
+  async addToAllowList(tableName: string, contactName: string): Promise<boolean> {
     const client = await this.pool.connect();
     try {
-      await client.query(`
+      const result = await client.query(`
         INSERT INTO ${tableName} (contact_name)
         VALUES ($1)
         ON CONFLICT (contact_name) DO NOTHING
       `, [contactName]);
+      return (result.rowCount || 0) > 0;
     } finally {
       client.release();
     }
@@ -69,13 +70,14 @@ class AllowListsRepository {
    * @param {string} tableName 
    * @param {string} contactName 
    */
-  async removeFromAllowList(tableName: string, contactName: string) {
+  async removeFromAllowList(tableName: string, contactName: string): Promise<boolean> {
     const client = await this.pool.connect();
     try {
-      await client.query(`
+      const result = await client.query(`
         DELETE FROM ${tableName}
         WHERE contact_name = $1
       `, [contactName]);
+      return (result.rowCount || 0) > 0;
     } finally {
       client.release();
     }
@@ -136,8 +138,8 @@ class AllowListsRepository {
     const client = await this.pool.connect();
     try {
       const tables = [
-        'voice_allow_list', 
-        'media_allow_list', 
+        'voice_allow_list',
+        'media_allow_list',
         'group_creation_allow_list',
         'contacts',
         'agent_context',
@@ -145,9 +147,9 @@ class AllowListsRepository {
         'message_types',
         'last_commands'
       ];
-      
+
       const stats: Record<string, number | string> = {};
-      
+
       for (const table of tables) {
         try {
           const result = await client.query(`SELECT COUNT(*) FROM ${table}`);
@@ -156,7 +158,7 @@ class AllowListsRepository {
           stats[table] = 'error';
         }
       }
-      
+
       return stats;
     } finally {
       client.release();

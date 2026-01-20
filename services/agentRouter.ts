@@ -13,34 +13,7 @@ import { saveLastCommand } from './agent/router/commandSaver';
 import logger from '../utils/logger';
 import conversationManager from './conversationManager';
 
-/**
- * Normalized input structure
- */
-export interface NormalizedInput {
-  userText?: string;
-  imageUrl?: string | null;
-  videoUrl?: string | null;
-  audioUrl?: string | null;
-  quotedMessageId?: string | null;
-  [key: string]: unknown;
-}
-
-/**
- * Last command structure
- */
-export interface LastCommand {
-  tool: string | null;
-  toolArgs?: unknown;
-  args?: unknown;
-  normalized?: unknown;
-  prompt?: string | null;
-  failed?: boolean;
-  imageUrl?: string | null;
-  videoUrl?: string | null;
-  audioUrl?: string | null;
-  isMultiStep?: boolean;
-  plan?: unknown;
-}
+import { NormalizedInput, LastCommand } from './whatsapp/types';
 
 /**
  * Agent execution result
@@ -125,12 +98,8 @@ export async function routeToAgent(input: NormalizedInput, chatId: string, optio
     logger.info('🚀 [AGENT ROUTER] Fast Path detected - skipping history for standalone command');
   }
 
-  // Build contextual prompt using the new context builder
-  const contextualPrompt = await buildContextualPrompt(input, chatId);
-
-  logger.debug(`🤖 [AGENT ROUTER] Sending to Agent: "${contextualPrompt.substring(0, 150)}..."`);
-
-  // Get last command for context (needed for agent execution) - from DB (persistent)
+  // Get last command for context (needed for both prompt building and agent execution)
+  // Optimization: Fetch once here to avoid DB call inside prompt builder
   const lastCommandRaw = await conversationManager.getLastCommand(chatId);
   let parsedLastCommand: LastCommand | null = null;
   if (lastCommandRaw) {
@@ -148,6 +117,9 @@ export async function routeToAgent(input: NormalizedInput, chatId: string, optio
       plan: raw.plan
     };
   }
+
+  // Build contextual prompt using the new context builder (Now Synchronous/Pure)
+  const contextualPrompt = buildContextualPrompt(input, parsedLastCommand);
 
   // Execute agent query with full context
   // NOTE: History management is handled in agentService.ts with smart detection logic

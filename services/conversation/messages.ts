@@ -116,15 +116,18 @@ class MessagesManager {
     /**
      * Clear all conversations
      */
-    async clearAllConversations(): Promise<void> {
-        if (!this.pool) return;
+    async clearAllConversations(): Promise<number> {
+        if (!this.pool) return 0;
 
         try {
-            await this.pool.query('DELETE FROM conversations');
-            logger.info('🗑️ All conversations cleared from DB');
+            const result = await this.pool.query('DELETE FROM conversations');
+            const deletedCount = result.rowCount || 0;
+            logger.info(`🗑️ All conversations cleared from DB (${deletedCount} messages)`);
+            return deletedCount;
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             logger.error('❌ Error clearing all conversations:', { error: errorMessage });
+            return 0;
         }
     }
 
