@@ -48,7 +48,7 @@ describe('schedule_message tool', () => {
     it('should use current chat ID when no recipient is provided', async () => {
         const args = {
             message: 'Hello',
-            time: '2025-12-25T10:00:00Z'
+            time: new Date(Date.now() + 3600000).toISOString()
         };
 
         const result = await schedule_message.execute(args, mockContext);
@@ -68,7 +68,7 @@ describe('schedule_message tool', () => {
 
         const args = {
             message: 'Hello',
-            time: '2025-12-25T10:00:00Z',
+            time: new Date(Date.now() + 3600000).toISOString(),
             recipient: 'Coco'
         };
 
