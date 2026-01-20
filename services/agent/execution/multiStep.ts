@@ -13,7 +13,7 @@ import resultSender from './resultSender';
 import { TIME } from '../../../utils/constants';
 import logger from '../../../utils/logger';
 import { formatProviderError } from '../../../utils/errorHandler';
-import { FallbackHandler } from './fallbackHandler';
+// FallbackHandler REMOVED - NO AUTOMATIC FALLBACKS
 import { processFinalText } from './resultProcessor';
 import { AgentConfig, StepResult } from '../types';
 
@@ -37,11 +37,7 @@ export interface ExecutionOptions {
 }
 
 class MultiStepExecution {
-  private fallbackHandler: FallbackHandler;
-
-  constructor() {
-    this.fallbackHandler = new FallbackHandler();
-  }
+  // NO fallback handler - errors are sent directly to user
 
   /**
    * Execute multi-step plan
@@ -164,23 +160,13 @@ class MultiStepExecution {
 
           logger.info(`✅ [Multi-step] Step ${step.stepNumber}/${plan.steps.length} completed and ALL results sent`);
         } else {
-          // Step failed - try fallback
+          // Step failed - NO FALLBACKS - just send error
           logger.error(`❌ [Agent] Step ${step.stepNumber}/${plan.steps.length} failed:`, { error: stepResult.error });
 
-          // Get quotedMessageId to pass to fallback
           const quotedMessageId = extractQuotedMessageId({ originalMessageId: options.input?.originalMessageId });
           const language = (options.input as Record<string, unknown>)?.language as string || 'he';
 
-          const fallbackResult = await this.fallbackHandler.tryFallback(chatId, toolName, toolParams, step, stepResult, quotedMessageId || null, language);
-          if (fallbackResult) {
-            stepResults.push(fallbackResult);
-          } else {
-            // Send error for non-creation tools
-            if (!this.fallbackHandler.isCreationTool(toolName || '')) {
-              const language = (options.input as Record<string, unknown>)?.language as string || 'he';
-              await this.sendError(chatId, stepResult.error || 'Unknown error', step.stepNumber, quotedMessageId || null, toolName || 'unknown', language);
-            }
-          }
+          await this.sendError(chatId, stepResult.error || 'Unknown error', step.stepNumber, quotedMessageId || null, toolName || 'unknown', language);
         }
       } catch (stepError: unknown) {
         const err = stepError as Error;
