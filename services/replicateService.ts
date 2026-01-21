@@ -1,7 +1,8 @@
 /**
  * Replicate Service
  * 
- * Video generation using Replicate (Kling, Veo 3, RunwayML).
+ * Video generation using Replicate (Kling, RunwayML).
+ * NOTE: Veo 3 is NOT available via Replicate - use GeminiService for Veo 3.
  * Refactored to use modular components (Phase 5.3)
  */
 

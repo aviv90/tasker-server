@@ -29,19 +29,14 @@ interface PollResult {
  */
 class ReplicateHelpers {
   /**
-   * Calculate cost for prediction
+   * Calculate cost for prediction (Kling only - Veo3 uses Google API)
    */
-  calculateCost(_prediction: unknown, isVeo3 = false): string {
+  calculateCost(_prediction: unknown): string {
     try {
-      if (isVeo3) {
-        // Veo 3 costs $6 per 8-second video ($0.75 per second)
-        return "6.00";
-      } else {
-        // Kling v2.1 Master costs $0.28 per second (5s = $1.40)
-        return "1.40"; // Fixed cost for 5-second Kling video
-      }
+      // Kling v2.1 Master costs $0.28 per second (5s = $1.40)
+      return "1.40"; // Fixed cost for 5-second Kling video
     } catch (_err) {
-      return isVeo3 ? "6.00" : "1.40";
+      return "1.40";
     }
   }
 
@@ -50,7 +45,7 @@ class ReplicateHelpers {
    */
   extractErrorDetails(error: unknown): string {
     let errorMessage = 'Unknown error';
-    
+
     if (error instanceof Error) {
       errorMessage = error.message || error.toString();
     } else if (typeof error === 'string') {
@@ -122,17 +117,17 @@ class ReplicateHelpers {
       } catch (pollError: unknown) {
         const errorMessage = pollError instanceof Error ? pollError.message : String(pollError);
         logger.warn(`❌ Polling attempt ${attempts} failed:`, { error: errorMessage });
-        
+
         interface PollErrorResponse {
           response?: {
             status?: number;
           };
         }
-        
+
         const pollErrorWithResponse = pollError as PollErrorResponse;
-        if (pollErrorWithResponse.response?.status === 401 || 
-            pollErrorWithResponse.response?.status === 402 || 
-            pollErrorWithResponse.response?.status === 429) {
+        if (pollErrorWithResponse.response?.status === 401 ||
+          pollErrorWithResponse.response?.status === 402 ||
+          pollErrorWithResponse.response?.status === 429) {
           return { success: false, error: this.extractErrorDetails(pollError) };
         }
       }

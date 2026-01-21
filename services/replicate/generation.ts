@@ -38,84 +38,50 @@ interface VideoGenerationResult {
 
 /**
  * Replicate video generation operations
+ * NOTE: Veo 3 is handled by GeminiService, NOT by Replicate.
+ * This service handles: Kling (text/image to video), RunwayML (video to video)
  */
 class ReplicateGeneration {
   /**
-   * Build input parameters based on model type
+   * Build input parameters for Kling model
    */
-  buildInputParams(prompt: string, model: string, base64Image: string | null = null): InputParams {
-    const isVeo3 = model === 'veo3';
-
+  buildInputParams(prompt: string, base64Image: string | null = null): InputParams {
     if (base64Image) {
-      // Image-to-video
-      let input: InputParams = {
-        image: base64Image,
+      // Image-to-video (Kling)
+      return {
+        start_image: base64Image,
+        prompt: prompt || "animate this image with smooth motion",
+        duration: 5,
+        aspect_ratio: "9:16"
       };
-
-      if (isVeo3) {
-        input = {
-          ...input,
-          duration: 8,
-          aspect_ratio: "16:9"
-        };
-      } else {
-        input = {
-          start_image: base64Image,
-          duration: 5,
-          aspect_ratio: "9:16"
-        };
-        delete input.image;
-      }
-
-      if (prompt) {
-        input.prompt = prompt;
-      } else if (!isVeo3) {
-        input.prompt = "animate this image with smooth motion";
-      }
-
-      return input;
     } else {
-      // Text-to-video
-      let inputParams: InputParams = {
+      // Text-to-video (Kling)
+      return {
         prompt: prompt,
+        aspect_ratio: "9:16",
+        duration: 5,
+        negative_prompt: ""
       };
-
-      if (isVeo3) {
-        inputParams = {
-          ...inputParams,
-          duration: 8,
-          width: 1920,
-          height: 1080,
-          aspect_ratio: "16:9"
-        };
-      } else {
-        inputParams = {
-          ...inputParams,
-          aspect_ratio: "9:16",
-          duration: 5,
-          negative_prompt: ""
-        };
-      }
-
-      return inputParams;
     }
   }
 
   /**
-   * Generate video from text prompt
+   * Generate video from text prompt (Kling only)
    */
   async generateVideoWithText(prompt: string, model = 'kling'): Promise<VideoGenerationResult> {
     try {
-      const isVeo3 = model === 'veo3';
-      const modelName = isVeo3 ? 'Veo 3' : 'Kling v2.1 Master';
-      const modelVersion = isVeo3 ? MODELS.VEO3_TEXT_TO_VIDEO : MODELS.TEXT_TO_VIDEO;
+      // ENFORCE: Only Kling is supported via Replicate. Veo3 must use GeminiService.
+      if (model === 'veo3') {
+        logger.error('❌ Veo3 requested via Replicate - this is incorrect! Veo3 must use GeminiService.');
+        return { error: 'Veo3 must use Google Gemini API, not Replicate. Use geminiService.generateVideoForWhatsApp() instead.' };
+      }
 
-      logger.info(`🎬 Starting ${modelName} text-to-video generation`);
+      logger.info('🎬 Starting Kling v2.1 Master text-to-video generation');
 
-      const inputParams = this.buildInputParams(prompt, model);
+      const inputParams = this.buildInputParams(prompt);
 
       const prediction = await replicate.predictions.create({
-        version: modelVersion,
+        version: MODELS.TEXT_TO_VIDEO,
         input: inputParams
       });
 
@@ -125,7 +91,7 @@ class ReplicateGeneration {
 
       logger.debug('🔄 Polling for completion');
 
-      const maxAttempts = isVeo3 ? 60 : 80;
+      const maxAttempts = 80;
       const pollResult = await helpers.pollPrediction(replicate, prediction.id, maxAttempts, 'text-to-video generation');
 
       if (!pollResult.success) {
@@ -139,7 +105,7 @@ class ReplicateGeneration {
       return {
         text: prompt,
         result: videoURL,
-        cost: helpers.calculateCost(pollResult.result, isVeo3)
+        cost: helpers.calculateCost(pollResult.result)
       };
 
     } catch (err: unknown) {
@@ -150,21 +116,23 @@ class ReplicateGeneration {
   }
 
   /**
-   * Generate video from image and text prompt
+   * Generate video from image and text prompt (Kling only)
    */
   async generateVideoFromImage(imageBuffer: Buffer, prompt: string | null = null, model = 'kling'): Promise<VideoGenerationResult> {
     try {
-      const isVeo3 = model === 'veo3';
-      const modelName = isVeo3 ? 'Veo 3' : 'Kling v2.1 Master';
-      const modelVersion = isVeo3 ? MODELS.VEO3_IMAGE_TO_VIDEO : MODELS.IMAGE_TO_VIDEO;
+      // ENFORCE: Only Kling is supported via Replicate. Veo3 must use GeminiService.
+      if (model === 'veo3') {
+        logger.error('❌ Veo3 requested via Replicate - this is incorrect! Veo3 must use GeminiService.');
+        return { error: 'Veo3 must use Google Gemini API, not Replicate. Use geminiService.generateVideoFromImageForWhatsApp() instead.' };
+      }
 
-      logger.info(`🎬 Starting ${modelName} image-to-video generation`);
+      logger.info('🎬 Starting Kling v2.1 Master image-to-video generation');
 
       const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
-      const input = this.buildInputParams(prompt || '', model, base64Image);
+      const input = this.buildInputParams(prompt || '', base64Image);
 
       const prediction = await replicate.predictions.create({
-        version: modelVersion,
+        version: MODELS.IMAGE_TO_VIDEO,
         input: input
       });
 
@@ -174,7 +142,7 @@ class ReplicateGeneration {
 
       logger.debug('🔄 Polling for completion');
 
-      const maxAttempts = isVeo3 ? 60 : 80;
+      const maxAttempts = 80;
       const pollResult = await helpers.pollPrediction(replicate, prediction.id, maxAttempts, 'image-to-video generation');
 
       if (!pollResult.success) {
@@ -188,7 +156,7 @@ class ReplicateGeneration {
       return {
         text: prompt || 'Image to video conversion',
         result: videoURL,
-        cost: helpers.calculateCost(pollResult.result, isVeo3)
+        cost: helpers.calculateCost(pollResult.result)
       };
 
     } catch (err: unknown) {
@@ -199,7 +167,7 @@ class ReplicateGeneration {
   }
 
   /**
-   * Generate video from video and text prompt
+   * Generate video from video and text prompt (RunwayML)
    */
   async generateVideoFromVideo(inputVideoBuffer: Buffer, prompt: string): Promise<{ result?: string; error?: string }> {
     try {
@@ -288,4 +256,3 @@ class ReplicateGeneration {
 }
 
 export default new ReplicateGeneration();
-
