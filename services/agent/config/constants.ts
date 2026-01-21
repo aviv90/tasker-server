@@ -133,8 +133,8 @@ export const IMAGE_PROVIDERS = [
  * Video provider enum array (for tool declarations)
  */
 export const VIDEO_PROVIDERS = [
-  PROVIDERS.VIDEO.KLING,
   PROVIDERS.VIDEO.VEO3,
+  PROVIDERS.VIDEO.KLING,
   PROVIDERS.VIDEO.SORA,
   PROVIDERS.VIDEO.SORA_PRO
 ] as const;

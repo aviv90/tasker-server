@@ -75,6 +75,7 @@ export async function handleSingleStepRetry(
       else if (tool.includes('sora')) provider = 'sora';
       else if (tool.includes('veo')) provider = 'veo3';
       else if (tool.includes('kling')) provider = 'kling';
+      else if (tool.includes('video')) provider = 'veo3'; // Default for video tools
     }
   }
 
@@ -180,13 +181,13 @@ async function retryVideoGeneration(
 
   const videoArgs = {
     prompt: promptToUse,
-    provider: provider || 'kling'
+    provider: provider || 'veo3'
   };
 
   if (provider) {
     logger.info(`🔄 [Retry] Using original provider: ${provider}`);
   } else {
-    logger.warn(`⚠️ [Retry] Original provider not found, using default: kling`);
+    logger.warn(`⚠️ [Retry] Original provider not found, using default: veo3`);
   }
 
   logger.debug(`🎬 Retrying video generation with:`, videoArgs);
