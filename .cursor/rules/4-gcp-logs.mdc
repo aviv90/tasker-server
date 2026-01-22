@@ -47,8 +47,8 @@ gcloud run services logs tail tasker-server          # ← Missing --region us-c
 # View last 150 lines
 gcloud run services logs read tasker-server --region us-central1 --limit 150
 
-# Stream logs in real-time (Tail)
-gcloud run services logs tail tasker-server --region us-central1
+# Stream logs in real-time (Tail) - Requires beta components
+gcloud beta run services logs tail tasker-server --region us-central1
 
 # Filter logs
 gcloud run services logs read tasker-server --region us-central1 --limit 200 | grep "ERROR"
