@@ -36,6 +36,7 @@ class ConversationManager {
   // ═══════════════════ INITIALIZATION ═══════════════════
 
   async initialize(): Promise<void> {
+    if (container.isInitialized) return;
     logger.info('💭 ConversationManager initializing (via Container)...');
     return container.initialize();
   }

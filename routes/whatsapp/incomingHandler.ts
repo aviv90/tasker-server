@@ -27,10 +27,6 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
   // 0. CRITICAL FIX: Filter Outgoing API Messages (Bot Echoes) & Status
   // We MUST process 'outgoingMessageReceived' (User manual send) but IGNORE 'outgoingAPIMessageReceived' (Bot send)
   if (webhookData.typeWebhook === 'outgoingAPIMessageReceived' || webhookData.typeWebhook === 'outgoingMessageStatus') {
-    // Debug log for API messages to ensure we are filtering correctly, but keep it quiet for status
-    if (webhookData.typeWebhook === 'outgoingAPIMessageReceived') {
-      logger.debug(`⏭️ Skipping Bot API Message Echo: ${webhookData.idMessage}`);
-    }
     return;
   }
 
@@ -92,8 +88,6 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
         .catch(err => logger.error('❌ Failed to save incoming message (background):', err));
 
       // ═══════════════════ AGENT MODE ═══════════════════
-      logger.debug('🤖 [AGENT] Processing request with Gemini Function Calling');
-
       try {
         // Wait for Ack to be sent (it's fast) to ensure order, but don't block too long
         // Actually, we don't need to wait for Ack, it can happen in parallel with agent routing

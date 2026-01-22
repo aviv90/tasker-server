@@ -8,16 +8,18 @@ metadata:
     run.googleapis.com/cloudsql-instances: tasker-server:us-central1:tasker-server
 spec:
   template:
-    metadata:
-      annotations:
         run.googleapis.com/cloudsql-instances: tasker-server:us-central1:tasker-server
+        run.googleapis.com/cpu-throttling: 'false'
+        run.googleapis.com/startup-cpu-boost: 'true'
+        autoscaling.knative.dev/minScale: '1'
     spec:
+      containerConcurrency: 80
       containers:
         - image: gcr.io/tasker-server/tasker-server
           resources:
             limits:
-              cpu: '1'
-              memory: 1024Mi # Adjusted for media processing (ffmpeg)
+              cpu: '2'
+              memory: 2Gi
           ports:
             - containerPort: 8080
           env:
