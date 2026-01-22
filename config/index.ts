@@ -40,28 +40,27 @@ export const config = {
     grok: process.env.GROK_API_KEY || null,
     elevenlabs: process.env.ELEVENLABS_API_KEY || null,
     kie: process.env.KIE_API_KEY || null,
+    serpApi: process.env.SERPAPI_API_KEY || null,
   },
 
   // Google Drive Configuration
   googleDrive: {
-    clientId: process.env.GOOGLE_DRIVE_CLIENT_ID || null,
-    clientSecret: process.env.GOOGLE_DRIVE_CLIENT_SECRET || null,
-    refreshToken: process.env.GOOGLE_DRIVE_REFRESH_TOKEN || null,
-    accessToken: process.env.GOOGLE_DRIVE_ACCESS_TOKEN || null,
-    redirectUri: process.env.GOOGLE_DRIVE_REDIRECT_URI || 'http://localhost:3000/oauth2callback',
     folderId: process.env.GOOGLE_DRIVE_FOLDER_ID || null,
+    serviceAccountEmail: process.env.GOOGLE_DRIVE_SA_CLIENT_EMAIL || null,
+    serviceAccountPrivateKey: process.env.GOOGLE_DRIVE_SA_PRIVATE_KEY || null,
   },
 
   // Database Configuration
   database: {
     url: process.env.DATABASE_URL || null,
-    // SSL is required for remote databases (Heroku, etc.)
+    // SSL is required for remote databases
     needsSSL: (() => {
       const databaseUrl = process.env.DATABASE_URL || '';
-      const isRemoteDB = databaseUrl &&
-        !databaseUrl.includes('localhost') &&
-        !databaseUrl.includes('127.0.0.1');
-      return process.env.NODE_ENV === 'production' || isRemoteDB;
+      const isLocal = databaseUrl.includes('localhost') || databaseUrl.includes('127.0.0.1');
+      const isCloudSqlSocket = databaseUrl.includes('/cloudsql/');
+
+      // SSL is required for remote TCP connections, but NOT for Cloud SQL Unix sockets
+      return (process.env.NODE_ENV === 'production' || !isLocal) && !isCloudSqlSocket;
     })(),
     pool: {
       max: parseInt(process.env.DB_POOL_MAX || '10', 10),
@@ -82,18 +81,21 @@ export const config = {
   urls: {
     // Server base URL - checked in priority order
     serverBaseUrl: (() => {
+      // 1. Explicitly configured URLs
       if (process.env.SERVER_URL) return process.env.SERVER_URL;
       if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL;
       if (process.env.BASE_URL) return process.env.BASE_URL;
-      if (process.env.HEROKU_APP_NAME) {
-        return `https://${process.env.HEROKU_APP_NAME}.herokuapp.com`;
-      }
+
+      // 2. Fallback for production (should be configured via env var in Cloud Run)
       if (process.env.NODE_ENV === 'production') {
-        return 'https://tasker-server-eb22b09c778f.herokuapp.com'; // Update when deploying
+        logger.warn('⚠️ SERVER_URL not set in production. Base URL might be incorrect.');
+        return '';
       }
-      return 'http://localhost:3000';
+
+      // 3. Default for development
+      const devPort = process.env.PORT || '3000';
+      return `http://localhost:${devPort}`;
     })(),
-    herokuAppName: process.env.HEROKU_APP_NAME || null,
   },
 
   // Paths
@@ -144,11 +146,8 @@ export const config = {
 
   // Feature Flags
   features: {
-    // Intent Router - use LLM for routing instead of regex
     intentRouterUseLLM: process.env.INTENT_ROUTER_USE_LLM === 'on',
-    // Enable automatic voice transcription for authorized users
     autoVoiceTranscription: process.env.AUTO_VOICE_TRANSCRIPTION !== 'false',
-    // Rate Limiting configuration
     rateLimit: {
       api: {
         max: parseInt(process.env.RATE_LIMIT_API_MAX || '100', 10),
@@ -175,11 +174,12 @@ export const config = {
 
   // WhatsApp Configuration (if needed)
   whatsapp: {
-    // Add WhatsApp-specific config here if needed
+    instanceId: process.env.GREEN_API_ID_INSTANCE || null,
+    apiToken: process.env.GREEN_API_API_TOKEN_INSTANCE || null,
+    webhookToken: process.env.GREEN_API_WEBHOOK_TOKEN || null,
   },
 
   // Agent Configuration (SSOT for agent settings)
-  // NOTE: Agent uses gemini-3-flash-preview for speed, vision tasks use gemini-3-flash-preview for quality
   agent: {
     model: process.env.AGENT_MODEL || 'gemini-3-flash-preview',
     maxIterations: parseInt(process.env.AGENT_MAX_ITERATIONS || '8', 10),
@@ -202,6 +202,9 @@ export function validateConfig(): void {
     }
     if (!config.database.url) {
       errors.push('DATABASE_URL is required in production');
+    }
+    if (!config.whatsapp.instanceId || !config.whatsapp.apiToken) {
+      errors.push('GREEN_API_ID_INSTANCE and GREEN_API_API_TOKEN_INSTANCE are required in production');
     }
   }
 

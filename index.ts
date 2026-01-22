@@ -22,7 +22,7 @@ async function startServer() {
         process.exit(1);
     }
 
-    // Ensure tmp directory exists (important for Heroku deployments)
+    // Ensure tmp directory exists for static files
     if (!fs.existsSync(config.paths.tmp)) {
         fs.mkdirSync(config.paths.tmp, { recursive: true });
         logger.info('📁 Created tmp directory for static files', { path: config.paths.tmp });

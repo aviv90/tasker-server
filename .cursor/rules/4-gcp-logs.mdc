@@ -1,0 +1,56 @@
+---
+description: Use gcloud run commands for checking logs
+globs:
+  - "**/*"
+---
+
+# GCP Cloud Run Logs Command
+
+**כשצריך לבדוק לוגים של האפליקציה ב-GCP Cloud Run, חובה לציין את ה-region.**
+
+---
+
+## ✅ Correct Usage
+
+```bash
+gcloud run services logs read tasker-server --region us-central1 --limit 150
+gcloud run services logs tail tasker-server --region us-central1
+gcloud run services logs read tasker-server --region us-central1 --limit 100 | grep "שגיאה"
+```
+
+---
+
+## ❌ Incorrect Usage
+
+```bash
+gcloud run services logs read tasker-server          # ← Missing --region us-central1
+gcloud run services logs tail tasker-server          # ← Missing --region us-central1
+```
+
+---
+
+## Why?
+
+ב-GCP, שירותי Cloud Run הם אזוריים (Regional). ללא ציון ה-`--region`, ה-CLI עלול להיכשל או לחפש באזור הלא נכון.
+
+---
+
+## Best Practice
+
+**תמיד הוסף `--region us-central1` כדי למנוע טעויות ולקבל תוצאות מהירות.**
+
+---
+
+## Common Commands
+
+```bash
+# View last 150 lines
+gcloud run services logs read tasker-server --region us-central1 --limit 150
+
+# Stream logs in real-time (Tail)
+gcloud run services logs tail tasker-server --region us-central1
+
+# Filter logs
+gcloud run services logs read tasker-server --region us-central1 --limit 200 | grep "ERROR"
+gcloud run services logs read tasker-server --region us-central1 --limit 200 | grep "Multi-step"
+```

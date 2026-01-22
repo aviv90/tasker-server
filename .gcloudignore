@@ -1,0 +1,16 @@
+.git
+.gitignore
+node_modules
+dist
+logs
+tmp
+public/tmp
+*.mp3
+*.wav
+*.ogg
+*.mp4
+/images
+/brain
+tests
+docs
+migration_backups

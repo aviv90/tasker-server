@@ -94,10 +94,8 @@ jest.mock('../../config', () => {
         logs: path.join(__dirname, '..', '..', 'logs')
       },
 
-      // URLs
       urls: {
         serverBaseUrl: 'http://localhost:3000',
-        herokuAppName: null
       },
 
       // Timeouts

@@ -20,32 +20,17 @@ export function getServerBaseUrl(req: Request | null = null): string {
       return `${req.protocol}://${host}`;
     }
   }
-  
+
   // Check for explicitly set SERVER_URL
   if (process.env.SERVER_URL) {
     return process.env.SERVER_URL;
   }
-  
-  // Check for PUBLIC_URL (often used in some deployments)
+
+  // Check for PUBLIC_URL
   if (process.env.PUBLIC_URL) {
     return process.env.PUBLIC_URL;
   }
-  
-  // Check for BASE_URL (Heroku convention)
-  if (process.env.BASE_URL) {
-    return process.env.BASE_URL;
-  }
-  
-  // Try to detect Heroku URL automatically
-  if (process.env.HEROKU_APP_NAME) {
-    return `https://${process.env.HEROKU_APP_NAME}.herokuapp.com`;
-  }
-  
-  // Production fallback (update this when deploying to different servers)
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://tasker-server-eb22b09c778f.herokuapp.com';
-  }
-  
+
   // Development fallback
   return 'http://localhost:3000';
 }
@@ -86,10 +71,10 @@ export function normalizeStaticFileUrl(urlOrPath: string, req: Request | null = 
   if (urlOrPath.startsWith('http')) {
     return urlOrPath;
   }
-  
+
   // Remove /static/ prefix if present
   const cleanPath = urlOrPath.replace(/^\/static\//, '');
-  
+
   // Return full static file URL
   return getStaticFileUrl(cleanPath, req);
 }

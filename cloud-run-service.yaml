@@ -1,0 +1,100 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: tasker-server
+  labels:
+    cloud.googleapis.com/location: us-central1
+  annotations:
+    run.googleapis.com/cloudsql-instances: tasker-server:us-central1:tasker-server
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/cloudsql-instances: tasker-server:us-central1:tasker-server
+    spec:
+      containers:
+        - image: gcr.io/tasker-server/tasker-server
+          resources:
+            limits:
+              cpu: '1'
+              memory: 1024Mi # Adjusted for media processing (ffmpeg)
+          ports:
+            - containerPort: 8080
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: SERVER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: SERVER_URL
+                  key: latest
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: DATABASE_URL
+                  key: latest
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: GEMINI_API_KEY
+                  key: latest
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: OPENAI_API_KEY
+                  key: latest
+            - name: ELEVENLABS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ELEVENLABS_API_KEY
+                  key: latest
+            - name: REPLICATE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: REPLICATE_API_KEY
+                  key: latest
+            - name: GREEN_API_ID_INSTANCE
+              valueFrom:
+                secretKeyRef:
+                  name: GREEN_API_ID_INSTANCE
+                  key: latest
+            - name: GREEN_API_API_TOKEN_INSTANCE
+              valueFrom:
+                secretKeyRef:
+                  name: GREEN_API_API_TOKEN_INSTANCE
+                  key: latest
+            - name: GREEN_API_WEBHOOK_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: GREEN_API_WEBHOOK_TOKEN
+                  key: latest
+            - name: KIE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: KIE_API_KEY
+                  key: latest
+            - name: GROK_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: GROK_API_KEY
+                  key: latest
+            - name: SERPAPI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: SERPAPI_API_KEY
+                  key: latest
+            - name: GOOGLE_DRIVE_FOLDER_ID
+              valueFrom:
+                secretKeyRef:
+                  name: GOOGLE_DRIVE_FOLDER_ID
+                  key: latest
+            - name: GOOGLE_DRIVE_SA_CLIENT_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: GOOGLE_DRIVE_SA_CLIENT_EMAIL
+                  key: latest
+            - name: GOOGLE_DRIVE_SA_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: GOOGLE_DRIVE_SA_PRIVATE_KEY
+                  key: latest

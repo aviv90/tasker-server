@@ -339,16 +339,11 @@ For issues and questions:
 - **Filler Removal**: Remove "um", "uh", filler words (default: true)
 - **Optimize Latency**: 0-4 (0=highest quality, 4=lowest latency)
 
-## 🔧 Technical Requirements
+### Deployment Environment
+The server is containerized using Docker and deployed to **Google Cloud Run**. System dependencies like FFmpeg are pre-installed in the Docker image.
 
-### FFmpeg Installation
-For audio conversion to Opus format, FFmpeg must be available on the server:
-
-**Heroku**: FFmpeg is pre-installed on Heroku dynos
-**Local Development**: Install FFmpeg using your package manager:
-- macOS: `brew install ffmpeg`
-- Ubuntu/Debian: `sudo apt install ffmpeg`
-- Windows: Download from https://ffmpeg.org/
+**Google Cloud Build**: Automates the build and deployment process defined in `cloudbuild.yaml`.
+**Google Secret Manager**: Securely stores all API keys and database credentials.
 
 ### Audio Conversion & Creative Processing
 All voice notes (music, TTS, creative voice processing) are automatically converted to Opus format using FFmpeg with the following settings:

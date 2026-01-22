@@ -109,7 +109,7 @@ class GoogleSearchProcessor {
 
               const options = {
                 method: method,
-                timeout: 8000, // Increased timeout to prevent resolution failures on Heroku/Google latency
+                timeout: 8000, // Increased timeout to prevent resolution failures
                 maxRedirects: 0
               };
 

@@ -44,17 +44,7 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
 
   logger.info(`🎤 Processing voice-to-voice request from ${senderName} (${senderId})`);
 
-  // --- PERMISSION CHECK (Updated to use DB Allow List) ---
-  const ownerPhone = process.env.OWNER_PHONE_NUMBER;
-  // Ensure ownerPhone is present and not empty before checking
-  const isOwner = (ownerPhone && senderId?.includes(ownerPhone)) || false;
-
-  if (isOwner) {
-    logger.info(`🎤 Voice processing skipped for Owner (${senderName}) - preventing outgoing message processing.`);
-    return;
-  }
-
-  // Check authorization via AllowListsManager (DB)
+  // --- PERMISSION CHECK (Using DB Allow List) ---
   const isAuthorized = await conversationManager.isAuthorizedForVoiceTranscription({
     chatId,
     senderName,

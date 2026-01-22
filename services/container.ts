@@ -1,4 +1,5 @@
 import { Pool, PoolConfig } from 'pg';
+import { config } from '../config';
 import logger from '../utils/logger';
 import { TIME } from '../utils/constants';
 
@@ -61,16 +62,12 @@ class Container {
         if (this.isInitialized) return;
 
         try {
-            const databaseUrl = process.env.DATABASE_URL || '';
-            const isRemoteDB = databaseUrl && !databaseUrl.includes('localhost') && !databaseUrl.includes('127.0.0.1');
-            const needsSSL = process.env.NODE_ENV === 'production' || isRemoteDB;
-
             const poolConfig: PoolConfig = {
-                connectionString: databaseUrl,
-                ssl: needsSSL ? { rejectUnauthorized: false } : false,
-                max: 10,
-                idleTimeoutMillis: 30000,
-                connectionTimeoutMillis: TIME.DB_CONNECTION_TIMEOUT,
+                connectionString: config.database.url || '',
+                ssl: config.database.needsSSL ? { rejectUnauthorized: false } : false,
+                max: config.database.pool.max,
+                idleTimeoutMillis: config.database.pool.idleTimeoutMillis,
+                connectionTimeoutMillis: config.database.pool.connectionTimeoutMillis,
             };
 
             this.pool = new Pool(poolConfig);
