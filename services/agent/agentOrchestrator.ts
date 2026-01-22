@@ -9,7 +9,7 @@
  * 5. Context Management
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 import prompts from '../../config/prompts';
 import { config } from '../../config';
 import { detectLanguage } from './utils/languageUtils';
@@ -29,6 +29,7 @@ import { HistoryStrategyResult } from './historyStrategy';
 
 export class AgentOrchestrator {
     private genAI: GoogleGenerativeAI;
+    private modelCache: Map<string, GenerativeModel> = new Map();
 
     constructor() {
         this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -151,7 +152,14 @@ export class AgentOrchestrator {
         preLoadedHistory?: HistoryStrategyResult // Type-safe history result
     ): Promise<AgentResult> {
         const maxIterations = options.maxIterations || agentConfig.maxIterations;
-        const model = this.genAI.getGenerativeModel({ model: agentConfig.model });
+
+        // Caching model instance to avoid redundant initialization
+        let model = this.modelCache.get(agentConfig.model);
+        if (!model) {
+            model = this.genAI.getGenerativeModel({ model: agentConfig.model });
+            this.modelCache.set(agentConfig.model, model);
+            logger.debug(`🧠 [Agent] Initialized and cached model: ${agentConfig.model}`);
+        }
 
         // Inject media context into prompt if available
         let contextualPrompt = prompt;

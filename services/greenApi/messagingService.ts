@@ -4,9 +4,23 @@
  */
 
 import axios from 'axios';
+import https from 'https';
 import { BASE_URL, GREEN_API_API_TOKEN_INSTANCE } from './constants';
 import { TIME } from '../../utils/constants';
 import logger from '../../utils/logger';
+
+// Create a persistent HTTPS agent for all Green API requests
+const httpsAgent = new https.Agent({
+    keepAlive: true,
+    maxSockets: 50, // Match or exceed Cloud Run concurrency
+    keepAliveMsecs: 1000,
+});
+
+// Configure axios to use our persistent agent by default
+const api = axios.create({
+    httpsAgent,
+    timeout: 30000,
+});
 
 // Interfaces for dependencies
 interface MessageTypesManager {
@@ -48,7 +62,7 @@ export class GreenApiMessagingService {
                 data.quotedMessageId = quotedMessageId;
             }
 
-            const response = await axios.post(url, data, {
+            const response = await api.post(url, data, {
                 headers: { 'Content-Type': 'application/json' }
             });
 
@@ -103,7 +117,7 @@ export class GreenApiMessagingService {
 
             logger.info(`📤 Sending file: ${fileName} to ${chatId}`);
 
-            const response = await axios.post(url, data, {
+            const response = await api.post(url, data, {
                 headers: { 'Content-Type': 'application/json' }
             });
 
@@ -160,7 +174,7 @@ export class GreenApiMessagingService {
                 optionsCount: options.length
             });
 
-            const response = await axios.post(url, data, {
+            const response = await api.post(url, data, {
                 headers: { 'Content-Type': 'application/json' }
             });
 

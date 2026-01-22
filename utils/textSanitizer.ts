@@ -5,6 +5,26 @@
 import { TEXT_LIMITS } from './constants';
 import logger from './logger';
 
+// Pre-compiled regexes for performance
+const CONTROL_CHARS_REGEX = /[\x00-\x08\x0E-\x1F\x7F]/g;
+const WHITESPACE_REGEX = /\s+/g;
+const MARKDOWN_CODE_BLOCK_REGEX = /```[\s\S]*?```/g;
+const MARKDOWN_INLINE_CODE_REGEX = /`[^`]*`/g;
+const MULTI_WHITESPACE_REGEX = /\s{2,}/g;
+
+// Media cleaning regexes
+const URL_REGEX = /https?:\/\/[^\s]+/gi;
+const MD_LINK_REGEX = /\[.*?\]\(https?:\/\/[^)]+\)/g;
+const GENERIC_TAGS_REGEX = /\[(image|video|audio|תמונה|וידאו|אודיו|Media)\]/gi;
+const TAG_WITH_ID_REGEX = /\[(image|video|audio|imageUrl|videoUrl|audioUrl|image_url|video_url|audio_url|image_id|video_id|audio_id)(:|=)\s*[^\]]*\]?/gi;
+const BRACE_TAG_REGEX = /\{(imageUrl|videoUrl|audioUrl|taskId)(:|=)\s*[^}]*\}?/gi;
+const STATUS_TAGS_REGEX = /\[(Image|Video|Audio|Voice message)\s+(sent|created)\]/gi;
+const LINK_PLACEHOLDERS_REGEX = /\[(Video|Audio|Image|Music|File|Link|קישור|לינק)[^\]]*\]/gi;
+const TOOL_RESULT_REGEX = /(audioUrl|imageUrl|videoUrl|image_url|video_url|audio_url):\s*https?:\/\/[^\s\]]+/gi;
+const TASK_ID_LEAK_REGEX = /taskId:\s*["']?[a-f0-9-]+["']?/gi;
+const TRUNCATED_KEYS_REGEX = /\{(imageUrl|videoUrl|audioUrl|taskId):\s*["']?$/gi;
+const HEBREW_IMAGE_TAG_REGEX = /\[תמונה:\s*image_id=[^\]]*\]|\[וידאו:\s*video_id=[^\]]*\]|\[אודיו:\s*audio_id=[^\]]*\]/gi;
+
 /**
  * Error types for validation
  */
@@ -28,9 +48,8 @@ export function sanitizeText(text: unknown): string {
   // NOTE: Preserves emojis and Unicode characters (including Hebrew, Arabic, etc.)
   return text
     .trim()
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\x00-\x08\x0E-\x1F\x7F]/g, '') // Remove control characters (but preserve emojis)
-    .replace(/\s+/g, ' ') // Normalize whitespace
+    .replace(CONTROL_CHARS_REGEX, '') // Remove control characters (but preserve emojis)
+    .replace(WHITESPACE_REGEX, ' ') // Normalize whitespace
     .substring(0, TEXT_LIMITS.MAX_SANITIZED_LENGTH); // Limit length
 }
 
@@ -47,14 +66,14 @@ export function cleanMarkdown(text: unknown): string {
   }
 
   return text
-    .replace(/```[\s\S]*?```/g, '') // Remove code blocks (```...```)
-    .replace(/`[^`]*`/g, '') // Remove inline code (`...`)
-    .replace(/^\s*```+\s*$/gm, '') // Remove standalone code fence lines
-    .replace(/^\s*```+\s*/gm, '') // Remove opening code fences at start of lines
-    .replace(/\s*```+\s*$/gm, '') // Remove closing code fences at end of lines
-    .replace(/^\s*`+\s*$/gm, '') // Remove lines with only backticks
-    .replace(/^\s*`+\s*/gm, '') // Remove leading backticks
-    .replace(/\s*`+\s*$/gm, '') // Remove trailing backticks
+    .replace(MARKDOWN_CODE_BLOCK_REGEX, '') // Remove code blocks
+    .replace(MARKDOWN_INLINE_CODE_REGEX, '') // Remove inline code
+    .replace(/^\s*```+\s*$/gm, '')
+    .replace(/^\s*```+\s*/gm, '')
+    .replace(/\s*```+\s*$/gm, '')
+    .replace(/^\s*`+\s*$/gm, '')
+    .replace(/^\s*`+\s*/gm, '')
+    .replace(/\s*`+\s*$/gm, '')
     .trim();
 }
 
@@ -73,93 +92,30 @@ export function cleanMediaDescription(text: unknown, preserveLinks: boolean = fa
   let cleaned = cleanMarkdown(text);
 
   if (!preserveLinks) {
-    // CRITICAL: User requested strict NO LINKS policy
     cleaned = cleaned
-      .replace(/\[.*?\]\(https?:\/\/[^)]+\)/g, '') // Remove markdown links
-      .replace(/https?:\/\/[^\s]+/gi, ''); // Remove plain URLs
+      .replace(MD_LINK_REGEX, '')
+      .replace(URL_REGEX, '');
   }
 
   cleaned = cleaned
-    .replace(/\[image\]/gi, '')
-    .replace(/\[image:[^\]]*\]?/gi, '') // Remove [image: ...] or [image:
-    .replace(/\[video\]/gi, '')
-    .replace(/\[video:[^\]]*\]?/gi, '') // Remove [video: ...]
-    // ... rest of replacements
-    .replace(/\[audio\]/gi, '')
-    .replace(/\[audio:[^\]]*\]?/gi, '') // Remove [audio: ...]
-    .replace(/\[תמונה[^\]]*/gi, '')
+    .replace(GENERIC_TAGS_REGEX, '')
+    .replace(TAG_WITH_ID_REGEX, '')
+    .replace(BRACE_TAG_REGEX, '')
+    .replace(STATUS_TAGS_REGEX, '')
+    .replace(LINK_PLACEHOLDERS_REGEX, '')
+    .replace(TOOL_RESULT_REGEX, '')
+    .replace(TASK_ID_LEAK_REGEX, '')
+    .replace(HEBREW_IMAGE_TAG_REGEX, '')
+    .replace(TRUNCATED_KEYS_REGEX, '')
     .replace(/תמונה:\s*$/gi, '')
-    .replace(/\[וידאו\]/gi, '')
-    .replace(/\[אודיו\]/gi, '')
-    // System artifacts (Added to fix [Image sent] bug)
-    .replace(/\[Image sent\]/gi, '')
-    .replace(/\[Video sent\]/gi, '')
-    .replace(/\[Audio sent\]/gi, '')
-    .replace(/\[Image created\]/gi, '')
-    .replace(/\[Video created\]/gi, '')
-    .replace(/\[Audio created\]/gi, '')
-    .replace(/\[Voice message sent\]/gi, '')
-    .replace(/\[Media\]/gi, '')
-    // CRITICAL: Remove generic link placeholders (Video Link, Link, etc.)
-    .replace(/\[Video Link\]/gi, '')
-    .replace(/\[Audio Link\]/gi, '')
-    .replace(/\[Image Link\]/gi, '')
-    .replace(/\[Music Link\]/gi, '')
-    .replace(/\[File Link\]/gi, '')
-    .replace(/\[Link\]/gi, '')
-    .replace(/\[קישור[^\]]*\]/gi, '') // Hebrew: [קישור...]
-    .replace(/\[לינק[^\]]*\]/gi, '') // Hebrew: [לינק...]
-    // CRITICAL: Remove [image_id: ...], [video_id: ...], [audio_id: ...] patterns
-    .replace(/\[image_id:\s*\d+\]/gi, '')
-    .replace(/\[video_id:\s*\d+\]/gi, '')
-    .replace(/\[audio_id:\s*\d+\]/gi, '')
-    .replace(/\[image_id=\s*\d+\]/gi, '')
-    .replace(/\[video_id=\s*\d+\]/gi, '')
-    .replace(/\[audio_id=\s*\d+\]/gi, '')
-    .replace(/\[תמונה:\s*image_id=[^\]]*\]/gi, '')
-    .replace(/\[וידאו:\s*video_id=[^\]]*\]/gi, '')
-    .replace(/\[אודיו:\s*audio_id=[^\]]*\]/gi, '')
-    // Gemini tool result artifacts
-    .replace(/\[audioUrl:[^\]]*\]?/gi, '')
-    .replace(/\[imageUrl:[^\]]*\]?/gi, '')
-    .replace(/\[videoUrl:[^\]]*\]?/gi, '')
-    .replace(/audioUrl:\s*https?:\/\/[^\s\]]+/gi, '')
-    .replace(/imageUrl:\s*https?:\/\/[^\s\]]+/gi, '')
-    .replace(/videoUrl:\s*https?:\/\/[^\s\]]+/gi, '')
-    // CRITICAL: Remove snake_case variants (image_url, video_url, audio_url)
-    .replace(/\[image_url:[^\]]*\]?/gi, '')
-    .replace(/\[video_url:[^\]]*\]?/gi, '')
-    .replace(/\[audio_url:[^\]]*\]?/gi, '')
-    .replace(/\[image_url\]/gi, '')
-    .replace(/\[video_url\]/gi, '')
-    .replace(/\[audio_url\]/gi, '')
-    .replace(/image_url:\s*https?:\/\/[^\s\]]+/gi, '')
-    .replace(/video_url:\s*https?:\/\/[^\s\]]+/gi, '')
-    .replace(/audio_url:\s*https?:\/\/[^\s\]]+/gi, '')
-    // CRITICAL: Remove camelCase tags without colon
-    .replace(/\[imageUrl\]/gi, '')
-    .replace(/\[videoUrl\]/gi, '')
-    .replace(/\[audioUrl\]/gi, '')
-    // CRITICAL: Remove curly brace variants and truncated artifacts
-    .replace(/\{imageUrl:[^}]*\}?/gi, '')
-    .replace(/\{videoUrl:[^}]*\}?/gi, '')
-    .replace(/\{audioUrl:[^}]*\}?/gi, '')
-    // CRITICAL: Remove taskId leakage (internal tool result artifacts)
-    .replace(/\{taskId:[^}]*\}?/gi, '') // Remove {taskId: "..."}
-    .replace(/taskId:\s*["']?[a-f0-9-]+["']?/gi, '') // Remove taskId: "xxx" or taskId: xxx
-    .replace(/\{imageUrl:\s*["']?$/gi, '') // Truncated at end
-    .replace(/\{videoUrl:\s*["']?$/gi, '') // Truncated at end
-    .replace(/\{audioUrl:\s*["']?$/gi, '') // Truncated at end
-    .replace(/imageUrl:\s*["']?$/gi, '') // Truncated key at end
-    .replace(/videoUrl:\s*["']?$/gi, '') // Truncated key at end
     .replace(/✅/g, '')
-    .replace(/[[]]/g, '') // Remove remaining square brackets like "]" or "["
-    .replace(/[.)},;:-]+$/g, '') // Remove trailing punctuation (., ), }, ;, :, -)
-    .replace(/^[,.)},;:-]+/g, ''); // Remove leading punctuation
+    .replace(/[[]]/g, '')
+    .replace(/[.)},;:-]+$/g, '')
+    .replace(/^[,.)},;:-]+/g, '');
 
   // Step 2: Clean up whitespace
   cleaned = cleaned
-    .replace(/\s{2,}/g, ' ')
+    .replace(MULTI_WHITESPACE_REGEX, ' ')
     .trim();
 
   // Step 3: If nothing meaningful left, return empty string
@@ -184,81 +140,16 @@ export function cleanMultiStepText(text: unknown): string {
   }
 
   return text
-    // CRITICAL: User requested strict NO LINKS policy
-    .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs (image URLs should not be in text)
-    .replace(/\[image\]/gi, '')
-    .replace(/\[image:[^\]]*\]?/gi, '')
-    .replace(/\[video\]/gi, '')
-    .replace(/\[video:[^\]]*\]?/gi, '')
-    .replace(/\[audio\]/gi, '')
-    .replace(/\[audio:[^\]]*\]?/gi, '')
-    .replace(/\[תמונה\]/gi, '')
-    .replace(/\[וידאו\]/gi, '')
-    .replace(/\[אודיו\]/gi, '')
-    // System artifacts
-    .replace(/\[Image sent\]/gi, '')
-    .replace(/\[Video sent\]/gi, '')
-    .replace(/\[Audio sent\]/gi, '')
-    .replace(/\[Image created\]/gi, '')
-    .replace(/\[Video created\]/gi, '')
-    .replace(/\[Audio created\]/gi, '')
-    .replace(/\[Voice message sent\]/gi, '')
-    .replace(/\[Media\]/gi, '')
-    // CRITICAL: Remove generic link placeholders (Video Link, Link, etc.)
-    .replace(/\[Video Link\]/gi, '')
-    .replace(/\[Audio Link\]/gi, '')
-    .replace(/\[Image Link\]/gi, '')
-    .replace(/\[Music Link\]/gi, '')
-    .replace(/\[File Link\]/gi, '')
-    .replace(/\[Link\]/gi, '')
-    .replace(/\[קישור[^\]]*\]/gi, '') // Hebrew: [קישור...]
-    .replace(/\[לינק[^\]]*\]/gi, '') // Hebrew: [לינק...]
-    // CRITICAL: Remove [image_id: ...], [video_id: ...], [audio_id: ...] patterns
-    // These are internal artifacts that the Agent might hallucinate orparrot back from history
-    .replace(/\[image_id:\s*\d+\]/gi, '')
-    .replace(/\[video_id:\s*\d+\]/gi, '')
-    .replace(/\[audio_id:\s*\d+\]/gi, '')
-    .replace(/\[image_id=\s*\d+\]/gi, '')
-    .replace(/\[video_id=\s*\d+\]/gi, '')
-    .replace(/\[audio_id=\s*\d+\]/gi, '')
-    // Also strip localized variants if any
-    .replace(/\[תמונה:\s*image_id=[^\]]*\]/gi, '')
-    .replace(/\[וידאו:\s*video_id=[^\]]*\]/gi, '')
-    .replace(/\[אודיו:\s*audio_id=[^\]]*\]/gi, '')
-    // CRITICAL: Remove [audioUrl: ...], [imageUrl: ...], [videoUrl: ...] patterns
-    // These are added by Gemini when returning tool results and shouldn't be sent to users
-    .replace(/\[audioUrl:[^\]]*\]?/gi, '') // Remove [audioUrl: ...]
-    .replace(/\[imageUrl:[^\]]*\]?/gi, '') // Remove [imageUrl: ...]
-    .replace(/\[videoUrl:[^\]]*\]?/gi, '') // Remove [videoUrl: ...]
-    .replace(/audioUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove audioUrl: URL without brackets
-    .replace(/imageUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove imageUrl: URL without brackets
-    .replace(/videoUrl:\s*https?:\/\/[^\s\]]+/gi, '') // Remove videoUrl: URL without brackets
-    // CRITICAL: Remove snake_case variants (image_url, video_url, audio_url)
-    .replace(/\[image_url:[^\]]*\]?/gi, '')
-    .replace(/\[video_url:[^\]]*\]?/gi, '')
-    .replace(/\[audio_url:[^\]]*\]?/gi, '')
-    .replace(/\[image_url\]/gi, '')
-    .replace(/\[video_url\]/gi, '')
-    .replace(/\[audio_url\]/gi, '')
-    .replace(/image_url:\s*https?:\/\/[^\s\]]+/gi, '')
-    .replace(/video_url:\s*https?:\/\/[^\s\]]+/gi, '')
-    .replace(/audio_url:\s*https?:\/\/[^\s\]]+/gi, '')
-    // CRITICAL: Remove camelCase tags without colon
-    .replace(/\[imageUrl\]/gi, '')
-    .replace(/\[videoUrl\]/gi, '')
-    .replace(/\[audioUrl\]/gi, '')
-    // CRITICAL: Remove curly brace variants and truncated artifacts
-    .replace(/\{imageUrl:[^}]*\}?/gi, '')
-    .replace(/\{videoUrl:[^}]*\}?/gi, '')
-    .replace(/\{audioUrl:[^}]*\}?/gi, '')
-    // CRITICAL: Remove taskId leakage (internal tool result artifacts)
-    .replace(/\{taskId:[^}]*\}?/gi, '') // Remove {taskId: "..."}
-    .replace(/taskId:\s*["']?[a-f0-9-]+["']?/gi, '') // Remove taskId: "xxx" or taskId: xxx
-    .replace(/\{imageUrl:\s*["']?$/gi, '') // Truncated at end
-    .replace(/\{videoUrl:\s*["']?$/gi, '') // Truncated at end
-    .replace(/\{audioUrl:\s*["']?$/gi, '') // Truncated at end
-    .replace(/imageUrl:\s*["']?$/gi, '') // Truncated key at end
-    .replace(/videoUrl:\s*["']?$/gi, '') // Truncated key at end
+    .replace(URL_REGEX, '')
+    .replace(GENERIC_TAGS_REGEX, '')
+    .replace(TAG_WITH_ID_REGEX, '')
+    .replace(BRACE_TAG_REGEX, '')
+    .replace(STATUS_TAGS_REGEX, '')
+    .replace(LINK_PLACEHOLDERS_REGEX, '')
+    .replace(TOOL_RESULT_REGEX, '')
+    .replace(TASK_ID_LEAK_REGEX, '')
+    .replace(HEBREW_IMAGE_TAG_REGEX, '')
+    .replace(TRUNCATED_KEYS_REGEX, '')
     .trim();
 }
 

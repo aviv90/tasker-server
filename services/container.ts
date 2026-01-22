@@ -68,6 +68,8 @@ class Container {
                 max: config.database.pool.max,
                 idleTimeoutMillis: config.database.pool.idleTimeoutMillis,
                 connectionTimeoutMillis: config.database.pool.connectionTimeoutMillis,
+                keepAlive: true,
+                keepAliveInitialDelayMillis: 60000,
             };
 
             this.pool = new Pool(poolConfig);

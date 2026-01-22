@@ -64,8 +64,8 @@ export const config = {
     })(),
     pool: {
       max: parseInt(process.env.DB_POOL_MAX || '10', 10),
-      idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT || '30000', 10),
-      connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT || '10000', 10),
+      idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT || '10000', 10),
+      connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT || '30000', 10),
     }
   },
 
@@ -139,7 +139,7 @@ export const config = {
   timeouts: {
     database: parseInt(process.env.TIMEOUT_DATABASE || '30000', 10), // 30 seconds
     apiCall: parseInt(process.env.TIMEOUT_API || '60000', 10), // 60 seconds
-    aiGeneration: parseInt(process.env.TIMEOUT_AI || '120000', 10), // 2 minutes
+    aiGeneration: parseInt(process.env.TIMEOUT_AI || '300000', 10), // 5 minutes
     fileOperation: parseInt(process.env.TIMEOUT_FILE || '30000', 10), // 30 seconds
     upload: parseInt(process.env.TIMEOUT_UPLOAD || '300000', 10), // 5 minutes
   },

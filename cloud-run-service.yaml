@@ -6,20 +6,39 @@ metadata:
     cloud.googleapis.com/location: us-central1
   annotations:
     run.googleapis.com/cloudsql-instances: tasker-server:us-central1:tasker-server
+    run.googleapis.com/cpu-throttling: 'false'
 spec:
   template:
     metadata:
       annotations:
         run.googleapis.com/cloudsql-instances: tasker-server:us-central1:tasker-server
+        run.googleapis.com/cpu-throttling: 'false'
+        run.googleapis.com/startup-cpu-boost: 'true'
+        run.googleapis.com/minScale: '1'
+        run.googleapis.com/execution-environment: gen2
     spec:
+      containerConcurrency: 50
       containers:
         - image: gcr.io/tasker-server/tasker-server
           resources:
             limits:
               cpu: '1'
-              memory: 1024Mi # Adjusted for media processing (ffmpeg)
+              memory: 1024Mi
           ports:
             - containerPort: 8080
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 30
           env:
             - name: NODE_ENV
               value: production
