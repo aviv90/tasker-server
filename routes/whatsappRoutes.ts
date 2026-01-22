@@ -25,25 +25,27 @@ router.post('/webhook', whatsappLimiter, async (req: Request, res: Response) => 
   try {
     // Security check: Verify webhook token
     const token = (req.headers['authorization'] as string)?.replace('Bearer ', '') ||
-                  (req.query.token as string) || 
-                  req.body.token;
-    
+      (req.query.token as string) ||
+      req.body.token;
+
     const expectedToken = process.env.GREEN_API_WEBHOOK_TOKEN;
-    
+
     if (!expectedToken) {
       logger.error('❌ GREEN_API_WEBHOOK_TOKEN not configured in environment');
       res.status(500).json({ error: 'Webhook token not configured' });
       return;
     }
-    
+
     if (token !== expectedToken) {
-      logger.error('❌ Unauthorized webhook request - invalid token');
+      const receivedPreview = token ? `${token.substring(0, 4)}...${token.slice(-4)}` : 'null';
+      const expectedPreview = `${expectedToken.substring(0, 4)}...${expectedToken.slice(-4)}`;
+      logger.error(`❌ Unauthorized webhook request - Mismatch. Received: [${receivedPreview}] (len: ${token?.length}), Expected: [${expectedPreview}] (len: ${expectedToken.length})`);
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
 
     const webhookData = req.body;
-    
+
     // Log full webhook payload for debugging
     logger.debug(`📱 Green API webhook: ${webhookData.typeWebhook || 'unknown'} | Type: ${webhookData.messageData?.typeMessage || 'N/A'}`);
 
