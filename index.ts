@@ -11,8 +11,6 @@ import whatsappRoutes from './routes/whatsappRoutes';
 import { apiLimiter } from './middleware/rateLimiter';
 import conversationManager from './services/conversationManager';
 import container from './services/container';
-import compression from 'compression';
-import helmet from 'helmet';
 
 async function startServer() {
     // Validate configuration on startup
@@ -24,14 +22,10 @@ async function startServer() {
         process.exit(1);
     }
 
-    // Ensure tmp directory exists for static files (Synchronous I/O at startup is acceptable)
+    // Ensure tmp directory exists for static files
     if (!fs.existsSync(config.paths.tmp)) {
-        try {
-            fs.mkdirSync(config.paths.tmp, { recursive: true });
-            logger.info('📁 Created tmp directory for static files', { path: config.paths.tmp });
-        } catch (err) {
-            logger.warn('⚠️ Could not create tmp directory (may already exist)', { path: config.paths.tmp, error: err });
-        }
+        fs.mkdirSync(config.paths.tmp, { recursive: true });
+        logger.info('📁 Created tmp directory for static files', { path: config.paths.tmp });
     }
 
     // Initialize conversation manager (and database connection)
@@ -45,17 +39,8 @@ async function startServer() {
     const app = express();
 
     app.enable('trust proxy');
-    app.use(helmet({
-        contentSecurityPolicy: false, // Disable CSP for easier integration with media URLs
-    }));
-    app.use(compression());
     app.use(express.json({ limit: config.limits.jsonBodySize }));
     app.use('/static', express.static(config.paths.static));
-
-    // Health check endpoint for Cloud Run probes
-    app.get('/health', (_req, res) => {
-        res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-    });
 
     // Apply rate limiting to routes
     app.use('/api', apiLimiter); // Apply to all /api routes

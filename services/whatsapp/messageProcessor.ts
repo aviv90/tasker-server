@@ -5,7 +5,6 @@
  * Handles deduplication, parsing, media extraction, and input normalization.
  */
 
-import NodeCache from 'node-cache';
 import { WebhookData } from './types';
 import logger from '../../utils/logger';
 import { NormalizedInput } from './types';
@@ -27,12 +26,12 @@ export class MessageProcessor {
     /**
      * Check if message is a duplicate
      */
-    static isDuplicate(messageId: string, processedMessages: NodeCache): boolean {
+    static isDuplicate(messageId: string, processedMessages: Set<string>): boolean {
         if (processedMessages.has(messageId)) {
             logger.debug(`🔄 Duplicate message detected, skipping: ${messageId}`);
             return true;
         }
-        processedMessages.set(messageId, true);
+        processedMessages.add(messageId);
         return false;
     }
 

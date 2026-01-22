@@ -74,7 +74,7 @@ export async function saveIncomingUserMessage(
     // We use messageId from Green API as unique identifier
     try {
       // Note: We don't check for duplicates here to avoid extra DB query overhead
-      // The deduplication is handled at webhook level (processedMessagesCache NodeCache)
+      // The deduplication is handled at webhook level (processedMessages Set)
       // If needed, we could add a unique constraint on (chat_id, metadata->>'messageId')
 
       // Save to DB

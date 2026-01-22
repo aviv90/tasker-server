@@ -8,12 +8,6 @@ import { BASE_URL, GREEN_API_API_TOKEN_INSTANCE } from './constants';
 import { TIME } from '../../utils/constants';
 import logger from '../../utils/logger';
 
-// SAFETY: Each request gets its own socket to prevent cross-contamination
-// We sacrifice connection pooling performance for guaranteed isolation
-const api = axios.create({
-    timeout: 30000,
-});
-
 // Interfaces for dependencies
 interface MessageTypesManager {
     markAsBotMessage(chatId: string, messageId: string): Promise<void>;
@@ -54,14 +48,11 @@ export class GreenApiMessagingService {
                 data.quotedMessageId = quotedMessageId;
             }
 
-            const response = await api.post(url, data, {
+            const response = await axios.post(url, data, {
                 headers: { 'Content-Type': 'application/json' }
             });
 
-            logger.info(`📤 [Messaging] Sent text to ${chatId}:`, {
-                snippet: message.substring(0, 50).replace(/\n/g, ' ') + (message.length > 50 ? '...' : ''),
-                quotedMessageId
-            });
+            logger.info(`📤 Message sent to ${chatId}:`, { message: message.substring(0, 50) + '...' });
 
             // Mark as bot message
             if (response.data && (response.data as { idMessage?: string }).idMessage) {
@@ -112,7 +103,7 @@ export class GreenApiMessagingService {
 
             logger.info(`📤 Sending file: ${fileName} to ${chatId}`);
 
-            const response = await api.post(url, data, {
+            const response = await axios.post(url, data, {
                 headers: { 'Content-Type': 'application/json' }
             });
 
@@ -169,7 +160,7 @@ export class GreenApiMessagingService {
                 optionsCount: options.length
             });
 
-            const response = await api.post(url, data, {
+            const response = await axios.post(url, data, {
                 headers: { 'Content-Type': 'application/json' }
             });
 
@@ -223,7 +214,7 @@ export class GreenApiMessagingService {
                 data.quotedMessageId = quotedMessageId;
             }
 
-            const response = await api.post(url, data, {
+            const response = await axios.post(url, data, {
                 headers: { 'Content-Type': 'application/json' }
             });
 

@@ -34,52 +34,72 @@ const colors = {
 winston.addColors(colors);
 
 // Redaction format for secrets
+// Redaction format for secrets
 const redactSecrets = winston.format((info) => {
-  const SENSITIVE_KEYS = new Set(['password', 'token', 'secret', 'key', 'authorization', 'apikey', 'apitoken']);
+  const sensitiveKeys = ['password', 'token', 'secret', 'key', 'authorization', 'apiKey', 'apiToken'];
+  const seen = new WeakSet();
 
-  const redact = (obj: any, seen = new WeakSet()): any => {
+  const redact = (obj: any): any => {
     if (!obj || typeof obj !== 'object') return obj;
+
+    // Prevent circular references
     if (seen.has(obj)) return '[Circular]';
-
-    // Quick check to avoid deep processing for non-sensitive objects
-    // This optimization skips deep traversal if it's unlikely to have secrets
-    // but the safer approach is to always check.
-
     seen.add(obj);
 
-    if (obj instanceof Error) {
-      const errorObj: any = { message: obj.message, stack: obj.stack, name: obj.name };
-      for (const key of Object.getOwnPropertyNames(obj)) {
-        if (!['message', 'stack', 'name'].includes(key)) {
-          errorObj[key] = redact((obj as any)[key], seen);
+    try {
+      // Handle Error objects explicitly
+      if (obj instanceof Error) {
+        const errorObj: any = {
+          message: obj.message,
+          stack: obj.stack,
+          name: obj.name,
+        };
+
+        // Handle custom properties on Error object
+        for (const key of Object.getOwnPropertyNames(obj)) {
+          if (!['message', 'stack', 'name'].includes(key)) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            errorObj[key] = redact((obj as any)[key]);
+          }
+        }
+        return errorObj;
+      }
+
+      // Handle arrays
+      if (Array.isArray(obj)) {
+        return obj.map(item => redact(item));
+      }
+
+      // Handle objects
+      const newObj: any = {};
+      for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          if (sensitiveKeys.some(k => key.toLowerCase().includes(k))) {
+            newObj[key] = '***REDACTED***';
+          } else {
+            newObj[key] = redact(obj[key]);
+          }
         }
       }
-      return errorObj;
+      return newObj;
+    } finally {
+      // We don't remove from seen to handle diamond dependencies correctly in a single tree walk? 
+      // Actually for pure tree walk we should remove, but for cycle detection in arbitrary graph we keep.
+      // However, winston 'info' is usually a tree. 
+      // Let's keep it simple: if we see it again in the same stack, it's a cycle.
+      // But wait, 'seen' is shared across the whole 'info' object.
+      // If the same object is referenced twice (not cycle), it will be '[Circular]'.
+      // This is acceptable for logging.
     }
-
-    if (Array.isArray(obj)) {
-      return obj.map(item => redact(item, seen));
-    }
-
-    const newObj: any = {};
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        if (SENSITIVE_KEYS.has(key.toLowerCase())) {
-          newObj[key] = '***REDACTED***';
-        } else {
-          newObj[key] = redact(obj[key], seen);
-        }
-      }
-    }
-    return newObj;
   };
 
   const redactedInfo = redact(info);
 
-  // Restore symbols
+  // Restore symbols from original info object to ensure Winston works correctly
   if (info && typeof info === 'object') {
     const syms = Object.getOwnPropertySymbols(info);
     for (const sym of syms) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (redactedInfo as any)[sym] = (info as any)[sym];
     }
   }

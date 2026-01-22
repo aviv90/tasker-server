@@ -1,4 +1,4 @@
-import NodeCache from 'node-cache';
+
 import { handleOutgoingMessage } from '../../routes/whatsapp/outgoingHandler';
 import conversationManager from '../../services/conversationManager';
 import { routeToAgent } from '../../services/agentRouter';
@@ -59,10 +59,9 @@ describe('Outgoing Handler', () => {
         }
     };
 
-    const processedMessages = new NodeCache();
+    const processedMessages = new Set<string>();
 
     beforeEach(() => {
-        processedMessages.flushAll();
         jest.clearAllMocks();
     });
 

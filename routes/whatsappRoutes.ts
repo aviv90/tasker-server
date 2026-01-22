@@ -1,5 +1,4 @@
 import express, { Request, Response } from 'express';
-import NodeCache from 'node-cache';
 import { whatsappLimiter } from '../middleware/rateLimiter';
 import logger from '../utils/logger';
 import { handleIncomingMessage } from './whatsapp/incomingHandler';
@@ -7,9 +6,16 @@ import { handleOutgoingMessage } from './whatsapp/outgoingHandler';
 
 const router = express.Router();
 
-// Message deduplication cache using NodeCache with TTL (5 minutes)
-// This is more performant and memory-safe than a manual Set
-const processedMessagesCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
+// Message deduplication cache - prevent processing duplicate messages
+const processedMessages = new Set<string>();
+
+// Clean up old processed messages cache every 30 minutes
+setInterval(() => {
+  if (processedMessages.size > 1000) {
+    processedMessages.clear();
+    logger.info('🧹 Cleared processed messages cache');
+  }
+}, 30 * 60 * 1000);
 
 /**
  * Webhook endpoint for receiving WhatsApp messages from Green API
@@ -31,7 +37,9 @@ router.post('/webhook', whatsappLimiter, async (req: Request, res: Response) => 
     }
 
     if (token !== expectedToken) {
-      logger.error('❌ Unauthorized webhook request - invalid token');
+      const receivedPreview = token ? `${token.substring(0, 4)}...${token.slice(-4)}` : 'null';
+      const expectedPreview = `${expectedToken.substring(0, 4)}...${expectedToken.slice(-4)}`;
+      logger.error(`❌ Unauthorized webhook request - Mismatch. Received: [${receivedPreview}] (len: ${token?.length}), Expected: [${expectedPreview}] (len: ${expectedToken.length})`);
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
@@ -44,14 +52,14 @@ router.post('/webhook', whatsappLimiter, async (req: Request, res: Response) => 
     // Handle different webhook types asynchronously
     if (webhookData.typeWebhook === 'incomingMessageReceived') {
       // Process in background - don't await
-      handleIncomingMessage(webhookData, processedMessagesCache).catch((error: unknown) => {
+      handleIncomingMessage(webhookData, processedMessages).catch((error: unknown) => {
         const errorMessage = error instanceof Error ? error.message : String(error);
         const errorStack = error instanceof Error ? error.stack : undefined;
         logger.error('❌ Error in async webhook processing:', { error: errorMessage, stack: errorStack });
       });
     } else if (webhookData.typeWebhook === 'outgoingMessageReceived') {
       // Process outgoing messages (commands sent by you)
-      handleOutgoingMessage(webhookData, processedMessagesCache).catch((error: unknown) => {
+      handleOutgoingMessage(webhookData, processedMessages).catch((error: unknown) => {
         const errorMessage = error instanceof Error ? error.message : String(error);
         const errorStack = error instanceof Error ? error.stack : undefined;
         logger.error('❌ Error in async outgoing message processing:', { error: errorMessage, stack: errorStack });
