@@ -44,14 +44,14 @@ router.post('/webhook', whatsappLimiter, async (req: Request, res: Response) => 
     // Handle different webhook types asynchronously
     if (webhookData.typeWebhook === 'incomingMessageReceived') {
       // Process in background - don't await
-      handleIncomingMessage(webhookData, processedMessagesCache as any).catch((error: unknown) => {
+      handleIncomingMessage(webhookData, processedMessagesCache).catch((error: unknown) => {
         const errorMessage = error instanceof Error ? error.message : String(error);
         const errorStack = error instanceof Error ? error.stack : undefined;
         logger.error('❌ Error in async webhook processing:', { error: errorMessage, stack: errorStack });
       });
     } else if (webhookData.typeWebhook === 'outgoingMessageReceived') {
       // Process outgoing messages (commands sent by you)
-      handleOutgoingMessage(webhookData, processedMessagesCache as any).catch((error: unknown) => {
+      handleOutgoingMessage(webhookData, processedMessagesCache).catch((error: unknown) => {
         const errorMessage = error instanceof Error ? error.message : String(error);
         const errorStack = error instanceof Error ? error.stack : undefined;
         logger.error('❌ Error in async outgoing message processing:', { error: errorMessage, stack: errorStack });

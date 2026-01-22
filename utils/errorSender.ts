@@ -55,6 +55,11 @@ export async function sendErrorToUser(
   error: unknown,
   options: SendErrorOptions = {}
 ): Promise<void> {
+  // Defensive check: ensure chatId is present
+  if (!chatId) {
+    logger.error('❌ Cannot send error to user: chatId is missing', { error });
+    return;
+  }
   const {
     provider,
     context,
@@ -95,6 +100,10 @@ export async function sendErrorToUser(
   }
 
   try {
+    logger.info(`📤 [ErrorSender] Sending error to ${chatId}:`, {
+      context: context || 'generic',
+      snippet: errorMessage.substring(0, 50).replace(/\n/g, ' ')
+    });
     await sendTextMessage(chatId, errorMessage, quotedMessageId || undefined, typingTime);
   } catch (sendError) {
     logger.error('❌ Failed to send error message to user:', {

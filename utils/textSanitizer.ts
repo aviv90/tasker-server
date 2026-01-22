@@ -22,7 +22,7 @@ const STATUS_TAGS_REGEX = /\[(Image|Video|Audio|Voice message)\s+(sent|created)\
 const LINK_PLACEHOLDERS_REGEX = /\[(Video|Audio|Image|Music|File|Link|קישור|לינק)[^\]]*\]/gi;
 const TOOL_RESULT_REGEX = /(audioUrl|imageUrl|videoUrl|image_url|video_url|audio_url):\s*https?:\/\/[^\s\]]+/gi;
 const TASK_ID_LEAK_REGEX = /taskId:\s*["']?[a-f0-9-]+["']?/gi;
-const TRUNCATED_KEYS_REGEX = /\{(imageUrl|videoUrl|audioUrl|taskId):\s*["']?$/gi;
+const TRUNCATED_KEYS_REGEX = /\{?(imageUrl|videoUrl|audioUrl|taskId):\s*["']?.*$/gi;
 const HEBREW_IMAGE_TAG_REGEX = /\[תמונה:\s*image_id=[^\]]*\]|\[וידאו:\s*video_id=[^\]]*\]|\[אודיו:\s*audio_id=[^\]]*\]/gi;
 
 /**

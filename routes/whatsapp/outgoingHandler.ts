@@ -6,6 +6,7 @@
  */
 
 // Import services
+import NodeCache from 'node-cache';
 import conversationManager from '../../services/conversationManager';
 import { routeToAgent } from '../../services/agentRouter';
 import { sendErrorToUser, ERROR_MESSAGES } from '../../utils/errorSender';
@@ -26,9 +27,9 @@ import { isCommand } from '../../utils/commandUtils';
 /**
  * Handle outgoing WhatsApp message
  * @param {WebhookData} webhookData - Webhook data from Green API
- * @param {Set} processedMessages - Shared cache for message deduplication
+ * @param {NodeCache} processedMessages - Shared cache for message deduplication
  */
-export async function handleOutgoingMessage(webhookData: WebhookData, processedMessages: Set<string>): Promise<void> {
+export async function handleOutgoingMessage(webhookData: WebhookData, processedMessages: NodeCache): Promise<void> {
   try {
     const messageData = webhookData.messageData;
     const senderData = webhookData.senderData;

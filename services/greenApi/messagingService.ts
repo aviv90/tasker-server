@@ -4,21 +4,13 @@
  */
 
 import axios from 'axios';
-import https from 'https';
 import { BASE_URL, GREEN_API_API_TOKEN_INSTANCE } from './constants';
 import { TIME } from '../../utils/constants';
 import logger from '../../utils/logger';
 
-// Create a persistent HTTPS agent for all Green API requests
-const httpsAgent = new https.Agent({
-    keepAlive: true,
-    maxSockets: 50, // Match or exceed Cloud Run concurrency
-    keepAliveMsecs: 1000,
-});
-
-// Configure axios to use our persistent agent by default
+// SAFETY: Each request gets its own socket to prevent cross-contamination
+// We sacrifice connection pooling performance for guaranteed isolation
 const api = axios.create({
-    httpsAgent,
     timeout: 30000,
 });
 
@@ -66,7 +58,10 @@ export class GreenApiMessagingService {
                 headers: { 'Content-Type': 'application/json' }
             });
 
-            logger.info(`📤 Message sent to ${chatId}:`, { message: message.substring(0, 50) + '...' });
+            logger.info(`📤 [Messaging] Sent text to ${chatId}:`, {
+                snippet: message.substring(0, 50).replace(/\n/g, ' ') + (message.length > 50 ? '...' : ''),
+                quotedMessageId
+            });
 
             // Mark as bot message
             if (response.data && (response.data as { idMessage?: string }).idMessage) {
@@ -228,7 +223,7 @@ export class GreenApiMessagingService {
                 data.quotedMessageId = quotedMessageId;
             }
 
-            const response = await axios.post(url, data, {
+            const response = await api.post(url, data, {
                 headers: { 'Content-Type': 'application/json' }
             });
 

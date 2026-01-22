@@ -6,6 +6,7 @@
  */
 
 // Import services
+import NodeCache from 'node-cache';
 import { sendErrorToUser, ERROR_MESSAGES } from '../../utils/errorSender';
 // import { sendTextMessage } from '../../services/greenApiService';
 import conversationManager from '../../services/conversationManager';
@@ -21,9 +22,9 @@ import { saveIncomingUserMessage, extractMediaMetadata } from './incoming/messag
 /**
  * Handle incoming WhatsApp message
  * @param {WebhookData} webhookData - Webhook data from Green API
- * @param {Set} processedMessages - Shared cache for message deduplication
+ * @param {NodeCache} processedMessages - Shared cache for message deduplication
  */
-export async function handleIncomingMessage(webhookData: WebhookData, processedMessages: Set<string>): Promise<void> {
+export async function handleIncomingMessage(webhookData: WebhookData, processedMessages: NodeCache): Promise<void> {
   // 0. CRITICAL FIX: Filter Outgoing API Messages (Bot Echoes) & Status
   // We MUST process 'outgoingMessageReceived' (User manual send) but IGNORE 'outgoingAPIMessageReceived' (Bot send)
   if (webhookData.typeWebhook === 'outgoingAPIMessageReceived' || webhookData.typeWebhook === 'outgoingMessageStatus') {

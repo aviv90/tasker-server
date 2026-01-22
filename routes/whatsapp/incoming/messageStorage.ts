@@ -29,7 +29,7 @@ export async function saveIncomingUserMessage(
 ): Promise<void> {
   try {
     const chatId = webhookData.senderData.chatId;
-    
+
     if (!conversationManager.isInitialized) {
       logger.debug('💾 [MessageStorage] DB not initialized, skipping message save');
       return;
@@ -38,7 +38,7 @@ export async function saveIncomingUserMessage(
     // Determine message content
     // For media-only messages (no text), create a descriptive placeholder
     let content = messageText?.trim() || '';
-    
+
     if (!content) {
       // Create descriptive content for media-only messages
       const parts: string[] = [];
@@ -46,7 +46,7 @@ export async function saveIncomingUserMessage(
       if (metadata.videoUrl) parts.push('[וידאו]');
       if (metadata.audioUrl) parts.push('[אודיו]');
       if (webhookData.messageData.typeMessage === 'audioMessage') parts.push('[הקלטה קולית]');
-      
+
       if (parts.length > 0) {
         content = parts.join(' ');
       } else {
@@ -74,9 +74,9 @@ export async function saveIncomingUserMessage(
     // We use messageId from Green API as unique identifier
     try {
       // Note: We don't check for duplicates here to avoid extra DB query overhead
-      // The deduplication is handled at webhook level (processedMessages Set)
+      // The deduplication is handled at webhook level (processedMessagesCache NodeCache)
       // If needed, we could add a unique constraint on (chat_id, metadata->>'messageId')
-      
+
       // Save to DB
       // Use container's messages service directly (no deprecation warning)
       const containerModule = await import('../../../services/container');
@@ -95,7 +95,7 @@ export async function saveIncomingUserMessage(
       }
       throw error; // Re-throw other errors
     }
-    
+
   } catch (error) {
     // Don't fail if DB save fails - this is a performance optimization
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -114,23 +114,23 @@ export function extractMediaMetadata(webhookData: WebhookData): Record<string, u
 
   // Extract image URL
   if (messageData.typeMessage === 'imageMessage' || messageData.typeMessage === 'image') {
-    metadata.imageUrl = messageData.downloadUrl || 
-                       messageData.urlFile || 
-                       messageData.imageMessageData?.downloadUrl;
+    metadata.imageUrl = messageData.downloadUrl ||
+      messageData.urlFile ||
+      messageData.imageMessageData?.downloadUrl;
   }
 
   // Extract video URL
   if (messageData.typeMessage === 'videoMessage' || messageData.typeMessage === 'video') {
-    metadata.videoUrl = messageData.downloadUrl || 
-                       messageData.urlFile || 
-                       messageData.videoMessageData?.downloadUrl;
+    metadata.videoUrl = messageData.downloadUrl ||
+      messageData.urlFile ||
+      messageData.videoMessageData?.downloadUrl;
   }
 
   // Extract audio URL
   if (messageData.typeMessage === 'audioMessage' || messageData.typeMessage === 'audio') {
-    metadata.audioUrl = messageData.downloadUrl || 
-                       messageData.urlFile || 
-                       messageData.audioMessageData?.downloadUrl;
+    metadata.audioUrl = messageData.downloadUrl ||
+      messageData.urlFile ||
+      messageData.audioMessageData?.downloadUrl;
   }
 
   return metadata;

@@ -16,25 +16,18 @@ interface GeminiChatSession {
   }>;
 }
 
-
-
 /**
  * Single-step agent execution loop
  * Handles tool calling iterations until final response is reached
  */
 class AgentLoop {
-  // Track tools that already received ACK to prevent duplicate ACKs
-  private ackedTools: Set<string> = new Set();
-  // Track creation tools that already succeeded to prevent duplicate execution
-  private succeededCreationTools: Set<string> = new Set();
-
   /**
    * Execute agent loop
    */
   async execute(chat: GeminiChatSession, prompt: string, chatId: string, context: AgentContext, maxIterations: number, agentConfig: AgentConfig): Promise<AgentResult> {
-    // Reset tracking sets for each new execution
-    this.ackedTools = new Set();
-    this.succeededCreationTools = new Set();
+    // Tracking sets local to this execution (thread-safe)
+    const ackedTools: Set<string> = new Set();
+    const succeededCreationTools: Set<string> = new Set();
 
     let response = await chat.sendMessage(prompt);
     let iterationCount = 0;
@@ -71,8 +64,8 @@ class AgentLoop {
       const functionResponses = await toolHandler.executeBatch(
         functionCalls,
         context,
-        this.ackedTools,
-        this.succeededCreationTools,
+        ackedTools,
+        succeededCreationTools,
         chatId
       );
 
