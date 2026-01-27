@@ -217,7 +217,7 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
 
       // Cleanup
       if (shouldCloneVoice && voiceId) {
-        try { await voiceService.deleteVoice(voiceId); } catch (e) { }
+        try { await voiceService.deleteVoice(voiceId); } catch (e) { /* ignore cleanup error */ }
       }
       return;
     }

@@ -9,6 +9,7 @@
 // 2. Hash followed by non-ASCII character (#תעשה) - for Hebrew/other languages where space might be omitted
 // Does NOT match:
 // 1. Hash followed by ASCII character/number (#tag, #1) - to avoid hashtags
+// eslint-disable-next-line no-control-regex
 export const COMMAND_DETECTION_REGEX = /^#(\s+|[^\x00-\x7F])/;
 
 // Regex for STRIPPING the command prefix.

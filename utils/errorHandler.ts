@@ -272,7 +272,7 @@ export function formatProviderError(provider: string, errorMessage: unknown, lan
 
   // Remove trailing single characters on new lines (common API artifact)
   // e.g. "...\n." -> "..."
-  cleanError = cleanError.replace(/\n\s*[\.\,]\s*$/, '').trim();
+  cleanError = cleanError.replace(/\n\s*[.,]\s*$/, '').trim();
 
   // Localized prefix
   const prefix = language === 'en' ? `Error in ${providerName}` : `שגיאה ב-${providerName}`;

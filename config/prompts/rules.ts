@@ -208,3 +208,13 @@ export const STRICT_TOOL_ADHERENCE_RULE = `• **STRICT TOOL ADHERENCE (CRITICAL
   - **Single Attempt:** If a tool fails, **STOP** and report error.
   - **No Switching:** Do NOT switch tools (e.g., Image→Video, Video→Music) without explicit authorization.
   - **No Loops:** Do NOT retry the same failed call blindly.`;
+
+/**
+ * Strict provider rule - prevents automatic fallbacks
+ */
+export const STRICT_PROVIDER_RULE = `• **STRICT PROVIDER SELECTION (CRITICAL):**
+  - **Defaults:**
+    - **Video:** Veo 3 (Google).
+    - **Image:** Gemini (Google).
+  - **No Fallbacks:** NEVER switch providers automatically (e.g., Veo3 -> Kling). If default fails, **STOP and report error**.
+  - **Explicit Only:** Use Kling/Sora/OpenAI ONLY if the user EXPLICITLY requested them by name.`;

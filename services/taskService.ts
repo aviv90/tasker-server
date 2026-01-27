@@ -39,13 +39,14 @@ export class TaskService {
             let result: any = null;
 
             switch (type) {
-                case 'text-to-image':
+                case 'text-to-image': {
                     // Defaulting to Gemini for API tasks for now
                     // Note: generateImage in facade handles args
                     result = await geminiService.generateImageForWhatsApp(sanitizedPrompt);
                     break;
+                }
 
-                case 'text-to-video':
+                case 'text-to-video': {
                     // Using Replicate (Kling)
                     const videoRes = await replicateService.generateVideoWithTextForWhatsApp(sanitizedPrompt, req);
                     if (videoRes.success) {
@@ -54,8 +55,9 @@ export class TaskService {
                         throw new Error(videoRes.error || 'Video generation failed');
                     }
                     break;
+                }
 
-                case 'text-to-music':
+                case 'text-to-music': {
                     // Using generateMusicWithLyrics as default
                     if (musicService && musicService.generateMusicWithLyrics) {
                         const musicRes = await musicService.generateMusicWithLyrics(sanitizedPrompt);
@@ -64,16 +66,19 @@ export class TaskService {
                         throw new Error('Music service not available');
                     }
                     break;
+                }
 
-                case 'gemini-chat':
+                case 'gemini-chat': {
                     const chatRes = await geminiService.generateTextResponse(sanitizedPrompt);
                     result = { text: chatRes };
                     break;
+                }
 
-                case 'openai-chat':
+                case 'openai-chat': {
                     const gptRes = await openaiService.generateTextResponse(sanitizedPrompt);
                     result = { text: gptRes };
                     break;
+                }
 
                 default:
                     throw new Error(`Unsupported task type: ${type}`);

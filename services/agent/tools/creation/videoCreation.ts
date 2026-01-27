@@ -55,7 +55,7 @@ function cleanPromptFromContext(prompt: string): string {
 export const create_video = createTool<CreateVideoArgs>(
   {
     name: 'create_video',
-    description: 'Create a video from text description. Default provider: Veo 3 (Google). Use "provider" arg for others (Sora, Kling).',
+    description: 'Create a video from text description. Default provider: Veo 3 (Google). Enforced Rule: NO AUTOMATIC FALLBACKS. If Veo 3 fails, STOP. Do NOT use Kling unless user explicitly asks for "Kling" or "Kuaishou".',
     parameters: {
       type: 'object',
       properties: {
@@ -215,7 +215,7 @@ export const create_video = createTool<CreateVideoArgs>(
 export const image_to_video = createTool<ImageToVideoArgs>(
   {
     name: 'image_to_video',
-    description: 'Convert/Animate an image to video. Default provider: Veo 3. USE THIS when user says "image to video", "animate", or specifies provider. CRITICAL: If prompt contains "Use this image_url parameter directly", extract URL from there!',
+    description: 'Convert/Animate an image to video. Default provider: Veo 3. Enforced Rule: NO AUTOMATIC FALLBACKS. If Veo 3 fails, STOP. Do NOT use Kling unless user explicitly asks for it. CRITICAL: If prompt contains "Use this image_url parameter directly", extract URL from there!',
     parameters: {
       type: 'object',
       properties: {

@@ -1,5 +1,5 @@
 
-import { cleanAmazonPrefix } from '../../utils/textSanitizer';
+import { cleanAmazonPrefix, cleanMultiStepText } from '../../utils/textSanitizer';
 
 describe('textSanitizer', () => {
     describe('cleanAmazonPrefix', () => {
@@ -43,7 +43,6 @@ describe('textSanitizer', () => {
     });
 
     describe('cleanMultiStepText', () => {
-        const { cleanMultiStepText } = require('../../utils/textSanitizer');
 
         it('should remove legacy bracket patterns [imageUrl:...]', () => {
             const input = 'Here is the image [imageUrl: https://example.com/img.png]';

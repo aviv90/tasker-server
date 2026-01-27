@@ -43,7 +43,7 @@ function cleanPromptFromContext(prompt: string): string {
 export const create_image = createTool<CreateImageArgs>(
   {
     name: 'create_image',
-    description: 'Create a new image. Default provider: Gemini. Use "provider" arg for others. Use this for "Send [Object/Person]" requests. Important: Do NOT use this for WhatsApp group icons - use create_group instead. CRITICAL: If the user is quoting an image and asks to create/generate based on it, use "edit_image" instead!',
+    description: 'Create a new image. Default provider: Gemini. Enforced Rule: NO AUTOMATIC FALLBACKS. If Gemini fails, STOP. Use "provider" arg ONLY if user explicitly asks for "OpenAI" or "Grok". Important: Do NOT use this for WhatsApp group icons - use create_group instead. CRITICAL: If the user is quoting an image and asks to create/generate based on it, use "edit_image" instead!',
     parameters: {
       type: 'object',
       properties: {
