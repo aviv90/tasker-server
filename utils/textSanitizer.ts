@@ -69,8 +69,11 @@ export function cleanMediaDescription(text: unknown, preserveLinks: boolean = fa
     return '';
   }
 
+  // Step 0: Try to extract content if the whole thing is JSON
+  let cleaned = cleanJsonWrapper(text);
+
   // Step 1: Clean markdown and URLs
-  let cleaned = cleanMarkdown(text);
+  cleaned = cleanMarkdown(cleaned);
 
   if (!preserveLinks) {
     // CRITICAL: User requested strict NO LINKS policy
@@ -149,7 +152,9 @@ export function cleanMediaDescription(text: unknown, preserveLinks: boolean = fa
     .replace(/taskId:\s*["']?[a-f0-9-]+["']?/gi, '') // Remove taskId: "xxx" or taskId: xxx
     .replace(/\{imageUrl:\s*["']?$/gi, '') // Truncated at end
     .replace(/\{videoUrl:\s*["']?$/gi, '') // Truncated at end
-    .replace(/\{audioUrl:\s*["']?$/gi, '') // Truncated at end
+    // CRITICAL: Remove JSON structures and patterns that might be embedded in text
+    .replace(/\{[^{}]*"?\s*(image_?url|imageUrl|video_?url|videoUrl|Image URL|Video URL|revised_?prompt|revisedPrompt)"?[^{}]*\}/gi, '')
+    .replace(/"?(image_?url|imageUrl|video_?url|videoUrl|Image URL|Video URL|revised_?prompt|revisedPrompt)"?[:\s]*"[^"]*"/gi, '')
     .replace(/imageUrl:\s*["']?$/gi, '') // Truncated key at end
     .replace(/videoUrl:\s*["']?$/gi, '') // Truncated key at end
     .replace(/✅/g, '')
@@ -183,7 +188,14 @@ export function cleanMultiStepText(text: unknown): string {
     return '';
   }
 
-  return text
+  // Step 0: Try to extract content if the whole thing is JSON
+  let cleaned = cleanJsonWrapper(text);
+
+  return cleaned
+    // CRITICAL: Remove JSON structures and patterns that might be embedded in text
+    // DO THIS BEFORE general URL stripping to avoid mangling the JSON
+    .replace(/\{[^{}]*"?\s*(image_?url|imageUrl|video_?url|videoUrl|Image URL|Video URL|revised_?prompt|revisedPrompt)"?[^{}]*\}/gi, '')
+    .replace(/"?(image_?url|imageUrl|video_?url|videoUrl|Image URL|Video URL|revised_?prompt|revisedPrompt)"?[:\s]*"[^"]*"/gi, '')
     // CRITICAL: User requested strict NO LINKS policy
     .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs (image URLs should not be in text)
     .replace(/\[image\]/gi, '')
@@ -284,7 +296,7 @@ export function cleanAmazonPrefix(text: unknown): string {
 /**
  * JSON content extraction fields (in priority order)
  */
-const JSON_CONTENT_FIELDS = ['answer', 'text', 'message', 'content', 'description', 'data', 'formatted_address', 'address'] as const;
+const JSON_CONTENT_FIELDS = ['answer', 'text', 'message', 'content', 'description', 'revisedPrompt', 'revised_prompt', 'data', 'formatted_address', 'address'] as const;
 
 /**
  * Extract content from parsed JSON object
@@ -364,6 +376,13 @@ export function cleanJsonWrapper(text: unknown): string {
   }
 
   let cleaned = text.trim();
+
+  // ONLY extract if the entire text looks like JSON (pure object/array or wrapped in code blocks)
+  // This prevents accidental extraction from text that just HAPPENS to contain a JSON snippet
+  const isWrappedInJson = /^[\s\n]*(```(?:json)?\s*)?(\{[\s\S]*\}|\[[\s\S]*\])(\s*```)?[\s\n]*$/.test(cleaned);
+  if (!isWrappedInJson) {
+    return cleaned;
+  }
 
   // CRITICAL: If the entire text is a JSON object/array, try to extract meaningful content
   // This handles cases where Gemini returns raw JSON instead of text

@@ -96,5 +96,25 @@ describe('textSanitizer', () => {
         it('should preserve Audio: label', () => {
             expect(cleanMultiStepText('Audio:')).toBe('Audio:');
         });
+
+        it('should extract content from raw JSON response', () => {
+            const jsonInput = '{"answer": "בטח, הנה מה שביקשת", "revisedPrompt": "..."}';
+            expect(cleanMultiStepText(jsonInput)).toBe('בטח, הנה מה שביקשת');
+        });
+
+        it('should remove Image URL JSON snippets even if embedded', () => {
+            const input = 'Sure, I created that: {"Image URL": "https://..."}';
+            expect(cleanMultiStepText(input)).toBe('Sure, I created that:');
+        });
+
+        it('should remove revisedPrompt pattern', () => {
+            const input = 'Prompt: "a cat" revisedPrompt: "a cute professional photo of a cat"';
+            expect(cleanMultiStepText(input)).toBe('Prompt: "a cat"');
+        });
+
+        it('should handle full revisedPrompt JSON objects', () => {
+            const input = '{"revisedPrompt": "a nice picture"}';
+            expect(cleanMultiStepText(input)).toBe('a nice picture');
+        });
     });
 });

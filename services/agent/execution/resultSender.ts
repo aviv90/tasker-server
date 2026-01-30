@@ -382,6 +382,7 @@ class ResultSender {
       logger.debug(`📝 [ResultSender] Sending text${stepInfo}`);
 
       // Clean JSON wrappers and system artifacts (Fixes [Image sent] bug)
+      cleanText = cleanJsonWrapper(cleanText);
       cleanText = cleanMultiStepText(cleanText);
 
       // CRITICAL: For search_web and similar tools, URLs ARE the content - don't remove them!

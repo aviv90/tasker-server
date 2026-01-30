@@ -13,9 +13,9 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import prompts from '../../config/prompts';
 import { config } from '../../config';
 import { detectLanguage } from './utils/languageUtils';
-import { extractDetectionText, isPureCreationRequest } from './utils/agentHelpers';
+import { extractDetectionText, isPureCreationRequest, isSimpleQuery } from './utils/agentHelpers';
 import { getLanguageInstruction } from './utils/languageUtils';
-import { planMultiStepExecution } from '../multiStepPlanner';
+import { planMultiStepExecution, MultiStepPlan } from '../multiStepPlanner';
 import multiStepExecution from './execution/multiStep';
 import agentLoop from './execution/agentLoop';
 import contextManager from './execution/context';
@@ -51,8 +51,14 @@ export class AgentOrchestrator {
         // 2. Start Parallel Operations (Planning + Context + History)
         logger.debug('🚀 [Agent] Starting parallel execution (Planning + Context + History)');
 
-        // A. Planning
-        const planPromise = this.planExecution(prompt, options);
+        // A. Planning - Fast Path check
+        let planPromise: Promise<MultiStepPlan>;
+        if (isSimpleQuery(prompt)) {
+            logger.info('⚡ [Agent] "Fast Path" detected - Bypassing multi-step planner');
+            planPromise = Promise.resolve({ isMultiStep: false });
+        } else {
+            planPromise = this.planExecution(prompt, options);
+        }
 
         // B. Context & History (Lazy load dependencies if needed)
 
@@ -77,11 +83,22 @@ export class AgentOrchestrator {
             historyStrategy.processHistory(chatId, prompt, useConversationHistory)
         );
 
+        // Fetch User Preferences (Long Term Memory)
+        const preferencesPromise = agentConfig.contextMemoryEnabled
+            ? conversationManager.getUserPreferences(chatId).catch(err => {
+                logger.warn('⚠️ Failed to load user preferences', { error: err });
+                return {};
+            })
+            : Promise.resolve({});
+
         // 3. Wait for Plan
+        const planStartTime = Date.now();
         const plan = await planPromise;
+        const planTime = Date.now() - planStartTime;
 
         // 4. Multi-step Execution
         if (plan.isMultiStep && plan.steps && plan.steps.length > 1) {
+            logger.info(`⏱️ Performance [Orchestrator]: Plan=${planTime}ms (Multi-step) | Chat: ${chatId}`);
             // Note: Multi-step currently manages its own context/history or runs stateless per step.
             // We ignore the pre-loaded context/history for now to avoid complexity, 
             // as multi-step is less latency-sensitive than single-step.
@@ -92,8 +109,16 @@ export class AgentOrchestrator {
             return await multiStepExecution.execute(plan as any, chatId, options, languageInstruction, agentConfig) as unknown as AgentResult;
         }
 
-        // 5. Single-step Execution (Wait for Context & History)
-        const [loadedContext, historyResult] = await Promise.all([contextPromise, historyPromise]);
+        // 5. Single-step Execution (Wait for Context, History & Preferences)
+        const loadStartTime = Date.now();
+        const [loadedContext, historyResult, userPreferences] = await Promise.all([
+            contextPromise,
+            historyPromise,
+            preferencesPromise as Promise<Record<string, unknown>>
+        ]);
+        const loadTime = Date.now() - loadStartTime;
+
+        logger.info(`⏱️ Performance [Orchestrator]: Plan=${planTime}ms, AssetsLoad=${loadTime}ms | Chat: ${chatId}`);
 
         return await this.executeSingleStep(
             prompt,
@@ -102,7 +127,8 @@ export class AgentOrchestrator {
             languageInstruction,
             agentConfig,
             loadedContext,
-            historyResult
+            historyResult,
+            userPreferences
         );
     }
 
@@ -148,7 +174,8 @@ export class AgentOrchestrator {
         languageInstruction: string,
         agentConfig: AgentConfig,
         preLoadedContext?: AgentContextState, // AgentContext
-        preLoadedHistory?: HistoryStrategyResult // Type-safe history result
+        preLoadedHistory?: HistoryStrategyResult, // Type-safe history result
+        preLoadedPreferences?: Record<string, unknown>
     ): Promise<AgentResult> {
         const maxIterations = options.maxIterations || agentConfig.maxIterations;
         const model = this.genAI.getGenerativeModel({ model: agentConfig.model });
@@ -168,22 +195,10 @@ export class AgentOrchestrator {
         // Prepare tools
         const functionDeclarations = getToolDeclarations();
 
-        // Fetch User Preferences (Long Term Memory)
-        let userPreferences: Record<string, unknown> = {};
-        if (agentConfig.contextMemoryEnabled) {
-            try {
-                userPreferences = await conversationManager.getUserPreferences(chatId);
-            } catch (err) {
-                logger.warn('⚠️ Failed to load user preferences', { error: err });
-            }
-        }
-
-        // Prepare system instruction
-        let systemInstruction = prompts.agentSystemInstruction(languageInstruction, userPreferences);
-
-        // Use Pre-loaded Context & History OR Load them now (fallback)
+        // Use Pre-loaded Data OR Load them now (fallback)
         let context = preLoadedContext;
         let historyResult = preLoadedHistory;
+        let userPreferences = preLoadedPreferences || {};
 
         if (!context || !historyResult) {
             logger.debug('⚠️ [Agent] Context/History not pre-loaded, loading now (fallback path)');
@@ -191,11 +206,19 @@ export class AgentOrchestrator {
             const useConversationHistory = options.useConversationHistory !== false;
             const { historyStrategy } = await import('./historyStrategy');
 
-            [context, historyResult] = await Promise.all([
+            const results = await Promise.all([
                 contextManager.loadPreviousContext(chatId, context, agentConfig.contextMemoryEnabled),
-                historyStrategy.processHistory(chatId, prompt, useConversationHistory)
+                historyStrategy.processHistory(chatId, prompt, useConversationHistory),
+                agentConfig.contextMemoryEnabled ? conversationManager.getUserPreferences(chatId) : Promise.resolve({})
             ]);
+
+            context = results[0];
+            historyResult = results[1];
+            userPreferences = results[2] as Record<string, unknown>;
         }
+
+        // Prepare system instruction
+        let systemInstruction = prompts.agentSystemInstruction(languageInstruction, userPreferences);
 
         if (historyResult.systemContextAddition) {
             systemInstruction += historyResult.systemContextAddition;

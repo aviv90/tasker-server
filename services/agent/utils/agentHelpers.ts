@@ -95,3 +95,32 @@ export function isPureCreationRequest(prompt: string): boolean {
   return hasCreation && !hasContextRef;
 }
 
+/**
+ * Check if the prompt is a "simple" query that doesn't require multi-step planning.
+ * Greetings, status checks, or very short messages.
+ * @param prompt - User prompt
+ * @returns true if planning can be skipped
+ */
+export function isSimpleQuery(prompt: string): boolean {
+  if (!prompt) return true;
+  const p = prompt.toLowerCase().trim();
+
+  // Very short messages (likely greetings or single words)
+  if (p.length < 10 && !p.includes('?')) return true;
+
+  // Common greetings and simple phrases
+  const simplePhrases = [
+    'היי', 'שלום', 'מה נשמע', 'אהלן', 'מה קורה', 'בוקר טוב', 'ערב טוב', 'לילה טוב',
+    'hi', 'hello', 'hey', 'yo', 'sup', 'good morning', 'good evening',
+    'עזרה', 'help', 'מה אתה יודע לעשות', 'מי אתה', 'מה התפקיד שלך',
+    'תודה', 'thanks', 'thank you', 'בוטל', 'cancel', 'stop'
+  ];
+
+  if (simplePhrases.some(phrase => p === phrase || p.startsWith(phrase + ' '))) {
+    // If it's just the basic phrase or starts with it followed by space
+    // and isn't too long, it's likely simple.
+    if (p.length < 30) return true;
+  }
+
+  return false;
+}

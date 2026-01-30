@@ -11,7 +11,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 /**
  * Step in multi-step plan
  */
-interface PlanStep {
+export interface PlanStep {
   stepNumber: number;
   tool: string | null;
   action: string;
@@ -21,7 +21,7 @@ interface PlanStep {
 /**
  * Multi-step plan result
  */
-interface MultiStepPlan {
+export interface MultiStepPlan {
   isMultiStep: boolean;
   steps?: PlanStep[];
   reasoning?: string;

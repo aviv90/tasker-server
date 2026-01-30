@@ -36,7 +36,16 @@ class AgentLoop {
         this.ackedTools = new Set();
         this.succeededCreationTools = new Set();
 
+        let totalLlmTime = 0;
+        let totalToolTime = 0;
+
+        const loopStartTime = Date.now();
+
+        const initialLlmStartTime = Date.now();
         let response = await chat.sendMessage(prompt);
+        const initialLlmTime = Date.now() - initialLlmStartTime;
+        totalLlmTime += initialLlmTime;
+
         let iterationCount = 0;
 
         while (iterationCount < maxIterations) {
@@ -49,8 +58,9 @@ class AgentLoop {
             if (!functionCalls || functionCalls.length === 0) {
                 // No more function calls - final answer
                 const rawText = result.text();
+                const totalLoopTime = Date.now() - loopStartTime;
 
-                logger.info(`✅ [Agent] Completed in ${iterationCount} iterations`);
+                logger.info(`✅ [Agent] Completed in ${iterationCount} iterations | TotalLoop=${totalLoopTime}ms, AvgLlm=${Math.round(totalLlmTime / iterationCount)}ms, ToolTime=${totalToolTime}ms`);
 
                 // Save context if enabled
                 if (agentConfig.contextMemoryEnabled) {
@@ -68,6 +78,7 @@ class AgentLoop {
             // Execute function calls (in parallel logic handled by ToolHandler)
             logger.debug(`🔧 [Agent] Processing ${functionCalls.length} potential function call(s)`);
 
+            const toolStartTime = Date.now();
             const functionResponses = await toolHandler.executeBatch(
                 functionCalls,
                 context,
@@ -75,12 +86,16 @@ class AgentLoop {
                 this.succeededCreationTools,
                 chatId
             );
-
-            // If no valid responses (e.g. all filtered), and ToolHandler didn't return feedback, 
-            // we might need to handle it. But ToolHandler returns feedback for filtered calls now.
+            const toolTime = Date.now() - toolStartTime;
+            totalToolTime += toolTime;
 
             // Send function responses back to Gemini
+            const llmStartTime = Date.now();
             response = await chat.sendMessage(functionResponses as any);
+            const llmTime = Date.now() - llmStartTime;
+            totalLlmTime += llmTime;
+
+            logger.info(`⏱️ Iteration ${iterationCount}: LlmTime=${llmTime}ms, ToolTime=${toolTime}ms`);
         }
 
         // Max iterations reached
