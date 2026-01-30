@@ -99,9 +99,7 @@ export const random_flight = createTool<FlightArgs>(
 📍 *יעד:* ${offer.destination}
 💰 *מחיר:* ${offer.price}
 🛫 ${flightDetails}
-✈️ *חברת תעופה:* ${offer.airline}
-
-[לפרטים נוספים והזמנה](${offer.link})`;
+✈️ *חברת תעופה:* ${offer.airline}`;
 
             return {
                 success: true,

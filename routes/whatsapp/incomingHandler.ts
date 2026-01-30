@@ -24,6 +24,9 @@ import { saveIncomingUserMessage, extractMediaMetadata } from './incoming/messag
  * @param {Set} processedMessages - Shared cache for message deduplication
  */
 export async function handleIncomingMessage(webhookData: WebhookData, processedMessages: Set<string>): Promise<void> {
+  // Performance tracking
+  const startTime = Date.now();
+
   // 0. CRITICAL FIX: Filter Outgoing API Messages (Bot Echoes) & Status
   // We MUST process 'outgoingMessageReceived' (User manual send) but IGNORE 'outgoingAPIMessageReceived' (Bot send)
   if (webhookData.typeWebhook === 'outgoingAPIMessageReceived' || webhookData.typeWebhook === 'outgoingMessageStatus') {
@@ -47,7 +50,9 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
     const chatName = senderData.chatName || "";
 
     // 2. Process Message (Parse, Normalize, Extract Media)
+    const processingStartTime = Date.now();
     const result = await MessageProcessor.processMessage(webhookData, chatId, true);
+    const processingTime = Date.now() - processingStartTime;
 
     if (result.error) {
       await sendErrorToUser(chatId, result.error, { quotedMessageId: webhookData.idMessage });
@@ -88,13 +93,16 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
         .catch(err => logger.error('❌ Failed to save incoming message (background):', err));
 
       // ═══════════════════ AGENT MODE ═══════════════════
+      let agentTime = 0;
       try {
         // Wait for Ack to be sent (it's fast) to ensure order, but don't block too long
         // Actually, we don't need to wait for Ack, it can happen in parallel with agent routing
         // But we DO want to ensure Ack is sent before the Agent might reply (rare race condition)
         // Let's just let it race. The Agent takes seconds, Ack takes milliseconds.
 
+        const agentStartTime = Date.now();
         const agentResult = await routeToAgent(normalized, chatId);
+        agentTime = Date.now() - agentStartTime;
         void (agentResult as AgentResult);
 
         if (agentResult) {
@@ -116,6 +124,8 @@ export async function handleIncomingMessage(webhookData: WebhookData, processedM
         logger.error('❌ [Agent] Error:', { error: agentError.message, stack: agentError.stack });
         await sendErrorToUser(chatId, agentError, { context: 'REQUEST', quotedMessageId: originalMessageId });
       }
+
+      logger.info(`⏱️ Performance: Processing=${processingTime}ms, Agent=${agentTime}ms, Total=${Date.now() - startTime}ms | Chat: ${chatId}`);
 
       // Ensure promises complete (optional, mostly for testing/clean exit)
       // In production, we don't strictly need to await them here if we handle errors
