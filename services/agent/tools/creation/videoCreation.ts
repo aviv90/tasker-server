@@ -56,7 +56,7 @@ function cleanPromptFromContext(prompt: string): string {
 export const create_video = createTool<CreateVideoArgs>(
   {
     name: 'create_video',
-    description: 'Create a video from text description. Default provider: Veo 3 (Google). Enforced Rule: NO AUTOMATIC FALLBACKS. If Veo 3 fails, STOP. Do NOT use Kling unless user explicitly asks for "Kling" or "Kuaishou".',
+    description: 'Create a video from text description. Default provider: Veo 3 (Google). Other providers: Sora/Sora-Pro (OpenAI), Kling, Grok. Enforced Rule: NO AUTOMATIC FALLBACKS. If provider fails, STOP.',
     parameters: {
       type: 'object',
       properties: {
@@ -66,7 +66,7 @@ export const create_video = createTool<CreateVideoArgs>(
         },
         provider: {
           type: 'string',
-          description: 'Optional. LEAVE EMPTY for default (Veo 3). Only set if user SPECIFICALLY asks for "Sora" or "Kling".',
+          description: 'Optional. LEAVE EMPTY for default (Veo 3). Only set if user SPECIFICALLY asks for "Sora", "Kling", or "Grok".',
           enum: [...VIDEO_PROVIDERS]
         }
       },
@@ -219,7 +219,7 @@ export const create_video = createTool<CreateVideoArgs>(
 export const image_to_video = createTool<ImageToVideoArgs>(
   {
     name: 'image_to_video',
-    description: 'Convert/Animate an image to video. Default provider: Veo 3. Enforced Rule: NO AUTOMATIC FALLBACKS. If Veo 3 fails, STOP. Do NOT use Kling unless user explicitly asks for it. CRITICAL: If prompt contains "Use this image_url parameter directly", extract URL from there!',
+    description: 'Convert/Animate an image to video. Default provider: Veo 3. Other providers: Sora/Sora-Pro (OpenAI), Kling, Grok. Enforced Rule: NO AUTOMATIC FALLBACKS. If provider fails, STOP. CRITICAL: If prompt contains "Use this image_url parameter directly", extract URL from there!',
     parameters: {
       type: 'object',
       properties: {
@@ -233,7 +233,7 @@ export const image_to_video = createTool<ImageToVideoArgs>(
         },
         provider: {
           type: 'string',
-          description: 'Optional. LEAVE EMPTY for default (Veo 3). Only set if user SPECIFICALLY asks for "Sora" or "Kling".',
+          description: 'Optional. LEAVE EMPTY for default (Veo 3). Only set if user SPECIFICALLY asks for "Sora", "Kling", or "Grok".',
           enum: [...VIDEO_PROVIDERS]
         }
       },

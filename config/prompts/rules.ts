@@ -216,5 +216,9 @@ export const STRICT_PROVIDER_RULE = `• **STRICT PROVIDER SELECTION (CRITICAL):
   - **Defaults:**
     - **Video:** Veo 3 (Google).
     - **Image:** Gemini (Google).
-  - **No Fallbacks:** NEVER switch providers automatically (e.g., Veo3 -> Kling). If default fails, **STOP and report error**.
-  - **Explicit Only:** Use Kling/Sora/OpenAI ONLY if the user EXPLICITLY requested them by name.`;
+  - **No Fallbacks:** NEVER switch providers automatically. If default fails, **STOP and report error**.
+  - **Explicit Provider Request:** Use alternative providers ONLY when user explicitly requests them:
+    - **Video Providers:** Detect from: "Grok"/"גרוק", "Sora"/"סורה", "Kling"/"קלינג", "Veo"/"ויאו"
+    - **Image Providers:** Detect from: "Grok"/"גרוק", "OpenAI"/"אופנאי", "Gemini"/"ג'מיני"
+  - **Flexible Matching:** Be lenient with spelling variations (e.g., "grok", "Grok", "GROK", "גרוק", "באמצעות Grok", "עם גרוק" all mean Grok).
+  - **Provider Parameter:** When user requests specific provider, ALWAYS set the \`provider\` parameter correctly.`;
