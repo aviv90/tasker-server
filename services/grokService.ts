@@ -7,6 +7,7 @@ import { sanitizeText, cleanMarkdown } from '../utils/textSanitizer';
 import { detectLanguage } from './agent/utils/languageUtils';
 import prompts from '../config/prompts';
 import logger from '../utils/logger';
+import { API_URLS } from '../utils/constants';
 
 /**
  * Conversation message structure
@@ -55,7 +56,7 @@ interface ImageGenerationResult {
   };
 }
 
-import { API_URLS } from '../utils/constants';
+
 
 class GrokService {
   private apiKey: string | undefined;
