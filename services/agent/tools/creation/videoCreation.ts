@@ -56,7 +56,7 @@ function cleanPromptFromContext(prompt: string): string {
 export const create_video = createTool<CreateVideoArgs>(
   {
     name: 'create_video',
-    description: 'Create a video from text description. Default provider: Veo 3 (Google). Other providers: Sora/Sora-Pro (OpenAI), Kling, Grok. Enforced Rule: NO AUTOMATIC FALLBACKS. If provider fails, STOP.',
+    description: 'Create a video from text description. Default provider: Veo 3 (Google). Other providers: Sora/Sora-Pro (OpenAI), Kling, Grok. CRITICAL: If user mentions a specific provider (e.g., "עם Grok", "with Sora", "באמצעות קלינג"), you MUST set the provider parameter!',
     parameters: {
       type: 'object',
       properties: {
@@ -66,7 +66,7 @@ export const create_video = createTool<CreateVideoArgs>(
         },
         provider: {
           type: 'string',
-          description: 'Optional. LEAVE EMPTY for default (Veo 3). Only set if user SPECIFICALLY asks for "Sora", "Kling", or "Grok".',
+          description: 'CRITICAL: Extract provider from user request! "Grok"/"גרוק" → "grok", "Sora"/"סורה" → "sora", "Kling"/"קלינג" → "kling". Leave empty ONLY if no provider mentioned.',
           enum: [...VIDEO_PROVIDERS]
         }
       },
@@ -221,7 +221,7 @@ export const create_video = createTool<CreateVideoArgs>(
 export const image_to_video = createTool<ImageToVideoArgs>(
   {
     name: 'image_to_video',
-    description: 'Convert/Animate an image to video. Default provider: Veo 3. Other providers: Sora/Sora-Pro (OpenAI), Kling, Grok. Enforced Rule: NO AUTOMATIC FALLBACKS. If provider fails, STOP. CRITICAL: If prompt contains "Use this image_url parameter directly", extract URL from there!',
+    description: 'Convert/Animate an image to video. Default provider: Veo 3. Other providers: Sora/Sora-Pro (OpenAI), Kling, Grok. CRITICAL: If user mentions a specific provider (e.g., "עם Grok", "with Sora"), you MUST set the provider parameter!',
     parameters: {
       type: 'object',
       properties: {
@@ -235,7 +235,7 @@ export const image_to_video = createTool<ImageToVideoArgs>(
         },
         provider: {
           type: 'string',
-          description: 'Optional. LEAVE EMPTY for default (Veo 3). Only set if user SPECIFICALLY asks for "Sora", "Kling", or "Grok".',
+          description: 'CRITICAL: Extract provider from user request! "Grok"/"גרוק" → "grok", "Sora"/"סורה" → "sora", "Kling"/"קלינג" → "kling". Leave empty ONLY if no provider mentioned.',
           enum: [...VIDEO_PROVIDERS]
         }
       },

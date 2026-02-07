@@ -20,11 +20,11 @@ export const creationTools: Record<string, Tool> = {
     create_video: {
         name: 'create_video',
         category: 'creation',
-        description: 'Create NEW video with AI. Default provider: Veo 3 (Google). Other providers: sora/sora-pro (OpenAI), kling, grok. Use this for NEW video requests, even if user specifies provider. Do NOT use retry_last_command for new video requests!',
-        usage: ['צור וידאו', 'create video', 'make video of X', 'צור וידאו עם Veo 3', 'create video with Sora'],
+        description: 'Create NEW video with AI. Default provider: Veo 3 (Google). Other providers: sora/sora-pro (OpenAI), kling, grok. CRITICAL: If user says "עם Grok"/"with Grok"/"באמצעות גרוק" etc, you MUST set provider="grok". Do NOT ignore provider requests!',
+        usage: ['צור וידאו', 'create video', 'make video of X', 'צור וידאו עם Veo 3', 'create video with Sora', 'וידאו עם Grok', 'video with grok'],
         parameters: {
             prompt: { type: 'string', required: true, description: 'Video description' },
-            provider: { type: 'string', required: false, description: 'Optional. LEAVE EMPTY for default (Veo 3). Only set if user explicitly asks for "Sora", "Kling", or "Grok".' }
+            provider: { type: 'string', required: false, description: 'CRITICAL: Extract provider from user request! If user says "Grok"/"גרוק" → set "grok". If "Sora"/"סורה" → set "sora". If "Kling"/"קלינג" → set "kling". Leave empty ONLY if no provider mentioned.' }
         },
         historyContext: {
             ignore: true,
@@ -35,12 +35,12 @@ export const creationTools: Record<string, Tool> = {
     image_to_video: {
         name: 'image_to_video',
         category: 'creation',
-        description: 'Convert/animate image to video (when image is attached). Default provider: Veo 3 (Google). Other providers: sora/sora-pro (OpenAI), kling, grok. Use this for NEW image-to-video requests. Do NOT use retry_last_command for new image-to-video requests!',
-        usage: ['הפוך לווידאו', 'הפוך תמונה לוידאו', 'animate', 'animate image', 'make video from image', 'convert to video', 'הפוך לווידאו עם Veo 3'],
+        description: 'Convert/animate image to video (when image is attached). Default provider: Veo 3 (Google). Other providers: sora/sora-pro (OpenAI), kling, grok. CRITICAL: If user says "עם Grok"/"with Grok"/"באמצעות גרוק" etc, you MUST set provider="grok". Do NOT ignore provider requests!',
+        usage: ['הפוך לווידאו', 'הפוך תמונה לוידאו', 'animate', 'animate image', 'make video from image', 'convert to video', 'הפוך לווידאו עם Veo 3', 'animate with Grok'],
         parameters: {
             image_url: { type: 'string', required: true, description: 'Image URL' },
             prompt: { type: 'string', required: false, description: 'Animation instructions' },
-            provider: { type: 'string', required: false, description: 'Optional. LEAVE EMPTY for default (Veo 3). Only set if user explicitly asks for "Sora", "Kling", or "Grok".' }
+            provider: { type: 'string', required: false, description: 'CRITICAL: Extract provider from user request! If user says "Grok"/"גרוק" → set "grok". If "Sora"/"סורה" → set "sora". If "Kling"/"קלינג" → set "kling". Leave empty ONLY if no provider mentioned.' }
         },
         critical: 'Use ONLY when user attached an image and wants to animate/convert it to video. NOT for creating new videos! If user requests NEW image-to-video conversion with provider, use image_to_video with provider parameter, NOT retry_last_command!',
         historyContext: {
