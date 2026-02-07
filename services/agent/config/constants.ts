@@ -76,7 +76,8 @@ export const VIDEO_PROVIDER_DISPLAY_MAP: Record<string, string> = {
   veo3: 'Veo 3',
   sora: 'Sora 2',
   'sora-pro': 'Sora 2 Pro',
-  runway: 'Runway'
+  runway: 'Runway',
+  grok: 'Grok'
 };
 
 /**
@@ -113,7 +114,8 @@ export const PROVIDERS = {
     SORA: 'sora',
     SORA_PRO: 'sora-pro',
     KLING: 'kling',
-    RUNWAY: 'runway'
+    RUNWAY: 'runway',
+    GROK: 'grok'
   } as const,
 
   // General
@@ -136,7 +138,8 @@ export const VIDEO_PROVIDERS = [
   PROVIDERS.VIDEO.VEO3,
   PROVIDERS.VIDEO.KLING,
   PROVIDERS.VIDEO.SORA,
-  PROVIDERS.VIDEO.SORA_PRO
+  PROVIDERS.VIDEO.SORA_PRO,
+  PROVIDERS.VIDEO.GROK
 ] as const;
 
 /**

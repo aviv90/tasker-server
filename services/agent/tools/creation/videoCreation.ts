@@ -11,6 +11,7 @@ import { getServices } from '../../utils/serviceLoader';
 import { cleanMarkdown } from '../../../../utils/textSanitizer';
 import logger from '../../../../utils/logger';
 import * as replicateService from '../../../replicateService';
+import * as grokService from '../../../grokService';
 import { formatErrorForLogging, formatProviderError } from '../../../../utils/errorHandler';
 import { VIDEO_PROVIDERS, PROVIDERS } from '../../config/constants';
 import { REQUIRED, ERROR, PROVIDER_MISMATCH, AGENT_INSTRUCTIONS } from '../../../../config/messages';
@@ -132,6 +133,9 @@ export const create_video = createTool<CreateVideoArgs>(
             null,
             { model }
           )) as VideoProviderResult;
+        } else if (provider === PROVIDERS.VIDEO.GROK) {
+          // Grok (via xAI)
+          videoResult = (await grokService.generateVideoForWhatsApp(prompt)) as VideoProviderResult;
         } else {
           // Kling (via Replicate)
           videoResult = (await replicateService.generateVideoWithTextForWhatsApp(prompt)) as VideoProviderResult;
@@ -291,6 +295,9 @@ export const image_to_video = createTool<ImageToVideoArgs>(
             imageBuffer,
             { model }
           )) as VideoProviderResult;
+        } else if (provider === PROVIDERS.VIDEO.GROK) {
+          // Grok (via xAI)
+          videoResult = (await grokService.generateVideoFromImageForWhatsApp(prompt, imageBuffer)) as VideoProviderResult;
         } else {
           // Kling (via Replicate)
           videoResult = (await replicateService.generateVideoFromImageForWhatsApp(imageBuffer, prompt)) as VideoProviderResult;

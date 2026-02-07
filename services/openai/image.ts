@@ -48,7 +48,7 @@ interface WhatsAppImageResult {
 async function baseGenerate(prompt: string): Promise<{ buffer: Buffer; revisedPrompt: string }> {
     const cleanPrompt = sanitizeText(prompt);
     const response = await openai.images.generate({
-        model: "gpt-image-1",
+        model: "gpt-image-1.5",
         prompt: cleanPrompt,
         n: 1,
         quality: "high",
@@ -78,7 +78,7 @@ async function baseEdit(prompt: string, imageBuffer: Buffer): Promise<{ buffer: 
     const imageFile = new File([imageBuffer], 'image.jpg', { type: 'image/jpeg' });
 
     const response = await openai.images.edit({
-        model: "gpt-image-1",
+        model: "gpt-image-1.5",
         image: imageFile,
         prompt: cleanPrompt,
         input_fidelity: "high",

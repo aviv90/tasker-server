@@ -83,7 +83,7 @@ export type CreateImageArgs = {
  */
 export type CreateVideoArgs = {
   prompt?: string;
-  provider?: typeof PROVIDERS.VIDEO.VEO3 | typeof PROVIDERS.VIDEO.SORA | typeof PROVIDERS.VIDEO.SORA_PRO | typeof PROVIDERS.VIDEO.KLING;
+  provider?: typeof PROVIDERS.VIDEO.VEO3 | typeof PROVIDERS.VIDEO.SORA | typeof PROVIDERS.VIDEO.SORA_PRO | typeof PROVIDERS.VIDEO.KLING | typeof PROVIDERS.VIDEO.GROK;
 };
 
 /**
@@ -92,7 +92,7 @@ export type CreateVideoArgs = {
 export type ImageToVideoArgs = {
   image_url?: string;
   prompt?: string;
-  provider?: typeof PROVIDERS.VIDEO.VEO3 | typeof PROVIDERS.VIDEO.SORA | typeof PROVIDERS.VIDEO.SORA_PRO | typeof PROVIDERS.VIDEO.KLING;
+  provider?: typeof PROVIDERS.VIDEO.VEO3 | typeof PROVIDERS.VIDEO.SORA | typeof PROVIDERS.VIDEO.SORA_PRO | typeof PROVIDERS.VIDEO.KLING | typeof PROVIDERS.VIDEO.GROK;
 };
 
 /**

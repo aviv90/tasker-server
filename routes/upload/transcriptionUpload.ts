@@ -19,22 +19,22 @@ const upload = multer({
 });
 
 interface TranscriptionUploadRequest extends Request {
-    file?: Express.Multer.File;
-    body: {
-        model?: string;
-        language?: string;
-        removeNoise?: string;
-        removeFiller?: string;
-        optimizeLatency?: string;
-        voiceName?: string;
-        voiceDescription?: string;
-        removeBackgroundNoise?: string;
-        geminiModel?: string;
-        ttsModel?: string;
-        outputFormat?: string;
-        optimizeStreamingLatency?: string;
-        [key: string]: any;
-    };
+  file?: Express.Multer.File;
+  body: {
+    model?: string;
+    language?: string;
+    removeNoise?: string;
+    removeFiller?: string;
+    optimizeLatency?: string;
+    voiceName?: string;
+    voiceDescription?: string;
+    removeBackgroundNoise?: string;
+    geminiModel?: string;
+    ttsModel?: string;
+    outputFormat?: string;
+    optimizeStreamingLatency?: string;
+    [key: string]: any;
+  };
 }
 
 /**
@@ -80,7 +80,7 @@ class TranscriptionUploadRoutes {
         const format = supportedFormats.includes(originalExtension) ? originalExtension : 'wav';
 
         const transcriptionOptions = {
-          model: req.body.model || 'scribe_v1',
+          model: req.body.model || 'scribe_v2',
           language: req.body.language === 'auto' ? null : req.body.language || null,
           removeNoise: req.body.removeNoise !== 'false',
           removeFiller: req.body.removeFiller !== 'false',

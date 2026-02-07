@@ -51,7 +51,7 @@ export const ELEVENLABS_TTS_DEFAULTS = {
  * Speech-to-text transcription default settings
  */
 export const TRANSCRIPTION_DEFAULTS = {
-  model: 'scribe_v1_experimental', // Excellent multilingual support
+  model: 'scribe_v2_realtime', // Latest Scribe v2 - 93.5% accuracy, <150ms latency, 90+ languages
   language: null as string | null, // Auto-detect (Hebrew, English, Spanish, etc.)
   removeNoise: true,
   removeFiller: true,

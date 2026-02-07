@@ -208,7 +208,7 @@ class GrokService {
         },
         body: JSON.stringify({
           prompt: cleanPrompt,
-          model: 'grok-2-image',
+          model: 'grok-imagine-1.0',
           response_format: 'url',
           n: 1
         })
@@ -301,9 +301,185 @@ class GrokService {
   }
 }
 
+/**
+ * Video generation result
+ */
+interface VideoGenerationResult {
+  success: boolean;
+  videoUrl?: string;
+  description?: string;
+  error?: string;
+  originalPrompt?: string;
+  metadata?: {
+    service: string;
+    model: string;
+    type: string;
+    duration?: number;
+    created_at: string;
+  };
+}
+
+/**
+ * Generate video from text prompt using Grok Imagine 1.0
+ * @param prompt - Video description
+ * @returns Video generation result with URL
+ */
+async function generateVideoForWhatsApp(prompt: string): Promise<VideoGenerationResult> {
+  try {
+    if (!process.env.GROK_API_KEY) {
+      throw new Error('Grok API key not configured');
+    }
+
+    const cleanPrompt = sanitizeText(prompt);
+    logger.debug(`🎬 Generating video with Grok: "${cleanPrompt.substring(0, 100)}"`);
+
+    const response = await fetch(`${API_URLS.GROK}/video/generations`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.GROK_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        prompt: cleanPrompt,
+        model: 'grok-imagine-1.0',
+        duration: 10, // Default 10 seconds
+        aspect_ratio: '16:9' // Landscape default
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      logger.error('❌ Grok video generation error:', { status: response.status, error: errorData });
+      return {
+        success: false,
+        error: `Grok video generation failed: ${response.status} - ${errorData}`,
+        originalPrompt: cleanPrompt
+      };
+    }
+
+    const data = await response.json() as {
+      data?: Array<{ url?: string; revised_prompt?: string }>;
+    };
+
+    if (data.data && data.data.length > 0 && data.data[0]?.url) {
+      logger.info('✅ Grok video generated successfully');
+      return {
+        success: true,
+        videoUrl: data.data[0].url,
+        description: data.data[0].revised_prompt || '',
+        originalPrompt: cleanPrompt,
+        metadata: {
+          service: 'Grok',
+          model: 'grok-imagine-1.0',
+          type: 'text_to_video',
+          duration: 10,
+          created_at: new Date().toISOString()
+        }
+      };
+    }
+
+    return {
+      success: false,
+      error: 'No video data received from Grok API',
+      originalPrompt: cleanPrompt
+    };
+
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('❌ Error generating Grok video:', { error: errorMessage });
+    return {
+      success: false,
+      error: errorMessage || 'Unknown error occurred during video generation',
+      originalPrompt: prompt
+    };
+  }
+}
+
+/**
+ * Generate video from image using Grok Imagine 1.0
+ * @param prompt - Animation instructions
+ * @param imageBuffer - Image buffer to animate
+ * @returns Video generation result with URL
+ */
+async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Buffer): Promise<VideoGenerationResult> {
+  try {
+    if (!process.env.GROK_API_KEY) {
+      throw new Error('Grok API key not configured');
+    }
+
+    const cleanPrompt = sanitizeText(prompt);
+    logger.debug(`🎬 Generating video from image with Grok: "${cleanPrompt.substring(0, 100)}"`);
+
+    // Convert buffer to base64 data URL
+    const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+
+    const response = await fetch(`${API_URLS.GROK}/video/generations`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.GROK_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        prompt: cleanPrompt,
+        model: 'grok-imagine-1.0',
+        image: base64Image,
+        duration: 10,
+        aspect_ratio: '16:9'
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      logger.error('❌ Grok image-to-video error:', { status: response.status, error: errorData });
+      return {
+        success: false,
+        error: `Grok image-to-video failed: ${response.status} - ${errorData}`,
+        originalPrompt: cleanPrompt
+      };
+    }
+
+    const data = await response.json() as {
+      data?: Array<{ url?: string; revised_prompt?: string }>;
+    };
+
+    if (data.data && data.data.length > 0 && data.data[0]?.url) {
+      logger.info('✅ Grok image-to-video generated successfully');
+      return {
+        success: true,
+        videoUrl: data.data[0].url,
+        description: data.data[0].revised_prompt || '',
+        originalPrompt: cleanPrompt,
+        metadata: {
+          service: 'Grok',
+          model: 'grok-imagine-1.0',
+          type: 'image_to_video',
+          duration: 10,
+          created_at: new Date().toISOString()
+        }
+      };
+    }
+
+    return {
+      success: false,
+      error: 'No video data received from Grok API',
+      originalPrompt: cleanPrompt
+    };
+
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('❌ Error generating Grok image-to-video:', { error: errorMessage });
+    return {
+      success: false,
+      error: errorMessage || 'Unknown error occurred during video generation',
+      originalPrompt: prompt
+    };
+  }
+}
+
 // Create and export instance
 const grokService = new GrokService();
 
 export const generateTextResponse = grokService.generateTextResponse.bind(grokService);
 export const generateImageForWhatsApp = grokService.generateImageForWhatsApp.bind(grokService);
+export { generateVideoForWhatsApp, generateVideoFromImageForWhatsApp };
 
