@@ -320,7 +320,61 @@ interface VideoGenerationResult {
 }
 
 /**
- * Generate video from text prompt using Grok Imagine 1.0
+ * Poll for video generation result
+ * @param requestId - The request ID from initial video generation request
+ * @param maxAttempts - Maximum number of polling attempts
+ * @param intervalMs - Interval between polling attempts in milliseconds
+ * @returns Video URL or null if failed
+ */
+async function pollForVideoResult(requestId: string, maxAttempts = 60, intervalMs = 5000): Promise<{ url?: string; error?: string }> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const response = await fetch(`${API_URLS.GROK}/video/${requestId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${process.env.GROK_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        logger.warn(`Grok video poll attempt ${attempt + 1} failed:`, { error: errorData });
+        continue;
+      }
+
+      const data = await response.json() as {
+        state?: string;
+        url?: string;
+        error?: string;
+      };
+
+      if (data.state === 'completed' || data.state === 'succeeded') {
+        if (data.url) {
+          return { url: data.url };
+        }
+      }
+
+      if (data.state === 'failed' || data.error) {
+        return { error: data.error || 'Video generation failed' };
+      }
+
+      // Still processing, wait and retry
+      logger.debug(`Grok video generation in progress (attempt ${attempt + 1}/${maxAttempts})`);
+      await new Promise(resolve => setTimeout(resolve, intervalMs));
+
+    } catch (error) {
+      logger.warn(`Polling error on attempt ${attempt + 1}:`, { error });
+      await new Promise(resolve => setTimeout(resolve, intervalMs));
+    }
+  }
+
+  return { error: 'Video generation timed out after maximum polling attempts' };
+}
+
+/**
+ * Generate video from text prompt using Grok
+ * Uses async polling mechanism as per xAI API specification
  * @param prompt - Video description
  * @returns Video generation result with URL
  */
@@ -333,7 +387,8 @@ async function generateVideoForWhatsApp(prompt: string): Promise<VideoGeneration
     const cleanPrompt = sanitizeText(prompt);
     logger.debug(`🎬 Generating video with Grok: "${cleanPrompt.substring(0, 100)}"`);
 
-    const response = await fetch(`${API_URLS.GROK}/video/generations`, {
+    // Step 1: Start video generation request
+    const response = await fetch(`${API_URLS.GROK}/video`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.GROK_API_KEY}`,
@@ -341,15 +396,13 @@ async function generateVideoForWhatsApp(prompt: string): Promise<VideoGeneration
       },
       body: JSON.stringify({
         prompt: cleanPrompt,
-        model: 'grok-imagine-1.0',
-        duration: 10, // Default 10 seconds
-        aspect_ratio: '16:9' // Landscape default
+        model: 'grok-imagine-video'
       })
     });
 
     if (!response.ok) {
       const errorData = await response.text();
-      logger.error('❌ Grok video generation error:', { status: response.status, error: errorData });
+      logger.error('❌ Grok video generation start error:', { status: response.status, error: errorData });
       return {
         success: false,
         error: `Grok video generation failed: ${response.status} - ${errorData}`,
@@ -357,22 +410,39 @@ async function generateVideoForWhatsApp(prompt: string): Promise<VideoGeneration
       };
     }
 
-    const data = await response.json() as {
-      data?: Array<{ url?: string; revised_prompt?: string }>;
-    };
+    const data = await response.json() as { request_id?: string };
 
-    if (data.data && data.data.length > 0 && data.data[0]?.url) {
+    if (!data.request_id) {
+      return {
+        success: false,
+        error: 'No request_id received from Grok API',
+        originalPrompt: cleanPrompt
+      };
+    }
+
+    logger.info(`📦 Grok video request started, polling for result... (ID: ${data.request_id})`);
+
+    // Step 2: Poll for result
+    const result = await pollForVideoResult(data.request_id);
+
+    if (result.error) {
+      return {
+        success: false,
+        error: result.error,
+        originalPrompt: cleanPrompt
+      };
+    }
+
+    if (result.url) {
       logger.info('✅ Grok video generated successfully');
       return {
         success: true,
-        videoUrl: data.data[0].url,
-        description: data.data[0].revised_prompt || '',
+        videoUrl: result.url,
         originalPrompt: cleanPrompt,
         metadata: {
           service: 'Grok',
-          model: 'grok-imagine-1.0',
+          model: 'grok-imagine-video',
           type: 'text_to_video',
-          duration: 10,
           created_at: new Date().toISOString()
         }
       };
@@ -380,7 +450,7 @@ async function generateVideoForWhatsApp(prompt: string): Promise<VideoGeneration
 
     return {
       success: false,
-      error: 'No video data received from Grok API',
+      error: 'No video URL received from Grok API',
       originalPrompt: cleanPrompt
     };
 
@@ -396,7 +466,8 @@ async function generateVideoForWhatsApp(prompt: string): Promise<VideoGeneration
 }
 
 /**
- * Generate video from image using Grok Imagine 1.0
+ * Generate video from image using Grok
+ * Uses async polling mechanism as per xAI API specification
  * @param prompt - Animation instructions
  * @param imageBuffer - Image buffer to animate
  * @returns Video generation result with URL
@@ -413,7 +484,8 @@ async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Bu
     // Convert buffer to base64 data URL
     const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
 
-    const response = await fetch(`${API_URLS.GROK}/video/generations`, {
+    // Step 1: Start video generation request with image
+    const response = await fetch(`${API_URLS.GROK}/video`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.GROK_API_KEY}`,
@@ -421,16 +493,14 @@ async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Bu
       },
       body: JSON.stringify({
         prompt: cleanPrompt,
-        model: 'grok-imagine-1.0',
-        image: base64Image,
-        duration: 10,
-        aspect_ratio: '16:9'
+        model: 'grok-imagine-video',
+        image_url: base64Image
       })
     });
 
     if (!response.ok) {
       const errorData = await response.text();
-      logger.error('❌ Grok image-to-video error:', { status: response.status, error: errorData });
+      logger.error('❌ Grok image-to-video start error:', { status: response.status, error: errorData });
       return {
         success: false,
         error: `Grok image-to-video failed: ${response.status} - ${errorData}`,
@@ -438,22 +508,39 @@ async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Bu
       };
     }
 
-    const data = await response.json() as {
-      data?: Array<{ url?: string; revised_prompt?: string }>;
-    };
+    const data = await response.json() as { request_id?: string };
 
-    if (data.data && data.data.length > 0 && data.data[0]?.url) {
+    if (!data.request_id) {
+      return {
+        success: false,
+        error: 'No request_id received from Grok API',
+        originalPrompt: cleanPrompt
+      };
+    }
+
+    logger.info(`📦 Grok image-to-video request started, polling for result... (ID: ${data.request_id})`);
+
+    // Step 2: Poll for result
+    const result = await pollForVideoResult(data.request_id);
+
+    if (result.error) {
+      return {
+        success: false,
+        error: result.error,
+        originalPrompt: cleanPrompt
+      };
+    }
+
+    if (result.url) {
       logger.info('✅ Grok image-to-video generated successfully');
       return {
         success: true,
-        videoUrl: data.data[0].url,
-        description: data.data[0].revised_prompt || '',
+        videoUrl: result.url,
         originalPrompt: cleanPrompt,
         metadata: {
           service: 'Grok',
-          model: 'grok-imagine-1.0',
+          model: 'grok-imagine-video',
           type: 'image_to_video',
-          duration: 10,
           created_at: new Date().toISOString()
         }
       };
@@ -461,7 +548,7 @@ async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Bu
 
     return {
       success: false,
-      error: 'No video data received from Grok API',
+      error: 'No video URL received from Grok API',
       originalPrompt: cleanPrompt
     };
 
