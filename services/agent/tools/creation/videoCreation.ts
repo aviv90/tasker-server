@@ -79,7 +79,7 @@ export const create_video = createTool<CreateVideoArgs>(
   },
   async (args, context) => {
     // Determine provider: user-requested or default (Veo 3)
-    const provider = args.provider || PROVIDERS.VIDEO.VEO3;
+    const provider = (args.provider || PROVIDERS.VIDEO.VEO3) as string;
 
     logger.debug(`🔧 [Agent Tool] create_video called with provider: ${provider}`, {
       prompt: args.prompt?.substring(0, 100),
@@ -133,11 +133,13 @@ export const create_video = createTool<CreateVideoArgs>(
             null,
             { model }
           )) as VideoProviderResult;
-        } else if (provider === PROVIDERS.VIDEO.GROK) {
+        } else if (provider === PROVIDERS.VIDEO.GROK || provider === 'grok') {
           // Grok (via xAI)
+          logger.info('🎬 Executing Grok video generation...');
           videoResult = (await grokService.generateVideoForWhatsApp(prompt)) as VideoProviderResult;
         } else {
-          // Kling (via Replicate)
+          // Kling (via Replicate) - Default fallback for other providers (Kling/Runway)
+          logger.info(`🎬 Executing Kling (Replicate) video generation (Fallback for provider: ${provider})...`);
           videoResult = (await replicateService.generateVideoWithTextForWhatsApp(prompt)) as VideoProviderResult;
         }
       } catch (genError) {
@@ -242,7 +244,7 @@ export const image_to_video = createTool<ImageToVideoArgs>(
   },
   async (args, context) => {
     // Determine provider: user-requested or default (Veo 3)
-    const provider = args.provider || PROVIDERS.VIDEO.VEO3;
+    const provider = (args.provider || PROVIDERS.VIDEO.VEO3) as string;
 
     logger.debug(`🔧 [Agent Tool] image_to_video called`, {
       imageUrl: args.image_url?.substring(0, 50),
@@ -295,11 +297,13 @@ export const image_to_video = createTool<ImageToVideoArgs>(
             imageBuffer,
             { model }
           )) as VideoProviderResult;
-        } else if (provider === PROVIDERS.VIDEO.GROK) {
+        } else if (provider === PROVIDERS.VIDEO.GROK || provider === 'grok') {
           // Grok (via xAI)
+          logger.info('🎬 Executing Grok image-to-video generation...');
           videoResult = (await grokService.generateVideoFromImageForWhatsApp(prompt, imageBuffer)) as VideoProviderResult;
         } else {
-          // Kling (via Replicate)
+          // Kling (via Replicate) - Default fallback
+          logger.info(`🎬 Executing Kling (Replicate) image-to-video generation (Fallback for provider: ${provider})...`);
           videoResult = (await replicateService.generateVideoFromImageForWhatsApp(imageBuffer, prompt)) as VideoProviderResult;
         }
       } catch (genError) {
