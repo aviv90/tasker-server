@@ -348,32 +348,48 @@ async function pollForVideoResult(requestId: string, maxAttempts = 60, intervalM
 
       const data = await response.json() as Record<string, unknown>;
 
-      // Log the full response structure for debugging - changed to info for visibility
-      logger.info(`🔍 Grok video poll response (attempt ${attempt + 1}/${maxAttempts}):`, {
-        state: data.state,
-        status: data.status,
-        url: data.url ? 'YES' : 'NO',
-        video_url: data.video_url ? 'YES' : 'NO',
-        keys: Object.keys(data)
+      // Log the FULL raw response for debugging - this will show us exactly what xAI returns
+      logger.info(`🔍 Grok video poll FULL response (attempt ${attempt + 1}/${maxAttempts}):`, {
+        rawResponse: JSON.stringify(data).substring(0, 500) // Limit to prevent huge logs
       });
 
       // Check for completion states (various possible field names)
       const state = (data.state || data.status || '') as string;
-      const videoUrl = (data.url || data.video_url || (data.output as Record<string, unknown>)?.url || (data.result as Record<string, unknown>)?.url) as string | undefined;
+
+      // Check for video URL in multiple possible locations
+      const videoObj = data.video as Record<string, unknown> | undefined;
+      const outputObj = data.output as Record<string, unknown> | undefined;
+      const resultObj = data.result as Record<string, unknown> | undefined;
+
+      const videoUrl = (
+        data.url ||
+        data.video_url ||
+        videoObj?.url ||
+        outputObj?.url ||
+        resultObj?.url ||
+        resultObj?.video_url ||
+        (resultObj?.video as Record<string, unknown>)?.url
+      ) as string | undefined;
 
       // Success states
       if (state.toLowerCase() === 'completed' || state.toLowerCase() === 'succeeded' || state.toLowerCase() === 'success') {
         if (videoUrl) {
-          logger.info(`✅ Grok video generation completed! URL: ${videoUrl.substring(0, 50)}...`);
+          logger.info(`✅ Grok video generation completed! URL: ${videoUrl.substring(0, 80)}...`);
           return { url: videoUrl };
         }
         // URL might be in data directly without state
-        logger.warn('Grok returned success state but no URL found in response', { data });
+        logger.warn('Grok returned success state but no URL found in response', { data: JSON.stringify(data) });
       }
 
       // If URL exists directly (some APIs return URL when ready without explicit state)
       if (videoUrl && !state) {
-        logger.info(`✅ Grok video URL found directly: ${videoUrl.substring(0, 50)}...`);
+        logger.info(`✅ Grok video URL found directly: ${videoUrl.substring(0, 80)}...`);
+        return { url: videoUrl };
+      }
+
+      // Also check if URL exists with any state (in case API returns URL with in_progress)
+      if (videoUrl && state) {
+        logger.info(`✅ Grok video URL found (state: ${state}): ${videoUrl.substring(0, 80)}...`);
         return { url: videoUrl };
       }
 
