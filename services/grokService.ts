@@ -415,7 +415,7 @@ async function generateVideoForWhatsApp(prompt: string): Promise<VideoGeneration
     }
 
     const cleanPrompt = sanitizeText(prompt);
-    logger.debug(`🎬 Generating video with Grok: "${cleanPrompt.substring(0, 100)}"`);
+    logger.info(`🎬 Generating video with Grok: "${cleanPrompt.substring(0, 100)}..."`);
 
     // Step 1: Start video generation request
     // Correct endpoint: /v1/videos/generations
@@ -510,7 +510,7 @@ async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Bu
     }
 
     const cleanPrompt = sanitizeText(prompt);
-    logger.debug(`🎬 Generating video from image with Grok: "${cleanPrompt.substring(0, 100)}"`);
+    logger.info(`🎬 Generating video from image with Grok: "${cleanPrompt.substring(0, 100)}..."`);
 
     // Convert buffer to base64 data URL
     const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;

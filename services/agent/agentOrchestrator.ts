@@ -48,6 +48,16 @@ export class AgentOrchestrator {
             contextMemoryEnabled: config.agent.contextMemoryEnabled
         };
 
+        // 1.1 Detect video request to extend timeout (Video takes much longer than text/image)
+        const isVideoRequest = prompt.includes('וידאו') ||
+            prompt.toLowerCase().includes('video') ||
+            prompt.includes('סרטון');
+
+        if (isVideoRequest && isPureCreationRequest(prompt)) {
+            logger.info('🎬 Video creation request detected - extending system timeout to 10 minutes');
+            agentConfig.timeoutMs = 600000; // 10 minutes (600,000ms)
+        }
+
         // 2. Start Parallel Operations (Planning + Context + History)
         logger.debug('🚀 [Agent] Starting parallel execution (Planning + Context + History)');
 
