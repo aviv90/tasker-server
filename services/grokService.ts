@@ -420,9 +420,10 @@ async function generateVideoForWhatsApp(prompt: string, options: { duration?: nu
     }
 
     const cleanPrompt = sanitizeText(prompt);
-    const duration = options.duration ? Math.min(Math.max(options.duration, 1), 15) : undefined;
+    // Default to 15 seconds as requested by user
+    const duration = options.duration ? Math.min(Math.max(options.duration, 1), 15) : 15;
 
-    logger.info(`🎬 Generating video with Grok: "${cleanPrompt.substring(0, 100)}..." ${duration ? `(Duration: ${duration}s)` : ''}`);
+    logger.info(`🎬 Generating video with Grok: "${cleanPrompt.substring(0, 100)}..." (Duration: ${duration}s)`);
 
     // Step 1: Start video generation request
     // Correct endpoint: /v1/videos/generations
@@ -519,9 +520,10 @@ async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Bu
     }
 
     const cleanPrompt = sanitizeText(prompt);
-    const duration = options.duration ? Math.min(Math.max(options.duration, 1), 15) : undefined;
+    // Default to 15 seconds as requested by user
+    const duration = options.duration ? Math.min(Math.max(options.duration, 1), 15) : 15;
 
-    logger.info(`🎬 Generating video from image with Grok: "${cleanPrompt.substring(0, 100)}..." ${duration ? `(Duration: ${duration}s)` : ''}`);
+    logger.info(`🎬 Generating video from image with Grok: "${cleanPrompt.substring(0, 100)}..." (Duration: ${duration}s)`);
 
     // Convert buffer to base64 data URL
     const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
