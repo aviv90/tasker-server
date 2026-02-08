@@ -341,28 +341,58 @@ async function pollForVideoResult(requestId: string, maxAttempts = 60, intervalM
 
       if (!response.ok) {
         const errorData = await response.text();
-        logger.warn(`Grok video poll attempt ${attempt + 1} failed:`, { error: errorData });
+        logger.warn(`Grok video poll attempt ${attempt + 1} failed:`, { status: response.status, error: errorData });
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
         continue;
       }
 
-      const data = await response.json() as {
-        state?: string;
-        url?: string;
-        error?: string;
-      };
+      const data = await response.json() as Record<string, unknown>;
 
-      if (data.state === 'completed' || data.state === 'succeeded') {
-        if (data.url) {
-          return { url: data.url };
+      // Log the full response structure for debugging
+      logger.debug(`🔍 Grok video poll response (attempt ${attempt + 1}):`, {
+        state: data.state,
+        status: data.status,
+        url: data.url,
+        video_url: data.video_url,
+        output: data.output,
+        result: data.result,
+        keys: Object.keys(data)
+      });
+
+      // Check for completion states (various possible field names)
+      const state = (data.state || data.status || '') as string;
+      const videoUrl = (data.url || data.video_url || (data.output as Record<string, unknown>)?.url || (data.result as Record<string, unknown>)?.url) as string | undefined;
+
+      // Success states
+      if (state.toLowerCase() === 'completed' || state.toLowerCase() === 'succeeded' || state.toLowerCase() === 'success') {
+        if (videoUrl) {
+          logger.info(`✅ Grok video generation completed! URL: ${videoUrl.substring(0, 50)}...`);
+          return { url: videoUrl };
         }
+        // URL might be in data directly without state
+        logger.warn('Grok returned success state but no URL found in response', { data });
       }
 
-      if (data.state === 'failed' || data.error) {
-        return { error: data.error || 'Video generation failed' };
+      // If URL exists directly (some APIs return URL when ready without explicit state)
+      if (videoUrl && !state) {
+        logger.info(`✅ Grok video URL found directly: ${videoUrl.substring(0, 50)}...`);
+        return { url: videoUrl };
       }
 
-      // Still processing, wait and retry
-      logger.debug(`Grok video generation in progress (attempt ${attempt + 1}/${maxAttempts})`);
+      // Failure states
+      if (state.toLowerCase() === 'failed' || state.toLowerCase() === 'error' || data.error) {
+        const errorMsg = (data.error || data.message || 'Video generation failed') as string;
+        logger.error('❌ Grok video generation failed:', { state, error: errorMsg });
+        return { error: errorMsg };
+      }
+
+      // In-progress states - continue polling
+      if (state.toLowerCase() === 'pending' || state.toLowerCase() === 'in_progress' || state.toLowerCase() === 'processing' || state.toLowerCase() === 'queued') {
+        logger.debug(`⏳ Grok video generation in progress (attempt ${attempt + 1}/${maxAttempts}, state: ${state})`);
+      } else if (state) {
+        logger.warn(`⚠️ Unknown Grok video state: "${state}" (attempt ${attempt + 1})`);
+      }
+
       await new Promise(resolve => setTimeout(resolve, intervalMs));
 
     } catch (error) {
