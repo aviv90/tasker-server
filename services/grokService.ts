@@ -348,9 +348,9 @@ async function pollForVideoResult(requestId: string, maxAttempts = 60, intervalM
 
       const data = await response.json() as Record<string, unknown>;
 
-      // Log the FULL raw response for debugging - this will show us exactly what xAI returns
-      logger.info(`🔍 Grok video poll FULL response (attempt ${attempt + 1}/${maxAttempts}):`, {
-        rawResponse: JSON.stringify(data).substring(0, 500) // Limit to prevent huge logs
+      // Log response keys for debugging at debug level
+      logger.debug(`🔍 Grok video poll response (attempt ${attempt + 1}/${maxAttempts}) keys:`, {
+        keys: Object.keys(data)
       });
 
       // Check for completion states (various possible field names)
@@ -372,25 +372,13 @@ async function pollForVideoResult(requestId: string, maxAttempts = 60, intervalM
       ) as string | undefined;
 
       // Success states
-      if (state.toLowerCase() === 'completed' || state.toLowerCase() === 'succeeded' || state.toLowerCase() === 'success') {
+      if (state.toLowerCase() === 'completed' || state.toLowerCase() === 'succeeded' || state.toLowerCase() === 'success' || (videoUrl && !state)) {
         if (videoUrl) {
-          logger.info(`✅ Grok video generation completed! URL: ${videoUrl.substring(0, 80)}...`);
+          logger.info(`✅ Grok video generation completed!`);
           return { url: videoUrl };
         }
         // URL might be in data directly without state
-        logger.warn('Grok returned success state but no URL found in response', { data: JSON.stringify(data) });
-      }
-
-      // If URL exists directly (some APIs return URL when ready without explicit state)
-      if (videoUrl && !state) {
-        logger.info(`✅ Grok video URL found directly: ${videoUrl.substring(0, 80)}...`);
-        return { url: videoUrl };
-      }
-
-      // Also check if URL exists with any state (in case API returns URL with in_progress)
-      if (videoUrl && state) {
-        logger.info(`✅ Grok video URL found (state: ${state}): ${videoUrl.substring(0, 80)}...`);
-        return { url: videoUrl };
+        logger.warn('Grok returned success state but no URL found in response', { keys: Object.keys(data) });
       }
 
       // Failure states
@@ -402,7 +390,7 @@ async function pollForVideoResult(requestId: string, maxAttempts = 60, intervalM
 
       // In-progress states - continue polling
       if (state.toLowerCase() === 'pending' || state.toLowerCase() === 'in_progress' || state.toLowerCase() === 'processing' || state.toLowerCase() === 'queued' || !state) {
-        logger.info(`⏳ Grok video generation in progress (attempt ${attempt + 1}/${maxAttempts}, state: ${state || 'unknown'})`);
+        logger.debug(`⏳ Grok video generation in progress (attempt ${attempt + 1}/${maxAttempts}, state: ${state || 'unknown'})`);
       } else if (state) {
         logger.warn(`⚠️ Unknown Grok video state: "${state}" (attempt ${attempt + 1})`);
       }
