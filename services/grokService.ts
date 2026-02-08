@@ -66,7 +66,7 @@ class GrokService {
   constructor() {
     this.apiKey = process.env.GROK_API_KEY;
     this.baseUrl = API_URLS.GROK;
-    this.model = 'grok-4'; // Latest and strongest model (upgraded from grok-3)
+    this.model = 'grok-2'; // Latest stable text model (grok-2-1212)
 
     if (!this.apiKey) {
       logger.warn('⚠️ GROK_API_KEY not found in environment variables');
@@ -330,7 +330,8 @@ interface VideoGenerationResult {
 async function pollForVideoResult(requestId: string, maxAttempts = 60, intervalMs = 5000): Promise<{ url?: string; error?: string }> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      const response = await fetch(`${API_URLS.GROK}/video/${requestId}`, {
+      // Correct endpoint: /v1/videos/{request_id}
+      const response = await fetch(`${API_URLS.GROK}/videos/${requestId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${process.env.GROK_API_KEY}`,
@@ -389,7 +390,8 @@ async function generateVideoForWhatsApp(prompt: string): Promise<VideoGeneration
     logger.debug(`🎬 Generating video with Grok: "${cleanPrompt.substring(0, 100)}"`);
 
     // Step 1: Start video generation request
-    const response = await fetch(`${API_URLS.GROK}/video`, {
+    // Correct endpoint: /v1/videos/generations
+    const response = await fetch(`${API_URLS.GROK}/videos/generations`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.GROK_API_KEY}`,
@@ -485,8 +487,8 @@ async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Bu
     // Convert buffer to base64 data URL
     const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
 
-    // Step 1: Start video generation request with image
-    const response = await fetch(`${API_URLS.GROK}/video`, {
+    // Step 1: Start video generation request with image (same generations endpoint)
+    const response = await fetch(`${API_URLS.GROK}/videos/generations`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.GROK_API_KEY}`,
