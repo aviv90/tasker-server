@@ -348,14 +348,12 @@ async function pollForVideoResult(requestId: string, maxAttempts = 60, intervalM
 
       const data = await response.json() as Record<string, unknown>;
 
-      // Log the full response structure for debugging
-      logger.debug(`🔍 Grok video poll response (attempt ${attempt + 1}):`, {
+      // Log the full response structure for debugging - changed to info for visibility
+      logger.info(`🔍 Grok video poll response (attempt ${attempt + 1}/${maxAttempts}):`, {
         state: data.state,
         status: data.status,
-        url: data.url,
-        video_url: data.video_url,
-        output: data.output,
-        result: data.result,
+        url: data.url ? 'YES' : 'NO',
+        video_url: data.video_url ? 'YES' : 'NO',
         keys: Object.keys(data)
       });
 
@@ -387,8 +385,8 @@ async function pollForVideoResult(requestId: string, maxAttempts = 60, intervalM
       }
 
       // In-progress states - continue polling
-      if (state.toLowerCase() === 'pending' || state.toLowerCase() === 'in_progress' || state.toLowerCase() === 'processing' || state.toLowerCase() === 'queued') {
-        logger.debug(`⏳ Grok video generation in progress (attempt ${attempt + 1}/${maxAttempts}, state: ${state})`);
+      if (state.toLowerCase() === 'pending' || state.toLowerCase() === 'in_progress' || state.toLowerCase() === 'processing' || state.toLowerCase() === 'queued' || !state) {
+        logger.info(`⏳ Grok video generation in progress (attempt ${attempt + 1}/${maxAttempts}, state: ${state || 'unknown'})`);
       } else if (state) {
         logger.warn(`⚠️ Unknown Grok video state: "${state}" (attempt ${attempt + 1})`);
       }
