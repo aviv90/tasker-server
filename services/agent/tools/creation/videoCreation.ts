@@ -101,6 +101,10 @@ export const create_video = createTool<CreateVideoArgs>(
           type: 'string',
           description: 'CRITICAL: Extract provider from user request! "Grok"/"גרוק" → "grok", "Sora"/"סורה" → "sora", "Kling"/"קלינג" → "kling". Leave empty ONLY if no provider mentioned.',
           enum: [...VIDEO_PROVIDERS]
+        },
+        duration: {
+          type: 'number',
+          description: 'Optional. Video duration in seconds (1-15 for Grok, check provider limits for others).'
         }
       },
       required: ['prompt']
@@ -190,8 +194,8 @@ export const create_video = createTool<CreateVideoArgs>(
           )) as VideoProviderResult;
         } else if (provider === PROVIDERS.VIDEO.GROK || provider === 'grok') {
           // Grok (via xAI)
-          logger.info('🎬 Executing Grok video generation...');
-          videoResult = (await grokService.generateVideoForWhatsApp(prompt)) as VideoProviderResult;
+          logger.info(`🎬 Executing Grok video generation... ${args.duration ? `(Duration: ${args.duration}s)` : ''}`);
+          videoResult = (await grokService.generateVideoForWhatsApp(prompt, { duration: args.duration })) as VideoProviderResult;
         } else {
           // Kling (via Replicate) - Default fallback for other providers (Kling/Runway)
           logger.info(`🎬 Executing Kling (Replicate) video generation (Fallback for provider: ${provider})...`);
@@ -292,6 +296,10 @@ export const image_to_video = createTool<ImageToVideoArgs>(
           type: 'string',
           description: 'CRITICAL: Extract provider from user request! "Grok"/"גרוק" → "grok", "Sora"/"סורה" → "sora", "Kling"/"קלינג" → "kling". Leave empty ONLY if no provider mentioned.',
           enum: [...VIDEO_PROVIDERS]
+        },
+        duration: {
+          type: 'number',
+          description: 'Optional. Video duration in seconds (1-15 for Grok).'
         }
       },
       required: ['image_url', 'prompt']
@@ -376,8 +384,8 @@ export const image_to_video = createTool<ImageToVideoArgs>(
           )) as VideoProviderResult;
         } else if (provider === PROVIDERS.VIDEO.GROK || provider === 'grok') {
           // Grok (via xAI)
-          logger.info('🎬 Executing Grok image-to-video generation...');
-          videoResult = (await grokService.generateVideoFromImageForWhatsApp(prompt, imageBuffer)) as VideoProviderResult;
+          logger.info(`🎬 Executing Grok image-to-video generation... ${args.duration ? `(Duration: ${args.duration}s)` : ''}`);
+          videoResult = (await grokService.generateVideoFromImageForWhatsApp(prompt, imageBuffer, { duration: args.duration })) as VideoProviderResult;
         } else {
           // Kling (via Replicate) - Default fallback
           logger.info(`🎬 Executing Kling (Replicate) image-to-video generation (Fallback for provider: ${provider})...`);

@@ -84,6 +84,7 @@ export type CreateImageArgs = {
 export type CreateVideoArgs = {
   prompt?: string;
   provider?: typeof PROVIDERS.VIDEO.VEO3 | typeof PROVIDERS.VIDEO.SORA | typeof PROVIDERS.VIDEO.SORA_PRO | typeof PROVIDERS.VIDEO.KLING | typeof PROVIDERS.VIDEO.GROK;
+  duration?: number;
 };
 
 /**
@@ -93,6 +94,7 @@ export type ImageToVideoArgs = {
   image_url?: string;
   prompt?: string;
   provider?: typeof PROVIDERS.VIDEO.VEO3 | typeof PROVIDERS.VIDEO.SORA | typeof PROVIDERS.VIDEO.SORA_PRO | typeof PROVIDERS.VIDEO.KLING | typeof PROVIDERS.VIDEO.GROK;
+  duration?: number;
 };
 
 /**

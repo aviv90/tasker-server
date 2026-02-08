@@ -410,16 +410,19 @@ async function pollForVideoResult(requestId: string, maxAttempts = 60, intervalM
  * Generate video from text prompt using Grok
  * Uses async polling mechanism as per xAI API specification
  * @param prompt - Video description
+ * @param options - Generation options (duration, model, etc.)
  * @returns Video generation result with URL
  */
-async function generateVideoForWhatsApp(prompt: string): Promise<VideoGenerationResult> {
+async function generateVideoForWhatsApp(prompt: string, options: { duration?: number } = {}): Promise<VideoGenerationResult> {
   try {
     if (!process.env.GROK_API_KEY) {
       throw new Error('Grok API key not configured');
     }
 
     const cleanPrompt = sanitizeText(prompt);
-    logger.info(`🎬 Generating video with Grok: "${cleanPrompt.substring(0, 100)}..."`);
+    const duration = options.duration ? Math.min(Math.max(options.duration, 1), 15) : undefined;
+
+    logger.info(`🎬 Generating video with Grok: "${cleanPrompt.substring(0, 100)}..." ${duration ? `(Duration: ${duration}s)` : ''}`);
 
     // Step 1: Start video generation request
     // Correct endpoint: /v1/videos/generations
@@ -431,7 +434,8 @@ async function generateVideoForWhatsApp(prompt: string): Promise<VideoGeneration
       },
       body: JSON.stringify({
         prompt: cleanPrompt,
-        model: 'grok-imagine-video'
+        model: 'grok-imagine-video',
+        duration: duration
       })
     });
 
@@ -505,16 +509,19 @@ async function generateVideoForWhatsApp(prompt: string): Promise<VideoGeneration
  * Uses async polling mechanism as per xAI API specification
  * @param prompt - Animation instructions
  * @param imageBuffer - Image buffer to animate
+ * @param options - Generation options (duration, model, etc.)
  * @returns Video generation result with URL
  */
-async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Buffer): Promise<VideoGenerationResult> {
+async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Buffer, options: { duration?: number } = {}): Promise<VideoGenerationResult> {
   try {
     if (!process.env.GROK_API_KEY) {
       throw new Error('Grok API key not configured');
     }
 
     const cleanPrompt = sanitizeText(prompt);
-    logger.info(`🎬 Generating video from image with Grok: "${cleanPrompt.substring(0, 100)}..."`);
+    const duration = options.duration ? Math.min(Math.max(options.duration, 1), 15) : undefined;
+
+    logger.info(`🎬 Generating video from image with Grok: "${cleanPrompt.substring(0, 100)}..." ${duration ? `(Duration: ${duration}s)` : ''}`);
 
     // Convert buffer to base64 data URL
     const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
@@ -529,7 +536,8 @@ async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Bu
       body: JSON.stringify({
         prompt: cleanPrompt,
         model: 'grok-imagine-video',
-        image_url: base64Image
+        image_url: base64Image,
+        duration: duration
       })
     });
 

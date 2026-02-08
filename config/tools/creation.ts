@@ -24,7 +24,8 @@ export const creationTools: Record<string, Tool> = {
         usage: ['צור וידאו', 'create video', 'make video of X', 'צור וידאו עם Veo 3', 'create video with Sora', 'וידאו עם Grok', 'video with grok'],
         parameters: {
             prompt: { type: 'string', required: true, description: 'Video description' },
-            provider: { type: 'string', required: false, description: 'CRITICAL: Extract provider from user request! If user says "Grok"/"גרוק" → set "grok". If "Sora"/"סורה" → set "sora". If "Kling"/"קלינג" → set "kling". Leave empty ONLY if no provider mentioned.' }
+            provider: { type: 'string', required: false, description: 'CRITICAL: Extract provider from user request! If user says "Grok"/"גרוק" → set "grok". If "Sora"/"סורה" → set "sora". If "Kling"/"קלינג" → set "kling". Leave empty ONLY if no provider mentioned.' },
+            duration: { type: 'number', required: false, description: 'Optional. Video duration in seconds (1-15 for Grok).' }
         },
         historyContext: {
             ignore: true,
@@ -40,7 +41,8 @@ export const creationTools: Record<string, Tool> = {
         parameters: {
             image_url: { type: 'string', required: true, description: 'Image URL' },
             prompt: { type: 'string', required: false, description: 'Animation instructions' },
-            provider: { type: 'string', required: false, description: 'CRITICAL: Extract provider from user request! If user says "Grok"/"גרוק" → set "grok". If "Sora"/"סורה" → set "sora". If "Kling"/"קלינג" → set "kling". Leave empty ONLY if no provider mentioned.' }
+            provider: { type: 'string', required: false, description: 'CRITICAL: Extract provider from user request! If user says "Grok"/"גרוק" → set "grok". If "Sora"/"סורה" → set "sora". If "Kling"/"קלינג" → set "kling". Leave empty ONLY if no provider mentioned.' },
+            duration: { type: 'number', required: false, description: 'Optional. Video duration in seconds (1-15 for Grok).' }
         },
         critical: 'Use ONLY when user attached an image and wants to animate/convert it to video. NOT for creating new videos! If user requests NEW image-to-video conversion with provider, use image_to_video with provider parameter, NOT retry_last_command!',
         historyContext: {
