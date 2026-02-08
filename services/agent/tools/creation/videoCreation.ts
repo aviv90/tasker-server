@@ -48,6 +48,39 @@ function cleanPromptFromContext(prompt: string): string {
 }
 
 /**
+ * Extract provider from prompt text if LLM didn't set it
+ * This is a FALLBACK for when the LLM fails to extract the provider parameter
+ */
+function extractProviderFromPrompt(prompt: string): string | null {
+
+  // Grok patterns (English + Hebrew)
+  if (/\b(grok|גרוק|באמצעות\s*grok|עם\s*grok|with\s*grok)\b/i.test(prompt)) {
+    return PROVIDERS.VIDEO.GROK;
+  }
+
+  // Sora patterns
+  if (/\b(sora|סורה|with\s*sora|עם\s*sora)\b/i.test(prompt)) {
+    // Check for sora-pro
+    if (/\b(sora[\s-]*pro|סורה[\s-]*פרו)\b/i.test(prompt)) {
+      return PROVIDERS.VIDEO.SORA_PRO;
+    }
+    return PROVIDERS.VIDEO.SORA;
+  }
+
+  // Kling patterns
+  if (/\b(kling|קלינג|with\s*kling|עם\s*kling)\b/i.test(prompt)) {
+    return PROVIDERS.VIDEO.KLING;
+  }
+
+  // Veo patterns (explicit request only)
+  if (/\b(veo|ויאו|veo\s*3|with\s*veo|עם\s*veo)\b/i.test(prompt)) {
+    return PROVIDERS.VIDEO.VEO3;
+  }
+
+  return null;
+}
+
+/**
  * Tool: Create Video
  * 
  * Default provider: Veo 3
@@ -78,8 +111,17 @@ export const create_video = createTool<CreateVideoArgs>(
     }
   },
   async (args, context) => {
-    // Determine provider: user-requested or default (Veo 3)
-    const provider = (args.provider || PROVIDERS.VIDEO.VEO3) as string;
+    // Determine provider: user-requested, fallback extraction from prompt, or default (Veo 3)
+    // FALLBACK: If LLM didn't extract provider, try to extract from prompt text
+    let provider = args.provider as string | undefined;
+    if (!provider && args.prompt) {
+      const extractedProvider = extractProviderFromPrompt(args.prompt);
+      if (extractedProvider) {
+        logger.info(`🔧 [create_video] LLM missed provider, extracted from prompt: ${extractedProvider}`);
+        provider = extractedProvider;
+      }
+    }
+    provider = provider || PROVIDERS.VIDEO.VEO3;
 
     logger.debug(`🔧 [Agent Tool] create_video called with provider: ${provider}`, {
       prompt: args.prompt?.substring(0, 100),
@@ -243,8 +285,17 @@ export const image_to_video = createTool<ImageToVideoArgs>(
     }
   },
   async (args, context) => {
-    // Determine provider: user-requested or default (Veo 3)
-    const provider = (args.provider || PROVIDERS.VIDEO.VEO3) as string;
+    // Determine provider: user-requested, fallback extraction from prompt, or default (Veo 3)
+    // FALLBACK: If LLM didn't extract provider, try to extract from prompt text
+    let provider = args.provider as string | undefined;
+    if (!provider && args.prompt) {
+      const extractedProvider = extractProviderFromPrompt(args.prompt);
+      if (extractedProvider) {
+        logger.info(`🔧 [image_to_video] LLM missed provider, extracted from prompt: ${extractedProvider}`);
+        provider = extractedProvider;
+      }
+    }
+    provider = provider || PROVIDERS.VIDEO.VEO3;
 
     logger.debug(`🔧 [Agent Tool] image_to_video called`, {
       imageUrl: args.image_url?.substring(0, 50),
