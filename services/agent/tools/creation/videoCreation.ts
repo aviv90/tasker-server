@@ -111,14 +111,27 @@ export const create_video = createTool<CreateVideoArgs>(
     }
   },
   async (args, context) => {
-    // Determine provider: user-requested, fallback extraction from prompt, or default (Veo 3)
-    // FALLBACK: If LLM didn't extract provider, try to extract from prompt text
+    // Determine provider: user-requested, fallback extraction from ORIGINAL user text, or default (Veo 3)
+    // ROOT CAUSE FIX: LLM translates prompt to English, removing provider keywords (e.g., "גרוק" → "cat running")
+    // We extract from context.originalInput.userText which contains the ORIGINAL Hebrew/English request
     let provider = args.provider as string | undefined;
-    if (!provider && args.prompt) {
-      const extractedProvider = extractProviderFromPrompt(args.prompt);
-      if (extractedProvider) {
-        logger.info(`🔧 [create_video] LLM missed provider, extracted from prompt: ${extractedProvider}`);
-        provider = extractedProvider;
+    if (!provider) {
+      // Try original user text first (most reliable source)
+      const originalUserText = (context.originalInput as Record<string, unknown>)?.userText as string | undefined;
+      if (originalUserText) {
+        const extractedProvider = extractProviderFromPrompt(originalUserText);
+        if (extractedProvider) {
+          logger.info(`🔧 [create_video] LLM missed provider, extracted from original text: ${extractedProvider}`);
+          provider = extractedProvider;
+        }
+      }
+      // Fallback to prompt if original text not available
+      if (!provider && args.prompt) {
+        const extractedProvider = extractProviderFromPrompt(args.prompt);
+        if (extractedProvider) {
+          logger.info(`🔧 [create_video] LLM missed provider, extracted from prompt: ${extractedProvider}`);
+          provider = extractedProvider;
+        }
       }
     }
     provider = provider || PROVIDERS.VIDEO.VEO3;
@@ -285,14 +298,27 @@ export const image_to_video = createTool<ImageToVideoArgs>(
     }
   },
   async (args, context) => {
-    // Determine provider: user-requested, fallback extraction from prompt, or default (Veo 3)
-    // FALLBACK: If LLM didn't extract provider, try to extract from prompt text
+    // Determine provider: user-requested, fallback extraction from ORIGINAL user text, or default (Veo 3)
+    // ROOT CAUSE FIX: LLM translates prompt to English, removing provider keywords (e.g., "גרוק" → "cinematic cat")
+    // We extract from context.originalInput.userText which contains the ORIGINAL Hebrew/English request
     let provider = args.provider as string | undefined;
-    if (!provider && args.prompt) {
-      const extractedProvider = extractProviderFromPrompt(args.prompt);
-      if (extractedProvider) {
-        logger.info(`🔧 [image_to_video] LLM missed provider, extracted from prompt: ${extractedProvider}`);
-        provider = extractedProvider;
+    if (!provider) {
+      // Try original user text first (most reliable source)
+      const originalUserText = (context.originalInput as Record<string, unknown>)?.userText as string | undefined;
+      if (originalUserText) {
+        const extractedProvider = extractProviderFromPrompt(originalUserText);
+        if (extractedProvider) {
+          logger.info(`🔧 [image_to_video] LLM missed provider, extracted from original text: ${extractedProvider}`);
+          provider = extractedProvider;
+        }
+      }
+      // Fallback to prompt if original text not available
+      if (!provider && args.prompt) {
+        const extractedProvider = extractProviderFromPrompt(args.prompt);
+        if (extractedProvider) {
+          logger.info(`🔧 [image_to_video] LLM missed provider, extracted from prompt: ${extractedProvider}`);
+          provider = extractedProvider;
+        }
       }
     }
     provider = provider || PROVIDERS.VIDEO.VEO3;
