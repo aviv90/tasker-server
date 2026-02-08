@@ -66,7 +66,7 @@ class GrokService {
   constructor() {
     this.apiKey = process.env.GROK_API_KEY;
     this.baseUrl = API_URLS.GROK;
-    this.model = 'grok-2'; // Latest stable text model (grok-2-1212)
+    this.model = 'grok-4'; // Flagship Reasoning Model (upgraded from grok-2)
 
     if (!this.apiKey) {
       logger.warn('⚠️ GROK_API_KEY not found in environment variables');
@@ -209,7 +209,7 @@ class GrokService {
         },
         body: JSON.stringify({
           prompt: cleanPrompt,
-          model: 'grok-imagine-1.0',
+          model: 'grok-imagine-image',
           response_format: 'url',
           n: 1
         })
