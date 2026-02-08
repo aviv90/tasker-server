@@ -46,8 +46,8 @@ interface WhatsAppVideoResult {
 // Shared Helper Functions (DRY)
 // ============================================================================
 
-const SUPPORTED_DURATIONS = [4, 8, 12];
-const DEFAULT_DURATION = 8;
+const SUPPORTED_DURATIONS = [4, 8, 12, 15, 25];
+const DEFAULT_DURATION = 15;
 
 /** Validate and normalize video duration */
 function validateDuration(seconds?: number): number {
@@ -137,7 +137,7 @@ export async function generateVideoWithSora(
         logger.info('🎬 Starting Sora 2 video generation');
 
         const cleanPrompt = sanitizeText(prompt);
-        const model = options.model || 'sora-2';
+        const model = options.model || 'sora-2-pro';
         const size = options.size || '1280x720';
         const seconds = validateDuration(options.seconds);
 
@@ -178,7 +178,7 @@ export async function generateVideoWithSoraForWhatsApp(
         logger.info('🎬 Starting Sora 2 video generation for WhatsApp');
 
         const cleanPrompt = sanitizeText(prompt);
-        const model = options.model || 'sora-2';
+        const model = options.model || 'sora-2-pro';
         const size = options.size || '1280x720';
         const seconds = validateDuration(options.seconds);
 
@@ -220,7 +220,7 @@ export async function generateVideoWithSoraFromImageForWhatsApp(
         logger.info('🎬 Starting Sora 2 image-to-video generation for WhatsApp');
 
         const cleanPrompt = sanitizeText(prompt);
-        const model = options.model || 'sora-2';
+        const model = options.model || 'sora-2-pro';
         const seconds = validateDuration(options.seconds);
 
         logger.info(`   Model: ${model}, Seconds: ${seconds}s`);

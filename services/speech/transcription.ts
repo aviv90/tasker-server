@@ -29,7 +29,7 @@ export async function speechToText(audioBuffer: Buffer, options: SpeechToTextOpt
             const fileStream = fs.createReadStream(tempPath);
 
             const transcriptionRequest: Record<string, unknown> = {
-                modelId: options.model || 'scribe_v1_experimental', // Use the latest experimental version with improved multilingual performance
+                modelId: options.model || 'scribe_v2', // Latest 2026 transcription model
                 file: fileStream,
                 languageCode: options.language || null,
                 enableLogging: options.logging !== false
@@ -69,7 +69,7 @@ export async function speechToText(audioBuffer: Buffer, options: SpeechToTextOpt
                 result: text,
                 metadata: {
                     service: 'ElevenLabs',
-                    model: options.model || 'scribe_v1_experimental', // Use the latest experimental version with improved multilingual performance
+                    model: options.model || 'scribe_v2', // Latest 2026 transcription model
                     language: result.detected_language || options.language || 'auto',
                     confidence: result.confidence || null,
                     processing_time: result.processing_time_ms || null,

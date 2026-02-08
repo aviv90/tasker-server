@@ -129,7 +129,7 @@ class ImageGeneration {
       const cleanPrompt = this.cleanPrompt(prompt);
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-3-pro-image-preview"
+        model: "gemini-3-pro-image"
       });
 
 
@@ -174,7 +174,7 @@ class ImageGeneration {
       const cleanPrompt = this.cleanPrompt(prompt);
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-3-pro-image-preview"
+        model: "gemini-3-pro-image"
       });
 
 

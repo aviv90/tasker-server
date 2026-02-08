@@ -2,7 +2,7 @@
  * Speech Service for ElevenLabs Speech-to-Text API integration
  * 
  * Uses the latest and most advanced models:
- * - scribe_v1_experimental: Latest STT model with improved multilingual performance,
+ * - scribe_v2: Latest STT model with improved multilingual performance,
  *   reduced hallucinations during silence, and better handling of early transcript termination
  * 
  * @version 2.0.0 - Updated to use experimental model for superior transcription quality

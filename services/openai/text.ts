@@ -77,7 +77,7 @@ export async function generateTextResponse(
     logger.debug(`🤖 OpenAI processing (${conversationHistory.length} context messages)`);
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini', // Cost-effective and good model
+      model: 'gpt-5.3', // Latest 2026 reasoning model
       messages: messages,
       max_tokens: 1000,
       temperature: 0.7

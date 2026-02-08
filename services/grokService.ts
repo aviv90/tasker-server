@@ -66,7 +66,7 @@ class GrokService {
   constructor() {
     this.apiKey = process.env.GROK_API_KEY;
     this.baseUrl = API_URLS.GROK;
-    this.model = 'grok-4-1-fast-reasoning'; // Fast Reasoning Model (Fast & Economical)
+    this.model = 'grok-4'; // Latest reasoning model
 
     if (!this.apiKey) {
       logger.warn('⚠️ GROK_API_KEY not found in environment variables');
