@@ -436,7 +436,8 @@ async function generateVideoForWhatsApp(prompt: string, options: { duration?: nu
       body: JSON.stringify({
         prompt: cleanPrompt,
         model: 'grok-imagine-video',
-        duration: duration
+        duration: duration,
+        aspect_ratio: '9:16'
       })
     });
 
@@ -539,7 +540,8 @@ async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Bu
         prompt: cleanPrompt,
         model: 'grok-imagine-video',
         image_url: base64Image,
-        duration: duration
+        duration: duration,
+        aspect_ratio: '9:16'
       })
     });
 
