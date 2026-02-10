@@ -32,7 +32,16 @@ WHEN *NOT* TO USE: 'write song lyrics' (use text generation - just write it), 'l
       properties: {
         prompt: {
           type: 'string',
-          description: 'Song description - style, topic, mood, lyrics'
+          description: 'Song description OR the actual lyrics (if input_type="lyrics")'
+        },
+        style: {
+          type: 'string',
+          description: 'Musical style (e.g., "Rock", "Piano", "Jazz"). Optional. Random/inferred if not provided.'
+        },
+        input_type: {
+          type: 'string',
+          description: 'Set to "lyrics" if user provides EXACT lyrics/text to compose. Default is "description".',
+          enum: ['description', 'lyrics']
         },
         make_video: {
           type: 'boolean',
@@ -58,6 +67,8 @@ WHEN *NOT* TO USE: 'write song lyrics' (use text generation - just write it), 'l
 
       const cleanPrompt = args.prompt || cleanedOriginal || '';
       const wantsVideo = Boolean(args.make_video);
+      const style = args.style;
+      const inputType = args.input_type || 'description';
 
       const senderData = (context.originalInput?.senderData as SenderData) || {};
       const whatsappContext = context.chatId
@@ -72,7 +83,9 @@ WHEN *NOT* TO USE: 'write song lyrics' (use text generation - just write it), 'l
 
       const result = (await generateMusicWithLyrics(cleanPrompt, {
         whatsappContext,
-        makeVideo: wantsVideo
+        makeVideo: wantsVideo,
+        style,
+        inputType
       })) as MusicGenerationResponse;
 
       if (result.error) {

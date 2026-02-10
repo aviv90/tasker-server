@@ -54,10 +54,12 @@ export const creationTools: Record<string, Tool> = {
     create_music: {
         name: 'create_music',
         category: 'creation',
-        description: 'Create NEW song/music with Suno AI (with melody). Use ONLY for "צור שיר" / "create song" / "make music" / "song with melody". Do NOT use for "כתוב שיר" / "write song" (text only - no tool needed).',
-        usage: ['צור שיר', 'יצירת שיר', 'שיר עם מנגינה', 'create song', 'make music', 'generate song'],
+        description: 'Create NEW song/music with Suno AI. Two modes: 1. Description (default): "Song about X". 2. Lyrics: "Compose this text...". Use input_type="lyrics" for explicit lyrics composition.',
+        usage: ['צור שיר', 'יצירת שיר', 'שיר עם מנגינה', 'create song', 'make music', 'generate song', 'הלחן את הטקסט', 'compose this text', '# הלחן'],
         parameters: {
-            prompt: { type: 'string', required: true, description: 'Song description/lyrics' },
+            prompt: { type: 'string', required: true, description: 'Song description OR the actual lyrics (if input_type="lyrics")' },
+            style: { type: 'string', required: false, description: 'Musical style (e.g., "Rock", "Piano", "Jazz"). Optional. Random/inferred if not provided.' },
+            input_type: { type: 'string', required: false, description: 'Set to "lyrics" if user provides EXACT lyrics/text to compose. Default is "description".' },
             make_video: { type: 'boolean', required: false, description: 'Also create music video' }
         },
         critical: 'Use ONLY for creating NEW songs. For EXISTING songs, use search_web! If user requests NEW song/music, use create_music, NOT retry_last_command!',

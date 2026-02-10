@@ -35,20 +35,59 @@ export class MusicGeneration {
 
       const cleanPrompt = sanitizeText(prompt);
 
-      // Basic mode - compatible with existing API, enhanced with V5
+      // Determine if we need custom mode (for explicit lyrics)
+      const isExplicitLyrics = options.inputType === 'lyrics';
+
+      let finalPrompt = cleanPrompt;
+      let finalStyle = options.style;
+
+      // Handle Description Mode (customMode: false)
+      if (!isExplicitLyrics && finalStyle) {
+        // Embed style in the prompt for Description Mode because customMode: false does not support style parameter
+        finalPrompt = `${finalStyle} style song about ${cleanPrompt}`;
+        // Ensure style parameter is NOT sent to API for Description Mode
+        finalStyle = undefined;
+      }
+
+      // Handle Lyrics Mode (customMode: true)
+      if (isExplicitLyrics) {
+        // In Custom Mode, style is REQUIRED. If not provided, pick a random one.
+        if (!finalStyle) {
+          const defaultStyles = ['Pop', 'Rock', 'Acoustic', 'Piano', 'Electronic', 'Jazz', 'Lo-fi'];
+          finalStyle = defaultStyles[Math.floor(Math.random() * defaultStyles.length)];
+          logger.debug(`🎼 Explicit lyrics mode: Auto-selected style '${finalStyle}'`);
+        }
+      }
+
+      // Basic music options setup
       const musicOptions: MusicOptions = {
-        prompt: cleanPrompt,
-        customMode: false, // Let Suno be creative
+        prompt: finalPrompt,
+        customMode: isExplicitLyrics, // Use custom mode ONLY for explicit lyrics
         instrumental: false, // We want lyrics
-        model: options.model || 'V5', // Use V5 for latest and best quality
+        model: options.model || 'V5', // Use V5
         callBackUrl: getApiUrl('/api/music/callback')
       };
 
+      // Add style if it exists (only for Custom Mode)
+      if (finalStyle) {
+        musicOptions.style = finalStyle;
+      }
+
       // Only add advanced parameters if they are explicitly provided
-      if (options.style) musicOptions.style = options.style;
+      // Note: style is handled above
       if (options.title) musicOptions.title = options.title;
       if (options.tags && Array.isArray(options.tags)) musicOptions.tags = options.tags;
       if (options.duration) musicOptions.duration = options.duration;
+
+      // If custom mode is enabled (explicit lyrics), we MUST provide title
+      if (isExplicitLyrics) {
+        // Ensure title is present if not provided
+        if (!musicOptions.title) {
+          // Use first few words of lyrics as title
+          musicOptions.title = cleanPrompt.split(' ').slice(0, 4).join(' ').substring(0, 80);
+          logger.debug(`🎼 Explicit lyrics mode: Auto-generated title '${musicOptions.title}'`);
+        }
+      }
 
       logger.debug('🎼 Using automatic mode');
 

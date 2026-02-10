@@ -102,6 +102,8 @@ export type ImageToVideoArgs = {
  */
 export type CreateMusicArgs = {
   prompt?: string;
+  style?: string;
+  input_type?: 'description' | 'lyrics';
   make_video?: boolean;
 };
 

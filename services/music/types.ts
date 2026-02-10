@@ -84,6 +84,7 @@ export interface MusicGenerationOptions {
     stereo?: boolean;
     sampleRate?: number;
     prompt?: string;
+    inputType?: 'description' | 'lyrics';
 }
 
 /**
