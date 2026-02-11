@@ -8,6 +8,7 @@ import { detectLanguage } from './agent/utils/languageUtils';
 import prompts from '../config/prompts';
 import logger from '../utils/logger';
 import { API_URLS } from '../utils/constants';
+import sharp from 'sharp';
 
 /**
  * Conversation message structure
@@ -526,8 +527,19 @@ async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Bu
 
     logger.info(`🎬 Generating video from image with Grok: "${cleanPrompt.substring(0, 100)}..." (Duration: ${duration}s)`);
 
-    // Convert buffer to base64 data URL
-    const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+    // Convert image to JPEG using sharp to match documentation examples exactly
+    let jpegBuffer: Buffer;
+    try {
+      jpegBuffer = await sharp(imageBuffer)
+        .jpeg({ quality: 90 }) // High quality JPEG
+        .toBuffer();
+    } catch (err) {
+      logger.warn('⚠️ Failed to convert image to JPEG, using original buffer:', { error: err });
+      jpegBuffer = imageBuffer;
+    }
+
+    // Convert buffer to base64 data URL with hardcoded image/jpeg
+    const base64Image = `data:image/jpeg;base64,${jpegBuffer.toString('base64')}`;
 
     // Step 1: Start video generation request with image (same generations endpoint)
     const response = await fetch(`${API_URLS.GROK}/videos/generations`, {
