@@ -30,7 +30,7 @@ describe('GrokService', () => {
     });
 
     describe('generateVideoFromImageForWhatsApp', () => {
-        it('should convert image to JPEG and send correct data URI', async () => {
+        it('should correctly detect mime type and send correct data URI', async () => {
             // Mock successful response sequence
             mockFetch
                 // First call: submit generation request
@@ -65,9 +65,9 @@ describe('GrokService', () => {
 
             const body = JSON.parse(options.body);
 
-            // THIS IS THE KEY ASSERTION: It should be image/jpeg regardless of input
-            // We convert everything to JPEG
-            expect(body.image_url).toMatch(/^data:image\/jpeg;base64,/);
+            // THIS IS THE KEY ASSERTION: It should be image/png, not image/jpeg
+            // Note: We mocked sharp to return 'png' format
+            expect(body.image_url).toMatch(/^data:image\/png;base64,/);
         });
 
         it('should default to jpeg if detection fails', async () => {

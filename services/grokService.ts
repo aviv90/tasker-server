@@ -527,19 +527,20 @@ async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Bu
 
     logger.info(`🎬 Generating video from image with Grok: "${cleanPrompt.substring(0, 100)}..." (Duration: ${duration}s)`);
 
-    // Convert image to JPEG using sharp to match documentation examples exactly
-    let jpegBuffer: Buffer;
+    // Detect mime type using sharp
+    let mimeType = 'image/jpeg'; // Default
     try {
-      jpegBuffer = await sharp(imageBuffer)
-        .jpeg({ quality: 90 }) // High quality JPEG
-        .toBuffer();
+      const metadata = await sharp(imageBuffer).metadata();
+      if (metadata.format) {
+        // Normalize format (e.g. 'jpeg' -> 'image/jpeg')
+        mimeType = `image/${metadata.format}`;
+      }
     } catch (err) {
-      logger.warn('⚠️ Failed to convert image to JPEG, using original buffer:', { error: err });
-      jpegBuffer = imageBuffer;
+      logger.warn('⚠️ Failed to detect image mime type, defaulting to jpeg:', { error: err });
     }
 
-    // Convert buffer to base64 data URL with hardcoded image/jpeg
-    const base64Image = `data:image/jpeg;base64,${jpegBuffer.toString('base64')}`;
+    // Convert buffer to base64 data URL with detected mime type
+    const base64Image = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
 
     // Log start of request with safe data truncation
     logger.info(`📦 Grok image-to-video request payload:`, {
