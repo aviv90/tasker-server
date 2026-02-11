@@ -541,6 +541,15 @@ async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Bu
     // Convert buffer to base64 data URL with hardcoded image/jpeg
     const base64Image = `data:image/jpeg;base64,${jpegBuffer.toString('base64')}`;
 
+    // Log start of request with safe data truncation
+    logger.info(`📦 Grok image-to-video request payload:`, {
+      model: 'grok-imagine-video',
+      hasImage: !!base64Image,
+      imageLength: base64Image.length,
+      imageStart: base64Image.substring(0, 50) + '...',
+      prompt: cleanPrompt
+    });
+
     // Step 1: Start video generation request with image (same generations endpoint)
     const response = await fetch(`${API_URLS.GROK}/videos/generations`, {
       method: 'POST',
