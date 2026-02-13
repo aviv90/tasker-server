@@ -103,6 +103,13 @@ export const edit_image = createTool<EditImageArgs>(
       }
 
       const providerName = formatProviderName(service) || service;
+      if (!imageUrlResult) {
+        logger.warn(`⚠️ [edit_image] Provider ${providerName} failed to return an image URL for edit.`);
+        return {
+          success: false,
+          error: `הספק ${providerName} לא הצליח לערוך את התמונה. ייתכן שההוראות אינן ברורות או שהספק אינו זמין.`
+        };
+      }
 
       return {
         success: true,

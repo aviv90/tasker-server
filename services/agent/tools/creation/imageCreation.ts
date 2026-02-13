@@ -160,17 +160,12 @@ export const create_image = createTool<CreateImageArgs>(
 
       const providerName = formatProviderName(provider) || provider;
 
-      // Handle text-only response
+      // Handle text-only response - REJECT (Prevents ASCII art/refusal leakage)
       if (imageResult.textOnly) {
-        let text = imageResult.description || '';
-        if (text) {
-          text = cleanMarkdown(text);
-        }
+        logger.warn(`⚠️ [create_image] Provider ${provider} returned text instead of image. Prompt: "${prompt}"`);
         return {
-          success: true,
-          data: text,
-          provider: providerName,
-          providerKey: provider
+          success: false,
+          error: `הספק ${providerName} החזיר טקסט במקום תמונה. ייתכן שהתוכן אינו הולם או שהספק אינו זמין כעת.`
         };
       }
 

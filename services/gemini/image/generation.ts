@@ -223,8 +223,10 @@ class ImageGeneration {
         cleanDescription = cleanDescription
           .replace(/\[image[:\]]/gi, '') // Remove [image: or [image]
           .replace(/image[:\]]/gi, '') // Remove image: or image]
-          .replace(/\[תמונה[^\]]*/gi, '') // Remove [תמונה: or [תמונה] with any text after (including incomplete brackets)
+          .replace(/\[תמונה[^\]]*/gi, '') // Remove [תמונה: or [תמונה]
           .replace(/תמונה:\s*$/gi, '') // Remove תמונה: at the end of text
+          // CRITICAL: Remove internal headers often leaked by Gemini/OpenAI
+          .replace(/^(Caption|Description|Image|Revised\s*Prompt|תנאי|תיאור|תמונה):\s*/gim, '')
           .replace(/^[^.!?]*\[image[:\]][^.!?]*/gi, '') // Remove entire lines with [image: or [image]
           .trim();
         // Finally use cleanMediaDescription for additional cleanup

@@ -269,18 +269,11 @@ class GrokService {
         const textContent = data.choices?.[0]?.message?.content || data.text || '';
 
         if (textContent) {
-          logger.info('📝 Grok returned text response instead of image');
+          logger.info('📝 Grok returned text response instead of image - Treating as FAILURE');
           return {
-            success: true,
-            textOnly: true,
-            description: textContent,
-            originalPrompt: cleanPrompt,
-            metadata: {
-              service: 'Grok',
-              model: 'grok-2-image',
-              type: 'text_response',
-              created_at: new Date().toISOString()
-            }
+            success: false,
+            error: textContent, // Return the refusal/ASCII art as the error message
+            originalPrompt: cleanPrompt
           };
         } else {
           return {

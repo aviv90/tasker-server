@@ -158,6 +158,8 @@ export function cleanMediaDescription(text: unknown, preserveLinks: boolean = fa
     .replace(/"?(image_?url|imageUrl|video_?url|videoUrl|Image URL|Video URL|revised_?prompt|revisedPrompt)"?[:\s]*"[^"]*"/gi, '')
     .replace(/imageUrl:\s*["']?$/gi, '') // Truncated key at end
     .replace(/videoUrl:\s*["']?$/gi, '') // Truncated key at end
+    // CRITICAL: Remove internal headers often leaked by Gemini/OpenAI
+    .replace(/^(Caption|Description|Image|Revised\s*Prompt|revised_prompt|תנאי|תיאור|תמונה)[:\s]*/gim, '')
     .replace(/✅/g, '')
     .replace(/[[]]/g, '') // Remove remaining square brackets like "]" or "["
     .replace(/[.)},;:-]+$/g, '') // Remove trailing punctuation (., ), }, ;, :, -)
@@ -198,6 +200,8 @@ export function cleanMultiStepText(text: unknown): string {
     .replace(/\{[\s\n]*"action":[\s\S]*\}/gi, '') // Remove action JSONs
     .replace(/\{[^{}]*"?\s*(image_?url|imageUrl|video_?url|videoUrl|Image URL|Video URL|revised_?prompt|revisedPrompt)"?[^{}]*\}/gi, '')
     .replace(/"?(image_?url|imageUrl|video_?url|videoUrl|Image URL|Video URL|revised_?prompt|revisedPrompt)"?[:\s]*"[^"]*"/gi, '')
+    // CRITICAL: Remove internal headers often leaked by Gemini/OpenAI
+    .replace(/^(Caption|Description|Image|Revised\s*Prompt|revised_prompt|תנאי|תיאור|תמונה)[:\s]*/gim, '')
     // CRITICAL: User requested strict NO LINKS policy
     .replace(/https?:\/\/[^\s]+/gi, '') // Remove URLs (image URLs should not be in text)
     .replace(/\[image\]/gi, '')
