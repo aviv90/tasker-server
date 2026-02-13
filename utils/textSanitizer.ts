@@ -153,6 +153,7 @@ export function cleanMediaDescription(text: unknown, preserveLinks: boolean = fa
     .replace(/\{imageUrl:\s*["']?$/gi, '') // Truncated at end
     .replace(/\{videoUrl:\s*["']?$/gi, '') // Truncated at end
     // CRITICAL: Remove JSON structures and patterns that might be embedded in text
+    .replace(/\{[\s\n]*"action":[\s\S]*\}/gi, '') // Remove action JSONs
     .replace(/\{[^{}]*"?\s*(image_?url|imageUrl|video_?url|videoUrl|Image URL|Video URL|revised_?prompt|revisedPrompt)"?[^{}]*\}/gi, '')
     .replace(/"?(image_?url|imageUrl|video_?url|videoUrl|Image URL|Video URL|revised_?prompt|revisedPrompt)"?[:\s]*"[^"]*"/gi, '')
     .replace(/imageUrl:\s*["']?$/gi, '') // Truncated key at end
@@ -194,6 +195,7 @@ export function cleanMultiStepText(text: unknown): string {
   return cleaned
     // CRITICAL: Remove JSON structures and patterns that might be embedded in text
     // DO THIS BEFORE general URL stripping to avoid mangling the JSON
+    .replace(/\{[\s\n]*"action":[\s\S]*\}/gi, '') // Remove action JSONs
     .replace(/\{[^{}]*"?\s*(image_?url|imageUrl|video_?url|videoUrl|Image URL|Video URL|revised_?prompt|revisedPrompt)"?[^{}]*\}/gi, '')
     .replace(/"?(image_?url|imageUrl|video_?url|videoUrl|Image URL|Video URL|revised_?prompt|revisedPrompt)"?[:\s]*"[^"]*"/gi, '')
     // CRITICAL: User requested strict NO LINKS policy
@@ -305,8 +307,22 @@ const JSON_CONTENT_FIELDS = ['answer', 'text', 'message', 'content', 'descriptio
  * @returns Extracted content string or null
  */
 function extractJsonContent(parsed: unknown): string | null {
-  if (typeof parsed !== 'object' || parsed === null) {
-    return null;
+  // CRITICAL: If the JSON object contains "action" key (like { "action": "create_image", ... }), 
+  // it means the Agent leaked a tool call structure instead of executing it. 
+  // We MUST suppress this content entirely.
+  const actionKeys = ['action', 'tool', 'function', 'name'];
+  const hasActionKey = actionKeys.some(key => Object.prototype.hasOwnProperty.call(parsed, key));
+
+  if (hasActionKey) {
+    // Check if it looks like a tool call (has action_input, args, parameters, etc.)
+    const inputKeys = ['action_input', 'args', 'parameters', 'arguments', 'input'];
+    const hasInputKey = inputKeys.some(key => Object.prototype.hasOwnProperty.call(parsed, key));
+
+    if (hasActionKey && (hasInputKey || Object.keys(parsed as object).length < 4)) {
+      // It's likely a leaked tool call. Return empty string to suppress it.
+      logger.warn('⚠️ [TextSanitizer] Suppressed leaked JSON tool call in output');
+      return '';
+    }
   }
 
   // Handle arrays - try to extract from first element
@@ -393,8 +409,9 @@ export function cleanJsonWrapper(text: unknown): string {
       if (jsonText) {
         const parsed = JSON.parse(jsonText);
         const content = extractJsonContent(parsed);
-        if (content !== null && content.trim().length > 0) {
-          return content;
+        if (content !== null) {
+          // Note: extractJsonContent now returns '' for suppressed actions, so checks below handle it
+          return content.trim().length > 0 ? content : '';
         }
       }
     } catch (_e) {
@@ -410,8 +427,8 @@ export function cleanJsonWrapper(text: unknown): string {
       if (jsonText) {
         const parsed = JSON.parse(jsonText);
         const content = extractJsonContent(parsed);
-        if (content !== null && content.trim().length > 0) {
-          return content;
+        if (content !== null) {
+          return content.trim().length > 0 ? content : '';
         }
       }
     } catch (_e) {
@@ -423,8 +440,8 @@ export function cleanJsonWrapper(text: unknown): string {
   try {
     const parsed = JSON.parse(cleaned);
     const content = extractJsonContent(parsed);
-    if (content !== null && content.trim().length > 0) {
-      return content;
+    if (content !== null) {
+      return content.trim().length > 0 ? content : '';
     }
   } catch (_e) {
     // Not valid JSON, continue with cleaning
@@ -446,8 +463,8 @@ export function cleanJsonWrapper(text: unknown): string {
       if (jsonText) {
         const parsed = JSON.parse(jsonText);
         const content = extractJsonContent(parsed);
-        if (content !== null && content.trim().length > 0) {
-          return content;
+        if (content !== null) {
+          return content.trim().length > 0 ? content : '';
         }
       }
     } catch (_e) {
@@ -460,8 +477,8 @@ export function cleanJsonWrapper(text: unknown): string {
     try {
       const parsed = JSON.parse(cleaned);
       const content = extractJsonContent(parsed);
-      if (content !== null && content.trim().length > 0) {
-        return content;
+      if (content !== null) {
+        return content.trim().length > 0 ? content : '';
       }
     } catch (_e) {
       // Not valid JSON, return as-is but log warning
@@ -470,6 +487,7 @@ export function cleanJsonWrapper(text: unknown): string {
   }
 
   return cleaned;
+
 }
 
 /**
