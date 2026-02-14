@@ -14,6 +14,4 @@ export const metaTools: Record<string, Tool> = {
             reason: 'This tool REQUIRES history to understand what command to retry. Always use history when this tool is called.'
         }
     }
-    // retry_with_different_provider REMOVED - NO AUTOMATIC FALLBACKS
-    // smart_execute_with_fallback REMOVED - NO AUTOMATIC FALLBACKS
 };

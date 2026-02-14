@@ -9,6 +9,7 @@ import OpenAI from 'openai';
 import { detectLanguage } from '../agent/utils/languageUtils';
 import prompts from '../../config/prompts';
 import logger from '../../utils/logger';
+import { ERROR } from '../../config/messages';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -103,7 +104,7 @@ export async function generateTextResponse(
 
     // Emergency response
     return {
-      text: 'מצטער, קרתה שגיאה בעיבוד הבקשה שלך. נסה שוב מאוחר יותר.',
+      text: ERROR.emergencyResponse(),
       usage: null
     };
   }

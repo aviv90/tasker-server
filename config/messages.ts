@@ -144,7 +144,9 @@ export const ERROR = {
   imageAnalysis: (message: string) => `שגיאה בניתוח התמונה: ${message}`,
   savePreference: (message: string) => `שגיאה בשמירת העדפה: ${message}`,
   longTermMemory: (message: string) => `שגיאה בגישה לזיכרון ארוך טווח: ${message}`,
-  retry: (message: string) => `שגיאה בביצוע חוזר: ${message}`
+  retry: (message: string) => `שגיאה בביצוע חוזר: ${message}`,
+  emergencyResponse: (provider?: string) =>
+    `מצטער, קרתה שגיאה בעיבוד הבקשה שלך${provider ? ` עם ${provider}` : ''}. נסה שוב מאוחר יותר.`
 } as const;
 
 /**

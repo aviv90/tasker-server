@@ -24,8 +24,7 @@ async function checkTools() {
     logger.info('\nChecking critical tools...');
     const criticalTools = [
         'schedule_message',
-        'smart_execute_with_fallback',
-        'retry_with_different_provider',
+        'retry_last_command',
         'get_chat_history',
         'create_image',
         'search_web'

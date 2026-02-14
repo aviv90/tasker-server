@@ -22,7 +22,6 @@ import * as schedulingTools from './schedulingTools';
 import * as flightTools from './flight/flightTools';
 import * as shoppingTools from './shoppingTools';
 import { edit_voice_style } from './remixTools'; // Importing the tool implementation
-// fallbackTools REMOVED - NO AUTOMATIC FALLBACKS
 // Missing modules commented out
 // import * as metaTools from './meta/metaTools'; 
 // import * as utilityTools from './utilityTools';
@@ -98,7 +97,6 @@ export const {
   random_flight
 } = flightTools;
 
-// retry_with_different_provider REMOVED - NO AUTOMATIC FALLBACKS
 
 import { AgentTool } from '../types';
 
@@ -165,7 +163,6 @@ export const allTools: Record<string, AgentTool> = {
 
   // Meta & Retry
   retry_last_command: retryTools.retry_last_command,
-  // retry_with_different_provider REMOVED - NO AUTOMATIC FALLBACKS
   // self_update: metaTools.self_update, // Missing
   // agent_chat: metaTools.agent_chat, // Missing
 

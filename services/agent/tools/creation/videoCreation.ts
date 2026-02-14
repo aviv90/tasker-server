@@ -2,7 +2,7 @@
  * Video Creation Tools
  * 
  * Default provider: Veo 3
- * No automatic fallbacks - user can use retry_with_different_provider for manual switching
+ * No automatic fallbacks - user can use retry_last_command for manual retry
  */
 
 import { formatProviderName } from '../../utils/providerUtils';
@@ -22,30 +22,7 @@ import type {
   VideoProviderResult
 } from './types';
 
-/**
- * Clean prompt from context markers that may leak from conversation history
- */
-function cleanPromptFromContext(prompt: string): string {
-  return prompt
-    // Remove quoted message markers
-    .replace(/\[הודעה מצוטטת:[^\]]*\]/g, '')
-    .replace(/\[בקשה נוכחית:\]/g, '')
-    // Remove IMPORTANT instructions meant for LLM
-    .replace(/\*\*IMPORTANT:[^*]*\*\*/g, '')
-    .replace(/\*\*CRITICAL:[^*]*\*\*/g, '')
-    // Remove image_url/video_url instructions
-    .replace(/Use this image_url parameter directly:[^\n]*/gi, '')
-    .replace(/Use this video_url parameter directly:[^\n]*/gi, '')
-    .replace(/image_url: "[^"]*"/gi, '')
-    .replace(/video_url: "[^"]*"/gi, '')
-    // Remove analysis/edit instructions meant for tool selection
-    .replace(/- For analysis\/questions[^-]*/gi, '')
-    .replace(/- For edits[^-]*/gi, '')
-    .replace(/- DO NOT use retry_last_command[^*]*/gi, '')
-    // Clean up whitespace
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
+import { cleanPromptFromContext } from '../../utils/promptCleaner';
 
 /**
  * Extract provider from prompt text if LLM didn't set it
@@ -84,7 +61,7 @@ function extractProviderFromPrompt(prompt: string): string | null {
  * Tool: Create Video
  * 
  * Default provider: Veo 3
- * No automatic fallbacks - user can use retry_with_different_provider for manual switching
+ * No automatic fallbacks - user can use retry_last_command for manual retry
  */
 export const create_video = createTool<CreateVideoArgs>(
   {
@@ -197,8 +174,8 @@ export const create_video = createTool<CreateVideoArgs>(
           logger.info(`🎬 Executing Grok video generation... ${args.duration ? `(Duration: ${args.duration}s)` : ''}`);
           videoResult = (await grokService.generateVideoForWhatsApp(prompt, { duration: args.duration })) as VideoProviderResult;
         } else {
-          // Kling (via Replicate) - Default fallback for other providers (Kling/Runway)
-          logger.info(`🎬 Executing Kling (Replicate) video generation (Fallback for provider: ${provider})...`);
+          // Kling (via Replicate) - Default route for remaining providers
+          logger.info(`🎬 Executing Kling (Replicate) video generation (provider: ${provider})...`);
           videoResult = (await replicateService.generateVideoWithTextForWhatsApp(prompt)) as VideoProviderResult;
         }
       } catch (genError) {
@@ -275,7 +252,7 @@ export const create_video = createTool<CreateVideoArgs>(
  * Tool: Image to Video
  * 
  * Default provider: Veo 3
- * No automatic fallbacks - user can use retry_with_different_provider for manual switching
+ * No automatic fallbacks - user can use retry_last_command for manual retry
  */
 export const image_to_video = createTool<ImageToVideoArgs>(
   {
@@ -387,8 +364,8 @@ export const image_to_video = createTool<ImageToVideoArgs>(
           logger.info(`🎬 Executing Grok image-to-video generation... ${args.duration ? `(Duration: ${args.duration}s)` : ''}`);
           videoResult = (await grokService.generateVideoFromImageForWhatsApp(prompt, imageBuffer, { duration: args.duration })) as VideoProviderResult;
         } else {
-          // Kling (via Replicate) - Default fallback
-          logger.info(`🎬 Executing Kling (Replicate) image-to-video generation (Fallback for provider: ${provider})...`);
+          // Kling (via Replicate) - Default route for remaining providers
+          logger.info(`🎬 Executing Kling (Replicate) image-to-video generation (provider: ${provider})...`);
           videoResult = (await replicateService.generateVideoFromImageForWhatsApp(imageBuffer, prompt)) as VideoProviderResult;
         }
       } catch (genError) {

@@ -57,8 +57,6 @@ export const TOOLS_REQUIRE_HISTORY: readonly string[] = [
 
     // === RETRY/META TOOLS (need previous command context) ===
     'retry_last_command',             // Needs to know what was the last command
-    // retry_with_different_provider REMOVED - NO AUTOMATIC FALLBACKS
-    // smart_execute_with_fallback REMOVED - NO AUTOMATIC FALLBACKS
 ] as const;
 
 /**

@@ -9,36 +9,13 @@ import { REQUIRED, ERROR, PROVIDER_MISMATCH, AGENT_INSTRUCTIONS } from '../../..
 import { createTool } from '../base';
 import type { CreateImageArgs, ImageProviderResult } from './types';
 
-/**
- * Clean prompt from context markers that may leak from conversation history
- */
-function cleanPromptFromContext(prompt: string): string {
-  return prompt
-    // Remove quoted message markers
-    .replace(/\[הודעה מצוטטת:[^\]]*\]/g, '')
-    .replace(/\[בקשה נוכחית:\]/g, '')
-    // Remove IMPORTANT instructions meant for LLM
-    .replace(/\*\*IMPORTANT:[^*]*\*\*/g, '')
-    .replace(/\*\*CRITICAL:[^*]*\*\*/g, '')
-    // Remove image_url/video_url instructions
-    .replace(/Use this image_url parameter directly:[^\n]*/gi, '')
-    .replace(/Use this video_url parameter directly:[^\n]*/gi, '')
-    .replace(/image_url: "[^"]*"/gi, '')
-    .replace(/video_url: "[^"]*"/gi, '')
-    // Remove analysis/edit instructions meant for tool selection
-    .replace(/- For analysis\/questions[^-]*/gi, '')
-    .replace(/- For edits[^-]*/gi, '')
-    .replace(/- DO NOT use retry_last_command[^*]*/gi, '')
-    // Clean up whitespace
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
+import { cleanPromptFromContext } from '../../utils/promptCleaner';
 
 /**
  * Tool: Create Image
  * 
  * Default provider: Gemini
- * No automatic fallbacks - user can use retry_with_different_provider for manual switching
+ * No automatic fallbacks - user can use retry_last_command for manual retry
  */
 export const create_image = createTool<CreateImageArgs>(
   {

@@ -10,6 +10,7 @@ import { getGeminiErrorMessage, cleanThinkingPatterns } from './utils';
 import { sanitizeText } from '../../utils/textSanitizer';
 import { detectLanguage } from '../agent/utils/languageUtils';
 import logger from '../../utils/logger';
+import { ERROR } from '../../config/messages';
 
 // Import modular components
 import promptBuilder from './text/promptBuilder';
@@ -202,7 +203,7 @@ export async function generateTextResponse(
 
     // Emergency response
     return {
-      text: 'מצטער, קרתה שגיאה בעיבוד הבקשה שלך עם Gemini. נסה שוב מאוחר יותר.',
+      text: ERROR.emergencyResponse('Gemini'),
       error: errorMessage
     };
   }

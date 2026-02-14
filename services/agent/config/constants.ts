@@ -27,7 +27,6 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
   // Info tools
   search_web: 'מחפש מידע... 🔍',
   // Flight
-  // Flight
   random_flight: 'מחפש טיסה... ✈️',
   // Shopping
   random_amazon_product: 'מחפש מוצר באמזון... 🛒',
@@ -52,20 +51,17 @@ export const TOOL_ACK_MESSAGES: ToolAckMessages = {
   create_sound_effect: 'מייצר אפקט קולי... 🔊',
   edit_voice_style: 'עורך את הסגנון הקולי... 🎼',
 
-  // Search & Infools
+  // Search & Info
   history_aware_create: 'יוצר עם context... 🧠',
   create_with_memory: 'יוצר בהתאמה אישית... 💡',
   search_and_create: 'מחפש ומייצר... 🔍➡️🎨',
   create_and_analyze: 'מייצר ומנתח... 🎨➡️🔍',
   analyze_and_edit: 'מנתח ועורך... 🔍➡️✏️',
-  // retry_with_different_provider REMOVED - NO AUTOMATIC FALLBACKS
   retry_last_command: 'חוזר על הפעולה... ↩️',
-  // smart_execute_with_fallback REMOVED - NO AUTOMATIC FALLBACKS
 
   // Preferences
   save_user_preference: 'שומר העדפה... 💾'
 };
-
 
 
 /**
@@ -155,16 +151,6 @@ export const ALL_PROVIDERS = [
   PROVIDERS.VIDEO.RUNWAY,
   PROVIDERS.NONE
 ] as const;
-
-/**
- * Default image providers (fallback order)
- */
-// DEFAULT_IMAGE_PROVIDERS array REMOVED - NO AUTOMATIC FALLBACKS
-
-/**
- * Default video providers (fallback order)
- */
-// DEFAULT_VIDEO_PROVIDERS array REMOVED - NO AUTOMATIC FALLBACKS
 
 /**
  * Patterns to identify system Ack messages (to filter from history)

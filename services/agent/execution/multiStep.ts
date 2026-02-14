@@ -13,7 +13,6 @@ import resultSender from './resultSender';
 import { TIME } from '../../../utils/constants';
 import logger from '../../../utils/logger';
 import { formatProviderError } from '../../../utils/errorHandler';
-// FallbackHandler REMOVED - NO AUTOMATIC FALLBACKS
 import { processFinalText } from './resultProcessor';
 import { AgentConfig, StepResult } from '../types';
 

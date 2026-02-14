@@ -38,7 +38,7 @@ export function getToolAckMessage(toolName: string, provider: ProviderKey = null
 
   if (provider) {
     // Check if it's a video task OR if the provider exists in video map
-    // This catches generic tools like 'retry_with_different_provider' where toolName is generic but provider is video-specific
+    // This catches generic tools where toolName is generic but provider is video-specific
     const isVideoTask =
       toolName === 'create_video' || toolName === 'image_to_video' || toolName === 'edit_video';
 
@@ -117,7 +117,6 @@ export async function sendToolAckMessage(
       const providerRaw = (args.provider || args.service) as ProviderKey;
       let provider = normalizeProviderKey(providerRaw);
 
-      // smart_execute_with_fallback REMOVED - NO AUTOMATIC FALLBACKS
 
       return getToolAckMessage(toolName, provider || providerRaw);
     };

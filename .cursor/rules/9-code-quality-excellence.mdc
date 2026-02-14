@@ -1,7 +1,7 @@
 ---
 description: Comprehensive code quality standards - clean, modular, optimal, following all best practices
 globs:
-  - "**/*.js"
+  - "**/*.ts"
   - "services/**"
   - "routes/**"
   - "utils/**"
@@ -29,18 +29,18 @@ Code should be:
 **Each module/class/function does ONE thing only.**
 
 ✅ **Good:**
-```javascript
-// services/imageService.js - handles ONLY image operations
+```typescript
+// services/imageService.ts - handles ONLY image operations
 async function generateImage(prompt) { ... }
 async function editImage(imageUrl, prompt) { ... }
 
-// services/videoService.js - handles ONLY video operations
+// services/videoService.ts - handles ONLY video operations
 async function generateVideo(prompt) { ... }
 ```
 
 ❌ **Bad:**
-```javascript
-// services/mediaService.js - handles too much!
+```typescript
+// services/mediaService.ts - handles too much!
 async function generateImage(prompt) { ... }
 async function generateVideo(prompt) { ... }
 async function transcribeAudio(audioUrl) { ... }
@@ -94,8 +94,8 @@ if (agentResult.multiStep && agentResult.alreadySent) {
 ```
 
 ✅ **Good:** Extracted utility
-```javascript
-// utils/agentUtils.js
+```typescript
+// utils/agentUtils.ts
 function shouldSkipSending(agentResult) {
   return agentResult.multiStep && agentResult.alreadySent;
 }
@@ -118,20 +118,20 @@ Never duplicate data structures, lists, constants, or configurations across file
 ### Rule: One Definition, Many References
 
 ❌ **Bad:** Duplicated tool lists
-```javascript
-// prompts.js
+```typescript
+// prompts.ts
 const tools = ['create_image', 'create_video', 'search_web', 'create_music'];
 
-// agentService.js - DUPLICATION!
+// agentService.ts - DUPLICATION!
 const availableTools = ['create_image', 'create_video', 'search_web', 'create_music'];
 
-// constants.js - MORE DUPLICATION!
+// constants.ts - MORE DUPLICATION!
 const toolNames = ['create_image', 'create_video', 'search_web', 'create_music'];
 ```
 
 ✅ **Good:** Single source, multiple consumers
-```javascript
-// config/tools-list.js - THE ONLY SOURCE
+```typescript
+// config/tools-list.ts - THE ONLY SOURCE
 const TOOLS = {
   create_image: { name: 'create_image', description: '...' },
   create_video: { name: 'create_video', description: '...' },
@@ -139,29 +139,29 @@ const TOOLS = {
   create_music: { name: 'create_music', description: '...' }
 };
 
-module.exports = { TOOLS };
+export { TOOLS };
 
-// prompts.js - CONSUMES from SSOT
-const { TOOLS } = require('./tools-list');
+// prompts.ts - CONSUMES from SSOT
+import { TOOLS } from './tools-list';
 const toolsList = Object.keys(TOOLS).join(', ');
 
-// agentService.js - CONSUMES from SSOT
-const { TOOLS } = require('../config/tools-list');
+// agentService.ts - CONSUMES from SSOT
+import { TOOLS } from '../config/tools-list';
 const availableTools = Object.values(TOOLS);
 
-// constants.js - CONSUMES from SSOT
-const { TOOLS } = require('../../config/tools-list');
+// constants.ts - CONSUMES from SSOT
+import { TOOLS } from '../../config/tools-list';
 const toolNames = Object.keys(TOOLS);
 ```
 
 ### Examples of SSOT Violations to Avoid:
 
-1. **Tool Definitions**: Define once in `config/tools-list.js`, import everywhere
-2. **Provider Names**: Define once in `config/providers.js`, import everywhere
-3. **Language Instructions**: Define once in `config/prompts.js`, import everywhere
-4. **Error Messages**: Define once in `config/messages.js`, import everywhere
-5. **API Endpoints**: Define once in `config/api.js`, import everywhere
-6. **Validation Rules**: Define once in `utils/validation.js`, import everywhere
+1. **Tool Definitions**: Define once in `config/tools-list.ts`, import everywhere
+2. **Provider Names**: Define once in `config/providers.ts`, import everywhere
+3. **Language Instructions**: Define once in `config/prompts.ts`, import everywhere
+4. **Error Messages**: Define once in `config/messages.ts`, import everywhere
+5. **API Endpoints**: Define once in `config/api.ts`, import everywhere
+6. **Validation Rules**: Define once in `utils/validation.ts`, import everywhere
 
 ### Benefits of SSOT:
 
@@ -175,7 +175,7 @@ const toolNames = Object.keys(TOOLS);
 
 When you find duplicated data:
 
-1. ✅ Create a central config file (e.g., `config/tools-list.js`)
+1. ✅ Create a central config file (e.g., `config/tools-list.ts`)
 2. ✅ Move ALL instances of the data to this ONE file
 3. ✅ Export utility functions to format/filter the data as needed
 4. ✅ Update all consumers to import from the central file
@@ -207,8 +207,8 @@ When you find duplicated data:
 5. **Models** (`models/`) - Data structures, database schemas
 
 ❌ **Bad:** Mixed concerns
-```javascript
-// routes/whatsappRoutes.js
+```typescript
+// routes/whatsappRoutes.ts
 // ❌ Business logic in route handler!
 router.post('/webhook', (req, res) => {
   const imageUrl = await generateImageWithGemini(prompt); // ← Should be in service!
@@ -218,14 +218,14 @@ router.post('/webhook', (req, res) => {
 ```
 
 ✅ **Good:** Clear separation
-```javascript
-// routes/whatsappRoutes.js - Only routing
+```typescript
+// routes/whatsappRoutes.ts - Only routing
 router.post('/webhook', async (req, res) => {
   const result = await agentService.processRequest(req.body);
   res.json(result);
 });
 
-// services/agentService.js - Business logic
+// services/agentService.ts - Business logic
 async function processRequest(data) {
   const imageUrl = await imageService.generate(prompt);
   const text = await translationService.translate(imageUrl.caption, 'he');
@@ -273,7 +273,7 @@ async function processRequest(data) {
 
 **Step 1:** Identify domains/responsibilities
 ```javascript
-// Before: services/agentService.js (3900 lines) ❌
+// Before: services/agentService.ts (3900 lines) ❌
 // - Tool definitions
 // - Execution logic
 // - Ack messages
@@ -284,25 +284,25 @@ async function processRequest(data) {
 **Step 2:** Create domain-specific modules
 ```
 services/agent/
-  ├── agentService.js        # Orchestration ONLY (max 300 lines) ✅
+  ├── agentService.ts        # Orchestration ONLY (max 300 lines) ✅
   ├── tools/
-  │   ├── imageTools.js      # Image-related tools
-  │   ├── searchTools.js     # Search-related tools
-  │   └── locationTools.js   # Location-related tools
+  │   ├── imageTools.ts      # Image-related tools
+  │   ├── searchTools.ts     # Search-related tools
+  │   └── locationTools.ts   # Location-related tools
   ├── execution/
-  │   ├── singleStep.js      # Single step execution
-  │   └── multiStep.js       # Multi-step execution
+  │   ├── singleStep.ts      # Single step execution
+  │   └── multiStep.ts       # Multi-step execution
   └── utils/
-      ├── ackMessages.js     # Ack message building
-      └── contextBuilder.js  # Context building
+      ├── ackMessages.ts     # Ack message building
+      └── contextBuilder.ts  # Context building
 ```
 
 **Step 3:** Main file becomes thin orchestrator
-```javascript
-// agentService.js - Now clean and focused! ✅
-const { imageTools } = require('./tools/imageTools');
-const { singleStep } = require('./execution/singleStep');
-const { buildAck } = require('./utils/ackMessages');
+```typescript
+// agentService.ts - Now clean and focused! ✅
+import { imageTools } from './tools/imageTools';
+import { singleStep } from './execution/singleStep';
+import { buildAck } from './utils/ackMessages';
 
 async function executeAgent(request) {
   const ack = buildAck(request);
@@ -324,21 +324,21 @@ async function executeAgent(request) {
 
 #### ✅ **Success Story:**
 ```
-gemini/core.js: 2724 lines → Split into 4 modules:
-  - imageGeneration.js (509 lines)
-  - videoGeneration.js (765 lines)
-  - textOperations.js (688 lines)
-  - specialOperations.js (820 lines)
+gemini/core.ts: 2724 lines → Split into 4 modules:
+  - imageGeneration.ts (509 lines)
+  - videoGeneration.ts (765 lines)
+  - textOperations.ts (688 lines)
+  - specialOperations.ts (820 lines)
 Result: -100% monolith, +400% maintainability
 ```
 
 #### ✅ **Success Story:**
 ```
-agentService.js: 4187 lines → Reduced to 880 lines (-79%)
+agentService.ts: 4187 lines → Reduced to 880 lines (-79%)
 Extracted:
-  - metaTools.js (3012 lines)
-  - singleStep.js (233 lines)
-  - ackUtils.js (136 lines)
+  - metaTools.ts (3012 lines)
+  - singleStep.ts (233 lines)
+  - ackUtils.ts (136 lines)
 Result: Thin orchestrator, clear responsibilities
 ```
 
@@ -578,13 +578,13 @@ This enforces SSOT and ensures consistency across all execution paths.
 
 ### Prompts Separation Rules:
 
-1. **ALL prompts in `config/prompts.js`**:
+1. **ALL prompts in `config/prompts.ts`**:
    - System instructions for LLMs (Gemini, OpenAI, Grok)
    - Multi-step planner prompts
    - Agent routing prompts
    - Tool descriptions and examples
    
-2. **Tool definitions in `config/tools-list.js`**:
+2. **Tool definitions in `config/tools-list.ts`**:
    - Single source of truth for all tools
    - Descriptions, parameters, usage patterns
    - No duplication in other files
@@ -592,20 +592,20 @@ This enforces SSOT and ensures consistency across all execution paths.
 3. **Never hardcode prompts** in service files:
 
 ❌ **Bad:**
-```javascript
-// services/imageService.js
+```typescript
+// services/imageService.ts
 const prompt = "Generate an image based on this description..."; // ← Hardcoded!
 const result = await gemini.generate(prompt);
 ```
 
 ✅ **Good:**
-```javascript
-// config/prompts.js
+```typescript
+// config/prompts.ts
 module.exports = {
   imageGeneration: (userPrompt) => `Generate an image: ${userPrompt}`
 };
 
-// services/imageService.js
+// services/imageService.ts
 const { imageGeneration } = require('../config/prompts');
 const prompt = imageGeneration(userPrompt);
 const result = await gemini.generate(prompt);
@@ -616,11 +616,11 @@ const result = await gemini.generate(prompt);
 **MUST be consistent across single-step AND multi-step execution.**
 
 1. **Centralized Ack storage**:
-   - WhatsApp Acks: `services/whatsapp/messaging.js` (sendAck function)
-   - Agent Acks: `services/agent/config/constants.js` (TOOL_ACK_MESSAGES)
+   - WhatsApp Acks: `services/whatsapp/messaging.ts` (sendAck function)
+   - Agent Acks: `services/agent/config/constants.ts` (TOOL_ACK_MESSAGES)
 
 2. **Include provider names** where relevant:
-   ```javascript
+   ```typescript
    TOOL_ACK_MESSAGES: {
      create_image: '🎨 יוצר תמונה עם __PROVIDER__...',
      create_video: '🎬 יוצר וידאו עם __PROVIDER__...',
@@ -631,7 +631,6 @@ const result = await gemini.generate(prompt);
 3. **Same format for all paths**:
    - Single-step commands → Use same Ack format
    - Multi-step commands → Use same Ack format
-   - Fallback attempts → Send Ack for each provider
 
 ### Benefits:
 
