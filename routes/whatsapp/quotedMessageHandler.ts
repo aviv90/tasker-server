@@ -54,7 +54,7 @@ export async function handleQuotedMessage(quotedMessage: MessageData, currentPro
 
       // STEP 4: If still no downloadUrl, throw error
       if (!downloadUrl || downloadUrl === '') {
-        logger.warn(`❌ No downloadUrl or thumbnail found for quoted ${quotedType}`);
+        logger.warn(`❌ No downloadUrl or thumbnail found for quoted ${quotedType} (stanzaId: ${quotedMessage.stanzaId})`);
         throw new Error(`לא הצלחתי לגשת ל${quotedType === 'imageMessage' ? 'תמונה' : quotedType === 'videoMessage' ? 'וידאו' : 'מדיה'} המצוטטת. ייתכן שהיא נמחקה או ממספר אחר.`);
       }
 

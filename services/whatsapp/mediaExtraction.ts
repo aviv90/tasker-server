@@ -212,5 +212,17 @@ export async function extractQuotedMediaUrls(quotedMessage: MessageData, chatId:
         }
     }
 
+    // DEBUG: Log breakdown if media URL is missing
+    if ((hasImage && !imageUrl) || (hasVideo && !videoUrl) || (hasAudio && !audioUrl)) {
+        logger.warn(`❌ Failed to extract media URL for quoted message`, {
+            type: quotedMessage.typeMessage,
+            stanzaId: quotedMessage.stanzaId,
+            keys: Object.keys(quotedMessage),
+            hasDownloadUrl: !!quotedMessage.downloadUrl,
+            // Log full object for debugging (truncated)
+            data: JSON.stringify(quotedMessage).substring(0, 500)
+        });
+    }
+
     return { hasImage, hasVideo, hasAudio, imageUrl, videoUrl, audioUrl };
 }
