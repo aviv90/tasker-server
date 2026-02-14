@@ -33,6 +33,18 @@ export const VIDEO_DURATION_LIMITS: Record<string, {
         values: [4, 6, 8],
         default: 8,
         label: '4, 6 או 8'
+    },
+    [PROVIDERS.VIDEO.SORA]: {
+        type: 'range',
+        values: [1, 15], // min, max
+        default: 15,
+        label: '1-15'
+    },
+    [PROVIDERS.VIDEO.SORA_PRO]: {
+        type: 'range',
+        values: [1, 25], // min, max
+        default: 15,
+        label: '1-25'
     }
 };
 

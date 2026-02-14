@@ -59,15 +59,36 @@ function extractProviderFromPrompt(prompt: string): string | null {
 }
 
 /**
+ * Extract duration from prompt text if LLM didn't set it
+ * This is a FALLBACK for when the LLM fails to extract the duration parameter
+ * Supports Hebrew (שניות) and English (seconds/s) patterns
+ */
+function extractDurationFromPrompt(text: string): number | null {
+  // Hebrew patterns: "15 שניות", "באורך 10 שניות", "של 5 שניות"
+  const hebrewMatch = text.match(/(\d+)\s*שניות/);
+  if (hebrewMatch) {
+    return parseInt(hebrewMatch[1]!, 10);
+  }
+
+  // English patterns: "15 seconds", "15s", "10 sec"
+  const englishMatch = text.match(/(\d+)\s*(?:seconds?|secs?|s)\b/i);
+  if (englishMatch) {
+    return parseInt(englishMatch[1]!, 10);
+  }
+
+  return null;
+}
+
+/**
  * Tool: Create Video
  * 
- * Default provider: Veo 3
+ * Default provider: Grok
  * No automatic fallbacks - user can use retry_last_command for manual retry
  */
 export const create_video = createTool<CreateVideoArgs>(
   {
     name: 'create_video',
-    description: 'Create a video from text description. Default provider: Veo 3 (Google). Other providers: Sora/Sora-Pro (OpenAI), Kling, Grok. CRITICAL: If user mentions a specific provider (e.g., "עם Grok", "with Sora", "באמצעות קלינג"), you MUST set the provider parameter!',
+    description: 'Create a video from text description. Default provider: Grok (xAI). Other providers: Veo 3 (Google), Sora/Sora-Pro (OpenAI), Kling. CRITICAL: If user mentions a specific provider (e.g., "עם Veo", "with Sora", "באמצעות קלינג"), you MUST set the provider parameter!',
     parameters: {
       type: 'object',
       properties: {
@@ -93,7 +114,7 @@ export const create_video = createTool<CreateVideoArgs>(
     }
   },
   async (args, context) => {
-    // Determine provider: user-requested, fallback extraction from ORIGINAL user text, or default (Veo 3)
+    // Determine provider: user-requested, fallback extraction from ORIGINAL user text, or default (Grok)
     // ROOT CAUSE FIX: LLM translates prompt to English, removing provider keywords (e.g., "גרוק" → "cat running")
     // We extract from context.originalInput.userText which contains the ORIGINAL Hebrew/English request
     let provider = args.provider as string | undefined;
@@ -116,7 +137,7 @@ export const create_video = createTool<CreateVideoArgs>(
         }
       }
     }
-    provider = provider || PROVIDERS.VIDEO.VEO3;
+    provider = provider || PROVIDERS.VIDEO.GROK;
 
     logger.debug(`🔧 [Agent Tool] create_video called with provider: ${provider}`, {
       prompt: args.prompt?.substring(0, 100),
@@ -158,8 +179,28 @@ export const create_video = createTool<CreateVideoArgs>(
 
       logger.info(`🎬 [create_video] Generating with provider: ${provider}`);
 
+      // Extract duration: use args.duration if LLM set it, otherwise extract from original user text
+      let duration = args.duration as number | undefined;
+      if (duration === undefined || duration === null) {
+        const originalUserText = (context.originalInput as Record<string, unknown>)?.userText as string | undefined;
+        if (originalUserText) {
+          const extracted = extractDurationFromPrompt(originalUserText);
+          if (extracted !== null) {
+            logger.info(`🔧 [create_video] LLM missed duration, extracted from original text: ${extracted}s`);
+            duration = extracted;
+          }
+        }
+        if (duration === undefined && args.prompt) {
+          const extracted = extractDurationFromPrompt(args.prompt);
+          if (extracted !== null) {
+            logger.info(`🔧 [create_video] LLM missed duration, extracted from prompt: ${extracted}s`);
+            duration = extracted;
+          }
+        }
+      }
+
       // Validate duration for the selected provider
-      const durationResult = validateVideoDuration(provider, args.duration);
+      const durationResult = validateVideoDuration(provider, duration);
       if (durationResult.error) {
         const limits = VIDEO_DURATION_LIMITS[provider];
         return {
@@ -179,7 +220,7 @@ export const create_video = createTool<CreateVideoArgs>(
           videoResult = (await openaiService.generateVideoWithSoraForWhatsApp(
             prompt,
             null,
-            { model }
+            { model, seconds: validatedDuration }
           )) as VideoProviderResult;
         } else if (provider === PROVIDERS.VIDEO.GROK || provider === 'grok') {
           // Grok (via xAI)
@@ -263,13 +304,13 @@ export const create_video = createTool<CreateVideoArgs>(
 /**
  * Tool: Image to Video
  * 
- * Default provider: Veo 3
+ * Default provider: Grok
  * No automatic fallbacks - user can use retry_last_command for manual retry
  */
 export const image_to_video = createTool<ImageToVideoArgs>(
   {
     name: 'image_to_video',
-    description: 'Convert/Animate an image to video. Default provider: Veo 3. Other providers: Sora/Sora-Pro (OpenAI), Kling, Grok. CRITICAL: If user mentions a specific provider (e.g., "עם Grok", "with Sora"), you MUST set the provider parameter!',
+    description: 'Convert/Animate an image to video. Default provider: Grok. Other providers: Veo 3, Sora, Sora-Pro, Kling. CRITICAL: If user mentions a specific provider (e.g., "עם Veo", "with Sora"), you MUST set the provider parameter!',
     parameters: {
       type: 'object',
       properties: {
@@ -318,7 +359,7 @@ export const image_to_video = createTool<ImageToVideoArgs>(
         }
       }
     }
-    provider = provider || PROVIDERS.VIDEO.VEO3;
+    provider = provider || PROVIDERS.VIDEO.GROK;
 
     logger.debug(`🔧 [Agent Tool] image_to_video called`, {
       imageUrl: args.image_url?.substring(0, 50),
@@ -359,8 +400,28 @@ export const image_to_video = createTool<ImageToVideoArgs>(
 
       logger.info(`🎬 [image_to_video] Generating with provider: ${provider}`);
 
+      // Extract duration: use args.duration if LLM set it, otherwise extract from original user text
+      let duration = args.duration as number | undefined;
+      if (duration === undefined || duration === null) {
+        const originalUserText = (context.originalInput as Record<string, unknown>)?.userText as string | undefined;
+        if (originalUserText) {
+          const extracted = extractDurationFromPrompt(originalUserText);
+          if (extracted !== null) {
+            logger.info(`🔧 [image_to_video] LLM missed duration, extracted from original text: ${extracted}s`);
+            duration = extracted;
+          }
+        }
+        if (duration === undefined && args.prompt) {
+          const extracted = extractDurationFromPrompt(args.prompt);
+          if (extracted !== null) {
+            logger.info(`🔧 [image_to_video] LLM missed duration, extracted from prompt: ${extracted}s`);
+            duration = extracted;
+          }
+        }
+      }
+
       // Validate duration for the selected provider
-      const durationResult = validateVideoDuration(provider, args.duration);
+      const durationResult = validateVideoDuration(provider, duration);
       if (durationResult.error) {
         const limits = VIDEO_DURATION_LIMITS[provider];
         return {
@@ -380,7 +441,7 @@ export const image_to_video = createTool<ImageToVideoArgs>(
           videoResult = (await openaiService.generateVideoWithSoraFromImageForWhatsApp(
             prompt,
             imageBuffer,
-            { model }
+            { model, seconds: validatedDuration }
           )) as VideoProviderResult;
         } else if (provider === PROVIDERS.VIDEO.GROK || provider === 'grok') {
           // Grok (via xAI)

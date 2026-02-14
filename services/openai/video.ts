@@ -46,18 +46,13 @@ interface WhatsAppVideoResult {
 // Shared Helper Functions (DRY)
 // ============================================================================
 
-const SUPPORTED_DURATIONS = [4, 8, 12, 15, 25];
 const DEFAULT_DURATION = 15;
 
-/** Validate and normalize video duration */
+/** Validate and normalize video duration.
+ * Duration limits are enforced by the centralized SSOT in videoDuration.ts.
+ * This function just applies a default if none was provided. */
 function validateDuration(seconds?: number): number {
-    if (seconds && SUPPORTED_DURATIONS.includes(Number(seconds))) {
-        return seconds;
-    }
-    if (seconds) {
-        logger.warn(`⚠️ Invalid duration ${seconds}s. Using ${DEFAULT_DURATION}s (supported: ${SUPPORTED_DURATIONS.join(', ')})`);
-    }
-    return DEFAULT_DURATION;
+    return seconds || DEFAULT_DURATION;
 }
 
 /** Poll for video completion */
