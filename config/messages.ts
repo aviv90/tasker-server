@@ -146,7 +146,9 @@ export const ERROR = {
   longTermMemory: (message: string) => `שגיאה בגישה לזיכרון ארוך טווח: ${message}`,
   retry: (message: string) => `שגיאה בביצוע חוזר: ${message}`,
   emergencyResponse: (provider?: string) =>
-    `מצטער, קרתה שגיאה בעיבוד הבקשה שלך${provider ? ` עם ${provider}` : ''}. נסה שוב מאוחר יותר.`
+    `מצטער, קרתה שגיאה בעיבוד הבקשה שלך${provider ? ` עם ${provider}` : ''}. נסה שוב מאוחר יותר.`,
+  invalidVideoDuration: (provider: string, allowed: string) =>
+    `משך הווידאו שביקשת לא נתמך ב-${provider}. האורכים הנתמכים: ${allowed} שניות.`
 } as const;
 
 /**

@@ -61,17 +61,17 @@ class ReplicateWhatsApp {
   /**
    * Generate video from image for WhatsApp
    */
-  async generateVideoFromImageForWhatsApp(imageBuffer: Buffer, prompt: string, req: Request | null = null): Promise<WhatsAppVideoResult> {
+  async generateVideoFromImageForWhatsApp(imageBuffer: Buffer, prompt: string, req: Request | null = null, options: { duration?: number } = {}): Promise<WhatsAppVideoResult> {
     try {
-      logger.info('🎬 Starting Kling v2.1 Master image-to-video generation');
+      logger.info('🎬 Starting Kling image-to-video generation');
 
       const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
 
-      // Kling v2.1 Master parameters for WhatsApp (9:16 format)
+      // Kling parameters for WhatsApp (9:16 format)
       const input = {
         start_image: base64Image,
         prompt: prompt || "animate this image with smooth motion",
-        duration: 5,
+        duration: options.duration ?? 5,
         aspect_ratio: "9:16"
       };
 
@@ -93,14 +93,14 @@ class ReplicateWhatsApp {
       const pollResult = await helpers.pollPrediction(replicate, prediction.id, maxAttempts, 'image-to-video generation');
 
       if (!pollResult.success) {
-        logger.error('❌ Kling v2.1 Master image-to-video generation failed:', pollResult.error);
+        logger.error('❌ Kling image-to-video generation failed:', pollResult.error);
         return {
           success: false,
           error: pollResult.error
         };
       }
 
-      logger.info('✅ Kling v2.1 Master image-to-video generation completed');
+      logger.info('✅ Kling image-to-video generation completed');
 
       const videoURL = helpers.extractVideoUrl(pollResult.result?.output);
 
@@ -108,7 +108,7 @@ class ReplicateWhatsApp {
       const fileName = `kling_image_video_${videoId}.mp4`;
       const videoUrl = await this.downloadAndSaveVideo(videoURL, fileName, req);
 
-      logger.info('✅ Kling v2.1 Master image-to-video generated successfully');
+      logger.info('✅ Kling image-to-video generated successfully');
 
       return {
         success: true,
@@ -119,7 +119,7 @@ class ReplicateWhatsApp {
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred during image-to-video generation';
-      logger.error('❌ Kling v2.1 Master image-to-video generation error:', err as Error);
+      logger.error('❌ Kling image-to-video generation error:', err as Error);
       return {
         success: false,
         error: errorMessage
@@ -251,15 +251,15 @@ class ReplicateWhatsApp {
   /**
    * Generate video from text for WhatsApp
    */
-  async generateVideoWithTextForWhatsApp(prompt: string, _req: Request | null = null): Promise<WhatsAppVideoResult> {
+  async generateVideoWithTextForWhatsApp(prompt: string, _req: Request | null = null, options: { duration?: number } = {}): Promise<WhatsAppVideoResult> {
     try {
-      logger.info('🎬 Starting Kling v2.1 Master text-to-video generation');
+      logger.info('🎬 Starting Kling text-to-video generation');
 
-      // Use Kling v2.1 Master with mobile-optimized settings
+      // Kling parameters with mobile-optimized settings
       const inputParams = {
         prompt: prompt,
         aspect_ratio: "9:16",
-        duration: 5,
+        duration: options.duration ?? 5,
         negative_prompt: ""
       };
 

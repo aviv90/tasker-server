@@ -23,6 +23,7 @@ import type {
 } from './types';
 
 import { cleanPromptFromContext } from '../../utils/promptCleaner';
+import { validateVideoDuration, VIDEO_DURATION_LIMITS } from '../../utils/videoDuration';
 
 /**
  * Extract provider from prompt text if LLM didn't set it
@@ -81,7 +82,7 @@ export const create_video = createTool<CreateVideoArgs>(
         },
         duration: {
           type: 'number',
-          description: 'Optional. Video duration in seconds (1-15 for Grok, check provider limits for others).'
+          description: 'Optional. Video duration in seconds. Grok: 1-15, Kling: 5 or 10, Veo: 4/6/8. If not specified, provider default is used.'
         }
       },
       required: ['prompt']
@@ -157,11 +158,22 @@ export const create_video = createTool<CreateVideoArgs>(
 
       logger.info(`🎬 [create_video] Generating with provider: ${provider}`);
 
+      // Validate duration for the selected provider
+      const durationResult = validateVideoDuration(provider, args.duration);
+      if (durationResult.error) {
+        const limits = VIDEO_DURATION_LIMITS[provider];
+        return {
+          success: false,
+          error: ERROR.invalidVideoDuration(formatProviderName(provider) || provider, limits?.label || durationResult.error)
+        };
+      }
+      const validatedDuration = durationResult.duration;
+
       // Generate video with selected provider (no fallback)
       let videoResult: VideoProviderResult;
       try {
         if (provider === PROVIDERS.VIDEO.VEO3) {
-          videoResult = (await geminiService.generateVideoForWhatsApp(prompt)) as VideoProviderResult;
+          videoResult = (await geminiService.generateVideoForWhatsApp(prompt, null, { duration: validatedDuration })) as VideoProviderResult;
         } else if (provider === PROVIDERS.VIDEO.SORA || provider === PROVIDERS.VIDEO.SORA_PRO) {
           const model = provider === PROVIDERS.VIDEO.SORA_PRO ? 'sora-2-pro' : 'sora-2';
           videoResult = (await openaiService.generateVideoWithSoraForWhatsApp(
@@ -171,12 +183,12 @@ export const create_video = createTool<CreateVideoArgs>(
           )) as VideoProviderResult;
         } else if (provider === PROVIDERS.VIDEO.GROK || provider === 'grok') {
           // Grok (via xAI)
-          logger.info(`🎬 Executing Grok video generation... ${args.duration ? `(Duration: ${args.duration}s)` : ''}`);
-          videoResult = (await grokService.generateVideoForWhatsApp(prompt, { duration: args.duration })) as VideoProviderResult;
+          logger.info(`🎬 Executing Grok video generation... ${validatedDuration ? `(Duration: ${validatedDuration}s)` : ''}`);
+          videoResult = (await grokService.generateVideoForWhatsApp(prompt, { duration: validatedDuration })) as VideoProviderResult;
         } else {
           // Kling (via Replicate) - Default route for remaining providers
           logger.info(`🎬 Executing Kling (Replicate) video generation (provider: ${provider})...`);
-          videoResult = (await replicateService.generateVideoWithTextForWhatsApp(prompt)) as VideoProviderResult;
+          videoResult = (await replicateService.generateVideoWithTextForWhatsApp(prompt, null, { duration: validatedDuration })) as VideoProviderResult;
         }
       } catch (genError) {
         context.expectedMediaType = null;
@@ -276,7 +288,7 @@ export const image_to_video = createTool<ImageToVideoArgs>(
         },
         duration: {
           type: 'number',
-          description: 'Optional. Video duration in seconds (1-15 for Grok).'
+          description: 'Optional. Video duration in seconds. Grok: 1-15, Kling: 5 or 10, Veo: 4/6/8. If not specified, provider default is used.'
         }
       },
       required: ['image_url', 'prompt']
@@ -347,11 +359,22 @@ export const image_to_video = createTool<ImageToVideoArgs>(
 
       logger.info(`🎬 [image_to_video] Generating with provider: ${provider}`);
 
+      // Validate duration for the selected provider
+      const durationResult = validateVideoDuration(provider, args.duration);
+      if (durationResult.error) {
+        const limits = VIDEO_DURATION_LIMITS[provider];
+        return {
+          success: false,
+          error: ERROR.invalidVideoDuration(formatProviderName(provider) || provider, limits?.label || durationResult.error)
+        };
+      }
+      const validatedDuration = durationResult.duration;
+
       // Generate video with selected provider (no fallback)
       let videoResult: VideoProviderResult;
       try {
         if (provider === PROVIDERS.VIDEO.VEO3) {
-          videoResult = (await geminiService.generateVideoFromImageForWhatsApp(prompt, imageBuffer)) as VideoProviderResult;
+          videoResult = (await geminiService.generateVideoFromImageForWhatsApp(prompt, imageBuffer, null, { duration: validatedDuration })) as VideoProviderResult;
         } else if (provider === PROVIDERS.VIDEO.SORA || provider === PROVIDERS.VIDEO.SORA_PRO) {
           const model = provider === PROVIDERS.VIDEO.SORA_PRO ? 'sora-2-pro' : 'sora-2';
           videoResult = (await openaiService.generateVideoWithSoraFromImageForWhatsApp(
@@ -361,12 +384,12 @@ export const image_to_video = createTool<ImageToVideoArgs>(
           )) as VideoProviderResult;
         } else if (provider === PROVIDERS.VIDEO.GROK || provider === 'grok') {
           // Grok (via xAI)
-          logger.info(`🎬 Executing Grok image-to-video generation... ${args.duration ? `(Duration: ${args.duration}s)` : ''}`);
-          videoResult = (await grokService.generateVideoFromImageForWhatsApp(prompt, imageBuffer, { duration: args.duration })) as VideoProviderResult;
+          logger.info(`🎬 Executing Grok image-to-video generation... ${validatedDuration ? `(Duration: ${validatedDuration}s)` : ''}`);
+          videoResult = (await grokService.generateVideoFromImageForWhatsApp(prompt, imageBuffer, { duration: validatedDuration })) as VideoProviderResult;
         } else {
           // Kling (via Replicate) - Default route for remaining providers
           logger.info(`🎬 Executing Kling (Replicate) image-to-video generation (provider: ${provider})...`);
-          videoResult = (await replicateService.generateVideoFromImageForWhatsApp(imageBuffer, prompt)) as VideoProviderResult;
+          videoResult = (await replicateService.generateVideoFromImageForWhatsApp(imageBuffer, prompt, null, { duration: validatedDuration })) as VideoProviderResult;
         }
       } catch (genError) {
         const errorMessage = genError instanceof Error ? genError.message : String(genError);

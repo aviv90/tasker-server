@@ -212,7 +212,7 @@ class VeoGeneration {
   /**
    * Generate video from text prompt
    */
-  async generateVideoWithText(prompt: string): Promise<VideoGenerationResult> {
+  async generateVideoWithText(prompt: string, options: { duration?: number } = {}): Promise<VideoGenerationResult> {
     try {
       logger.info('🎬 Starting Veo 3 text-to-video generation - Stable version');
       const cleanPrompt = sanitizeText(prompt);
@@ -222,7 +222,8 @@ class VeoGeneration {
         model: "veo-3.1-generate-preview",
         prompt: cleanPrompt,
         config: {
-          aspectRatio: "9:16"
+          aspectRatio: "9:16",
+          ...(options.duration ? { durationSeconds: options.duration } : {})
         }
       } as any);
 
@@ -273,7 +274,7 @@ class VeoGeneration {
   /**
    * Generate video from image and text prompt
    */
-  async generateVideoWithImage(prompt: string, imageBuffer: Buffer): Promise<VideoGenerationResult> {
+  async generateVideoWithImage(prompt: string, imageBuffer: Buffer, options: { duration?: number } = {}): Promise<VideoGenerationResult> {
     try {
       logger.info('🎬 Starting Veo 3 image-to-video generation');
 
@@ -304,7 +305,8 @@ class VeoGeneration {
           mimeType: mimeType
         },
         config: {
-          aspectRatio: "9:16"
+          aspectRatio: "9:16",
+          ...(options.duration ? { durationSeconds: options.duration } : {})
         }
       } as any);
 

@@ -66,9 +66,10 @@ export async function generateVideoFromVideo(
  */
 export async function generateVideoWithTextForWhatsApp(
   prompt: string,
-  req: Request | null = null
+  req: Request | null = null,
+  options: { duration?: number } = {}
 ): Promise<ReplicateWhatsAppVideoResult> {
-  return await replicateWhatsApp.generateVideoWithTextForWhatsApp(prompt, req);
+  return await replicateWhatsApp.generateVideoWithTextForWhatsApp(prompt, req, options);
 }
 
 /**
@@ -77,9 +78,10 @@ export async function generateVideoWithTextForWhatsApp(
 export async function generateVideoFromImageForWhatsApp(
   imageBuffer: Buffer,
   prompt: string | null = null,
-  req: Request | null = null
+  req: Request | null = null,
+  options: { duration?: number } = {}
 ): Promise<ReplicateWhatsAppVideoResult> {
-  return await replicateWhatsApp.generateVideoFromImageForWhatsApp(imageBuffer, prompt || '', req);
+  return await replicateWhatsApp.generateVideoFromImageForWhatsApp(imageBuffer, prompt || '', req, options);
 }
 
 /**

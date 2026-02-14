@@ -21,28 +21,28 @@ export async function analyzeVideoWithText(prompt: string, videoBuffer: Buffer):
 /**
  * Generate video from text prompt
  */
-export async function generateVideoWithText(prompt: string): Promise<unknown> {
-  return await veoGeneration.generateVideoWithText(prompt);
+export async function generateVideoWithText(prompt: string, options: { duration?: number } = {}): Promise<unknown> {
+  return await veoGeneration.generateVideoWithText(prompt, options);
 }
 
 /**
  * Generate video from image and text prompt
  */
-export async function generateVideoWithImage(prompt: string, imageBuffer: Buffer): Promise<unknown> {
-  return await veoGeneration.generateVideoWithImage(prompt, imageBuffer);
+export async function generateVideoWithImage(prompt: string, imageBuffer: Buffer, options: { duration?: number } = {}): Promise<unknown> {
+  return await veoGeneration.generateVideoWithImage(prompt, imageBuffer, options);
 }
 
 /**
  * Generate video for WhatsApp from text prompt
  */
-export async function generateVideoForWhatsApp(prompt: string, req: Request | null = null): Promise<unknown> {
-  return await whatsappVideoGeneration.generateVideoForWhatsApp(prompt, req);
+export async function generateVideoForWhatsApp(prompt: string, req: Request | null = null, options: { duration?: number } = {}): Promise<unknown> {
+  return await whatsappVideoGeneration.generateVideoForWhatsApp(prompt, req, options);
 }
 
 /**
  * Generate video for WhatsApp from image and text prompt
  */
-export async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Buffer, req: Request | null = null): Promise<unknown> {
-  return await whatsappVideoGeneration.generateVideoFromImageForWhatsApp(prompt, imageBuffer, req);
+export async function generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Buffer, req: Request | null = null, options: { duration?: number } = {}): Promise<unknown> {
+  return await whatsappVideoGeneration.generateVideoFromImageForWhatsApp(prompt, imageBuffer, req, options);
 }
 

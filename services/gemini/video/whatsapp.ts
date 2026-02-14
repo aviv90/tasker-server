@@ -1,4 +1,4 @@
- 
+
 import { getStaticFileUrl } from '../../../utils/urlUtils';
 import { Request } from 'express';
 import logger from '../../../utils/logger';
@@ -28,12 +28,12 @@ class WhatsAppVideoGeneration {
   /**
    * Generate video for WhatsApp from text prompt
    */
-  async generateVideoForWhatsApp(prompt: string, req: Request | null = null): Promise<WhatsAppVideoResult> {
+  async generateVideoForWhatsApp(prompt: string, req: Request | null = null, options: { duration?: number } = {}): Promise<WhatsAppVideoResult> {
     try {
       logger.info('🎬 Starting Veo 3 text-to-video generation for WhatsApp');
 
       // 1. Generate Video
-      const genResult = await veoGeneration.generateVideoWithText(prompt);
+      const genResult = await veoGeneration.generateVideoWithText(prompt, options);
 
       if (genResult.error || !genResult.filePath || !genResult.result) {
         return {
@@ -73,12 +73,12 @@ class WhatsAppVideoGeneration {
   /**
    * Generate video for WhatsApp from image and text prompt
    */
-  async generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Buffer, req: Request | null = null): Promise<WhatsAppVideoResult> {
+  async generateVideoFromImageForWhatsApp(prompt: string, imageBuffer: Buffer, req: Request | null = null, options: { duration?: number } = {}): Promise<WhatsAppVideoResult> {
     try {
       logger.info('🎬 Starting Veo 3 image-to-video generation for WhatsApp');
 
       // 1. Generate Video
-      const genResult = await veoGeneration.generateVideoWithImage(prompt, imageBuffer);
+      const genResult = await veoGeneration.generateVideoWithImage(prompt, imageBuffer, options);
 
       if (genResult.error || !genResult.filePath || !genResult.result) {
         return {
