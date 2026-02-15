@@ -1,7 +1,7 @@
 /**
  * Video Creation Tools
  * 
- * Default provider: Veo 3
+ * Default provider: Grok
  * No automatic fallbacks - user can use retry_last_command for manual retry
  */
 
@@ -29,29 +29,31 @@ import { validateVideoDuration, VIDEO_DURATION_LIMITS } from '../../utils/videoD
  * Extract provider from prompt text if LLM didn't set it
  * This is a FALLBACK for when the LLM fails to extract the provider parameter
  */
-function extractProviderFromPrompt(prompt: string): string | null {
+export function extractProviderFromPrompt(prompt: string): string | null {
 
   // Grok patterns (English + Hebrew)
-  if (/\b(grok|גרוק|באמצעות\s*grok|עם\s*grok|with\s*grok)\b/i.test(prompt)) {
+  // Note: \b doesn't work well with Hebrew, so we use (?:^|\s) and (?:$|\s|[,.])
+  if (/(?:^|\s)(grok|גרוק|באמצעות\s*grok|עם\s*grok|with\s*grok)(?:$|\s|[,.])/i.test(prompt)) {
     return PROVIDERS.VIDEO.GROK;
   }
 
+  // Sora Pro patterns (check BEFORE Sora to handle patterns like "sora-pro")
+  if (/(?:^|\s)(sora[\s-]*pro|סורה[\s-]*פרו)(?:$|\s|[,.])/i.test(prompt)) {
+    return PROVIDERS.VIDEO.SORA_PRO;
+  }
+
   // Sora patterns
-  if (/\b(sora|סורה|with\s*sora|עם\s*sora)\b/i.test(prompt)) {
-    // Check for sora-pro
-    if (/\b(sora[\s-]*pro|סורה[\s-]*פרו)\b/i.test(prompt)) {
-      return PROVIDERS.VIDEO.SORA_PRO;
-    }
+  if (/(?:^|\s)(sora|סורה|with\s*sora|עם\s*sora)(?:$|\s|[,.])/i.test(prompt)) {
     return PROVIDERS.VIDEO.SORA;
   }
 
   // Kling patterns
-  if (/\b(kling|קלינג|with\s*kling|עם\s*kling)\b/i.test(prompt)) {
+  if (/(?:^|\s)(kling|קלינג|with\s*kling|עם\s*kling)(?:$|\s|[,.])/i.test(prompt)) {
     return PROVIDERS.VIDEO.KLING;
   }
 
   // Veo patterns (explicit request only)
-  if (/\b(veo|ויאו|veo\s*3|with\s*veo|עם\s*veo)\b/i.test(prompt)) {
+  if (/(?:^|\s)(veo|ויאו|veo\s*3|with\s*veo|עם\s*veo)(?:$|\s|[,.])/i.test(prompt)) {
     return PROVIDERS.VIDEO.VEO3;
   }
 
@@ -63,15 +65,16 @@ function extractProviderFromPrompt(prompt: string): string | null {
  * This is a FALLBACK for when the LLM fails to extract the duration parameter
  * Supports Hebrew (שניות) and English (seconds/s) patterns
  */
-function extractDurationFromPrompt(text: string): number | null {
-  // Hebrew patterns: "15 שניות", "באורך 10 שניות", "של 5 שניות"
-  const hebrewMatch = text.match(/(\d+)\s*שניות/);
+export function extractDurationFromPrompt(text: string): number | null {
+  // Hebrew patterns: "15 שניות", "15שניות", "15 שנ'", "משך 15 שניות"
+  const hebrewMatch = text.match(/(\d+)\s*(?:שניות|שנ'|שנ\b)/);
   if (hebrewMatch) {
     return parseInt(hebrewMatch[1]!, 10);
   }
 
-  // English patterns: "15 seconds", "15s", "10 sec"
-  const englishMatch = text.match(/(\d+)\s*(?:seconds?|secs?|s)\b/i);
+  // English patterns: "15 seconds", "15s", "10 sec", "duration: 15"
+  const englishMatch = text.match(/(\d+)\s*(?:seconds?|secs?|s)\b/i) ||
+    text.match(/(?:duration|length)\s*[:=]?\s*(\d+)/i);
   if (englishMatch) {
     return parseInt(englishMatch[1]!, 10);
   }
@@ -117,10 +120,23 @@ export const create_video = createTool<CreateVideoArgs>(
     // Determine provider: user-requested, fallback extraction from ORIGINAL user text, or default (Grok)
     // ROOT CAUSE FIX: LLM translates prompt to English, removing provider keywords (e.g., "גרוק" → "cat running")
     // We extract from context.originalInput.userText which contains the ORIGINAL Hebrew/English request
+    // STRONG DEFAULT: If LLM chooses a provider (e.g. Veo3) but it's NOT in the original text, we ignore it and use default (Grok).
     let provider = args.provider as string | undefined;
+
+    const originalUserText = (context.originalInput as Record<string, unknown>)?.userText as string | undefined;
+
+    // Verify LLM's choice against original text (Anti-Hallucination)
+    if (provider && provider !== PROVIDERS.VIDEO.GROK && originalUserText) {
+      const extractedFromOriginal = extractProviderFromPrompt(originalUserText);
+      // If the provider keywords are NOT found in original text, it's likely an LLM hallucination/preference
+      if (extractedFromOriginal !== provider) {
+        logger.warn(`⚠️ [create_video] LLM chose '${provider}' but keywords not found in user text. Enforcing default (Grok).`);
+        provider = undefined; // Reset to undefined to trigger fallback/default
+      }
+    }
+
     if (!provider) {
       // Try original user text first (most reliable source)
-      const originalUserText = (context.originalInput as Record<string, unknown>)?.userText as string | undefined;
       if (originalUserText) {
         const extractedProvider = extractProviderFromPrompt(originalUserText);
         if (extractedProvider) {
@@ -336,13 +352,26 @@ export const image_to_video = createTool<ImageToVideoArgs>(
     }
   },
   async (args, context) => {
-    // Determine provider: user-requested, fallback extraction from ORIGINAL user text, or default (Veo 3)
+    // Determine provider: user-requested, fallback extraction from ORIGINAL user text, or default (Grok)
     // ROOT CAUSE FIX: LLM translates prompt to English, removing provider keywords (e.g., "גרוק" → "cinematic cat")
     // We extract from context.originalInput.userText which contains the ORIGINAL Hebrew/English request
+    // STRONG DEFAULT: If LLM chooses a provider (e.g. Veo3) but it's NOT in the original text, we ignore it and use default (Grok).
     let provider = args.provider as string | undefined;
+
+    const originalUserText = (context.originalInput as Record<string, unknown>)?.userText as string | undefined;
+
+    // Verify LLM's choice against original text (Anti-Hallucination)
+    if (provider && provider !== PROVIDERS.VIDEO.GROK && originalUserText) {
+      const extractedFromOriginal = extractProviderFromPrompt(originalUserText);
+      // If the provider keywords are NOT found in original text, it's likely an LLM hallucination/preference
+      if (extractedFromOriginal !== provider) {
+        logger.warn(`⚠️ [image_to_video] LLM chose '${provider}' but keywords not found in user text. Enforcing default (Grok).`);
+        provider = undefined; // Reset to undefined to trigger fallback/default
+      }
+    }
+
     if (!provider) {
       // Try original user text first (most reliable source)
-      const originalUserText = (context.originalInput as Record<string, unknown>)?.userText as string | undefined;
       if (originalUserText) {
         const extractedProvider = extractProviderFromPrompt(originalUserText);
         if (extractedProvider) {
