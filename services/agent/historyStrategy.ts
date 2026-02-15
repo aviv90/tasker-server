@@ -45,13 +45,13 @@ export class HistoryStrategy {
                             let text = msg.content || '';
 
                             // If message has media metadata but no text, or just to reinforce, add [Media] marker
-                            // This ensures the LLM knows a file was sent even if there is no caption (e.g. sound effects)
+                            // This ensures the LLM knows a file was sent AND has the URL to use it
                             const metadata = msg.metadata || {};
                             const mediaIndicators = [];
 
-                            if (metadata.hasImage || metadata.imageUrl) mediaIndicators.push('[Image sent]');
-                            if (metadata.hasVideo || metadata.videoUrl) mediaIndicators.push('[Video sent]');
-                            if (metadata.hasAudio || metadata.audioUrl) mediaIndicators.push('[Audio sent]');
+                            if (metadata.hasImage || metadata.imageUrl) mediaIndicators.push(`[Image: ${metadata.imageUrl}]`);
+                            if (metadata.hasVideo || metadata.videoUrl) mediaIndicators.push(`[Video: ${metadata.videoUrl}]`);
+                            if (metadata.hasAudio || metadata.audioUrl) mediaIndicators.push(`[Audio: ${metadata.audioUrl}]`);
 
                             if (mediaIndicators.length > 0) {
                                 if (text) {

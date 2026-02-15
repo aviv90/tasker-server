@@ -73,7 +73,32 @@ export const create_image = createTool<CreateImageArgs>(
       }
 
       // Determine provider: user-requested or default (Gemini)
-      const provider = args.provider || PROVIDERS.IMAGE.GEMINI;
+      let provider = args.provider || PROVIDERS.IMAGE.GEMINI;
+
+      // STRONG DEFAULT ENFORCEMENT (Parity with Video tools)
+      // If LLM selected a specific provider, verify it actually appears in the original user request
+      if (args.provider && context.originalInput?.userText) {
+        const originalText = context.originalInput.userText.toLowerCase();
+        const providerName = args.provider.toLowerCase();
+
+        // Simple heuristic: if provider name isn't in text, it's likely a hallucination
+        // We permit "dalle" for openai, "flux" or "schnell" for replicate if needed, but for now strict check
+        // Check for common aliases
+        const aliases: Record<string, string[]> = {
+          [PROVIDERS.IMAGE.OPENAI]: ['openai', 'dalle', 'dall-e', 'gpt'],
+          [PROVIDERS.IMAGE.GROK]: ['grok', 'xai', 'elon'],
+          [PROVIDERS.IMAGE.GEMINI]: ['gemini', 'google', 'bard']
+        };
+
+        const validKeywords = [providerName, ...(aliases[provider] || [])];
+        const isRequested = validKeywords.some(k => originalText.includes(k));
+
+        if (!isRequested) {
+          logger.warn(`⚠️ [create_image] LLM chose '${provider}' but keywords not found in user text. Enforcing default (Gemini).`);
+          provider = PROVIDERS.IMAGE.GEMINI;
+        }
+      }
+
       const { geminiService, openaiService, grokService, greenApiService } = getServices();
 
       // Clean prompt from any context markers that may have leaked

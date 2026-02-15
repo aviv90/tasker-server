@@ -23,6 +23,7 @@ interface QuotedResult {
 export async function handleQuotedMessage(quotedMessage: MessageData, currentPrompt: string, chatId: string): Promise<QuotedResult> {
   try {
     logger.debug(`🔗 Processing quoted message: ${quotedMessage.stanzaId}`);
+    logger.debug(`📋 Full Quoted Message Structure: ${JSON.stringify(quotedMessage, null, 2)}`);
 
     // Extract quoted message type and content
     const quotedType = quotedMessage.typeMessage;
