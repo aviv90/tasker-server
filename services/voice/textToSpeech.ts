@@ -150,15 +150,29 @@ async function textToSpeech(
     }
 
     logger.debug(`🔄 Generating speech for ${text.length} characters...`);
+
+    // 30s timeout for TTS connection
+    const ttsPromise = (client.textToSpeech as any).convert(voiceId, ttsRequest);
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('TTS connection timed out after 30000ms')), 30000);
+    });
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const audioStream = await (client.textToSpeech as any).convert(voiceId, ttsRequest);
+    const audioStream = await Promise.race([ttsPromise, timeoutPromise]);
 
     const chunks: Uint8Array[] = [];
     const reader = audioStream.getReader();
 
     try {
       while (true) {
-        const { done, value } = await reader.read();
+        const readPromise = reader.read();
+        const readTimeout = new Promise<void>((_, reject) => {
+          setTimeout(() => reject(new Error('TTS stream read timed out')), 45000);
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { done, value } = await Promise.race([readPromise, readTimeout]) as any;
+
         if (done) break;
         if (value) {
           chunks.push(value);

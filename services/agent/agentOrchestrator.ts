@@ -38,108 +38,136 @@ export class AgentOrchestrator {
      * Execute an agent query
      */
     async execute(prompt: string, chatId: string, options: AgentOptions = {}): Promise<AgentResult> {
-        // 1. Detect Language & Setup Config
-        const userLanguage = detectLanguage(prompt);
-        const languageInstruction = getLanguageInstruction(userLanguage);
-        const agentConfig: AgentConfig = {
-            model: config.agent.model,
-            maxIterations: config.agent.maxIterations,
-            timeoutMs: config.agent.timeoutMs,
-            contextMemoryEnabled: config.agent.contextMemoryEnabled
-        };
+        // Global safety timeout (default 60s, or extended for video)
+        let timeoutMs = config.agent.timeoutMs || 60000;
 
-        // 1.1 Detect video request to extend timeout (Video takes much longer than text/image)
+        // 1.1 Detect video request to extend timeout
         const isVideoRequest = prompt.includes('וידאו') ||
             prompt.toLowerCase().includes('video') ||
             prompt.includes('סרטון');
 
         if (isVideoRequest && isPureCreationRequest(prompt)) {
             logger.info('🎬 Video creation request detected - extending system timeout to 10 minutes');
-            agentConfig.timeoutMs = 600000; // 10 minutes (600,000ms)
+            timeoutMs = 600000; // 10 minutes
         }
 
-        // 2. Start Parallel Operations (Planning + Context + History)
-        logger.debug('🚀 [Agent] Starting parallel execution (Planning + Context + History)');
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error(`Agent Orchestrator timeout after ${timeoutMs}ms`)), timeoutMs);
+        });
 
-        // A. Planning - Fast Path check
-        let planPromise: Promise<MultiStepPlan>;
-        if (isSimpleQuery(prompt)) {
-            logger.info('⚡ [Agent] "Fast Path" detected - Bypassing multi-step planner');
-            planPromise = Promise.resolve({ isMultiStep: false });
-        } else {
-            planPromise = this.planExecution(prompt, options);
+        const executionPromise = (async () => {
+            // 1. Detect Language & Setup Config
+            const userLanguage = detectLanguage(prompt);
+            const languageInstruction = getLanguageInstruction(userLanguage);
+            const agentConfig: AgentConfig = {
+                model: config.agent.model,
+                maxIterations: config.agent.maxIterations,
+                timeoutMs: timeoutMs, // Pass dynamically calculated timeout
+                contextMemoryEnabled: config.agent.contextMemoryEnabled
+            };
+
+            // 2. Start Parallel Operations (Planning + Context + History)
+            logger.debug('🚀 [Agent] Starting parallel execution (Planning + Context + History)');
+
+            // A. Planning - Fast Path check
+            let planPromise: Promise<MultiStepPlan>;
+            if (isSimpleQuery(prompt)) {
+                logger.info('⚡ [Agent] "Fast Path" detected - Bypassing multi-step planner');
+                planPromise = Promise.resolve({ isMultiStep: false });
+            } else {
+                planPromise = this.planExecution(prompt, options);
+            }
+
+            // B. Context & History (Lazy load dependencies if needed)
+
+            // Determine if we should use history
+            // Default: true, unless explicitly false OR it's a pure creation request
+            let useConversationHistory = options.useConversationHistory !== false;
+
+            if (useConversationHistory && isPureCreationRequest(prompt)) {
+                logger.info('🎨 [Agent] "Pure Creation" request detected - Suppressing history to avoid hallucinations');
+                useConversationHistory = false;
+            }
+
+            // Initialize context object immediately
+            const initialContext = contextManager.createInitialContext(chatId, options);
+
+            // Start loading context from DB
+            const contextPromise = contextManager.loadPreviousContext(chatId, initialContext, agentConfig.contextMemoryEnabled);
+
+            // Start loading history from DB
+            // Import historyStrategy dynamically to avoid circular deps if any, but parallelize it
+            const historyPromise = import('./historyStrategy').then(({ historyStrategy }) =>
+                historyStrategy.processHistory(chatId, prompt, useConversationHistory)
+            );
+
+            // Fetch User Preferences (Long Term Memory)
+            const preferencesPromise = agentConfig.contextMemoryEnabled
+                ? conversationManager.getUserPreferences(chatId).catch(err => {
+                    logger.warn('⚠️ Failed to load user preferences', { error: err });
+                    return {};
+                })
+                : Promise.resolve({});
+
+            // 3. Wait for Plan
+            const planStartTime = Date.now();
+            const plan = await planPromise;
+            const planTime = Date.now() - planStartTime;
+
+            // 4. Multi-step Execution
+            if (plan.isMultiStep && plan.steps && plan.steps.length > 1) {
+                logger.info(`⏱️ Performance [Orchestrator]: Plan=${planTime}ms (Multi-step) | Chat: ${chatId}`);
+                // Note: Multi-step currently manages its own context/history or runs stateless per step.
+                // We ignore the pre-loaded context/history for now to avoid complexity, 
+                // as multi-step is less latency-sensitive than single-step.
+                // In the future, we can pass these promises down.
+
+                // Cast to any to bypass strict Plan type check
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                return await multiStepExecution.execute(plan as any, chatId, options, languageInstruction, agentConfig) as unknown as AgentResult;
+            }
+
+            // 5. Single-step Execution (Wait for Context, History & Preferences)
+            const loadStartTime = Date.now();
+            const [loadedContext, historyResult, userPreferences] = await Promise.all([
+                contextPromise,
+                historyPromise,
+                preferencesPromise as Promise<Record<string, unknown>>
+            ]);
+            const loadTime = Date.now() - loadStartTime;
+
+            logger.info(`⏱️ Performance [Orchestrator]: Plan=${planTime}ms, AssetsLoad=${loadTime}ms | Chat: ${chatId}`);
+
+            return await this.executeSingleStep(
+                prompt,
+                chatId,
+                options,
+                languageInstruction,
+                agentConfig,
+                loadedContext,
+                historyResult,
+                userPreferences
+            );
+        })();
+
+        try {
+            return await Promise.race([executionPromise, timeoutPromise]);
+        } catch (error: unknown) {
+            if (error instanceof Error && error.message.includes('timeout')) {
+                logger.error(`⏱️ [Agent Orchestrator] Execution timed out: ${error.message}`);
+                return {
+                    success: false,
+                    error: `⚠️ הפעולה נמשכה זמן רב מדי והופסקה. למניעת תקלות, נסה שוב או נסח את הבקשה מחדש.`,
+                    timeout: true,
+                    // Return empty structures to satisfy type
+                    toolCalls: [] as any[],
+                    toolResults: [] as any[],
+                    multiStep: false,
+                    alreadySent: false
+                };
+            }
+            throw error;
         }
-
-        // B. Context & History (Lazy load dependencies if needed)
-
-        // Determine if we should use history
-        // Default: true, unless explicitly false OR it's a pure creation request
-        let useConversationHistory = options.useConversationHistory !== false;
-
-        if (useConversationHistory && isPureCreationRequest(prompt)) {
-            logger.info('🎨 [Agent] "Pure Creation" request detected - Suppressing history to avoid hallucinations');
-            useConversationHistory = false;
-        }
-
-        // Initialize context object immediately
-        const initialContext = contextManager.createInitialContext(chatId, options);
-
-        // Start loading context from DB
-        const contextPromise = contextManager.loadPreviousContext(chatId, initialContext, agentConfig.contextMemoryEnabled);
-
-        // Start loading history from DB
-        // Import historyStrategy dynamically to avoid circular deps if any, but parallelize it
-        const historyPromise = import('./historyStrategy').then(({ historyStrategy }) =>
-            historyStrategy.processHistory(chatId, prompt, useConversationHistory)
-        );
-
-        // Fetch User Preferences (Long Term Memory)
-        const preferencesPromise = agentConfig.contextMemoryEnabled
-            ? conversationManager.getUserPreferences(chatId).catch(err => {
-                logger.warn('⚠️ Failed to load user preferences', { error: err });
-                return {};
-            })
-            : Promise.resolve({});
-
-        // 3. Wait for Plan
-        const planStartTime = Date.now();
-        const plan = await planPromise;
-        const planTime = Date.now() - planStartTime;
-
-        // 4. Multi-step Execution
-        if (plan.isMultiStep && plan.steps && plan.steps.length > 1) {
-            logger.info(`⏱️ Performance [Orchestrator]: Plan=${planTime}ms (Multi-step) | Chat: ${chatId}`);
-            // Note: Multi-step currently manages its own context/history or runs stateless per step.
-            // We ignore the pre-loaded context/history for now to avoid complexity, 
-            // as multi-step is less latency-sensitive than single-step.
-            // In the future, we can pass these promises down.
-
-            // Cast to any to bypass strict Plan type check
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            return await multiStepExecution.execute(plan as any, chatId, options, languageInstruction, agentConfig) as unknown as AgentResult;
-        }
-
-        // 5. Single-step Execution (Wait for Context, History & Preferences)
-        const loadStartTime = Date.now();
-        const [loadedContext, historyResult, userPreferences] = await Promise.all([
-            contextPromise,
-            historyPromise,
-            preferencesPromise as Promise<Record<string, unknown>>
-        ]);
-        const loadTime = Date.now() - loadStartTime;
-
-        logger.info(`⏱️ Performance [Orchestrator]: Plan=${planTime}ms, AssetsLoad=${loadTime}ms | Chat: ${chatId}`);
-
-        return await this.executeSingleStep(
-            prompt,
-            chatId,
-            options,
-            languageInstruction,
-            agentConfig,
-            loadedContext,
-            historyResult,
-            userPreferences
-        );
     }
 
     /**

@@ -45,8 +45,17 @@ export async function speechToText(audioBuffer: Buffer, options: SpeechToTextOpt
                 transcriptionRequest.tagAudioEvents = options.tagAudioEvents;
             }
 
+            // Add timeout relative to file size, but at least 30 seconds
+            const timeoutMs = Math.max(30000, audioBuffer.length / 100); // Rough estimate
+
+            const transcriptionPromise = client.speechToText.convert(transcriptionRequest as any);
+
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error(`Transcription timed out after ${timeoutMs}ms`)), timeoutMs);
+            });
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const transcriptionResult = await client.speechToText.convert(transcriptionRequest as any);
+            const transcriptionResult = await Promise.race([transcriptionPromise, timeoutPromise]);
 
             // Clean up temporary file
             try {

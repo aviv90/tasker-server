@@ -138,11 +138,19 @@ export async function handleVoiceMessage({ chatId, senderId, senderName, audioUr
     logger.debug(`🔄 Step 3: Generating Gemini response in ${originalLanguage}...`);
 
 
-    // We use the agent's text response if it exists (which it should for non-command interactions)
+    // We use the agent's text response if it exists
     let geminiResponse = agentResult.text || '';
 
+    // If no text response, check for error or use default
     if (!geminiResponse) {
-      geminiResponse = "Received your message.";
+      if (agentResult.error) {
+        logger.warn(`⚠️ Agent returned error in voice handler: ${agentResult.error}`);
+        geminiResponse = originalLanguage === 'he'
+          ? 'נתקלתי בבעיה בעיבוד הבקשה. אנא נסה שוב.'
+          : 'I encountered a problem processing your request. Please try again.';
+      } else {
+        geminiResponse = "Received your message.";
+      }
     }
 
     const geminiResultTyped = { text: geminiResponse };

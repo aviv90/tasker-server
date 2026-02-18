@@ -109,8 +109,16 @@ export async function createInstantVoiceClone(
       };
 
       logger.debug(`🔄 Sending ${buffers.length} audio samples to ElevenLabs...`);
+
+      const clonePromise = (client.voices.ivc as any).create(voiceRequest);
+
+      // 30s timeout for voice cloning
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Voice cloning timed out after 30000ms')), 30000);
+      });
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await (client.voices.ivc as any).create(voiceRequest);
+      const result = await Promise.race([clonePromise, timeoutPromise]);
 
       // Clean up temporary files
       tempFiles.forEach(tempPath => {
